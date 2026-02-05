@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>My Controls - QTracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
+
+    <style>/* =========================
+/* =====================
+   BADGES (как в рабочей)
+   ===================== */
+.badge.bg-danger { background-color: #dc3545 !important; }
+.badge.bg-warning { background-color: #ffc107 !important; color: #000 !important; }
+.badge.bg-success { background-color: #198754 !important; }
+.badge.bg-info { background-color: #0dcaf0 !important; }
+.badge.bg-primary { background-color: #0d6efd !important; }
+.badge.bg-secondary { background-color: #6c757d !important; }
+
+/* =====================
+   CONTROL TABLE (SAFE)
+   ===================== */
+
+.control-table {
+  font-size: 0.82rem;
+    width: 100%;
+    table-layout: auto;   /* ВАЖНО */
+}
+
+.control-table th {
+    font-weight: 600;
+    background-color: #f8f9fa;
+  padding: 9px 12px;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.control-table td {
+  padding: 9px 12px;
+    vertical-align: middle;
+}
+
+/* НИЧЕГО НЕ ТРОГАЕМ:
+   display, position, table-row и т.д.
+   Bootstrap всё делает правильно */
+
+/* =====================
+   CLICKABLE ROWS
+   ===================== */
+
+
+.clickable-row {
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    border-bottom: 6px solid #fff;
+}
+
+.clickable-row:hover {
+    background-color: #f8f9fa !important;
+}/* Editable rows: strong blue tint with green accent */
+.clickable-row.editable-row {
+    cursor: pointer;
+    background-color: #d1e7ff !important;
+    border-left: 4px solid #28a745;
+}
+
+.clickable-row.editable-row:hover {
+    background-color: #b3d9ff !important;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.25);
+}
+
+/* View-only rows: strong gray with red accent */
+.clickable-row.view-only-row {
+    cursor: not-allowed;
+    background-color: #e8e8e8 !important;
+    border-left: 4px solid #dc3545;
+    opacity: 0.75;
+}
+
+.clickable-row.view-only-row:hover {
+    background-color: #dcdcdc !important;
+    opacity: 0.85;
+}/* =====================
+   OPTIONAL: STATUS ALIGN
+   ===================== */
+
+.control-table td:last-child {
+    white-space: nowrap;
+}
+
+/* =====================
+   USER LIST (если нужно)
+   ===================== */
+
+.user-list-compact {
+    max-height: 60px;
+    overflow-y: auto;
+    font-size: 0.8rem;
+}
+
+.user-badge {
+    display: inline-block;
+    background: #e9ecef;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin: 1px;
+    font-size: 0.75rem;
+}
+
+/* =====================
+   FILTER DROPDOWN
+   ===================== */
+.form-select {
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 0.5rem 2.5rem 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-select:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15);
+    outline: none;
+}
+
+.form-select:hover {
+    border-color: #667eea;
+}
+
+.form-label {
+    font-size: 0.9rem;
+    color: #495057;
+    font-weight: 500;
+}
+
+</style>
+    <!-- SheetJS will be lazy-loaded on demand to avoid blocking page load -->
+</head>
+<body>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-2 sidebar p-3">
+            <div class="sidebar-content">
+                <div class="d-flex align-items-center mb-3">
+                    <a href="/" class="me-2">
+                        <img src="/images/kpmg_white.png" alt="KPMG" style="height: 45px; width: auto;">
+                    </a>
+                    <h6 class="mb-0" th:text="${userName}">Full Name</h6>
+                </div>
+                <small class="text-muted" th:text="${userTitle}">Title</small><br>
+                <small class="text-muted" th:text="${userEmail}">email@kpmg.kz</small>
+                <hr>
+                <ul class="nav flex-column">
+                    <li class="nav-item"><a class="nav-link active" href="/controls">Controls</a></li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="/notifications">
+                      Notifications
+                      <span th:if="${unreadNotifications != null and unreadNotifications > 0}"
+                          class="notif-pill"
+                          th:text="${unreadNotifications}">0</span>
+                    </a>
+                  </li>
+                </ul>
+            </div>
+            <div class="mt-2">
+                <a href="/logout" class="btn btn-outline-secondary btn-sm">Logout</a>
+            </div>
+            <div class="sidebar-footer">
+                <hr class="my-2">
+                <small class="text-muted">Register on</small><br>
+                <small><strong>KPMG Kazakhstan</strong></small><br>
+                <small><strong>QTracker Version 2025</strong></small>
+            </div>
+        </div>
+
+        <div class="col-md-10">
+            <div class="p-4">
+                <!-- Enhanced Header -->
+                <div class="dashboard-header-enhanced mb-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h1 class="mb-1">Controls</h1>
+                            <p class="mb-0 text-white-50">View and manage your assigned controls</p>
+                        </div>
+                        <button onclick="exportToExcel()" class="btn btn-light" th:attr="data-user-email=${userEmail}" id="exportBtn">
+                            <i class="bi bi-download me-1"></i>Export Excel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Dropdown -->
+                <div class="mb-3 d-flex align-items-center gap-2">
+                    <!-- <label for="controlsFilter" class="form-label mb-0 fw-500">Filter:</label> -->
+                    <select id="controlsFilter" class="form-select" style="max-width: 200px;">
+                        <option th:if="${userRole == 'ADMIN'}" value="active" th:selected="${controlsFilter == 'active' || controlsFilter == null}">
+                            Active Controls
+                        </option>
+                        <option th:if="${userRole == 'ADMIN'}" value="completed" th:selected="${controlsFilter == 'completed'}">
+                            Completed
+                        </option>
+                        <option th:if="${userRole != 'ADMIN'}" value="mine" th:selected="${controlsFilter == 'mine' || controlsFilter == null}">
+                            Active Controls
+                        </option>
+                        <option th:if="${userRole != 'ADMIN'}" value="all" th:selected="${controlsFilter == 'all'}">
+                            All Controls
+                        </option>
+                    </select>
+                </div>
+
+                <div class="card shadow-sm border-0">
+                    <div class="card-body p-0">
+                        <table class="table table-hover control-table mb-0">
+                            <thead>
+                            <tr>
+                              <th style="width: 50px;">№</th>
+                              <th>CONTROL ID</th>
+                              <th>Component</th>
+                              <th>Control Type</th>
+                              <th>Created by</th>
+                              <th>Deadline</th>
+                              <th>Performance Status</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="control, stat : ${controls}"
+                              class="clickable-row"
+                              th:classappend="${userRole == 'ADMIN' ? ' view-only-row' : (((control.createdByEmail == userEmail and #strings.equals(control.controlStatus, 'In Progress')) or (#lists.contains(control.facilitators, userEmail) and #strings.equals(control.controlStatus, 'Facilitator Review')) or (#lists.contains(control.controlOperators, userEmail) and #strings.equals(control.controlStatus, 'Control Operator Review')) or (#lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.controlStatus, 'SoQM Lead Review')) or (#lists.contains(control.processOwners, userEmail) and #strings.equals(control.controlStatus, 'Process Owner Review'))) ? ' editable-row' : ' view-only-row')}"
+                              th:attr="data-id=${control.id}, data-go-cycle=${control.goToPerformanceCycle}, data-editable=${userRole == 'ADMIN' ? false : ((control.createdByEmail == userEmail and #strings.equals(control.controlStatus, 'In Progress')) or (#lists.contains(control.facilitators, userEmail) and #strings.equals(control.controlStatus, 'Facilitator Review')) or (#lists.contains(control.controlOperators, userEmail) and #strings.equals(control.controlStatus, 'Control Operator Review')) or (#lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.controlStatus, 'SoQM Lead Review')) or (#lists.contains(control.processOwners, userEmail) and #strings.equals(control.controlStatus, 'Process Owner Review')))}">
+                              <td th:text="${stat.count}">1</td>
+                                <td th:text="${control.controlId}">CTRL-001</td>
+                                <td th:text="${control.component}">HR</td>
+                                <td th:text="${control.controlType}">Manual</td>
+                                <td th:text="${control.createdBy}">User</td>
+                                <td>
+                                    <span th:if="${control.deadline != null}" th:text="${#temporals.format(control.deadline, 'dd.MM.yyyy')}">-</span>
+                                    <span th:if="${control.deadline == null}" class="text-muted">-</span>
+                                </td>
+                                <td>
+                                    <span th:switch="${control.controlStatus}">
+                                        <span th:case="'Completed'" class="badge bg-success" th:text="${control.controlStatus}"></span>
+                                        <span th:case="'In Progress'" class="badge bg-warning" th:text="${control.controlStatus}"></span>
+                                        <span th:case="'Facilitator Review'" class="badge bg-info" th:text="${control.controlStatus}"></span>
+                                        <span th:case="'Control Operator Review'" class="badge bg-primary" th:text="${control.controlStatus}"></span>
+                                        <span th:case="'SoQM Lead Review'" class="badge bg-secondary" th:text="${control.controlStatus}"></span>
+                                        <span th:case="'Process Owner Review'" class="badge bg-secondary" th:text="${control.controlStatus}"></span>
+                                        <span th:case="'Returned by Control Operator'" class="badge bg-danger" th:text="${control.controlStatus}"></span>
+                                        <span th:case="'Returned by SoQM Lead'" class="badge bg-danger" th:text="${control.controlStatus}"></span>
+                                        <span th:case="'Returned by Process Owner'" class="badge bg-danger" th:text="${control.controlStatus}"></span>
+                                        <span th:case="'Reject'" class="badge bg-dark" th:text="${control.controlStatus}"></span>
+                                        <span th:case="*" class="badge bg-secondary" th:text="${control.controlStatus ?: 'In Progress'}">In Progress</span>
+                                    </span>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Enable row navigation with view-only mode for non-editable rows
+document.addEventListener('DOMContentLoaded', function() {
+  const rows = document.querySelectorAll('.clickable-row');
+
+  rows.forEach(row => {
+    const isEditable = String(row.getAttribute('data-editable')) === 'true';
+    const id = row.getAttribute('data-id');
+    
+    // ✨ Добавляем визуальный класс для активных контролей
+    if (isEditable) {
+      row.classList.add('editable-row');
+      row.classList.remove('view-only-row');
+    } else {
+      row.classList.add('view-only-row');
+      row.classList.remove('editable-row');
+    }
+    
+    row.addEventListener('click', function() {
+      // If not editable, navigate to view-only mode
+      if (!isEditable) {
+        // View-only users go to performance cycle page (view-first flow)
+        window.location.href = `/performance-cycle/${id}`;
+        return;
+      }
+      
+      // For editable rows, use original behavior
+      const goCycle = String(this.getAttribute('data-go-cycle')) === 'true';
+      const url = goCycle ? `/performance-cycle/${id}` : `/performance/${id}`;
+      window.location.href = url;
+    });
+  });
+});
+
+// Simple bootstrap-styled toast (disappears automatically)
+function showToast(message, type = 'success', timeout = 2000) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.style.position = 'fixed';
+    container.style.top = '20px';
+    container.style.right = '20px';
+    container.style.zIndex = '1080';
+    container.style.maxWidth = '320px';
+    document.body.appendChild(container);
+  }
+
+  const alert = document.createElement('div');
+  alert.className = `alert alert-${type} shadow-sm mb-2 fade show`;
+  alert.role = 'alert';
+  alert.style.minWidth = '260px';
+  alert.textContent = message;
+  container.appendChild(alert);
+
+  setTimeout(() => {
+    alert.classList.remove('show');
+    alert.classList.add('hide');
+    setTimeout(() => alert.remove(), 300);
+  }, timeout);
+}
+
+// Export only visible controls on the current page to Excel
+// Load SheetJS lazily when needed
+function loadSheetJS() {
+  return new Promise((resolve, reject) => {
+    if (window.XLSX) return resolve();
+    const script = document.createElement('script');
+    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load Excel export module'));
+    document.head.appendChild(script);
+  });
+}
+
+function exportToExcel() {
+  const btn = document.getElementById('exportBtn');
+  const userEmail = btn ? btn.getAttribute('data-user-email') : null;
+
+  if (!userEmail) {
+    showToast('User email not found. Please login again.', 'danger', 2500);
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = 'Loading export...';
+  loadSheetJS()
+    .then(() => {
+      btn.innerHTML = 'Generating...';
+      // Get the table element
+      const table = document.querySelector('.control-table');
+      if (!table) {
+        showToast('Table not found', 'danger', 2500);
+        return;
+      }
+
+      // Get current filter value
+      const filterSelect = document.getElementById('controlsFilter');
+      const currentFilter = filterSelect ? filterSelect.value : 'all';
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      
+      // Extract headers
+      const headers = [];
+      const headerCells = table.querySelectorAll('thead tr th');
+      headerCells.forEach(th => {
+        headers.push(th.textContent.trim());
+      });
+
+      // Extract visible rows data based on current filter
+      const data = [headers];
+      const rows = table.querySelectorAll('tbody tr.clickable-row');
+      
+      rows.forEach(row => {
+        // Check if row should be included based on current filter
+        const isEditable = String(row.getAttribute('data-editable')) === 'true';
+        const rowDisplay = window.getComputedStyle(row).display;
+        
+        // Include row if:
+        // 1. Filter is 'all', OR
+        // 2. Filter is 'mine' AND row is editable AND row is visible
+        const shouldInclude = currentFilter === 'all' ? true : (isEditable && rowDisplay !== 'none');
+        
+        if (!shouldInclude) {
+          return; // Skip this row
+        }
+
+        const rowData = [];
+        const cells = row.querySelectorAll('td');
+        
+        cells.forEach(cell => {
+          // Get text content, handling special cases like badges
+          let cellText = '';
+          const badge = cell.querySelector('.badge');
+          if (badge) {
+            cellText = badge.textContent.trim();
+          } else {
+            cellText = cell.textContent.trim();
+          }
+          if (cellText === '-' || cellText === '') {
+            cellText = '-';
+          }
+          rowData.push(cellText);
+        });
+        data.push(rowData);
+      });
+
+      // Create worksheet from data
+      const ws = XLSX.utils.aoa_to_sheet(data);
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 5 },   // № (number)
+        { wch: 20 },  // CONTROL ID
+        { wch: 15 },  // Component
+        { wch: 15 },  // Control Type
+        { wch: 25 },  // Created by
+        { wch: 12 },  // Deadline
+        { wch: 25 }   // Performance Status
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'My Controls');
+
+      const today = new Date().toISOString().split('T')[0];
+      const userPart = userEmail.split('@')[0];
+      const filterSuffix = currentFilter === 'mine' ? '_MyControls' : '_AllControls';
+      const filename = `QTracker${filterSuffix}_${userPart}_${today}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      
+      showToast(`Exported ${data.length - 1} row(s) successfully!`, 'success', 2000);
+    })
+    .catch(() => {
+      showToast('Export module failed to load.', 'danger', 2500);
+    })
+    .finally(() => {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = 'Export Excel';
+      }
+    });
+}
+
+// Filter controls table by "All Controls" or "My Controls"
+document.addEventListener('DOMContentLoaded', function() {
+  const filterSelect = document.getElementById('controlsFilter');
+  if (!filterSelect) return;
+
+  filterSelect.addEventListener('change', function() {
+    const filterValue = this.value || 'all';
+    const url = new URL(window.location.href);
+    url.searchParams.set('scope', filterValue);
+    window.location.href = url.toString();
+  });
+});
+</script>
+</body>
+</html>

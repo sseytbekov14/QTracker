@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="workflow-status(controlId)" class="workflow-status-container">
+    <div class="d-flex align-items-center">
+        <span class="me-2">Workflow:</span>
+        <span class="badge" id="workflowStatusBadge"
+              th:classappend="'bg-' + ${workflowStatus?.statusColor ?: 'secondary'}"
+              th:text="${workflowStatus?.statusDisplay ?: 'Not Started'}">
+        Not Started
+      </span>
+
+        <span th:if="${workflowStatus?.assignedToName}"
+              class="ms-3 text-muted small">
+        <i class="bi bi-person"></i>
+        <span th:text="${workflowStatus.assignedToName}"></span>
+      </span>
+
+        <span th:if="${workflowStatus?.daysPending}"
+              class="ms-3 text-muted small">
+        <i class="bi bi-clock"></i>
+        <span th:text="${workflowStatus.daysPending}"></span>
+      </span>
+    </div>
+</div>
+</body>
+</html>

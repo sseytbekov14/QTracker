@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="'Performance - ' + ${control.controlId}">Performance - Control 11</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
+    <style>
+        body {
+            background: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .performance-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 1.25rem;
+        }
+        .performance-header {
+            background: white;
+            color: #333;
+            padding: 1rem 0;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .performance-header h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 0;
+            color: #333;
+        }
+        .checklist-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-bottom: 2rem;
+        }
+        .checklist-table td {
+            padding: 0.75rem 1rem;
+            border: 1px solid #dee2e6;
+            vertical-align: middle;
+        }
+        .checklist-table td:first-child {
+            width: 50px;
+            text-align: center;
+            border-right: none;
+        }
+        .checklist-table td:nth-child(2) {
+            width: 35%;
+            font-weight: 500;
+            border-left: none;
+            border-right: none;
+        }
+        .checklist-table td:last-child {
+            border-left: none;
+        }
+        .checklist-status {
+            font-size: 1.5rem;
+        }
+        .status-pending { color: #dc3545; }
+        .status-completed { color: #198754; }
+        .form-section {
+            background: white;
+            padding: 0;
+            margin-bottom: 2rem;
+        }
+        .nav-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        .nav-buttons .btn {
+            flex: 1;
+            min-width: 120px;
+        }
+        .required-message {
+            color: #dc3545;
+            font-weight: 500;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .status-section {
+            background: #e9ecef;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .form-control:read-only {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            color: #6c757d;
+        }
+        .readonly-field {
+            background-color: #f8f9fa !important;
+            cursor: not-allowed;
+            color: #6c757d;
+        }
+        .empty-field {
+            color: #999;
+            font-style: italic;
+        }
+        .btn:disabled {
+            background-color: #6c757d !important;
+            border-color: #6c757d !important;
+            cursor: not-allowed;
+        }
+
+        /* Стили для кастомного календаря */
+        .date-input-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .date-input {
+            padding-right: 35px !important;
+            background-color: white !important;
+            cursor: pointer;
+        }
+
+        .calendar-btn {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 2px 6px;
+            z-index: 10;
+        }
+
+        .calendar-btn:hover {
+            background-color: #f0f0f0;
+            border-radius: 4px;
+        }
+
+        .calendar-modal {
+            position: fixed;
+            z-index: 1050;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            width: 320px;
+            display: none;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .calendar-header {
+            margin-bottom: 15px;
+        }
+
+.calendar-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+}
+
+.calendar-navigation button {
+    padding: 6px 12px;
+    font-size: 14px;
+    min-width: 80px;
+}
+
+.month-year-span {
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+    text-align: center;
+    flex-grow: 1;
+    margin: 0 15px;
+}
+
+.day-cell[data-day] {
+    cursor: pointer;
+}
+
+.day-cell.selected {
+    background-color: #007bff !important;
+    color: white !important;
+    font-weight: bold;
+}
+
+        .current-date-display {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .month-year-display {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .weekdays {
+            display: flex;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .weekdays div {
+            flex: 1;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+
+        .day-cell {
+            padding: 8px 0;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+            min-height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .day-cell:hover {
+            background-color: #e9ecef;
+        }
+
+        .day-cell.selected {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+
+        .day-cell.empty {
+            cursor: default;
+            background: none;
+        }
+
+        .day-cell.empty:hover {
+            background: none;
+        }
+
+        .calendar-footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+
+        .calendar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1040;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="container-fluid">
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-12">
+            <div class="performance-container">
+                <!-- Header БЕЗ кнопки Back -->
+
+                <!-- Page Title -->
+                <h1 class="mb-3">SoQM Tool</h1>
+
+                <!-- Performance Header -->
+                <div class="performance-header">
+                    <h2>Control <span th:text="${control.controlId}">test3</span> initiation checklist</h2>
+                    <div class="required-message" id="requiredMessage" style="color: #dc3545; font-style: italic; margin-top: 0.5rem;">
+                        * Required fields are missing. Please get in touch with the SoQM Team.
+                    </div>
+                </div>
+
+                <form id="performanceForm" th:action="@{/api/performance/initiate}" method="post">
+                    <input type="hidden" name="controlId" th:value="${control.id}">
+
+                    <!-- Initiate Performance Section -->
+                    <div class="form-section">
+                        <table class="checklist-table">
+                            <tbody>
+                                <!-- Facilitator / Preparer (Read Only) -->
+                                <tr>
+                                    <td>
+                                        <div class="checklist-status" th:classappend="${(performance.facilitator != null and !performance.facilitator.isEmpty()) ? 'status-completed' : 'status-pending'}">
+                                            <span th:utext="${(performance.facilitator != null and !performance.facilitator.isEmpty()) ? '&#10003;' : '&#10007;'}"></span>
+                                        </div>
+                                    </td>
+                                    <td><strong>Facilitator / Preparer (s)</strong></td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm readonly-field" readonly
+                                               th:value="${performance.facilitator ?: '()'}"
+                                               th:classappend="${(performance.facilitator != null and !performance.facilitator.isEmpty()) ? '' : 'empty-field'}"
+                                               id="facilitator" name="facilitator">
+                                    </td>
+                                </tr>
+
+                                <!-- Control Operator (Read Only) -->
+                                <tr>
+                                    <td>
+                                        <div class="checklist-status" th:classappend="${(performance.controlOperator != null and !performance.controlOperator.isEmpty()) ? 'status-completed' : 'status-pending'}">
+                                            <span th:utext="${(performance.controlOperator != null and !performance.controlOperator.isEmpty()) ? '&#10003;' : '&#10007;'}"></span>
+                                        </div>
+                                    </td>
+                                    <td><strong>Control Operator</strong></td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm readonly-field" readonly
+                                               th:value="${performance.controlOperator ?: '()'}"
+                                               th:classappend="${(performance.controlOperator != null and !performance.controlOperator.isEmpty()) ? '' : 'empty-field'}"
+                                               id="controlOperator" name="controlOperator">
+                                    </td>
+                                </tr>
+
+                                <!-- SoQM Lead / Delegate (Read Only) -->
+                                <tr>
+                                    <td>
+                                        <div class="checklist-status" th:classappend="${(assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead)) ? 'status-completed' : 'status-pending'}">
+                                            <span th:utext="${(assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead)) ? '&#10003;' : '&#10007;'}"></span>
+                                        </div>
+                                    </td>
+                                    <td><strong>SoQM Lead / Delegate</strong></td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm readonly-field" readonly
+                                               th:value="${assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead) ? assignment.soqmLead[0] : '()'}"
+                                               th:classappend="${(assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead)) ? '' : 'empty-field'}"
+                                               id="soqmLead" name="soqmLead">
+                                    </td>
+                                </tr>
+
+                                <!-- Process Owner (Read Only) -->
+                                <tr>
+                                    <td>
+                                        <div class="checklist-status" th:classappend="${(assignment != null and assignment.processOwner != null and !#lists.isEmpty(assignment.processOwner)) ? 'status-completed' : 'status-pending'}">
+                                            <span th:utext="${(assignment != null and assignment.processOwner != null and !#lists.isEmpty(assignment.processOwner)) ? '&#10003;' : '&#10007;'}"></span>
+                                        </div>
+                                    </td>
+                                    <td><strong>Process Owner</strong></td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm readonly-field" readonly
+                                               th:value="${assignment != null and assignment.processOwner != null and !#lists.isEmpty(assignment.processOwner) ? assignment.processOwner[0] : '()'}"
+                                               th:classappend="${(assignment != null and assignment.processOwner != null and !#lists.isEmpty(assignment.processOwner)) ? '' : 'empty-field'}"
+                                               id="processOwner" name="processOwner">
+                                    </td>
+                                </tr>
+
+                                <!-- Control Frequency (Read Only from Control) -->
+                                <tr>
+                                    <td>
+                                        <div class="checklist-status" th:classappend="${(control.controlFrequency != null and !control.controlFrequency.isEmpty()) ? 'status-completed' : 'status-pending'}">
+                                            <span th:utext="${(control.controlFrequency != null and !control.controlFrequency.isEmpty()) ? '&#10003;' : '&#10007;'}"></span>
+                                        </div>
+                                    </td>
+                                    <td><strong>Control Frequency</strong></td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm readonly-field" readonly
+                                               th:value="${control.controlFrequency}"
+                                               id="controlFrequency" name="controlFrequency">
+                                    </td>
+                                </tr>
+
+                                <!-- Control Operation Date (Read Only) -->
+                                <tr>
+                                    <td>
+                                        <div class="checklist-status" th:classappend="${performance.controlOperationDate != null ? 'status-completed' : 'status-pending'}">
+                                            <span th:utext="${performance.controlOperationDate != null ? '&#10003;' : '&#10007;'}"></span>
+                                        </div>
+                                    </td>
+                                    <td><strong>Control Operation Date</strong></td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm readonly-field" readonly
+                                               th:value="${performance.controlOperationDate != null ? #temporals.format(performance.controlOperationDate, 'dd.MM.yyyy') : ''}"
+                                               id="controlOperationDateDisplay">
+                                        <input type="hidden"
+                                               th:value="${performance.controlOperationDate != null ? #temporals.format(performance.controlOperationDate, 'yyyy-MM-dd') : ''}"
+                                               id="controlOperationDate" name="controlOperationDate">
+                                    </td>
+                                </tr>
+
+                                <!-- SoQM Year (Editable) -->
+                                <tr>
+                                    <td>
+                                        <div class="checklist-status status-pending" id="soqmYearStatus">
+                                            &#10007;
+                                        </div>
+                                    </td>
+                                    <td><strong>SoQM Year (Select)</strong></td>
+                                    <td>
+                                        <select class="form-select form-select-sm" name="soqmYear" id="soqmYear" style="background-color: white;">
+                                            <option value="">Select SoQM Year</option>
+                                            <option value="1 OCT 2024 - 30 SEP 2025" th:selected="${performance.soqmYear == '1 OCT 2024 - 30 SEP 2025'}">1 OCT 2024 - 30 SEP 2025</option>
+                                            <option value="1 OCT 2025 - 30 SEP 2026" th:selected="${performance.soqmYear == '1 OCT 2025 - 30 SEP 2026'}">1 OCT 2025 - 30 SEP 2026</option>
+                                            <option value="1 OCT 2026 - 30 SEP 2027" th:selected="${performance.soqmYear == '1 OCT 2026 - 30 SEP 2027'}">1 OCT 2026 - 30 SEP 2027</option>
+                                            <option value="1 OCT 2027 - 30 SEP 2028" th:selected="${performance.soqmYear == '1 OCT 2027 - 30 SEP 2028'}">1 OCT 2027 - 30 SEP 2028</option>
+                                        </select>
+                                    </td>
+                                </tr>
+
+                                <!-- Actual Date of Operation (Editable) -->
+                                <tr>
+                                    <td>
+                                        <div class="checklist-status status-pending" id="actualDateStatus">
+                                            &#10007;
+                                        </div>
+                                    </td>
+                                    <td><strong>Actual Date of Operation</strong></td>
+                                    <td>
+                                        <div class="date-input-container">
+                                            <input type="text"
+                                                   class="form-control form-control-sm date-input"
+                                                   id="actualOperationDate"
+                                                   readonly
+                                                   placeholder="Select date"
+                                                   style="background-color: white;"
+                                                   th:value="${performance.actualOperationDate != null ?
+                                                       #temporals.format(performance.actualOperationDate, 'dd.MM.yyyy') :
+                                                       (control.createdAt != null ? #temporals.format(control.createdAt, 'dd.MM.yyyy') : '')}">
+                                            <input type="hidden"
+                                                   id="actualOperationDateIso"
+                                                   name="actualOperationDate"
+                                                   th:value="${performance.actualOperationDate != null ?
+                                                       #temporals.format(performance.actualOperationDate, 'yyyy-MM-dd') :
+                                                       (control.createdAt != null ? #temporals.format(control.createdAt, 'yyyy-MM-dd') : '')}">
+                                            <button type="button" class="calendar-btn" id="calendarTriggerBtn">
+                                                &#128197;
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Status Section -->
+                    <div class="status-section">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Control Performance Status:</strong>
+                                <span th:switch="${control.controlStatus}">
+                                    <span th:case="'Completed'" class="badge bg-success ms-2" th:text="${control.controlStatus}"></span>
+                                    <span th:case="'In Progress'" class="badge bg-warning ms-2" th:text="${control.controlStatus}"></span>
+                                    <span th:case="'Facilitator Review'" class="badge bg-info ms-2" th:text="${control.controlStatus}"></span>
+                                    <span th:case="'Control Operator Review'" class="badge bg-primary ms-2" th:text="${control.controlStatus}"></span>
+                                    <span th:case="'SoQM Lead Review'" class="badge bg-secondary ms-2" th:text="${control.controlStatus}"></span>
+                                    <span th:case="'Process Owner Review'" class="badge bg-secondary ms-2" th:text="${control.controlStatus}"></span>
+                                    <span th:case="'Returned by Control Operator'" class="badge bg-danger ms-2" th:text="${control.controlStatus}"></span>
+                                    <span th:case="'Returned by SoQM Lead'" class="badge bg-danger ms-2" th:text="${control.controlStatus}"></span>
+                                    <span th:case="'Returned by Process Owner'" class="badge bg-danger ms-2" th:text="${control.controlStatus}"></span>
+                                    <span th:case="'Reject'" class="badge bg-dark ms-2" th:text="${control.controlStatus}"></span>
+                                    <span th:case="*" class="badge bg-secondary ms-2" th:text="${control.controlStatus != null && !#strings.isEmpty(control.controlStatus) ? control.controlStatus : 'In Progress'}">In Progress</span>
+                                </span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Assigned to:</strong>
+                                <span class="ms-2" th:text="${performance.assignedTo} ?: 'Not assigned'">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Buttons -->
+                    <div class="nav-buttons">
+                        <button type="button" id="initiateBtn" class="btn btn-primary" disabled>Initiate</button>
+                        <a href="/" class="btn btn-outline-secondary">Home</a>
+                        <a th:href="@{/view-control/{id}(id=${control.id})}" class="btn btn-outline-secondary">View Control</a>
+                        <!-- Кнопка Back с правильной логикой -->
+                        <button type="button" class="btn btn-outline-secondary" id="backBtn">Back</button>
+                    </div>
+                </form>
+
+                <!-- Footer -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay для календаря -->
+<div class="calendar-overlay" id="calendarOverlay"></div>
+
+<!-- Календарь (скрытый по умолчанию) -->
+<div class="calendar-modal" id="calendarModal">
+    <div class="calendar-header">
+        <div class="calendar-navigation">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="prevMonthBtn">
+                &lt; Prev
+            </button>
+            <div class="month-year text-center">
+                <span id="displayMonthYear" style="font-weight: bold;">December 2025</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="nextMonthBtn">
+                Next &gt;
+            </button>
+        </div>
+        <div class="current-date-display">
+            <div id="currentDay" style="font-weight: bold; font-size: 16px;">Tuesday</div>
+            <div id="currentDate" style="font-size: 14px;">December 2</div>
+            <div id="currentYear" style="font-size: 14px; color: #666;">2025</div>
+        </div>
+    </div>
+
+    <div class="calendar">
+        <div class="weekdays">
+            <div>Sun</div>
+            <div>Mon</div>
+            <div>Tue</div>
+            <div>Wed</div>
+            <div>Thu</div>
+            <div>Fri</div>
+            <div>Sat</div>
+        </div>
+
+        <div class="days" id="calendarDays">
+        </div>
+    </div>
+
+    <div class="calendar-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="calendarCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-sm btn-primary" id="calendarOkBtn">OK</button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('=== ИНИЦИАЛИЗАЦИЯ СТРАНИЦЫ ===');
+
+        // Основные элементы
+        const initiateBtn = document.getElementById('initiateBtn');
+        const soqmYearSelect = document.getElementById('soqmYear');
+        const actualDateInput = document.getElementById('actualOperationDate');
+        const actualDateIsoInput = document.getElementById('actualOperationDateIso');
+        const requiredMessage = document.getElementById('requiredMessage');
+        const controlId = document.querySelector('input[name="controlId"]').value;
+        const backBtn = document.getElementById('backBtn');
+
+        console.log('Control ID:', controlId);
+        console.log('Actual Date Input value:', actualDateInput.value);
+        console.log('SoQM Year value:', soqmYearSelect.value);
+
+        // === КАЛЕНДАРЬ ===
+        const calendarTriggerBtn = document.getElementById('calendarTriggerBtn');
+        const calendarModal = document.getElementById('calendarModal');
+        const calendarOverlay = document.getElementById('calendarOverlay');
+        const calendarOkBtn = document.getElementById('calendarOkBtn');
+        const calendarCancelBtn = document.getElementById('calendarCancelBtn');
+        const calendarDays = document.getElementById('calendarDays');
+        const displayMonthYear = document.getElementById('displayMonthYear');
+        const currentDay = document.getElementById('currentDay');
+        const currentDate = document.getElementById('currentDate');
+        const currentYear = document.getElementById('currentYear');
+        const prevMonthBtn = document.getElementById('prevMonthBtn'); // Добавляем
+        const nextMonthBtn = document.getElementById('nextMonthBtn'); // Добавляем
+
+        // Переменные календаря
+        let selectedDate = null;
+        let currentMonth = new Date().getMonth();
+        let currentYearValue = new Date().getFullYear();
+        let originalDateValue = '';
+
+        // Месяцы и дни
+        const monthNames = ["January", "February", "March", "April", "May", "June",
+                           "July", "August", "September", "October", "November", "December"];
+        const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+        // === ФУНКЦИИ КАЛЕНДАРЯ ===
+
+        function formatIsoToDisplay(isoDate) {
+            if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+                return '';
+            }
+            const parts = isoDate.split('-');
+            return `${parts[2]}.${parts[1]}.${parts[0]}`;
+        }
+
+        function parseDisplayToIso(displayDate) {
+            if (!displayDate || typeof displayDate !== 'string') {
+                return '';
+            }
+            const trimmed = displayDate.trim();
+
+            const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (isoMatch) {
+                return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+            }
+
+            const displayMatch = trimmed.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+            if (!displayMatch) {
+                return '';
+            }
+
+            const day = Number(displayMatch[1]);
+            const month = Number(displayMatch[2]);
+            const year = Number(displayMatch[3]);
+            const date = new Date(year, month - 1, day);
+            if (
+                date.getFullYear() !== year ||
+                date.getMonth() + 1 !== month ||
+                date.getDate() !== day
+            ) {
+                return '';
+            }
+
+            return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+
+        function parseIsoToDate(isoDate) {
+            if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+                return null;
+            }
+            const parts = isoDate.split('-');
+            const year = Number(parts[0]);
+            const month = Number(parts[1]);
+            const day = Number(parts[2]);
+            const date = new Date(year, month - 1, day);
+            if (
+                date.getFullYear() !== year ||
+                date.getMonth() + 1 !== month ||
+                date.getDate() !== day
+            ) {
+                return null;
+            }
+            return date;
+        }
+
+        // Инициализация даты
+        function initCalendarDate() {
+            const inputValue = (actualDateIsoInput && actualDateIsoInput.value) ? actualDateIsoInput.value : parseDisplayToIso(actualDateInput.value);
+            console.log('Инициализация календаря с датой:', inputValue);
+
+            if (inputValue && inputValue.trim()) {
+                const date = parseIsoToDate(inputValue.trim());
+                if (date) {
+                    selectedDate = date;
+                    currentMonth = date.getMonth();
+                    currentYearValue = date.getFullYear();
+                    console.log('✅ Установлена дата из поля:', selectedDate.toDateString());
+                    return;
+                }
+            }
+
+            // Если не удалось распарсить, используем текущую дату
+            selectedDate = new Date();
+            currentMonth = selectedDate.getMonth();
+            currentYearValue = selectedDate.getFullYear();
+            console.log('ℹ️ Используем текущую дату:', selectedDate.toDateString());
+        }
+
+        // Генерация календаря
+        function generateCalendar() {
+            console.log('📅 Генерация календаря для', monthNames[currentMonth], currentYearValue);
+
+            // Обновляем заголовок
+            displayMonthYear.textContent = `${monthNames[currentMonth]} ${currentYearValue}`;
+
+            // Получаем первый и последний день месяца
+            const firstDay = new Date(currentYearValue, currentMonth, 1);
+            const lastDay = new Date(currentYearValue, currentMonth + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDay = firstDay.getDay(); // 0 = Sunday
+
+            // Очищаем дни
+            calendarDays.innerHTML = '';
+
+            // Пустые ячейки для дней предыдущего месяца
+            for (let i = 0; i < startingDay; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'day-cell empty';
+                calendarDays.appendChild(emptyCell);
+            }
+
+            // Дни текущего месяца
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayCell = document.createElement('div');
+                dayCell.className = 'day-cell';
+                dayCell.textContent = day;
+                dayCell.dataset.day = day;
+
+                // Проверяем, является ли этот день выбранным
+                const isSelected = selectedDate &&
+                    selectedDate.getDate() === day &&
+                    selectedDate.getMonth() === currentMonth &&
+                    selectedDate.getFullYear() === currentYearValue;
+
+                if (isSelected) {
+                    dayCell.classList.add('selected');
+                    console.log(`✅ День ${day} выделен как выбранный`);
+                }
+
+                dayCell.addEventListener('click', function() {
+                    console.log(`🎯 Выбран день: ${day} ${monthNames[currentMonth]} ${currentYearValue}`);
+                    selectDay(day);
+                });
+
+                calendarDays.appendChild(dayCell);
+            }
+
+            // Обновляем отображение даты
+            updateDateDisplay();
+        }
+
+        // Выбор дня
+        function selectDay(day) {
+            selectedDate = new Date(currentYearValue, currentMonth, day);
+            console.log('📅 Выбрана дата:', selectedDate.toDateString());
+
+            // Снимаем выделение со всех дней
+            document.querySelectorAll('.day-cell').forEach(cell => {
+                cell.classList.remove('selected');
+            });
+
+            // Находим и выделяем выбранный день
+            const dayCells = calendarDays.querySelectorAll('.day-cell:not(.empty)');
+            const dayIndex = day - 1;
+
+            if (dayCells[dayIndex]) {
+                dayCells[dayIndex].classList.add('selected');
+                console.log(`✅ День ${day} выделен визуально`);
+            }
+
+            updateDateDisplay();
+        }
+
+        // Обновление отображения даты
+        function updateDateDisplay() {
+            if (selectedDate) {
+                currentDay.textContent = dayNames[selectedDate.getDay()];
+                currentDate.textContent = `${monthNames[selectedDate.getMonth()]} ${selectedDate.getDate()}`;
+                currentYear.textContent = selectedDate.getFullYear();
+                console.log('📅 Отображение обновлено:', currentDate.textContent);
+            }
+        }
+
+        // Навигация по месяцам
+        function prevMonth() {
+            console.log('⬅️ Предыдущий месяц');
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYearValue--;
+            }
+            generateCalendar();
+        }
+
+        function nextMonth() {
+            console.log('➡️ Следующий месяц');
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYearValue++;
+            }
+            generateCalendar();
+        }
+
+        // === ОБРАБОТЧИКИ КНОПОК НАВИГАЦИИ ===
+
+        // Назначаем обработчики для кнопок Prev и Next
+        if (prevMonthBtn) {
+            prevMonthBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                prevMonth();
+            });
+        }
+
+        if (nextMonthBtn) {
+            nextMonthBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                nextMonth();
+            });
+        }
+
+        // === ОБРАБОТЧИКИ КАЛЕНДАРЯ ===
+
+        // Открытие календаря
+        calendarTriggerBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            originalDateValue = actualDateInput.value;
+            console.log('📅 Открытие календаря');
+            console.log('Исходное значение поля:', originalDateValue);
+
+            // Инициализируем дату
+            initCalendarDate();
+
+            // Генерируем календарь
+            generateCalendar();
+
+            // Показываем календарь
+            calendarModal.style.display = 'block';
+            calendarOverlay.style.display = 'block';
+        });
+
+        // Кнопка OK
+        calendarOkBtn.addEventListener('click', async function() {
+            console.log('✅ Нажата кнопка OK');
+
+            if (selectedDate) {
+                // Форматируем дату в dd/MM/yyyy
+                const day = String(selectedDate.getDate()).padStart(2, '0');
+                const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                const year = selectedDate.getFullYear();
+
+                const isoDate = `${year}-${month}-${day}`;
+                actualDateInput.value = formatIsoToDisplay(isoDate);
+                if (actualDateIsoInput) {
+                    actualDateIsoInput.value = isoDate;
+                }
+
+                console.log('📅 Установлена дата в поле:', isoDate);
+
+                // Закрываем календарь
+                calendarModal.style.display = 'none';
+                calendarOverlay.style.display = 'none';
+
+                // Сохраняем и ОБНОВЛЯЕМ данные на странице
+                try {
+                    console.log('💾 Начинаем сохранение...');
+                    await saveData();
+                    console.log('💾 Дата успешно сохранена!');
+
+                    // Показываем сообщение об успешном сохранении
+                    showSuccessMessage('Date saved successfully!');
+
+                    // Обновляем UI
+                    updateStatus();
+                    updateInitiateButton();
+
+                    // ЗАГРУЖАЕМ ДАННЫЕ ЗАНОВО ИЗ БАЗЫ для подтверждения
+                    await loadPerformanceData();
+
+                } catch (error) {
+                    console.error('❌ Ошибка сохранения:', error);
+                    showErrorMessage('Ошибка сохранения даты: ' + error.message);
+                }
+            } else {
+                console.warn('⚠️ Нет выбранной даты!');
+                showErrorMessage('Пожалуйста, выберите дату');
+            }
+        });
+
+        // Кнопка Cancel
+        calendarCancelBtn.addEventListener('click', function() {
+            console.log('❌ Нажата кнопка Cancel');
+            actualDateInput.value = originalDateValue;
+            calendarModal.style.display = 'none';
+            calendarOverlay.style.display = 'none';
+        });
+
+        // Закрытие по оверлею
+        calendarOverlay.addEventListener('click', function() {
+            calendarModal.style.display = 'none';
+            calendarOverlay.style.display = 'none';
+        });
+
+        // Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && calendarModal.style.display === 'block') {
+                calendarModal.style.display = 'none';
+                calendarOverlay.style.display = 'none';
+            }
+        });
+
+        // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+
+        function showSuccessMessage(message) {
+            // Создаем сообщение об успехе
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-dismissible fade show';
+            alertDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999;';
+            alertDiv.innerHTML = `
+                <strong>&#10003;</strong> ${message}
+                <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+            `;
+            document.body.appendChild(alertDiv);
+
+            // Автоматически удаляем через 3 секунды
+            setTimeout(() => {
+                if (alertDiv.parentElement) {
+                    alertDiv.remove();
+                }
+            }, 3000);
+        }
+
+        function showErrorMessage(message) {
+            alert(message); // Пока используем стандартный alert для ошибок
+        }
+
+async function saveData() {
+    return new Promise((resolve, reject) => {
+        console.log('💾 Функция saveData вызвана');
+
+        const params = new URLSearchParams();
+        params.append('controlId', controlId);
+
+        // ★ ВСЕ 4 ПОЛЯ
+        const controlOperator = document.getElementById('controlOperator')?.value || '';
+        const facilitator = document.getElementById('facilitator')?.value || '';
+        const controlOperationDate = document.getElementById('controlOperationDate')?.value || '';
+        const soqmYear = document.getElementById('soqmYear')?.value || '';
+        const actualDateInput = (document.getElementById('actualOperationDateIso')?.value || '').trim();
+
+        // Отправляем все поля
+        if (controlOperator && controlOperator.trim() && controlOperator !== 'Not set') {
+            params.append('controlOperator', controlOperator);
+        }
+        if (facilitator && facilitator.trim() && facilitator !== 'Not set') {
+            params.append('facilitator', facilitator);
+        }
+        if (controlOperationDate && controlOperationDate.trim()) {
+            params.append('controlOperationDate', controlOperationDate);
+        }
+        if (soqmYear && soqmYear.trim()) {
+            params.append('soqmYear', soqmYear);
+        }
+
+        // Дата - в формате yyyy-MM-dd
+        if (actualDateInput) {
+            params.append('actualOperationDate', actualDateInput);
+        }
+
+        console.log('🌐 Отправка всех полей на /api/performance/auto-save');
+        console.log('📤 Параметры:', params.toString());
+
+        fetch('/api/performance/auto-save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: params.toString()
+        })
+        .then(response => {
+            if (response.ok) {
+                console.log('✅ Все данные успешно сохранены');
+                resolve();
+            } else {
+                return response.text().then(text => {
+                    reject(new Error(text || 'Server error'));
+                });
+            }
+        })
+        .catch(error => {
+            reject(new Error('Network error: ' + error.message));
+        });
+    });
+}
+
+        // === НОВАЯ ФУНКЦИЯ: Загрузка данных performance ===
+        async function loadPerformanceData() {
+            try {
+                console.log('📥 Загрузка данных performance для controlId:', controlId);
+
+                // ИСПРАВЛЕНО: Используем правильный endpoint
+                const response = await fetch(`/api/performance/${controlId}`);
+
+                if (response.ok) {
+                    const performanceData = await response.json();
+                    console.log('📥 Загруженные данные performance:', performanceData);
+
+                    // Обновляем поле даты если данные есть
+                    if (performanceData.actualOperationDate) {
+                        // Дата приходит в формате "yyyy-MM-dd" из базы
+                        console.log('📅 Дата из базы:', performanceData.actualOperationDate);
+
+                        // Разбиваем на части
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(performanceData.actualOperationDate)) {
+                            actualDateInput.value = formatIsoToDisplay(performanceData.actualOperationDate);
+                            if (actualDateIsoInput) {
+                                actualDateIsoInput.value = performanceData.actualOperationDate;
+                            }
+                            console.log("Loaded actualOperationDate from DB:", performanceData.actualOperationDate);
+                        } else {
+                            console.error("Invalid date format from DB, expected yyyy-MM-dd:", performanceData.actualOperationDate);
+                        }
+                    } else {
+                        console.log('📅 Нет даты в базе данных');
+                    }
+
+                    // Обновляем SoQM Year если данные есть
+                    if (performanceData.soqmYear) {
+                        soqmYearSelect.value = performanceData.soqmYear;
+                        console.log('📅 Установлен SoQM Year из базы:', performanceData.soqmYear);
+                    }
+
+                    // Обновляем UI
+                    updateStatus();
+                    updateInitiateButton();
+
+                    return performanceData;
+                } else {
+                    console.log('ℹ️ Нет данных performance или ошибка загрузки, статус:', response.status);
+                    return null;
+                }
+            } catch (error) {
+                console.error('❌ Ошибка загрузки данных performance:', error);
+                return null;
+            }
+        }
+
+        // === ОСНОВНЫЕ ФУНКЦИИ ===
+
+        // Обновление статуса
+        function updateStatus() {
+            console.log('🔄 Обновление статуса...');
+
+            // Статус даты
+            const dateStatus = document.getElementById('actualDateStatus');
+            const hasDate = actualDateInput.value && actualDateInput.value.trim();
+
+            if (hasDate) {
+                dateStatus.innerHTML = '&#10003;';
+                dateStatus.className = 'checklist-status status-completed';
+                console.log('✓ Дата установлена');
+            } else {
+                dateStatus.innerHTML = '&#10007;';
+                dateStatus.className = 'checklist-status status-pending';
+                console.log('✗ Дата не установлена');
+            }
+
+            // Статус SoQM Year
+            const soqmStatus = document.getElementById('soqmYearStatus');
+            const hasSoqmYear = soqmYearSelect.value && soqmYearSelect.value.trim();
+
+            if (hasSoqmYear) {
+                soqmStatus.innerHTML = '&#10003;';
+                soqmStatus.className = 'checklist-status status-completed';
+                console.log('✓ SoQM Year установлен');
+            } else {
+                soqmStatus.innerHTML = '&#10007;';
+                soqmStatus.className = 'checklist-status status-pending';
+                console.log('✗ SoQM Year не установлен');
+            }
+        }
+
+function isFieldFilled(element) {
+    if (!element) {
+        return false;
+    }
+
+    if (element instanceof HTMLSelectElement && element.multiple) {
+        return Array.from(element.selectedOptions || []).some(opt => (opt.value || '').trim() !== '');
+    }
+
+    if (element instanceof HTMLInputElement && (element.type === 'checkbox' || element.type === 'radio')) {
+        return element.checked;
+    }
+
+    const rawValue = element.value;
+    if (Array.isArray(rawValue)) {
+        return rawValue.length > 0;
+    }
+
+    const value = (rawValue || '').toString().trim();
+    const emptyValues = new Set(['', '()', 'Not set', 'Not assigned', '0', 'null', 'undefined']);
+    return !emptyValues.has(value);
+}
+
+function checkFields() {
+    const requiredElements = {
+        controlOperator: document.getElementById('controlOperator'),
+        facilitator: document.getElementById('facilitator'),
+        soqmLead: document.getElementById('soqmLead'),
+        processOwner: document.getElementById('processOwner'),
+        controlFrequency: document.getElementById('controlFrequency'),
+        controlOperationDate: document.getElementById('controlOperationDate'),
+        soqmYear: document.getElementById('soqmYear'),
+        actualOperationDate: document.getElementById('actualOperationDateIso')
+    };
+
+    const isControlOperatorValid = isFieldFilled(requiredElements.controlOperator);
+    const isFacilitatorValid = isFieldFilled(requiredElements.facilitator);
+    const isSoqmLeadValid = isFieldFilled(requiredElements.soqmLead);
+    const isProcessOwnerValid = isFieldFilled(requiredElements.processOwner);
+    const isControlFrequencyValid = isFieldFilled(requiredElements.controlFrequency);
+    const isControlOperationDateValid = isFieldFilled(requiredElements.controlOperationDate);
+    const isSoqmYearValid = isFieldFilled(requiredElements.soqmYear);
+    const isActualDateValid = isFieldFilled(requiredElements.actualOperationDate);
+
+    const controlOperatorValue = requiredElements.controlOperator?.value?.trim() || '';
+    const facilitatorValue = requiredElements.facilitator?.value?.trim() || '';
+    const soqmLeadValue = requiredElements.soqmLead?.value?.trim() || '';
+    const processOwnerValue = requiredElements.processOwner?.value?.trim() || '';
+    const controlFrequencyValue = requiredElements.controlFrequency?.value?.trim() || '';
+    const controlOperationDateValue = requiredElements.controlOperationDate?.value?.trim() || '';
+    const soqmYearValue = requiredElements.soqmYear?.value?.trim() || '';
+    const actualDateValue = requiredElements.actualOperationDate?.value?.trim() || '';
+
+    // Логи для отладки
+    console.log('=== ПРОВЕРКА ОБЯЗАТЕЛЬНЫХ ПОЛЕЙ ===');
+    console.log('1. Control Operator:', controlOperatorValue, isControlOperatorValid ? '✓' : '✗');
+    console.log('2. Facilitator:', facilitatorValue, isFacilitatorValid ? '✓' : '✗');
+    console.log('3. SoQM Lead / Delegate:', soqmLeadValue, isSoqmLeadValid ? '✓' : '✗');
+    console.log('4. Process Owner:', processOwnerValue, isProcessOwnerValid ? '✓' : '✗');
+    console.log('5. Control Frequency:', controlFrequencyValue, isControlFrequencyValid ? '✓' : '✗');
+    console.log('6. Control Operation Date:', controlOperationDateValue, isControlOperationDateValid ? '✓' : '✗');
+    console.log('7. SoQM Year:', soqmYearValue, isSoqmYearValid ? '✓' : '✗');
+    console.log('8. Actual Date:', actualDateValue, isActualDateValid ? '✓' : '✗');
+
+    // Все поля должны быть валидны
+    const allValid = isControlOperatorValid &&
+                     isFacilitatorValid &&
+                     isSoqmLeadValid &&
+                     isProcessOwnerValid &&
+                     isControlFrequencyValid &&
+                     isControlOperationDateValid &&
+                     isSoqmYearValid &&
+                     isActualDateValid;
+
+    console.log('✅ Все обязательные поля заполнены:', allValid);
+    return allValid;
+}
+
+function setupRequiredFieldsValidation() {
+    const requiredFieldIds = [
+        'facilitator',
+        'controlOperator',
+        'soqmLead',
+        'processOwner',
+        'controlFrequency',
+        'controlOperationDate',
+        'soqmYear',
+        'actualOperationDate',
+        'actualOperationDateIso'
+    ];
+
+    requiredFieldIds.forEach((id) => {
+        const field = document.getElementById(id);
+        if (!field) return;
+        ['change', 'input'].forEach((eventName) => {
+            field.addEventListener(eventName, updateInitiateButton);
+        });
+    });
+}
+
+function updateInitiateButton() {
+    const isComplete = checkFields();
+    console.log('🔄 Обновление кнопки Initiate. Все поля заполнены:', isComplete);
+
+    if (isComplete) {
+        initiateBtn.disabled = false;
+        initiateBtn.classList.remove('btn-secondary');
+        initiateBtn.classList.add('btn-primary');
+        requiredMessage.style.display = 'none';
+        console.log('✅ Кнопка Initiate активна');
+    } else {
+        initiateBtn.disabled = true;
+        initiateBtn.classList.remove('btn-primary');
+        initiateBtn.classList.add('btn-secondary');
+        requiredMessage.style.display = 'block';
+        console.log('❌ Кнопка Initiate неактивна - не все поля заполнены');
+    }
+}
+
+        // Автосохранение
+        function autoSave() {
+            console.log('💾 Автосохранение...');
+            saveData().catch(error => {
+                console.error('⚠️ Ошибка автосохранения:', error);
+            });
+        }
+
+        // === ОБРАБОТЧИКИ СОБЫТИЙ ===
+
+        // SoQM Year
+        soqmYearSelect.addEventListener('change', function() {
+            console.log('📝 SoQM Year изменен:', this.value);
+            updateStatus();
+            updateInitiateButton();
+
+            // Сохраняем если есть дата
+            if (actualDateInput.value && actualDateInput.value.trim()) {
+                console.log('💾 Автосохранение из-за изменения SoQM Year');
+                autoSave();
+            }
+        });
+
+        // Поле даты
+        actualDateInput.addEventListener('change', function() {
+            console.log('📝 Поле даты изменено:', this.value);
+            updateStatus();
+            updateInitiateButton();
+
+            // Сохраняем если есть SoQM Year
+            if (soqmYearSelect.value && soqmYearSelect.value.trim()) {
+                console.log('💾 Автосохранение из-за изменения даты');
+                autoSave();
+            }
+        });
+
+        setupRequiredFieldsValidation();
+
+        // Кнопка Back - ИСПРАВЛЕННЫЙ ВАРИАНТ (БЕЗ ПОДТВЕРЖДЕНИЯ)
+        backBtn.addEventListener('click', function() {
+            console.log('⬅️ Кнопка Back нажата');
+
+            // Автоматически сохраняем без подтверждения
+            const currentDateValue = actualDateInput.value;
+            if (currentDateValue && currentDateValue.trim() && currentDateValue !== originalDateValue) {
+                console.log('💾 Автосохранение перед переходом...');
+                // Сохраняем в фоне, не ждем ответа
+                saveData().catch(error => {
+                    console.error('⚠️ Ошибка автосохранения при переходе:', error);
+                });
+            }
+
+            // Переход назад
+            if (window.history.length > 1 && document.referrer && document.referrer.includes(window.location.host)) {
+                window.history.back();
+            } else {
+                window.location.href = '/controls';
+            } // Небольшая задержка чтобы saveData успел запуститься
+        });
+
+// Кнопка Initiate
+initiateBtn.addEventListener('click', async function() {
+    console.log('🚀 Кнопка Initiate нажата');
+
+    if (!checkFields()) {
+        alert('Пожалуйста, заполните все обязательные поля.');
+        return;
+    }
+
+    // Показываем loading
+    initiateBtn.disabled = true;
+    initiateBtn.textContent = 'Initializing...';
+
+    try {
+        // 1. Сохраняем данные performance
+        const formData = new FormData();
+        formData.append('controlId', controlId);
+        formData.append('soqmYear', soqmYearSelect.value);
+
+        // Дата в правильном формате
+        const dateStr = (actualDateIsoInput?.value || parseDisplayToIso(actualDateInput.value)).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            formData.append('actualOperationDate', dateStr);
+        }
+
+        // 2. Инициализируем performance
+        const response = await fetch('/api/performance/initiate', {
+            method: 'POST',
+            body: formData
+        });
+
+if (response.ok) {
+    console.log('✅ Performance initiated successfully!');
+    Swal.fire({
+        icon: 'success',
+        title: 'Initiated',
+        text: 'Performance has been successfully initiated',
+        confirmButtonText: 'OK',
+        timer: 2000,
+        timerProgressBar: true
+    }).then(() => {
+        window.location.href = '/'; // Редирект после закрытия alert
+    });
+
+} else {
+            const text = await response.text();
+            throw new Error(text || 'Server error during initiation');
+        }
+
+    } catch (error) {
+        console.error('❌ Error initiating performance:', error);
+        alert('Error initiating performance: ' + error.message);
+
+        // Восстанавливаем кнопку
+        initiateBtn.disabled = false;
+        initiateBtn.textContent = 'Initiate';
+    }
+});
+
+        // === ИНИЦИАЛИЗАЦИЯ СТРАНИЦЫ ===
+        async function initPage() {
+            console.log('=== НАЧАЛО ИНИЦИАЛИЗАЦИИ ===');
+
+            // Сохраняем исходное значение даты
+            originalDateValue = actualDateInput.value;
+
+            // ЗАГРУЖАЕМ ДАННЫЕ ИЗ БАЗЫ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
+            console.log('📥 Загрузка сохраненных данных performance...');
+            await loadPerformanceData();
+
+            // Обновляем UI
+            updateStatus();
+            updateInitiateButton();
+
+            // Автосохранение при загрузке если есть новые данные
+            if ((actualDateInput.value && actualDateInput.value.trim() && actualDateInput.value !== originalDateValue) ||
+                (soqmYearSelect.value && soqmYearSelect.value.trim())) {
+                console.log('💾 Автосохранение при загрузке страницы...');
+                setTimeout(() => {
+                    autoSave();
+                }, 500);
+            }
+
+            console.log('=== ИНИЦИАЛИЗАЦИЯ ЗАВЕРШЕНА ===');
+        }
+
+        // Запускаем инициализацию
+        initPage();
+    });
+</script>
+
+</body>
+</html>
+
+
+

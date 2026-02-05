@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>New Control - QTracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+            padding: 1rem 1.5rem;
+        }
+        .form-container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        
+        .page-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem 0.75rem 0 0;
+            margin-bottom: 0;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: float 20s linear infinite;
+        }
+        
+        .page-header h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .page-header p {
+            margin: 0.2rem 0 0 0;
+            font-size: 0.8rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .form-card {
+            border-radius: 0 0 0.75rem 0.75rem;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.75rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .form-control, .form-select {
+            border: 2px solid #e0e0e0;
+            border-radius: 0.4rem;
+            padding: 0.35rem 0.65rem;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            outline: none;
+        }
+        
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 0.5rem 1.25rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 0.4rem;
+            color: white;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-primary-custom:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #6a3f92 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-back-custom {
+            background: white;
+            border: 2px solid #dee2e6;
+            padding: 0.5rem 1.25rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 0.4rem;
+            color: #6c757d;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-back-custom:hover {
+            border-color: #6c757d;
+            color: #495057;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section-divider {
+            border-top: 2px solid #e9ecef;
+            margin: 1rem 0;
+        }
+        
+        .section-title {
+            font-size: 0.9rem;
+            margin-bottom: 0.6rem;
+            font-weight: 700;
+        }
+        
+        .mb-3 {
+            margin-bottom: 0.6rem !important;
+        }
+        
+        .card-body {
+            padding: 1.25rem !important;
+        }
+        
+        textarea.form-control {
+            min-height: 70px;
+        }
+        
+        .row {
+            row-gap: 0.6rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <div class="page-header">
+            <h2>➕ Create New Control</h2>
+            <p>Fill in the control information to create a new quality control entry</p>
+        </div>
+        <div class="card form-card">
+            <div class="card-body p-4">
+                        <form id="controlForm" th:action="@{/api/controls}" method="post">
+                            <input type="hidden" name="createdByEmail" th:value="${userEmail}">
+                            <input type="hidden" name="facilitator" value="">
+                            <input type="hidden" name="controlOperator" value="">
+                            <input type="hidden" name="soqmLead" value="">
+                            <input type="hidden" name="processOwner" value="">
+
+                            <!-- Section: Basic Information -->
+                            <h5 class="section-title text-primary">📋 Basic Information</h5>
+
+                            <!-- Row 1: Control ID, Frequency, Category, Type -->
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label for="controlId" class="form-label">CONTROL ID <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="controlId" name="controlId" required placeholder="Enter Control ID">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="controlFrequency" class="form-label">Control Frequency <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="controlFrequency" name="controlFrequency" required>
+                                        <option value="">Select Frequency</option>
+                                        <option value="Monthly">Monthly</option>
+                                        <option value="Quarterly">Quarterly</option>
+                                        <option value="Ad-hoc">Ad-hoc</option>
+                                        <option value="Recurring">Recurring</option>
+                                        <option value="Annual/Semi-annual">Annual/Semi-annual</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="controlCategory" class="form-label">Control Category</label>
+                                    <select class="form-select" id="controlCategory" name="controlCategory">
+                                        <option value="">Select Category</option>
+                                        <option value="Enhanced">Enhanced</option>
+                                        <option value="Existing">Existing</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="controlType" class="form-label">Control Type <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="controlType" name="controlType" required>
+                                        <option value="">Select Type</option>
+                                        <option value="Manual">Manual</option>
+                                        <option value="Automated">Automated</option>
+                                        <option value="IT Dependent Manual">IT Dependent Manual</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="section-divider"></div>
+                            
+                            <!-- Section: Component & Operations -->
+                            <h5 class="section-title text-primary">🏢 Component & Operations</h5>
+
+                            <!-- Row 2: Component, Operated By, References -->
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="component" class="form-label">Component <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="component" name="component" required>
+                                        <option value="">Select Component</option>
+                                        <option value="HR">Human Resources (HR)</option>
+                                        <option value="A&C">Acceptance and Continuance (A&C)</option>
+                                        <option value="EP">Engagement Performance (EP)</option>
+                                        <option value="INTR">Intellectual Resources (INTR)</option>
+                                        <option value="I&C">Information and Communication (I&C)</option>
+                                        <option value="RER">Relevant Ethical Requirements (RER)</option>
+                                        <option value="M&R">Monitoring and Remediation (M&R)</option>
+                                        <option value="GOV">Governance (GOV)</option>
+                                        <option value="TECHR">Technological Resources (TECHR)</option>
+                                        <option value="RAP">Risk Assessment Process (RAP)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="operatedBy" class="form-label">Operated By <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="operatedBy" name="operatedBy" required>
+                                        <option value="">Select Operator</option>
+                                        <option value="Member Firm">Member Firm</option>
+                                        <option value="Network">Network</option>
+                                        <option value="Network (MF initiated)">Network (MF initiated)</option>
+                                        <option value="Sub Regional">Sub Regional</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="referencesToControl" class="form-label">References to this Control</label>
+                                    <input type="text" class="form-control" id="referencesToControl" name="referencesToControl" placeholder="Enter references">
+                                </div>
+                            </div>
+
+                            <div class="section-divider"></div>
+                            
+                            <!-- Section: Priority & Applicability -->
+                            <h5 class="section-title text-primary">⚙️ Priority & Applicability</h5>
+
+                            <!-- Row 3: Priority, Non-Audit Services, Homogeneity -->
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="priority" class="form-label">Priority <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="priority" name="priority" required>
+                                        <option value="">Select Priority</option>
+                                        <option value="High">High</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="Low">Low</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="nonAuditServicesApplicability" class="form-label">Non-Audit Services Applicability <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="nonAuditServicesApplicability" name="nonAuditServicesApplicability" required>
+                                        <option value="">Select Applicability</option>
+                                        <option value="ALL">ALL</option>
+                                        <option value="AFS">AFS</option>
+                                        <option value="Elected (Audit, Assurance, ORS only)">Elected (Audit, Assurance, ORS only)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="homogeneity" class="form-label">Homogeneity</label>
+                                    <select class="form-select" id="homogeneity" name="homogeneity">
+                                        <option value="">Select Homogeneity</option>
+                                        <option value="Homogenous">Homogenous</option>
+                                        <option value="Non-Homogenous">Non-Homogenous</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="section-divider"></div>
+                            
+                            <!-- Section: Descriptions -->
+                            <h5 class="section-title text-primary">📝 Descriptions</h5>
+
+                            <!-- Row 4: Descriptions -->
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="controlDescription" class="form-label">Control Description</label>
+                                    <textarea class="form-control" id="controlDescription" name="controlDescription" rows="3" placeholder="Enter detailed control description"></textarea>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="prp" class="form-label">PRP</label>
+                                    <textarea class="form-control" id="prp" name="prp" rows="3" placeholder="Enter PRP details"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Required fields note -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <small class="text-danger fw-semibold">* Data fields must be completed</small>
+                                </div>
+                            </div>
+
+                            <div class="section-divider"></div>
+
+                            <!-- Buttons -->
+                            <div class="row">
+                                <div class="col-12 d-flex gap-3 justify-content-end">
+                                    <button type="button" class="btn btn-back-custom" onclick="window.location.href='/'">
+                                        ← Back to Dashboard
+                                    </button>
+                                    <button type="submit" class="btn btn-primary-custom">
+                                        ✓ Create Control
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        document.getElementById('controlForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const jsonData = {};
+            formData.forEach((value, key) => {
+                jsonData[key] = value;
+            });
+
+            // Convert roles to arrays
+            jsonData.facilitator = jsonData.facilitator ? [jsonData.facilitator] : [];
+            jsonData.controlOperator = jsonData.controlOperator ? [jsonData.controlOperator] : [];
+            jsonData.soqmLead = jsonData.soqmLead ? [jsonData.soqmLead] : [];
+            jsonData.processOwner = jsonData.processOwner ? [jsonData.processOwner] : [];
+
+            const submitBtn = document.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating...';
+
+            fetch('/api/controls', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(jsonData)
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data })))
+            .then(({ ok, data }) => {
+                if (!ok) throw data;
+                return data;
+            })
+            .then(data => {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Created Successfully',
+                    text: 'New control has been created',
+                    confirmButtonText: 'OK',
+                    timer: 2000
+                }).then(() => {
+                    window.location.href = '/';
+                });
+            })
+            .catch(errorData => {
+                if (errorData.error === 'DUPLICATE_ID') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Control ID Already Exists',
+                        html: `<div><p><strong>"${errorData.controlId}"</strong> is already in use.</p><p>Please use a different Control ID.</p></div>`,
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        document.getElementById('controlId').focus();
+                        document.getElementById('controlId').select();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Creation Failed',
+                        text: errorData.message || 'Error creating control',
+                        confirmButtonText: 'OK'
+                    });
+                }
+
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            });
+        });
+    </script>
+        </div>
+    </div>
+</body>
+</html>

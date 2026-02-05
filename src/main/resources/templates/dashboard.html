@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - QTracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
+    <style>/* Компактный алерт */
+.compact-alert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    min-width: 300px;
+    max-width: 400px;
+    z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-radius: 8px;
+    border: none;
+}
+    </style>
+</head>
+<body>
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-2 sidebar p-3">
+            <div class="sidebar-content">
+                <div class="d-flex align-items-center mb-3">
+                    <a href="/" class="me-2">
+                        <img src="/images/kpmg_white.png" alt="KPMG" style="height: 45px; width: auto;">
+                    </a>
+                    <h6 class="mb-0" th:text="${userName}">Full Name</h6>
+                </div>
+                <small class="text-muted" th:text="${userTitle}">Title</small><br>
+                <small class="text-muted" th:text="${userEmail}">email@kpmg.kz</small>
+
+                <hr>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">Dashboard
+                            <span th:if="${unreadNotifications != null and unreadNotifications > 0}"
+                                  class="notif-pill"
+                                  th:text="${unreadNotifications}">0</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/action-centre">Action Centre</a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Кнопка выхода -->
+            <div class="mt-2">
+                <a href="/logout" class="btn btn-outline-secondary btn-sm">Logout</a>
+            </div>
+
+            <!-- Footer -->
+            <div class="sidebar-footer">
+                <hr class="my-2">
+                <small class="text-muted">Register on</small><br>
+                <small><strong>KPMG Kazakhstan</strong></small><br>
+                <small><strong>QTracker Version 2025</strong></small>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-10">
+            <div class="p-4">
+                <!-- Dashboard Header -->
+                <div class="dashboard-header-enhanced mb-4">
+                    <h1 class="mb-1" th:text="'Welcome back, ' + ${userName} + '!'">Welcome back!</h1>
+                    <p class="mb-0 text-white-50" th:text="'Today you have ' + (${totalControls} ?: 0) + ' controls to manage'"></p>
+                </div>
+
+                <!-- Статистика -->
+                <div class="row mb-5">
+                    <div class="col-md-3 mb-3">
+                        <div class="stat-card stat-card-total">
+                            <div class="stat-icon"><i class="bi bi-bar-chart-fill"></i></div>
+                            <div class="stat-number" th:text="${totalControls}">0</div>
+                            <div class="stat-label">Total Controls</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="stat-card stat-card-active">
+                            <div class="stat-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+                            <div class="stat-number" th:text="${activeControls}">0</div>
+                            <div class="stat-label">Active Controls</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="stat-card stat-card-completed">
+                            <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
+                            <div class="stat-number" th:text="${completedControls}">0</div>
+                            <div class="stat-label">Completed</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="stat-card stat-card-overdue">
+                            <div class="stat-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                            <div class="stat-number" th:text="${overdueControls}">0</div>
+                            <div class="stat-label">Overdue</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Центральные кнопки -->
+                <div class="center-actions mb-5">
+                    <a href="/controls" class="action-card">
+                        <div class="action-icon"><i class="bi bi-clipboard-check"></i></div>
+                        <h5>My Items</h5>
+                    </a>
+                    <a href="/new-control" class="action-card"
+                       th:if="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_LEAD')}">
+                        <div class="action-icon"><i class="bi bi-plus-circle-fill"></i></div>
+                        <h5>New Control</h5>
+                    </a>
+                </div>
+
+                <!-- Компактный Success Alert -->
+                <div class="alert alert-success alert-dismissible fade show compact-alert"
+                     id="successAlert" style="display: none;">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <strong>✓</strong>
+                            <span id="alertMessage">Success!</span>
+                        </div>
+                        <button type="button" class="btn-close ms-2" onclick="hideSuccessAlert()"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Проверяем URL параметры при загрузке страницы
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+
+        // Для создания контроля
+        if (urlParams.get('success') === 'true') {
+            showSuccessAlert('Control created successfully!');
+            // Убираем параметр из URL без перезагрузки
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+        }
+    });
+
+    // Универсальная функция для показа алерта с разными сообщениями
+    function showSuccessAlert(message) {
+        const alert = document.getElementById('successAlert');
+        const messageElement = document.getElementById('alertMessage');
+
+        if (alert && messageElement) {
+            // Обновляем текст сообщения
+            messageElement.textContent = message;
+            alert.style.display = 'block';
+
+            // Auto hide after 3 seconds
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 3000);
+        }
+    }
+
+    function hideSuccessAlert() {
+        const alert = document.getElementById('successAlert');
+        if (alert) {
+            alert.style.display = 'none';
+        }
+    }
+
+</script>
+</body>
+</html>

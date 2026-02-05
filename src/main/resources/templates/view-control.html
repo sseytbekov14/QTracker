@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="'Control - ' + ${control.controlId}">Control - Sultan</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/view-control.css?v=3.0" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
+    <style>
+        /* Control Operator Program validation styling */
+        .co-action-btn:disabled {
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+            background-color: #6c757d !important;
+            border-color: #6c757d !important;
+            color: #fff !important;
+        }
+        
+        .co-action-btn:disabled:hover {
+            background-color: #6c757d !important;
+            border-color: #6c757d !important;
+        }
+        
+        /* SoQM Lead action buttons validation styling */
+        .soqm-action-btn:disabled {
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+            background-color: #6c757d !important;
+            border-color: #6c757d !important;
+            color: #fff !important;
+        }
+        
+        .soqm-action-btn:disabled:hover {
+            background-color: #6c757d !important;
+            border-color: #6c757d !important;
+        }
+        
+        /* Process Owner action buttons validation styling */
+        .po-action-btn:disabled {
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+            background-color: #6c757d !important;
+            border-color: #6c757d !important;
+            color: #fff !important;
+        }
+        
+        .po-action-btn:disabled:hover {
+            background-color: #6c757d !important;
+            border-color: #6c757d !important;
+        }
+        
+        .co-validation-tooltip {
+            position: relative;
+        }
+        
+        .co-validation-tooltip .tooltip-text {
+            visibility: hidden;
+            background-color: #dc3545;
+            color: #fff;
+            text-align: center;
+            padding: 5px 8px;
+            border-radius: 4px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -60px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+            font-size: 12px;
+            width: 120px;
+        }
+        
+        .co-validation-tooltip .tooltip-text::after {
+            content: \"\";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #dc3545 transparent transparent transparent;
+        }
+        
+        .co-validation-tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* Role-based field restrictions */
+        .role-restricted-field:disabled {
+            background-color: #e9ecef !important;
+            color: #6c757d !important;
+            cursor: not-allowed !important;
+            border-color: #dee2e6 !important;
+            opacity: 1 !important;
+        }
+        
+        .role-restricted-field:disabled::placeholder {
+            color: #adb5bd;
+        }
+        
+        .role-restricted-field[readonly] {
+            background-color: #e9ecef !important;
+            color: #6c757d !important;
+            cursor: not-allowed !important;
+            border-color: #dee2e6 !important;
+        }
+        
+        .role-restricted-field[readonly]::placeholder {
+            color: #adb5bd;
+        }
+
+        textarea[name="controlStepsPerformed"][disabled],
+        textarea[name="controlStepsPerformed"][readonly] {
+            background-color: #e9ecef !important;
+        }
+        
+        .role-restricted-label {
+            position: relative;
+        }
+        
+        .role-restricted-label::after {
+            content: \"🔒 Read-only\";
+            margin-left: 8px;
+            font-size: 12px;
+            color: #6c757d;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+
+<input type="hidden" id="currentUserRole" th:value="${userRole}">
+<input type="hidden" id="currentPerformanceStatus" th:value="${performanceStatus}">
+<input type="hidden" id="workflowControlStatus" name="controlStatus" th:value="${control.controlStatus}">
+<input type="hidden" id="isFacilitator" th:value="${isFacilitator}">
+<input type="hidden" id="isControlOperator" th:value="${isControlOperator}">
+<input type="hidden" id="isSoqmLead" th:value="${isSoqmLead}">
+<input type="hidden" id="isProcessOwner" th:value="${isProcessOwner}">
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="view-control-container">
+
+                <div class="control-header">
+                    <h2>Control Details</h2>
+                    <h4>ID: <span class="control-id-display" th:text="${control.controlId}">Sultan</span></h4>
+                    <p class="mb-0">
+                        Created by: <span th:text="${control.createdBy.displayName}">ccg-nrc-pa</span>
+                        ( <span th:text="${control.createdBy.mail}">acrecg-nrc-pa@kpmg.com</span>)
+                        on <span th:text="${#temporals.format(control.createdAt, 'dd.MM.yyyy')}">25.11.2025</span>
+                    </p>
+                </div>
+
+                <ul class="nav nav-tabs" id="controlTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#control-tab">Control</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#details-tab">Details</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#assignment-tab">Assignment</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#documents-tab">Documents</a>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="controlTabsContent">
+
+                    <div class="tab-pane fade show active" id="control-tab">
+                        <form id="controlForm">
+                            <input type="hidden" name="id" th:value="${control.id}">
+
+                            <div class="form-section">
+                                <h5 class="mb-3">Control Information</h5>
+
+                                <div class="row">
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label">Control ID</label>
+                                        <input type="text" class="form-control readonly-field control-id-display" readonly
+                                               th:value="${control.controlId}" name="controlId" id="controlId">
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label required-field">Control Frequency</label>
+                                        <select class="form-control readonly-field" name="controlFrequency" readonly>
+                                            <option value="">Select Frequency</option>
+                                            <option value="Monthly" th:selected="${control.controlFrequency == 'Monthly'}">Monthly</option>
+                                            <option value="Quarterly" th:selected="${control.controlFrequency == 'Quarterly'}">Quarterly</option>
+                                            <option value="Ad-hoc" th:selected="${control.controlFrequency == 'Ad-hoc' or control.controlFrequency == 'As-required/at least annually'}">Ad-hoc</option>
+                                            <option value="Recurring" th:selected="${control.controlFrequency == 'Recurring' or control.controlFrequency == 'Recurring/other'}">Recurring</option>
+                                            <option value="Annual/Semi-annual" th:selected="${control.controlFrequency == 'Annual/Semi-annual' or control.controlFrequency == 'Annually' or control.controlFrequency == 'Semi-annually'}">Annual/Semi-annual</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label">Control Category</label>
+                                        <select class="form-control readonly-field" name="controlCategory" readonly>
+                                            <option value="">Select Category</option>
+                                            <option value="New" th:selected="${control.controlCategory == 'New'}">New</option>
+                                            <option value="Enhanced" th:selected="${control.controlCategory == 'Enhanced'}">Enhanced</option>
+                                            <option value="Existing" th:selected="${control.controlCategory == 'Existing'}">Existing</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label required-field">Control Type</label>
+                                        <select class="form-control readonly-field" name="controlType" readonly>
+                                            <option value="">Select Type</option>
+                                            <option value="Manual" th:selected="${control.controlType == 'Manual'}">Manual</option>
+                                            <option value="Automated" th:selected="${control.controlType == 'Automated'}">Automated</option>
+                                            <option value="IT Dependent Manual" th:selected="${control.controlType == 'IT Dependent Manual'}">IT Dependent Manual</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label required-field">Component</label>
+                                        <select class="form-control readonly-field" name="component" readonly>
+                                            <option value="">Select Component</option>
+                                            <option value="HR" th:selected="${control.component == 'HR'}">Human Resources (HR)</option>
+                                            <option value="A&C" th:selected="${control.component == 'A&C'}">Acceptance and Continuance (A&C)</option>
+                                            <option value="EP" th:selected="${control.component == 'EP'}">Engagement Performance (EP)</option>
+                                            <option value="INTR" th:selected="${control.component == 'INTR'}">Intellectual Resources (INTR)</option>
+                                            <option value="I&C" th:selected="${control.component == 'I&C'}">Information and Communication (I&C)</option>
+                                            <option value="RER" th:selected="${control.component == 'RER'}">Relevant Ethical Requirements (RER)</option>
+                                            <option value="M&R" th:selected="${control.component == 'M&R'}">Monitoring and Remediation (M&R)</option>
+                                            <option value="GOV" th:selected="${control.component == 'GOV'}">Governance (GOV)</option>
+                                            <option value="TECHR" th:selected="${control.component == 'TECHR'}">Technological Resources (TECHR)</option>
+                                            <option value="RAP" th:selected="${control.component == 'RAP'}">Risk Assessment Process (RAP)
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label required-field">Operated By</label>
+                                        <select class="form-control readonly-field" name="operatedBy" readonly>
+                                            <option value="">Select Operator</option>
+                                            <option value="Member Firm" th:selected="${control.operatedBy == 'Member Firm'}">Member Firm</option>
+                                            <option value="Network" th:selected="${control.operatedBy == 'Network'}">Network</option>
+                                            <option value="Network (MF initiated)" th:selected="${control.operatedBy == 'Network (MF initiated)'}">Network (MF initiated)</option>
+                                            <option value="Sub Regional" th:selected="${control.operatedBy == 'Sub Regional'}">Sub Regional</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label required-field">Control Status</label>
+                                        <select class="form-control readonly-field" name="controlStatus" readonly>
+                                            <option value="">Select Status</option>
+                                            <option value="Not Applicable" th:selected="${control.controlStatus == 'Not Applicable'}">Not Applicable</option>
+                                            <option value="Active" th:selected="${control.controlStatus == 'Active'}">Active</option>
+                                            <option value="Deleted" th:selected="${control.controlStatus == 'Deleted'}">Deleted</option>
+                                            <option value="Superseded" th:selected="${control.controlStatus == 'Superseded'}">Superseded</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label required-field">Priority</label>
+                                        <select class="form-control readonly-field" name="priority" readonly>
+                                            <option value="">Select Priority</option>
+                                            <option value="High" th:selected="${control.priority == 'High'}">High</option>
+                                            <option value="Medium" th:selected="${control.priority == 'Medium'}">Medium</option>
+                                            <option value="Low" th:selected="${control.priority == 'Low'}">Low</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label required-field">Non-Audit Services Control Applicability</label>
+                                        <select class="form-control readonly-field" name="nonAuditServicesApplicability" readonly>
+                                            <option value="">Select Applicability</option>
+                                            <option value="ALL" th:selected="${control.nonAuditServicesApplicability == 'ALL'}">ALL</option>
+                                            <option value="AFS" th:selected="${control.nonAuditServicesApplicability == 'AFS'}">AFS</option>
+                                            <option value="Elected (Audit, Assurance, ORS only)" th:selected="${control.nonAuditServicesApplicability == 'Elected (Audit, Assurance, ORS only)'}">Elected (Audit, Assurance, ORS only)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Control Description</label>
+                                        <textarea class="form-control readonly-field" name="controlDescription" rows="4" readonly
+                                                  th:text="${control.controlDescription}"></textarea>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">PRP</label>
+                                        <textarea class="form-control readonly-field" name="prp" rows="4" readonly
+                                                  th:text="${control.prp}"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="tab-pane fade" id="details-tab">
+                        <form id="detailsForm">
+                            <input type="hidden" name="controlId" th:value="${control.id}">
+
+                            <div class="form-section">
+                                <h5 class="mb-3">Process Details</h5>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Process Name</label>
+                                        <input type="text" class="form-control" name="processName"
+                                               placeholder="Enter process name">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Homogeneity</label>
+                                        <input type="text" class="form-control" name="homogeneity"
+                                               placeholder="Enter homogeneity">
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">References to this Control</label>
+                                        <input type="text" class="form-control" name="referencesToControl"
+                                               placeholder="Enter references">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Department</label>
+                                        <input type="text" class="form-control" name="department"
+                                               placeholder="Enter department">
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">Process Activities</label>
+                                        <textarea class="form-control" name="processActivities" rows="4"
+                                                  placeholder="Describe process activities"></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">Control Operator's Program</label>
+                                        <textarea class="form-control role-restricted-field" 
+                                                  id="controlOperatorsProgram" 
+                                                  name="controlOperatorsProgram" 
+                                                  rows="4"
+                                                  data-allowed-roles="CONTROL_OPERATOR,ADMIN"
+                                                  placeholder="Describe control operator's program"></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Other Related Controls</label>
+                                        <input type="text" class="form-control" name="otherRelatedControls"
+                                               placeholder="Enter other related controls">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">IT Applications</label>
+                                        <input type="text" class="form-control" name="itApplications"
+                                               placeholder="Enter IT applications">
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">Control steps performed and results</label>
+                                        <textarea class="form-control" name="controlStepsPerformed" rows="4"
+                                                  placeholder="Describe control steps and results"></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">SoQM Head/Team Comments</label>
+                                        <textarea class="form-control role-restricted-field" 
+                                                  id="soqmHeadComments"
+                                                  name="soqmHeadComments" 
+                                                  rows="4"
+                                                  data-allowed-roles="SOQM_LEAD,ADMIN"
+                                                  placeholder="Enter SoQM head/team comments"></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">Process Owner Comments</label>
+                                        <textarea class="form-control role-restricted-field" 
+                                                  id="processOwnerComments"
+                                                  name="processOwnerComments" 
+                                                  rows="4"
+                                                  data-allowed-roles="PROCESS_OWNER,ADMIN"
+                                                  placeholder="Enter process owner comments"></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">Attachment (Details) - Max 20 files</label>
+                                        <div class="input-group">
+                                            <input type="file" class="form-control" name="attachedFile" id="attachmentDetailsInput" multiple>
+                                            <a id="downloadDetailsBtn" href="#" class="btn btn-outline-info" style="display: none;" download>
+                                                <i class="bi bi-download"></i> Download
+                                            </a>
+                                        </div>
+                                        <small class="text-muted d-block mt-1" id="detailsFileInfo"></small>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="tab-pane fade" id="assignment-tab">
+                        <form id="assignmentForm">
+                            <input type="hidden" name="controlId" th:value="${control.id}">
+
+                            <div class="form-section">
+                                <h5 class="mb-3">Assignment Details</h5>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label required-field">Facilitator</label>
+                                        <div class="facilitator-dropdown">
+                                            <div class="selected-user-display" id="selectedUserDisplay">
+                                                <input type="text"
+                                                       class="form-control"
+                                                       id="facilitatorInput"
+                                                       placeholder="Select facilitator..."
+                                                       readonly
+                                                       onclick="viewControl.toggleUserDropdown()">
+                                            </div>
+
+                                            <div class="dropdown-users" id="userDropdown" style="display: none;">
+                                                <div class="dropdown-search p-2">
+                                                    <input type="text"
+                                                           class="form-control form-control-sm"
+                                                           id="facilitatorSearchInput"
+                                                           placeholder="Find items..."
+                                                           oninput="viewControl.filterUserList()">
+                                                </div>
+
+                                                <div class="users-list" style="max-height: 200px; overflow-y: auto;">
+                                                    <div class="list-group list-group-flush" id="facilitatorUsersList">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <input type="hidden" name="facilitator" id="facilitatorHidden">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label required-field">Control Operator</label>
+                                        <div class="facilitator-dropdown">
+                                            <div class="selected-user-display">
+                                                <input type="text"
+                                                       class="form-control control-operator-input"
+                                                       id="controlOperatorInput"
+                                                       placeholder="Select control operator..."
+                                                       readonly
+                                                       onclick="viewControl.toggleControlOperatorDropdown()">
+                                            </div>
+                                            <div class="dropdown-users" id="controlOperatorDropdown" style="display: none;">
+                                                <div class="dropdown-search p-2">
+                                                    <input type="text"
+                                                           class="form-control form-control-sm"
+                                                           id="controlOperatorSearchInput"
+                                                           placeholder="Find items..."
+                                                           oninput="viewControl.filterControlOperatorList()">
+                                                </div>
+                                                <div class="users-list" style="max-height: 200px; overflow-y: auto;">
+                                                    <div class="list-group list-group-flush" id="controlOperatorUsersList"></div>
+                                                </div>
+                                            </div>
+                                            <input type="hidden" name="controlOperator" id="controlOperatorHidden">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label required-field">SoQM Lead / Delegate</label>
+                                        <div class="facilitator-dropdown">
+                                            <div class="selected-user-display">
+                                                <input type="text"
+                                                       class="form-control soqm-lead-input"
+                                                       id="soqmLeadInput"
+                                                       placeholder="Select SoQM lead..."
+                                                       readonly
+                                                       onclick="viewControl.toggleSoqmLeadDropdown()">
+                                            </div>
+                                            <div class="dropdown-users" id="soqmLeadDropdown" style="display: none;">
+                                                <div class="dropdown-search p-2">
+                                                    <input type="text"
+                                                           class="form-control form-control-sm"
+                                                           id="soqmLeadSearchInput"
+                                                           placeholder="Find items..."
+                                                           oninput="viewControl.filterSoqmLeadList()">
+                                                </div>
+                                                <div class="users-list" style="max-height: 200px; overflow-y: auto;">
+                                                    <div class="list-group list-group-flush" id="soqmLeadUsersList"></div>
+                                                </div>
+                                            </div>
+                                            <input type="hidden" name="soqmLead" id="soqmLeadHidden">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label required-field">Process Owner</label>
+                                        <div class="facilitator-dropdown">
+                                            <div class="selected-user-display">
+                                                <input type="text"
+                                                       class="form-control process-owner-input"
+                                                       id="processOwnerInput"
+                                                       placeholder="Select process owner..."
+                                                       readonly
+                                                       onclick="viewControl.toggleProcessOwnerDropdown()">
+                                            </div>
+                                            <div class="dropdown-users" id="processOwnerDropdown" style="display: none;">
+                                                <div class="dropdown-search p-2">
+                                                    <input type="text"
+                                                           class="form-control form-control-sm"
+                                                           id="processOwnerSearchInput"
+                                                           placeholder="Find items..."
+                                                           oninput="viewControl.filterProcessOwnerList()">
+                                                </div>
+                                                <div class="users-list" style="max-height: 200px; overflow-y: auto;">
+                                                    <div class="list-group list-group-flush" id="processOwnerUsersList"></div>
+                                                </div>
+                                            </div>
+                                            <input type="hidden" name="processOwner" id="processOwnerHidden">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">Control Shared With</label>
+                                        <div class="facilitator-dropdown">
+                                            <div class="selected-user-display">
+                                                <div class="form-control control-shared-input"
+                                                     id="sharedWithInput"
+                                                     onclick="viewControl.toggleSharedWithDropdown()"
+                                                     style="cursor: pointer; min-height: 38px; display: flex; align-items: center; flex-wrap: wrap; gap: 5px; padding: 5px;">
+                                                    <span id="sharedWithPlaceholder" style="color: #999;">Select users...</span>
+                                                    <div id="sharedWithSelectedTags"></div>
+                                                </div>
+                                            </div>
+                                            <div class="dropdown-users" id="sharedWithDropdown" style="display: none;">
+                                                <div class="dropdown-search p-2">
+                                                    <input type="text"
+                                                           class="form-control form-control-sm"
+                                                           id="sharedWithSearchInput"
+                                                           placeholder="Find items..."
+                                                           oninput="viewControl.filterSharedWithList()">
+                                                </div>
+                                                <div class="users-list" style="max-height: 200px; overflow-y: auto;">
+                                                    <div class="list-group list-group-flush" id="sharedWithUsersList"></div>
+                                                </div>
+                                            </div>
+                                            <input type="hidden" name="controlSharedWith" id="controlSharedWithHidden">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label required-field">Control Operation Date</label>
+                                        <input type="date" class="form-control" name="controlOperationDate"
+                                               id="controlOperationDate">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Control Operation Deadline</label>
+                                        <input type="text"
+                                               class="form-control readonly-field"
+                                               name="controlOperationDeadline"
+                                               id="controlOperationDeadline"
+                                               readonly
+                                               style="background-color: #e9ecef; pointer-events: none;">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Next Control Operation Date</label>
+                                        <input type="text"
+                                               class="form-control readonly-field"
+                                               name="nextControlOperationDate"
+                                               id="nextControlOperationDate"
+                                               readonly
+                                               style="background-color: #e9ecef; pointer-events: none;">
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="tab-pane fade" id="documents-tab">
+                        <form id="documentsForm">
+                            <input type="hidden" name="controlId" th:value="${control.id}">
+
+                            <div class="form-section">
+                                <h5 class="mb-3">Documents</h5>
+
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">Link</label>
+                                        <input type="text" class="form-control" name="link"
+                                               placeholder="Enter document link">
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">Attachment (Documents) - Max 20 files</label>
+                                        <div class="input-group">
+                                            <input type="file" class="form-control" name="attachment" id="attachmentDocumentsInput" multiple>
+                                            <a id="downloadDocumentsBtn" href="#" class="btn btn-outline-info" style="display: none;" download>
+                                                <i class="bi bi-download"></i> Download
+                                            </a>
+                                        </div>
+                                        <small class="text-muted d-block mt-1" id="documentsFileInfo"></small>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">SoQM Development Materials</label>
+                                        <select class="form-select" name="soqmDevelopmentMaterials">
+                                            <option value="">Select availability</option>
+                                            <option value="Available">Available</option>
+                                            <option value="Not Available">Not Available</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <!-- Левая сторона: Home, Changelog, Rename ID -->
+                        <div>
+                            <a href="/" class="btn btn-outline-secondary">Home</a>
+                            <button class="btn btn-outline-secondary" id="changelogBtn">Changelog</button>
+                            <button class="btn btn-outline-secondary" id="renameIdBtn" th:if="${!readOnly and (!#strings.equals(performanceStatus, 'In Progress') or userRole == 'SOQM_LEAD')}">Rename ID</button>
+                        </div>
+
+                        <!-- Правая сторона: Workflow кнопки + Edit + Back -->
+                        <div class="d-flex align-items-center gap-2">
+                            <!-- Workflow кнопки (будут показываться динамически) -->
+                            <div id="workflow-buttons-container" class="d-inline-flex align-items-center gap-2">
+                                <!-- 1. Submit to Control Operator button for FACILITATOR -->
+                                <button type="button"
+                                        class="btn btn-primary workflow-submit-btn"
+                                        id="submitToControlOperatorBtn"
+                                        style="display: none;"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#submitConfirmationModal"
+                                        title="Submit this control to Control Operator for review">
+                                    Submit for Review
+                                </button>
+
+
+                                <!-- 2. Submit to SoQM Lead button for CONTROL_OPERATOR -->
+                                <button type="button"
+                                        class="btn btn-success workflow-submit-btn co-action-btn"
+                                        id="submitToSoqmLeadBtn"
+                                        style="display: none;"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#submitSoqmLeadModal"
+                                        title="Submit this control to SoQM Lead for review">
+                                    Submit for SoQM Team Review
+                                </button>
+
+                                <!-- 3. Return to Facilitator button for CONTROL_OPERATOR -->
+                                <button type="button"
+                                        class="btn btn-warning workflow-submit-btn co-action-btn"
+                                        id="returnToFacilitatorBtn"
+                                        style="display: none;"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#returnFacilitatorModal"
+                                        title="Return this control to Facilitator for revision">
+                                    Return to Facilitator
+                                </button>
+
+                                <!-- 4. Submit to Process Owner button for SOQM_LEAD -->
+                                <button type="button"
+                                        class="btn btn-success workflow-submit-btn soqm-action-btn"
+                                        id="submitToProcessOwnerBtn"
+                                        style="display: none;"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#submitProcessOwnerModal"
+                                        title="Submit this control to Process Owner for review">
+                                    Send to Process Owner
+                                </button>
+
+                                <!-- 5. Return to Operator button for SOQM_LEAD -->
+                                <button type="button"
+                                        class="btn btn-warning workflow-submit-btn soqm-action-btn"
+                                        id="returnToOperatorBtn"
+                                        style="display: none;"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#returnOperatorModal"
+                                        title="Return this control to Control Operator for revision">
+                                    Return to Operator
+                                </button>
+
+                                <!-- 6. Complete button for PROCESS_OWNER -->
+                                <button type="button"
+                                        class="btn btn-success workflow-submit-btn po-action-btn"
+                                        id="completeControlBtn"
+                                        style="display: none;"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#completeControlModal"
+                                        title="Complete this control">
+                                    Complete
+                                </button>
+
+                                <!-- 7. Return to SoQM Lead button for PROCESS_OWNER -->
+                                <button type="button"
+                                        class="btn btn-warning workflow-submit-btn po-action-btn"
+                                        id="returnToSoqmLeadBtn"
+                                        style="display: none;"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#returnSoqmLeadModal"
+                                        title="Return this control to SoQM Lead for revision">
+                                    Return for SoQM Team Review
+                                </button>
+                            </div>
+
+                            <!-- Edit и Back кнопки -->
+                            <button class="btn btn-primary" id="editBtn" th:if="${!readOnly and (!#strings.equals(performanceStatus, 'In Progress') or userRole == 'SOQM_LEAD')}">Edit</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Back</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="edit-nav-panel mb-4 d-none" id="editNavPanel">
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="/" class="btn btn-outline-secondary">Home</a>
+                        <button type="button" class="btn btn-primary" id="saveEditBtn">Save</button>
+                        <button type="button" class="btn btn-outline-secondary" id="cancelEditBtn">Cancel</button>
+                    </div>
+                </div>
+
+                <div class="modal fade" id="renameIdModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Rename Control ID</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label for="newControlId" class="form-label required-field">New Control ID</label>
+                                    <input type="text" class="form-control" id="newControlId"
+                                           th:value="${control.controlId}" placeholder="Enter new Control ID">
+                                    <div class="form-text">Control ID must be unique across the system</div>
+                                    <div id="controlIdError" class="text-danger mt-1" style="display: none;"></div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="confirmRenameBtn">Rename</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal fade" id="changelogModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Control Changelog</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div id="changelogLoading" class="text-center text-muted py-3">Loading...</div>
+                                <div id="changelogEmpty" class="text-center text-muted py-3" style="display: none;">
+                                    No history available.
+                                </div>
+                                <div id="changelogList"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Добавьте после renameIdModal -->
+                <div class="modal fade" id="workflowActionModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Workflow Action</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <!-- Сообщение подтверждения -->
+                                <div id="workflowActionMessage" class="mb-3">
+                                    Are you sure you want to perform this action?
+                                </div>
+
+                                <!-- Радиокнопки Yes/No (только для SoQM Lead) -->
+                                <div id="workflowApprovalSection" class="mb-3" style="display: none;">
+                                    <label class="form-label fw-bold">SoQM Head/Team Comments</label>
+                                    <div class="d-flex gap-4 mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="soqmApproval"
+                                                   id="soqmApprovalYes" value="YES">
+                                            <label class="form-check-label" for="soqmApprovalYes">
+                                                Yes
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="soqmApproval"
+                                                   id="soqmApprovalNo" value="NO" checked>
+                                            <label class="form-check-label" for="soqmApprovalNo">
+                                                No
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Поле для комментария -->
+                                <div id="workflowCommentSection" class="mb-3" style="display: none;">
+                                    <label for="workflowComment" class="form-label fw-bold" id="commentLabel">
+                                        Comment
+                                    </label>
+                                    <textarea class="form-control" id="workflowComment" rows="4"
+                                              placeholder="Enter your comment..."></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="confirmWorkflowAction">
+                                    Confirm
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal for Submit to Control Operator confirmation -->
+                <div class="modal fade" id="submitConfirmationModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-info text-white">
+                                <h5 class="modal-title">Submit Control to Control Operator</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-0">
+                                    Are you sure you want to submit this control to the <strong>Control Operator</strong> for review?
+                                </p>
+                                <p class="text-muted mt-3 mb-0">
+                                </p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-primary" id="confirmSubmitBtn">
+                                    Confirm Submission
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal for Submit to SoQM Lead confirmation -->
+                <div class="modal fade" id="submitSoqmLeadModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">Submit Control to SoQM Lead</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-0">
+                                    Are you sure you want to submit this control to the <strong>SoQM Lead</strong> for review?
+                                </p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-success" id="confirmSubmitSoqmLeadBtn">
+                                    Confirm Submission
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal for Return to Facilitator confirmation -->
+                <div class="modal fade" id="returnFacilitatorModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-warning text-dark">
+                                <h5 class="modal-title">Return Control to Facilitator</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-3">
+                                    Are you sure you want to return this control to the <strong>Facilitator</strong> for revision?
+                                </p>
+                                <div class="mb-3">
+                                    <label for="returnComments" class="form-label">Comments (optional)</label>
+                                    <textarea class="form-control" id="returnComments" rows="3" 
+                                              placeholder="Provide feedback for the Facilitator..."></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-warning" id="confirmReturnFacilitatorBtn">
+                                    Confirm Return
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal for Submit to Process Owner confirmation -->
+                <div class="modal fade" id="submitProcessOwnerModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">Submit Control to Process Owner</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-0">
+                                    Are you sure you want to submit this control to the <strong>Process Owner</strong> for review?
+                                </p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-success" id="confirmSubmitProcessOwnerBtn">
+                                    Confirm Submission
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal for Return to Operator confirmation -->
+                <div class="modal fade" id="returnOperatorModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-warning text-dark">
+                                <h5 class="modal-title">Return Control to Control Operator</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-3">
+                                    Are you sure you want to return this control to the <strong>Control Operator</strong> for revision?
+                                </p>
+                                <div class="mb-3">
+                                    <label for="returnOperatorComments" class="form-label">Comments (optional)</label>
+                                    <textarea class="form-control" id="returnOperatorComments" rows="3" 
+                                              placeholder="Provide feedback for the Control Operator..."></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-warning" id="confirmReturnOperatorBtn">
+                                    Confirm Return
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal for Complete Control confirmation -->
+                <div class="modal fade" id="completeControlModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">Complete Control</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-0">
+                                    Are you sure you want to complete this control? The workflow will be marked as <strong>Completed</strong>.
+                                </p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-success" id="confirmCompleteControlBtn">
+                                    Confirm Completion
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal for Return to SoQM Lead confirmation -->
+                <div class="modal fade" id="returnSoqmLeadModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-warning text-dark">
+                                <h5 class="modal-title">Return Control to SoQM Lead</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-3">
+                                    Are you sure you want to return this control to the <strong>SoQM Lead</strong> for revision?
+                                </p>
+                                <div class="mb-3">
+                                    <label for="returnSoqmLeadComments" class="form-label">Comments (optional)</label>
+                                    <textarea class="form-control" id="returnSoqmLeadComments" rows="3" 
+                                              placeholder="Provide feedback for the SoQM Lead..."></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-warning" id="confirmReturnSoqmLeadBtn">
+                                    Confirm Return
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/date-format.js?v=2"></script>
+<script src="/js/view-control.js?v=3.0"></script>
+<script>
+// Initialize button visibility for Facilitator and Control Operator workflows
+document.addEventListener('DOMContentLoaded', function() {
+    const isFacilitator = document.getElementById('isFacilitator')?.value === 'true';
+    const isControlOperator = document.getElementById('isControlOperator')?.value === 'true';
+    const isSoqmLead = document.getElementById('isSoqmLead')?.value === 'true';
+    const isProcessOwner = document.getElementById('isProcessOwner')?.value === 'true';
+    const controlStatus = document.querySelector('input[name="controlStatus"]')?.value;
+    
+    const submitToOperatorBtn = document.getElementById('submitToControlOperatorBtn');
+    const submitToSoqmLeadBtn = document.getElementById('submitToSoqmLeadBtn');
+    const returnToFacilitatorBtn = document.getElementById('returnToFacilitatorBtn');
+    const submitToProcessOwnerBtn = document.getElementById('submitToProcessOwnerBtn');
+    const returnToOperatorBtn = document.getElementById('returnToOperatorBtn');
+    const completeControlBtn = document.getElementById('completeControlBtn');
+    const returnToSoqmLeadBtn = document.getElementById('returnToSoqmLeadBtn');
+    
+    const editBtn = document.getElementById('editBtn');
+    const renameIdBtn = document.getElementById('renameIdBtn');
+    const changelogBtn = document.getElementById('changelogBtn');
+
+    console.log('🔍 Button Visibility Check:');
+    console.log('   isFacilitator:', isFacilitator);
+    console.log('   isControlOperator:', isControlOperator);
+    console.log('   isSoqmLead:', isSoqmLead);
+    console.log('   isProcessOwner:', isProcessOwner);
+    console.log('   controlStatus:', controlStatus);
+
+    // FACILITATOR: Show "Submit to Control Operator" button
+    if (submitToOperatorBtn && isFacilitator && controlStatus === 'Facilitator Review') {
+        submitToOperatorBtn.style.display = 'inline-block';
+        console.log('   ✅ Submit to Control Operator button shown for Facilitator');
+    }
+
+    // CONTROL OPERATOR: Show "Submit to SoQM Lead" and "Return to Facilitator" buttons
+    if (isControlOperator && controlStatus === 'Control Operator Review') {
+        if (submitToSoqmLeadBtn) {
+            submitToSoqmLeadBtn.style.display = 'inline-block';
+            console.log('   ✅ Submit to SoQM Lead button shown for Control Operator');
+        }
+        if (returnToFacilitatorBtn) {
+            returnToFacilitatorBtn.style.display = 'inline-block';
+            console.log('   ✅ Return to Facilitator button shown for Control Operator');
+        }
+    }
+
+    // SOQM LEAD: Show "Submit to Process Owner" and "Return to Operator" buttons
+    if (isSoqmLead && controlStatus === 'SoQM Lead Review') {
+        if (submitToProcessOwnerBtn) {
+            submitToProcessOwnerBtn.style.display = 'inline-block';
+            console.log('   ✅ Submit to Process Owner button shown for SoQM Lead');
+        }
+        if (returnToOperatorBtn) {
+            returnToOperatorBtn.style.display = 'inline-block';
+            console.log('   ✅ Return to Operator button shown for SoQM Lead');
+        }
+    }
+
+    // PROCESS OWNER: Show "Complete" and "Return to SoQM Lead" buttons
+    if (isProcessOwner && controlStatus === 'Process Owner Review') {
+        if (completeControlBtn) {
+            completeControlBtn.style.display = 'inline-block';
+            console.log('   ✅ Complete button shown for Process Owner');
+        }
+        if (returnToSoqmLeadBtn) {
+            returnToSoqmLeadBtn.style.display = 'inline-block';
+            console.log('   ✅ Return to SoQM Lead button shown for Process Owner');
+        }
+    }
+
+    // Hide Edit/Rename for Facilitator after submission
+    if (isFacilitator && controlStatus === 'Control Operator Review') {
+        console.log('   🔒 Facilitator after submission - hiding edit buttons');
+        if (editBtn) editBtn.style.display = 'none';
+        if (renameIdBtn) renameIdBtn.style.display = 'none';
+    }
+
+    // Hide Edit/Rename for Control Operator after submission to SoQM Lead
+    if (isControlOperator && controlStatus === 'SoQM Lead Review') {
+        console.log('   🔒 Control Operator after submission - hiding edit buttons');
+        if (editBtn) editBtn.style.display = 'none';
+        if (renameIdBtn) renameIdBtn.style.display = 'none';
+    }
+
+    // ============================================
+    // FACILITATOR CONTROL STEPS VALIDATION
+    // ============================================
+    if (isFacilitator && (controlStatus === 'Facilitator Review' || controlStatus === 'FACILITATOR_REVIEW')) {
+        const controlSteps = document.querySelector('textarea[name="controlStepsPerformed"]');
+        const facilitatorBtn = submitToOperatorBtn;
+
+        console.log('🔍 Facilitator Control Steps Validation Check:');
+        console.log('   facilitatorBtn:', facilitatorBtn);
+        console.log('   controlSteps field:', controlSteps);
+        console.log('   controlSteps value:', controlSteps ? controlSteps.value : 'NOT FOUND');
+
+        function isControlStepsFilled() {
+            if (!controlSteps) {
+                console.warn('⚠️ controlStepsPerformed element not found');
+                return false;
+            }
+            const filled = controlSteps.value && controlSteps.value.trim().length > 0;
+            console.log('   isControlStepsFilled:', filled, '(value length:', (controlSteps.value || '').length + ')');
+            return filled;
+        }
+
+        function updateFacilitatorButton() {
+            if (!facilitatorBtn) return;
+            const isFilled = isControlStepsFilled();
+            console.log('   updateFacilitatorButton called, isFilled:', isFilled);
+
+            if (isFilled) {
+                facilitatorBtn.disabled = false;
+                facilitatorBtn.removeAttribute('disabled');
+                facilitatorBtn.title = facilitatorBtn.getAttribute('data-original-title') || facilitatorBtn.title;
+                facilitatorBtn.style.cursor = 'pointer';
+                facilitatorBtn.style.opacity = '1';
+                facilitatorBtn.style.pointerEvents = 'auto';
+                console.log('✅ Facilitator button ENABLED:', facilitatorBtn.id);
+            } else {
+                facilitatorBtn.disabled = true;
+                facilitatorBtn.setAttribute('disabled', 'disabled');
+                facilitatorBtn.setAttribute('data-original-title', facilitatorBtn.title);
+                facilitatorBtn.title = 'Fill Control steps performed and results to enable submission';
+                facilitatorBtn.style.cursor = 'not-allowed';
+                facilitatorBtn.style.opacity = '0.5';
+                facilitatorBtn.style.pointerEvents = 'none';
+                console.log('🔒 Facilitator button DISABLED:', facilitatorBtn.id);
+            }
+        }
+
+        updateFacilitatorButton();
+
+        if (controlSteps) {
+            controlSteps.addEventListener('input', () => {
+                console.log('📝 Input event triggered on controlStepsPerformed');
+                updateFacilitatorButton();
+            });
+            controlSteps.addEventListener('change', () => {
+                console.log('📝 Change event triggered on controlStepsPerformed');
+                updateFacilitatorButton();
+            });
+            controlSteps.addEventListener('blur', () => {
+                console.log('📝 Blur event triggered on controlStepsPerformed');
+                updateFacilitatorButton();
+            });
+        }
+
+        const facilitatorValidationInterval = setInterval(() => {
+            const currentValue = controlSteps ? controlSteps.value : '';
+            if (currentValue && currentValue.trim().length > 0) {
+                console.log('✅ Control steps has text, ensuring facilitator button is enabled');
+                updateFacilitatorButton();
+            }
+        }, 500);
+
+        console.log('✅ Facilitator control steps validation initialized with continuous monitoring');
+    }
+
+    // ============================================
+    // CONTROL OPERATOR PROGRAM VALIDATION
+    // ============================================
+    if (isControlOperator && (controlStatus === 'Control Operator Review')) {
+        const coActionButtons = document.querySelectorAll('.co-action-btn');
+        const coProgram = document.getElementById('controlOperatorsProgram');
+        
+        console.log('🔍 CO Program Validation Check:');
+        console.log('   coActionButtons found:', coActionButtons.length);
+        console.log('   coProgram field:', coProgram);
+        console.log('   coProgram value:', coProgram ? coProgram.value : 'NOT FOUND');
+        
+        // Function to check if field is filled
+        function isCoProgamFilled() {
+            if (!coProgram) {
+                console.warn('⚠️ coProgram element not found');
+                return false;
+            }
+            const filled = coProgram.value && coProgram.value.trim().length > 0;
+            console.log('   isCoProgamFilled:', filled, '(value length:', (coProgram.value || '').length + ')');
+            return filled;
+        }
+        
+        // Function to update button states
+        function updateCoActionButtons() {
+            const isFilled = isCoProgamFilled();
+            console.log('   updateCoActionButtons called, isFilled:', isFilled);
+            
+            coActionButtons.forEach(btn => {
+                if (isFilled) {
+                    btn.disabled = false;
+                    btn.removeAttribute('disabled');
+                    btn.title = btn.getAttribute('data-original-title') || btn.title;
+                    btn.style.cursor = 'pointer';
+                    btn.style.opacity = '1';
+                    btn.style.pointerEvents = 'auto';
+                    console.log('✅ CO Action button ENABLED:', btn.id);
+                } else {
+                    btn.disabled = true;
+                    btn.setAttribute('disabled', 'disabled');
+                    btn.setAttribute('data-original-title', btn.title);
+                    btn.title = 'Fill Control Operator\'s Program to enable actions';
+                    btn.style.cursor = 'not-allowed';
+                    btn.style.opacity = '0.5';
+                    btn.style.pointerEvents = 'none';
+                    console.log('🔒 CO Action button DISABLED:', btn.id);
+                }
+            });
+        }
+        
+        // Initial check
+        updateCoActionButtons();
+        
+        // Listen for changes in the textarea
+        if (coProgram) {
+            coProgram.addEventListener('input', () => {
+                console.log('📝 Input event triggered on coProgram');
+                updateCoActionButtons();
+            });
+            coProgram.addEventListener('change', () => {
+                console.log('📝 Change event triggered on coProgram');
+                updateCoActionButtons();
+            });
+            coProgram.addEventListener('blur', () => {
+                console.log('📝 Blur event triggered on coProgram');
+                updateCoActionButtons();
+            });
+        }
+        
+        // Also check every 1 second in case form is dynamically updated
+        const coValidationInterval = setInterval(() => {
+            const currentValue = coProgram ? coProgram.value : '';
+            if (currentValue && currentValue.trim().length > 0) {
+                console.log('✅ CO Program has text, ensuring buttons are enabled');
+                updateCoActionButtons();
+            }
+        }, 1000);
+        
+        console.log('✅ Control Operator Program validation initialized with continuous monitoring');
+    }
+
+    // ============================================
+    // ROLE-BASED FIELD RESTRICTIONS
+    // ============================================
+    function applyRoleBasedRestrictions() {
+        const currentUserRole = document.getElementById('currentUserRole')?.value || 'UNKNOWN';
+        const restrictedFields = document.querySelectorAll('.role-restricted-field');
+        
+        console.log('🔐 Applying role-based restrictions for role:', currentUserRole);
+        
+        restrictedFields.forEach(field => {
+            const allowedRoles = (field.getAttribute('data-allowed-roles') || '').split(',');
+            const fieldName = field.name;
+            const isAllowed = allowedRoles.includes(currentUserRole);
+            
+            console.log(`   Field: ${fieldName}, AllowedRoles: ${allowedRoles}, IsAllowed: ${isAllowed}`);
+            
+            if (!isAllowed) {
+                // Disable field for this role
+                field.disabled = true;
+                field.readOnly = true;
+                field.setAttribute('disabled', 'disabled');
+                field.setAttribute('readonly', 'readonly');
+                field.style.cursor = 'not-allowed';
+                field.style.backgroundColor = '#e9ecef';
+                field.style.color = '#6c757d';
+                field.style.borderColor = '#dee2e6';
+                
+                // Add visual indicator to label
+                const label = field.parentElement?.querySelector('.form-label');
+                if (label && !label.classList.contains('role-restricted-label')) {
+                    label.classList.add('role-restricted-label');
+                }
+                
+                console.log(`   🔒 RESTRICTED: ${fieldName} is read-only for ${currentUserRole}`);
+            } else {
+                // Enable field for this role
+                field.disabled = false;
+                field.readOnly = false;
+                field.removeAttribute('disabled');
+                field.removeAttribute('readonly');
+                field.style.cursor = 'auto';
+                field.style.backgroundColor = '';
+                field.style.color = '';
+                field.style.borderColor = '';
+                
+                const label = field.parentElement?.querySelector('.form-label');
+                if (label) {
+                    label.classList.remove('role-restricted-label');
+                }
+                
+                console.log(`   ✅ ALLOWED: ${fieldName} is editable for ${currentUserRole}`);
+            }
+        });
+    }
+    
+    // ============================================
+    // STATUS-BASED FIELD RESTRICTIONS
+    // ============================================
+    function applyStatusBasedRestrictions() {
+        const statusValue = document.querySelector('input[name="controlStatus"]')?.value || '';
+        const normalizedStatus = statusValue.toUpperCase().replace(/\s+/g, '_');
+        const allowedStatuses = new Set(['FACILITATOR_REVIEW', 'IN_PROGRESS']);
+        const isAllowed = allowedStatuses.has(normalizedStatus);
+
+        const controlStepsField = document.querySelector('textarea[name="controlStepsPerformed"]');
+        if (!controlStepsField) {
+            console.warn('⚠️ controlStepsPerformed element not found');
+            return;
+        }
+
+        console.log('🔒 Status-based restriction:', { statusValue, normalizedStatus, isAllowed });
+
+        if (!isAllowed) {
+            controlStepsField.disabled = true;
+            controlStepsField.readOnly = true;
+            controlStepsField.setAttribute('disabled', 'disabled');
+            controlStepsField.setAttribute('readonly', 'readonly');
+            controlStepsField.style.cursor = 'not-allowed';
+            controlStepsField.style.backgroundColor = '#e9ecef';
+            controlStepsField.style.color = '#6c757d';
+            controlStepsField.style.borderColor = '#dee2e6';
+        } else {
+            controlStepsField.disabled = false;
+            controlStepsField.readOnly = false;
+            controlStepsField.removeAttribute('disabled');
+            controlStepsField.removeAttribute('readonly');
+            controlStepsField.style.cursor = '';
+            controlStepsField.style.backgroundColor = '';
+            controlStepsField.style.color = '';
+            controlStepsField.style.borderColor = '';
+        }
+    }
+
+    // Apply restrictions on page load
+    applyRoleBasedRestrictions();
+    applyStatusBasedRestrictions();
+    
+    // Also apply when entering edit mode (if form is cloned or refreshed)
+    const editBtnForRoleRestrictions = document.getElementById('editBtn');
+    if (editBtnForRoleRestrictions) {
+        editBtnForRoleRestrictions.addEventListener('click', () => {
+            setTimeout(() => {
+                console.log('⏱️ Re-applying role restrictions after edit mode activated');
+                applyRoleBasedRestrictions();
+                applyStatusBasedRestrictions();
+            }, 100);
+        });
+    }
+    
+    console.log('✅ Role-based field restrictions initialized');
+
+    // ============================================
+    // SOQM LEAD HEAD/TEAM COMMENTS VALIDATION
+    // ============================================
+    if (isSoqmLead && (controlStatus === 'SoQM Lead Review')) {
+        const soqmActionButtons = document.querySelectorAll('.soqm-action-btn');
+        const soqmComments = document.getElementById('soqmHeadComments');
+        
+        console.log('🔍 SoQM Lead Validation Check:');
+        console.log('   soqmActionButtons found:', soqmActionButtons.length);
+        console.log('   soqmComments field:', soqmComments);
+        console.log('   soqmComments value:', soqmComments ? soqmComments.value : 'NOT FOUND');
+        
+        // Function to check if field is filled
+        function isSoqmCommentsFilled() {
+            if (!soqmComments) {
+                console.warn('⚠️ soqmComments element not found');
+                return false;
+            }
+            const filled = soqmComments.value && soqmComments.value.trim().length > 0;
+            console.log('   isSoqmCommentsFilled:', filled, '(value length:', (soqmComments.value || '').length + ')');
+            return filled;
+        }
+        
+        // Function to update button states
+        function updateSoqmActionButtons() {
+            const isFilled = isSoqmCommentsFilled();
+            console.log('   updateSoqmActionButtons called, isFilled:', isFilled);
+            
+            soqmActionButtons.forEach(btn => {
+                if (isFilled) {
+                    btn.disabled = false;
+                    btn.removeAttribute('disabled');
+                    btn.title = btn.getAttribute('data-original-title') || btn.title;
+                    btn.style.cursor = 'pointer';
+                    btn.style.opacity = '1';
+                    btn.style.pointerEvents = 'auto';
+                    console.log('✅ SoQM Action button ENABLED:', btn.id);
+                } else {
+                    btn.disabled = true;
+                    btn.setAttribute('disabled', 'disabled');
+                    btn.setAttribute('data-original-title', btn.title);
+                    btn.title = 'Fill SoQM Head/Team Comments to enable actions';
+                    btn.style.cursor = 'not-allowed';
+                    btn.style.opacity = '0.5';
+                    btn.style.pointerEvents = 'none';
+                    console.log('🔒 SoQM Action button DISABLED:', btn.id);
+                }
+            });
+        }
+        
+        // Initial check
+        updateSoqmActionButtons();
+        
+        // Listen for changes in the textarea
+        if (soqmComments) {
+            soqmComments.addEventListener('input', () => {
+                console.log('📝 Input event triggered on soqmComments');
+                updateSoqmActionButtons();
+            });
+            soqmComments.addEventListener('change', () => {
+                console.log('📝 Change event triggered on soqmComments');
+                updateSoqmActionButtons();
+            });
+            soqmComments.addEventListener('blur', () => {
+                console.log('📝 Blur event triggered on soqmComments');
+                updateSoqmActionButtons();
+            });
+        }
+        
+        // Also check every 500ms in case form is dynamically updated
+        const soqmValidationInterval = setInterval(() => {
+            const currentValue = soqmComments ? soqmComments.value : '';
+            if (currentValue && currentValue.trim().length > 0) {
+                console.log('✅ SoQM Comments has text, ensuring buttons are enabled');
+                updateSoqmActionButtons();
+            }
+        }, 500);
+        
+        console.log('✅ SoQM Lead Comments validation initialized with continuous monitoring');
+    }
+
+    // ============================================
+    // PROCESS OWNER COMMENTS VALIDATION
+    // ============================================
+    if (isProcessOwner && (controlStatus === 'Process Owner Review')) {
+        const poActionButtons = document.querySelectorAll('.po-action-btn');
+        const poComments = document.getElementById('processOwnerComments');
+        
+        console.log('🔍 Process Owner Validation Check:');
+        console.log('   poActionButtons found:', poActionButtons.length);
+        console.log('   poComments field:', poComments);
+        console.log('   poComments value:', poComments ? poComments.value : 'NOT FOUND');
+        
+        // Function to check if field is filled
+        function isPoCommentsFilled() {
+            if (!poComments) {
+                console.warn('⚠️ poComments element not found');
+                return false;
+            }
+            const filled = poComments.value && poComments.value.trim().length > 0;
+            console.log('   isPoCommentsFilled:', filled, '(value length:', (poComments.value || '').length + ')');
+            return filled;
+        }
+        
+        // Function to update button states
+        function updatePoActionButtons() {
+            const isFilled = isPoCommentsFilled();
+            console.log('   updatePoActionButtons called, isFilled:', isFilled);
+            
+            poActionButtons.forEach(btn => {
+                if (isFilled) {
+                    btn.disabled = false;
+                    btn.removeAttribute('disabled');
+                    btn.title = btn.getAttribute('data-original-title') || btn.title;
+                    btn.style.cursor = 'pointer';
+                    btn.style.opacity = '1';
+                    btn.style.pointerEvents = 'auto';
+                    console.log('✅ PO Action button ENABLED:', btn.id);
+                } else {
+                    btn.disabled = true;
+                    btn.setAttribute('disabled', 'disabled');
+                    btn.setAttribute('data-original-title', btn.title);
+                    btn.title = 'Fill Process Owner Comments to enable actions';
+                    btn.style.cursor = 'not-allowed';
+                    btn.style.opacity = '0.5';
+                    btn.style.pointerEvents = 'none';
+                    console.log('🔒 PO Action button DISABLED:', btn.id);
+                }
+            });
+        }
+        
+        // Initial check
+        updatePoActionButtons();
+        
+        // Listen for changes in the textarea
+        if (poComments) {
+            poComments.addEventListener('input', () => {
+                console.log('📝 Input event triggered on poComments');
+                updatePoActionButtons();
+            });
+            poComments.addEventListener('change', () => {
+                console.log('📝 Change event triggered on poComments');
+                updatePoActionButtons();
+            });
+            poComments.addEventListener('blur', () => {
+                console.log('📝 Blur event triggered on poComments');
+                updatePoActionButtons();
+            });
+        }
+        
+        // Also check every 500ms in case form is dynamically updated
+        const poValidationInterval = setInterval(() => {
+            const currentValue = poComments ? poComments.value : '';
+            if (currentValue && currentValue.trim().length > 0) {
+                console.log('✅ PO Comments has text, ensuring buttons are enabled');
+                updatePoActionButtons();
+            }
+        }, 500);
+        
+        console.log('✅ Process Owner Comments validation initialized with continuous monitoring');
+    }
+});
+
+// ============================================
+// FILE ATTACHMENT UPLOAD & DOWNLOAD SYSTEM
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📁 Initializing file attachment system...');
+    
+    // Get numeric control ID from hidden input
+    const idInput = document.querySelector('input[name="id"]');
+    const controlId = idInput ? idInput.value : null;
+    
+    if (!controlId || isNaN(controlId)) {
+        console.warn('⚠️ Numeric control ID not found, file attachment disabled');
+        return;
+    }
+    
+    console.log('✅ Control ID for attachments:', controlId);
+    
+    // DOM Elements
+    const detailsInput = document.getElementById('attachmentDetailsInput');
+    const documentsInput = document.getElementById('attachmentDocumentsInput');
+    const downloadDetailsBtn = document.getElementById('downloadDetailsBtn');
+    const downloadDocumentsBtn = document.getElementById('downloadDocumentsBtn');
+    const detailsFileInfo = document.getElementById('detailsFileInfo');
+    const documentsFileInfo = document.getElementById('documentsFileInfo');
+    
+    // Initially disable file inputs (read-only mode by default)
+    if (detailsInput) {
+        detailsInput.disabled = true;
+        detailsInput.style.pointerEvents = 'none';
+        detailsInput.style.opacity = '0.6';
+    }
+    if (documentsInput) {
+        documentsInput.disabled = true;
+        documentsInput.style.pointerEvents = 'none';
+        documentsInput.style.opacity = '0.6';
+    }
+    
+    // Load existing attachments on page load
+    loadExistingAttachments();
+    
+    // Show selected file name when user selects a file
+    if (detailsInput) {
+        detailsInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                const count = this.files.length;
+                if (count > 20) {
+                    alert('⚠️ Maximum 20 files allowed. Please select fewer files.');
+                    this.value = '';
+                    if (detailsFileInfo) detailsFileInfo.textContent = '';
+                    return;
+                }
+                const fileNames = Array.from(this.files).map(f => f.name).join(', ');
+                if (detailsFileInfo) detailsFileInfo.textContent = `📄 Selected ${count} file(s): ${fileNames.substring(0, 100)}${fileNames.length > 100 ? '...' : ''}`;
+                console.log(`📄 Details files selected: ${count}`, this.files);
+            }
+        });
+    }
+    
+    if (documentsInput) {
+        documentsInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                const count = this.files.length;
+                if (count > 20) {
+                    alert('⚠️ Maximum 20 files allowed. Please select fewer files.');
+                    this.value = '';
+                    if (documentsFileInfo) documentsFileInfo.textContent = '';
+                    return;
+                }
+                const fileNames = Array.from(this.files).map(f => f.name).join(', ');
+                if (documentsFileInfo) documentsFileInfo.textContent = `📄 Selected ${count} file(s): ${fileNames.substring(0, 100)}${fileNames.length > 100 ? '...' : ''}`;
+                console.log('📄 Documents file selected:', this.files[0].name);
+            }
+        });
+    }
+    
+    // Flag to prevent multiple uploads
+    let filesAlreadyUploaded = false;
+    
+    // Global function to upload attachments (called from save functions)
+    window.uploadAttachments = async function() {
+        console.log('📤 uploadAttachments() called');
+        
+        // Prevent duplicate uploads
+        if (filesAlreadyUploaded) {
+            console.log('ℹ️ Files already uploaded, skipping');
+            return Promise.resolve({ success: true, skipped: true });
+        }
+        
+        const formData = new FormData();
+        let hasFiles = false;
+        
+        if (detailsInput && detailsInput.files.length > 0) {
+            // Add all selected files for Details
+            Array.from(detailsInput.files).forEach(file => {
+                formData.append('attachmentDetails', file);
+                console.log('📎 Adding details file:', file.name);
+            });
+            hasFiles = true;
+        }
+        
+        if (documentsInput && documentsInput.files.length > 0) {
+            // Add all selected files for Documents
+            Array.from(documentsInput.files).forEach(file => {
+                formData.append('attachmentDocuments', file);
+                console.log('📎 Adding documents file:', file.name);
+            });
+            hasFiles = true;
+        }
+        
+        if (!hasFiles) {
+            console.log('ℹ️ No files selected for upload');
+            return Promise.resolve();
+        }
+        
+        // Mark as uploaded to prevent duplicates
+        filesAlreadyUploaded = true;
+        
+        console.log('📤 Uploading files to /api/attachments/upload/' + controlId);
+        
+        try {
+            const response = await fetch('/api/attachments/upload/' + controlId, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            console.log('📥 Upload response:', data);
+            
+            if (data.success) {
+                console.log('✅ Files uploaded successfully');
+                loadExistingAttachments();
+            } else {
+                console.error('❌ Upload failed:', data.error);
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('❌ Upload error:', error);
+            return { success: false, error: error.message };
+        }
+    };
+    
+    // Load existing attachment info from server
+    function loadExistingAttachments() {
+        fetch('/api/attachments/info/' + controlId)
+            .then(response => response.json())
+            .then(data => {
+                console.log('📥 Existing attachments:', data);
+                
+                // Show Details attachments if exist (semicolon-separated list)
+                if (data.attachmentDetailsPath && detailsFileInfo) {
+                    const files = data.attachmentDetailsPath.split(';').filter(f => f.trim());
+                    if (files.length > 0) {
+                        const fileLinks = files.map(file => {
+                            const filename = file.split('_').slice(2).join('_') || file; // Extract original name
+                            return `<a href="/api/attachments/download/${encodeURIComponent(file)}" class="badge bg-info text-decoration-none me-1" download><i class="bi bi-download"></i> ${filename}</a>`;
+                        }).join(' ');
+                        detailsFileInfo.innerHTML = `📎 Files (${files.length}): ${fileLinks}`;
+                        if (downloadDetailsBtn) downloadDetailsBtn.style.display = 'none'; // Hide old button
+                    }
+                }
+                
+                // Show Documents attachments if exist (semicolon-separated list)
+                if (data.attachmentDocumentsPath && documentsFileInfo) {
+                    const files = data.attachmentDocumentsPath.split(';').filter(f => f.trim());
+                    if (files.length > 0) {
+                        const fileLinks = files.map(file => {
+                            const filename = file.split('_').slice(2).join('_') || file; // Extract original name
+                            return `<a href="/api/attachments/download/${encodeURIComponent(file)}" class="badge bg-info text-decoration-none me-1" download><i class="bi bi-download"></i> ${filename}</a>`;
+                        }).join(' ');
+                        documentsFileInfo.innerHTML = `📎 Files (${files.length}): ${fileLinks}`;
+                        if (downloadDocumentsBtn) downloadDocumentsBtn.style.display = 'none'; // Hide old button
+                    }
+                }
+            })
+            .catch(error => console.warn('⚠️ Could not load attachments:', error));
+    }
+    
+    // Expose function globally for Cancel button to call
+    window.reloadExistingAttachments = loadExistingAttachments;
+    
+    console.log('✅ File attachment system initialized');
+});
+</script>
+</body>
+</html>

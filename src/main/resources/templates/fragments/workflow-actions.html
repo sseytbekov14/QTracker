@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- Фрагмент для кнопок approve/return -->
+<div th:fragment="workflow-actions(controlId)"
+     class="workflow-actions mt-4 p-3 border rounded"
+     style="display: none;"
+     id="workflowActionsPanel">
+
+    <h6 class="mb-3">📋 Workflow Actions</h6>
+
+    <!-- Approve Button -->
+    <div class="mb-3">
+        <label for="approvalComments" class="form-label small">Approval Comments (optional):</label>
+        <textarea id="approvalComments" class="form-control form-control-sm"
+                  rows="2" placeholder="Add comments..."></textarea>
+        <button onclick="approveControl()" class="btn btn-success btn-sm mt-2">
+            <i class="bi bi-check-circle"></i> Approve & Forward
+        </button>
+    </div>
+
+    <hr>
+
+    <!-- Return Button -->
+    <div>
+        <label for="returnReason" class="form-label small">Return Reason (required):</label>
+        <textarea id="returnReason" class="form-control form-control-sm"
+                  rows="2" placeholder="Explain what needs correction..." required></textarea>
+
+        <!-- Return To Select (для SOQM Lead и Process Owner) -->
+        <div id="returnToContainer" class="mt-2" style="display: none;">
+            <label class="form-label small">Return to:</label>
+            <select id="returnToStep" class="form-select form-select-sm">
+                <option value="FACILITATOR">Facilitator</option>
+                <option value="CONTROL_OPERATOR">Control Operator</option>
+                <option value="SOQM_LEAD">SOQM Lead</option>
+            </select>
+        </div>
+
+        <button onclick="returnControl()" class="btn btn-warning btn-sm mt-2">
+            <i class="bi bi-arrow-return-left"></i> Return for Revision
+        </button>
+    </div>
+
+    <!-- Status Messages -->
+    <div id="workflowMessage" class="mt-3" style="display: none;"></div>
+</div>
+</body>
+</html>

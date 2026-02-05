@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Edit Control - QTracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
+    <style>
+        .form-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .required-field::after {
+            content: " *";
+            color: #dc3545;
+        }
+        .form-section {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            margin-bottom: 2rem;
+        }
+        .page-footer {
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid #dee2e6;
+            text-align: center;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+<div class="container-fluid">
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-12">
+            <div class="form-container">
+                <!-- Header -->
+                <div class="mb-4">
+                    <a href="/controls">
+                        <img src="/images/kpmg_white.png" alt="KPMG" style="height: 45px; width: auto;">
+                    </a>
+                    <span class="ms-3" th:text="${userName}">User Name</span>
+                </div>
+
+                <h4 class="mb-4">Edit Control</h4>
+
+                <form id="editControlForm">
+                    <!-- Скрытые поля -->
+                    <input type="hidden" id="controlId" th:value="${control.id}">
+                    <input type="hidden" name="createdByEmail" th:value="${userEmail}">
+
+                    <!-- Row 1 -->
+                    <div class="form-section">
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label for="controlIdDisplay" class="form-label required-field">Control ID</label>
+                                <input type="text" class="form-control" id="controlIdDisplay"
+                                       th:value="${control.controlId}" readonly>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="controlFrequency" class="form-label required-field">Control Frequency</label>
+                                <select class="form-select" id="controlFrequency" name="controlFrequency" required>
+                                    <option value="">Select Frequency</option>
+                                    <option value="Monthly" th:selected="${control.controlFrequency == 'Monthly'}">Monthly</option>
+                                    <option value="Quarterly" th:selected="${control.controlFrequency == 'Quarterly'}">Quarterly</option>
+                                    <option value="Ad-hoc" th:selected="${control.controlFrequency == 'Ad-hoc' or control.controlFrequency == 'As-required/at least annually'}">Ad-hoc</option>
+                                    <option value="Recurring" th:selected="${control.controlFrequency == 'Recurring' or control.controlFrequency == 'Recurring/other'}">Recurring</option>
+                                    <option value="Annual/Semi-annual" th:selected="${control.controlFrequency == 'Annual/Semi-annual' or control.controlFrequency == 'Annually' or control.controlFrequency == 'Semi-annually'}">Annual/Semi-annual</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="controlCategory" class="form-label required-field">Control Category</label>
+                                <select class="form-select" id="controlCategory" name="controlCategory" required>
+                                    <option value="">Select Category</option>
+                                    <option value="New" th:selected="${control.controlCategory == 'New'}">New</option>
+                                    <option value="Enhanced" th:selected="${control.controlCategory == 'Enhanced'}">Enhanced</option>
+                                    <option value="Existing" th:selected="${control.controlCategory == 'Existing'}">Existing</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="controlType" class="form-label required-field">Control Type</label>
+                                <select class="form-select" id="controlType" name="controlType" required>
+                                    <option value="">Select Type</option>
+                                    <option value="Manual" th:selected="${control.controlType == 'Manual'}">Manual</option>
+                                    <option value="Automated" th:selected="${control.controlType == 'Automated'}">Automated</option>
+                                    <option value="IT Dependent Manual" th:selected="${control.controlType == 'IT Dependent Manual'}">IT Dependent Manual</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2 -->
+                    <div class="form-section">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="component" class="form-label required-field">Component</label>
+                                <select class="form-select" id="component" name="component" required>
+                                    <option value="">Select Component</option>
+                                    <option value="HR" th:selected="${control.component == 'HR'}">Human Resources (HR)</option>
+                                    <option value="A&C" th:selected="${control.component == 'A&C'}">Acceptance and Continuance (A&C)</option>
+                                    <option value="EP" th:selected="${control.component == 'EP'}">Engagement Performance (EP)</option>
+                                    <option value="INTR" th:selected="${control.component == 'INTR'}">Intellectual Resources (INTR)</option>
+                                    <option value="I&C" th:selected="${control.component == 'I&C'}">Information and Communication (I&C)</option>
+                                    <option value="RER" th:selected="${control.component == 'RER'}">Relevant Ethical Requirements (RER)</option>
+                                    <option value="M&R" th:selected="${control.component == 'M&R'}">Monitoring and Remediation (M&R)</option>
+                                    <option value="GOV" th:selected="${control.component == 'GOV'}">Governance (GOV)</option>
+                                    <option value="TECHR" th:selected="${control.component == 'TECHR'}">Technological Resources (TECHR)</option>
+                                    <option value="RAP" th:selected="${control.component == 'RAP'}">Risk Assessment Process (RAP)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="operatedBy" class="form-label required-field">Operated By</label>
+                                <select class="form-select" id="operatedBy" name="operatedBy" required>
+                                    <option value="">Select Operator</option>
+                                    <option value="Member Firm" th:selected="${control.operatedBy == 'Member Firm'}">Member Firm</option>
+                                    <option value="Network" th:selected="${control.operatedBy == 'Network'}">Network</option>
+                                    <option value="Network (MF initiated)" th:selected="${control.operatedBy == 'Network (MF initiated)'}">Network (MF initiated)</option>
+                                    <option value="Sub Regional" th:selected="${control.operatedBy == 'Sub Regional'}">Sub Regional</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="referencesToControl" class="form-label">References to this Control</label>
+                                <input type="text" class="form-control" id="referencesToControl" name="referencesToControl"
+                                       th:value="${control.referencesToControl}" placeholder="Enter references">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 3 -->
+                    <div class="form-section">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="priority" class="form-label required-field">Priority</label>
+                                <select class="form-select" id="priority" name="priority" required>
+                                    <option value="">Select Priority</option>
+                                    <option value="High" th:selected="${control.priority == 'High'}">High</option>
+                                    <option value="Medium" th:selected="${control.priority == 'Medium'}">Medium</option>
+                                    <option value="Low" th:selected="${control.priority == 'Low'}">Low</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="nonAuditServicesApplicability" class="form-label">Non-Audit Services Control Applicability</label>
+                                <select class="form-select" id="nonAuditServicesApplicability" name="nonAuditServicesApplicability">
+                                    <option value="">Select Applicability</option>
+                                    <option value="ALL" th:selected="${control.nonAuditServicesApplicability == 'ALL'}">ALL</option>
+                                    <option value="AFS" th:selected="${control.nonAuditServicesApplicability == 'AFS'}">AFS</option>
+                                    <option value="Elected (Audit, Assurance, ORS only)" th:selected="${control.nonAuditServicesApplicability == 'Elected (Audit, Assurance, ORS only)'}">Elected (Audit, Assurance, ORS only)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="homogeneity" class="form-label">Homogeneity</label>
+                                <select class="form-select" id="homogeneity" name="homogeneity">
+                                    <option value="">Select Homogeneity</option>
+                                    <option value="Homogenous" th:selected="${control.homogeneity == 'Homogenous'}">Homogenous</option>
+                                    <option value="Non-Homogenous" th:selected="${control.homogeneity == 'Non-Homogenous'}">Non-Homogenous</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 4 -->
+                    <div class="form-section">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="controlDescription" class="form-label">Control Description</label>
+                                <textarea class="form-control" id="controlDescription" name="controlDescription"
+                                          rows="5" placeholder="Enter detailed control description"
+                                          th:text="${control.controlDescription}"></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="prp" class="form-label">PRP</label>
+                                <textarea class="form-control" id="prp" name="prp"
+                                          rows="5" placeholder="Enter PRP details"
+                                          th:text="${control.prp}"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Success Alert -->
+                    <div class="alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3"
+                         id="successAlert" style="display: none; z-index: 9999;">
+                        <strong>✓ Success!</strong> Control updated successfully!
+                        <button type="button" class="btn-close" onclick="hideSuccessAlert()"></button>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="row">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">Update Control</button>
+                            <button type="button" class="btn btn-secondary" onclick="history.back()">Cancel</button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Footer -->
+                <div class="page-footer">
+                    <div>Registered to</div>
+                    <div><strong>KPMG Kazakhstan</strong></div>
+                    <div>QTracker | Version 2025</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.getElementById('editControlForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const controlId = document.getElementById('controlId').value;
+    const formData = new FormData(this);
+    const jsonData = {};
+    formData.forEach((value, key) => {
+        jsonData[key] = value;
+    });
+
+    console.log('Updating control with data:', jsonData);
+
+    // Показываем loading state
+    const submitBtn = document.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Updating...';
+
+    fetch('/api/controls/' + controlId, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(jsonData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.text().then(text => {
+                throw new Error(text || 'Server error');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Control updated successfully:', data);
+
+        // В edit-control.html замените редирект на:
+        window.location.href = '/?updated=true';
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating control: ' + error.message);
+        // Восстанавливаем кнопку
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    });
+});
+
+    function goBack() {
+        if (document.referrer && document.referrer.includes(window.location.hostname)) {
+            window.history.back();
+        } else {
+            window.location.href = '/controls';
+        }
+    }
+
+    // Success alert functions
+    function showSuccessAlert() {
+        const alert = document.getElementById('successAlert');
+        alert.style.display = 'block';
+
+        // Auto hide after 3 seconds
+        setTimeout(hideSuccessAlert, 3000);
+    }
+
+    function hideSuccessAlert() {
+        const alert = document.getElementById('successAlert');
+        alert.style.display = 'none';
+    }
+</script>
+</body>
+</html>
