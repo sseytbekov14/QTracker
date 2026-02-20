@@ -52,9 +52,7 @@ public class RoleController {
                     dto.setId(user.getId());
                     dto.setDisplayName(user.getDisplayName());
                     dto.setMail(user.getMail());
-                    dto.setDepartment(user.getDepartment());
                     dto.setTitle(user.getTitle());
-                    dto.setOffice(user.getOffice());
                     dto.setRole(user.getRole());
                     return dto;
                 })

@@ -9,9 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.UUID;
 
 @Service
 public class FileStorageService {
@@ -23,25 +20,52 @@ public class FileStorageService {
      * Saves uploaded file to disk and returns the unique filename
      */
     public String saveFile(MultipartFile file) throws IOException {
+        return saveFile(file, null);
+    }
+
+    /**
+     * Saves uploaded file to disk under a control-specific folder
+     */
+    public String saveFile(MultipartFile file, String controlFolder) throws IOException {
         if (file == null || file.isEmpty()) {
             return null;
         }
 
         // Create upload directory if it doesn't exist
-        Path uploadPath = Paths.get(uploadDir);
+        String safeFolder = sanitizeFolderName(controlFolder);
+        Path uploadPath = safeFolder == null || safeFolder.isBlank()
+                ? Paths.get(uploadDir)
+                : Paths.get(uploadDir, safeFolder);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
             System.out.println("📁 Created upload directory: " + uploadPath);
         }
 
-        // Generate unique filename: timestamp_uuid_originalname
         String originalFilename = file.getOriginalFilename();
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        String uniqueId = UUID.randomUUID().toString().substring(0, 8);
-        String uniqueFilename = timestamp + "_" + uniqueId + "_" + sanitizeFilename(originalFilename);
+        String safeFilename = sanitizeFilename(originalFilename);
+        String baseName = safeFilename;
+        String extension = "";
+        int dotIndex = safeFilename.lastIndexOf('.');
+        if (dotIndex > 0 && dotIndex < safeFilename.length() - 1) {
+            baseName = safeFilename.substring(0, dotIndex);
+            extension = safeFilename.substring(dotIndex + 1);
+        }
 
-        // Save file
+        if (baseName == null || baseName.isBlank()) {
+            baseName = "file";
+        }
+
+        String extensionSuffix = extension.isBlank() ? "" : "." + extension;
+        String uniqueFilename = baseName + extensionSuffix;
         Path filePath = uploadPath.resolve(uniqueFilename);
+
+        int counter = 1;
+        while (Files.exists(filePath)) {
+            uniqueFilename = baseName + " (" + counter + ")" + extensionSuffix;
+            filePath = uploadPath.resolve(uniqueFilename);
+            counter++;
+        }
+
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
         System.out.println("✅ File saved: " + filePath);
@@ -52,7 +76,18 @@ public class FileStorageService {
      * Returns the file bytes for download
      */
     public byte[] downloadFile(String filename) throws IOException {
-        Path filePath = Paths.get(uploadDir).resolve(filename);
+        return downloadFile(filename, null);
+    }
+
+    public byte[] downloadFile(String filename, String controlFolder) throws IOException {
+        String safeFolder = sanitizeFolderName(controlFolder);
+        Path basePath = Paths.get(uploadDir);
+        Path filePath = safeFolder == null || safeFolder.isBlank()
+                ? basePath.resolve(filename)
+                : basePath.resolve(safeFolder).resolve(filename);
+        if (!Files.exists(filePath) && safeFolder != null && !safeFolder.isBlank()) {
+            filePath = basePath.resolve(filename);
+        }
         if (!Files.exists(filePath)) {
             throw new IOException("File not found: " + filename);
         }
@@ -97,5 +132,10 @@ public class FileStorageService {
     private String sanitizeFilename(String filename) {
         if (filename == null) return "unknown";
         return filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    private String sanitizeFolderName(String folder) {
+        if (folder == null) return null;
+        return folder.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 }

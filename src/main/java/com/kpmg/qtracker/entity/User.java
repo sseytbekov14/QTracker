@@ -20,9 +20,7 @@ public class User {
     @Column(unique = true, name = "mail")
     private String mail;
 
-    private String department;
     private String title;
-    private String office;
     private Boolean enabled;
 
     @Column(name = "username", unique = true)

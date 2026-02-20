@@ -26,18 +26,24 @@ public class NotificationTemplateService {
                                        boolean resubmitted,
                                        String recipientName,
                                        String recipientRole) {
-        String controlLabel = buildControlLabel(control);
+        String controlId = buildControlId(control);
+        String controlName = buildControlName(control);
+        String controlIdAndNameSlash = buildControlIdAndName(controlId, controlName, " / ");
+        String controlIdAndNameComma = buildControlIdAndName(controlId, controlName, ", ");
         String link = buildControlLink(control);
         String deadlineText = formatDeadline(deadline);
-        String greeting = buildGreeting(recipientRole);
+        String greeting = buildGreeting(recipientName);
 
         switch (type) {
             case ACTIVATION:
                 return new NotificationTemplate(
                         "Control Initiated",
                         greeting + "\n" +
-                        "\n" +
-                                "The scheduled control " + controlLabel + " has been activated today. Kindly complete and submit the control as required before the deadline " + deadlineText + ".\n" +
+                                "\n" +
+                                "The scheduled control " + controlIdAndNameSlash + " has been activated today. Kindly complete and submit the control as required before the deadline " + deadlineText + "\n" +
+                                "\n" +
+                                "Access the control using the link:\n" +
+                                link + "\n" +
                                 "\n" +
                                 "Thank you,\n" +
                                 "\n" +
@@ -132,8 +138,11 @@ public class NotificationTemplateService {
                 return new NotificationTemplate(
                         "Control Reminder",
                         greeting + "\n" +
-                                "We kindly remind you to complete the control " + controlLabel + ". You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
+                                "\n" +
+                                "We kindly remind you to complete the control " + controlIdAndNameComma + ". You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
+                                "\n" +
                                 "Thank you,\n" +
+                                "\n" +
                                 "Kind regards,\n" +
                                 "SoQM Team",
                         "REMINDER"
@@ -142,8 +151,11 @@ public class NotificationTemplateService {
                 return new NotificationTemplate(
                         "Control Reminder",
                         greeting + "\n" +
-                                "We kindly remind you to submit the control " + controlLabel + " to the next reviewer. You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
+                                "\n" +
+                                "We kindly remind you to complete the control " + controlIdAndNameComma + ". You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
+                                "\n" +
                                 "Thank you,\n" +
+                                "\n" +
                                 "Kind regards,\n" +
                                 "SoQM Team",
                         "REMINDER"
@@ -152,8 +164,11 @@ public class NotificationTemplateService {
                 return new NotificationTemplate(
                         "Control Reminder",
                         greeting + "\n" +
-                                "We kindly remind you that the control " + controlLabel + " is still open. You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
+                                "\n" +
+                                "We kindly remind you to complete the control " + controlIdAndNameComma + ". You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
+                                "\n" +
                                 "Thank you,\n" +
+                                "\n" +
                                 "Kind regards,\n" +
                                 "SoQM Team",
                         "REMINDER"
@@ -162,8 +177,11 @@ public class NotificationTemplateService {
                 return new NotificationTemplate(
                         "Control Reminder",
                         greeting + "\n" +
-                                "Control " + controlLabel + " deadline is approaching. You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
+                                "\n" +
+                                "Control " + controlIdAndNameComma + " deadline is approaching. You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
+                                "\n" +
                                 "Thank you,\n" +
+                                "\n" +
                                 "Kind regards,\n" +
                                 "SoQM Team",
                         "REMINDER"
@@ -172,8 +190,11 @@ public class NotificationTemplateService {
                 return new NotificationTemplate(
                         "Control Reminder",
                         greeting + "\n" +
-                                "Control " + controlLabel + " deadline is approaching. Please submit it to the next reviewer using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
+                                "\n" +
+                                "Control " + controlIdAndNameComma + " deadline is approaching. You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
+                                "\n" +
                                 "Thank you,\n" +
+                                "\n" +
                                 "Kind regards,\n" +
                                 "SoQM Team",
                         "REMINDER"
@@ -182,8 +203,11 @@ public class NotificationTemplateService {
                 return new NotificationTemplate(
                         "Control Reminder",
                         greeting + "\n" +
-                                "Control " + controlLabel + " is still open and the deadline is approaching. You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
+                                "\n" +
+                                "Control " + controlIdAndNameComma + " deadline is approaching. You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
+                                "\n" +
                                 "Thank you,\n" +
+                                "\n" +
                                 "Kind regards,\n" +
                                 "SoQM Team",
                         "REMINDER"
@@ -192,12 +216,17 @@ public class NotificationTemplateService {
                 return new NotificationTemplate(
                         "Control Deadline Notification",
                         greeting + "\n" +
+                                "\n" +
                                 "Our records indicate that the control deadline has passed.\n" +
-                                "The following control remains incomplete: " + controlLabel + "\n" +
+                                "The following control remains incomplete: " + controlIdAndNameComma + "\n" +
+                                "\n" +
                                 "Please ensure this control is completed by the end of the day. You can access and complete the control using the link below:\n" +
                                 link + "\n" +
+                                "\n" +
                                 "If you have any questions or require assistance, please let us know.\n" +
+                                "\n" +
                                 "Thank you,\n" +
+                                "\n" +
                                 "Kind regards,\n" +
                                 "SoQM Team",
                         "REMINDER"
@@ -238,6 +267,43 @@ public class NotificationTemplateService {
         return "Control";
     }
 
+    private String buildControlId(Control control) {
+        if (control == null) {
+            return "Control";
+        }
+        String id = control.getControlId() != null ? control.getControlId().trim() : "";
+        return id.isEmpty() ? "Control" : id;
+    }
+
+    private String buildControlName(Control control) {
+        if (control == null) {
+            return "";
+        }
+        String description = control.getControlDescription() != null ? control.getControlDescription().trim() : "";
+        return description;
+    }
+
+    private String buildControlIdAndName(String controlId, String controlName, String delimiter) {
+        String id = controlId != null ? controlId.trim() : "";
+        String name = controlName != null ? controlName.trim() : "";
+        if (id.isEmpty() && name.isEmpty()) {
+            return "Control";
+        }
+        if ("Control".equalsIgnoreCase(id) && !name.isEmpty()) {
+            return name;
+        }
+        if (!id.isEmpty() && !name.isEmpty() && id.equalsIgnoreCase(name)) {
+            return id;
+        }
+        if (name.isEmpty()) {
+            return id;
+        }
+        if (id.isEmpty()) {
+            return name;
+        }
+        return id + delimiter + name;
+    }
+
     private String formatDeadline(LocalDate deadline) {
         if (deadline == null) {
             return "N/A";
@@ -245,10 +311,10 @@ public class NotificationTemplateService {
         return deadline.format(DEADLINE_FORMAT);
     }
 
-    private String buildGreeting(String recipientRole) {
-        String role = recipientRole != null ? recipientRole.trim() : "";
-        if (!role.isEmpty()) {
-            return "Dear " + role + ",";
+    private String buildGreeting(String displayName) {
+        String name = displayName != null ? displayName.trim() : "";
+        if (!name.isEmpty()) {
+            return "Dear " + name + ",";
         }
         return "Dear User,";
     }

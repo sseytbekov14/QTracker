@@ -5,14 +5,11 @@ import lombok.Data;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "control_assignments")
+@Table(name = "controls")
 @Data
 public class ControlAssignment {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "control_id")
+    @Column(name = "id")
     private Long controlId;
 
     private String facilitator; // JSON array of user emails

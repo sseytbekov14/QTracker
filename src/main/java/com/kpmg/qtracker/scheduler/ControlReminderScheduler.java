@@ -7,8 +7,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
 
 @Component
 @RequiredArgsConstructor
@@ -16,14 +16,18 @@ import java.time.ZoneId;
 @ConditionalOnProperty(prefix = "reminders", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class ControlReminderScheduler {
 
-    private static final ZoneId ZONE_ID = ZoneId.of("Asia/Almaty");
-
     private final ReminderNotificationService reminderNotificationService;
+    private final Clock clock;
 
     @Scheduled(cron = "0 30 9 * * *", zone = "Asia/Almaty")
     public void runDaily() {
-        LocalDate today = LocalDate.now(ZONE_ID);
-        log.info("Running daily control reminders for {}", today);
-        reminderNotificationService.runDailyReminders(today);
+        LocalDate today = LocalDate.now(clock);
+        log.info("Scheduler trigger: control reminders for {}", today);
+        ReminderNotificationService.ReminderRunSummary summary = reminderNotificationService.runDailyRemindersWithSummary(today);
+        log.info("Scheduler completed: date={}, processed={}, sent={}, deduped={}",
+                summary.getRunDate(),
+                summary.getProcessedControlsCount(),
+                summary.getSentCount(),
+                summary.getDedupedCount());
     }
 }

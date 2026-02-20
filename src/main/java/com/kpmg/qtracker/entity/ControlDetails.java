@@ -4,14 +4,11 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 @Entity
-@Table(name = "control_details")
+@Table(name = "controls")
 @Data
 public class ControlDetails {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "control_id")
+    @Column(name = "id")
     private Long controlId;
 
     private String processName;
@@ -22,8 +19,6 @@ public class ControlDetails {
     @Column(length = 2000)
     private String processActivities;
 
-    @Column(length = 2000)
-    private String controlOperatorsProgram;
 
     private String otherRelatedControls;
     private String itApplications;
@@ -31,11 +26,10 @@ public class ControlDetails {
     @Column(length = 2000)
     private String controlStepsPerformed;
 
-    @Column(length = 2000)
+    @Column(name = "soqm_head_comments", length = 2000)
     private String soqmHeadComments;
 
-    @Column(length = 2000)
+    @Column(name = "process_owner_comments", length = 2000)
     private String processOwnerComments;
 
-    private String attachedFile;
 }

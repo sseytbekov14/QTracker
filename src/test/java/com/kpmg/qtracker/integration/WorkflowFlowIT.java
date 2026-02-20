@@ -2,9 +2,11 @@ package com.kpmg.qtracker.integration;
 
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
+import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
+import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.NotificationRepository;
 import com.kpmg.qtracker.repository.UserRepository;
@@ -40,6 +42,9 @@ class WorkflowFlowIT {
     private ControlAssignmentRepository assignmentRepository;
 
     @Autowired
+    private ControlDetailsRepository controlDetailsRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -65,7 +70,7 @@ class WorkflowFlowIT {
         control = new Control();
         control.setControlId("CTRL-" + suffix);
         control.setControlFrequency("Monthly");
-        control.setControlStatus("Facilitator Review");
+        control.setControlStatus("IN_PROGRESS");
         control = controlRepository.save(control);
 
         ControlAssignment assignment = new ControlAssignment();
@@ -75,6 +80,14 @@ class WorkflowFlowIT {
         assignment.setSoqmLead(soqmLead.getMail());
         assignment.setProcessOwner(processOwner.getMail());
         assignmentRepository.save(assignment);
+
+        ControlDetails details = new ControlDetails();
+        details.setControlId(control.getId());
+        details.setControlStepsPerformed("Steps performed");
+        details.setControlOperatorsProgram("Operator program");
+        details.setSoqmHeadComments("SoQM comments");
+        details.setProcessOwnerComments("Process owner comments");
+        controlDetailsRepository.save(details);
     }
 
     @AfterEach
@@ -104,7 +117,7 @@ class WorkflowFlowIT {
                         .param("controlId", String.valueOf(controlId))
                         .sessionAttr("currentUser", facilitator))
                 .andExpect(status().isOk());
-        assertControlStatus(controlId, "Control Operator Review");
+        assertControlStatus(controlId, "REVIEW");
         expectedCounts.put(operator.getMail(), 1);
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 1);
@@ -113,7 +126,7 @@ class WorkflowFlowIT {
                         .param("controlId", String.valueOf(controlId))
                         .sessionAttr("currentUser", operator))
                 .andExpect(status().isOk());
-        assertControlStatus(controlId, "SoQM Lead Review");
+        assertControlStatus(controlId, "SOQM_HEAD_REVIEW");
         expectedCounts.put(soqmLead.getMail(), 1);
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 2);
@@ -122,7 +135,7 @@ class WorkflowFlowIT {
                         .param("controlId", String.valueOf(controlId))
                         .sessionAttr("currentUser", soqmLead))
                 .andExpect(status().isOk());
-        assertControlStatus(controlId, "Control Operator Review");
+        assertControlStatus(controlId, "REVIEW");
         expectedCounts.put(operator.getMail(), 2);
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 3);
@@ -131,7 +144,7 @@ class WorkflowFlowIT {
                         .param("controlId", String.valueOf(controlId))
                         .sessionAttr("currentUser", operator))
                 .andExpect(status().isOk());
-        assertControlStatus(controlId, "SoQM Lead Review");
+        assertControlStatus(controlId, "SOQM_HEAD_REVIEW");
         expectedCounts.put(soqmLead.getMail(), 2);
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 4);
@@ -140,7 +153,7 @@ class WorkflowFlowIT {
                         .param("controlId", String.valueOf(controlId))
                         .sessionAttr("currentUser", soqmLead))
                 .andExpect(status().isOk());
-        assertControlStatus(controlId, "Process Owner Review");
+        assertControlStatus(controlId, "PROCESS_OWNER_REVIEW");
         expectedCounts.put(processOwner.getMail(), 1);
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 5);
@@ -149,7 +162,7 @@ class WorkflowFlowIT {
                         .param("controlId", String.valueOf(controlId))
                         .sessionAttr("currentUser", processOwner))
                 .andExpect(status().isOk());
-        assertControlStatus(controlId, "Completed");
+        assertControlStatus(controlId, "COMPLETED");
         expectedCounts.put(facilitator.getMail(), 1);
         expectedCounts.put(operator.getMail(), 3);
         expectedCounts.put(soqmLead.getMail(), 3);
@@ -165,6 +178,52 @@ class WorkflowFlowIT {
                         .sessionAttr("currentUser", operator))
                 .andExpect(status().isForbidden());
         assertNotificationCounts(control.getId(), Map.of());
+    }
+
+    @Test
+    void submitToControlOperator_requiresControlStepsPerformed() throws Exception {
+        updateDetails(control.getId(), details -> details.setControlStepsPerformed(""));
+
+        mockMvc.perform(post("/api/workflow/submit-to-control-operator")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .sessionAttr("currentUser", facilitator))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void submitToSoqmLead_requiresControlOperatorsProgram() throws Exception {
+        control.setPerformanceStatus("REVIEW");
+        controlRepository.save(control);
+        updateDetails(control.getId(), details -> details.setControlOperatorsProgram(""));
+
+        mockMvc.perform(post("/api/workflow/submit-to-soqm-lead")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .sessionAttr("currentUser", operator))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void submitToProcessOwner_requiresSoqmHeadComments() throws Exception {
+        control.setPerformanceStatus("SOQM_HEAD_REVIEW");
+        controlRepository.save(control);
+        updateDetails(control.getId(), details -> details.setSoqmHeadComments(""));
+
+        mockMvc.perform(post("/api/workflow/submit-to-process-owner")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .sessionAttr("currentUser", soqmLead))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void completeControl_requiresProcessOwnerComments() throws Exception {
+        control.setPerformanceStatus("PROCESS_OWNER_REVIEW");
+        controlRepository.save(control);
+        updateDetails(control.getId(), details -> details.setProcessOwnerComments(""));
+
+        mockMvc.perform(post("/api/workflow/complete-control")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .sessionAttr("currentUser", processOwner))
+                .andExpect(status().isBadRequest());
     }
 
     private User saveUser(String role, String mail, String displayName) {
@@ -210,4 +269,16 @@ class WorkflowFlowIT {
         }
         assertEquals(expected, actual);
     }
+
+    private void updateDetails(Long controlId, java.util.function.Consumer<ControlDetails> updater) {
+        ControlDetails details = controlDetailsRepository.findByControlId(controlId)
+                .orElseGet(() -> {
+                    ControlDetails fresh = new ControlDetails();
+                    fresh.setControlId(controlId);
+                    return fresh;
+                });
+        updater.accept(details);
+        controlDetailsRepository.save(details);
+    }
 }
+

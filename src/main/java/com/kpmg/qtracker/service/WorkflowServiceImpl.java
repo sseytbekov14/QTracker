@@ -1,4 +1,4 @@
-package com.kpmg.qtracker.service;
+﻿package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.*;
@@ -30,26 +30,26 @@ public class WorkflowServiceImpl implements WorkflowService {
     public void initiateWorkflow(Long controlId, String facilitatorEmail) {
         log.info("Initiating workflow for control: {}, facilitator: {}", controlId, facilitatorEmail);
 
-        // 1. Получаем assignment чтобы знать кто назначен
+        // 1. РџРѕР»СѓС‡Р°РµРј assignment С‡С‚РѕР±С‹ Р·РЅР°С‚СЊ РєС‚Рѕ РЅР°Р·РЅР°С‡РµРЅ
         ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
 
-        // 2. Создаем все 4 шага workflow
+        // 2. РЎРѕР·РґР°РµРј РІСЃРµ 4 С€Р°РіР° workflow
         List<WorkflowStep> steps = createWorkflowSteps(controlId, assignment);
 
-        // 3. Сохраняем все шаги
+        // 3. РЎРѕС…СЂР°РЅСЏРµРј РІСЃРµ С€Р°РіРё
         workflowStepRepository.saveAll(steps);
 
-        // 4. Активируем первый шаг (Facilitator)
+        // 4. РђРєС‚РёРІРёСЂСѓРµРј РїРµСЂРІС‹Р№ С€Р°Рі (Facilitator)
         WorkflowStep firstStep = steps.get(0);
-        firstStep.setStatus(WorkflowStatus.FACILITATOR_REVIEW);
+        firstStep.setStatus(WorkflowStatus.IN_PROGRESS);
         firstStep.setAssignedToEmail(facilitatorEmail);
         workflowStepRepository.save(firstStep);
 
-        // 5. Создаем запись в истории
+        // 5. РЎРѕР·РґР°РµРј Р·Р°РїРёСЃСЊ РІ РёСЃС‚РѕСЂРёРё
         createHistoryRecord(controlId, facilitatorEmail,
                 WorkflowActionType.INITIATE,
                 null,
-                "FACILITATOR_REVIEW",
+                "IN_PROGRESS",
                 "Workflow initiated by facilitator");
 
         // 6. Send notifications to all assigned roles (facilitator + operator + SOQM lead + process owner)
@@ -61,12 +61,6 @@ public class WorkflowServiceImpl implements WorkflowService {
             }
             if (assignment.getControlOperator() != null) {
                 recipients.addAll(assignment.getControlOperator());
-            }
-            if (assignment.getSoqmLead() != null) {
-                recipients.addAll(assignment.getSoqmLead());
-            }
-            if (assignment.getProcessOwner() != null) {
-                recipients.addAll(assignment.getProcessOwner());
             }
 
             if (!recipients.isEmpty()) {
@@ -87,24 +81,24 @@ public class WorkflowServiceImpl implements WorkflowService {
         List<WorkflowButtonDTO> buttons = new ArrayList<>();
 
         try {
-            // Use control_status instead
+            // Use performance_status instead
             Control control = controlService.getControlById(controlId).orElse(null);
             
-            String performanceStatus = "In Progress";
-            if (control != null && control.getControlStatus() != null) {
-                performanceStatus = control.getControlStatus();
+            String performanceStatus = WorkflowStatus.IN_PROGRESS.name();
+            if (control != null && control.getPerformanceStatus() != null) {
+                performanceStatus = control.getPerformanceStatus();
             }
 
-            // Получаем роль пользователя
+            // РџРѕР»СѓС‡Р°РµРј СЂРѕР»СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
             Optional<User> userOpt = userService.getUserByEmail(userEmail);
             if (userOpt.isEmpty()) {
-                return buttons; // Пользователь не найден
+                return buttons; // РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ
             }
 
             String userRole = userOpt.get().getRole();
 
-            // ★ Кнопки для FACILITATOR
-            if ("FACILITATOR".equals(userRole) && "In Progress".equals(performanceStatus)) {
+            // в… РљРЅРѕРїРєРё РґР»СЏ FACILITATOR
+            if ("FACILITATOR".equals(userRole) && WorkflowStatus.IN_PROGRESS.name().equals(performanceStatus)) {
                 buttons.add(new WorkflowButtonDTO(
                         "SUBMIT_FOR_REVIEW",
                         "Submit for Review",
@@ -114,8 +108,8 @@ public class WorkflowServiceImpl implements WorkflowService {
                 ));
             }
 
-            // ★ Кнопки для CONTROL_OPERATOR
-            if ("CONTROL_OPERATOR".equals(userRole) && "Control Operator Review".equals(performanceStatus)) {
+            // в… РљРЅРѕРїРєРё РґР»СЏ CONTROL_OPERATOR
+            if ("CONTROL_OPERATOR".equals(userRole) && WorkflowStatus.REVIEW.name().equals(performanceStatus)) {
                 buttons.add(new WorkflowButtonDTO(
                         "SUBMIT_FOR_SOQM",
                         "Submit for SoQM",
@@ -128,13 +122,13 @@ public class WorkflowServiceImpl implements WorkflowService {
                         "RETURN_TO_FACILITATOR",
                         "Return to Facilitator",
                         "btn-warning",
-                        true, // требует комментарий
+                        true, // С‚СЂРµР±СѓРµС‚ РєРѕРјРјРµРЅС‚Р°СЂРёР№
                         "Please provide reason for returning to Facilitator"
                 ));
             }
 
-            // ★ Кнопки для SOQM_LEAD
-            if ("SOQM_LEAD".equals(userRole) && "SoQM Head Review".equals(performanceStatus)) {
+            // в… РљРЅРѕРїРєРё РґР»СЏ SOQM_LEAD
+            if ("SOQM_LEAD".equals(userRole) && WorkflowStatus.SOQM_HEAD_REVIEW.name().equals(performanceStatus)) {
                 buttons.add(new WorkflowButtonDTO(
                         "SEND_TO_PROCESS_OWNER",
                         "Send to Process Owner",
@@ -160,8 +154,8 @@ public class WorkflowServiceImpl implements WorkflowService {
                 ));
             }
 
-            // ★ Кнопки для PROCESS_OWNER
-            if ("PROCESS_OWNER".equals(userRole) && "Process Owner Review".equals(performanceStatus)) {
+            // в… РљРЅРѕРїРєРё РґР»СЏ PROCESS_OWNER
+            if ("PROCESS_OWNER".equals(userRole) && WorkflowStatus.PROCESS_OWNER_REVIEW.name().equals(performanceStatus)) {
                 buttons.add(new WorkflowButtonDTO(
                         "COMPLETE",
                         "Complete",
@@ -210,46 +204,46 @@ public class WorkflowServiceImpl implements WorkflowService {
                 return currentStep.getStatus();
             }
 
-            // Если нет активного шага, проверяем есть ли вообще workflow
+            // Р•СЃР»Рё РЅРµС‚ Р°РєС‚РёРІРЅРѕРіРѕ С€Р°РіР°, РїСЂРѕРІРµСЂСЏРµРј РµСЃС‚СЊ Р»Рё РІРѕРѕР±С‰Рµ workflow
             List<WorkflowStepDTO> steps = getWorkflowSteps(controlId);
             if (steps.isEmpty()) {
-                return WorkflowStatus.NOT_STARTED; // Нет workflow
+                return WorkflowStatus.DRAFT; // РќРµС‚ workflow
             }
 
-            // Проверяем если workflow завершен
+            // РџСЂРѕРІРµСЂСЏРµРј РµСЃР»Рё workflow Р·Р°РІРµСЂС€РµРЅ
             boolean allCompleted = steps.stream()
                     .allMatch(step -> step.getStatus() == WorkflowStatus.COMPLETED);
             if (allCompleted) {
                 return WorkflowStatus.COMPLETED;
             }
 
-            return WorkflowStatus.DRAFT; // По умолчанию
+            return WorkflowStatus.DRAFT; // РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
 
         } catch (Exception e) {
             log.error("Error getting workflow status for control {}: {}", controlId, e.getMessage());
-            return WorkflowStatus.NOT_STARTED;
+            return WorkflowStatus.DRAFT;
         }
     }
 
     private List<WorkflowStep> createWorkflowSteps(Long controlId, ControlAssignmentDTO assignment) {
         List<WorkflowStep> steps = new ArrayList<>();
 
-        // Шаг 1: Facilitator
+        // РЁР°Рі 1: Facilitator
         steps.add(createStep(controlId, WorkflowStepType.FACILITATOR, 1,
                 assignment.getFacilitator() != null && !assignment.getFacilitator().isEmpty()
                         ? assignment.getFacilitator().get(0) : null));
 
-        // Шаг 2: Control Operator
+        // РЁР°Рі 2: Control Operator
         steps.add(createStep(controlId, WorkflowStepType.CONTROL_OPERATOR, 2,
                 assignment.getControlOperator() != null && !assignment.getControlOperator().isEmpty()
                         ? assignment.getControlOperator().get(0) : null));
 
-        // Шаг 3: SOQM Lead
+        // РЁР°Рі 3: SOQM Lead
         steps.add(createStep(controlId, WorkflowStepType.SOQM_LEAD, 3,
                 assignment.getSoqmLead() != null && !assignment.getSoqmLead().isEmpty()
                         ? assignment.getSoqmLead().get(0) : null));
 
-        // Шаг 4: Process Owner
+        // РЁР°Рі 4: Process Owner
         steps.add(createStep(controlId, WorkflowStepType.PROCESS_OWNER, 4,
                 assignment.getProcessOwner() != null && !assignment.getProcessOwner().isEmpty()
                         ? assignment.getProcessOwner().get(0) : null));
@@ -264,14 +258,14 @@ public class WorkflowServiceImpl implements WorkflowService {
         step.setSequenceOrder(sequenceOrder);
         step.setAssignedToEmail(assignedEmail);
 
-        // Получаем имя пользователя если email есть
+        // РџРѕР»СѓС‡Р°РµРј РёРјСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РµСЃР»Рё email РµСЃС‚СЊ
         if (assignedEmail != null) {
             userService.getUserByEmail(assignedEmail).ifPresent(user -> {
                 step.setAssignedToName(user.getDisplayName());
             });
         }
 
-        step.setStatus(WorkflowStatus.NOT_STARTED);
+        step.setStatus(WorkflowStatus.DRAFT);
         return step;
     }
 
@@ -294,71 +288,35 @@ public class WorkflowServiceImpl implements WorkflowService {
     public WorkflowStepDTO approveStep(WorkflowActionDTO actionDTO, String approverEmail) {
         log.info("Approving step for control: {}, approver: {}", actionDTO.getControlId(), approverEmail);
 
-        // 1. Получаем текущий шаг
+        // 1. РџРѕР»СѓС‡Р°РµРј С‚РµРєСѓС‰РёР№ С€Р°Рі
         WorkflowStep currentStep = workflowStepRepository.findCurrentStep(actionDTO.getControlId())
                 .orElseThrow(() -> new RuntimeException("No active workflow step found"));
 
-        // 2. Проверяем что пользователь - назначенный апрувер
+        // 2. РџСЂРѕРІРµСЂСЏРµРј С‡С‚Рѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ - РЅР°Р·РЅР°С‡РµРЅРЅС‹Р№ Р°РїСЂСѓРІРµСЂ
         if (!approverEmail.equals(currentStep.getAssignedToEmail())) {
             throw new RuntimeException("User is not assigned to approve this step");
         }
 
-        // 3. VALIDATION: If this is Control Operator step, check if controlOperatorsProgram is filled
-        if (currentStep.getStepType().name().equals("CONTROL_OPERATOR")) {
-            Control control = controlService.getControlById(actionDTO.getControlId())
-                    .orElseThrow(() -> new RuntimeException("Control not found"));
-            
-            if (control.getControlOperatorsProgram() == null || 
-                control.getControlOperatorsProgram().trim().isEmpty()) {
-                throw new RuntimeException("VALIDATION_ERROR: Control Operator's Program must be filled before submitting");
-            }
-            log.info("✅ Control Operator's Program validation passed for control: {}", actionDTO.getControlId());
-        }
-        
-        // 3b. VALIDATION: If this is SoQM Lead step, check if soqmHeadComments is filled
-        if (currentStep.getStepType().name().equals("SOQM_LEAD")) {
-            Control control = controlService.getControlById(actionDTO.getControlId())
-                    .orElseThrow(() -> new RuntimeException("Control not found"));
-            
-            if (control.getSoqmHeadComments() == null || 
-                control.getSoqmHeadComments().trim().isEmpty()) {
-                throw new RuntimeException("VALIDATION_ERROR: SoQM Head/Team Comments must be filled before submitting");
-            }
-            log.info("✅ SoQM Head/Team Comments validation passed for control: {}", actionDTO.getControlId());
-        }
-        
-        // 3c. VALIDATION: If this is Process Owner step, check if processOwnerComments is filled
-        if (currentStep.getStepType().name().equals("PROCESS_OWNER")) {
-            Control control = controlService.getControlById(actionDTO.getControlId())
-                    .orElseThrow(() -> new RuntimeException("Control not found"));
-            
-            if (control.getProcessOwnerComments() == null || 
-                control.getProcessOwnerComments().trim().isEmpty()) {
-                throw new RuntimeException("VALIDATION_ERROR: Process Owner Comments must be filled before completing");
-            }
-            log.info("✅ Process Owner Comments validation passed for control: {}", actionDTO.getControlId());
-        }
-
-        // 4. Завершаем текущий шаг
+        // 4. Р—Р°РІРµСЂС€Р°РµРј С‚РµРєСѓС‰РёР№ С€Р°Рі
         currentStep.setStatus(WorkflowStatus.COMPLETED);
         currentStep.setCompletedAt(LocalDateTime.now());
         currentStep.setComments(actionDTO.getComments());
         workflowStepRepository.save(currentStep);
 
-        // 5. Если есть следующий шаг - активируем его
+        // 5. Р•СЃР»Рё РµСЃС‚СЊ СЃР»РµРґСѓСЋС‰РёР№ С€Р°Рі - Р°РєС‚РёРІРёСЂСѓРµРј РµРіРѕ
         Optional<WorkflowStep> nextStep = workflowStepRepository.findByControlIdAndSequenceOrder(
                 actionDTO.getControlId(), currentStep.getSequenceOrder() + 1);
 
         if (nextStep.isPresent()) {
             WorkflowStep next = nextStep.get();
-            next.setStatus(WorkflowStatus.valueOf(next.getStepType().name() + "_REVIEW"));
+            next.setStatus(statusForStepType(next.getStepType()));
             workflowStepRepository.save(next);
 
-            // 6. Создаем запись в истории
+            // 6. РЎРѕР·РґР°РµРј Р·Р°РїРёСЃСЊ РІ РёСЃС‚РѕСЂРёРё
             createHistoryRecord(actionDTO.getControlId(), approverEmail,
                     WorkflowActionType.APPROVE,
-                    currentStep.getStepType().name(),
-                    next.getStepType().name(),
+                    statusForStepType(currentStep.getStepType()).name(),
+                    statusForStepType(next.getStepType()).name(),
                     actionDTO.getComments());
 
             // 7. Send notification to next step assignee
@@ -371,15 +329,15 @@ public class WorkflowServiceImpl implements WorkflowService {
 
             return convertToDTO(next);
         } else {
-            // Это был последний шаг - workflow завершен
-            // 7. Создаем запись в истории
+            // Р­С‚Рѕ Р±С‹Р» РїРѕСЃР»РµРґРЅРёР№ С€Р°Рі - workflow Р·Р°РІРµСЂС€РµРЅ
+            // 7. РЎРѕР·РґР°РµРј Р·Р°РїРёСЃСЊ РІ РёСЃС‚РѕСЂРёРё
             createHistoryRecord(actionDTO.getControlId(), approverEmail,
                     WorkflowActionType.APPROVE,
-                    currentStep.getStepType().name(),
+                    statusForStepType(currentStep.getStepType()).name(),
                     "COMPLETED",
                     actionDTO.getComments());
 
-            return null; // Workflow завершен
+            return null; // Workflow Р·Р°РІРµСЂС€РµРЅ
         }
     }
 
@@ -387,57 +345,24 @@ public class WorkflowServiceImpl implements WorkflowService {
     public WorkflowStepDTO returnStep(WorkflowActionDTO actionDTO, String approverEmail) {
         log.info("Returning step for control: {}, approver: {}", actionDTO.getControlId(), approverEmail);
 
-        // 1. Получаем текущий шаг
+        // 1. РџРѕР»СѓС‡Р°РµРј С‚РµРєСѓС‰РёР№ С€Р°Рі
         WorkflowStep currentStep = workflowStepRepository.findCurrentStep(actionDTO.getControlId())
                 .orElseThrow(() -> new RuntimeException("No active workflow step found"));
 
-        // 2. Проверяем что пользователь - назначенный апрувер
+        // 2. РџСЂРѕРІРµСЂСЏРµРј С‡С‚Рѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ - РЅР°Р·РЅР°С‡РµРЅРЅС‹Р№ Р°РїСЂСѓРІРµСЂ
         if (!approverEmail.equals(currentStep.getAssignedToEmail())) {
             throw new RuntimeException("User is not assigned to approve this step");
         }
 
-        // 3. VALIDATION: If this is Control Operator step, check if controlOperatorsProgram is filled
-        if (currentStep.getStepType().name().equals("CONTROL_OPERATOR")) {
-            Control control = controlService.getControlById(actionDTO.getControlId())
-                    .orElseThrow(() -> new RuntimeException("Control not found"));
-            
-            if (control.getControlOperatorsProgram() == null || 
-                control.getControlOperatorsProgram().trim().isEmpty()) {
-                throw new RuntimeException("VALIDATION_ERROR: Control Operator's Program must be filled before returning");
-            }
-            log.info("✅ Control Operator's Program validation passed for control: {}", actionDTO.getControlId());
-        }
         
-        // 3b. VALIDATION: If this is SoQM Lead step, check if soqmHeadComments is filled
-        if (currentStep.getStepType().name().equals("SOQM_LEAD")) {
-            Control control = controlService.getControlById(actionDTO.getControlId())
-                    .orElseThrow(() -> new RuntimeException("Control not found"));
-            
-            if (control.getSoqmHeadComments() == null || 
-                control.getSoqmHeadComments().trim().isEmpty()) {
-                throw new RuntimeException("VALIDATION_ERROR: SoQM Head/Team Comments must be filled before returning");
-            }
-            log.info("✅ SoQM Head/Team Comments validation passed for control: {}", actionDTO.getControlId());
-        }
         
-        // 3c. VALIDATION: If this is Process Owner step, check if processOwnerComments is filled
-        if (currentStep.getStepType().name().equals("PROCESS_OWNER")) {
-            Control control = controlService.getControlById(actionDTO.getControlId())
-                    .orElseThrow(() -> new RuntimeException("Control not found"));
-            
-            if (control.getProcessOwnerComments() == null || 
-                control.getProcessOwnerComments().trim().isEmpty()) {
-                throw new RuntimeException("VALIDATION_ERROR: Process Owner Comments must be filled before returning");
-            }
-            log.info("✅ Process Owner Comments validation passed for control: {}", actionDTO.getControlId());
-        }
 
-        // 4. ★ ПРОВЕРЯЕМ ПРАВА НА ВОЗВРАТ согласно таблице:
+        // 4. в… РџР РћР’Р•Р РЇР•Рњ РџР РђР’Рђ РќРђ Р’РћР—Р’Р РђРў СЃРѕРіР»Р°СЃРЅРѕ С‚Р°Р±Р»РёС†Рµ:
         if (!canUserReturnFromStep(currentStep.getStepType(), approverEmail, actionDTO.getControlId())) {
             throw new RuntimeException("User does not have permission to return from this step");
         }
 
-        // 5. Определяем на какой шаг возвращаем (согласно таблице прав)
+        // 5. РћРїСЂРµРґРµР»СЏРµРј РЅР° РєР°РєРѕР№ С€Р°Рі РІРѕР·РІСЂР°С‰Р°РµРј (СЃРѕРіР»Р°СЃРЅРѕ С‚Р°Р±Р»РёС†Рµ РїСЂР°РІ)
         String returnToStep = determineReturnToStepAccordingToRights(
                 currentStep.getStepType(),
                 actionDTO.getReturnToStep(),
@@ -445,26 +370,26 @@ public class WorkflowServiceImpl implements WorkflowService {
                 actionDTO.getControlId()
         );
 
-        // 6. Завершаем текущий шаг с статусом RETURNED
-        currentStep.setStatus(WorkflowStatus.RETURNED);
+        // 6. Р—Р°РІРµСЂС€Р°РµРј С‚РµРєСѓС‰РёР№ С€Р°Рі
+        currentStep.setStatus(WorkflowStatus.COMPLETED);
         currentStep.setCompletedAt(LocalDateTime.now());
         currentStep.setReturnReason(actionDTO.getReturnReason());
         currentStep.setReturnedToStep(returnToStep);
         workflowStepRepository.save(currentStep);
 
-        // 7. Активируем шаг на который возвращаем
+        // 7. РђРєС‚РёРІРёСЂСѓРµРј С€Р°Рі РЅР° РєРѕС‚РѕСЂС‹Р№ РІРѕР·РІСЂР°С‰Р°РµРј
         WorkflowStep returnStep = workflowStepRepository.findByControlIdAndStepType(
                         actionDTO.getControlId(), returnToStep)
                 .orElseThrow(() -> new RuntimeException("Return step not found: " + returnToStep));
 
-        returnStep.setStatus(WorkflowStatus.valueOf(returnStep.getStepType().name() + "_REVIEW"));
+        returnStep.setStatus(statusForStepType(returnStep.getStepType()));
         workflowStepRepository.save(returnStep);
 
-        // 8. Создаем запись в истории
+        // 8. РЎРѕР·РґР°РµРј Р·Р°РїРёСЃСЊ РІ РёСЃС‚РѕСЂРёРё
         createHistoryRecord(actionDTO.getControlId(), approverEmail,
                 WorkflowActionType.RETURN,
-                currentStep.getStepType().name(),
-                returnToStep,
+                statusForStepType(currentStep.getStepType()).name(),
+                statusForStepType(WorkflowStepType.valueOf(returnToStep)).name(),
                 actionDTO.getReturnReason());
 
         // 9. Send notification to returned step assignee
@@ -484,35 +409,35 @@ public class WorkflowServiceImpl implements WorkflowService {
                                                           String requestedReturnTo,
                                                           String userEmail,
                                                           Long controlId) {
-        // ★ ТАБЛИЦА ПРАВ:
-        // Control Operator → только Facilitator
-        // SOQM Lead → CO или Facilitator
-        // Process Owner → любой предыдущий
+        // в… РўРђР‘Р›РР¦Рђ РџР РђР’:
+        // Control Operator в†’ С‚РѕР»СЊРєРѕ Facilitator
+        // SOQM Lead в†’ CO РёР»Рё Facilitator
+        // Process Owner в†’ Р»СЋР±РѕР№ РїСЂРµРґС‹РґСѓС‰РёР№
 
         switch (currentStepType) {
             case CONTROL_OPERATOR:
-                // Может вернуть только Facilitator
+                // РњРѕР¶РµС‚ РІРµСЂРЅСѓС‚СЊ С‚РѕР»СЊРєРѕ Facilitator
                 return "FACILITATOR";
 
             case SOQM_LEAD:
-                // Может вернуть Control Operator или Facilitator
+                // РњРѕР¶РµС‚ РІРµСЂРЅСѓС‚СЊ Control Operator РёР»Рё Facilitator
                 if (requestedReturnTo != null &&
                         ("CONTROL_OPERATOR".equals(requestedReturnTo) ||
                                 "FACILITATOR".equals(requestedReturnTo))) {
                     return requestedReturnTo;
                 }
-                // По умолчанию возвращаем Control Operator
+                // РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РІРѕР·РІСЂР°С‰Р°РµРј Control Operator
                 return "CONTROL_OPERATOR";
 
             case PROCESS_OWNER:
-                // Может вернуть любого предыдущего
+                // РњРѕР¶РµС‚ РІРµСЂРЅСѓС‚СЊ Р»СЋР±РѕРіРѕ РїСЂРµРґС‹РґСѓС‰РµРіРѕ
                 if (requestedReturnTo != null &&
                         ("SOQM_LEAD".equals(requestedReturnTo) ||
                                 "CONTROL_OPERATOR".equals(requestedReturnTo) ||
                                 "FACILITATOR".equals(requestedReturnTo))) {
                     return requestedReturnTo;
                 }
-                // По умолчанию возвращаем SOQM Lead
+                // РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РІРѕР·РІСЂР°С‰Р°РµРј SOQM Lead
                 return "SOQM_LEAD";
 
             default:
@@ -525,7 +450,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         Map<String, Boolean> permissions = new HashMap<>();
 
         try {
-            // ★ Check if user is ADMIN first - admins have full permissions
+            // в… Check if user is ADMIN first - admins have full permissions
             List<String> userRoles = controlAssignmentService.getUserRolesForControl(controlId, userEmail);
             boolean isAdmin = userRoles.contains("ADMIN");
             
@@ -536,34 +461,39 @@ public class WorkflowServiceImpl implements WorkflowService {
                 permissions.put("canApprove", true);
                 permissions.put("canReturn", true);
                 permissions.put("canView", true);
+                permissions.put("canEditAll", true);
                 permissions.put("isAdmin", true);
                 permissions.put("isFacilitator", false);
                 permissions.put("isControlOperator", false);
                 permissions.put("isSoqmLead", false);
+                permissions.put("isSoqmRole", false);
                 permissions.put("isProcessOwner", false);
                 permissions.put("isOnCurrentStep", false);
+                permissions.put("canEditStepsPerformed", false);
+                permissions.put("canEditProcessOwnerComments", false);
                 return permissions;
             }
             
-            // 1. Получаем текущий статус и шаг
+            // 1. РџРѕР»СѓС‡Р°РµРј С‚РµРєСѓС‰РёР№ СЃС‚Р°С‚СѓСЃ Рё С€Р°Рі
             WorkflowStatus currentStatus = getCurrentWorkflowStatus(controlId);
             WorkflowStepDTO currentStep = getCurrentStep(controlId);
 
-            // 2. Проверяем роли пользователя для этого контроля
+            // 2. РџСЂРѕРІРµСЂСЏРµРј СЂРѕР»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РґР»СЏ СЌС‚РѕРіРѕ РєРѕРЅС‚СЂРѕР»СЏ
             boolean isFacilitator = userRoles.contains("FACILITATOR");
             boolean isControlOperator = userRoles.contains("CONTROL_OPERATOR");
             boolean isSoqmLead = userRoles.contains("SOQM_LEAD");
             boolean isProcessOwner = userRoles.contains("PROCESS_OWNER");
+            boolean isSoqmRole = userService.getUserByEmail(userEmail)
+                    .map(user -> "SOQM_LEAD".equals(user.getRole()))
+                    .orElse(false);
 
-            // 3. Проверяем назначен ли на текущий шаг
+            // 3. РџСЂРѕРІРµСЂСЏРµРј РЅР°Р·РЅР°С‡РµРЅ Р»Рё РЅР° С‚РµРєСѓС‰РёР№ С€Р°Рі
             boolean isOnCurrentStep = currentStep != null &&
                     userEmail.equals(currentStep.getAssignedToEmail());
 
             // 4. Edit control fields
-            boolean canEdit = isFacilitator &&
-                    (currentStatus == WorkflowStatus.NOT_STARTED ||
-                            currentStatus == WorkflowStatus.FACILITATOR_REVIEW);
-            permissions.put("canEdit", canEdit); // Boolean
+            boolean canEditAll = isSoqmRole;
+            permissions.put("canEdit", canEditAll); // Boolean
 
             // 5. Add comments
             permissions.put("canComment", isOnCurrentStep); // Boolean
@@ -581,12 +511,16 @@ public class WorkflowServiceImpl implements WorkflowService {
 
             // 8. View all data
             permissions.put("canView", true); // Boolean
+            permissions.put("canEditAll", canEditAll); // Boolean
+            permissions.put("canEditStepsPerformed", (isFacilitator || isControlOperator) && !canEditAll); // Boolean
+            permissions.put("canEditProcessOwnerComments", isProcessOwner && !canEditAll); // Boolean
 
-            // 9. Дополнительная информация - тоже Boolean!
+            // 9. Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ - С‚РѕР¶Рµ Boolean!
             permissions.put("isAdmin", false); // Boolean
             permissions.put("isFacilitator", isFacilitator); // Boolean
             permissions.put("isControlOperator", isControlOperator); // Boolean
             permissions.put("isSoqmLead", isSoqmLead); // Boolean
+            permissions.put("isSoqmRole", isSoqmRole); // Boolean
             permissions.put("isProcessOwner", isProcessOwner); // Boolean
             permissions.put("isOnCurrentStep", isOnCurrentStep); // Boolean
 
@@ -596,7 +530,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
         } catch (Exception e) {
             log.error("Error calculating permissions: {}", e.getMessage(), e);
-            // Возвращаем дефолтные значения при ошибке
+            // Р’РѕР·РІСЂР°С‰Р°РµРј РґРµС„РѕР»С‚РЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ РїСЂРё РѕС€РёР±РєРµ
             permissions.put("canEdit", false);
             permissions.put("canComment", false);
             permissions.put("canApprove", false);
@@ -607,21 +541,21 @@ public class WorkflowServiceImpl implements WorkflowService {
         return permissions;
     }
 
-    // ★ НОВЫЙ МЕТОД: Проверка может ли пользователь возвращать с текущего шага
+    // в… РќРћР’Р«Р™ РњР•РўРћР”: РџСЂРѕРІРµСЂРєР° РјРѕР¶РµС‚ Р»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РІРѕР·РІСЂР°С‰Р°С‚СЊ СЃ С‚РµРєСѓС‰РµРіРѕ С€Р°РіР°
     private boolean canUserReturnFromStep(WorkflowStepType currentStepType,
                                           String userEmail,
                                           Long controlId) {
         switch (currentStepType) {
             case CONTROL_OPERATOR:
-                // Control Operator может возвращать только если он действительно Control Operator
+                // Control Operator РјРѕР¶РµС‚ РІРѕР·РІСЂР°С‰Р°С‚СЊ С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕРЅ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ Control Operator
                 return controlAssignmentService.isUserControlOperator(controlId, userEmail);
 
             case SOQM_LEAD:
-                // SOQM Lead может возвращать только если он действительно SOQM Lead
+                // SOQM Lead РјРѕР¶РµС‚ РІРѕР·РІСЂР°С‰Р°С‚СЊ С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕРЅ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ SOQM Lead
                 return controlAssignmentService.isUserSoqmLead(controlId, userEmail);
 
             case PROCESS_OWNER:
-                // Process Owner может возвращать только если он действительно Process Owner
+                // Process Owner РјРѕР¶РµС‚ РІРѕР·РІСЂР°С‰Р°С‚СЊ С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕРЅ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ Process Owner
                 return controlAssignmentService.isUserProcessOwner(controlId, userEmail);
 
             default:
@@ -641,6 +575,12 @@ public class WorkflowServiceImpl implements WorkflowService {
     @Override
     public boolean canUserEditControl(Long controlId, String userEmail) {
 
+        boolean isSoqmRole = userService.getUserByEmail(userEmail)
+                .map(user -> "SOQM_LEAD".equals(user.getRole()))
+                .orElse(false);
+        if (isSoqmRole) {
+            return true;
+        }
         boolean isFacilitator = controlAssignmentService.isUserFacilitator(controlId, userEmail);
         if (!isFacilitator) {
             return false;
@@ -648,9 +588,8 @@ public class WorkflowServiceImpl implements WorkflowService {
 
         WorkflowStatus currentStatus = getCurrentWorkflowStatus(controlId);
 
-        boolean canEdit = (currentStatus == WorkflowStatus.NOT_STARTED
-                || currentStatus == WorkflowStatus.FACILITATOR_REVIEW)
-                && currentStatus != WorkflowStatus.RETURNED;
+        boolean canEdit = (currentStatus == WorkflowStatus.DRAFT
+                || currentStatus == WorkflowStatus.IN_PROGRESS);
 
         log.debug("User {} can edit control {}: {} (status: {}, isFacilitator: {})",
                 userEmail, controlId, canEdit, currentStatus, isFacilitator);
@@ -664,7 +603,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         return currentStep.filter(step -> userEmail.equals(step.getAssignedToEmail())).isPresent();
     }
 
-    // Вспомогательные методы
+    // Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ РјРµС‚РѕРґС‹
     private WorkflowStepDTO convertToDTO(WorkflowStep step) {
         WorkflowStepDTO dto = new WorkflowStepDTO();
         dto.setId(step.getId());
@@ -682,6 +621,15 @@ public class WorkflowServiceImpl implements WorkflowService {
         return dto;
     }
 
+    private WorkflowStatus statusForStepType(WorkflowStepType stepType) {
+        return switch (stepType) {
+            case FACILITATOR -> WorkflowStatus.IN_PROGRESS;
+            case CONTROL_OPERATOR -> WorkflowStatus.REVIEW;
+            case SOQM_LEAD -> WorkflowStatus.SOQM_HEAD_REVIEW;
+            case PROCESS_OWNER -> WorkflowStatus.PROCESS_OWNER_REVIEW;
+        };
+    }
+
     private void createHistoryRecord(Long controlId, String performerEmail,
                                      WorkflowActionType actionType,
                                      String fromStep, String toStep, String comments) {
@@ -690,7 +638,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         history.setActionType(actionType);
         history.setPerformedByEmail(performerEmail);
 
-        // Получаем и устанавливаем имя пользователя
+        // РџРѕР»СѓС‡Р°РµРј Рё СѓСЃС‚Р°РЅР°РІР»РёРІР°РµРј РёРјСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
         userService.getUserByEmail(performerEmail).ifPresent(user -> {
             history.setPerformedByName(user.getDisplayName());
         });
@@ -699,7 +647,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         history.setToStep(toStep);
         history.setComments(comments);
 
-        // createdAt устанавливается автоматически через @PrePersist
+        // createdAt СѓСЃС‚Р°РЅР°РІР»РёРІР°РµС‚СЃСЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё С‡РµСЂРµР· @PrePersist
 
         workflowHistoryRepository.save(history);
     }

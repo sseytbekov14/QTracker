@@ -32,6 +32,7 @@ public class WorkflowController {
     private final WorkflowCommentService workflowCommentService;
     private final WorkflowHistoryRepository workflowHistoryRepository;
     private final NotificationService notificationService;
+    private final WorkflowRequiredFieldService requiredFieldService;
 
     @PostMapping("/perform-action")
     @Transactional
@@ -59,11 +60,27 @@ public class WorkflowController {
             String newStatus = updatePerformanceStatusBasedOnAction(
                     currentPerformanceStatus, action, userEmail, controlId);
 
-            // Обновляем control_status вместо performance_status
+            // Обновляем performance_status вместо performance_status
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found"));
 
-            control.setControlStatus(newStatus);
+            String normalizedAction = action != null ? action.trim().toUpperCase(Locale.ROOT) : "";
+            boolean requiresSteps = Set.of(
+                    "SUBMIT_FOR_REVIEW",
+                    "SUBMIT_TO_CONTROL_OPERATOR",
+                    "SUBMIT_FOR_SOQM",
+                    "SUBMIT_SOQM",
+                    "SEND_TO_PROCESS_OWNER",
+                    "SOQM_COMMENT"
+            ).contains(normalizedAction);
+            if (requiresSteps) {
+                Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control, currentUser);
+                if (missingField.isPresent()) {
+                    return ResponseEntity.badRequest().body(missingField.get());
+                }
+            }
+
+            control.setPerformanceStatus(newStatus);
             controlService.save(control);
 
             // Обновляем performance record (без статуса)
@@ -112,45 +129,43 @@ public class WorkflowController {
                                                         String userEmail,
                                                         Long controlId) {
         switch (currentStatus) {
-            case "In Progress":
+            case "DRAFT":
                 if ("SUBMIT_FOR_REVIEW".equals(action) || "INITIATE".equals(action)) {
-                    return "Facilitator Review";
+                    return "IN_PROGRESS";
                 }
                 break;
 
-            case "Facilitator Review":
+            case "IN_PROGRESS":
                 if ("SUBMIT_TO_CONTROL_OPERATOR".equals(action)) {
-                    return "Control Operator Review";
-                } else if ("RETURN_TO_FACILITATOR".equals(action)) {
-                    return "In Progress";
+                    return "REVIEW";
                 }
                 break;
 
-            case "Control Operator Review":
+            case "REVIEW":
                 if ("SUBMIT_FOR_SOQM".equals(action) || "SUBMIT_SOQM".equals(action)) {
-                    return "SoQM Lead Review";
+                    return "SOQM_HEAD_REVIEW";
                 } else if ("RETURN_TO_FACILITATOR".equals(action)) {
-                    return "Returned by Control Operator";
+                    return "IN_PROGRESS";
                 }
                 break;
 
-            case "SoQM Lead Review":
+            case "SOQM_HEAD_REVIEW":
                 if ("SEND_TO_PROCESS_OWNER".equals(action) || "SOQM_COMMENT".equals(action)) {
-                    return "Process Owner Review";
+                    return "PROCESS_OWNER_REVIEW";
                 } else if ("SEND_BACK_TO_OPERATOR".equals(action)) {
-                    return "Returned by SoQM Lead";
+                    return "REVIEW";
                 }
                 break;
 
-            case "Process Owner Review":
+            case "PROCESS_OWNER_REVIEW":
                 if ("COMPLETE".equals(action)) {
-                    return "Completed";
+                    return "COMPLETED";
                 } else if ("RETURN_TO_FACILITATOR".equals(action)) {
-                    return "In Progress";
+                    return "IN_PROGRESS";
                 } else if ("SEND_FOR_REVISION".equals(action)) {
-                    return "Returned by Process Owner";
+                    return "REVIEW";
                 } else if ("REJECT".equals(action)) {
-                    return "Reject";
+                    return "IN_PROGRESS";
                 }
                 break;
         }
@@ -160,16 +175,12 @@ public class WorkflowController {
 
     private String getCurrentStepFromStatus(String status) {
         switch (status) {
-            case "In Progress": return "FACILITATOR";
-            case "Facilitator Review": return "FACILITATOR";
-            case "Control Operator Review": return "CONTROL_OPERATOR";
-            case "SoQM Lead Review": return "SOQM_LEAD";
-            case "Process Owner Review": return "PROCESS_OWNER";
-            case "Returned by Control Operator": return "FACILITATOR";
-            case "Returned by SoQM Lead": return "CONTROL_OPERATOR";
-            case "Returned by Process Owner": return "FACILITATOR";
-            case "Completed": return "COMPLETED";
-            case "Reject": return "REJECTED";
+            case "DRAFT": return "FACILITATOR";
+            case "IN_PROGRESS": return "FACILITATOR";
+            case "REVIEW": return "CONTROL_OPERATOR";
+            case "SOQM_HEAD_REVIEW": return "SOQM_LEAD";
+            case "PROCESS_OWNER_REVIEW": return "PROCESS_OWNER";
+            case "COMPLETED": return "COMPLETED";
             default: return "UNKNOWN";
         }
     }
@@ -215,7 +226,7 @@ public class WorkflowController {
                 statusDTO.setAssignedToEmail(currentStep.getAssignedToEmail());
                 statusDTO.setAssignedToName(currentStep.getAssignedToName());
                 statusDTO.setCompleted(currentStep.getStatus() == WorkflowStatus.COMPLETED);
-                statusDTO.setReturned(currentStep.getStatus() == WorkflowStatus.RETURNED);
+                statusDTO.setReturned(false);
             }
 
             // Проверяем права
@@ -240,6 +251,8 @@ public class WorkflowController {
                 return ResponseEntity.status(401).body("User not authenticated");
             }
 
+            Control control = controlService.getControlById(actionDTO.getControlId())
+                    .orElseThrow(() -> new RuntimeException("Control not found"));
             workflowService.approveStep(actionDTO, currentUser.getMail());
             return ResponseEntity.ok().build();
 
@@ -258,6 +271,8 @@ public class WorkflowController {
                 return ResponseEntity.status(401).body("User not authenticated");
             }
 
+            Control control = controlService.getControlById(actionDTO.getControlId())
+                    .orElseThrow(() -> new RuntimeException("Control not found"));
             workflowService.returnStep(actionDTO, currentUser.getMail());
             return ResponseEntity.ok().build();
 
@@ -319,16 +334,21 @@ public class WorkflowController {
             }
             Control control = controlOpt.get();
 
+            Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control, currentUser);
+            if (missingField.isPresent()) {
+                return ResponseEntity.badRequest().body(missingField.get());
+            }
+
             // Update control status
-            control.setControlStatus("Process Owner Review");
+            control.setPerformanceStatus("PROCESS_OWNER_REVIEW");
             controlService.save(control);
 
             // Create workflow history
             WorkflowHistory history = new WorkflowHistory();
             history.setControlId(controlId);
             history.setActionType(WorkflowActionType.SUBMIT_TO_PROCESS_OWNER);
-            history.setFromStep("SoQM Lead Review");
-            history.setToStep("Process Owner Review");
+            history.setFromStep("SOQM_HEAD_REVIEW");
+            history.setToStep("PROCESS_OWNER_REVIEW");
             history.setPerformedByEmail(currentUser.getMail());
             history.setPerformedByName(currentUser.getDisplayName());
             history.setComments("Control submitted to Process Owner for review");
@@ -373,15 +393,15 @@ public class WorkflowController {
             Control control = controlOpt.get();
 
             // Update control status
-            control.setControlStatus("Control Operator Review");
+            control.setPerformanceStatus("REVIEW");
             controlService.save(control);
 
             // Create workflow history
             WorkflowHistory history = new WorkflowHistory();
             history.setControlId(controlId);
             history.setActionType(WorkflowActionType.RETURN_TO_OPERATOR);
-            history.setFromStep("SoQM Lead Review");
-            history.setToStep("Control Operator Review");
+            history.setFromStep("SOQM_HEAD_REVIEW");
+            history.setToStep("REVIEW");
             history.setPerformedByEmail(currentUser.getMail());
             history.setPerformedByName(currentUser.getDisplayName());
             history.setComments(comments != null && !comments.isEmpty() 
@@ -427,15 +447,15 @@ public class WorkflowController {
             Control control = controlOpt.get();
 
             // Update control status to Completed
-            control.setControlStatus("Completed");
+            control.setPerformanceStatus("COMPLETED");
             controlService.save(control);
 
             // Create workflow history
             WorkflowHistory history = new WorkflowHistory();
             history.setControlId(controlId);
             history.setActionType(WorkflowActionType.APPROVE);
-            history.setFromStep("Process Owner Review");
-            history.setToStep("Completed");
+            history.setFromStep("PROCESS_OWNER_REVIEW");
+            history.setToStep("COMPLETED");
             history.setPerformedByEmail(currentUser.getMail());
             history.setPerformedByName(currentUser.getDisplayName());
             history.setComments("Control completed by Process Owner");
@@ -480,15 +500,15 @@ public class WorkflowController {
             Control control = controlOpt.get();
 
             // Update control status
-            control.setControlStatus("SoQM Lead Review");
+            control.setPerformanceStatus("SOQM_HEAD_REVIEW");
             controlService.save(control);
 
             // Create workflow history
             WorkflowHistory history = new WorkflowHistory();
             history.setControlId(controlId);
             history.setActionType(WorkflowActionType.RETURN);
-            history.setFromStep("Process Owner Review");
-            history.setToStep("SoQM Lead Review");
+            history.setFromStep("PROCESS_OWNER_REVIEW");
+            history.setToStep("SOQM_HEAD_REVIEW");
             history.setPerformedByEmail(currentUser.getMail());
             history.setPerformedByName(currentUser.getDisplayName());
             history.setComments(comments != null && !comments.isEmpty() 
@@ -496,6 +516,25 @@ public class WorkflowController {
                 : "Control returned to SoQM Lead for revision");
             history.setCreatedAt(LocalDateTime.now());
             workflowHistoryRepository.save(history);
+
+            ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
+            List<String> recipients = new ArrayList<>();
+            if (assignment != null && assignment.getSoqmLead() != null) {
+                recipients.addAll(assignment.getSoqmLead());
+            }
+            String currentEmail = currentUser.getMail();
+            if (currentEmail != null) {
+                recipients.removeIf(email -> email != null && email.equalsIgnoreCase(currentEmail));
+            }
+            String controlLabel = control.getControlId() != null ? control.getControlId() : String.valueOf(control.getId());
+            String message = "The control " + controlLabel + " has been returned to SoQM Team for review.";
+            notificationService.sendReturnNotifications(
+                    control,
+                    recipients,
+                    currentUser.getRole(),
+                    message,
+                    "RETURN_TO_SOQM_LEAD"
+            );
 
             log.info("✅ Control {} returned to SoQM Lead successfully", controlId);
             return ResponseEntity.ok("Control returned to SoQM Lead");
@@ -530,7 +569,7 @@ public class WorkflowController {
         }
 
         if ("SUBMIT_FOR_SOQM".equals(normalizedAction) || "SUBMIT_SOQM".equals(normalizedAction)) {
-            boolean resubmitted = oldStatus != null && oldStatus.toLowerCase(Locale.ROOT).contains("returned");
+            boolean resubmitted = false;
             notificationService.sendTemplateNotifications(
                     control,
                     assignmentEmails(control.getId(), "SOQM_LEAD"),

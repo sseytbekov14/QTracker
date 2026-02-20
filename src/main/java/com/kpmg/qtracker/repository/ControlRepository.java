@@ -37,4 +37,299 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
     List<Control> findByCreatedByMailOrderByCreatedAtDesc(String userEmail);
     List<Control> findByComponentOrderByCreatedAtDesc(String component);
     List<Control> findAllByOrderByIdDesc();
+    List<Control> findByControlStatusIgnoreCase(String controlStatus);
+    List<Control> findByPerformanceStatusIgnoreCase(String performanceStatus);
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE c.performance_status NOT IN ('COMPLETED')
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findAllForReminders();
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) = 'monthly'
+              AND c.control_operation_date = :operationDate
+              AND c.created_by IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findMonthlyDay0Candidates(@Param("operationDate") java.time.LocalDate operationDate);
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) = 'monthly'
+              AND c.control_operation_date IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findMonthlyDay3Day6Candidates();
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) = 'monthly'
+              AND c.control_operation_deadline IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findMonthlyOverdueCandidates();
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) = 'quarterly'
+              AND c.control_operation_date = :operationDate
+              AND c.created_by IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findQuarterlyDay0Candidates(@Param("operationDate") java.time.LocalDate operationDate);
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) = 'quarterly'
+              AND c.control_operation_date IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findQuarterlyDay5Day12Candidates();
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) = 'quarterly'
+              AND c.control_operation_deadline IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findQuarterlyOverdueCandidates();
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) = 'recurring'
+              AND c.control_operation_date = :operationDate
+              AND c.created_by IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findRecurringDay0Candidates(@Param("operationDate") java.time.LocalDate operationDate);
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) = 'recurring'
+              AND c.control_operation_date IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findRecurringDay5Day12Candidates();
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) = 'recurring'
+              AND c.control_operation_deadline IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findRecurringOverdueCandidates();
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) = 'ad-hoc'
+              AND c.control_operation_date = :operationDate
+              AND c.created_by IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findAdhocDay0Candidates(@Param("operationDate") java.time.LocalDate operationDate);
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) = 'ad-hoc'
+              AND c.control_operation_date IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findAdhocDay5Day12Candidates();
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) = 'ad-hoc'
+              AND c.control_operation_deadline IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findAdhocOverdueCandidates();
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) IN ('annual', 'semi annual')
+              AND c.control_operation_date = :operationDate
+              AND c.created_by IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findAnnualSemiDay0Candidates(@Param("operationDate") java.time.LocalDate operationDate);
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) IN ('annual', 'semi annual')
+              AND c.control_operation_date IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findAnnualSemiDay5Day25Candidates();
+
+    @Query(value = """
+            SELECT c.id                         AS "controlId",
+                   c.control_id                 AS "controlName",
+                   c.control_description        AS "controlDescription",
+                   c.control_frequency          AS "frequency",
+                   c.performance_status             AS "status",
+                   c.control_operation_date     AS "operationDate",
+                   c.control_operation_deadline AS "deadlineDate",
+                   c.facilitator                AS "facilitator",
+                   c.control_operator           AS "controlOperator",
+                   c.soqm_lead                  AS "soqmLead",
+                   c.process_owner              AS "processOwner"
+            FROM controls c
+            WHERE LOWER(c.control_frequency) IN ('annual', 'semi annual')
+              AND c.control_operation_deadline IS NOT NULL
+            """, nativeQuery = true)
+    List<ReminderControlProjection> findAnnualSemiOverdueCandidates();
 }
+

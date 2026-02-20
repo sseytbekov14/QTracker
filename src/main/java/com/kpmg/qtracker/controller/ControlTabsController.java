@@ -22,6 +22,11 @@ public class ControlTabsController {
     private final UserService userService;
     private final ControlService controlService;
     private final AdminAuditService adminAuditService;
+    private final MonthlyDay0NotificationService monthlyDay0NotificationService;
+    private final QuarterlyDay0NotificationService quarterlyDay0NotificationService;
+    private final RecurringDay0NotificationService recurringDay0NotificationService;
+    private final AdhocDay0NotificationService adhocDay0NotificationService;
+    private final AnnualSemiDay0NotificationService annualSemiDay0NotificationService;
 
     @PostMapping("/api/control-details")
     public ResponseEntity<?> saveControlDetails(@RequestBody ControlDetailsDTO detailsDTO, HttpSession session) {
@@ -34,37 +39,43 @@ public class ControlTabsController {
         System.out.println("================================");
 
         try {
+            User currentUser = (User) session.getAttribute("currentUser");
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body("User not authenticated");
+            }
+            Control control = controlService.getControlById(detailsDTO.getControlId()).orElse(null);
+            ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(detailsDTO.getControlId());
+            if (!canUserEditControl(currentUser, control, assignment)) {
+                return ResponseEntity.status(403)
+                        .body("VALIDATION_ERROR: User does not have permission to edit this control");
+            }
             ControlDetailsDTO existingDetails = controlDetailsService.getDetailsByControlId(detailsDTO.getControlId());
+            ControlDetailsDTO mergedDetails = mergeControlDetails(existingDetails, detailsDTO, currentUser);
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
             List<String> changedFields = new ArrayList<>();
 
             collectChange(changedFields, previousValues, newValues, "Process Name",
-                    existingDetails.getProcessName(), detailsDTO.getProcessName());
+                    existingDetails.getProcessName(), mergedDetails.getProcessName());
             collectChange(changedFields, previousValues, newValues, "Homogeneity",
-                    existingDetails.getHomogeneity(), detailsDTO.getHomogeneity());
+                    existingDetails.getHomogeneity(), mergedDetails.getHomogeneity());
             collectChange(changedFields, previousValues, newValues, "References to Control",
-                    existingDetails.getReferencesToControl(), detailsDTO.getReferencesToControl());
+                    existingDetails.getReferencesToControl(), mergedDetails.getReferencesToControl());
             collectChange(changedFields, previousValues, newValues, "Department",
-                    existingDetails.getDepartment(), detailsDTO.getDepartment());
+                    existingDetails.getDepartment(), mergedDetails.getDepartment());
             collectChange(changedFields, previousValues, newValues, "Process Activities",
-                    existingDetails.getProcessActivities(), detailsDTO.getProcessActivities());
-            collectChange(changedFields, previousValues, newValues, "Control Operator's Program",
-                    existingDetails.getControlOperatorsProgram(), detailsDTO.getControlOperatorsProgram());
+                    existingDetails.getProcessActivities(), mergedDetails.getProcessActivities());
             collectChange(changedFields, previousValues, newValues, "Other Related Controls",
-                    existingDetails.getOtherRelatedControls(), detailsDTO.getOtherRelatedControls());
+                    existingDetails.getOtherRelatedControls(), mergedDetails.getOtherRelatedControls());
             collectChange(changedFields, previousValues, newValues, "IT Applications",
-                    existingDetails.getItApplications(), detailsDTO.getItApplications());
+                    existingDetails.getItApplications(), mergedDetails.getItApplications());
             collectChange(changedFields, previousValues, newValues, "Control Steps Performed and Results",
-                    existingDetails.getControlStepsPerformed(), detailsDTO.getControlStepsPerformed());
+                    existingDetails.getControlStepsPerformed(), mergedDetails.getControlStepsPerformed());
             collectChange(changedFields, previousValues, newValues, "SoQM Head/Team Comments",
-                    existingDetails.getSoqmHeadComments(), detailsDTO.getSoqmHeadComments());
+                    existingDetails.getSoqmHeadComments(), mergedDetails.getSoqmHeadComments());
             collectChange(changedFields, previousValues, newValues, "Process Owner Comments",
-                    existingDetails.getProcessOwnerComments(), detailsDTO.getProcessOwnerComments());
-            collectChange(changedFields, previousValues, newValues, "Attached File",
-                    existingDetails.getAttachedFile(), detailsDTO.getAttachedFile());
-
-            controlDetailsService.saveDetails(detailsDTO);
+                    existingDetails.getProcessOwnerComments(), mergedDetails.getProcessOwnerComments());
+            controlDetailsService.saveDetails(mergedDetails);
             logChanges(session, detailsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
@@ -85,29 +96,44 @@ public class ControlTabsController {
         System.out.println("================================");
 
         try {
+            User currentUser = (User) session.getAttribute("currentUser");
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body("User not authenticated");
+            }
+            Control control = controlService.getControlById(assignmentDTO.getControlId()).orElse(null);
+            if (!canUserEditControl(currentUser, control, assignmentDTO)) {
+                return ResponseEntity.status(403)
+                        .body("VALIDATION_ERROR: User does not have permission to edit this control");
+            }
             ControlAssignmentDTO existingAssignment = controlAssignmentService.getAssignmentByControlId(assignmentDTO.getControlId());
+            ControlAssignmentDTO mergedAssignment = mergeControlAssignment(existingAssignment, assignmentDTO);
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
             List<String> changedFields = new ArrayList<>();
 
             collectChange(changedFields, previousValues, newValues, "Facilitator",
-                    existingAssignment.getFacilitator(), assignmentDTO.getFacilitator());
+                    existingAssignment.getFacilitator(), mergedAssignment.getFacilitator());
             collectChange(changedFields, previousValues, newValues, "Control Operator",
-                    existingAssignment.getControlOperator(), assignmentDTO.getControlOperator());
+                    existingAssignment.getControlOperator(), mergedAssignment.getControlOperator());
             collectChange(changedFields, previousValues, newValues, "SoQM Lead",
-                    existingAssignment.getSoqmLead(), assignmentDTO.getSoqmLead());
+                    existingAssignment.getSoqmLead(), mergedAssignment.getSoqmLead());
             collectChange(changedFields, previousValues, newValues, "Process Owner",
-                    existingAssignment.getProcessOwner(), assignmentDTO.getProcessOwner());
+                    existingAssignment.getProcessOwner(), mergedAssignment.getProcessOwner());
             collectChange(changedFields, previousValues, newValues, "Control Shared With",
-                    existingAssignment.getControlSharedWith(), assignmentDTO.getControlSharedWith());
+                    existingAssignment.getControlSharedWith(), mergedAssignment.getControlSharedWith());
             collectChange(changedFields, previousValues, newValues, "Control Operation Date",
-                    existingAssignment.getControlOperationDate(), assignmentDTO.getControlOperationDate());
+                    existingAssignment.getControlOperationDate(), mergedAssignment.getControlOperationDate());
             collectChange(changedFields, previousValues, newValues, "Control Operation Deadline",
-                    existingAssignment.getControlOperationDeadline(), assignmentDTO.getControlOperationDeadline());
+                    existingAssignment.getControlOperationDeadline(), mergedAssignment.getControlOperationDeadline());
             collectChange(changedFields, previousValues, newValues, "Next Control Operation Date",
-                    existingAssignment.getNextControlOperationDate(), assignmentDTO.getNextControlOperationDate());
+                    existingAssignment.getNextControlOperationDate(), mergedAssignment.getNextControlOperationDate());
 
-            controlAssignmentService.saveAssignment(assignmentDTO);
+            controlAssignmentService.saveAssignment(mergedAssignment);
+            monthlyDay0NotificationService.maybeSendImmediateDay0(assignmentDTO.getControlId());
+            quarterlyDay0NotificationService.maybeSendImmediateDay0(assignmentDTO.getControlId());
+            recurringDay0NotificationService.maybeSendImmediateDay0(assignmentDTO.getControlId());
+            adhocDay0NotificationService.maybeSendImmediateDay0(assignmentDTO.getControlId());
+            annualSemiDay0NotificationService.maybeSendImmediateDay0(assignmentDTO.getControlId());
             logChanges(session, assignmentDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
@@ -119,25 +145,30 @@ public class ControlTabsController {
     public ResponseEntity<?> saveControlDocuments(@RequestBody ControlDocumentsDTO documentsDTO, HttpSession session) {
         System.out.println("🎯 CONTROL DOCUMENTS SAVE REQUEST:");
         System.out.println("Control ID: " + documentsDTO.getControlId());
-        System.out.println("Link: " + documentsDTO.getLink());
-        System.out.println("Attachment: " + documentsDTO.getAttachment());
         System.out.println("SOQM Materials: " + documentsDTO.getSoqmDevelopmentMaterials());
         System.out.println("================================");
 
         try {
+            User currentUser = (User) session.getAttribute("currentUser");
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body("User not authenticated");
+            }
+            Control control = controlService.getControlById(documentsDTO.getControlId()).orElse(null);
+            ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(documentsDTO.getControlId());
+            if (!canUserEditControl(currentUser, control, assignment)) {
+                return ResponseEntity.status(403)
+                        .body("VALIDATION_ERROR: User does not have permission to edit this control");
+            }
             ControlDocumentsDTO existingDocuments = controlDocumentsService.getDocumentsByControlId(documentsDTO.getControlId());
+            ControlDocumentsDTO mergedDocuments = mergeControlDocuments(existingDocuments, documentsDTO);
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
             List<String> changedFields = new ArrayList<>();
 
-            collectChange(changedFields, previousValues, newValues, "Link",
-                    existingDocuments.getLink(), documentsDTO.getLink());
-            collectChange(changedFields, previousValues, newValues, "Attachment",
-                    existingDocuments.getAttachment(), documentsDTO.getAttachment());
             collectChange(changedFields, previousValues, newValues, "SoQM Development Materials",
-                    existingDocuments.getSoqmDevelopmentMaterials(), documentsDTO.getSoqmDevelopmentMaterials());
+                    existingDocuments.getSoqmDevelopmentMaterials(), mergedDocuments.getSoqmDevelopmentMaterials());
 
-            controlDocumentsService.saveDocuments(documentsDTO);
+            controlDocumentsService.saveDocuments(mergedDocuments);
             logChanges(session, documentsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
@@ -198,9 +229,7 @@ public class ControlTabsController {
         dto.setId(user.getId());
         dto.setDisplayName(user.getDisplayName());
         dto.setMail(user.getMail());
-        dto.setDepartment(user.getDepartment());
         dto.setTitle(user.getTitle());
-        dto.setOffice(user.getOffice());
         dto.setRole(user.getRole());
         dto.setUsername(user.getUsername());
         return dto;
@@ -241,6 +270,139 @@ public class ControlTabsController {
         } catch (Exception e) {
             System.out.println("⚠️ Failed to log control changes: " + e.getMessage());
         }
+    }
+
+    private boolean canUserEditControl(User user, Control control, ControlAssignmentDTO assignment) {
+        if (user == null || control == null) {
+            return false;
+        }
+        String role = user.getRole();
+        if ("SOQM_LEAD".equals(role) || "ADMIN".equals(role)) {
+            return true;
+        }
+        String status = control.getPerformanceStatus();
+        String userEmail = user.getMail();
+        boolean isCreator = control.getCreatedBy() != null
+                && userEmail != null
+                && userEmail.equalsIgnoreCase(control.getCreatedBy().getMail());
+        boolean isFacilitator = containsEmail(assignment != null ? assignment.getFacilitator() : null, userEmail);
+        boolean isControlOperator = containsEmail(assignment != null ? assignment.getControlOperator() : null, userEmail);
+        boolean isSoqmLead = containsEmail(assignment != null ? assignment.getSoqmLead() : null, userEmail);
+        boolean isProcessOwner = containsEmail(assignment != null ? assignment.getProcessOwner() : null, userEmail);
+        if (status == null) {
+            status = "";
+        }
+        return (isCreator && "IN_PROGRESS".equals(status))
+                || (isFacilitator && "IN_PROGRESS".equals(status))
+                || (isControlOperator && "REVIEW".equals(status))
+                || (isSoqmLead && "SOQM_HEAD_REVIEW".equals(status))
+                || (isProcessOwner && "PROCESS_OWNER_REVIEW".equals(status));
+    }
+
+    private boolean containsEmail(List<String> emails, String userEmail) {
+        if (emails == null || userEmail == null) {
+            return false;
+        }
+        for (String email : emails) {
+            if (email != null && email.equalsIgnoreCase(userEmail)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private ControlDetailsDTO mergeControlDetails(ControlDetailsDTO existing,
+                                                  ControlDetailsDTO incoming,
+                                                  User user) {
+        ControlDetailsDTO merged = new ControlDetailsDTO();
+        Long controlId = incoming != null && incoming.getControlId() != null
+                ? incoming.getControlId()
+                : existing != null ? existing.getControlId() : null;
+        merged.setControlId(controlId);
+
+        String role = user != null ? user.getRole() : null;
+        boolean allowAll = "SOQM_LEAD".equals(role) || "ADMIN".equals(role);
+        boolean allowSteps = "FACILITATOR".equals(role);
+        boolean allowProcessOwner = "PROCESS_OWNER".equals(role);
+
+        merged.setProcessName(resolveString(existing != null ? existing.getProcessName() : null,
+                incoming != null ? incoming.getProcessName() : null, allowAll));
+        merged.setHomogeneity(resolveString(existing != null ? existing.getHomogeneity() : null,
+                incoming != null ? incoming.getHomogeneity() : null, allowAll));
+        merged.setReferencesToControl(resolveString(existing != null ? existing.getReferencesToControl() : null,
+                incoming != null ? incoming.getReferencesToControl() : null, allowAll));
+        merged.setDepartment(resolveString(existing != null ? existing.getDepartment() : null,
+                incoming != null ? incoming.getDepartment() : null, allowAll));
+        merged.setProcessActivities(resolveString(existing != null ? existing.getProcessActivities() : null,
+                incoming != null ? incoming.getProcessActivities() : null, allowAll));
+        merged.setOtherRelatedControls(resolveString(existing != null ? existing.getOtherRelatedControls() : null,
+                incoming != null ? incoming.getOtherRelatedControls() : null, allowAll));
+        merged.setItApplications(resolveString(existing != null ? existing.getItApplications() : null,
+                incoming != null ? incoming.getItApplications() : null, allowAll));
+
+        merged.setControlStepsPerformed(resolveString(existing != null ? existing.getControlStepsPerformed() : null,
+                incoming != null ? incoming.getControlStepsPerformed() : null, allowAll || allowSteps));
+        merged.setProcessOwnerComments(resolveString(existing != null ? existing.getProcessOwnerComments() : null,
+                incoming != null ? incoming.getProcessOwnerComments() : null, allowAll || allowProcessOwner));
+        merged.setSoqmHeadComments(resolveString(existing != null ? existing.getSoqmHeadComments() : null,
+                incoming != null ? incoming.getSoqmHeadComments() : null, allowAll));
+
+        return merged;
+    }
+
+    private ControlDocumentsDTO mergeControlDocuments(ControlDocumentsDTO existing,
+                                                      ControlDocumentsDTO incoming) {
+        ControlDocumentsDTO merged = new ControlDocumentsDTO();
+        Long controlId = incoming != null && incoming.getControlId() != null
+                ? incoming.getControlId()
+                : existing != null ? existing.getControlId() : null;
+        merged.setControlId(controlId);
+        merged.setSoqmDevelopmentMaterials(resolveString(existing != null ? existing.getSoqmDevelopmentMaterials() : null,
+                incoming != null ? incoming.getSoqmDevelopmentMaterials() : null, true));
+        return merged;
+    }
+
+    private ControlAssignmentDTO mergeControlAssignment(ControlAssignmentDTO existing,
+                                                        ControlAssignmentDTO incoming) {
+        ControlAssignmentDTO merged = new ControlAssignmentDTO();
+        Long controlId = incoming != null && incoming.getControlId() != null
+                ? incoming.getControlId()
+                : existing != null ? existing.getControlId() : null;
+        merged.setControlId(controlId);
+
+        merged.setFacilitator(resolveList(existing != null ? existing.getFacilitator() : null,
+                incoming != null ? incoming.getFacilitator() : null));
+        merged.setControlOperator(resolveList(existing != null ? existing.getControlOperator() : null,
+                incoming != null ? incoming.getControlOperator() : null));
+        merged.setSoqmLead(resolveList(existing != null ? existing.getSoqmLead() : null,
+                incoming != null ? incoming.getSoqmLead() : null));
+        merged.setProcessOwner(resolveList(existing != null ? existing.getProcessOwner() : null,
+                incoming != null ? incoming.getProcessOwner() : null));
+        merged.setControlSharedWith(resolveList(existing != null ? existing.getControlSharedWith() : null,
+                incoming != null ? incoming.getControlSharedWith() : null));
+        merged.setControlOperationDate(resolveDate(existing != null ? existing.getControlOperationDate() : null,
+                incoming != null ? incoming.getControlOperationDate() : null));
+        merged.setControlOperationDeadline(resolveDate(existing != null ? existing.getControlOperationDeadline() : null,
+                incoming != null ? incoming.getControlOperationDeadline() : null));
+        merged.setNextControlOperationDate(resolveDate(existing != null ? existing.getNextControlOperationDate() : null,
+                incoming != null ? incoming.getNextControlOperationDate() : null));
+
+        return merged;
+    }
+
+    private String resolveString(String existingValue, String incomingValue, boolean allowUpdate) {
+        if (!allowUpdate) {
+            return existingValue;
+        }
+        return incomingValue != null ? incomingValue : existingValue;
+    }
+
+    private List<String> resolveList(List<String> existingValue, List<String> incomingValue) {
+        return incomingValue != null ? incomingValue : existingValue;
+    }
+
+    private java.time.LocalDate resolveDate(java.time.LocalDate existingValue, java.time.LocalDate incomingValue) {
+        return incomingValue != null ? incomingValue : existingValue;
     }
 
     private static void collectChange(List<String> changedFields,

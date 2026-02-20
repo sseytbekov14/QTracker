@@ -17,11 +17,11 @@ public interface WorkflowStepRepository extends JpaRepository<WorkflowStep, Long
     List<WorkflowStep> findByControlIdOrderBySequenceOrderAsc(Long controlId);
 
     // Найти текущий активный шаг
-    @Query("SELECT ws FROM WorkflowStep ws WHERE ws.controlId = :controlId AND ws.status IN ('FACILITATOR_REVIEW', 'CONTROL_OPERATOR_REVIEW', 'SOQM_LEAD_REVIEW', 'PROCESS_OWNER_REVIEW')")
+    @Query("SELECT ws FROM WorkflowStep ws WHERE ws.controlId = :controlId AND ws.status IN ('IN_PROGRESS', 'REVIEW', 'SOQM_HEAD_REVIEW', 'PROCESS_OWNER_REVIEW')")
     Optional<WorkflowStep> findCurrentStep(@Param("controlId") Long controlId);
 
     // Найти шаги ожидающие апрува пользователя
-    @Query("SELECT ws FROM WorkflowStep ws WHERE ws.assignedToEmail = :userEmail AND ws.status IN ('FACILITATOR_REVIEW', 'CONTROL_OPERATOR_REVIEW', 'SOQM_LEAD_REVIEW', 'PROCESS_OWNER_REVIEW')")
+    @Query("SELECT ws FROM WorkflowStep ws WHERE ws.assignedToEmail = :userEmail AND ws.status IN ('IN_PROGRESS', 'REVIEW', 'SOQM_HEAD_REVIEW', 'PROCESS_OWNER_REVIEW')")
     List<WorkflowStep> findPendingStepsByUser(@Param("userEmail") String userEmail);
 
     // Найти шаг по controlId и типу шага

@@ -5,7 +5,7 @@
     <title>My Controls - QTracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/style.css?v=6" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
 
     <style>/* =========================
@@ -186,73 +186,89 @@
                             <h1 class="mb-1">Controls</h1>
                             <p class="mb-0 text-white-50">View and manage your assigned controls</p>
                         </div>
-                        <button onclick="exportToExcel()" class="btn btn-light" th:attr="data-user-email=${userEmail}" id="exportBtn">
-                            <i class="bi bi-download me-1"></i>Export Excel
+                        <button onclick="exportToExcel()" class="btn btn-light"
+                                th:if="${userRole == 'SOQM_LEAD'}"
+                                th:attr="data-user-email=${userEmail}" id="exportBtn">
+                            <i class="bi bi-download me-1"></i>Export to Excel
                         </button>
                     </div>
                 </div>
 
-                <!-- Filter Dropdown -->
+                <!-- Filter Dropdown + Search -->
                 <div class="mb-3 d-flex align-items-center gap-2">
-                    <!-- <label for="controlsFilter" class="form-label mb-0 fw-500">Filter:</label> -->
-                    <select id="controlsFilter" class="form-select" style="max-width: 200px;">
-                        <option th:if="${userRole == 'ADMIN'}" value="active" th:selected="${controlsFilter == 'active' || controlsFilter == null}">
-                            Active Controls
-                        </option>
-                        <option th:if="${userRole == 'ADMIN'}" value="completed" th:selected="${controlsFilter == 'completed'}">
-                            Completed
-                        </option>
-                        <option th:if="${userRole != 'ADMIN'}" value="mine" th:selected="${controlsFilter == 'mine' || controlsFilter == null}">
-                            Active Controls
-                        </option>
-                        <option th:if="${userRole != 'ADMIN'}" value="all" th:selected="${controlsFilter == 'all'}">
-                            All Controls
-                        </option>
-                    </select>
+                    <div class="d-flex flex-row w-100 justify-content-between align-items-center">
+                        <div style="min-width:220px;max-width:220px;">
+                            <select id="statusFilter" class="form-select" style="width:100%;">
+                                <option value="" th:selected="${statusFilter == null or statusFilter == ''}">All Controls</option>
+                                <option value="DRAFT" th:selected="${statusFilter == 'DRAFT'}" th:if="${userRole == 'SOQM_LEAD'}">Draft</option>
+                                <option value="IN_PROGRESS" th:selected="${statusFilter == 'IN_PROGRESS'}">In Progress</option>
+                                <option value="REVIEW" th:selected="${statusFilter == 'REVIEW'}">Review</option>
+                                <option value="SOQM_HEAD_REVIEW" th:selected="${statusFilter == 'SOQM_HEAD_REVIEW'}">SoQM Head Review</option>
+                                <option value="PROCESS_OWNER_REVIEW" th:selected="${statusFilter == 'PROCESS_OWNER_REVIEW'}">Process Owner Review</option>
+                                <option value="COMPLETED" th:selected="${statusFilter == 'COMPLETED'}">Completed</option>
+                                <option value="OVERDUE" th:selected="${statusFilter == 'OVERDUE'}">Overdue Controls</option>
+                            </select>
+                        </div>
+                        <div class="d-flex flex-row ms-auto" style="gap:8px;">
+                            <input type="text" id="controlsSearchInput" class="form-control" style="min-width:220px;max-width:220px;" placeholder="Search...">
+                            <button class="btn btn-primary" id="controlsSearchBtn"><i class="bi bi-search"></i> Search</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="card shadow-sm border-0">
-                    <div class="card-body p-0">
-                        <table class="table table-hover control-table mb-0">
+                    <div class="card-body p-0" style="overflow-x: auto;">
+                        <table class="table table-hover control-table mb-0" style="min-width: 100%;">
                             <thead>
-                            <tr>
-                              <th style="width: 50px;">№</th>
-                              <th>CONTROL ID</th>
-                              <th>Component</th>
-                              <th>Control Type</th>
-                              <th>Created by</th>
-                              <th>Deadline</th>
-                              <th>Performance Status</th>
-                            </tr>
+                              <tr>
+                                <th style="width: 50px;">№</th>
+                                <th>CONTROL ID</th>
+                                <th>Component</th>
+                                <th>Control Type</th>
+                                <th>Frequency of Control</th>
+                                <th>Control operation date</th>
+                                <th>Control Operator</th>
+                                <th>Process Owner</th>
+                                <th>SoQM Head/Delegate</th>
+                                <th>Deadline</th>
+                                <th>Performance Status</th>
+                              </tr>
                             </thead>
                             <tbody>
                             <tr th:each="control, stat : ${controls}"
                               class="clickable-row"
-                              th:classappend="${userRole == 'ADMIN' ? ' view-only-row' : (((control.createdByEmail == userEmail and #strings.equals(control.controlStatus, 'In Progress')) or (#lists.contains(control.facilitators, userEmail) and #strings.equals(control.controlStatus, 'Facilitator Review')) or (#lists.contains(control.controlOperators, userEmail) and #strings.equals(control.controlStatus, 'Control Operator Review')) or (#lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.controlStatus, 'SoQM Lead Review')) or (#lists.contains(control.processOwners, userEmail) and #strings.equals(control.controlStatus, 'Process Owner Review'))) ? ' editable-row' : ' view-only-row')}"
-                              th:attr="data-id=${control.id}, data-go-cycle=${control.goToPerformanceCycle}, data-editable=${userRole == 'ADMIN' ? false : ((control.createdByEmail == userEmail and #strings.equals(control.controlStatus, 'In Progress')) or (#lists.contains(control.facilitators, userEmail) and #strings.equals(control.controlStatus, 'Facilitator Review')) or (#lists.contains(control.controlOperators, userEmail) and #strings.equals(control.controlStatus, 'Control Operator Review')) or (#lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.controlStatus, 'SoQM Lead Review')) or (#lists.contains(control.processOwners, userEmail) and #strings.equals(control.controlStatus, 'Process Owner Review')))}">
+                              th:classappend="${userRole == 'ADMIN' ? ' view-only-row' : (userRole == 'SOQM_LEAD' ? ' editable-row' : (((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (#lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (#lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (#lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (#lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW'))) ? ' editable-row' : ' view-only-row'))} + (${#strings.equals(control.performanceStatus, 'COMPLETED')} ? ' completed-row' : '') + (${control.overdue} ? ' overdue-row' : '')"
+                              th:attr="data-id=${control.id}, data-go-cycle=${control.goToPerformanceCycle}, data-editable=${!control.sharedViewOnly and (userRole == 'ADMIN' ? false : (userRole == 'SOQM_LEAD' ? true : ((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (#lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (#lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (#lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (#lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW')))))}, data-shared=${control.sharedViewOnly}">
                               <td th:text="${stat.count}">1</td>
-                                <td th:text="${control.controlId}">CTRL-001</td>
+                                <td>
+                                    <span th:text="${control.controlId}">CTRL-001</span>
+                                    <span th:if="${control.sharedViewOnly}" class="badge bg-info ms-2">Shared (view-only)</span>
+                                </td>
                                 <td th:text="${control.component}">HR</td>
                                 <td th:text="${control.controlType}">Manual</td>
-                                <td th:text="${control.createdBy}">User</td>
+                                <td th:text="${control.controlFrequency}">Monthly</td>
+                                <td>
+                                    <span th:if="${control.controlOperationDate != null}"
+                                          th:text="${#temporals.format(control.controlOperationDate, 'dd.MM.yyyy')}">-</span>
+                                    <span th:if="${control.controlOperationDate == null}" class="text-muted">-</span>
+                                </td>
+                                <td th:text="${(control.controlOperatorUsers != null and !#lists.isEmpty(control.controlOperatorUsers)) ? #strings.listJoin(control.controlOperatorUsers.![displayName], ', ') : (control.controlOperators != null ? #strings.listJoin(control.controlOperators, ', ') : '')}">-</td>
+                                <td th:text="${(control.processOwnerUsers != null and !#lists.isEmpty(control.processOwnerUsers)) ? #strings.listJoin(control.processOwnerUsers.![displayName], ', ') : (control.processOwners != null ? #strings.listJoin(control.processOwners, ', ') : '')}">-</td>
+                                <td th:text="${(control.soqmLeadUsers != null and !#lists.isEmpty(control.soqmLeadUsers)) ? #strings.listJoin(control.soqmLeadUsers.![displayName], ', ') : (control.soqmLeads != null ? #strings.listJoin(control.soqmLeads, ', ') : '')}">-</td>
                                 <td>
                                     <span th:if="${control.deadline != null}" th:text="${#temporals.format(control.deadline, 'dd.MM.yyyy')}">-</span>
                                     <span th:if="${control.deadline == null}" class="text-muted">-</span>
                                 </td>
                                 <td>
-                                    <span th:switch="${control.controlStatus}">
-                                        <span th:case="'Completed'" class="badge bg-success" th:text="${control.controlStatus}"></span>
-                                        <span th:case="'In Progress'" class="badge bg-warning" th:text="${control.controlStatus}"></span>
-                                        <span th:case="'Facilitator Review'" class="badge bg-info" th:text="${control.controlStatus}"></span>
-                                        <span th:case="'Control Operator Review'" class="badge bg-primary" th:text="${control.controlStatus}"></span>
-                                        <span th:case="'SoQM Lead Review'" class="badge bg-secondary" th:text="${control.controlStatus}"></span>
-                                        <span th:case="'Process Owner Review'" class="badge bg-secondary" th:text="${control.controlStatus}"></span>
-                                        <span th:case="'Returned by Control Operator'" class="badge bg-danger" th:text="${control.controlStatus}"></span>
-                                        <span th:case="'Returned by SoQM Lead'" class="badge bg-danger" th:text="${control.controlStatus}"></span>
-                                        <span th:case="'Returned by Process Owner'" class="badge bg-danger" th:text="${control.controlStatus}"></span>
-                                        <span th:case="'Reject'" class="badge bg-dark" th:text="${control.controlStatus}"></span>
-                                        <span th:case="*" class="badge bg-secondary" th:text="${control.controlStatus ?: 'In Progress'}">In Progress</span>
+                                    <span th:switch="${control.performanceStatus}">
+                                        <span th:case="'COMPLETED'" class="badge bg-success" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="'IN_PROGRESS'" class="badge bg-warning" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="'REVIEW'" class="badge bg-primary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="'SOQM_HEAD_REVIEW'" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="'PROCESS_OWNER_REVIEW'" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="*" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus) ?: 'Draft'}">Draft</span>
                                     </span>
+                                    <span th:if="${control.overdue}" class="badge bg-danger ms-2">Overdue</span>
                                 </td>
                             </tr>
                             </tbody>
@@ -271,9 +287,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   rows.forEach(row => {
     const isEditable = String(row.getAttribute('data-editable')) === 'true';
+    const isShared = String(row.getAttribute('data-shared')) === 'true';
     const id = row.getAttribute('data-id');
     
-    // ✨ Добавляем визуальный класс для активных контролей
     if (isEditable) {
       row.classList.add('editable-row');
       row.classList.remove('view-only-row');
@@ -283,14 +299,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     row.addEventListener('click', function() {
-      // If not editable, navigate to view-only mode
+      if (isShared) {
+        window.location.href = `/view-control/${id}`;
+        return;
+      }
       if (!isEditable) {
-        // View-only users go to performance cycle page (view-first flow)
         window.location.href = `/performance-cycle/${id}`;
         return;
       }
-      
-      // For editable rows, use original behavior
       const goCycle = String(this.getAttribute('data-go-cycle')) === 'true';
       const url = goCycle ? `/performance-cycle/${id}` : `/performance/${id}`;
       window.location.href = url;
@@ -298,7 +314,40 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// Simple bootstrap-styled toast (disappears automatically)
+// Search/filter controls table by input (live search)
+document.addEventListener('DOMContentLoaded', function() {
+  const searchBtn = document.getElementById('controlsSearchBtn');
+  const searchInput = document.getElementById('controlsSearchInput');
+  const table = document.querySelector('.control-table');
+  if (!searchBtn || !searchInput || !table) return;
+
+  function normalize(text) {
+    return text.toLowerCase().replace(/\s+/g, '');
+  }
+
+  function doSearch() {
+    const query = normalize(searchInput.value);
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+      let found = false;
+      row.querySelectorAll('td').forEach(cell => {
+        if (normalize(cell.textContent).includes(query)) {
+          found = true;
+        }
+      });
+      row.style.display = found || !query ? '' : 'none';
+    });
+  }
+
+  searchBtn.addEventListener('click', doSearch);
+  searchInput.addEventListener('input', doSearch);
+
+  searchInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doSearch();
+  });
+});
+
+// Simple bootstrap-styled toast
 function showToast(message, type = 'success', timeout = 2000) {
   let container = document.getElementById('toast-container');
   if (!container) {
@@ -326,7 +375,6 @@ function showToast(message, type = 'success', timeout = 2000) {
   }, timeout);
 }
 
-// Export only visible controls on the current page to Excel
 // Load SheetJS lazily when needed
 function loadSheetJS() {
   return new Promise((resolve, reject) => {
@@ -353,50 +401,28 @@ function exportToExcel() {
   loadSheetJS()
     .then(() => {
       btn.innerHTML = 'Generating...';
-      // Get the table element
       const table = document.querySelector('.control-table');
       if (!table) {
         showToast('Table not found', 'danger', 2500);
         return;
       }
 
-      // Get current filter value
-      const filterSelect = document.getElementById('controlsFilter');
-      const currentFilter = filterSelect ? filterSelect.value : 'all';
-
-      // Create workbook and worksheet
       const wb = XLSX.utils.book_new();
       
-      // Extract headers
       const headers = [];
       const headerCells = table.querySelectorAll('thead tr th');
       headerCells.forEach(th => {
         headers.push(th.textContent.trim());
       });
 
-      // Extract visible rows data based on current filter
       const data = [headers];
       const rows = table.querySelectorAll('tbody tr.clickable-row');
       
       rows.forEach(row => {
-        // Check if row should be included based on current filter
-        const isEditable = String(row.getAttribute('data-editable')) === 'true';
-        const rowDisplay = window.getComputedStyle(row).display;
-        
-        // Include row if:
-        // 1. Filter is 'all', OR
-        // 2. Filter is 'mine' AND row is editable AND row is visible
-        const shouldInclude = currentFilter === 'all' ? true : (isEditable && rowDisplay !== 'none');
-        
-        if (!shouldInclude) {
-          return; // Skip this row
-        }
-
         const rowData = [];
         const cells = row.querySelectorAll('td');
         
         cells.forEach(cell => {
-          // Get text content, handling special cases like badges
           let cellText = '';
           const badge = cell.querySelector('.badge');
           if (badge) {
@@ -412,16 +438,18 @@ function exportToExcel() {
         data.push(rowData);
       });
 
-      // Create worksheet from data
       const ws = XLSX.utils.aoa_to_sheet(data);
 
-      // Set column widths
       ws['!cols'] = [
-        { wch: 5 },   // № (number)
+        { wch: 5 },   // №
         { wch: 20 },  // CONTROL ID
         { wch: 15 },  // Component
         { wch: 15 },  // Control Type
-        { wch: 25 },  // Created by
+        { wch: 20 },  // Frequency of Control
+        { wch: 18 },  // Control operation date
+        { wch: 25 },  // Control Operator
+        { wch: 25 },  // Process Owner
+        { wch: 25 },  // SoQM Head/Delegate
         { wch: 12 },  // Deadline
         { wch: 25 }   // Performance Status
       ];
@@ -430,8 +458,7 @@ function exportToExcel() {
 
       const today = new Date().toISOString().split('T')[0];
       const userPart = userEmail.split('@')[0];
-      const filterSuffix = currentFilter === 'mine' ? '_MyControls' : '_AllControls';
-      const filename = `QTracker${filterSuffix}_${userPart}_${today}.xlsx`;
+      const filename = `QTracker_${userPart}_${today}.xlsx`;
       XLSX.writeFile(wb, filename);
       
       showToast(`Exported ${data.length - 1} row(s) successfully!`, 'success', 2000);
@@ -447,17 +474,51 @@ function exportToExcel() {
     });
 }
 
-// Filter controls table by "All Controls" or "My Controls"
+// Filter controls table by status dropdown
 document.addEventListener('DOMContentLoaded', function() {
-  const filterSelect = document.getElementById('controlsFilter');
-  if (!filterSelect) return;
+    const filterSelect = document.getElementById('controlsFilter');
+    const statusSelect = document.getElementById('statusFilter');
+    if (!filterSelect && !statusSelect) return;
 
-  filterSelect.addEventListener('change', function() {
-    const filterValue = this.value || 'all';
-    const url = new URL(window.location.href);
-    url.searchParams.set('scope', filterValue);
-    window.location.href = url.toString();
-  });
+    const applyFilters = function() {
+      const url = new URL(window.location.href);
+      if (filterSelect) {
+        const scopeValue = filterSelect.value || 'all';
+        if (scopeValue === 'completed') {
+          url.searchParams.set('filter', 'COMPLETED');
+          url.searchParams.set('scope', 'all');
+        } else if (scopeValue === 'overdue') {
+          url.searchParams.set('filter', 'OVERDUE');
+          url.searchParams.set('scope', 'all');
+        } else {
+          url.searchParams.set('scope', 'all');
+          url.searchParams.delete('filter');
+        }
+      }
+      if (statusSelect) {
+        const statusValue = statusSelect.value || '';
+        if (statusValue === 'OVERDUE') {
+          url.searchParams.set('filter', 'OVERDUE');
+          url.searchParams.delete('status');
+        } else if (statusValue) {
+          url.searchParams.set('status', statusValue);
+          url.searchParams.delete('filter');
+        } else {
+          url.searchParams.delete('status');
+          url.searchParams.delete('filter');
+        }
+      } else {
+        url.searchParams.delete('status');
+      }
+      window.location.href = url.toString();
+    };
+
+    if (filterSelect) {
+      filterSelect.addEventListener('change', applyFilters);
+    }
+    if (statusSelect) {
+      statusSelect.addEventListener('change', applyFilters);
+    }
 });
 </script>
 </body>

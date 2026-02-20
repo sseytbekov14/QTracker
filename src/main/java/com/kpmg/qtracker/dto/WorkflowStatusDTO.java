@@ -25,13 +25,11 @@ public class WorkflowStatusDTO {
 
         switch (currentStatus) {
             case DRAFT: return "secondary";
-            case FACILITATOR_REVIEW: return "warning";
-            case CONTROL_OPERATOR_REVIEW: return "info";
-            case SOQM_LEAD_REVIEW: return "primary";
+            case IN_PROGRESS: return "warning";
+            case REVIEW: return "info";
+            case SOQM_HEAD_REVIEW: return "primary";
             case PROCESS_OWNER_REVIEW: return "dark";
             case COMPLETED: return "success";
-            case RETURNED: return "danger";
-            case REJECTED: return "danger";
             default: return "secondary";
         }
     }

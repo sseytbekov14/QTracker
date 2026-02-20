@@ -4,17 +4,12 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 @Entity
-@Table(name = "control_documents")
+@Table(name = "controls")
 @Data
 public class ControlDocuments {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "control_id")
+    @Column(name = "id")
     private Long controlId;
 
-    private String link;
-    private String attachment;
     private String soqmDevelopmentMaterials; // Available, Not Available
 }

@@ -134,8 +134,13 @@ public class PerformanceService implements IPerformanceService {
 
     @Override
     public String getPerformanceStatusByControlId(Long controlId) {
-        // This method is now deprecated - we use control_status instead
-        // Return "In Progress" as default for backward compatibility
-        return "In Progress";
+        // Read workflow status from controls.performance_status
+        if (controlId == null) {
+            return "DRAFT";
+        }
+        return controlService.getControlById(controlId)
+                .map(Control::getPerformanceStatus)
+                .filter(status -> status != null && !status.isBlank())
+                .orElse("DRAFT");
     }
 }

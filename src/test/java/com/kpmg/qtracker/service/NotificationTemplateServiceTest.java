@@ -9,6 +9,7 @@ import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NotificationTemplateServiceTest {
 
@@ -56,4 +57,108 @@ class NotificationTemplateServiceTest {
         assertNotNull(template.getBody());
         assertFalse(template.getBody().trim().isEmpty());
     }
+
+    @Test
+    void render_activation_usesOfficialText() {
+        LocalDate deadline = LocalDate.of(2026, 2, 4);
+        NotificationTemplateService.NotificationTemplate template =
+                service.render(NotificationTemplateService.TemplateType.ACTIVATION,
+                        control,
+                        deadline,
+                        false,
+                        "Test User",
+                        "Control Operator");
+        String body = template.getBody();
+        assertTrue(body.contains("Dear Test User,"));
+        assertTrue(body.contains("The scheduled control CTRL-42 / Test control has been activated today."));
+        assertTrue(body.contains("deadline 04.02.2026"));
+        assertTrue(body.contains("http://example.test/view-control/42"));
+        assertFalse(body.contains("null"));
+    }
+
+    @Test
+    void render_reminder1_usesOfficialText() {
+        LocalDate deadline = LocalDate.of(2026, 2, 4);
+        NotificationTemplateService.NotificationTemplate template =
+                service.render(NotificationTemplateService.TemplateType.REMINDER_1,
+                        control,
+                        deadline,
+                        false,
+                        "Test User",
+                        "Control Operator");
+        String body = template.getBody();
+        assertTrue(body.contains("We kindly remind you to complete the control CTRL-42, Test control."));
+        assertTrue(body.contains("http://example.test/view-control/42"));
+        assertTrue(body.contains("The deadline of the control is on 04.02.2026"));
+        assertFalse(body.contains("null"));
+    }
+
+    @Test
+    void render_reminder2_usesOfficialText() {
+        LocalDate deadline = LocalDate.of(2026, 2, 4);
+        NotificationTemplateService.NotificationTemplate template =
+                service.render(NotificationTemplateService.TemplateType.REMINDER_2,
+                        control,
+                        deadline,
+                        false,
+                        "Test User",
+                        "Control Operator");
+        String body = template.getBody();
+        assertTrue(body.contains("Control CTRL-42, Test control deadline is approaching."));
+        assertTrue(body.contains("http://example.test/view-control/42"));
+        assertTrue(body.contains("The deadline of the control is on 04.02.2026"));
+        assertFalse(body.contains("null"));
+    }
+
+    @Test
+    void render_deadline_usesOfficialText() {
+        LocalDate deadline = LocalDate.of(2026, 2, 4);
+        NotificationTemplateService.NotificationTemplate template =
+                service.render(NotificationTemplateService.TemplateType.DEADLINE,
+                        control,
+                        deadline,
+                        false,
+                        "Test User",
+                        "Control Operator");
+        String body = template.getBody();
+        assertTrue(body.contains("Our records indicate that the control deadline has passed."));
+        assertTrue(body.contains("The following control remains incomplete: CTRL-42, Test control"));
+        assertTrue(body.contains("http://example.test/view-control/42"));
+        assertFalse(body.contains("null"));
+    }
+
+    @Test
+    void render_completedAll_usesOfficialText() {
+        LocalDate deadline = LocalDate.of(2026, 2, 4);
+        NotificationTemplateService.NotificationTemplate template =
+                service.render(NotificationTemplateService.TemplateType.COMPLETED_ALL,
+                        control,
+                        deadline,
+                        false,
+                        "Test User",
+                        "Control Operator");
+        String body = template.getBody();
+        assertTrue(body.contains("Dear Test User,"));
+        assertTrue(body.contains("Please note that the control has been successfully completed in the system."));
+        assertFalse(body.contains("null"));
+    }
+
+    @Test
+    void render_reminder1_withoutControlName_usesControlIdOnly() {
+        control.setControlDescription(null);
+        LocalDate deadline = LocalDate.of(2026, 2, 4);
+        NotificationTemplateService.NotificationTemplate template =
+                service.render(NotificationTemplateService.TemplateType.REMINDER_1,
+                        control,
+                        deadline,
+                        false,
+                        "Test User",
+                        "Control Operator");
+        String body = template.getBody();
+        assertTrue(body.contains("control CTRL-42."));
+        assertFalse(body.contains("CTRL-42, "));
+        assertFalse(body.contains("CTRL-42 /"));
+        assertFalse(body.contains("null"));
+    }
 }
+

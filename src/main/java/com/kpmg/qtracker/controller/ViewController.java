@@ -10,6 +10,7 @@ import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.NotificationReadRepository;
 import com.kpmg.qtracker.service.*;
+import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import com.kpmg.qtracker.service.WorkflowService;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.UUID;
@@ -38,6 +40,7 @@ public class ViewController {
     private final ControlDocumentsRepository controlDocumentsRepository;
     private final NotificationReadRepository notificationReadRepository;
     private final NotificationService notificationService;
+    private final NotificationTypeDisplayMapper notificationTypeDisplayMapper;
 
     private User getCurrentUser(HttpSession session) {
         return (User) session.getAttribute("currentUser");
@@ -100,6 +103,10 @@ public class ViewController {
 
         Control control = controlService.getControlById(controlId)
                 .orElseThrow(() -> new RuntimeException("Control not found with id: " + controlId));
+        String performanceStatus = control.getPerformanceStatus();
+        if (performanceStatus == null || performanceStatus.isBlank()) {
+            performanceStatus = "DRAFT";
+        }
 
         // Получаем данные из Assignment
         ControlAssignmentDTO assignmentDTO = controlAssignmentService.getAssignmentByControlId(controlId);
@@ -169,6 +176,7 @@ public class ViewController {
         model.addAttribute("control", control);
         model.addAttribute("performance", performanceDTO);
         model.addAttribute("assignment", assignmentDTO); // Добавляем assignment в модель
+        model.addAttribute("performanceStatus", performanceStatus);
 
         return "performance-checklist";
     }
@@ -241,19 +249,38 @@ public class ViewController {
         }
 
         List<ControlResponseDTO> allControls = new ArrayList<>(controlMap.values());
-        int totalControls = allControls.size();
+        boolean excludeDraftForCounts = !"SOQM_LEAD".equals(userRole);
+        int totalControls;
+        if (excludeDraftForCounts) {
+            totalControls = (int) allControls.stream()
+                    .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
+                    .count();
+        } else {
+            totalControls = allControls.size();
+        }
 
         // Count only editable controls as active
         // ★ ADMIN: all non-completed controls are active
-        // Logic: editable if (creator AND status "In Progress") OR (facilitator AND status "Facilitator Review") OR (operator AND status "Control Operator Review") OR (soqm AND status "SoQM Lead Review") OR (po AND status "Process Owner Review")
+        // Logic: editable if (creator AND status "DRAFT") OR (facilitator AND status "IN_PROGRESS") OR (operator AND status "REVIEW") OR (soqm AND status "SOQM_HEAD_REVIEW") OR (po AND status "PROCESS_OWNER_REVIEW")
         int activeControls = 0;
         int completedControls = 0;
+        int overdueControls = 0;
         boolean isAdmin = "ADMIN".equals(userRole);
+        LocalDate todayAlmaty = LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
         
         for (ControlResponseDTO control : allControls) {
-            String status = control.getControlStatus();
-            
-            if ("Completed".equals(status)) {
+            String status = normalizeStatus(control.getPerformanceStatus());
+            if (!"DRAFT".equals(status) && !"COMPLETED".equals(status)) {
+                LocalDate deadline = control.getDeadline();
+                if (deadline != null && deadline.isBefore(todayAlmaty)) {
+                    overdueControls++;
+                }
+            }
+            if (excludeDraftForCounts && "DRAFT".equals(status)) {
+                continue;
+            }
+
+            if ("COMPLETED".equals(status)) {
                 completedControls++;
             } else if (isAdmin) {
                 // ADMIN: все незавершенные контроли считаются активными
@@ -265,11 +292,12 @@ public class ViewController {
                 boolean isSoqmLead = control.getSoqmLeads() != null && control.getSoqmLeads().contains(userEmail);
                 boolean isProcessOwner = control.getProcessOwners() != null && control.getProcessOwners().contains(userEmail);
                 
-                boolean isEditable = (isCreator && "In Progress".equals(status)) ||
-                                    (isFacilitator && "Facilitator Review".equals(status)) ||
-                                    (isOperator && "Control Operator Review".equals(status)) ||
-                                    (isSoqmLead && "SoQM Lead Review".equals(status)) ||
-                                    (isProcessOwner && "Process Owner Review".equals(status));
+                boolean isEditable = "SOQM_LEAD".equals(userRole) ||
+                        (isCreator && "DRAFT".equals(status)) ||
+                        (isFacilitator && "IN_PROGRESS".equals(status)) ||
+                        (isOperator && "REVIEW".equals(status)) ||
+                        (isSoqmLead && "SOQM_HEAD_REVIEW".equals(status)) ||
+                        (isProcessOwner && "PROCESS_OWNER_REVIEW".equals(status));
                 
                 if (isEditable) {
                     activeControls++;
@@ -280,7 +308,7 @@ public class ViewController {
         model.addAttribute("totalControls", totalControls);
         model.addAttribute("activeControls", activeControls);
         model.addAttribute("completedControls", completedControls);
-        model.addAttribute("overdueControls", 0);
+        model.addAttribute("overdueControls", overdueControls);
 
         model.addAttribute("recentControls", allControls.stream()
                 .sorted((c1, c2) -> {
@@ -295,6 +323,8 @@ public class ViewController {
 
     @GetMapping("/controls")
     public String controls(@RequestParam(value = "scope", required = false) String scope,
+                           @RequestParam(value = "status", required = false) String status,
+                           @RequestParam(value = "filter", required = false) String filter,
                            Model model,
                            HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
@@ -304,27 +334,76 @@ public class ViewController {
         String userRole = currentUser.getRole();
         String userEmail = currentUser.getMail();
         String normalizedScope = scope == null ? "" : scope.trim().toLowerCase(Locale.ROOT);
+        String normalizedStatus = status == null ? "" : status.trim();
+        String normalizedFilter = filter == null ? "" : filter.trim();
+        if ("ALL".equalsIgnoreCase(normalizedFilter)) {
+            normalizedFilter = "";
+        }
+        boolean defaultAllControls =
+                normalizedScope.isBlank() && normalizedStatus.isBlank() && normalizedFilter.isBlank();
+        boolean overdueFilter = "OVERDUE".equalsIgnoreCase(normalizedFilter);
+        boolean completedFilter = "COMPLETED".equalsIgnoreCase(normalizedFilter);
+        if ("OVERDUE".equalsIgnoreCase(normalizedStatus)) {
+            overdueFilter = true;
+            normalizedStatus = "";
+        }
+        if ("COMPLETED".equalsIgnoreCase(normalizedStatus)) {
+            completedFilter = true;
+            normalizedStatus = "";
+        }
+        String statusFilter = "";
         String effectiveScope;
         if (normalizedScope.isBlank()) {
-            effectiveScope = "ADMIN".equals(userRole) ? "active" : "mine";
+            if (defaultAllControls) {
+                effectiveScope = "all";
+            } else if ("SOQM_LEAD".equals(userRole)) {
+                effectiveScope = "all";
+            } else {
+                effectiveScope = "ADMIN".equals(userRole) ? "active" : "mine";
+            }
         } else {
             effectiveScope = normalizedScope;
         }
-        if ("ADMIN".equals(userRole)) {
-            if (!"active".equals(effectiveScope) && !"completed".equals(effectiveScope) && !"all".equals(effectiveScope)) {
+        if (!"SOQM_LEAD".equals(userRole)) {
+            if (!"active".equals(effectiveScope) && !"all".equals(effectiveScope)) {
                 effectiveScope = "active";
             }
         } else {
-            if (!"mine".equals(effectiveScope) && !"all".equals(effectiveScope)) {
-                effectiveScope = "mine";
+            if (!"all".equals(effectiveScope)) {
+                effectiveScope = "all";
             }
+        }
+        if (completedFilter && !"SOQM_LEAD".equals(userRole)) {
+            effectiveScope = "all";
+        }
+        
+        // Apply status filter for all users (not just SOQM_LEAD)
+        if (!normalizedStatus.isBlank()) {
+            String upperStatus = normalizedStatus.toUpperCase(Locale.ROOT);
+            Set<String> allowedStatuses = Set.of(
+                    "DRAFT",
+                    "IN_PROGRESS",
+                    "REVIEW",
+                    "SOQM_HEAD_REVIEW",
+                    "PROCESS_OWNER_REVIEW",
+                    "COMPLETED",
+                    "OVERDUE"
+            );
+            if (allowedStatuses.contains(upperStatus)) {
+                statusFilter = upperStatus;
+                System.out.println("✅ Status filter set to: " + statusFilter + " (normalizedStatus=" + normalizedStatus + ")");
+            } else {
+                System.out.println("❌ Status '" + upperStatus + "' not in allowed list");
+            }
+        } else {
+            System.out.println("ℹ️ normalizedStatus is blank");
         }
 
         // Use LinkedHashMap to preserve order and Set for O(1) lookup
         Map<Long, ControlResponseDTO> controlMap = new LinkedHashMap<>();
         
-        // ★ ADMIN sees ALL controls
-        if ("ADMIN".equals(userRole)) {
+        // ★ ADMIN and SOQM_LEAD see ALL controls
+        if ("ADMIN".equals(userRole) || "SOQM_LEAD".equals(userRole)) {
             List<Control> allControls = controlService.getAllControls();
             for (Control control : allControls) {
                 ControlResponseDTO dto = controlService.convertToResponseDTO(control);
@@ -366,15 +445,18 @@ public class ViewController {
                     }
                 }
             }
+        }
 
-            // If user is SOQM_LEAD, also add controls assigned to them
-            if ("SOQM_LEAD".equals(userRole)) {
-                List<Control> soqmControls = controlService.getSoqmLeadControls(userEmail);
-                for (Control control : soqmControls) {
-                    if (!controlMap.containsKey(control.getId())) {
-                        ControlResponseDTO dto = controlService.convertToResponseDTO(control);
-                        controlMap.put(control.getId(), dto);
-                    }
+        if (!"ADMIN".equals(userRole) && !"SOQM_LEAD".equals(userRole)) {
+            List<Control> allControls = controlService.getAllControls();
+            for (Control control : allControls) {
+                if (control == null || control.getId() == null || controlMap.containsKey(control.getId())) {
+                    continue;
+                }
+                if (isSharedWithUser(control.getId(), userEmail)) {
+                    ControlResponseDTO dto = controlService.convertToResponseDTO(control);
+                    dto.setSharedViewOnly(true);
+                    controlMap.put(control.getId(), dto);
                 }
             }
         }
@@ -390,78 +472,178 @@ public class ViewController {
             return date2.compareTo(date1);
         });
 
-        if ("mine".equals(effectiveScope)) {
-            int beforeCount = userControlsList.size();
+        if (overdueFilter) {
+            LocalDate todayAlmaty = LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
+            List<Long> overdueIdList = controlAssignmentRepository.findOverdueControlIds(todayAlmaty);
+            Set<Long> overdueIds = overdueIdList == null ? Set.of() : new HashSet<>(overdueIdList);
             userControlsList = userControlsList.stream()
-                    .filter(control -> isAssignedToUser(control, userEmail))
-                    .filter(control -> isActiveForUser(control, userEmail, userRole))
+                    .filter(control -> control.getId() != null && overdueIds.contains(control.getId()))
                     .collect(Collectors.toList());
-            System.out.println("controls filter scope=mine user=" + userEmail
-                    + " before=" + beforeCount + " after=" + userControlsList.size());
-        } else if ("active".equals(effectiveScope)) {
-            int beforeCount = userControlsList.size();
-            userControlsList = userControlsList.stream()
-                    .filter(control -> control.getControlStatus() == null
-                            || !"Completed".equalsIgnoreCase(control.getControlStatus()))
-                    .collect(Collectors.toList());
-            System.out.println("controls filter scope=active user=" + userEmail
-                    + " before=" + beforeCount + " after=" + userControlsList.size());
-        } else if ("completed".equals(effectiveScope)) {
-            int beforeCount = userControlsList.size();
-            userControlsList = userControlsList.stream()
-                    .filter(control -> "Completed".equalsIgnoreCase(control.getControlStatus()))
-                    .collect(Collectors.toList());
-            System.out.println("controls filter scope=completed user=" + userEmail
-                    + " before=" + beforeCount + " after=" + userControlsList.size());
-        } else {
-            System.out.println("controls filter scope=all user=" + userEmail
+            System.out.println("controls filter scope=overdue user=" + userEmail
                     + " count=" + userControlsList.size());
+        } else {
+            if ("active".equals(effectiveScope)) {
+                int beforeCount = userControlsList.size();
+                // Only apply active queue filter if NO status filter is specified
+                if (statusFilter.isBlank()) {
+                    if ("ADMIN".equals(userRole) || "SOQM_LEAD".equals(userRole)) {
+                        userControlsList = userControlsList.stream()
+                                .filter(control -> control.getPerformanceStatus() == null
+                                        || !"COMPLETED".equalsIgnoreCase(control.getPerformanceStatus()))
+                                .collect(Collectors.toList());
+                    } else {
+                        userControlsList = userControlsList.stream()
+                                .filter(control -> isActiveQueueForUser(control, userEmail))
+                                .collect(Collectors.toList());
+                    }
+                }
+                System.out.println("controls filter scope=active user=" + userEmail
+                        + " before=" + beforeCount + " after=" + userControlsList.size());
+            } else {
+                System.out.println("controls filter scope=all user=" + userEmail
+                        + " count=" + userControlsList.size());
+            }
+            // Apply status filter for all users
+            if (!statusFilter.isBlank()) {
+                String filterValue = statusFilter;
+                System.out.println("🔍 Applying statusFilter='" + filterValue + "' to " + userControlsList.size() + " controls");
+                System.out.println("   Control statuses before filter:");
+                for (ControlResponseDTO c : userControlsList) {
+                    String normalized = normalizeStatus(c.getPerformanceStatus());
+                    System.out.println("      - " + c.getControlId() + ": raw='" + c.getPerformanceStatus() + "' normalized='" + normalized + "'");
+                }
+                userControlsList = userControlsList.stream()
+                        .filter(control -> {
+                            String controlStatus = normalizeStatus(control.getPerformanceStatus());
+                            boolean matches = filterValue.equals(controlStatus);
+                            if (matches) {
+                                System.out.println("   ✅ Control " + control.getControlId() + " status=" + controlStatus + " matches");
+                            }
+                            return matches;
+                        })
+                        .collect(Collectors.toList());
+                System.out.println("🔍 After statusFilter: " + userControlsList.size() + " controls remain");
+            }
+            if (completedFilter) {
+                userControlsList = userControlsList.stream()
+                        .filter(control -> "COMPLETED".equals(normalizeStatus(control.getPerformanceStatus())))
+                        .collect(Collectors.toList());
+            }
+        }
+        
+        // For non-SOQM_LEAD users, hide DRAFT controls unless they are the creator
+        if (!"SOQM_LEAD".equals(userRole) && !"ADMIN".equals(userRole)) {
+            userControlsList = userControlsList.stream()
+                    .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
+                    .collect(Collectors.toList());
+        }
+
+        LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
+        for (ControlResponseDTO control : userControlsList) {
+            control.setOverdue(isOverdue(control, todayAlmaty));
         }
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userTitle", currentUser.getTitle());
         model.addAttribute("userEmail", userEmail);
         model.addAttribute("userRole", userRole);
-        model.addAttribute("controlsFilter", effectiveScope);
+        String resolvedControlsFilter = effectiveScope;
+        if (overdueFilter && !"SOQM_LEAD".equals(userRole)) {
+            resolvedControlsFilter = "overdue";
+        } else if (completedFilter && !"SOQM_LEAD".equals(userRole)) {
+            resolvedControlsFilter = "completed";
+        }
+        model.addAttribute("controlsFilter", resolvedControlsFilter);
+        String resolvedStatusFilter = statusFilter;
+        if (overdueFilter) {
+            resolvedStatusFilter = "OVERDUE";
+        } else if (completedFilter) {
+            resolvedStatusFilter = "COMPLETED";
+        }
+        model.addAttribute("statusFilter", resolvedStatusFilter);
         model.addAttribute("controls", userControlsList);
         model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
 
         return "controls";
     }
 
-    private boolean isAssignedToUser(ControlResponseDTO control, String userEmail) {
-        return (userEmail != null && userEmail.equalsIgnoreCase(control.getCreatedByEmail()))
-                || listContains(control.getFacilitators(), userEmail)
-                || listContains(control.getControlOperators(), userEmail)
-                || listContains(control.getSoqmLeads(), userEmail)
-                || listContains(control.getProcessOwners(), userEmail);
+    private String normalizeStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return "DRAFT";
+        }
+        return status.trim().toUpperCase(Locale.ROOT);
     }
 
-    private boolean isActiveForUser(ControlResponseDTO control, String userEmail, String userRole) {
-        if (control == null) return false;
-        String status = control.getControlStatus();
-
-        if ("ADMIN".equals(userRole)) {
-            return status != null && !"Completed".equalsIgnoreCase(status);
+    private boolean isOverdue(ControlResponseDTO control, LocalDate today) {
+        if (control == null || today == null) {
+            return false;
         }
+        String status = normalizeStatus(control.getPerformanceStatus());
+        if ("DRAFT".equals(status) || "COMPLETED".equals(status)) {
+            return false;
+        }
+        LocalDate deadline = control.getDeadline();
+        return deadline != null && deadline.isBefore(today);
+    }
 
-        boolean isCreator = userEmail != null && userEmail.equalsIgnoreCase(control.getCreatedByEmail());
-        boolean isFacilitator = listContains(control.getFacilitators(), userEmail);
-        boolean isOperator = listContains(control.getControlOperators(), userEmail);
-        boolean isSoqmLead = listContains(control.getSoqmLeads(), userEmail);
-        boolean isProcessOwner = listContains(control.getProcessOwners(), userEmail);
-
-        return (("In Progress".equals(status)) && (isCreator || "ADMIN".equals(userRole)))
-                || (isFacilitator && "Facilitator Review".equals(status))
-                || (isOperator && "Control Operator Review".equals(status))
-                || (isSoqmLead && "SoQM Lead Review".equals(status))
-                || (isProcessOwner && "Process Owner Review".equals(status));
+    private boolean isActiveQueueForUser(ControlResponseDTO control, String userEmail) {
+        if (control == null || userEmail == null) {
+            return false;
+        }
+        String status = normalizeStatus(control.getPerformanceStatus());
+        if ("COMPLETED".equals(status) || "DRAFT".equals(status)) {
+            return false;
+        }
+        if ("IN_PROGRESS".equals(status)) {
+            return listContains(control.getFacilitators(), userEmail);
+        }
+        if ("REVIEW".equals(status)) {
+            return listContains(control.getControlOperators(), userEmail);
+        }
+        if ("SOQM_HEAD_REVIEW".equals(status)) {
+            return listContains(control.getSoqmLeads(), userEmail);
+        }
+        if ("PROCESS_OWNER_REVIEW".equals(status)) {
+            return listContains(control.getProcessOwners(), userEmail);
+        }
+        return false;
     }
 
     private boolean listContains(List<String> items, String value) {
         if (items == null || value == null) return false;
         for (String item : items) {
             if (value.equalsIgnoreCase(item)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isSharedWithUser(Long controlId, String userEmail) {
+        if (controlId == null || userEmail == null) {
+            return false;
+        }
+        try {
+            ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
+            if (assignment == null) {
+                return false;
+            }
+            return containsEmailNormalized(assignment.getControlSharedWith(), userEmail);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean containsEmailNormalized(List<String> emails, String userEmail) {
+        if (emails == null || userEmail == null) {
+            return false;
+        }
+        String target = userEmail.trim().toLowerCase(Locale.ROOT);
+        for (String email : emails) {
+            if (email == null) {
+                continue;
+            }
+            if (email.trim().toLowerCase(Locale.ROOT).equals(target)) {
                 return true;
             }
         }
@@ -480,19 +662,19 @@ public class ViewController {
         model.addAttribute("userEmail", currentUser.getMail());
 
         // Get notifications from database
-        List<com.kpmg.qtracker.entity.Notification> dbNotifications = 
-            notificationService.getUserNotifications(currentUser.getId());
-        
+        List<com.kpmg.qtracker.entity.Notification> dbNotifications =
+                notificationService.getUserNotifications(currentUser.getId());
+
         // Convert to DTO
         List<NotificationItemDTO> notifications = dbNotifications.stream()
-            .map(this::convertNotificationToDTO)
-            .collect(Collectors.toList());
+                .filter(notif -> !notificationTypeDisplayMapper.isHiddenType(notif.getType()))
+                .map(this::convertNotificationToDTO)
+                .collect(Collectors.toList());
         
         // Cache notifications in session so detail view can retrieve by ID
         session.setAttribute("cachedNotifications", notifications);
 
-        long unreadCount = notificationService.countUnread(currentUser.getId());
-        model.addAttribute("unreadNotifications", unreadCount);
+        model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
 
         // Group notifications by date
         List<NotificationGroupDTO> groupedNotifications = groupNotificationsByDate(notifications);
@@ -512,23 +694,22 @@ public class ViewController {
         model.addAttribute("userTitle", currentUser.getTitle());
         model.addAttribute("userEmail", currentUser.getMail());
 
-        // Parse notification ID and mark as read
         try {
             Long notifId = Long.parseLong(notificationId);
-            notificationService.markAsRead(notifId);
-            
+
             // Get notification from DB
-            com.kpmg.qtracker.entity.Notification notif = 
-                notificationService.getUserNotifications(currentUser.getId()).stream()
-                    .filter(n -> n.getId().equals(notifId))
-                    .findFirst()
-                    .orElse(null);
-            
-            if (notif == null) {
+            com.kpmg.qtracker.entity.Notification notif =
+                    notificationService.getUserNotifications(currentUser.getId()).stream()
+                            .filter(n -> n.getId().equals(notifId))
+                            .findFirst()
+                            .orElse(null);
+
+            if (notif == null || notificationTypeDisplayMapper.isHiddenType(notif.getType())) {
                 model.addAttribute("error", "Notification not found");
                 return "notification-detail";
             }
-            
+
+            notificationService.markAsRead(notifId);
             NotificationItemDTO dto = convertNotificationToDTO(notif);
             model.addAttribute("notification", dto);
             
@@ -537,8 +718,7 @@ public class ViewController {
             return "notification-detail";
         }
 
-        long unreadCount = notificationService.countUnread(currentUser.getId());
-        model.addAttribute("unreadNotifications", unreadCount);
+        model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
 
         return "notification-detail";
     }
@@ -606,13 +786,14 @@ public class ViewController {
             statusItem.setControlId(cid);
             statusItem.setControlIdNumber(controlIdNumber);
             statusItem.setComponent(control.getComponent());
-            String statusText = (control.getControlStatus() != null ? control.getControlStatus() : "In Progress");
+            String statusText = (control.getPerformanceStatus() != null ? control.getPerformanceStatus() : "DRAFT");
             statusItem.setMessage("Status set to: " + statusText);
             statusItem.setFullText("The control status has been updated to: " + statusText + "\n\nControl: " + controlIdNumber + "\nComponent: " + control.getComponent());
             statusItem.setBy(control.getCreatedBy() != null ? control.getCreatedBy().getDisplayName() : "System");
             statusItem.setTimestamp(control.getUpdatedAt() != null ? control.getUpdatedAt() : control.getCreatedAt());
             statusItem.setRead(readNotificationIds.contains(statusNotifId));
             statusItem.setAttachments(new ArrayList<>());
+            applyNotificationDisplay(statusItem);
             notifications.add(statusItem);
 
             // Comments (SoQM Head)
@@ -632,6 +813,7 @@ public class ViewController {
                     commentItem.setTimestamp(control.getUpdatedAt());
                     commentItem.setRead(readNotificationIds.contains(commentNotifId));
                     commentItem.setAttachments(new ArrayList<>());
+                    applyNotificationDisplay(commentItem);
                     notifications.add(commentItem);
                 }
                 if (details.getProcessOwnerComments() != null && !details.getProcessOwnerComments().trim().isEmpty()) {
@@ -648,42 +830,12 @@ public class ViewController {
                     commentItem.setTimestamp(control.getUpdatedAt());
                     commentItem.setRead(readNotificationIds.contains(commentNotifId));
                     commentItem.setAttachments(new ArrayList<>());
+                    applyNotificationDisplay(commentItem);
                     notifications.add(commentItem);
                 }
             }
 
-            // File uploads
-            controlDocumentsRepository.findByControlId(cid).ifPresent(doc -> {
-                String fileName = doc.getAttachment();
-                String link = doc.getLink();
-                if ((fileName != null && !fileName.trim().isEmpty()) || (link != null && !link.trim().isEmpty())) {
-                    NotificationItemDTO fileItem = new NotificationItemDTO();
-                    String fileNotifId = "file-" + cid;
-                    fileItem.setId(fileNotifId);
-                    fileItem.setType("File Upload");
-                    fileItem.setControlId(cid);
-                    fileItem.setControlIdNumber(controlIdNumber);
-                    fileItem.setComponent(control.getComponent());
-                    String fileText = (fileName != null && !fileName.trim().isEmpty()) ? ("Attachment: " + fileName) : ("Link: " + link);
-                    fileItem.setMessage(fileText);
-                    fileItem.setFullText(fileText + "\n\nControl: " + controlIdNumber);
-                    fileItem.setBy(control.getCreatedBy() != null ? control.getCreatedBy().getDisplayName() : "User");
-                    fileItem.setTimestamp(control.getUpdatedAt());
-                    fileItem.setRead(readNotificationIds.contains(fileNotifId));
-                    
-                    // Add attachments
-                    List<AttachmentDTO> attachments = new ArrayList<>();
-                    if (fileName != null && !fileName.trim().isEmpty()) {
-                        attachments.add(new AttachmentDTO(fileName, "/documents/" + cid, "file"));
-                    }
-                    if (link != null && !link.trim().isEmpty()) {
-                        attachments.add(new AttachmentDTO("External Link", link, "link"));
-                    }
-                    fileItem.setAttachments(attachments);
-                    
-                    notifications.add(fileItem);
-                }
-            });
+            // File uploads (external links removed)
         }
 
         // Sort newest first by timestamp
@@ -699,9 +851,22 @@ public class ViewController {
         return notifications;
     }
 
+    private void applyNotificationDisplay(NotificationItemDTO dto) {
+        NotificationTypeDisplayMapper.Display display =
+                notificationTypeDisplayMapper.map(dto.getType(), dto.getMessage());
+        dto.setDisplayLabel(display.label());
+        dto.setBadgeClass(display.badgeClass());
+    }
+
     private long getUnreadCount(User currentUser) {
-        // Use DB-backed notification service
-        return notificationService.countUnread(currentUser.getId());
+        List<com.kpmg.qtracker.entity.Notification> unread =
+                notificationService.getUnreadNotifications(currentUser.getId());
+        if (unread == null || unread.isEmpty()) {
+            return 0;
+        }
+        return unread.stream()
+                .filter(notif -> !notificationTypeDisplayMapper.isHiddenType(notif.getType()))
+                .count();
     }
 
     private NotificationItemDTO convertNotificationToDTO(com.kpmg.qtracker.entity.Notification notif) {
@@ -722,6 +887,7 @@ public class ViewController {
         dto.setTimestamp(notif.getCreatedAt());
         dto.setRead(notif.getIsRead());
         dto.setAttachments(new ArrayList<>());
+        applyNotificationDisplay(dto);
         
         return dto;
     }
@@ -748,9 +914,12 @@ public class ViewController {
 
         for (Control control : allControls) {
             boolean shouldShow = false;
-            String performanceStatus = control.getControlStatus();
+            String performanceStatus = control.getPerformanceStatus();
             if (performanceStatus == null || performanceStatus.isEmpty()) {
-                performanceStatus = "In Progress";
+                performanceStatus = "DRAFT";
+            }
+            if (!"SOQM_LEAD".equals(userRole) && "DRAFT".equals(normalizeStatus(performanceStatus))) {
+                continue;
             }
 
             boolean isCreator = control.getCreatedBy() != null && userEmail.equals(control.getCreatedBy().getMail());
@@ -834,17 +1003,22 @@ public class ViewController {
         Control control = controlService.getControlById(id)
                 .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
 
-        // Use control_status instead
-        String performanceStatus = control.getControlStatus();
+        // Use performance_status instead
+        String performanceStatus = control.getPerformanceStatus();
         if (performanceStatus == null || performanceStatus.isEmpty()) {
-            performanceStatus = "In Progress";
+            performanceStatus = "DRAFT";
+        }
+        if (!"SOQM_LEAD".equals(currentUser.getRole())
+                && "DRAFT".equals(normalizeStatus(performanceStatus))) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Control not found");
         }
 
         // Determine if current user can edit this control
         String userEmail = currentUser.getMail();
         String userRole = currentUser.getRole();
         boolean isCreator = control.getCreatedBy() != null && control.getCreatedBy().getMail().equals(userEmail);
-        boolean isInProgress = "In Progress".equals(performanceStatus);
+        boolean isInProgress = "IN_PROGRESS".equals(performanceStatus);
         List<String> facilitators = controlService.getFacilitatorsForControl(id);
         boolean isFacilitator = facilitators != null && facilitators.contains(userEmail);
         
@@ -878,16 +1052,17 @@ public class ViewController {
             }
         }
         
-        // Control Operator can edit when status is "Control Operator Review"
-        boolean isControlOperatorReview = "Control Operator Review".equals(performanceStatus);
-        boolean isSoqmLeadReview = "SoQM Lead Review".equals(performanceStatus);
-        boolean isProcessOwnerReview = "Process Owner Review".equals(performanceStatus);
+        // Control Operator can edit when status is "REVIEW"
+        boolean isControlOperatorReview = "REVIEW".equals(performanceStatus);
+        boolean isSoqmLeadReview = "SOQM_HEAD_REVIEW".equals(performanceStatus);
+        boolean isProcessOwnerReview = "PROCESS_OWNER_REVIEW".equals(performanceStatus);
         
-        boolean canEdit = (isCreator && isInProgress) ||
-                          (isFacilitator && "Facilitator Review".equals(performanceStatus)) ||
-                          (isControlOperator && isControlOperatorReview) ||
-                          (isSoqmLead && isSoqmLeadReview) ||
-                          (isProcessOwner && isProcessOwnerReview);
+        boolean canEdit = "SOQM_LEAD".equals(userRole) ||
+                (isCreator && isInProgress) ||
+                (isFacilitator && "IN_PROGRESS".equals(performanceStatus)) ||
+                (isControlOperator && isControlOperatorReview) ||
+                (isSoqmLead && isSoqmLeadReview) ||
+                (isProcessOwner && isProcessOwnerReview);
         boolean readOnly = !canEdit;
 
         model.addAttribute("userName", currentUser.getDisplayName());
@@ -981,9 +1156,9 @@ public class ViewController {
         
         for (Control control : allControls) {
             boolean shouldShow = false;
-            String performanceStatus = control.getControlStatus();
+            String performanceStatus = control.getPerformanceStatus();
             if (performanceStatus == null || performanceStatus.isEmpty()) {
-                performanceStatus = "In Progress";
+                performanceStatus = "DRAFT";
             }
 
             boolean isCreator = control.getCreatedBy() != null && userEmail.equals(control.getCreatedBy().getMail());
@@ -1058,22 +1233,38 @@ public class ViewController {
             componentStats.put(component, 0L);
         }
 
-        // Считаем реальные значения
-        for (Control control : controlsToShow) {
-            String component = control.getComponent();
-            if (component != null && !component.trim().isEmpty()) {
-                // Если компонент есть в нашем списке, увеличиваем счетчик
-                if (componentStats.containsKey(component)) {
-                    componentStats.put(component, componentStats.get(component) + 1);
-                } else {
-                    // Если компонент не в списке, добавляем его
-                    componentStats.put(component, 1L);
+        if ("SOQM_LEAD".equals(userRole)) {
+            for (Control control : controlsToShow) {
+                String component = control.getComponent();
+                if (component != null && !component.trim().isEmpty()) {
+                    if (componentStats.containsKey(component)) {
+                        componentStats.put(component, componentStats.get(component) + 1);
+                    } else {
+                        componentStats.put(component, 1L);
+                    }
                 }
             }
-        }
+            componentStats.put("All", (long) controlsToShow.size());
+        } else {
+            long nonDraftCount = 0L;
+            for (Control control : controlsToShow) {
+                String status = normalizeStatus(control.getPerformanceStatus());
+                if ("DRAFT".equals(status)) {
+                    continue;
+                }
+                nonDraftCount++;
+                String component = control.getComponent();
+                if (component != null && !component.trim().isEmpty()) {
+                    if (componentStats.containsKey(component)) {
+                        componentStats.put(component, componentStats.get(component) + 1);
+                    } else {
+                        componentStats.put(component, 1L);
+                    }
+                }
+            }
 
-        // ★ ВАЖНО: добавляем "All" с общим количеством
-        componentStats.put("All", (long) controlsToShow.size());
+            componentStats.put("All", nonDraftCount);
+        }
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userTitle", currentUser.getTitle());
@@ -1084,8 +1275,7 @@ public class ViewController {
         model.addAttribute("controlsCount", controlsToShow.size());
 
         // Add unread notifications count
-        long unreadCount = notificationService.countUnread(currentUser.getId());
-        model.addAttribute("unreadNotifications", unreadCount);
+        model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
 
         return "action-centre";
     }
@@ -1142,6 +1332,7 @@ public class ViewController {
             model.addAttribute("userName", currentUser.getDisplayName());
             model.addAttribute("userTitle", currentUser.getTitle());
             model.addAttribute("userEmail", currentUser.getMail());
+            model.addAttribute("userRole", currentUser.getRole());
             model.addAttribute("controlId", control.getControlId());
             model.addAttribute("control", control);
 

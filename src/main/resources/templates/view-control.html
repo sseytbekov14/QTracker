@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title th:text="'Control - ' + ${control.controlId}">Control - Sultan</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/style.css?v=6" rel="stylesheet">
     <link href="/css/view-control.css?v=3.0" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
     <style>
@@ -132,13 +132,22 @@
             color: #6c757d;
             font-weight: normal;
         }
+        .required-hint {
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .field-required-error {
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.15) !important;
+        }
     </style>
 </head>
 <body>
 
 <input type="hidden" id="currentUserRole" th:value="${userRole}">
-<input type="hidden" id="currentPerformanceStatus" th:value="${performanceStatus}">
-<input type="hidden" id="workflowControlStatus" name="controlStatus" th:value="${control.controlStatus}">
+<input type="hidden" id="currentPerformanceStatus" name="performanceStatus" th:value="${performanceStatus}">
 <input type="hidden" id="isFacilitator" th:value="${isFacilitator}">
 <input type="hidden" id="isControlOperator" th:value="${isControlOperator}">
 <input type="hidden" id="isSoqmLead" th:value="${isSoqmLead}">
@@ -197,7 +206,8 @@
                                             <option value="Quarterly" th:selected="${control.controlFrequency == 'Quarterly'}">Quarterly</option>
                                             <option value="Ad-hoc" th:selected="${control.controlFrequency == 'Ad-hoc' or control.controlFrequency == 'As-required/at least annually'}">Ad-hoc</option>
                                             <option value="Recurring" th:selected="${control.controlFrequency == 'Recurring' or control.controlFrequency == 'Recurring/other'}">Recurring</option>
-                                            <option value="Annual/Semi-annual" th:selected="${control.controlFrequency == 'Annual/Semi-annual' or control.controlFrequency == 'Annually' or control.controlFrequency == 'Semi-annually'}">Annual/Semi-annual</option>
+                                            <option value="Annual" th:selected="${control.controlFrequency == 'Annual' or control.controlFrequency == 'Annually'}">Annual</option>
+                                            <option value="Semi Annual" th:selected="${control.controlFrequency == 'Semi Annual' or control.controlFrequency == 'Semi-annually'}">Semi Annual</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3 mb-3">
@@ -252,10 +262,10 @@
                                         <label class="form-label required-field">Control Status</label>
                                         <select class="form-control readonly-field" name="controlStatus" readonly>
                                             <option value="">Select Status</option>
-                                            <option value="Not Applicable" th:selected="${control.controlStatus == 'Not Applicable'}">Not Applicable</option>
-                                            <option value="Active" th:selected="${control.controlStatus == 'Active'}">Active</option>
-                                            <option value="Deleted" th:selected="${control.controlStatus == 'Deleted'}">Deleted</option>
-                                            <option value="Superseded" th:selected="${control.controlStatus == 'Superseded'}">Superseded</option>
+                                            <option value="NOT_APPLICABLE" th:selected="${control.controlStatus == 'NOT_APPLICABLE'}">Not Applicable</option>
+                                            <option value="ACTIVE" th:selected="${control.controlStatus == 'ACTIVE'}">Active</option>
+                                            <option value="DELETED" th:selected="${control.controlStatus == 'DELETED'}">Deleted</option>
+                                            <option value="SUPERSEDED" th:selected="${control.controlStatus == 'SUPERSEDED'}">Superseded</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3 mb-3">
@@ -311,8 +321,11 @@
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Homogeneity</label>
-                                        <input type="text" class="form-control" name="homogeneity"
-                                               placeholder="Enter homogeneity">
+                                        <select class="form-select" name="homogeneity">
+                                            <option value="">Select...</option>
+                                            <option value="Homogenous">Homogenous</option>
+                                            <option value="Non-Homogenous">Non-Homogenous</option>
+                                        </select>
                                     </div>
                                 </div>
 
@@ -338,18 +351,6 @@
                                 </div>
 
                                 <div class="row">
-                                    <div class="col-12 mb-3">
-                                        <label class="form-label">Control Operator's Program</label>
-                                        <textarea class="form-control role-restricted-field" 
-                                                  id="controlOperatorsProgram" 
-                                                  name="controlOperatorsProgram" 
-                                                  rows="4"
-                                                  data-allowed-roles="CONTROL_OPERATOR,ADMIN"
-                                                  placeholder="Describe control operator's program"></textarea>
-                                    </div>
-                                </div>
-
-                                <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Other Related Controls</label>
                                         <input type="text" class="form-control" name="otherRelatedControls"
@@ -367,6 +368,9 @@
                                         <label class="form-label">Control steps performed and results</label>
                                         <textarea class="form-control" name="controlStepsPerformed" rows="4"
                                                   placeholder="Describe control steps and results"></textarea>
+                                        <div class="required-hint d-none" id="controlStepsSubmitHint">
+                                            This field is required before submission.
+                                        </div>
                                     </div>
                                 </div>
 
@@ -599,14 +603,6 @@
 
                                 <div class="row">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label">Link</label>
-                                        <input type="text" class="form-control" name="link"
-                                               placeholder="Enter document link">
-                                    </div>
-                                </div>
-
-                                <div class="row">
-                                    <div class="col-12 mb-3">
                                         <label class="form-label">Attachment (Documents) - Max 20 files</label>
                                         <div class="input-group">
                                             <input type="file" class="form-control" name="attachment" id="attachmentDocumentsInput" multiple>
@@ -639,7 +635,7 @@
                         <div>
                             <a href="/" class="btn btn-outline-secondary">Home</a>
                             <button class="btn btn-outline-secondary" id="changelogBtn">Changelog</button>
-                            <button class="btn btn-outline-secondary" id="renameIdBtn" th:if="${!readOnly and (!#strings.equals(performanceStatus, 'In Progress') or userRole == 'SOQM_LEAD')}">Rename ID</button>
+                            <button class="btn btn-outline-secondary" id="renameIdBtn" th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or userRole == 'SOQM_LEAD')}">Rename ID</button>
                         </div>
 
                         <!-- Правая сторона: Workflow кнопки + Edit + Back -->
@@ -649,10 +645,8 @@
                                 <!-- 1. Submit to Control Operator button for FACILITATOR -->
                                 <button type="button"
                                         class="btn btn-primary workflow-submit-btn"
-                                        id="submitToControlOperatorBtn"
+                                        id="submitForReviewBtn"
                                         style="display: none;"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#submitConfirmationModal"
                                         title="Submit this control to Control Operator for review">
                                     Submit for Review
                                 </button>
@@ -663,8 +657,6 @@
                                         class="btn btn-success workflow-submit-btn co-action-btn"
                                         id="submitToSoqmLeadBtn"
                                         style="display: none;"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#submitSoqmLeadModal"
                                         title="Submit this control to SoQM Lead for review">
                                     Submit for SoQM Team Review
                                 </button>
@@ -674,8 +666,6 @@
                                         class="btn btn-warning workflow-submit-btn co-action-btn"
                                         id="returnToFacilitatorBtn"
                                         style="display: none;"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#returnFacilitatorModal"
                                         title="Return this control to Facilitator for revision">
                                     Return to Facilitator
                                 </button>
@@ -685,8 +675,6 @@
                                         class="btn btn-success workflow-submit-btn soqm-action-btn"
                                         id="submitToProcessOwnerBtn"
                                         style="display: none;"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#submitProcessOwnerModal"
                                         title="Submit this control to Process Owner for review">
                                     Send to Process Owner
                                 </button>
@@ -696,8 +684,6 @@
                                         class="btn btn-warning workflow-submit-btn soqm-action-btn"
                                         id="returnToOperatorBtn"
                                         style="display: none;"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#returnOperatorModal"
                                         title="Return this control to Control Operator for revision">
                                     Return to Operator
                                 </button>
@@ -718,15 +704,13 @@
                                         class="btn btn-warning workflow-submit-btn po-action-btn"
                                         id="returnToSoqmLeadBtn"
                                         style="display: none;"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#returnSoqmLeadModal"
                                         title="Return this control to SoQM Lead for revision">
                                     Return for SoQM Team Review
                                 </button>
                             </div>
 
                             <!-- Edit и Back кнопки -->
-                            <button class="btn btn-primary" id="editBtn" th:if="${!readOnly and (!#strings.equals(performanceStatus, 'In Progress') or userRole == 'SOQM_LEAD')}">Edit</button>
+                            <button class="btn btn-primary" id="editBtn" th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or userRole == 'SOQM_LEAD')}">Edit</button>
                             <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Back</button>
                         </div>
                     </div>
@@ -772,11 +756,19 @@
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
+                                <div id="changelogToolbar" class="changelog-toolbar d-none">
+                                    <div class="btn-group" role="group" aria-label="Changelog filter">
+                                        <button type="button" class="btn btn-outline-primary active" data-changelog-filter="all" id="changelogFilterAll">All</button>
+                                        <button type="button" class="btn btn-outline-primary" data-changelog-filter="workflow" id="changelogFilterWorkflow">Workflow</button>
+                                        <button type="button" class="btn btn-outline-primary" data-changelog-filter="field" id="changelogFilterField">Field Changes</button>
+                                    </div>
+                                    <div class="changelog-count text-muted small" id="changelogCount"></div>
+                                </div>
                                 <div id="changelogLoading" class="text-center text-muted py-3">Loading...</div>
                                 <div id="changelogEmpty" class="text-center text-muted py-3" style="display: none;">
                                     No history available.
                                 </div>
-                                <div id="changelogList"></div>
+                                <div id="changelogList" class="changelog-timeline"></div>
                             </div>
                         </div>
                     </div>
@@ -841,7 +833,7 @@
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
                             <div class="modal-header bg-info text-white">
-                                <h5 class="modal-title">Submit Control to Control Operator</h5>
+                                <h5 class="modal-title">Submit to Control Operator</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
@@ -868,7 +860,7 @@
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
                             <div class="modal-header bg-success text-white">
-                                <h5 class="modal-title">Submit Control to SoQM Lead</h5>
+                                <h5 class="modal-title">Submit to SoQM Lead</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
@@ -902,7 +894,7 @@
                                 </p>
                                 <div class="mb-3">
                                     <label for="returnComments" class="form-label">Comments (optional)</label>
-                                    <textarea class="form-control" id="returnComments" rows="3" 
+                                    <textarea class="form-control" id="returnComments" rows="3"
                                               placeholder="Provide feedback for the Facilitator..."></textarea>
                                 </div>
                             </div>
@@ -923,7 +915,7 @@
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
                             <div class="modal-header bg-success text-white">
-                                <h5 class="modal-title">Submit Control to Process Owner</h5>
+                                <h5 class="modal-title">Submit to Process Owner</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
@@ -1031,10 +1023,11 @@
         </div>
     </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<div th:replace="fragments/app-modal :: appModal"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/js/date-format.js?v=2"></script>
-<script src="/js/view-control.js?v=3.0"></script>
+<script src="/js/app-modal.js?v=3"></script>
+<script src="/js/view-control.js?v=3.2"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {
@@ -1042,9 +1035,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const isControlOperator = document.getElementById('isControlOperator')?.value === 'true';
     const isSoqmLead = document.getElementById('isSoqmLead')?.value === 'true';
     const isProcessOwner = document.getElementById('isProcessOwner')?.value === 'true';
-    const controlStatus = document.querySelector('input[name="controlStatus"]')?.value;
+    const performanceStatus = document.querySelector('input[name="performanceStatus"]')?.value;
     
-    const submitToOperatorBtn = document.getElementById('submitToControlOperatorBtn');
+    const submitToOperatorBtn = document.getElementById('submitForReviewBtn');
     const submitToSoqmLeadBtn = document.getElementById('submitToSoqmLeadBtn');
     const returnToFacilitatorBtn = document.getElementById('returnToFacilitatorBtn');
     const submitToProcessOwnerBtn = document.getElementById('submitToProcessOwnerBtn');
@@ -1061,16 +1054,16 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('   isControlOperator:', isControlOperator);
     console.log('   isSoqmLead:', isSoqmLead);
     console.log('   isProcessOwner:', isProcessOwner);
-    console.log('   controlStatus:', controlStatus);
+    console.log('   performanceStatus:', performanceStatus);
 
     // FACILITATOR: Show "Submit to Control Operator" button
-    if (submitToOperatorBtn && isFacilitator && controlStatus === 'Facilitator Review') {
+    if (submitToOperatorBtn && isFacilitator && performanceStatus === 'IN_PROGRESS') {
         submitToOperatorBtn.style.display = 'inline-block';
         console.log('   ✅ Submit to Control Operator button shown for Facilitator');
     }
 
     // CONTROL OPERATOR: Show "Submit to SoQM Lead" and "Return to Facilitator" buttons
-    if (isControlOperator && controlStatus === 'Control Operator Review') {
+    if (isControlOperator && performanceStatus === 'REVIEW') {
         if (submitToSoqmLeadBtn) {
             submitToSoqmLeadBtn.style.display = 'inline-block';
             console.log('   ✅ Submit to SoQM Lead button shown for Control Operator');
@@ -1082,7 +1075,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // SOQM LEAD: Show "Submit to Process Owner" and "Return to Operator" buttons
-    if (isSoqmLead && controlStatus === 'SoQM Lead Review') {
+    if (isSoqmLead && performanceStatus === 'SOQM_HEAD_REVIEW') {
         if (submitToProcessOwnerBtn) {
             submitToProcessOwnerBtn.style.display = 'inline-block';
             console.log('   ✅ Submit to Process Owner button shown for SoQM Lead');
@@ -1094,7 +1087,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // PROCESS OWNER: Show "Complete" and "Return to SoQM Lead" buttons
-    if (isProcessOwner && controlStatus === 'Process Owner Review') {
+    if (isProcessOwner && performanceStatus === 'PROCESS_OWNER_REVIEW') {
         if (completeControlBtn) {
             completeControlBtn.style.display = 'inline-block';
             console.log('   ✅ Complete button shown for Process Owner');
@@ -1106,30 +1099,35 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Hide Edit/Rename for Facilitator after submission
-    if (isFacilitator && controlStatus === 'Control Operator Review') {
+    if (isFacilitator && performanceStatus === 'REVIEW') {
         console.log('   🔒 Facilitator after submission - hiding edit buttons');
         if (editBtn) editBtn.style.display = 'none';
         if (renameIdBtn) renameIdBtn.style.display = 'none';
     }
 
     // Hide Edit/Rename for Control Operator after submission to SoQM Lead
-    if (isControlOperator && controlStatus === 'SoQM Lead Review') {
+    if (isControlOperator && performanceStatus === 'SOQM_HEAD_REVIEW') {
         console.log('   🔒 Control Operator after submission - hiding edit buttons');
         if (editBtn) editBtn.style.display = 'none';
         if (renameIdBtn) renameIdBtn.style.display = 'none';
     }
 
     // ============================================
-    // FACILITATOR CONTROL STEPS VALIDATION
+    // CONTROL STEPS REQUIRED BEFORE SUBMIT ACTIONS
     // ============================================
-    if (isFacilitator && (controlStatus === 'Facilitator Review' || controlStatus === 'FACILITATOR_REVIEW')) {
-        const controlSteps = document.querySelector('textarea[name="controlStepsPerformed"]');
-        const facilitatorBtn = submitToOperatorBtn;
+    const controlSteps = document.querySelector('textarea[name="controlStepsPerformed"]');
+    const controlStepsHint = document.getElementById('controlStepsSubmitHint');
+    const submitButtons = [];
 
-        console.log('🔍 Facilitator Control Steps Validation Check:');
-        console.log('   facilitatorBtn:', facilitatorBtn);
-        console.log('   controlSteps field:', controlSteps);
-        console.log('   controlSteps value:', controlSteps ? controlSteps.value : 'NOT FOUND');
+    if (isFacilitator && performanceStatus === 'IN_PROGRESS') {
+        submitButtons.push(submitToOperatorBtn);
+    }
+    if (isControlOperator && performanceStatus === 'REVIEW') {
+        submitButtons.push(document.getElementById('submitToSoqmLeadBtn'));
+    }
+
+    if (submitButtons.length > 0) {
+        console.log('🔍 Control steps submission validation for buttons:', submitButtons.length);
 
         function isControlStepsFilled() {
             if (!controlSteps) {
@@ -1141,138 +1139,48 @@ document.addEventListener('DOMContentLoaded', function() {
             return filled;
         }
 
-        function updateFacilitatorButton() {
-            if (!facilitatorBtn) return;
+        function updateSubmitButtons() {
             const isFilled = isControlStepsFilled();
-            console.log('   updateFacilitatorButton called, isFilled:', isFilled);
-
-            if (isFilled) {
-                facilitatorBtn.disabled = false;
-                facilitatorBtn.removeAttribute('disabled');
-                facilitatorBtn.title = facilitatorBtn.getAttribute('data-original-title') || facilitatorBtn.title;
-                facilitatorBtn.style.cursor = 'pointer';
-                facilitatorBtn.style.opacity = '1';
-                facilitatorBtn.style.pointerEvents = 'auto';
-                console.log('✅ Facilitator button ENABLED:', facilitatorBtn.id);
-            } else {
-                facilitatorBtn.disabled = true;
-                facilitatorBtn.setAttribute('disabled', 'disabled');
-                facilitatorBtn.setAttribute('data-original-title', facilitatorBtn.title);
-                facilitatorBtn.title = 'Fill Control steps performed and results to enable submission';
-                facilitatorBtn.style.cursor = 'not-allowed';
-                facilitatorBtn.style.opacity = '0.5';
-                facilitatorBtn.style.pointerEvents = 'none';
-                console.log('🔒 Facilitator button DISABLED:', facilitatorBtn.id);
-            }
-        }
-
-        updateFacilitatorButton();
-
-        if (controlSteps) {
-            controlSteps.addEventListener('input', () => {
-                console.log('📝 Input event triggered on controlStepsPerformed');
-                updateFacilitatorButton();
-            });
-            controlSteps.addEventListener('change', () => {
-                console.log('📝 Change event triggered on controlStepsPerformed');
-                updateFacilitatorButton();
-            });
-            controlSteps.addEventListener('blur', () => {
-                console.log('📝 Blur event triggered on controlStepsPerformed');
-                updateFacilitatorButton();
-            });
-        }
-
-        const facilitatorValidationInterval = setInterval(() => {
-            const currentValue = controlSteps ? controlSteps.value : '';
-            if (currentValue && currentValue.trim().length > 0) {
-                console.log('✅ Control steps has text, ensuring facilitator button is enabled');
-                updateFacilitatorButton();
-            }
-        }, 500);
-
-        console.log('✅ Facilitator control steps validation initialized with continuous monitoring');
-    }
-
-    // ============================================
-    // CONTROL OPERATOR PROGRAM VALIDATION
-    // ============================================
-    if (isControlOperator && (controlStatus === 'Control Operator Review')) {
-        const coActionButtons = document.querySelectorAll('.co-action-btn');
-        const coProgram = document.getElementById('controlOperatorsProgram');
-        
-        console.log('🔍 CO Program Validation Check:');
-        console.log('   coActionButtons found:', coActionButtons.length);
-        console.log('   coProgram field:', coProgram);
-        console.log('   coProgram value:', coProgram ? coProgram.value : 'NOT FOUND');
-        
-        // Function to check if field is filled
-        function isCoProgamFilled() {
-            if (!coProgram) {
-                console.warn('⚠️ coProgram element not found');
-                return false;
-            }
-            const filled = coProgram.value && coProgram.value.trim().length > 0;
-            console.log('   isCoProgamFilled:', filled, '(value length:', (coProgram.value || '').length + ')');
-            return filled;
-        }
-        
-        // Function to update button states
-        function updateCoActionButtons() {
-            const isFilled = isCoProgamFilled();
-            console.log('   updateCoActionButtons called, isFilled:', isFilled);
-            
-            coActionButtons.forEach(btn => {
+            submitButtons.forEach(btn => {
+                if (!btn) return;
                 if (isFilled) {
+                    if (controlSteps) {
+                        controlSteps.classList.remove('field-required-error');
+                    }
+                    if (controlStepsHint) {
+                        controlStepsHint.classList.add('d-none');
+                    }
                     btn.disabled = false;
                     btn.removeAttribute('disabled');
                     btn.title = btn.getAttribute('data-original-title') || btn.title;
                     btn.style.cursor = 'pointer';
                     btn.style.opacity = '1';
                     btn.style.pointerEvents = 'auto';
-                    console.log('✅ CO Action button ENABLED:', btn.id);
                 } else {
+                    if (controlSteps) {
+                        controlSteps.classList.add('field-required-error');
+                    }
+                    if (controlStepsHint) {
+                        controlStepsHint.classList.remove('d-none');
+                    }
                     btn.disabled = true;
                     btn.setAttribute('disabled', 'disabled');
                     btn.setAttribute('data-original-title', btn.title);
-                    btn.title = 'Fill Control Operator\'s Program to enable actions';
+                    btn.title = 'Fill Control steps performed and results to enable submission';
                     btn.style.cursor = 'not-allowed';
                     btn.style.opacity = '0.5';
                     btn.style.pointerEvents = 'none';
-                    console.log('🔒 CO Action button DISABLED:', btn.id);
                 }
             });
         }
-        
-        // Initial check
-        updateCoActionButtons();
-        
-        // Listen for changes in the textarea
-        if (coProgram) {
-            coProgram.addEventListener('input', () => {
-                console.log('📝 Input event triggered on coProgram');
-                updateCoActionButtons();
-            });
-            coProgram.addEventListener('change', () => {
-                console.log('📝 Change event triggered on coProgram');
-                updateCoActionButtons();
-            });
-            coProgram.addEventListener('blur', () => {
-                console.log('📝 Blur event triggered on coProgram');
-                updateCoActionButtons();
-            });
+
+        updateSubmitButtons();
+
+        if (controlSteps) {
+            controlSteps.addEventListener('input', updateSubmitButtons);
+            controlSteps.addEventListener('change', updateSubmitButtons);
+            controlSteps.addEventListener('blur', updateSubmitButtons);
         }
-        
-        // Also check every 1 second in case form is dynamically updated
-        const coValidationInterval = setInterval(() => {
-            const currentValue = coProgram ? coProgram.value : '';
-            if (currentValue && currentValue.trim().length > 0) {
-                console.log('✅ CO Program has text, ensuring buttons are enabled');
-                updateCoActionButtons();
-            }
-        }, 1000);
-        
-        console.log('✅ Control Operator Program validation initialized with continuous monitoring');
     }
 
     // ============================================
@@ -1281,15 +1189,21 @@ document.addEventListener('DOMContentLoaded', function() {
     function applyRoleBasedRestrictions() {
         const currentUserRole = document.getElementById('currentUserRole')?.value || 'UNKNOWN';
         const restrictedFields = document.querySelectorAll('.role-restricted-field');
+        const canEditAll = Boolean(window.qtrackerPermissions && window.qtrackerPermissions.canEditAll);
+        const canEditProcessOwnerComments = Boolean(window.qtrackerPermissions && window.qtrackerPermissions.canEditProcessOwnerComments);
+        const editNavPanel = document.getElementById('editNavPanel');
+        const isEditMode = editNavPanel && !editNavPanel.classList.contains('d-none');
         
         console.log('🔐 Applying role-based restrictions for role:', currentUserRole);
         
         restrictedFields.forEach(field => {
-            const allowedRoles = (field.getAttribute('data-allowed-roles') || '').split(',');
             const fieldName = field.name;
-            const isAllowed = allowedRoles.includes(currentUserRole);
+            let isAllowed = isEditMode && canEditAll;
+            if (!isAllowed && fieldName === 'processOwnerComments') {
+                isAllowed = isEditMode && canEditProcessOwnerComments;
+            }
             
-            console.log(`   Field: ${fieldName}, AllowedRoles: ${allowedRoles}, IsAllowed: ${isAllowed}`);
+            console.log(`   Field: ${fieldName}, IsAllowed: ${isAllowed}`);
             
             if (!isAllowed) {
                 // Disable field for this role
@@ -1334,10 +1248,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // STATUS-BASED FIELD RESTRICTIONS
     // ============================================
     function applyStatusBasedRestrictions() {
-        const statusValue = document.querySelector('input[name="controlStatus"]')?.value || '';
+        const statusValue = document.querySelector('input[name="performanceStatus"]')?.value || '';
         const normalizedStatus = statusValue.toUpperCase().replace(/\s+/g, '_');
-        const allowedStatuses = new Set(['FACILITATOR_REVIEW', 'IN_PROGRESS']);
-        const isAllowed = allowedStatuses.has(normalizedStatus);
+        const canEditStepsPerformed = Boolean(window.qtrackerPermissions && window.qtrackerPermissions.canEditStepsPerformed);
+        const canEditAll = Boolean(window.qtrackerPermissions && window.qtrackerPermissions.canEditAll);
+        const editNavPanel = document.getElementById('editNavPanel');
+        const isEditMode = editNavPanel && !editNavPanel.classList.contains('d-none');
 
         const controlStepsField = document.querySelector('textarea[name="controlStepsPerformed"]');
         if (!controlStepsField) {
@@ -1345,18 +1261,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        console.log('🔒 Status-based restriction:', { statusValue, normalizedStatus, isAllowed });
+        console.log('🔒 Status-based restriction:', { statusValue, normalizedStatus, isEditMode });
 
-        if (!isAllowed) {
-            controlStepsField.disabled = true;
-            controlStepsField.readOnly = true;
-            controlStepsField.setAttribute('disabled', 'disabled');
-            controlStepsField.setAttribute('readonly', 'readonly');
-            controlStepsField.style.cursor = 'not-allowed';
-            controlStepsField.style.backgroundColor = '#e9ecef';
-            controlStepsField.style.color = '#6c757d';
-            controlStepsField.style.borderColor = '#dee2e6';
-        } else {
+        if ((canEditAll || canEditStepsPerformed) && isEditMode) {
             controlStepsField.disabled = false;
             controlStepsField.readOnly = false;
             controlStepsField.removeAttribute('disabled');
@@ -1365,7 +1272,16 @@ document.addEventListener('DOMContentLoaded', function() {
             controlStepsField.style.backgroundColor = '';
             controlStepsField.style.color = '';
             controlStepsField.style.borderColor = '';
+            return;
         }
+        controlStepsField.disabled = true;
+        controlStepsField.readOnly = true;
+        controlStepsField.setAttribute('disabled', 'disabled');
+        controlStepsField.setAttribute('readonly', 'readonly');
+        controlStepsField.style.cursor = 'not-allowed';
+        controlStepsField.style.backgroundColor = '#e9ecef';
+        controlStepsField.style.color = '#6c757d';
+        controlStepsField.style.borderColor = '#dee2e6';
     }
 
     // Apply restrictions on page load
@@ -1386,167 +1302,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ Role-based field restrictions initialized');
 
-    // ============================================
-    // SOQM LEAD HEAD/TEAM COMMENTS VALIDATION
-    // ============================================
-    if (isSoqmLead && (controlStatus === 'SoQM Lead Review')) {
-        const soqmActionButtons = document.querySelectorAll('.soqm-action-btn');
-        const soqmComments = document.getElementById('soqmHeadComments');
-        
-        console.log('🔍 SoQM Lead Validation Check:');
-        console.log('   soqmActionButtons found:', soqmActionButtons.length);
-        console.log('   soqmComments field:', soqmComments);
-        console.log('   soqmComments value:', soqmComments ? soqmComments.value : 'NOT FOUND');
-        
-        // Function to check if field is filled
-        function isSoqmCommentsFilled() {
-            if (!soqmComments) {
-                console.warn('⚠️ soqmComments element not found');
-                return false;
-            }
-            const filled = soqmComments.value && soqmComments.value.trim().length > 0;
-            console.log('   isSoqmCommentsFilled:', filled, '(value length:', (soqmComments.value || '').length + ')');
-            return filled;
-        }
-        
-        // Function to update button states
-        function updateSoqmActionButtons() {
-            const isFilled = isSoqmCommentsFilled();
-            console.log('   updateSoqmActionButtons called, isFilled:', isFilled);
-            
-            soqmActionButtons.forEach(btn => {
-                if (isFilled) {
-                    btn.disabled = false;
-                    btn.removeAttribute('disabled');
-                    btn.title = btn.getAttribute('data-original-title') || btn.title;
-                    btn.style.cursor = 'pointer';
-                    btn.style.opacity = '1';
-                    btn.style.pointerEvents = 'auto';
-                    console.log('✅ SoQM Action button ENABLED:', btn.id);
-                } else {
-                    btn.disabled = true;
-                    btn.setAttribute('disabled', 'disabled');
-                    btn.setAttribute('data-original-title', btn.title);
-                    btn.title = 'Fill SoQM Head/Team Comments to enable actions';
-                    btn.style.cursor = 'not-allowed';
-                    btn.style.opacity = '0.5';
-                    btn.style.pointerEvents = 'none';
-                    console.log('🔒 SoQM Action button DISABLED:', btn.id);
-                }
-            });
-        }
-        
-        // Initial check
-        updateSoqmActionButtons();
-        
-        // Listen for changes in the textarea
-        if (soqmComments) {
-            soqmComments.addEventListener('input', () => {
-                console.log('📝 Input event triggered on soqmComments');
-                updateSoqmActionButtons();
-            });
-            soqmComments.addEventListener('change', () => {
-                console.log('📝 Change event triggered on soqmComments');
-                updateSoqmActionButtons();
-            });
-            soqmComments.addEventListener('blur', () => {
-                console.log('📝 Blur event triggered on soqmComments');
-                updateSoqmActionButtons();
-            });
-        }
-        
-        // Also check every 500ms in case form is dynamically updated
-        const soqmValidationInterval = setInterval(() => {
-            const currentValue = soqmComments ? soqmComments.value : '';
-            if (currentValue && currentValue.trim().length > 0) {
-                console.log('✅ SoQM Comments has text, ensuring buttons are enabled');
-                updateSoqmActionButtons();
-            }
-        }, 500);
-        
-        console.log('✅ SoQM Lead Comments validation initialized with continuous monitoring');
-    }
-
-    // ============================================
-    // PROCESS OWNER COMMENTS VALIDATION
-    // ============================================
-    if (isProcessOwner && (controlStatus === 'Process Owner Review')) {
-        const poActionButtons = document.querySelectorAll('.po-action-btn');
-        const poComments = document.getElementById('processOwnerComments');
-        
-        console.log('🔍 Process Owner Validation Check:');
-        console.log('   poActionButtons found:', poActionButtons.length);
-        console.log('   poComments field:', poComments);
-        console.log('   poComments value:', poComments ? poComments.value : 'NOT FOUND');
-        
-        // Function to check if field is filled
-        function isPoCommentsFilled() {
-            if (!poComments) {
-                console.warn('⚠️ poComments element not found');
-                return false;
-            }
-            const filled = poComments.value && poComments.value.trim().length > 0;
-            console.log('   isPoCommentsFilled:', filled, '(value length:', (poComments.value || '').length + ')');
-            return filled;
-        }
-        
-        // Function to update button states
-        function updatePoActionButtons() {
-            const isFilled = isPoCommentsFilled();
-            console.log('   updatePoActionButtons called, isFilled:', isFilled);
-            
-            poActionButtons.forEach(btn => {
-                if (isFilled) {
-                    btn.disabled = false;
-                    btn.removeAttribute('disabled');
-                    btn.title = btn.getAttribute('data-original-title') || btn.title;
-                    btn.style.cursor = 'pointer';
-                    btn.style.opacity = '1';
-                    btn.style.pointerEvents = 'auto';
-                    console.log('✅ PO Action button ENABLED:', btn.id);
-                } else {
-                    btn.disabled = true;
-                    btn.setAttribute('disabled', 'disabled');
-                    btn.setAttribute('data-original-title', btn.title);
-                    btn.title = 'Fill Process Owner Comments to enable actions';
-                    btn.style.cursor = 'not-allowed';
-                    btn.style.opacity = '0.5';
-                    btn.style.pointerEvents = 'none';
-                    console.log('🔒 PO Action button DISABLED:', btn.id);
-                }
-            });
-        }
-        
-        // Initial check
-        updatePoActionButtons();
-        
-        // Listen for changes in the textarea
-        if (poComments) {
-            poComments.addEventListener('input', () => {
-                console.log('📝 Input event triggered on poComments');
-                updatePoActionButtons();
-            });
-            poComments.addEventListener('change', () => {
-                console.log('📝 Change event triggered on poComments');
-                updatePoActionButtons();
-            });
-            poComments.addEventListener('blur', () => {
-                console.log('📝 Blur event triggered on poComments');
-                updatePoActionButtons();
-            });
-        }
-        
-        // Also check every 500ms in case form is dynamically updated
-        const poValidationInterval = setInterval(() => {
-            const currentValue = poComments ? poComments.value : '';
-            if (currentValue && currentValue.trim().length > 0) {
-                console.log('✅ PO Comments has text, ensuring buttons are enabled');
-                updatePoActionButtons();
-            }
-        }, 500);
-        
-        console.log('✅ Process Owner Comments validation initialized with continuous monitoring');
-    }
 });
 
 // ============================================
@@ -1594,8 +1349,8 @@ document.addEventListener('DOMContentLoaded', function() {
         detailsInput.addEventListener('change', function() {
             if (this.files.length > 0) {
                 const count = this.files.length;
-                if (count > 20) {
-                    alert('⚠️ Maximum 20 files allowed. Please select fewer files.');
+                if (count > 50) {
+                    alert('⚠️ Maximum 50 files allowed. Please select fewer files.');
                     this.value = '';
                     if (detailsFileInfo) detailsFileInfo.textContent = '';
                     return;
@@ -1611,8 +1366,8 @@ document.addEventListener('DOMContentLoaded', function() {
         documentsInput.addEventListener('change', function() {
             if (this.files.length > 0) {
                 const count = this.files.length;
-                if (count > 20) {
-                    alert('⚠️ Maximum 20 files allowed. Please select fewer files.');
+                if (count > 50) {
+                    alert('⚠️ Maximum 50 files allowed. Please select fewer files.');
                     this.value = '';
                     if (documentsFileInfo) documentsFileInfo.textContent = '';
                     return;
@@ -1704,7 +1459,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (files.length > 0) {
                         const fileLinks = files.map(file => {
                             const filename = file.split('_').slice(2).join('_') || file; // Extract original name
-                            return `<a href="/api/attachments/download/${encodeURIComponent(file)}" class="badge bg-info text-decoration-none me-1" download><i class="bi bi-download"></i> ${filename}</a>`;
+                            return `<a href="/api/attachments/download/${encodeURIComponent(file)}?controlId=${controlId}" class="badge bg-info text-decoration-none me-1" download><i class="bi bi-download"></i> ${filename}</a>`;
                         }).join(' ');
                         detailsFileInfo.innerHTML = `📎 Files (${files.length}): ${fileLinks}`;
                         if (downloadDetailsBtn) downloadDetailsBtn.style.display = 'none'; // Hide old button
@@ -1717,7 +1472,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (files.length > 0) {
                         const fileLinks = files.map(file => {
                             const filename = file.split('_').slice(2).join('_') || file; // Extract original name
-                            return `<a href="/api/attachments/download/${encodeURIComponent(file)}" class="badge bg-info text-decoration-none me-1" download><i class="bi bi-download"></i> ${filename}</a>`;
+                            return `<a href="/api/attachments/download/${encodeURIComponent(file)}?controlId=${controlId}" class="badge bg-info text-decoration-none me-1" download><i class="bi bi-download"></i> ${filename}</a>`;
                         }).join(' ');
                         documentsFileInfo.innerHTML = `📎 Files (${files.length}): ${fileLinks}`;
                         if (downloadDocumentsBtn) downloadDocumentsBtn.style.display = 'none'; // Hide old button
@@ -1735,3 +1490,5 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 </body>
 </html>
+
+

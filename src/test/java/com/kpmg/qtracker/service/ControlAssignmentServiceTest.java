@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
@@ -18,7 +19,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,6 +31,8 @@ class ControlAssignmentServiceTest {
     private UserRepository userRepository;
     @Mock
     private ControlRepository controlRepository;
+    @Spy
+    private ControlScheduleCalculator scheduleCalculator = new ControlScheduleCalculator();
 
     @InjectMocks
     private ControlAssignmentService service;
@@ -55,42 +57,63 @@ class ControlAssignmentServiceTest {
 
         ControlAssignment saved = service.saveAssignment(dto);
 
+        assertThat(saved.getControlOperationDeadline()).isEqualTo(operationDate.plusDays(7));
         assertThat(saved.getNextControlOperationDate()).isEqualTo(operationDate.plusMonths(1));
+
+        ArgumentCaptor<Control> controlCaptor = ArgumentCaptor.forClass(Control.class);
+        verify(controlRepository).save(controlCaptor.capture());
+        assertThat(controlCaptor.getValue().getDeadline()).isEqualTo(operationDate.plusDays(7));
     }
 
     @Test
     void monthlyNextDateComputedWhenMissing() {
         assertNextOperationDateComputed("Monthly", LocalDate.of(2026, 2, 4),
-                null, LocalDate.of(2026, 3, 4));
+                null, LocalDate.of(2026, 2, 11), LocalDate.of(2026, 3, 4));
     }
 
     @Test
     void quarterlyNextDateComputedWhenMissing() {
         assertNextOperationDateComputed("Quarterly", LocalDate.of(2026, 2, 4),
-                null, LocalDate.of(2026, 5, 4));
+                null, LocalDate.of(2026, 2, 18), LocalDate.of(2026, 5, 4));
     }
 
     @Test
     void semiAnnualNextDateComputedWhenMissing() {
-        assertNextOperationDateComputed("Semi-annual", LocalDate.of(2026, 2, 4),
-                null, LocalDate.of(2026, 8, 4));
+        assertNextOperationDateComputed("Semi Annual", LocalDate.of(2026, 2, 4),
+                null, LocalDate.of(2026, 3, 4), LocalDate.of(2026, 8, 4));
     }
 
     @Test
     void annualNextDateComputedWhenMissing() {
         assertNextOperationDateComputed("Annual", LocalDate.of(2026, 2, 4),
-                null, LocalDate.of(2027, 2, 4));
+                null, LocalDate.of(2026, 3, 4), LocalDate.of(2027, 2, 4));
     }
 
     @Test
     void invalidNextDateRecomputedAccordingToFrequency() {
         assertNextOperationDateComputed("Quarterly", LocalDate.of(2026, 2, 4),
-                LocalDate.of(2026, 2, 4), LocalDate.of(2026, 5, 4));
+                LocalDate.of(2026, 2, 4), LocalDate.of(2026, 2, 18), LocalDate.of(2026, 5, 4));
+    }
+
+    @Test
+    void getAssignmentByControlId_splitsSharedWithOnCommaAndSemicolon() {
+        Long controlId = 44L;
+        ControlAssignment assignment = new ControlAssignment();
+        assignment.setControlId(controlId);
+        assignment.setControlSharedWith("a@kpmg.kz; b@kpmg.kz, c@kpmg.kz");
+
+        when(assignmentRepository.findByControlId(controlId)).thenReturn(Optional.of(assignment));
+
+        ControlAssignmentDTO dto = service.getAssignmentByControlId(controlId);
+
+        assertThat(dto.getControlSharedWith())
+                .containsExactly("a@kpmg.kz", "b@kpmg.kz", "c@kpmg.kz");
     }
 
     private void assertNextOperationDateComputed(String frequency,
                                                  LocalDate operationDate,
                                                  LocalDate providedNextDate,
+                                                 LocalDate expectedDeadline,
                                                  LocalDate expectedNextDate) {
         Long controlId = 77L;
 
@@ -111,8 +134,12 @@ class ControlAssignmentServiceTest {
 
         assertThat(saved.getControlId()).isEqualTo(controlId);
         assertThat(saved.getControlOperationDate()).isEqualTo(operationDate);
+        assertThat(saved.getControlOperationDeadline()).isEqualTo(expectedDeadline);
         assertThat(saved.getNextControlOperationDate()).isEqualTo(expectedNextDate);
 
-        verify(controlRepository, never()).save(any(Control.class));
+        ArgumentCaptor<Control> controlCaptor = ArgumentCaptor.forClass(Control.class);
+        verify(controlRepository).save(controlCaptor.capture());
+        assertThat(controlCaptor.getValue().getDeadline()).isEqualTo(expectedDeadline);
     }
 }
+

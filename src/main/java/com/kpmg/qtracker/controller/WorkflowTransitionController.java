@@ -8,6 +8,7 @@ import com.kpmg.qtracker.enums.WorkflowActionType;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.service.NotificationTemplateService;
+import com.kpmg.qtracker.service.WorkflowRequiredFieldService;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import jakarta.servlet.http.HttpSession;
@@ -25,6 +26,7 @@ public class WorkflowTransitionController {
     private final ControlAssignmentRepository controlAssignmentRepository;
     private final WorkflowHistoryRepository workflowHistoryRepository;
     private final NotificationService notificationService;
+    private final WorkflowRequiredFieldService requiredFieldService;
 
     @PostMapping("/initiate")
     public ResponseEntity<?> initiateControl(
@@ -55,14 +57,21 @@ public class WorkflowTransitionController {
                 return ResponseEntity.status(400).body(Map.of("success", false, "message", "No Facilitator assigned to this control"));
             }
 
-            // Update control status to Facilitator Review
-            control.setControlStatus("Facilitator Review");
+            // Update workflow status to In Progress
+            control.setPerformanceStatus("IN_PROGRESS");
             controlService.save(control);
+
+            List<String> recipients = new ArrayList<>();
+            recipients.addAll(splitRecipients(assignment.getFacilitator()));
+            recipients.addAll(splitRecipients(assignment.getControlOperator()));
+            if (!recipients.isEmpty()) {
+                notificationService.sendInitiateNotifications(control, recipients);
+            }
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Control initiated and sent to Facilitator for review");
-            response.put("controlStatus", control.getControlStatus());
+            response.put("controlStatus", control.getPerformanceStatus());
 
             return ResponseEntity.ok(response);
 
@@ -109,15 +118,20 @@ public class WorkflowTransitionController {
                 return ResponseEntity.status(403).body(Map.of("success", false, "message", "You are not assigned as Facilitator for this control"));
             }
 
+            Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control, currentUser);
+            if (missingField.isPresent()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", missingField.get()));
+            }
+
             // Verify Control Operator is assigned
             if (assignment.getControlOperator() == null || assignment.getControlOperator().isEmpty()) {
                 return ResponseEntity.status(400).body(Map.of("success", false, "message", "Control Operator not assigned. Please assign a Control Operator first."));
             }
 
-            String previousStatus = control.getControlStatus();
+            String previousStatus = control.getPerformanceStatus();
 
-            // Update control status to indicate it's under Control Operator review
-            control.setControlStatus("Control Operator Review");
+            // Update workflow status to indicate it's under Control Operator review
+            control.setPerformanceStatus("REVIEW");
             controlService.save(control);
 
             // Add workflow history record
@@ -126,8 +140,8 @@ public class WorkflowTransitionController {
             history.setActionType(WorkflowActionType.SUBMIT_TO_OPERATOR);
             history.setPerformedByEmail(currentUser.getMail());
             history.setPerformedByName(currentUser.getDisplayName());
-            history.setFromStep(previousStatus != null ? previousStatus : "Facilitator Review");
-            history.setToStep("Control Operator Review");
+            history.setFromStep(previousStatus != null ? previousStatus : "IN_PROGRESS");
+            history.setToStep("REVIEW");
             history.setComments("Control submitted to Control Operator for review");
             workflowHistoryRepository.save(history);
 
@@ -139,7 +153,7 @@ public class WorkflowTransitionController {
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Control submitted to Control Operator");
-            response.put("controlStatus", control.getControlStatus());
+            response.put("controlStatus", control.getPerformanceStatus());
 
             return ResponseEntity.ok(response);
 
@@ -186,15 +200,20 @@ public class WorkflowTransitionController {
                 return ResponseEntity.status(403).body(Map.of("success", false, "message", "You are not assigned as Control Operator for this control"));
             }
 
+            Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control, currentUser);
+            if (missingField.isPresent()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", missingField.get()));
+            }
+
             // Verify SoQM Lead is assigned
             if (assignment.getSoqmLead() == null || assignment.getSoqmLead().isEmpty()) {
                 return ResponseEntity.status(400).body(Map.of("success", false, "message", "SoQM Lead not assigned. Please assign a SoQM Lead first."));
             }
 
-            String previousStatus = control.getControlStatus();
+            String previousStatus = control.getPerformanceStatus();
 
-            // Update control status to indicate it's under SoQM Lead review
-            control.setControlStatus("SoQM Lead Review");
+            // Update workflow status to indicate it's under SoQM Lead review
+            control.setPerformanceStatus("SOQM_HEAD_REVIEW");
             controlService.save(control);
 
             // Add workflow history record
@@ -203,13 +222,13 @@ public class WorkflowTransitionController {
             history.setActionType(WorkflowActionType.SUBMIT_TO_SOQM_LEAD);
             history.setPerformedByEmail(currentUser.getMail());
             history.setPerformedByName(currentUser.getDisplayName());
-            history.setFromStep(previousStatus != null ? previousStatus : "Control Operator Review");
-            history.setToStep("SoQM Lead Review");
+            history.setFromStep(previousStatus != null ? previousStatus : "REVIEW");
+            history.setToStep("SOQM_HEAD_REVIEW");
             history.setComments("Control submitted to SoQM Lead for review");
             workflowHistoryRepository.save(history);
 
             // Notify SoQM Lead/Delegate only
-            boolean resubmitted = previousStatus != null && previousStatus.toLowerCase(Locale.ROOT).contains("returned");
+            boolean resubmitted = false;
             sendNotificationToRole(control, assignment.getSoqmLead(),
                     NotificationTemplateService.TemplateType.OPERATOR_TO_SOQM,
                     resubmitted);
@@ -217,7 +236,7 @@ public class WorkflowTransitionController {
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Control submitted to SoQM Lead");
-            response.put("controlStatus", control.getControlStatus());
+            response.put("controlStatus", control.getPerformanceStatus());
 
             return ResponseEntity.ok(response);
 
@@ -290,10 +309,10 @@ public class WorkflowTransitionController {
                 return ResponseEntity.status(403).body(Map.of("success", false, "message", "You are not assigned as Control Operator for this control"));
             }
 
-            String previousStatus = control.getControlStatus();
+            String previousStatus = control.getPerformanceStatus();
 
-            // Update control status back to Facilitator Review
-            control.setControlStatus("Facilitator Review");
+            // Update workflow status back to In Progress
+            control.setPerformanceStatus("IN_PROGRESS");
             controlService.save(control);
 
             // Add workflow history record
@@ -302,15 +321,33 @@ public class WorkflowTransitionController {
             history.setActionType(WorkflowActionType.RETURN_TO_FACILITATOR);
             history.setPerformedByEmail(currentUser.getMail());
             history.setPerformedByName(currentUser.getDisplayName());
-            history.setFromStep(previousStatus != null ? previousStatus : "Control Operator Review");
-            history.setToStep("Facilitator Review");
+            history.setFromStep(previousStatus != null ? previousStatus : "REVIEW");
+            history.setToStep("IN_PROGRESS");
             history.setComments(comments != null && !comments.isEmpty() ? comments : "Control returned to Facilitator for revision");
             workflowHistoryRepository.save(history);
+
+            List<String> recipients = new ArrayList<>();
+            if (assignment.getFacilitator() != null && !assignment.getFacilitator().isBlank()) {
+                recipients.addAll(splitRecipients(assignment.getFacilitator()));
+            }
+            String currentEmail = currentUser.getMail();
+            if (currentEmail != null) {
+                recipients.removeIf(email -> email.equalsIgnoreCase(currentEmail));
+            }
+            String controlLabel = control.getControlId() != null ? control.getControlId() : String.valueOf(control.getId());
+            String message = "The control " + controlLabel + " has been returned to you for rework.";
+            notificationService.sendReturnNotifications(
+                    control,
+                    recipients,
+                    currentUser.getRole(),
+                    message,
+                    "RETURN_TO_FACILITATOR"
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Control returned to Facilitator");
-            response.put("controlStatus", control.getControlStatus());
+            response.put("controlStatus", control.getPerformanceStatus());
 
             return ResponseEntity.ok(response);
 

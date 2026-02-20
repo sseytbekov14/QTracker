@@ -19,6 +19,7 @@ import com.kpmg.qtracker.service.ControlHistoryService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
 import com.kpmg.qtracker.service.UserService;
+import com.kpmg.qtracker.util.StatusDisplayMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,7 @@ public class ControlController {
     private final IPerformanceService performanceService; // ДОБАВЛЕНО: поле для performanceService
     private final AdminAuditService adminAuditService;
     private final ControlHistoryService controlHistoryService;
+    private final StatusDisplayMapper statusDisplayMapper;
     private static final Logger logger = LoggerFactory.getLogger(ControlController.class);
 
     @GetMapping
@@ -138,7 +140,14 @@ public class ControlController {
 
             Control control = new Control();
             control.setControlId(controlDTO.getControlId());
-            control.setControlFrequency(controlDTO.getControlFrequency());
+            String canonicalFrequency = canonicalizeFrequency(controlDTO.getControlFrequency());
+            if (canonicalFrequency == null) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false,
+                                "error", "INVALID_FREQUENCY",
+                                "message", "Control Frequency must be one of Monthly, Quarterly, Ad-hoc, Recurring, Annual, Semi Annual"));
+            }
+            control.setControlFrequency(canonicalFrequency);
             control.setControlCategory(controlDTO.getControlCategory());
             control.setControlType(controlDTO.getControlType());
             control.setComponent(controlDTO.getComponent());
@@ -147,7 +156,8 @@ public class ControlController {
             control.setPriority(controlDTO.getPriority());
             control.setNonAuditServicesApplicability(controlDTO.getNonAuditServicesApplicability());
             control.setHomogeneity(controlDTO.getHomogeneity());
-            control.setControlStatus("In Progress"); // ★ Устанавливаем начальный статус
+            control.setControlStatus(controlDTO.getControlStatus());
+            control.setPerformanceStatus("DRAFT"); // Initial workflow status before initiate
             control.setControlDescription(controlDTO.getControlDescription());
             control.setPrp(controlDTO.getPrp());
             control.setCreatedBy(user);
@@ -220,9 +230,23 @@ public class ControlController {
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "filtered") String exportType,
             @RequestParam(required = false) String userEmail,
-            HttpServletResponse response
+            HttpServletResponse response,
+            HttpSession session
     ) throws IOException {
         try {
+            User currentUser = (User) session.getAttribute("currentUser");
+            if (currentUser == null) {
+                response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                response.setContentType("text/plain");
+                response.getWriter().write("User not authenticated");
+                return;
+            }
+            if (!"SOQM_LEAD".equals(currentUser.getRole())) {
+                response.setStatus(HttpStatus.FORBIDDEN.value());
+                response.setContentType("text/plain");
+                response.getWriter().write("Forbidden");
+                return;
+            }
             logger.info("=== EXPORT PARAMETERS ===");
             logger.info("exportType: {}", exportType);
             logger.info("userEmail: {}", userEmail);
@@ -239,14 +263,14 @@ public class ControlController {
                 logger.info("Controls details:");
                 for (Control c : controls) {
                     logger.info("  - ID: {}, ControlID: {}, Status: {}",
-                            c.getId(), c.getControlId(), c.getControlStatus());
+                            c.getId(), c.getControlId(), c.getPerformanceStatus());
                 }
             } else if ("filtered".equals(exportType)) {
                 controls = controlService.getAllControls().stream()
                         .filter(control -> component == null || component.isEmpty() ||
                                 component.equals(control.getComponent()))
                         .filter(control -> status == null || status.isEmpty() ||
-                                (control.getControlStatus() != null && status.equals(control.getControlStatus())))
+                                (control.getPerformanceStatus() != null && status.equals(control.getPerformanceStatus())))
                         .filter(control -> search == null || search.isEmpty() ||
                                 (control.getControlId() != null && control.getControlId().toLowerCase().contains(search.toLowerCase())) ||
                                 (control.getControlDescription() != null && control.getControlDescription().toLowerCase().contains(search.toLowerCase())))
@@ -281,9 +305,17 @@ public class ControlController {
 
             // Заголовки колонок
             String[] headers = {
-                    "Control ID", "Component", "Control Type", "Control Category",
-                    "Control Frequency", "Status", "Priority", "Operated By",
-                    "Created By", "Created Date", "Description"
+                    "№",
+                    "CONTROL ID",
+                    "Component",
+                    "Control Type",
+                    "Frequency of Control",
+                    "Control operation date",
+                    "Control Operator",
+                    "Process Owner",
+                    "SoQM Head/Delegate",
+                    "Deadline",
+                    "Performance Status"
             };
 
             Row headerRow = sheet.createRow(0);
@@ -301,36 +333,30 @@ public class ControlController {
 
             // Заполняем данными
             int rowNum = 1;
-            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+            int index = 1;
+            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
 
             for (Control control : controls) {
                 Row row = sheet.createRow(rowNum++);
 
+                ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
+                String operatorNames = resolveDisplayNames(assignment != null ? assignment.getControlOperator() : null);
+                String processOwnerNames = resolveDisplayNames(assignment != null ? assignment.getProcessOwner() : null);
+                String soqmNames = resolveDisplayNames(assignment != null ? assignment.getSoqmLead() : null);
+                LocalDate operationDate = assignment != null ? assignment.getControlOperationDate() : null;
+
                 int colNum = 0;
+                row.createCell(colNum++).setCellValue(index++);
                 row.createCell(colNum++).setCellValue(control.getControlId() != null ? control.getControlId() : "");
                 row.createCell(colNum++).setCellValue(control.getComponent() != null ? control.getComponent() : "");
                 row.createCell(colNum++).setCellValue(control.getControlType() != null ? control.getControlType() : "");
-                row.createCell(colNum++).setCellValue(control.getControlCategory() != null ? control.getControlCategory() : "");
                 row.createCell(colNum++).setCellValue(control.getControlFrequency() != null ? control.getControlFrequency() : "");
-                row.createCell(colNum++).setCellValue(control.getControlStatus() != null ? control.getControlStatus() : "DRAFT");
-                row.createCell(colNum++).setCellValue(control.getPriority() != null ? control.getPriority() : "");
-                row.createCell(colNum++).setCellValue(control.getOperatedBy() != null ? control.getOperatedBy() : "");
-
-                String createdBy = control.getCreatedBy() != null ?
-                        control.getCreatedBy().getDisplayName() : "Unknown";
-                row.createCell(colNum++).setCellValue(createdBy);
-
-                if (control.getCreatedAt() != null) {
-                    Cell dateCell = row.createCell(colNum++);
-                    dateCell.setCellValue(control.getCreatedAt().format(dateFormatter));
-                } else {
-                    row.createCell(colNum++).setCellValue("");
-                }
-
-                row.createCell(colNum).setCellValue(
-                        control.getControlDescription() != null ?
-                                control.getControlDescription() : ""
-                );
+                row.createCell(colNum++).setCellValue(operationDate != null ? operationDate.format(dateFormatter) : "");
+                row.createCell(colNum++).setCellValue(operatorNames);
+                row.createCell(colNum++).setCellValue(processOwnerNames);
+                row.createCell(colNum++).setCellValue(soqmNames);
+                row.createCell(colNum++).setCellValue(control.getDeadline() != null ? control.getDeadline().format(dateFormatter) : "");
+                row.createCell(colNum).setCellValue(control.getPerformanceStatus() != null ? control.getPerformanceStatus() : "DRAFT");
             }
 
             // Авто-размер для последней колонки (описание)
@@ -419,6 +445,21 @@ public class ControlController {
             
             Control existingControl = controlService.getControlById(id)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
+            ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(id);
+            if (!canUserEditControl(currentUser, existingControl, assignment)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("VALIDATION_ERROR: User does not have permission to edit this control");
+            }
+            String previousFrequency = existingControl.getControlFrequency();
+            String requestedFrequency = controlDTO.getControlFrequency();
+            String canonicalFrequency = null;
+            if (requestedFrequency != null) {
+                canonicalFrequency = canonicalizeFrequency(requestedFrequency);
+                if (canonicalFrequency == null) {
+                    return ResponseEntity.badRequest()
+                            .body("VALIDATION_ERROR: Control Frequency must be one of Monthly, Quarterly, Ad-hoc, Recurring, Annual, Semi Annual");
+                }
+            }
 
             // ============================================
             // ROLE-BASED FIELD RESTRICTIONS VALIDATION
@@ -461,36 +502,57 @@ public class ControlController {
             Map<String, String> newValues = new LinkedHashMap<>();
             List<String> changedFields = new ArrayList<>();
 
-            collectChange(changedFields, previousValues, newValues, "Control Frequency",
-                    existingControl.getControlFrequency(), controlDTO.getControlFrequency());
-            collectChange(changedFields, previousValues, newValues, "Control Category",
-                    existingControl.getControlCategory(), controlDTO.getControlCategory());
-            collectChange(changedFields, previousValues, newValues, "Control Type",
-                    existingControl.getControlType(), controlDTO.getControlType());
-            collectChange(changedFields, previousValues, newValues, "Component",
-                    existingControl.getComponent(), controlDTO.getComponent());
-            collectChange(changedFields, previousValues, newValues, "Operated By",
-                    existingControl.getOperatedBy(), controlDTO.getOperatedBy());
-            collectChange(changedFields, previousValues, newValues, "References to Control",
-                    existingControl.getReferencesToControl(), controlDTO.getReferencesToControl());
-            collectChange(changedFields, previousValues, newValues, "Priority",
-                    existingControl.getPriority(), controlDTO.getPriority());
-            collectChange(changedFields, previousValues, newValues, "Non-Audit Services Applicability",
-                    existingControl.getNonAuditServicesApplicability(), controlDTO.getNonAuditServicesApplicability());
-            collectChange(changedFields, previousValues, newValues, "Homogeneity",
-                    existingControl.getHomogeneity(), controlDTO.getHomogeneity());
-            collectChange(changedFields, previousValues, newValues, "Control Description",
-                    existingControl.getControlDescription(), controlDTO.getControlDescription());
-            collectChange(changedFields, previousValues, newValues, "PRP",
-                    existingControl.getPrp(), controlDTO.getPrp());
-            collectChange(changedFields, previousValues, newValues, "Control Operator's Program",
-                    existingControl.getControlOperatorsProgram(), controlDTO.getControlOperatorsProgram());
-
-            if ("SOQM_LEAD".equals(userRole) || "ADMIN".equals(userRole)) {
+            if (canonicalFrequency != null) {
+                collectChange(changedFields, previousValues, newValues, "Control Frequency",
+                        existingControl.getControlFrequency(), canonicalFrequency);
+            }
+            if (controlDTO.getControlCategory() != null) {
+                collectChange(changedFields, previousValues, newValues, "Control Category",
+                        existingControl.getControlCategory(), controlDTO.getControlCategory());
+            }
+            if (controlDTO.getControlType() != null) {
+                collectChange(changedFields, previousValues, newValues, "Control Type",
+                        existingControl.getControlType(), controlDTO.getControlType());
+            }
+            if (controlDTO.getComponent() != null) {
+                collectChange(changedFields, previousValues, newValues, "Component",
+                        existingControl.getComponent(), controlDTO.getComponent());
+            }
+            if (controlDTO.getOperatedBy() != null) {
+                collectChange(changedFields, previousValues, newValues, "Operated By",
+                        existingControl.getOperatedBy(), controlDTO.getOperatedBy());
+            }
+            if (controlDTO.getReferencesToControl() != null) {
+                collectChange(changedFields, previousValues, newValues, "References to Control",
+                        existingControl.getReferencesToControl(), controlDTO.getReferencesToControl());
+            }
+            if (controlDTO.getPriority() != null) {
+                collectChange(changedFields, previousValues, newValues, "Priority",
+                        existingControl.getPriority(), controlDTO.getPriority());
+            }
+            if (controlDTO.getNonAuditServicesApplicability() != null) {
+                collectChange(changedFields, previousValues, newValues, "Non-Audit Services Applicability",
+                        existingControl.getNonAuditServicesApplicability(), controlDTO.getNonAuditServicesApplicability());
+            }
+            if (controlDTO.getHomogeneity() != null) {
+                collectChange(changedFields, previousValues, newValues, "Homogeneity",
+                        existingControl.getHomogeneity(), controlDTO.getHomogeneity());
+            }
+            if (controlDTO.getControlDescription() != null) {
+                collectChange(changedFields, previousValues, newValues, "Control Description",
+                        existingControl.getControlDescription(), controlDTO.getControlDescription());
+            }
+            if (controlDTO.getPrp() != null) {
+                collectChange(changedFields, previousValues, newValues, "PRP",
+                        existingControl.getPrp(), controlDTO.getPrp());
+            }
+            if (controlDTO.getSoqmHeadComments() != null
+                    && ("SOQM_LEAD".equals(userRole) || "ADMIN".equals(userRole))) {
                 collectChange(changedFields, previousValues, newValues, "SoQM Head/Team Comments",
                         existingControl.getSoqmHeadComments(), controlDTO.getSoqmHeadComments());
             }
-            if ("PROCESS_OWNER".equals(userRole) || "ADMIN".equals(userRole)) {
+            if (controlDTO.getProcessOwnerComments() != null
+                    && ("PROCESS_OWNER".equals(userRole) || "ADMIN".equals(userRole))) {
                 collectChange(changedFields, previousValues, newValues, "Process Owner Comments",
                         existingControl.getProcessOwnerComments(), controlDTO.getProcessOwnerComments());
             }
@@ -498,32 +560,60 @@ public class ControlController {
             // ============================================
             // UPDATE ALLOWED FIELDS
             // ============================================
-            existingControl.setControlFrequency(controlDTO.getControlFrequency());
-            existingControl.setControlCategory(controlDTO.getControlCategory());
-            existingControl.setControlType(controlDTO.getControlType());
-            existingControl.setComponent(controlDTO.getComponent());
-            existingControl.setOperatedBy(controlDTO.getOperatedBy());
-            existingControl.setReferencesToControl(controlDTO.getReferencesToControl());
-            existingControl.setPriority(controlDTO.getPriority());
-            existingControl.setNonAuditServicesApplicability(controlDTO.getNonAuditServicesApplicability());
-            existingControl.setHomogeneity(controlDTO.getHomogeneity());
-            // NOTE: DO NOT update controlStatus here - it should only change via workflow transitions (Submit buttons)
-            // existingControl.setControlStatus(controlDTO.getControlStatus());
-            existingControl.setControlDescription(controlDTO.getControlDescription());
-            existingControl.setPrp(controlDTO.getPrp());
-            existingControl.setControlOperatorsProgram(controlDTO.getControlOperatorsProgram());
-            
+            if (canonicalFrequency != null) {
+                existingControl.setControlFrequency(canonicalFrequency);
+            }
+            if (controlDTO.getControlCategory() != null) {
+                existingControl.setControlCategory(controlDTO.getControlCategory());
+            }
+            if (controlDTO.getControlType() != null) {
+                existingControl.setControlType(controlDTO.getControlType());
+            }
+            if (controlDTO.getComponent() != null) {
+                existingControl.setComponent(controlDTO.getComponent());
+            }
+            if (controlDTO.getOperatedBy() != null) {
+                existingControl.setOperatedBy(controlDTO.getOperatedBy());
+            }
+            if (controlDTO.getReferencesToControl() != null) {
+                existingControl.setReferencesToControl(controlDTO.getReferencesToControl());
+            }
+            if (controlDTO.getPriority() != null) {
+                existingControl.setPriority(controlDTO.getPriority());
+            }
+            if (controlDTO.getNonAuditServicesApplicability() != null) {
+                existingControl.setNonAuditServicesApplicability(controlDTO.getNonAuditServicesApplicability());
+            }
+            if (controlDTO.getHomogeneity() != null) {
+                existingControl.setHomogeneity(controlDTO.getHomogeneity());
+            }
+            // NOTE: DO NOT update performanceStatus here - it should only change via workflow transitions (Submit buttons)
+            if (controlDTO.getControlStatus() != null) {
+                existingControl.setControlStatus(controlDTO.getControlStatus());
+            }
+            if (controlDTO.getControlDescription() != null) {
+                existingControl.setControlDescription(controlDTO.getControlDescription());
+            }
+            if (controlDTO.getPrp() != null) {
+                existingControl.setPrp(controlDTO.getPrp());
+            }
             // Set role-specific comments
-            if ("SOQM_LEAD".equals(userRole) || "ADMIN".equals(userRole)) {
+            if (controlDTO.getSoqmHeadComments() != null
+                    && ("SOQM_LEAD".equals(userRole) || "ADMIN".equals(userRole))) {
                 existingControl.setSoqmHeadComments(controlDTO.getSoqmHeadComments());
             }
-            if ("PROCESS_OWNER".equals(userRole) || "ADMIN".equals(userRole)) {
+            if (controlDTO.getProcessOwnerComments() != null
+                    && ("PROCESS_OWNER".equals(userRole) || "ADMIN".equals(userRole))) {
                 existingControl.setProcessOwnerComments(controlDTO.getProcessOwnerComments());
             }
             
             existingControl.setUpdatedAt(LocalDateTime.now());
 
             Control updatedControl = controlService.updateControl(existingControl);
+            if (canonicalFrequency != null
+                    && !Objects.equals(normalizeValue(previousFrequency), normalizeValue(canonicalFrequency))) {
+                controlAssignmentService.recalculateSchedule(updatedControl.getId());
+            }
             if (!changedFields.isEmpty()) {
                 try {
                     ObjectMapper mapper = new ObjectMapper();
@@ -547,17 +637,70 @@ public class ControlController {
         }
     }
 
+    private boolean canUserEditControl(User user, Control control, ControlAssignmentDTO assignment) {
+        if (user == null || control == null) {
+            return false;
+        }
+        String role = user.getRole();
+        if ("SOQM_LEAD".equals(role) || "ADMIN".equals(role)) {
+            return true;
+        }
+        String status = control.getPerformanceStatus();
+        String userEmail = user.getMail();
+        boolean isCreator = control.getCreatedBy() != null
+                && userEmail != null
+                && userEmail.equalsIgnoreCase(control.getCreatedBy().getMail());
+        boolean isFacilitator = containsEmail(assignment != null ? assignment.getFacilitator() : null, userEmail);
+        boolean isControlOperator = containsEmail(assignment != null ? assignment.getControlOperator() : null, userEmail);
+        boolean isSoqmLead = containsEmail(assignment != null ? assignment.getSoqmLead() : null, userEmail);
+        boolean isProcessOwner = containsEmail(assignment != null ? assignment.getProcessOwner() : null, userEmail);
+        if (status == null) {
+            status = "";
+        }
+        return (isCreator && "IN_PROGRESS".equals(status))
+                || (isFacilitator && "IN_PROGRESS".equals(status))
+                || (isControlOperator && "REVIEW".equals(status))
+                || (isSoqmLead && "SOQM_HEAD_REVIEW".equals(status))
+                || (isProcessOwner && "PROCESS_OWNER_REVIEW".equals(status));
+    }
+
+    private boolean containsEmail(List<String> emails, String userEmail) {
+        if (emails == null || userEmail == null) {
+            return false;
+        }
+        for (String email : emails) {
+            if (email != null && email.equalsIgnoreCase(userEmail)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @GetMapping("/{id}/export/completed")
-    public void exportCompletedControl(@PathVariable Long id, HttpServletResponse response) throws IOException {
+    public void exportCompletedControl(@PathVariable Long id, HttpServletResponse response, HttpSession session) throws IOException {
         try {
+            User currentUser = (User) session.getAttribute("currentUser");
+            if (currentUser == null) {
+                response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                response.setContentType("text/plain");
+                response.getWriter().write("User not authenticated");
+                return;
+            }
+            if (!"SOQM_LEAD".equals(currentUser.getRole())) {
+                response.setStatus(HttpStatus.FORBIDDEN.value());
+                response.setContentType("text/plain");
+                response.getWriter().write("Forbidden");
+                return;
+            }
+
             Control control = controlService.getControlById(id)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
 
-            String status = control.getControlStatus();
-            if (status == null || status.isBlank()) {
-                status = performanceService.getPerformanceStatusByControlId(control.getId());
+            String performanceStatus = control.getPerformanceStatus();
+            if (performanceStatus == null || performanceStatus.isBlank()) {
+                performanceStatus = performanceService.getPerformanceStatusByControlId(control.getId());
             }
-            if (!"Completed".equalsIgnoreCase(status)) {
+            if (!"COMPLETED".equalsIgnoreCase(performanceStatus)) {
                 response.setStatus(HttpStatus.FORBIDDEN.value());
                 response.setContentType("text/plain");
                 response.getWriter().write("Control is not completed");
@@ -589,7 +732,7 @@ public class ControlController {
 
             int rowNum = 1;
             rowNum = addRow(sheet, rowNum, "Control ID", control.getControlId());
-            rowNum = addRow(sheet, rowNum, "Control Status", status);
+            rowNum = addRow(sheet, rowNum, "Control Status", statusDisplayMapper.display(control.getControlStatus()));
             rowNum = addRow(sheet, rowNum, "Control Type", control.getControlType());
             rowNum = addRow(sheet, rowNum, "Control Frequency", control.getControlFrequency());
             rowNum = addRow(sheet, rowNum, "Control Category", control.getControlCategory());
@@ -601,7 +744,6 @@ public class ControlController {
             rowNum = addRow(sheet, rowNum, "Homogeneity", control.getHomogeneity());
             rowNum = addRow(sheet, rowNum, "Control Description", control.getControlDescription());
             rowNum = addRow(sheet, rowNum, "PRP", control.getPrp());
-            rowNum = addRow(sheet, rowNum, "Control Operator's Program", control.getControlOperatorsProgram());
             rowNum = addRow(sheet, rowNum, "SoQM Head/Team Comments", control.getSoqmHeadComments());
             rowNum = addRow(sheet, rowNum, "Process Owner Comments", control.getProcessOwnerComments());
 
@@ -624,7 +766,7 @@ public class ControlController {
 
             rowNum = addRow(sheet, rowNum, "SoQM Year", performanceDTO.getSoqmYear());
             rowNum = addRow(sheet, rowNum, "Actual Operation Date", formatDate(performanceDTO.getActualOperationDate()));
-            rowNum = addRow(sheet, rowNum, "Performance Status", performanceDTO.getPerformanceStatus());
+            rowNum = addRow(sheet, rowNum, "Performance Status", performanceStatus);
 
             if (details != null) {
                 rowNum = addRow(sheet, rowNum, "Process Name", details.getProcessName());
@@ -633,12 +775,9 @@ public class ControlController {
                 rowNum = addRow(sheet, rowNum, "Other Related Controls", details.getOtherRelatedControls());
                 rowNum = addRow(sheet, rowNum, "IT Applications", details.getItApplications());
                 rowNum = addRow(sheet, rowNum, "Control Steps Performed and Results", details.getControlStepsPerformed());
-                rowNum = addRow(sheet, rowNum, "Attached File", details.getAttachedFile());
             }
 
             if (documents != null) {
-                rowNum = addRow(sheet, rowNum, "Documents Link", documents.getLink());
-                rowNum = addRow(sheet, rowNum, "Documents Attachment", documents.getAttachment());
                 rowNum = addRow(sheet, rowNum, "SoQM Development Materials", documents.getSoqmDevelopmentMaterials());
             }
 
@@ -704,7 +843,6 @@ public class ControlController {
         dto.setControlStatus(control.getControlStatus());
         dto.setControlDescription(control.getControlDescription());
         dto.setPrp(control.getPrp());
-        dto.setControlOperatorsProgram(control.getControlOperatorsProgram());
         dto.setSoqmHeadComments(control.getSoqmHeadComments());
         dto.setProcessOwnerComments(control.getProcessOwnerComments());
 
@@ -738,13 +876,13 @@ public class ControlController {
             dto.setPerformanceStatus(performanceStatus);
             dto.setPerformanceStatusDisplay(performanceStatus);
             boolean goToPerformanceCycle = "Initiated".equals(performanceStatus) ||
-                    "Completed".equals(performanceStatus);
+                    "COMPLETED".equals(performanceStatus);
             dto.setPerformanceInitiated(goToPerformanceCycle);
             dto.setGoToPerformanceCycle(goToPerformanceCycle);
         } catch (Exception e) {
             logger.error("Error getting performance status for control {}: {}", control.getId(), e.getMessage());
-            dto.setPerformanceStatus("Not Started");
-            dto.setPerformanceStatusDisplay("Not Started");
+            dto.setPerformanceStatus("DRAFT");
+            dto.setPerformanceStatusDisplay("Draft");
             dto.setPerformanceInitiated(false);
             dto.setGoToPerformanceCycle(false);
         }
@@ -787,6 +925,25 @@ public class ControlController {
         return String.join(", ", items);
     }
 
+    private String resolveDisplayNames(List<String> emails) {
+        if (emails == null || emails.isEmpty()) {
+            return "";
+        }
+        List<String> names = new ArrayList<>();
+        for (String email : emails) {
+            if (email == null || email.trim().isEmpty()) {
+                continue;
+            }
+            String displayName = userService.getUserByEmail(email.trim())
+                    .map(User::getDisplayName)
+                    .orElse("");
+            if (displayName != null && !displayName.trim().isEmpty()) {
+                names.add(displayName.trim());
+            }
+        }
+        return names.isEmpty() ? "" : String.join(", ", names);
+    }
+
     private String formatDate(LocalDate date) {
         if (date == null) return null;
         return date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
@@ -816,5 +973,46 @@ public class ControlController {
 
     private static String normalizeValue(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private String canonicalizeFrequency(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String trimmed = raw.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        String normalized = trimmed.toLowerCase(Locale.ROOT);
+        String normalizedNoSpace = normalized.replace(" ", "");
+        if (normalizedNoSpace.contains("annual/semi")) {
+            return null;
+        }
+        if (normalized.equals("annually")) {
+            return "Annual";
+        }
+        if (normalized.equals("semi-annually") || normalized.equals("semi annually") || normalized.equals("semiannually")) {
+            return "Semi Annual";
+        }
+        if (normalized.equals("semi-annual") || normalized.equals("semi annual") || normalized.equals("semiannual")) {
+            return "Semi Annual";
+        }
+        if (normalized.equals("annual")) {
+            return "Annual";
+        }
+        if (normalized.equals("monthly")) {
+            return "Monthly";
+        }
+        if (normalized.equals("quarterly")) {
+            return "Quarterly";
+        }
+        if (normalized.equals("recurring") || normalized.equals("recurring/other")) {
+            return "Recurring";
+        }
+        if (normalized.equals("ad-hoc") || normalized.equals("ad hoc")
+                || normalized.contains("as-required") || normalized.contains("at least annually")) {
+            return "Ad-hoc";
+        }
+        return null;
     }
 }

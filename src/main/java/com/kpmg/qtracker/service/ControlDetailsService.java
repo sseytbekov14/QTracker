@@ -16,21 +16,27 @@ public class ControlDetailsService {
                 .orElse(new ControlDetails());
 
         // Map DTO to Entity
-        details.setControlId(detailsDTO.getControlId());
-        details.setProcessName(detailsDTO.getProcessName());
-        details.setHomogeneity(detailsDTO.getHomogeneity());
-        details.setReferencesToControl(detailsDTO.getReferencesToControl());
-        details.setDepartment(detailsDTO.getDepartment());
-        details.setProcessActivities(detailsDTO.getProcessActivities());
-        details.setControlOperatorsProgram(detailsDTO.getControlOperatorsProgram());
-        details.setOtherRelatedControls(detailsDTO.getOtherRelatedControls());
-        details.setItApplications(detailsDTO.getItApplications());
-        details.setControlStepsPerformed(detailsDTO.getControlStepsPerformed());
-        details.setSoqmHeadComments(detailsDTO.getSoqmHeadComments());
-        details.setProcessOwnerComments(detailsDTO.getProcessOwnerComments());
-        details.setAttachedFile(detailsDTO.getAttachedFile());
+        if (detailsDTO.getControlId() != null) {
+            details.setControlId(detailsDTO.getControlId());
+        }
+        updateIfPresent(detailsDTO.getProcessName(), details::setProcessName);
+        updateIfPresent(detailsDTO.getHomogeneity(), details::setHomogeneity);
+        updateIfPresent(detailsDTO.getReferencesToControl(), details::setReferencesToControl);
+        updateIfPresent(detailsDTO.getDepartment(), details::setDepartment);
+        updateIfPresent(detailsDTO.getProcessActivities(), details::setProcessActivities);
+        updateIfPresent(detailsDTO.getOtherRelatedControls(), details::setOtherRelatedControls);
+        updateIfPresent(detailsDTO.getItApplications(), details::setItApplications);
+        updateIfPresent(detailsDTO.getControlStepsPerformed(), details::setControlStepsPerformed);
+        updateIfPresent(detailsDTO.getSoqmHeadComments(), details::setSoqmHeadComments);
+        updateIfPresent(detailsDTO.getProcessOwnerComments(), details::setProcessOwnerComments);
 
         return controlDetailsRepository.save(details);
+    }
+
+    private void updateIfPresent(String value, java.util.function.Consumer<String> setter) {
+        if (value != null) {
+            setter.accept(value);
+        }
     }
 
     public ControlDetailsDTO getDetailsByControlId(Long controlId) {
@@ -47,13 +53,11 @@ public class ControlDetailsService {
         dto.setReferencesToControl(details.getReferencesToControl());
         dto.setDepartment(details.getDepartment());
         dto.setProcessActivities(details.getProcessActivities());
-        dto.setControlOperatorsProgram(details.getControlOperatorsProgram());
         dto.setOtherRelatedControls(details.getOtherRelatedControls());
         dto.setItApplications(details.getItApplications());
         dto.setControlStepsPerformed(details.getControlStepsPerformed());
         dto.setSoqmHeadComments(details.getSoqmHeadComments());
         dto.setProcessOwnerComments(details.getProcessOwnerComments());
-        dto.setAttachedFile(details.getAttachedFile());
         return dto;
     }
 }

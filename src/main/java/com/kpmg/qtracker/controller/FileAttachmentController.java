@@ -40,15 +40,24 @@ public class FileAttachmentController {
             
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found: " + controlId));
+            String controlFolder = resolveControlFolder(control);
 
             // Save details attachments (multiple files)
             if (detailsFiles != null && detailsFiles.length > 0) {
                 StringBuilder filenames = new StringBuilder();
                 String oldFiles = control.getAttachmentDetailsPath();
+
+                int existingCount = countExistingFiles(oldFiles);
+                int incomingCount = countIncomingFiles(detailsFiles);
+                if (existingCount + incomingCount > 50) {
+                    response.put("success", false);
+                    response.put("message", "Maximum 50 files allowed for Details attachments.");
+                    return ResponseEntity.badRequest().body(response);
+                }
                 
                 for (MultipartFile file : detailsFiles) {
                     if (file != null && !file.isEmpty()) {
-                        String filename = fileStorageService.saveFile(file);
+                        String filename = fileStorageService.saveFile(file, controlFolder);
                         if (filenames.length() > 0) {
                             filenames.append(";"); // Use semicolon as separator
                         }
@@ -68,10 +77,18 @@ public class FileAttachmentController {
             if (documentsFiles != null && documentsFiles.length > 0) {
                 StringBuilder filenames = new StringBuilder();
                 String oldFiles = control.getAttachmentDocumentsPath();
+
+                int existingCount = countExistingFiles(oldFiles);
+                int incomingCount = countIncomingFiles(documentsFiles);
+                if (existingCount + incomingCount > 50) {
+                    response.put("success", false);
+                    response.put("message", "Maximum 50 files allowed for Documents attachments.");
+                    return ResponseEntity.badRequest().body(response);
+                }
                 
                 for (MultipartFile file : documentsFiles) {
                     if (file != null && !file.isEmpty()) {
-                        String filename = fileStorageService.saveFile(file);
+                        String filename = fileStorageService.saveFile(file, controlFolder);
                         if (filenames.length() > 0) {
                             filenames.append(";");
                         }
@@ -108,10 +125,14 @@ public class FileAttachmentController {
      * GET /api/attachments/download/{filename}
      */
     @GetMapping("/download/{filename:.+}")
-    public ResponseEntity<byte[]> downloadFile(@PathVariable String filename) {
+    public ResponseEntity<byte[]> downloadFile(@PathVariable String filename,
+                                               @RequestParam(value = "controlId", required = false) Long controlId) {
         try {
             String decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8);
-            byte[] fileContent = fileStorageService.downloadFile(decodedFilename);
+            String controlFolder = resolveControlFolder(controlId);
+            byte[] fileContent = controlFolder == null
+                    ? fileStorageService.downloadFile(decodedFilename)
+                    : fileStorageService.downloadFile(decodedFilename, controlFolder);
             String mimeType = fileStorageService.getMimeType(decodedFilename);
             
             return ResponseEntity.ok()
@@ -130,10 +151,14 @@ public class FileAttachmentController {
      * GET /api/attachments/view/{filename}
      */
     @GetMapping("/view/{filename:.+}")
-    public ResponseEntity<byte[]> viewFile(@PathVariable String filename) {
+    public ResponseEntity<byte[]> viewFile(@PathVariable String filename,
+                                           @RequestParam(value = "controlId", required = false) Long controlId) {
         try {
             String decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8);
-            byte[] fileContent = fileStorageService.downloadFile(decodedFilename);
+            String controlFolder = resolveControlFolder(controlId);
+            byte[] fileContent = controlFolder == null
+                    ? fileStorageService.downloadFile(decodedFilename)
+                    : fileStorageService.downloadFile(decodedFilename, controlFolder);
             String mimeType = fileStorageService.getMimeType(decodedFilename);
             
             return ResponseEntity.ok()
@@ -166,6 +191,57 @@ public class FileAttachmentController {
             
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    private int countExistingFiles(String storedList) {
+        if (storedList == null || storedList.isBlank()) {
+            return 0;
+        }
+        String[] parts = storedList.split(";");
+        int count = 0;
+        for (String part : parts) {
+            if (part != null && !part.trim().isEmpty()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private int countIncomingFiles(MultipartFile[] files) {
+        if (files == null || files.length == 0) {
+            return 0;
+        }
+        int count = 0;
+        for (MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private String resolveControlFolder(Control control) {
+        if (control == null) {
+            return null;
+        }
+        String controlCode = control.getControlId();
+        if (controlCode == null || controlCode.isBlank()) {
+            return String.valueOf(control.getId());
+        }
+        return controlCode;
+    }
+
+    private String resolveControlFolder(Long controlId) {
+        if (controlId == null) {
+            return null;
+        }
+        try {
+            return controlService.getControlById(controlId)
+                    .map(this::resolveControlFolder)
+                    .orElse(null);
+        } catch (Exception e) {
+            return null;
         }
     }
 }

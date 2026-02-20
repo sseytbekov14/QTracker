@@ -4,52 +4,51 @@ import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.enums.ControlFrequency;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ControlAssignmentService {
     private final ControlAssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
     private final ControlRepository controlRepository;
+    private final ControlScheduleCalculator scheduleCalculator;
 
     // ★ ДОБАВИТЬ этот метод - его используют другие сервисы!
     public ControlAssignmentDTO getAssignmentByControlId(Long controlId) {
         Optional<ControlAssignment> found = assignmentRepository.findByControlId(controlId);
         if (found.isPresent()) {
             ControlAssignmentDTO dto = convertToDTO(found.get());
-            System.out.println("📋 getAssignmentByControlId: controlId=" + controlId 
-                    + ", facilitator=" + dto.getFacilitator() 
-                    + ", operator=" + dto.getControlOperator()
-                    + ", owner=" + dto.getProcessOwner()
-                    + ", soqm=" + dto.getSoqmLead());
+            log.debug("getAssignmentByControlId: controlId={}, facilitator={}, operator={}, owner={}, soqm={}",
+                    controlId, dto.getFacilitator(), dto.getControlOperator(), dto.getProcessOwner(), dto.getSoqmLead());
             return dto;
         } else {
-            System.out.println("⚠️ getAssignmentByControlId: NO assignment found for controlId=" + controlId);
+            log.debug("getAssignmentByControlId: no assignment found for controlId={}", controlId);
             return new ControlAssignmentDTO();
         }
     }
 
     @Transactional
     public ControlAssignment saveAssignment(ControlAssignmentDTO assignmentDTO) {
-        System.out.println("=== SAVE ASSIGNMENT ===");
-        System.out.println("Control ID: " + assignmentDTO.getControlId());
-        System.out.println("Facilitators: " + assignmentDTO.getFacilitator());
-        System.out.println("Control Operators: " + assignmentDTO.getControlOperator());
-        System.out.println("Process Owners: " + assignmentDTO.getProcessOwner());
-        System.out.println("SoQM Leads: " + assignmentDTO.getSoqmLead());
-        System.out.println("==================");
+        log.debug("saveAssignment: controlId={}, facilitators={}, operators={}, owners={}, soqm={}",
+                assignmentDTO.getControlId(),
+                assignmentDTO.getFacilitator(),
+                assignmentDTO.getControlOperator(),
+                assignmentDTO.getProcessOwner(),
+                assignmentDTO.getSoqmLead());
         
         // Обновляем валидацию
         validateUsersHaveRole(assignmentDTO.getControlOperator(), "CONTROL_OPERATOR",
@@ -62,68 +61,88 @@ public class ControlAssignmentService {
         Optional<ControlAssignment> existingAssignment = assignmentRepository.findByControlId(assignmentDTO.getControlId());
         ControlAssignment assignment = existingAssignment.orElse(new ControlAssignment());
 
-        assignment.setControlId(assignmentDTO.getControlId());
-        assignment.setFacilitator(convertListToString(assignmentDTO.getFacilitator()));
-        assignment.setControlOperator(convertListToString(assignmentDTO.getControlOperator()));
-        assignment.setSoqmLead(convertListToString(assignmentDTO.getSoqmLead()));
-        assignment.setProcessOwner(convertListToString(assignmentDTO.getProcessOwner()));
-        assignment.setControlSharedWith(convertListToString(assignmentDTO.getControlSharedWith()));
-        assignment.setControlOperationDate(assignmentDTO.getControlOperationDate());
-        assignment.setControlOperationDeadline(assignmentDTO.getControlOperationDeadline());
-        assignment.setNextControlOperationDate(normalizeNextControlOperationDate(
-                assignmentDTO.getControlId(),
-                assignmentDTO.getControlOperationDate(),
-                assignmentDTO.getNextControlOperationDate()
-        ));
+        LocalDate operationDate = assignmentDTO.getControlOperationDate();
+        if (operationDate == null && existingAssignment.isPresent()) {
+            operationDate = existingAssignment.get().getControlOperationDate();
+        }
+
+        Optional<Control> controlOpt = controlRepository.findById(assignmentDTO.getControlId());
+        String frequencyValue = controlOpt.map(Control::getControlFrequency).orElse(null);
+
+        LocalDate deadline = null;
+        LocalDate nextDate = null;
+        if (operationDate != null) {
+            ControlFrequency frequency = ControlFrequency.fromValue(frequencyValue);
+            deadline = scheduleCalculator.calculateDeadline(frequency, operationDate);
+            nextDate = scheduleCalculator.calculateNextDate(frequency, operationDate);
+        }
+
+        if (assignmentDTO.getControlId() != null) {
+            assignment.setControlId(assignmentDTO.getControlId());
+        }
+        if (assignmentDTO.getFacilitator() != null) {
+            assignment.setFacilitator(convertListToString(assignmentDTO.getFacilitator()));
+        }
+        if (assignmentDTO.getControlOperator() != null) {
+            assignment.setControlOperator(convertListToString(assignmentDTO.getControlOperator()));
+        }
+        if (assignmentDTO.getSoqmLead() != null) {
+            assignment.setSoqmLead(convertListToString(assignmentDTO.getSoqmLead()));
+        }
+        if (assignmentDTO.getProcessOwner() != null) {
+            assignment.setProcessOwner(convertListToString(assignmentDTO.getProcessOwner()));
+        }
+        if (assignmentDTO.getControlSharedWith() != null) {
+            assignment.setControlSharedWith(convertListToString(assignmentDTO.getControlSharedWith()));
+        }
+        assignment.setControlOperationDate(operationDate);
+        assignment.setControlOperationDeadline(deadline);
+        assignment.setNextControlOperationDate(nextDate);
 
         ControlAssignment saved = assignmentRepository.save(assignment);
         
-        System.out.println("✅ Saved assignment ID: " + saved.getId());
-        System.out.println("✅ Saved facilitators: " + saved.getFacilitator());
-        System.out.println("✅ Saved processOwner: " + saved.getProcessOwner());
+        log.debug("saveAssignment: saved assignment id={}, facilitators={}, processOwner={}",
+                saved.getControlId(), saved.getFacilitator(), saved.getProcessOwner());
 
         // ★ Обновляем deadline в таблице control_controls
-        if (assignmentDTO.getControlOperationDeadline() != null) {
-            Optional<Control> controlOpt = controlRepository.findById(assignmentDTO.getControlId());
-            if (controlOpt.isPresent()) {
-                Control control = controlOpt.get();
-                control.setDeadline(assignmentDTO.getControlOperationDeadline());
-                controlRepository.save(control);
-            }
+        if (controlOpt.isPresent() && deadline != null) {
+            Control control = controlOpt.get();
+            control.setDeadline(deadline);
+            controlRepository.save(control);
         }
 
         return saved;
     }
 
-    private LocalDate normalizeNextControlOperationDate(Long controlId,
-                                                        LocalDate operationDate,
-                                                        LocalDate providedNextDate) {
+    @Transactional
+    public void recalculateSchedule(Long controlId) {
+        Optional<ControlAssignment> assignmentOpt = assignmentRepository.findByControlId(controlId);
+        if (assignmentOpt.isEmpty()) {
+            return;
+        }
+
+        ControlAssignment assignment = assignmentOpt.get();
+        LocalDate operationDate = assignment.getControlOperationDate();
         if (operationDate == null) {
-            return null;
-        }
-        if (providedNextDate != null && providedNextDate.isAfter(operationDate)) {
-            return providedNextDate;
+            return;
         }
 
-        String frequency = controlRepository.findById(controlId)
+        String frequencyValue = controlRepository.findById(controlId)
                 .map(Control::getControlFrequency)
-                .orElse("");
-        String normalized = frequency == null ? "" : frequency.trim().toLowerCase(Locale.ROOT);
+                .orElse(null);
+        ControlFrequency frequency = ControlFrequency.fromValue(frequencyValue);
 
-        if (normalized.contains("semi")) {
-            return operationDate.plusMonths(6);
-        }
-        if (normalized.contains("annual")) {
-            return operationDate.plusMonths(12);
-        }
-        if (normalized.contains("quarter")) {
-            return operationDate.plusMonths(3);
-        }
-        if (normalized.contains("monthly") || normalized.contains("recurr")
-                || (normalized.contains("ad") && normalized.contains("hoc"))) {
-            return operationDate.plusMonths(1);
-        }
-        return operationDate.plusMonths(1);
+        LocalDate deadline = scheduleCalculator.calculateDeadline(frequency, operationDate);
+        LocalDate nextDate = scheduleCalculator.calculateNextDate(frequency, operationDate);
+
+        assignment.setControlOperationDeadline(deadline);
+        assignment.setNextControlOperationDate(nextDate);
+        assignmentRepository.save(assignment);
+
+        controlRepository.findById(controlId).ifPresent(control -> {
+            control.setDeadline(deadline);
+            controlRepository.save(control);
+        });
     }
 
     // Методы проверки ролей через поле role в User
@@ -193,7 +212,7 @@ public class ControlAssignmentService {
         if (str == null || str.trim().isEmpty()) {
             return new ArrayList<>();
         }
-        return java.util.Arrays.stream(str.split(","))
+        return java.util.Arrays.stream(str.split("[,;]"))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .toList();
@@ -203,12 +222,12 @@ public class ControlAssignmentService {
         ControlAssignmentDTO dto = new ControlAssignmentDTO();
         dto.setControlId(assignment.getControlId());
         
-        // DEBUG: Log raw values from database
-        System.out.println("🔍 Converting assignment for control " + assignment.getControlId());
-        System.out.println("   Raw facilitator from DB: '" + assignment.getFacilitator() + "'");
-        System.out.println("   Raw controlOperator from DB: '" + assignment.getControlOperator() + "'");
-        System.out.println("   Raw processOwner from DB: '" + assignment.getProcessOwner() + "'");
-        System.out.println("   Raw soqmLead from DB: '" + assignment.getSoqmLead() + "'");
+        log.debug("convertToDTO: controlId={}, facilitatorRaw='{}', operatorRaw='{}', processOwnerRaw='{}', soqmRaw='{}'",
+                assignment.getControlId(),
+                assignment.getFacilitator(),
+                assignment.getControlOperator(),
+                assignment.getProcessOwner(),
+                assignment.getSoqmLead());
         
         dto.setFacilitator(convertStringToList(assignment.getFacilitator()));
         dto.setControlOperator(convertStringToList(assignment.getControlOperator()));
@@ -216,8 +235,7 @@ public class ControlAssignmentService {
         dto.setProcessOwner(convertStringToList(assignment.getProcessOwner()));
         dto.setControlSharedWith(convertStringToList(assignment.getControlSharedWith()));
         
-        System.out.println("   Converted facilitator list: " + dto.getFacilitator());
-        System.out.println("   Converted operator list: " + dto.getControlOperator());
+        log.debug("convertToDTO: facilitatorList={}, operatorList={}", dto.getFacilitator(), dto.getControlOperator());
         
         dto.setControlOperationDate(assignment.getControlOperationDate());
         dto.setControlOperationDeadline(assignment.getControlOperationDeadline());

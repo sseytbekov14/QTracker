@@ -15,20 +15,20 @@ public class ControlDocumentsService {
         try {
             System.out.println("🔄 ControlDocumentsService.saveDocuments() called");
             System.out.println("   Control ID: " + documentsDTO.getControlId());
-            System.out.println("   Link: " + documentsDTO.getLink());
-            System.out.println("   Attachment: " + documentsDTO.getAttachment());
             System.out.println("   SOQM Materials: " + documentsDTO.getSoqmDevelopmentMaterials());
 
             ControlDocuments documents = documentsRepository.findByControlId(documentsDTO.getControlId())
                     .orElse(new ControlDocuments());
 
-            documents.setControlId(documentsDTO.getControlId());
-            documents.setLink(documentsDTO.getLink());
-            documents.setAttachment(documentsDTO.getAttachment());
-            documents.setSoqmDevelopmentMaterials(documentsDTO.getSoqmDevelopmentMaterials());
+            if (documentsDTO.getControlId() != null) {
+                documents.setControlId(documentsDTO.getControlId());
+            }
+            if (documentsDTO.getSoqmDevelopmentMaterials() != null) {
+                documents.setSoqmDevelopmentMaterials(documentsDTO.getSoqmDevelopmentMaterials());
+            }
 
             ControlDocuments saved = documentsRepository.save(documents);
-            System.out.println("✅ Document saved with ID: " + saved.getId());
+            System.out.println("✅ Document saved with ID: " + saved.getControlId());
 
             return saved;
         } catch (Exception e) {
@@ -47,8 +47,6 @@ public class ControlDocumentsService {
     private ControlDocumentsDTO convertToDTO(ControlDocuments documents) {
         ControlDocumentsDTO dto = new ControlDocumentsDTO();
         dto.setControlId(documents.getControlId());
-        dto.setLink(documents.getLink());
-        dto.setAttachment(documents.getAttachment());
         dto.setSoqmDevelopmentMaterials(documents.getSoqmDevelopmentMaterials());
         return dto;
     }

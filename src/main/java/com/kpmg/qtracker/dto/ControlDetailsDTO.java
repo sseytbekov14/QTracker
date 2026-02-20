@@ -10,11 +10,9 @@ public class ControlDetailsDTO {
     private String referencesToControl;
     private String department;
     private String processActivities;
-    private String controlOperatorsProgram;
     private String otherRelatedControls;
     private String itApplications;
     private String controlStepsPerformed;
     private String soqmHeadComments;
     private String processOwnerComments;
-    private String attachedFile;
 }

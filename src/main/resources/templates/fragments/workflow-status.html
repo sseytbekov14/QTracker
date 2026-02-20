@@ -6,8 +6,8 @@
         <span class="me-2">Workflow:</span>
         <span class="badge" id="workflowStatusBadge"
               th:classappend="'bg-' + ${workflowStatus?.statusColor ?: 'secondary'}"
-              th:text="${workflowStatus?.statusDisplay ?: 'Not Started'}">
-        Not Started
+              th:text="${workflowStatus?.statusDisplay ?: 'Draft'}">
+        Draft
       </span>
 
         <span th:if="${workflowStatus?.assignedToName}"

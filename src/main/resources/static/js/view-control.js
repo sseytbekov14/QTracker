@@ -1,5 +1,10 @@
 console.log('🔥 VIEW-CONTROL.JS v2.3 ЗАГРУЖЕН - ОЧИЩЕН ОТ НЕИСПОЛЬЗУЕМОГО КОДА');
 
+let changelogEntries = [];
+let changelogFilter = 'all';
+let changelogFilterInitialized = false;
+let detailsDataCache = null;
+
 const viewControl = (function() {
     let allUsers = [];
     let facilitatorUsers = [];
@@ -7,6 +12,11 @@ const viewControl = (function() {
     let soqmLeadUsers = [];
     let processOwnerUsers = [];
     let sharedWithUsers = [];
+    let fullEditEnabled = false;
+    let canEditStepsPerformed = false;
+    let canEditProcessOwnerComments = false;
+    let stepsPerformedEditOnly = false;
+    let processOwnerCommentsEditOnly = false;
 
     let isDropdownOpen = false;
     let isControlOperatorDropdownOpen = false;
@@ -25,6 +35,57 @@ const viewControl = (function() {
     function isSoqmLeadRole() {
         const role = document.getElementById('currentUserRole')?.value || '';
         return role === 'SOQM_LEAD';
+    }
+
+    async function loadPermissions(controlId) {
+        if (!controlId) {
+            fullEditEnabled = isSoqmLeadRole();
+            canEditStepsPerformed = false;
+            canEditProcessOwnerComments = false;
+            stepsPerformedEditOnly = false;
+            processOwnerCommentsEditOnly = false;
+            window.qtrackerPermissions = {
+                canEditStepsPerformed: canEditStepsPerformed,
+                canEditProcessOwnerComments: canEditProcessOwnerComments,
+                canEditAll: fullEditEnabled
+            };
+            return;
+        }
+        try {
+            const response = await fetch('/api/permissions/' + controlId);
+            if (!response.ok) {
+                throw new Error(`Failed to load permissions (${response.status})`);
+            }
+            const data = await response.json();
+            const permissions = data && data.permissions ? data.permissions : {};
+            fullEditEnabled = Boolean(permissions.canEditAll);
+            canEditStepsPerformed = Boolean(permissions.canEditStepsPerformed);
+            canEditProcessOwnerComments = Boolean(permissions.canEditProcessOwnerComments);
+            stepsPerformedEditOnly = canEditStepsPerformed && !fullEditEnabled;
+            processOwnerCommentsEditOnly = canEditProcessOwnerComments
+                && !fullEditEnabled
+                && !stepsPerformedEditOnly;
+            window.qtrackerPermissions = {
+                canEditStepsPerformed: canEditStepsPerformed,
+                canEditProcessOwnerComments: canEditProcessOwnerComments,
+                canEditAll: fullEditEnabled
+            };
+        } catch (error) {
+            console.warn('Permissions fetch failed, falling back to role check:', error);
+            fullEditEnabled = isSoqmLeadRole();
+            const roleValue = document.getElementById('currentUserRole')?.value || '';
+            canEditStepsPerformed = roleValue === 'FACILITATOR' || roleValue === 'CONTROL_OPERATOR';
+            canEditProcessOwnerComments = (document.getElementById('currentUserRole')?.value || '') === 'PROCESS_OWNER';
+            stepsPerformedEditOnly = canEditStepsPerformed && !fullEditEnabled;
+            processOwnerCommentsEditOnly = canEditProcessOwnerComments
+                && !fullEditEnabled
+                && !stepsPerformedEditOnly;
+            window.qtrackerPermissions = {
+                canEditStepsPerformed: canEditStepsPerformed,
+                canEditProcessOwnerComments: canEditProcessOwnerComments,
+                canEditAll: fullEditEnabled
+            };
+        }
     }
 
     function getFieldSnapshotKey(field, index) {
@@ -264,7 +325,7 @@ function handleWorkflowButtonClick(event) {
 
 function getConfirmationText(action, label) {
     const messages = {
-        'INITIATE': 'Initiate this control? Status will change from "Not Started" to "In Progress".',
+        'INITIATE': 'Initiate this control? Status will change from "Draft" to "In Progress".',
         'SUBMIT_FOR_REVIEW': 'Submit this control for review? Status will change to "Review" and Control Operator will be notified.',
         'SUBMIT_FOR_SOQM': 'Submit this control to SOQM Lead? Status will change to "SoQM Head Review".',
         'RETURN_TO_FACILITATOR': 'Return this control to Facilitator for revision?',
@@ -396,6 +457,10 @@ function confirmWorkflowAction() {
         const controlId = getCurrentControlId(); // Используй свою функцию
 
         try {
+            const ready = await ensureWorkflowRoleReady();
+            if (!ready) {
+                return;
+            }
             const response = await fetch('/api/workflow/perform-action', {
                 method: 'POST',
                 headers: {
@@ -1157,6 +1222,7 @@ function confirmWorkflowAction() {
                             }
                         }
                         normalizeAssignmentDateFieldsForDisplay();
+                        updateCalculatedDates();
                     }
                 }
             }
@@ -1180,16 +1246,21 @@ function confirmWorkflowAction() {
             const response = await fetch('/api/control-details?controlId=' + controlId);
             if (response.ok) {
                 const detailsData = await response.json();
+                detailsDataCache = detailsData || {};
 
-                if (detailsData && detailsData.controlId) {
+                if (detailsDataCache && detailsDataCache.controlId) {
                     const form = document.getElementById('detailsForm');
                     if (form) {
-                        Object.keys(detailsData).forEach(key => {
+                        Object.keys(detailsDataCache).forEach(key => {
                             const field = form.querySelector(`[name="${key}"]`);
-                            if (field && detailsData[key] && field.type !== 'file') {
-                                field.value = detailsData[key];
+                            if (field && field.type !== 'file' && detailsDataCache[key] !== undefined && detailsDataCache[key] !== null) {
+                                field.value = detailsDataCache[key];
                             }
                         });
+                        const stepsField = form.querySelector('textarea[name="controlStepsPerformed"]');
+                        if (stepsField) {
+                            stepsField.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
                     }
                 }
             }
@@ -1207,9 +1278,6 @@ function confirmWorkflowAction() {
                 if (documentsData && documentsData.controlId) {
                     const form = document.getElementById('documentsForm');
                     if (form) {
-                        if (documentsData.link) {
-                            form.querySelector('[name="link"]').value = documentsData.link;
-                        }
                         if (documentsData.soqmDevelopmentMaterials) {
                             form.querySelector('[name="soqmDevelopmentMaterials"]').value = documentsData.soqmDevelopmentMaterials;
                         }
@@ -1266,8 +1334,59 @@ function confirmWorkflowAction() {
         });
     }
 
+    function enableControlStepsPerformedField() {
+        const stepsField = document.querySelector('textarea[name="controlStepsPerformed"]');
+        if (!stepsField) {
+            return;
+        }
+        stepsField.classList.remove('readonly-field', 'readonly-select');
+        stepsField.classList.add('editable-field', 'editable-select');
+        stepsField.readOnly = false;
+        stepsField.disabled = false;
+        stepsField.removeAttribute('readonly');
+        stepsField.removeAttribute('disabled');
+        stepsField.style.pointerEvents = 'auto';
+        stepsField.style.backgroundColor = '';
+    }
+
+    function enableProcessOwnerCommentsField() {
+        const commentsField = document.querySelector('textarea[name="processOwnerComments"]');
+        if (!commentsField) {
+            return;
+        }
+        commentsField.classList.remove('readonly-field', 'readonly-select');
+        commentsField.classList.add('editable-field', 'editable-select');
+        commentsField.readOnly = false;
+        commentsField.disabled = false;
+        commentsField.removeAttribute('readonly');
+        commentsField.removeAttribute('disabled');
+        commentsField.style.pointerEvents = 'auto';
+        commentsField.style.backgroundColor = '';
+    }
+
 function makeAllFormsEditable() {
     console.log('=== MAKE ALL FORMS EDITABLE ===');
+
+    makeAllFormsReadOnly();
+
+    if (stepsPerformedEditOnly) {
+        console.log('✅ Field-level edit mode: enabling controlStepsPerformed only');
+        enableControlStepsPerformedField();
+        normalizeAssignmentDateFieldsForDisplay();
+        return;
+    }
+
+    if (processOwnerCommentsEditOnly) {
+        console.log('✅ Process Owner edit mode: enabling processOwnerComments only');
+        enableProcessOwnerCommentsField();
+        normalizeAssignmentDateFieldsForDisplay();
+        return;
+    }
+    if (!fullEditEnabled) {
+        normalizeAssignmentDateFieldsForDisplay();
+        return;
+    }
+
 
     // 1. CONTROL TAB - делаем редактируемой
     console.log('🔄 Processing Control tab fields...');
@@ -1320,11 +1439,8 @@ function makeAllFormsEditable() {
     // 3. ASSIGNMENT TAB
     console.log('🔄 Processing Assignment tab fields...');
     const assignmentFields = document.querySelectorAll('#assignmentForm input, #assignmentForm select');
-    const alwaysReadonlyFields = [
-        'controlOperationDeadline',
-        'nextControlOperationDate'
-    ];
-    const canEditAssignment = isSoqmLeadRole();
+    const alwaysReadonlyFields = [];
+    const canEditAssignment = true;
 
     assignmentFields.forEach(field => {
         if (!canEditAssignment || alwaysReadonlyFields.includes(field.name)) {
@@ -1392,6 +1508,7 @@ function makeAllFormsEditable() {
 
     console.log('✅ All forms are now editable');
     normalizeAssignmentDateFieldsForDisplay();
+    updateCalculatedDates();
 
     // 6. Проверка результата
     console.log('=== FINAL CHECK ===');
@@ -1414,17 +1531,22 @@ function saveControlData(controlId) {
         return Promise.reject('Control form not found');
     }
 
+    const getControlValue = (selector) => {
+        const element = controlForm.querySelector(selector);
+        return element ? element.value : '';
+    };
+
     const controlData = {
-        controlFrequency: controlForm.querySelector('[name="controlFrequency"]').value,
-        controlCategory: controlForm.querySelector('[name="controlCategory"]').value,
-        controlType: controlForm.querySelector('[name="controlType"]').value,
-        component: controlForm.querySelector('[name="component"]').value,
-        operatedBy: controlForm.querySelector('[name="operatedBy"]').value,
-        controlStatus: controlForm.querySelector('[name="controlStatus"]').value,
-        priority: controlForm.querySelector('[name="priority"]').value,
-        nonAuditServicesApplicability: controlForm.querySelector('[name="nonAuditServicesApplicability"]').value,
-        controlDescription: controlForm.querySelector('[name="controlDescription"]').value,
-        prp: controlForm.querySelector('[name="prp"]').value
+        controlFrequency: getControlValue('[name="controlFrequency"]'),
+        controlCategory: getControlValue('[name="controlCategory"]'),
+        controlType: getControlValue('[name="controlType"]'),
+        component: getControlValue('[name="component"]'),
+        operatedBy: getControlValue('[name="operatedBy"]'),
+        controlStatus: getControlValue('[name="controlStatus"]'),
+        priority: getControlValue('[name="priority"]'),
+        nonAuditServicesApplicability: getControlValue('[name="nonAuditServicesApplicability"]'),
+        controlDescription: getControlValue('[name="controlDescription"]'),
+        prp: getControlValue('[name="prp"]')
     };
 
     console.log('Control data to send:', controlData);
@@ -1462,19 +1584,11 @@ function saveControlData(controlId) {
     console.log('✅ Control saved successfully:', data);
 
     // Показываем алерт
-    Swal.fire({
-        icon: 'success',
+    showAppModal({
+        variant: 'success',
         title: 'Saved Successfully',
-        text: 'Control information has been saved',
-        confirmButtonText: 'OK',
-        timer: 2000,
-        timerProgressBar: true
+        message: 'Control information has been saved'
     });
-
-    setTimeout(() => {
-        console.log('🔄 Redirecting to controls page...');
-        window.location.href = '/controls';
-    }, 2000);
 
     return data;
 })
@@ -1772,6 +1886,99 @@ function renameControlId(newControlId) {
         }
     }
 
+function showRequiredFieldMessage(message, field) {
+    if (window.showAppModal) {
+        showAppModal({
+            variant: 'warning',
+            title: 'Missing Required Field',
+            message: message,
+            autoCloseMs: 0
+        });
+    } else {
+        alert(message);
+    }
+    if (field && typeof field.focus === 'function') {
+        field.focus();
+    }
+}
+
+    function isBlankValue(value) {
+        return value === null || value === undefined || String(value).trim() === '';
+    }
+
+    function validateControlSaveRequiredFields() {
+        const controlForm = document.getElementById('controlForm');
+        const assignmentForm = document.getElementById('assignmentForm');
+
+        const requiredFields = [
+            { label: 'Control ID', field: controlForm?.querySelector('[name="controlId"]') },
+            { label: 'Control Frequency', field: controlForm?.querySelector('[name="controlFrequency"]') },
+            { label: 'Control Type', field: controlForm?.querySelector('[name="controlType"]') },
+            { label: 'Component', field: controlForm?.querySelector('[name="component"]') },
+            { label: 'Operated By', field: controlForm?.querySelector('[name="operatedBy"]') },
+            { label: 'Control Status', field: controlForm?.querySelector('[name="controlStatus"]') },
+            { label: 'Priority', field: controlForm?.querySelector('[name="priority"]') },
+            {
+                label: 'Non-Audit Services Control Applicability',
+                field: controlForm?.querySelector('[name="nonAuditServicesApplicability"]')
+            },
+            {
+                label: 'Facilitator',
+                field: document.getElementById('facilitatorInput'),
+                valueField: assignmentForm?.querySelector('#facilitatorHidden')
+            },
+            {
+                label: 'Control Operator',
+                field: document.getElementById('controlOperatorInput'),
+                valueField: assignmentForm?.querySelector('#controlOperatorHidden')
+            },
+            {
+                label: 'SoQM Lead / Delegate',
+                field: document.getElementById('soqmLeadInput'),
+                valueField: assignmentForm?.querySelector('#soqmLeadHidden')
+            },
+            {
+                label: 'Process Owner',
+                field: document.getElementById('processOwnerInput'),
+                valueField: assignmentForm?.querySelector('#processOwnerHidden')
+            },
+            {
+                label: 'Control Operation Date',
+                field: assignmentForm?.querySelector('[name="controlOperationDate"]')
+            }
+        ];
+
+        requiredFields.forEach(({ field }) => {
+            if (field) {
+                field.classList.remove('is-invalid');
+            }
+        });
+
+        let firstInvalid = null;
+        requiredFields.forEach(({ field, valueField, label }) => {
+            const valueSource = valueField || field;
+            if (!valueSource) {
+                return;
+            }
+            const value = valueSource.value;
+            if (isBlankValue(value)) {
+                if (field) {
+                    field.classList.add('is-invalid');
+                }
+                if (!firstInvalid) {
+                    firstInvalid = { field, label };
+                }
+            }
+        });
+
+        if (firstInvalid) {
+            showRequiredFieldMessage(`${firstInvalid.label} is required.`, firstInvalid.field);
+            return false;
+        }
+
+        return true;
+    }
+
 function saveControlChanges() {
     console.log('=== START SAVE CONTROL CHANGES ===');
 
@@ -1804,31 +2011,24 @@ function saveControlChanges() {
             console.log('🎉 ALL 4 TABS SAVED SUCCESSFULLY!');
 
             // Общий алерт успеха
-            Swal.fire({
-                icon: 'success',
+            showAppModal({
+                variant: 'success',
                 title: 'Saved Successfully',
-                text: 'All control data has been saved',
-                confirmButtonText: 'OK',
-                timer: 2000,
-                timerProgressBar: true
+                message: 'All control data has been saved',
+                autoCloseMs: 2500,
+                redirectUrl: '/view-control/' + controlId
             });
-
-            // Редирект на главную
-            setTimeout(() => {
-                console.log('🔄 Redirecting to controls page...');
-                window.location.href = '/controls';
-            }, 2100);
 
             return { success: true };
         })
         .catch(error => {
             console.error('❌ Error saving control data:', error);
 
-            Swal.fire({
-                icon: 'error',
+            showAppModal({
+                variant: 'error',
                 title: 'Save Failed',
-                text: 'Error saving control: ' + error.message,
-                confirmButtonText: 'OK'
+                message: 'Error saving control: ' + error.message,
+                autoCloseMs: 0
             });
 
             throw error; // Пробрасываем ошибку чтобы кнопка Save восстановилась
@@ -1954,20 +2154,13 @@ function saveAssignmentData(controlId) {
         }
 
         // Показываем алерт
-        Swal.fire({
-            icon: 'success',
+        showAppModal({
+            variant: 'success',
             title: 'Saved Successfully',
-            text: 'Assignment data has been saved',
-            confirmButtonText: 'OK',
-            timer: 2000,
-            timerProgressBar: true
+            message: 'Assignment data has been saved'
         });
 
         // Редирект через 2 секунды (после закрытия алерта)
-        setTimeout(() => {
-            console.log('🔄 Redirecting to controls page');
-            window.location.href = '/controls';
-        }, 2000);
 
         updateCalculatedDates();
         return data;
@@ -1992,30 +2185,13 @@ function saveAssignmentData(controlId) {
     });
 }
 
-
 function saveDetailsData(controlId) {
     console.log('=== SAVE DETAILS DATA ===');
 
-    const detailsForm = document.getElementById('detailsForm');
-    if (!detailsForm) {
+    const detailsData = buildDetailsPayload(controlId);
+    if (!detailsData) {
         return Promise.reject('Details form not found');
     }
-
-    const detailsData = {
-        controlId: parseInt(controlId),
-        processName: detailsForm.querySelector('[name="processName"]').value,
-        homogeneity: detailsForm.querySelector('[name="homogeneity"]').value,
-        referencesToControl: detailsForm.querySelector('[name="referencesToControl"]').value,
-        department: detailsForm.querySelector('[name="department"]').value,
-        processActivities: detailsForm.querySelector('[name="processActivities"]').value,
-        controlOperatorsProgram: detailsForm.querySelector('[name="controlOperatorsProgram"]').value,
-        otherRelatedControls: detailsForm.querySelector('[name="otherRelatedControls"]').value,
-        itApplications: detailsForm.querySelector('[name="itApplications"]').value,
-        controlStepsPerformed: detailsForm.querySelector('[name="controlStepsPerformed"]').value,
-        soqmHeadComments: detailsForm.querySelector('[name="soqmHeadComments"]').value,
-        processOwnerComments: detailsForm.querySelector('[name="processOwnerComments"]').value,
-        attachedFile: detailsForm.querySelector('[name="attachedFile"]').value
-    };
 
     console.log('Details data to send:', detailsData);
 
@@ -2047,6 +2223,7 @@ function saveDetailsData(controlId) {
     })
     .then(data => {
         console.log('✅ Details saved successfully');
+        detailsDataCache = { ...(detailsDataCache || {}), ...detailsData };
 
         // Upload file attachments if any
         if (window.uploadAttachments) {
@@ -2054,31 +2231,24 @@ function saveDetailsData(controlId) {
             window.uploadAttachments();
         }
 
-        Swal.fire({
-            icon: 'success',
+        showAppModal({
+            variant: 'success',
             title: 'Saved Successfully',
-            text: 'Details have been saved',
-            confirmButtonText: 'OK',
-            timer: 2000,
-            timerProgressBar: true
+            message: 'Details have been saved'
         });
 
         // Редирект через 2.1 секунды
-        setTimeout(() => {
-            console.log('🔄 Redirecting to controls page...');
-            window.location.href = '/controls';
-        }, 2100);
 
         return data;
     })
     .catch(error => {
         console.error('❌ Error saving details:', error);
 
-        Swal.fire({
-            icon: 'error',
+        showAppModal({
+            variant: 'error',
             title: 'Save Failed',
-            text: 'Error saving details: ' + error.message,
-            confirmButtonText: 'OK'
+            message: 'Error saving details: ' + error.message,
+            autoCloseMs: 0
         });
 
         throw error;
@@ -2094,11 +2264,14 @@ function saveDocumentsData(controlId) {
         return Promise.resolve({ success: true, skipped: true });
     }
 
+    const getDocumentsValue = (selector) => {
+        const element = documentsForm.querySelector(selector);
+        return element ? element.value : '';
+    };
+
     const documentsData = {
         controlId: parseInt(controlId),
-        link: documentsForm.querySelector('[name="link"]').value,
-        attachment: documentsForm.querySelector('[name="attachment"]').value,
-        soqmDevelopmentMaterials: documentsForm.querySelector('[name="soqmDevelopmentMaterials"]').value
+        soqmDevelopmentMaterials: getDocumentsValue('[name="soqmDevelopmentMaterials"]')
     };
 
     console.log('Documents data to send:', documentsData);
@@ -2150,31 +2323,24 @@ function saveDocumentsData(controlId) {
         window.uploadAttachments();
     }
 
-    Swal.fire({
-        icon: 'success',
+    showAppModal({
+        variant: 'success',
         title: 'Saved Successfully',
-        text: 'Documents have been saved',
-        confirmButtonText: 'OK',
-        timer: 2000,
-        timerProgressBar: true
+        message: 'Documents have been saved'
     });
 
     // Редирект через 2.1 секунды
-    setTimeout(() => {
-        console.log('🔄 Redirecting to controls page...');
-        window.location.href = '/controls';
-    }, 2100);
 
     return data;
 })
     .catch(error => {
         console.error('❌ Unexpected error in saveDocumentsData:', error);
 
-        Swal.fire({
-            icon: 'error',
+        showAppModal({
+            variant: 'error',
             title: 'Save Failed',
-            text: 'Error saving documents: ' + error.message,
-            confirmButtonText: 'OK'
+            message: 'Error saving documents: ' + error.message,
+            autoCloseMs: 0
         });
 
         // Не бросаем ошибку дальше
@@ -2184,49 +2350,85 @@ function saveDocumentsData(controlId) {
 
 
     function updateCalculatedDates() {
-        const controlOperationDateInput = document.querySelector('input[name="controlOperationDate"]');
-        if (controlOperationDateInput && controlOperationDateInput.value) {
-            const event = new Event('change');
-            controlOperationDateInput.dispatchEvent(event);
-            console.log('Updated calculated dates');
+        const operationDateInput = document.querySelector('input[name="controlOperationDate"]');
+        if (!operationDateInput) {
+            return;
         }
+        const isoValue = formatDateForApi(operationDateInput.value || operationDateInput.dataset.isoValue || '');
+        if (!isoValue) {
+            return;
+        }
+        const operationDate = parseIsoDate(isoValue);
+        if (!operationDate) {
+            return;
+        }
+        const controlFrequency = document.querySelector('#controlForm [name="controlFrequency"]')?.value
+            || document.querySelector('[name="controlFrequency"]')?.value;
+        applyAssignmentDatePreview(operationDate, controlFrequency);
+        console.log('Updated calculated dates');
     }
 
+    function normalizeControlFrequency(controlFrequency) {
+        if (!controlFrequency) {
+            return null;
+        }
+        const normalized = controlFrequency.toLowerCase().replace(/\s+/g, ' ').trim();
+        const compact = normalized.replace(/[-\s]/g, '');
+
+        if (normalized.includes('recurr')) {
+            return 'recurring';
+        }
+        if (normalized.includes('quarter')) {
+            return 'quarterly';
+        }
+        if (normalized.includes('month')) {
+            return 'monthly';
+        }
+        if ((normalized.includes('ad') && normalized.includes('hoc'))
+            || normalized.includes('as-required')
+            || normalized.includes('at least annually')) {
+            return 'ad-hoc';
+        }
+        if (compact.includes('semiannual')) {
+            return 'semi annual';
+        }
+        if (normalized.includes('annual') || normalized.includes('annually')) {
+            return 'annual';
+        }
+        return null;
+    }
+
+    // UI regression examples (matches ControlScheduleCalculator):
+    // OperationDate=2026-02-06
+    // Monthly:   deadline=2026-02-13, next=2026-03-06
+    // Quarterly: deadline=2026-02-20, next=2026-05-06
+    // Recurring: deadline=2026-02-20, next=2026-05-06
+    // Ad-hoc:    deadline=2026-02-20, next=(none)
+    // Annual:    deadline=2026-03-06, next=2027-02-06
+    // Semi Annual: deadline=2026-03-06, next=2026-08-06
     function calculateDeadline(operationDate, controlFrequency) {
         const date = new Date(operationDate.getFullYear(), operationDate.getMonth(), operationDate.getDate());
+        const normalized = normalizeControlFrequency(controlFrequency);
 
-        if (!controlFrequency) {
-            date.setDate(date.getDate() + 7);
-            return date;
+        if (!normalized) {
+            return null;
         }
 
-        const freq = controlFrequency.toLowerCase();
-        const normalized = freq.replace(/\s+/g, ' ').trim();
-        const hasSemiAnnual = normalized.includes('semi-annual') || normalized.includes('semi annual') ||
-            normalized.includes('semi-annually') || normalized.includes('semi annually');
-        const hasAnnual = normalized.includes('annual');
-        const hasRequiredAnnual = normalized.includes('required') && normalized.includes('annual');
-        const hasQuarterly = normalized.includes('quarterly');
-        const hasMonthly = normalized.includes('monthly');
-        const hasRecurring = normalized.includes('recurring');
-        const hasWeekly = normalized.includes('weekly');
-        const hasDaily = normalized.includes('daily');
-        const hasAdHoc = normalized.includes('ad-hoc') || normalized.includes('ad hoc');
-
-        if (hasSemiAnnual || hasAnnual || hasRequiredAnnual) {
-            date.setMonth(date.getMonth() + 1);
-        } else if (hasQuarterly) {
-            date.setDate(date.getDate() + 14);
-        } else if (hasMonthly || hasRecurring) {
-            date.setDate(date.getDate() + 7);
-        } else if (hasWeekly) {
-            date.setDate(date.getDate() + 5);
-        } else if (hasDaily) {
-            date.setDate(date.getDate() + 1);
-        } else if (hasAdHoc) {
-            date.setDate(date.getDate() + 7);
-        } else {
-            date.setDate(date.getDate() + 7);
+        switch (normalized) {
+            case 'quarterly':
+            case 'recurring':
+            case 'ad-hoc':
+                date.setDate(date.getDate() + 14);
+                break;
+            case 'semi annual':
+            case 'annual':
+                date.setMonth(date.getMonth() + 1);
+                break;
+            case 'monthly':
+                date.setDate(date.getDate() + 7);
+                break;
+            default:
+                return null;
         }
 
         return date;
@@ -2234,44 +2436,53 @@ function saveDocumentsData(controlId) {
 
     function calculateNextOperationDate(operationDate, controlFrequency) {
         const date = new Date(operationDate.getFullYear(), operationDate.getMonth(), operationDate.getDate());
+        const normalized = normalizeControlFrequency(controlFrequency);
 
-        if (!controlFrequency) {
-            date.setMonth(date.getMonth() + 1);
-            return date;
+        if (!normalized) {
+            return null;
         }
 
-        const freq = controlFrequency.toLowerCase();
-        const normalized = freq.replace(/\s+/g, ' ').trim();
-        const hasSemiAnnual = normalized.includes('semi-annual') || normalized.includes('semi annual') ||
-            normalized.includes('semi-annually') || normalized.includes('semi annually');
-        const hasAnnual = normalized.includes('annual');
-        const hasRequiredAnnual = normalized.includes('required') && normalized.includes('annual');
-        const hasQuarterly = normalized.includes('quarterly');
-        const hasMonthly = normalized.includes('monthly');
-        const hasRecurring = normalized.includes('recurring');
-        const hasWeekly = normalized.includes('weekly');
-        const hasDaily = normalized.includes('daily');
-        const hasAdHoc = normalized.includes('ad-hoc') || normalized.includes('ad hoc');
-
-        if (hasSemiAnnual) {
-            date.setMonth(date.getMonth() + 6);
-        } else if (hasRequiredAnnual || hasAnnual) {
-            date.setMonth(date.getMonth() + 12);
-        } else if (hasQuarterly) {
-            date.setMonth(date.getMonth() + 3);
-        } else if (hasMonthly || hasRecurring) {
-            date.setMonth(date.getMonth() + 1);
-        } else if (hasWeekly) {
-            date.setDate(date.getDate() + 7);
-        } else if (hasDaily) {
-            date.setDate(date.getDate() + 1);
-        } else if (hasAdHoc) {
-            date.setMonth(date.getMonth() + 1);
-        } else {
-            date.setMonth(date.getMonth() + 1);
+        switch (normalized) {
+            case 'monthly':
+                date.setMonth(date.getMonth() + 1);
+                return date;
+            case 'quarterly':
+            case 'recurring':
+                date.setMonth(date.getMonth() + 3);
+                return date;
+            case 'semi annual':
+                date.setMonth(date.getMonth() + 6);
+                return date;
+            case 'annual':
+                date.setMonth(date.getMonth() + 12);
+                return date;
+            case 'ad-hoc':
+                return null;
+            default:
+                return null;
         }
+    }
 
-        return date;
+    function applyAssignmentDatePreview(operationDate, controlFrequency) {
+        const deadline = calculateDeadline(operationDate, controlFrequency);
+        const nextOperationDate = calculateNextOperationDate(operationDate, controlFrequency);
+
+        const deadlineInput = document.querySelector('input[name="controlOperationDeadline"]');
+        const nextDateInput = document.querySelector('input[name="nextControlOperationDate"]');
+
+        if (deadlineInput && deadline) {
+            setDateFieldValue(deadlineInput, toIsoDate(deadline));
+            console.log('Set deadline to:', deadlineInput.value);
+        }
+        if (nextDateInput) {
+            if (nextOperationDate) {
+                setDateFieldValue(nextDateInput, toIsoDate(nextOperationDate));
+                console.log('Set next date to:', nextDateInput.value);
+            } else if (normalizeControlFrequency(controlFrequency) === 'ad-hoc') {
+                setDateFieldValue(nextDateInput, '');
+                console.log('Cleared next date for ad-hoc');
+            }
+        }
     }
 
 
@@ -2349,6 +2560,7 @@ function saveDocumentsData(controlId) {
 
             // LOAD DATA BEFORE INITIALIZING READONLY MODE
             const controlId = document.querySelector('input[name="id"]').value;
+            await loadPermissions(controlId);
             await loadDetailsData(controlId);
             await loadDocumentsData(controlId);
             await loadUsers(); // This calls loadAssignmentData internally
@@ -2376,6 +2588,10 @@ function saveDocumentsData(controlId) {
                     event.preventDefault();
 
                     console.log('=== SAVE BUTTON CLICKED ===');
+
+                    if (!validateControlSaveRequiredFields()) {
+                        return;
+                    }
 
                     saveEditBtn.disabled = true;
                     const originalText = saveEditBtn.textContent;
@@ -2420,29 +2636,31 @@ function saveDocumentsData(controlId) {
                 });
             }
 
-            document.querySelector('input[name="controlOperationDate"]')?.addEventListener('change', function() {
+            const handleOperationDateChange = function() {
                 console.log('Control Operation Date changed:', this.value);
 
-                const operationDate = parseIsoDate(this.value);
-                if (operationDate) {
-                    const controlFrequency = document.querySelector('#controlForm select[name="controlFrequency"]')?.value;
+                const isoValue = formatDateForApi(this.value || this.dataset.isoValue || '');
+                if (isoValue) {
+                    const operationDate = parseIsoDate(isoValue);
+                    if (!operationDate) {
+                        return;
+                    }
+                    const controlFrequency = document.querySelector('#controlForm [name="controlFrequency"]')?.value
+                        || document.querySelector('[name="controlFrequency"]')?.value;
                     console.log('Control Frequency:', controlFrequency);
-
-                    const deadline = calculateDeadline(operationDate, controlFrequency);
-                    const nextOperationDate = calculateNextOperationDate(operationDate, controlFrequency);
-
-                    const deadlineInput = document.querySelector('input[name="controlOperationDeadline"]');
-                    const nextDateInput = document.querySelector('input[name="nextControlOperationDate"]');
-
-                    if (deadlineInput) {
-                        setDateFieldValue(deadlineInput, toIsoDate(deadline));
-                        console.log('Set deadline to:', deadlineInput.value);
-                    }
-                    if (nextDateInput) {
-                        setDateFieldValue(nextDateInput, toIsoDate(nextOperationDate));
-                        console.log('Set next date to:', nextDateInput.value);
-                    }
+                    applyAssignmentDatePreview(operationDate, controlFrequency);
                 }
+            };
+
+            const operationDateInput = document.querySelector('input[name="controlOperationDate"]');
+            if (operationDateInput) {
+                operationDateInput.addEventListener('change', handleOperationDateChange);
+                operationDateInput.addEventListener('input', handleOperationDateChange);
+            }
+
+            document.querySelector('#controlForm select[name="controlFrequency"]')?.addEventListener('change', function() {
+                console.log('Control Frequency changed:', this.value);
+                updateCalculatedDates();
             });
 
             if (renameIdBtn) {
@@ -2489,17 +2707,6 @@ function saveDocumentsData(controlId) {
                 if (existingModal) {
                     existingModal.hide();
                 }
-
-                const forceRemoveModalBackdrop = () => {
-                    const backdrops = document.querySelectorAll('.modal-backdrop');
-                    backdrops.forEach(backdrop => backdrop.remove());
-                    document.body.classList.remove('modal-open');
-                    document.body.style.overflow = '';
-                    document.body.style.paddingRight = '';
-                };
-
-                forceRemoveModalBackdrop();
-
                 const renameModal = new bootstrap.Modal(modalElement, {
                     backdrop: true,
                     keyboard: true,
@@ -2526,7 +2733,6 @@ function saveDocumentsData(controlId) {
 
                     if (newControlId === originalControlId) {
                         renameModal.hide();
-                        setTimeout(forceRemoveModalBackdrop, 100);
                         return;
                     }
 
@@ -2552,21 +2758,16 @@ function saveDocumentsData(controlId) {
                             }
                         });
 
-                        renameModal.hide();
-
-                        setTimeout(() => {
-                            forceRemoveModalBackdrop();
-                            Swal.fire({
-                                icon: 'success',
+                        modalElement.addEventListener('hidden.bs.modal', function handleRenameHidden() {
+                            showAppModal({
+                                variant: 'success',
                                 title: 'Renamed Successfully',
-                                text: 'Control ID has been renamed to ' + updatedControl.controlId,
-                                confirmButtonText: 'OK',
-                                timer: 2000,
-                                timerProgressBar: true
-                            }).then(() => {
-                                window.location.href = '/';
+                                message: 'Control ID has been renamed to ' + updatedControl.controlId,
+                                redirectUrl: '/'
                             });
-                        }, 300);
+                            modalElement.removeEventListener('hidden.bs.modal', handleRenameHidden);
+                        });
+                        renameModal.hide();
 
                     } catch (error) {
                         console.error('Error renaming control ID:', error);
@@ -2583,7 +2784,6 @@ function saveDocumentsData(controlId) {
                 if (cancelBtn) {
                     cancelBtn.onclick = function() {
                         renameModal.hide();
-                        setTimeout(forceRemoveModalBackdrop, 100);
                     };
                 }
 
@@ -2591,7 +2791,6 @@ function saveDocumentsData(controlId) {
                 if (closeBtn) {
                     closeBtn.onclick = function() {
                         renameModal.hide();
-                        setTimeout(forceRemoveModalBackdrop, 100);
                     };
                 }
 
@@ -2683,19 +2882,10 @@ function saveDocumentsData(controlId) {
                 console.warn('⚠️ Confirm workflow button not found');
             }
 
-            // Добавляем обработчик для Submit to Control Operator button
-            const submitToControlOperatorBtn = document.getElementById('submitToControlOperatorBtn');
-            if (submitToControlOperatorBtn) {
-                submitToControlOperatorBtn.addEventListener('click', handleSubmitToControlOperator);
-                console.log('✅ Submit to Control Operator button handler added');
-            } else {
-                console.warn('⚠️ Submit to Control Operator button not found');
-            }
-
             // Добавляем обработчик для подтверждения Submit to Control Operator
             const confirmSubmitBtn = document.getElementById('confirmSubmitBtn');
             if (confirmSubmitBtn) {
-                confirmSubmitBtn.addEventListener('click', confirmSubmitToControlOperator);
+                confirmSubmitBtn.addEventListener('click', confirmSubmitWorkflowAction);
                 console.log('✅ Confirm submit button handler added');
             } else {
                 console.warn('⚠️ Confirm submit button not found');
@@ -2708,65 +2898,70 @@ function saveDocumentsData(controlId) {
             setTimeout(() => {
                 const currentUserRole = document.getElementById('currentUserRole')?.value;
                 const currentStatus = document.getElementById('currentPerformanceStatus')?.value;
-                const controlStatusInput = document.querySelector('input[name="controlStatus"]');
-                const controlStatus = controlStatusInput ? controlStatusInput.value : '';
+                const workflowStatusInput = document.querySelector('input[name="performanceStatus"]');
+                const workflowStatus = workflowStatusInput ? workflowStatusInput.value : '';
                 const isFacilitatorFlag = document.getElementById('isFacilitator')?.value === 'true';
                 const isControlOperatorFlag = document.getElementById('isControlOperator')?.value === 'true';
                 const isSoqmLeadFlag = document.getElementById('isSoqmLead')?.value === 'true';
                 const isProcessOwnerFlag = document.getElementById('isProcessOwner')?.value === 'true';
 
-                console.log('Final check - Role:', currentUserRole, 'Performance Status:', currentStatus, 'Control Status:', controlStatus);
+                console.log('Final check - Role:', currentUserRole, 'Performance Status:', currentStatus, 'Workflow Status:', workflowStatus);
                 console.log('Is Facilitator for this control:', isFacilitatorFlag);
                 console.log('Is Control Operator for this control:', isControlOperatorFlag);
                 console.log('Is SoQM Lead for this control:', isSoqmLeadFlag);
                 console.log('Is Process Owner for this control:', isProcessOwnerFlag);
 
+                if (currentUserRole === 'SOQM_LEAD') {
+                    console.log('✅ SoQM Lead role override - editing enabled for all statuses');
+                    return;
+                }
+
                 // Only lock form if control is actually in workflow
-                if (controlStatus && controlStatus !== '' && controlStatus !== 'Not Started' && controlStatus !== 'In Progress') {
-                    if (controlStatus === 'Facilitator Review') {
-                        // Control is in Facilitator Review
+                if (workflowStatus && workflowStatus !== '' && workflowStatus !== 'DRAFT') {
+                    if (workflowStatus === 'IN_PROGRESS') {
+                        // Control is in IN_PROGRESS
                         if (isFacilitatorFlag) {
                             // Show Submit to Control Operator button for assigned Facilitator
-                            const submitToOperatorBtn = document.getElementById('submitToControlOperatorBtn');
+                            const submitToOperatorBtn = document.getElementById('submitForReviewBtn');
                             if (submitToOperatorBtn) {
                                 submitToOperatorBtn.style.display = 'inline-block';
                                 console.log('✅ Button "Submit to Control Operator" shown for assigned Facilitator!');
                             }
-                            // Facilitator can edit during Facilitator Review
-                            console.log('✅ Assigned Facilitator can edit control in Facilitator Review');
+                            // Facilitator can edit during IN_PROGRESS
+                            console.log('✅ Assigned Facilitator can edit control in IN_PROGRESS');
                         } else {
                             // For non-Facilitators, lock the control
-                            console.log('🔒 Control in Facilitator Review - locking for non-Facilitator');
+                            console.log('🔒 Control in IN_PROGRESS - locking for non-Facilitator');
                             lockControlForm();
                         }
-                    } else if (controlStatus === 'Control Operator Review') {
-                        // Control is in Control Operator Review
+                    } else if (workflowStatus === 'REVIEW') {
+                        // Control is in REVIEW
                         if (isControlOperatorFlag) {
-                            // Control Operator can edit during Control Operator Review
-                            console.log('✅ Assigned Control Operator can edit control in Control Operator Review');
+                            // Control Operator can edit during REVIEW
+                            console.log('✅ Assigned Control Operator can edit control in REVIEW');
                         } else {
                             // For non-Control Operators, lock the control
-                            console.log('🔒 Control in Control Operator Review - locking for non-Control Operator');
+                            console.log('🔒 Control in REVIEW - locking for non-Control Operator');
                             lockControlForm();
                         }
-                    } else if (controlStatus === 'SoQM Lead Review') {
-                        // Control is in SoQM Lead Review
+                    } else if (workflowStatus === 'SOQM_HEAD_REVIEW') {
+                        // Control is in SOQM_HEAD_REVIEW
                         if (isSoqmLeadFlag) {
-                            // SoQM Lead can edit during SoQM Lead Review
-                            console.log('✅ Assigned SoQM Lead can edit control in SoQM Lead Review');
+                            // SoQM Lead can edit during SOQM_HEAD_REVIEW
+                            console.log('✅ Assigned SoQM Lead can edit control in SOQM_HEAD_REVIEW');
                         } else {
                             // For non-SoQM Leads, lock the control
-                            console.log('🔒 Control in SoQM Lead Review - locking for non-SoQM Lead');
+                            console.log('🔒 Control in SOQM_HEAD_REVIEW - locking for non-SoQM Lead');
                             lockControlForm();
                         }
-                    } else if (controlStatus === 'Process Owner Review') {
-                        // Control is in Process Owner Review
+                    } else if (workflowStatus === 'PROCESS_OWNER_REVIEW') {
+                        // Control is in PROCESS_OWNER_REVIEW
                         if (isProcessOwnerFlag) {
-                            // Process Owner can edit during Process Owner Review
-                            console.log('✅ Assigned Process Owner can edit control in Process Owner Review');
+                            // Process Owner can edit during PROCESS_OWNER_REVIEW
+                            console.log('✅ Assigned Process Owner can edit control in PROCESS_OWNER_REVIEW');
                         } else {
                             // For non-Process Owners, lock the control
-                            console.log('🔒 Control in Process Owner Review - locking for non-Process Owner');
+                            console.log('🔒 Control in PROCESS_OWNER_REVIEW - locking for non-Process Owner');
                             lockControlForm();
                         }
                     } else {
@@ -2793,83 +2988,63 @@ function saveDocumentsData(controlId) {
     };
 })();
 
-// ========== SUBMIT TO CONTROL OPERATOR HANDLER ==========
-function handleSubmitToControlOperator() {
-    const controlId = document.querySelector('input[name="id"]')?.value;
-    const userRole = document.getElementById('currentUserRole')?.value;
-
-    console.log(`📋 Submit to Control Operator - Control ID: ${controlId}, Role: ${userRole}`);
-
-    if (!controlId) {
-        showErrorMessage('Control ID not found');
-        return;
+function buildDetailsPayload(controlId) {
+    const detailsForm = document.getElementById('detailsForm');
+    if (!detailsForm) {
+        return null;
     }
 
-    if (userRole !== 'FACILITATOR') {
-        showErrorMessage('Only Facilitator can submit controls');
-        return;
-    }
+    const getDetailsValue = (selector) => {
+        const element = detailsForm.querySelector(selector);
+        return element ? element.value : '';
+    };
 
-    // Show confirmation modal
-    const modal = new bootstrap.Modal(document.getElementById('submitConfirmationModal'));
-    modal.show();
+    const payload = {
+        controlId: parseInt(controlId, 10),
+        processName: getDetailsValue('[name="processName"]'),
+        homogeneity: getDetailsValue('[name="homogeneity"]'),
+        referencesToControl: getDetailsValue('[name="referencesToControl"]'),
+        department: getDetailsValue('[name="department"]'),
+        processActivities: getDetailsValue('[name="processActivities"]'),
+        otherRelatedControls: getDetailsValue('[name="otherRelatedControls"]'),
+        itApplications: getDetailsValue('[name="itApplications"]'),
+        controlStepsPerformed: getDetailsValue('[name="controlStepsPerformed"]'),
+        soqmHeadComments: getDetailsValue('[name="soqmHeadComments"]'),
+        processOwnerComments: getDetailsValue('[name="processOwnerComments"]')
+    };
+
+    return applyDetailsPermissions(payload);
 }
 
-function confirmSubmitToControlOperator() {
-    const controlId = document.querySelector('input[name="id"]')?.value;
-    const submitBtn = document.getElementById('submitToControlOperatorBtn');
-
-    if (!controlId) {
-        showErrorMessage('Control ID not found');
-        return;
+function applyDetailsPermissions(payload) {
+    const permissions = window.qtrackerPermissions || {};
+    if (permissions.canEditAll) {
+        return payload;
     }
 
-    // Disable button to prevent double-click
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+    const allowed = new Set();
+    if (permissions.canEditStepsPerformed) {
+        allowed.add('controlStepsPerformed');
+    }
+    if (permissions.canEditProcessOwnerComments) {
+        allowed.add('processOwnerComments');
+    }
 
-    // Call API endpoint
-    fetch(`/api/workflow/submit-to-control-operator?controlId=${controlId}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
+    if (!detailsDataCache) {
+        return payload;
+    }
+
+    const merged = { ...payload };
+    Object.keys(merged).forEach(key => {
+        if (key === 'controlId') {
+            return;
         }
-    })
-    .then(response => {
-        if (!response.ok) {
-            if (response.status === 403) {
-                throw new Error('Only Facilitator can submit controls');
-            } else if (response.status === 404) {
-                throw new Error('Control not found');
-            } else if (response.status === 401) {
-                throw new Error('Unauthorized - please log in again');
-            }
-            throw new Error('Failed to submit control');
+        if (!allowed.has(key) && detailsDataCache[key] !== undefined && detailsDataCache[key] !== null) {
+            merged[key] = detailsDataCache[key];
         }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            console.log('✅ Control submitted successfully:', data);
-
-            // Close the confirmation modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('submitConfirmationModal'));
-            if (modal) modal.hide();
-
-            // Redirect to /controls page immediately
-            window.location.href = '/controls';
-        } else {
-            throw new Error(data.message || 'Submission failed');
-        }
-    })
-    .catch(error => {
-        console.error('❌ Error submitting control:', error);
-        showErrorMessage(error.message || 'Failed to submit control. Please try again.');
-
-        // Re-enable button
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Submit to Control Operator';
     });
+
+    return merged;
 }
 
 function lockControlForm() {
@@ -2897,80 +3072,399 @@ function lockControlForm() {
     console.log('✅ Form locked');
 }
 
-// ========== SUBMIT TO CONTROL OPERATOR HANDLERS ==========
-function handleSubmitToControlOperator(event) {
-    console.log('🔘 Submit to Control Operator button clicked');
-    event.preventDefault();
-    // Modal will be shown by Bootstrap's data-bs-toggle
+// ========== SUBMIT TO CONTROL OPERATOR ==========
+function showSavedSuccessfullyModal(options) {
+    const redirectUrl = options ? options.redirectUrl : null;
+    const timerMs = options ? options.timerMs : null;
+
+    showAppModal({
+        variant: 'success',
+        title: 'Saved Successfully',
+        message: 'All control data has been saved',
+        redirectUrl: redirectUrl,
+        autoCloseMs: timerMs === null || timerMs === undefined ? undefined : timerMs
+    });
 }
 
-function confirmSubmitToControlOperator() {
-    console.log('🔘 Confirm Submit to Control Operator');
-    
-    const controlIdElement = document.querySelector('input[name="id"]');
-    const controlId = controlIdElement ? controlIdElement.value : null;
-    
-    if (!controlId) {
-        alert('Error: Control ID not found');
-        return;
+function showWorkflowRequirementMessage(message, field) {
+    if (window.showAppModal) {
+        showAppModal({
+            variant: 'warning',
+            title: 'Missing Required Field',
+            message: message,
+            autoCloseMs: 0
+        });
+    } else {
+        alert(message);
+    }
+    if (field && typeof field.focus === 'function') {
+        field.focus();
+    }
+}
+
+function isBlankValueForWorkflow(value) {
+    return value === null || value === undefined || String(value).trim() === '';
+}
+
+function getWorkflowRoleRequirement() {
+    const isFacilitator = document.getElementById('isFacilitator')?.value === 'true';
+    const isControlOperator = document.getElementById('isControlOperator')?.value === 'true';
+    const isSoqmLead = document.getElementById('isSoqmLead')?.value === 'true';
+    const isProcessOwner = document.getElementById('isProcessOwner')?.value === 'true';
+    const performanceStatus = document.querySelector('input[name="performanceStatus"]')?.value || '';
+
+    if (isFacilitator && performanceStatus === 'IN_PROGRESS') {
+        return {
+            field: document.querySelector('textarea[name="controlStepsPerformed"]'),
+            message: 'To submit, please fill: Control steps performed and results'
+        };
     }
 
-    const confirmBtn = document.getElementById('confirmSubmitBtn');
-    confirmBtn.disabled = true;
-    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+    if (isControlOperator && performanceStatus === 'REVIEW') {
+        return {
+            field: document.querySelector('textarea[name="controlStepsPerformed"]'),
+            message: 'To submit, please fill: Control steps performed and results'
+        };
+    }
 
-    // Call the backend API
-    fetch('/api/workflow/submit-to-control-operator?controlId=' + controlId, {
+    if (isSoqmLead && performanceStatus === 'SOQM_HEAD_REVIEW') {
+        return {
+            field: document.querySelector('textarea[name="controlStepsPerformed"]'),
+            message: 'To submit, please fill: Control steps performed and results'
+        };
+    }
+
+    return null;
+}
+
+function validateWorkflowRoleRequirement() {
+    const requirement = getWorkflowRoleRequirement();
+    if (!requirement) {
+        return true;
+    }
+
+    const field = requirement.field;
+    if (!field || isBlankValueForWorkflow(field.value)) {
+        if (field) {
+            field.classList.add('field-required-error');
+        }
+        showWorkflowRequirementMessage(requirement.message, field);
+        return false;
+    }
+
+    field.classList.remove('field-required-error');
+    return true;
+}
+
+function saveDetailsDataSilently(controlId) {
+    const detailsData = buildDetailsPayload(controlId);
+    if (!detailsData) {
+        return Promise.resolve({ success: true, skipped: true });
+    }
+
+    return fetch('/api/control-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(detailsData)
+    })
+    .then(async response => {
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Details save failed');
+        }
+        detailsDataCache = { ...(detailsDataCache || {}), ...detailsData };
+        return { success: true };
+    });
+}
+
+async function ensureWorkflowRoleReady() {
+    if (!validateWorkflowRoleRequirement()) {
+        return false;
+    }
+
+    const requirement = getWorkflowRoleRequirement();
+    if (!requirement) {
+        return true;
+    }
+
+    const controlId = document.querySelector('input[name="id"]')?.value;
+    if (!controlId) {
+        return true;
+    }
+
+    try {
+        await saveDetailsDataSilently(controlId);
+        return true;
+    } catch (error) {
+        showWorkflowRequirementMessage(
+            error.message || 'Failed to save required field before submit.',
+            requirement.field
+        );
+        return false;
+    }
+}
+
+let currentSubmitAction = null;
+
+function submitWorkflowActionWithModal(options) {
+    const {
+        url,
+        confirmBtnId,
+        confirmModalId,
+        successRedirectUrl,
+        successLogMessage,
+        successTimerMs
+    } = options;
+
+    const confirmBtn = document.getElementById(confirmBtnId);
+    const originalBtnText = confirmBtn ? confirmBtn.innerHTML : '';
+
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+    }
+
+    return fetch(url, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         }
     })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(data => {
-                throw new Error(data.message || 'Failed to submit control');
-            });
+    .then(async response => {
+        const responseText = await response.text();
+        let data = null;
+        if (responseText) {
+            try {
+                data = JSON.parse(responseText);
+            } catch (e) {
+                data = { message: responseText };
+            }
         }
-        return response.json();
+
+        if (!response.ok) {
+            const message = (data && data.message) ? data.message : 'Failed to submit control';
+            throw new Error(message);
+        }
+
+        return data || { success: true };
     })
     .then(data => {
-        console.log('✅ Control submitted successfully:', data);
+        if (confirmModalId) {
+            const modal = bootstrap.Modal.getInstance(document.getElementById(confirmModalId));
+            if (modal) modal.hide();
+        }
 
-        // Close the modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('submitConfirmationModal'));
-        if (modal) modal.hide();
+        if (successLogMessage) {
+            console.log(successLogMessage);
+        }
 
-        // Redirect to dashboard
-        window.location.href = '/';
+        showSavedSuccessfullyModal({
+            redirectUrl: successRedirectUrl,
+            timerMs: successTimerMs
+        });
+        return data;
     })
     .catch(error => {
         console.error('❌ Error submitting control:', error);
-        
-        Swal.fire({
-            icon: 'error',
+
+        showAppModal({
+            variant: 'error',
             title: 'Submission Failed',
-            text: error.message || 'Failed to submit control. Please try again.',
-            confirmButtonText: 'OK'
+            message: error.message || 'Failed to submit control. Please try again.',
+            autoCloseMs: 0
         });
 
-        // Re-enable button
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = 'Confirm Submission';
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = originalBtnText || 'Confirm Submission';
+        }
+
+        throw error;
+    });
+}
+
+function openSubmitConfirmationModal(actionKey) {
+    currentSubmitAction = actionKey;
+
+    const modalElement = document.getElementById('submitConfirmationModal');
+    if (!modalElement) {
+        return;
+    }
+
+    const titleElement = modalElement.querySelector('.modal-title');
+    const messageElement = modalElement.querySelector('.modal-body p');
+
+    if (actionKey === 'SUBMIT_TO_PROCESS_OWNER') {
+        if (titleElement) {
+            titleElement.textContent = 'Submit Control to Process Owner';
+        }
+        if (messageElement) {
+            messageElement.innerHTML = 'Are you sure you want to submit this control to the <strong>Process Owner</strong> for review?';
+        }
+    } else {
+        if (titleElement) {
+            titleElement.textContent = 'Submit Control to Control Operator';
+        }
+        if (messageElement) {
+            messageElement.innerHTML = 'Are you sure you want to submit this control to the <strong>Control Operator</strong> for review?';
+        }
+    }
+
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+}
+
+// Robust workflow handler binding (event delegation)
+document.addEventListener('click', async (event) => {
+    const reviewBtn = event.target.closest('#submitForReviewBtn');
+    const processOwnerBtn = event.target.closest('#submitToProcessOwnerBtn');
+    const returnToFacilitatorBtn = event.target.closest('#returnToFacilitatorBtn');
+    const submitToSoqmLeadBtn = event.target.closest('#submitToSoqmLeadBtn');
+    const returnToOperatorBtn = event.target.closest('#returnToOperatorBtn');
+    const returnToSoqmLeadBtn = event.target.closest('#returnToSoqmLeadBtn');
+    if (!reviewBtn && !processOwnerBtn && !returnToFacilitatorBtn && !submitToSoqmLeadBtn && !returnToOperatorBtn && !returnToSoqmLeadBtn) {
+        return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (reviewBtn) {
+        console.log('Submit for Review clicked');
+        if (!await ensureWorkflowRoleReady()) {
+            return;
+        }
+        openSubmitConfirmationModal('SUBMIT_TO_OPERATOR');
+        return;
+    }
+
+    if (processOwnerBtn) {
+        if (!await ensureWorkflowRoleReady()) {
+            return;
+        }
+        openSubmitConfirmationModal('SUBMIT_TO_PROCESS_OWNER');
+        return;
+    }
+
+    if (returnToFacilitatorBtn) {
+        console.log('Return to Facilitator clicked');
+        if (!await ensureWorkflowRoleReady()) {
+            return;
+        }
+        const modalElement = document.getElementById('returnFacilitatorModal');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        }
+        return;
+    }
+
+    if (submitToSoqmLeadBtn) {
+        console.log('Submit for SoQM Team Review clicked');
+        if (!await ensureWorkflowRoleReady()) {
+            return;
+        }
+        const modalElement = document.getElementById('submitSoqmLeadModal');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        }
+        return;
+    }
+
+    if (returnToOperatorBtn) {
+        console.log('Return to Operator clicked');
+        if (!await ensureWorkflowRoleReady()) {
+            return;
+        }
+        const modalElement = document.getElementById('returnOperatorModal');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        }
+        return;
+    }
+
+    if (returnToSoqmLeadBtn) {
+        console.log('Return to SoQM Lead clicked');
+        if (!await ensureWorkflowRoleReady()) {
+            return;
+        }
+        const modalElement = document.getElementById('returnSoqmLeadModal');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        }
+    }
+});
+
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (!form) {
+        return;
+    }
+
+    if (form.querySelector('#submitForReviewBtn, #submitToProcessOwnerBtn, #submitToSoqmLeadBtn, #returnToFacilitatorBtn, #returnToOperatorBtn, #returnToSoqmLeadBtn')) {
+        event.preventDefault();
+    }
+});
+
+console.log('Workflow handlers bound');
+
+async function confirmSubmitWorkflowAction() {
+    if (!await ensureWorkflowRoleReady()) {
+        return;
+    }
+
+    const controlIdElement = document.querySelector('input[name="id"]');
+    const controlId = controlIdElement ? controlIdElement.value : null;
+
+    if (!controlId) {
+        alert('Error: Control ID not found');
+        return;
+    }
+
+    if (!currentSubmitAction) {
+        alert('Error: Submission type not selected');
+        return;
+    }
+
+    const actionConfig = {
+        SUBMIT_TO_OPERATOR: {
+            url: '/api/workflow/submit-to-control-operator?controlId=' + controlId,
+            successLogMessage: 'Submit for Review success -> showing modal',
+            successTimerMs: 2500
+        },
+        SUBMIT_TO_PROCESS_OWNER: {
+            url: '/api/workflow/submit-to-process-owner?controlId=' + controlId,
+            successTimerMs: 2500
+        }
+    };
+
+    const config = actionConfig[currentSubmitAction];
+    if (!config) {
+        alert('Error: Unsupported submission type');
+        return;
+    }
+
+    submitWorkflowActionWithModal({
+        url: config.url,
+        confirmBtnId: 'confirmSubmitBtn',
+        confirmModalId: 'submitConfirmationModal',
+        successRedirectUrl: '/',
+        successLogMessage: config.successLogMessage,
+        successTimerMs: config.successTimerMs
     });
 }
 
 // ========== WORKFLOW BUTTON HANDLERS ==========
 
-// ========== SUBMIT TO SOQM LEAD HANDLERS (Control Operator → SoQM Lead) ==========
-function handleSubmitToSoqmLead(event) {
-    console.log('🔘 Submit to SoQM Lead button clicked');
-    event.preventDefault();
-    // Modal will be shown by Bootstrap's data-bs-toggle
-}
-
-function confirmSubmitToSoqmLead() {
+async function confirmSubmitToSoqmLead() {
     console.log('🔘 Confirm Submit to SoQM Lead');
+
+    if (!await ensureWorkflowRoleReady()) {
+        return;
+    }
     
     const controlIdElement = document.querySelector('input[name="id"]');
     const controlId = controlIdElement ? controlIdElement.value : null;
@@ -2980,70 +3474,23 @@ function confirmSubmitToSoqmLead() {
         return;
     }
 
-    const confirmBtn = document.getElementById('confirmSubmitSoqmLeadBtn');
-    confirmBtn.disabled = true;
-    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
-
-    // Call the backend API
-    fetch('/api/workflow/submit-to-soqm-lead?controlId=' + controlId, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(data => {
-                throw new Error(data.message || 'Failed to submit control to SoQM Lead');
-            });
-        }
-        return response.json();
-    })
-    .then(data => {
-        console.log('✅ Control submitted to SoQM Lead successfully:', data);
-
-        // Close the modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('submitSoqmLeadModal'));
-        if (modal) modal.hide();
-
-        // Show success message
-        Swal.fire({
-            icon: 'success',
-            title: 'Submitted Successfully',
-            text: data.message || 'Control has been submitted to SoQM Lead for review',
-            confirmButtonText: 'OK',
-            timer: 1200,
-            timerProgressBar: true
-        }).then(() => {
-            // Go back to dashboard
-            window.location.href = '/';
-        });
-    })
-    .catch(error => {
-        console.error('❌ Error submitting control to SoQM Lead:', error);
-        
-        Swal.fire({
-            icon: 'error',
-            title: 'Submission Failed',
-            text: error.message || 'Failed to submit control. Please try again.',
-            confirmButtonText: 'OK'
-        });
-
-        // Re-enable button
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = 'Confirm Submission';
+    submitWorkflowActionWithModal({
+        url: '/api/workflow/submit-to-soqm-lead?controlId=' + controlId,
+        confirmBtnId: 'confirmSubmitSoqmLeadBtn',
+        confirmModalId: 'submitSoqmLeadModal',
+        successRedirectUrl: '/',
+        successLogMessage: 'Submit for SoQM Team Review success -> showing popup',
+        successTimerMs: 2500
     });
 }
 
 // ========== RETURN TO FACILITATOR HANDLERS (Control Operator → Facilitator) ==========
-function handleReturnToFacilitator(event) {
-    console.log('🔘 Return to Facilitator button clicked');
-    event.preventDefault();
-    // Modal will be shown by Bootstrap's data-bs-toggle
-}
-
-function confirmReturnToFacilitator() {
+async function confirmReturnToFacilitator() {
     console.log('🔘 Confirm Return to Facilitator');
+
+    if (!await ensureWorkflowRoleReady()) {
+        return;
+    }
     
     const controlIdElement = document.querySelector('input[name="id"]');
     const controlId = controlIdElement ? controlIdElement.value : null;
@@ -3057,54 +3504,19 @@ function confirmReturnToFacilitator() {
     const commentsElement = document.getElementById('returnComments');
     const comments = commentsElement ? commentsElement.value.trim() : '';
 
-    const confirmBtn = document.getElementById('confirmReturnFacilitatorBtn');
-    confirmBtn.disabled = true;
-    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Returning...';
-
     // Build request URL with optional comments parameter
     let url = '/api/workflow/return-to-facilitator?controlId=' + controlId;
     if (comments) {
         url += '&comments=' + encodeURIComponent(comments);
     }
 
-    // Call the backend API
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(data => {
-                throw new Error(data.message || 'Failed to return control to Facilitator');
-            });
-        }
-        return response.json();
-    })
-    .then(data => {
-        console.log('✅ Control returned to Facilitator successfully:', data);
-
-        // Close the modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('returnFacilitatorModal'));
-        if (modal) modal.hide();
-
-        // Redirect to /controls page immediately
-        window.location.href = '/controls';
-    })
-    .catch(error => {
-        console.error('❌ Error returning control to Facilitator:', error);
-        
-        Swal.fire({
-            icon: 'error',
-            title: 'Return Failed',
-            text: error.message || 'Failed to return control. Please try again.',
-            confirmButtonText: 'OK'
-        });
-
-        // Re-enable button
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = 'Confirm Return';
+    submitWorkflowActionWithModal({
+        url: url,
+        confirmBtnId: 'confirmReturnFacilitatorBtn',
+        confirmModalId: 'returnFacilitatorModal',
+        successRedirectUrl: '/controls',
+        successLogMessage: 'Return to Facilitator success -> showing popup',
+        successTimerMs: 2500
     });
 }
 
@@ -3142,6 +3554,382 @@ function handleWorkflowButtonClick(event) {
     }
 }
 
+function initChangelogFilters() {
+    if (changelogFilterInitialized) {
+        return;
+    }
+    const toolbar = document.getElementById('changelogToolbar');
+    if (!toolbar) {
+        return;
+    }
+    const buttons = toolbar.querySelectorAll('[data-changelog-filter]');
+    if (!buttons.length) {
+        return;
+    }
+    buttons.forEach(button => {
+        button.addEventListener('click', () => {
+            setChangelogFilter(button.dataset.changelogFilter);
+        });
+    });
+    changelogFilterInitialized = true;
+}
+
+function setChangelogFilter(filter) {
+    changelogFilter = filter || 'all';
+    updateChangelogFilterButtons(changelogFilter);
+    renderChangelog(changelogEntries, changelogFilter);
+}
+
+function updateChangelogFilterButtons(activeFilter) {
+    const toolbar = document.getElementById('changelogToolbar');
+    if (!toolbar) {
+        return;
+    }
+    const buttons = toolbar.querySelectorAll('[data-changelog-filter]');
+    buttons.forEach(button => {
+        const isActive = button.dataset.changelogFilter === activeFilter;
+        button.classList.toggle('active', isActive);
+    });
+}
+
+function updateChangelogCount(visible, total) {
+    const count = document.getElementById('changelogCount');
+    if (!count) {
+        return;
+    }
+    if (!total) {
+        count.textContent = '';
+        return;
+    }
+    const label = changelogFilter === 'workflow'
+        ? 'workflow entries'
+        : changelogFilter === 'field'
+            ? 'field changes'
+            : 'entries';
+    count.textContent = `${visible} of ${total} ${label}`;
+}
+
+function getChangelogEntryType(entry) {
+    const name = (entry.eventName || '').toLowerCase();
+    const hasFieldChanges = Array.isArray(entry.fieldChanges) && entry.fieldChanges.length > 0;
+    if (name.includes('control performance') || name.includes('review comments') || name.includes('workflow')) {
+        return 'workflow';
+    }
+    if (hasFieldChanges || entry.eventName === 'New Control' || entry.eventName === 'Edit Control') {
+        return 'field';
+    }
+    return 'field';
+}
+
+function getChangelogBadge(entry, entryType) {
+    if (entryType === 'workflow') {
+        return { label: getWorkflowBadgeLabel(entry.eventName), className: 'badge badge-changelog-workflow', markerClass: 'workflow' };
+    }
+    if (entry.eventName === 'New Control') {
+        return { label: 'Created', className: 'badge badge-changelog-created', markerClass: '' };
+    }
+    return { label: 'Updated', className: 'badge badge-changelog-updated', markerClass: 'updated' };
+}
+
+function getWorkflowBadgeLabel(eventName) {
+    const name = (eventName || '').toLowerCase();
+    if (name.includes('submitted')) {
+        return 'Workflow: Submit';
+    }
+    if (name.includes('returned')) {
+        return 'Workflow: Return';
+    }
+    if (name.includes('completed') || name.includes('approve')) {
+        return 'Workflow: Complete';
+    }
+    if (name.includes('initiated')) {
+        return 'Workflow: Initiate';
+    }
+    if (name.includes('comment')) {
+        return 'Workflow: Comment';
+    }
+    return 'Workflow';
+}
+
+function formatChangelogDate(entry) {
+    if (window.QTrackerDate && entry.createdAt) {
+        return window.QTrackerDate.formatDisplayDateTimeFromIso(entry.createdAt);
+    }
+    return entry.formattedTime || '-';
+}
+
+function normalizeChangelogValue(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    return String(value).trim();
+}
+
+function shouldShowChange(oldValue, newValue) {
+    const oldNorm = normalizeChangelogValue(oldValue);
+    const newNorm = normalizeChangelogValue(newValue);
+    if (!oldNorm && !newNorm) {
+        return false;
+    }
+    if (oldNorm === newNorm) {
+        return false;
+    }
+    return true;
+}
+
+function buildFieldChanges(entry) {
+    const tableType = (entry.tableType || '').toUpperCase();
+    const isSingle = tableType === 'SINGLE' || entry.eventName === 'New Control';
+    const rawChanges = Array.isArray(entry.fieldChanges) ? entry.fieldChanges : [];
+    const changes = [];
+    rawChanges.forEach(change => {
+        const field = normalizeChangelogValue(change.field);
+        const oldVal = normalizeChangelogValue(change.oldValue);
+        const newVal = normalizeChangelogValue(change.newValue);
+
+        if (isSingle) {
+            const value = newVal || oldVal;
+            if (value) {
+                changes.push({ field: field, value: value });
+            }
+        } else if (shouldShowChange(oldVal, newVal)) {
+            changes.push({ field: field, oldValue: oldVal, newValue: newVal });
+        }
+    });
+
+    return { isSingle: isSingle, changes: changes };
+}
+
+function inferWorkflowTransition(actionName) {
+    const label = (actionName || '').toLowerCase();
+    if (label.includes('initiated')) {
+        return { from: 'DRAFT', to: 'IN_PROGRESS' };
+    }
+    if (label.includes('submitted for review')) {
+        return { from: 'IN_PROGRESS', to: 'REVIEW' };
+    }
+    if (label.includes('submitted for soqm')) {
+        return { from: 'REVIEW', to: 'SOQM_HEAD_REVIEW' };
+    }
+    if (label.includes('submitted to process owner')) {
+        return { from: 'SOQM_HEAD_REVIEW', to: 'PROCESS_OWNER_REVIEW' };
+    }
+    if (label.includes('completed')) {
+        return { from: 'PROCESS_OWNER_REVIEW', to: 'COMPLETED' };
+    }
+    if (label.includes('returned')) {
+        return { from: 'REVIEW', to: 'IN_PROGRESS' };
+    }
+    return { from: '', to: '' };
+}
+
+function buildWorkflowSummary(eventName, transition) {
+    const name = (eventName || '').toLowerCase();
+    const fromStep = transition && transition.from ? transition.from : '';
+    const toStep = transition && transition.to ? transition.to : '';
+
+    if (name.includes('initiated')) {
+        return 'Control initiated and status In Progress';
+    }
+    if (name.includes('submitted for review')) {
+        return 'Control submitted for review';
+    }
+    if (name.includes('submitted for soqm')) {
+        return 'Control submitted for SoQM review';
+    }
+    if (name.includes('submitted to process owner')) {
+        return 'Control submitted to Process Owner';
+    }
+    if (name.includes('completed')) {
+        return 'Control completed';
+    }
+    if (name.includes('returned')) {
+        return 'Control returned for rework';
+    }
+    if (name.includes('comment')) {
+        return 'Workflow comment added';
+    }
+    if (fromStep && toStep) {
+        return `Status changed from ${fromStep} to ${toStep}`;
+    }
+    return 'Workflow update';
+}
+
+function shouldShowWorkflowComment(entry) {
+    const details = normalizeChangelogValue(entry.eventDetails);
+    if (!details) {
+        return false;
+    }
+    const lower = details.toLowerCase();
+    if (lower.includes('workflow initiated by facilitator')) {
+        return false;
+    }
+    return true;
+}
+
+function buildChangelogCard(entry) {
+    const entryType = getChangelogEntryType(entry);
+    const badge = getChangelogBadge(entry, entryType);
+    const dateText = formatChangelogDate(entry);
+
+    let actorLine = 'Unknown user';
+    const actorName = normalizeChangelogValue(entry.actorName);
+    const actorEmail = normalizeChangelogValue(entry.actorEmail);
+    if (actorName && actorEmail) {
+        actorLine = `${actorName} (${actorEmail})`;
+    } else if (actorName) {
+        actorLine = actorName;
+    } else if (actorEmail) {
+        actorLine = actorEmail;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'changelog-entry';
+    wrapper.dataset.changelogType = entryType;
+
+    const marker = document.createElement('div');
+    marker.className = 'changelog-entry-marker';
+    if (badge.markerClass) {
+        marker.classList.add(badge.markerClass);
+    }
+
+    const card = document.createElement('div');
+    card.className = 'changelog-card';
+
+    const header = document.createElement('div');
+    header.className = 'changelog-header';
+
+    const meta = document.createElement('div');
+    meta.className = 'changelog-meta';
+
+    const dateEl = document.createElement('div');
+    dateEl.className = 'changelog-date';
+    dateEl.textContent = dateText;
+
+    const actorEl = document.createElement('div');
+    actorEl.className = 'changelog-user';
+    if (entryType === 'workflow') {
+        actorEl.textContent = 'Workflow event';
+    } else if (actorName && actorEmail) {
+        actorEl.textContent = `${actorName} `;
+        const emailSpan = document.createElement('span');
+        emailSpan.textContent = `(${actorEmail})`;
+        actorEl.appendChild(emailSpan);
+    } else {
+        actorEl.textContent = actorLine;
+    }
+
+    meta.appendChild(dateEl);
+    meta.appendChild(actorEl);
+
+    const badgeEl = document.createElement('span');
+    badgeEl.className = badge.className;
+    badgeEl.textContent = badge.label;
+
+    header.appendChild(meta);
+    header.appendChild(badgeEl);
+
+    card.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'changelog-body';
+
+    if (entryType === 'workflow') {
+        const workflowBlock = document.createElement('div');
+        workflowBlock.className = 'changelog-workflow-block';
+
+        const actionLine = document.createElement('div');
+        actionLine.className = 'changelog-workflow-action';
+
+        const transition = inferWorkflowTransition(entry.eventName);
+        actionLine.textContent = buildWorkflowSummary(entry.eventName, transition);
+        const fromStep = transition.from || 'Unknown';
+        const toStep = transition.to || 'Unknown';
+        const flowLine = document.createElement('div');
+        flowLine.className = 'changelog-workflow-flow';
+
+        const fromEl = document.createElement('span');
+        fromEl.className = 'changelog-step';
+        fromEl.textContent = fromStep;
+
+        const arrowEl = document.createElement('span');
+        arrowEl.className = 'changelog-arrow';
+        arrowEl.textContent = '->';
+
+        const toEl = document.createElement('span');
+        toEl.className = 'changelog-step';
+        toEl.textContent = toStep;
+
+        flowLine.appendChild(fromEl);
+        flowLine.appendChild(arrowEl);
+        flowLine.appendChild(toEl);
+
+        workflowBlock.appendChild(actionLine);
+        workflowBlock.appendChild(flowLine);
+
+        if (shouldShowWorkflowComment(entry)) {
+            const commentLine = document.createElement('div');
+            commentLine.className = 'changelog-workflow-comment';
+            commentLine.textContent = `Comment: ${entry.eventDetails}`;
+            workflowBlock.appendChild(commentLine);
+        }
+
+        body.appendChild(workflowBlock);
+    } else {
+        const changes = buildFieldChanges(entry);
+        if (!changes.changes.length) {
+            return null;
+        }
+
+        const title = document.createElement('div');
+        title.className = 'changelog-event-title';
+        title.textContent = entry.eventName || 'Field Changes';
+        body.appendChild(title);
+
+        changes.changes.forEach(change => {
+            const row = document.createElement('div');
+            row.className = 'changelog-change-row';
+
+            const fieldEl = document.createElement('span');
+            fieldEl.className = 'changelog-field';
+            fieldEl.textContent = `${change.field || 'Field'}:`;
+
+            row.appendChild(fieldEl);
+
+            if (changes.isSingle) {
+                const valueEl = document.createElement('span');
+                valueEl.className = 'changelog-new';
+                valueEl.textContent = change.value;
+                row.appendChild(valueEl);
+            } else {
+                const oldEl = document.createElement('span');
+                oldEl.className = 'changelog-old';
+                oldEl.textContent = change.oldValue || '(empty)';
+
+                const arrowEl = document.createElement('span');
+                arrowEl.className = 'changelog-arrow';
+                arrowEl.textContent = '->';
+
+                const newEl = document.createElement('span');
+                newEl.className = 'changelog-new';
+                newEl.textContent = change.newValue || '(empty)';
+
+                row.appendChild(oldEl);
+                row.appendChild(arrowEl);
+                row.appendChild(newEl);
+            }
+
+            body.appendChild(row);
+        });
+    }
+
+    card.appendChild(body);
+    wrapper.appendChild(marker);
+    wrapper.appendChild(card);
+
+    return wrapper;
+}
+
 function loadChangelog(controlId) {
     const list = document.getElementById('changelogList');
     const loading = document.getElementById('changelogLoading');
@@ -3164,11 +3952,8 @@ function loadChangelog(controlId) {
         })
         .then(data => {
             loading.style.display = 'none';
-            if (!data || data.length === 0) {
-                empty.style.display = 'block';
-                return;
-            }
-            renderChangelog(data);
+            changelogEntries = Array.isArray(data) ? data : [];
+            renderChangelog(changelogEntries, changelogFilter);
         })
         .catch(error => {
             console.error('Changelog load error:', error);
@@ -3178,88 +3963,61 @@ function loadChangelog(controlId) {
         });
 }
 
-function renderChangelog(entries) {
+function renderChangelog(entries, activeFilter) {
     const list = document.getElementById('changelogList');
-    if (!list) return;
+    const empty = document.getElementById('changelogEmpty');
+    const toolbar = document.getElementById('changelogToolbar');
+
+    if (!list || !empty) {
+        return;
+    }
 
     list.innerHTML = '';
 
-    entries.forEach(entry => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'border rounded p-3 mb-3';
-
-        const header = document.createElement('div');
-        header.className = 'fw-semibold';
-        const actorName = entry.actorName ? entry.actorName : '';
-        const actorEmail = entry.actorEmail ? entry.actorEmail : '';
-        const actorLine = actorName && actorEmail
-            ? `By: ${actorName} - ${actorEmail}`
-            : actorName
-                ? `By: ${actorName}`
-                : actorEmail
-                    ? `By: ${actorEmail}`
-                    : 'By: -';
-        const datePart = (window.QTrackerDate && entry.createdAt)
-            ? window.QTrackerDate.formatDisplayDateFromIso(entry.createdAt)
-            : (entry.formattedTime ? entry.formattedTime : '-');
-        const headerText = `# [${datePart}] [${actorLine}]`;
-        header.textContent = headerText;
-        wrapper.appendChild(header);
-
-        const eventLine = document.createElement('div');
-        eventLine.className = 'mt-1';
-        eventLine.textContent = `Event: ${entry.eventName || 'Event'}`;
-        wrapper.appendChild(eventLine);
-
-        if (entry.eventDetails) {
-            const details = document.createElement('div');
-            details.className = 'text-muted small mt-1';
-            details.textContent = entry.eventDetails;
-            wrapper.appendChild(details);
+    const safeEntries = Array.isArray(entries) ? entries : [];
+    if (!safeEntries.length) {
+        if (toolbar) {
+            toolbar.classList.add('d-none');
         }
+        empty.style.display = 'block';
+        empty.textContent = 'No history available.';
+        updateChangelogCount(0, 0);
+        return;
+    }
 
-        if (entry.fieldChanges && entry.fieldChanges.length > 0) {
-            const tableWrapper = document.createElement('div');
-            tableWrapper.className = 'table-responsive mt-2';
+    if (toolbar) {
+        toolbar.classList.remove('d-none');
+    }
+    initChangelogFilters();
+    updateChangelogFilterButtons(activeFilter || 'all');
 
-            const table = document.createElement('table');
-            table.className = 'table table-sm table-bordered mb-0';
-
-            const thead = document.createElement('thead');
-            const tableType = entry.tableType || 'DIFF';
-            thead.innerHTML = tableType === 'SINGLE'
-                ? '<tr><th>Field</th><th>Value</th></tr>'
-                : '<tr><th>Field</th><th>Original Content</th><th>Modified Content</th></tr>';
-
-            const tbody = document.createElement('tbody');
-            entry.fieldChanges.forEach(change => {
-                const row = document.createElement('tr');
-                const fieldCell = document.createElement('td');
-                fieldCell.textContent = change.field || '';
-                const oldCell = document.createElement('td');
-                const newCell = document.createElement('td');
-                if (tableType === 'SINGLE') {
-                    oldCell.textContent = change.newValue || change.oldValue || '';
-                } else {
-                    oldCell.textContent = change.oldValue || '';
-                    newCell.textContent = change.newValue || '';
-                }
-                row.appendChild(fieldCell);
-                row.appendChild(oldCell);
-                if (tableType !== 'SINGLE') {
-                    row.appendChild(newCell);
-                }
-                tbody.appendChild(row);
-            });
-
-            table.appendChild(thead);
-            table.appendChild(tbody);
-            tableWrapper.appendChild(table);
-            wrapper.appendChild(tableWrapper);
+    const filterValue = activeFilter || 'all';
+    let rendered = 0;
+    let total = 0;
+    safeEntries.forEach(entry => {
+        const card = buildChangelogCard(entry);
+        if (!card) {
+            return;
         }
-
-        list.appendChild(wrapper);
+        total += 1;
+        const type = card.dataset.changelogType || 'field';
+        if (filterValue === 'all' || filterValue === type) {
+            list.appendChild(card);
+            rendered += 1;
+        }
     });
+
+    if (total === 0) {
+        empty.style.display = 'block';
+        empty.textContent = 'No history available.';
+    } else if (rendered === 0) {
+        empty.style.display = 'block';
+        empty.textContent = 'No entries for this filter.';
+    } else {
+        empty.style.display = 'none';
+    }
+
+    updateChangelogCount(rendered, total);
 }
 
 function confirmWorkflowAction() {
@@ -3316,25 +4074,21 @@ async function performWorkflowAction(action, comment) {
         const data = await response.json();
         console.log('✅ Workflow action completed:', data);
 
-        Swal.fire({
-            icon: 'success',
+        showAppModal({
+            variant: 'success',
             title: 'Action Completed',
-            text: data.message || 'Workflow action completed successfully',
-            confirmButtonText: 'OK',
-            timer: 1200,
-            timerProgressBar: true
-        }).then(() => {
-            window.location.href = '/';
+            message: data.message || 'Workflow action completed successfully',
+            redirectUrl: '/'
         });
 
     } catch (error) {
         console.error('❌ Error performing workflow action:', error);
         
-        Swal.fire({
-            icon: 'error',
+        showAppModal({
+            variant: 'error',
             title: 'Action Failed',
-            text: error.message || 'Failed to perform workflow action',
-            confirmButtonText: 'OK'
+            message: error.message || 'Failed to perform workflow action',
+            autoCloseMs: 0
         });
     }
 }
@@ -3353,23 +4107,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         }, 500);
     }
 
-    // Bind Control Operator workflow buttons if present
-    const submitToSoqmLeadBtn = document.getElementById('submitToSoqmLeadBtn');
-    if (submitToSoqmLeadBtn) {
-        submitToSoqmLeadBtn.addEventListener('click', handleSubmitToSoqmLead);
-        console.log('✅ Submit to SoQM Lead button handler added');
-    }
-
     const confirmSubmitSoqmLeadBtn = document.getElementById('confirmSubmitSoqmLeadBtn');
     if (confirmSubmitSoqmLeadBtn) {
         confirmSubmitSoqmLeadBtn.addEventListener('click', confirmSubmitToSoqmLead);
         console.log('✅ Confirm Submit to SoQM Lead handler added');
-    }
-
-    const returnToFacilitatorBtn = document.getElementById('returnToFacilitatorBtn');
-    if (returnToFacilitatorBtn) {
-        returnToFacilitatorBtn.addEventListener('click', handleReturnToFacilitator);
-        console.log('✅ Return to Facilitator button handler added');
     }
 
     const confirmReturnFacilitatorBtn = document.getElementById('confirmReturnFacilitatorBtn');
@@ -3379,24 +4120,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     // Bind SoQM Lead workflow buttons
-    const submitToProcessOwnerBtn = document.getElementById('submitToProcessOwnerBtn');
-    if (submitToProcessOwnerBtn) {
-        submitToProcessOwnerBtn.addEventListener('click', handleSubmitToProcessOwner);
-        console.log('✅ Submit to Process Owner button handler added');
-    }
-
-    const confirmSubmitProcessOwnerBtn = document.getElementById('confirmSubmitProcessOwnerBtn');
-    if (confirmSubmitProcessOwnerBtn) {
-        confirmSubmitProcessOwnerBtn.addEventListener('click', confirmSubmitToProcessOwner);
-        console.log('✅ Confirm Submit to Process Owner handler added');
-    }
-
-    const returnToOperatorBtn = document.getElementById('returnToOperatorBtn');
-    if (returnToOperatorBtn) {
-        returnToOperatorBtn.addEventListener('click', handleReturnToOperator);
-        console.log('✅ Return to Operator button handler added');
-    }
-
     const confirmReturnOperatorBtn = document.getElementById('confirmReturnOperatorBtn');
     if (confirmReturnOperatorBtn) {
         confirmReturnOperatorBtn.addEventListener('click', confirmReturnToOperator);
@@ -3416,12 +4139,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.log('✅ Confirm Complete Control handler added');
     }
 
-    const returnToSoqmLeadBtn = document.getElementById('returnToSoqmLeadBtn');
-    if (returnToSoqmLeadBtn) {
-        returnToSoqmLeadBtn.addEventListener('click', handleReturnToSoqmLead);
-        console.log('✅ Return to SoQM Lead button handler added');
-    }
-
     const confirmReturnSoqmLeadBtn = document.getElementById('confirmReturnSoqmLeadBtn');
     if (confirmReturnSoqmLeadBtn) {
         confirmReturnSoqmLeadBtn.addEventListener('click', confirmReturnToSoqmLead);
@@ -3429,87 +4146,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
-// ========== SOQM LEAD WORKFLOW HANDLERS ==========
-function handleSubmitToProcessOwner(event) {
-    console.log('🔘 Submit to Process Owner button clicked');
-    event.preventDefault();
-    // Modal will be shown by Bootstrap's data-bs-toggle
-}
+async function confirmReturnToOperator() {
+    console.log('🔘 Confirm Return to Operator');
 
-function confirmSubmitToProcessOwner() {
-    console.log('🔘 Confirm Submit to Process Owner');
-    
-    const controlIdElement = document.querySelector('input[name="id"]');
-    const controlId = controlIdElement ? controlIdElement.value : null;
-    
-    if (!controlId) {
-        alert('Error: Control ID not found');
+    if (!await ensureWorkflowRoleReady()) {
         return;
     }
-
-    const confirmBtn = document.getElementById('confirmSubmitProcessOwnerBtn');
-    confirmBtn.disabled = true;
-    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
-
-    const url = '/api/workflow/submit-to-process-owner?controlId=' + controlId;
-    
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.text().then(text => {
-                throw new Error('Error submitting control: ' + text);
-            });
-        }
-        return response.text();
-    })
-    .then(result => {
-        console.log('✅ Control submitted to Process Owner successfully');
-        
-        Swal.fire({
-            icon: 'success',
-            title: 'Submitted Successfully',
-            text: 'Control has been submitted to Process Owner for review',
-            confirmButtonText: 'OK',
-            timer: 2000,
-            timerProgressBar: true
-        }).then(() => {
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('submitProcessOwnerModal'));
-            if (modal) modal.hide();
-            
-            // Redirect to controls page
-            window.location.href = '/controls';
-        });
-    })
-    .catch(error => {
-        console.error('❌ Error submitting control to Process Owner:', error);
-        
-        Swal.fire({
-            icon: 'error',
-            title: 'Submission Failed',
-            text: error.message || 'Failed to submit control. Please try again.',
-            confirmButtonText: 'OK'
-        });
-
-        // Re-enable button
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = 'Confirm Submission';
-    });
-}
-
-function handleReturnToOperator(event) {
-    console.log('🔘 Return to Operator button clicked');
-    event.preventDefault();
-    // Modal will be shown by Bootstrap's data-bs-toggle
-}
-
-function confirmReturnToOperator() {
-    console.log('🔘 Confirm Return to Operator');
     
     const controlIdElement = document.querySelector('input[name="id"]');
     const controlId = controlIdElement ? controlIdElement.value : null;
@@ -3523,74 +4165,39 @@ function confirmReturnToOperator() {
     const commentsElement = document.getElementById('returnOperatorComments');
     const comments = commentsElement ? commentsElement.value.trim() : '';
 
-    const confirmBtn = document.getElementById('confirmReturnOperatorBtn');
-    confirmBtn.disabled = true;
-    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Returning...';
-
     // Build request URL with optional comments parameter
     let url = '/api/workflow/return-to-operator?controlId=' + controlId;
     if (comments) {
         url += '&comments=' + encodeURIComponent(comments);
     }
 
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.text().then(text => {
-                throw new Error('Error returning control: ' + text);
-            });
-        }
-        return response.text();
-    })
-    .then(result => {
-        console.log('✅ Control returned to Operator successfully');
-        
-        Swal.fire({
-            icon: 'success',
-            title: 'Returned Successfully',
-            text: 'Control has been returned to Control Operator for revision',
-            confirmButtonText: 'OK',
-            timer: 2000,
-            timerProgressBar: true
-        }).then(() => {
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('returnOperatorModal'));
-            if (modal) modal.hide();
-            
-            // Redirect to controls page
-            window.location.href = '/controls';
-        });
-    })
-    .catch(error => {
-        console.error('❌ Error returning control to Operator:', error);
-        
-        Swal.fire({
-            icon: 'error',
-            title: 'Return Failed',
-            text: error.message || 'Failed to return control. Please try again.',
-            confirmButtonText: 'OK'
-        });
-
-        // Re-enable button
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = 'Confirm Return';
+    submitWorkflowActionWithModal({
+        url: url,
+        confirmBtnId: 'confirmReturnOperatorBtn',
+        confirmModalId: 'returnOperatorModal',
+        successRedirectUrl: '/controls',
+        successLogMessage: 'Return to Operator success -> showing popup',
+        successTimerMs: 2500
     });
 }
 
 // ========== PROCESS OWNER WORKFLOW HANDLERS ==========
-function handleCompleteControl(event) {
+async function handleCompleteControl(event) {
     console.log('🔘 Complete Control button clicked');
     event.preventDefault();
+    if (!await ensureWorkflowRoleReady()) {
+        event.stopPropagation();
+        return;
+    }
     // Modal will be shown by Bootstrap's data-bs-toggle
 }
 
-function confirmCompleteControl() {
+async function confirmCompleteControl() {
     console.log('🔘 Confirm Complete Control');
+
+    if (!await ensureWorkflowRoleReady()) {
+        return;
+    }
     
     const controlIdElement = document.querySelector('input[name="id"]');
     const controlId = controlIdElement ? controlIdElement.value : null;
@@ -3621,30 +4228,26 @@ function confirmCompleteControl() {
     .then(result => {
         console.log('✅ Control completed successfully');
         
-        Swal.fire({
-            icon: 'success',
+        const modal = bootstrap.Modal.getInstance(document.getElementById('completeControlModal'));
+        if (modal) {
+            modal.hide();
+        }
+
+        showAppModal({
+            variant: 'success',
             title: 'Control Completed',
-            text: 'Control has been successfully completed and moved to final status',
-            confirmButtonText: 'OK',
-            timer: 2000,
-            timerProgressBar: true
-        }).then(() => {
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('completeControlModal'));
-            if (modal) modal.hide();
-            
-            // Redirect to controls page
-            window.location.href = '/controls';
+            message: 'Control has been successfully completed and moved to final status',
+            redirectUrl: '/controls'
         });
     })
     .catch(error => {
         console.error('❌ Error completing control:', error);
         
-        Swal.fire({
-            icon: 'error',
+        showAppModal({
+            variant: 'error',
             title: 'Completion Failed',
-            text: error.message || 'Failed to complete control. Please try again.',
-            confirmButtonText: 'OK'
+            message: error.message || 'Failed to complete control. Please try again.',
+            autoCloseMs: 0
         });
 
         // Re-enable button
@@ -3653,14 +4256,12 @@ function confirmCompleteControl() {
     });
 }
 
-function handleReturnToSoqmLead(event) {
-    console.log('🔘 Return to SoQM Lead button clicked');
-    event.preventDefault();
-    // Modal will be shown by Bootstrap's data-bs-toggle
-}
-
-function confirmReturnToSoqmLead() {
+async function confirmReturnToSoqmLead() {
     console.log('🔘 Confirm Return to SoQM Lead');
+
+    if (!await ensureWorkflowRoleReady()) {
+        return;
+    }
     
     const controlIdElement = document.querySelector('input[name="id"]');
     const controlId = controlIdElement ? controlIdElement.value : null;
@@ -3674,64 +4275,22 @@ function confirmReturnToSoqmLead() {
     const commentsElement = document.getElementById('returnSoqmLeadComments');
     const comments = commentsElement ? commentsElement.value.trim() : '';
 
-    const confirmBtn = document.getElementById('confirmReturnSoqmLeadBtn');
-    confirmBtn.disabled = true;
-    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Returning...';
-
     // Build request URL with optional comments parameter
     let url = '/api/workflow/return-to-soqm-lead?controlId=' + controlId;
     if (comments) {
         url += '&comments=' + encodeURIComponent(comments);
     }
 
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.text().then(text => {
-                throw new Error('Error returning control: ' + text);
-            });
-        }
-        return response.text();
-    })
-    .then(result => {
-        console.log('✅ Control returned to SoQM Lead successfully');
-        
-        Swal.fire({
-            icon: 'success',
-            title: 'Returned Successfully',
-            text: 'Control has been returned to SoQM Lead for revision',
-            confirmButtonText: 'OK',
-            timer: 2000,
-            timerProgressBar: true
-        }).then(() => {
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('returnSoqmLeadModal'));
-            if (modal) modal.hide();
-            
-            // Redirect to controls page
-            window.location.href = '/controls';
-        });
-    })
-    .catch(error => {
-        console.error('❌ Error returning control to SoQM Lead:', error);
-        
-        Swal.fire({
-            icon: 'error',
-            title: 'Return Failed',
-            text: error.message || 'Failed to return control. Please try again.',
-            confirmButtonText: 'OK'
-        });
-
-        // Re-enable button
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = 'Confirm Return';
+    submitWorkflowActionWithModal({
+        url: url,
+        confirmBtnId: 'confirmReturnSoqmLeadBtn',
+        confirmModalId: 'returnSoqmLeadModal',
+        successRedirectUrl: '/controls',
+        successLogMessage: 'Return to SoQM Lead success -> showing popup',
+        successTimerMs: 2500
     });
 }
 
 window.viewControl = viewControl;
+
 

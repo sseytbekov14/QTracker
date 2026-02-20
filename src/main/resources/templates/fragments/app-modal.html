@@ -1,0 +1,18 @@
+<div th:fragment="appModal">
+    <div class="modal fade app-modal-animate" id="appNotificationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header app-modal-header"></div>
+                <div class="modal-body app-modal-body">
+                    <div class="app-modal-icon" aria-hidden="true"></div>
+                    <h5 class="app-modal-title" id="appModalTitle">Notice</h5>
+                    <div class="app-modal-message" id="appModalMessage"></div>
+                </div>
+                <div class="modal-footer app-modal-footer">
+                    <button type="button" class="btn btn-primary" id="appModalOkBtn" data-bs-dismiss="modal">OK</button>
+                </div>
+                <div class="app-modal-progress-bar" id="appModalProgressBar"></div>
+            </div>
+        </div>
+    </div>
+</div>

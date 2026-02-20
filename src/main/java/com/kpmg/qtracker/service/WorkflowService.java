@@ -45,7 +45,7 @@ public interface WorkflowService {
     /**
      * Check if control has reached specific workflow stage
      * @param controlId Control ID
-     * @param stageName Stage name (e.g., "Control Operator Review")
+     * @param stageName Stage name (e.g., "REVIEW")
      * @return true if control reached that stage
      */
     boolean hasReachedStage(Long controlId, String stageName);

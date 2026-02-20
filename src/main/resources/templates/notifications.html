@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Notifications - QTracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/style.css?v=2" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%2300338D' rx='15'/%3E%3Ctext x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'%3EQ%3C/text%3E%3C/svg%3E">
     <style>
         .notification-group-section {
@@ -175,15 +175,9 @@
                                         
                                         <!-- Left side: Badge and component -->
                                         <div class="notification-badge flex-shrink-0">
-                                            <span th:switch="${n.type}">
-                                                <span th:case="'INITIATE'" class="badge bg-primary">Initiate</span>
-                                                <span th:case="'WORKFLOW_STEP'" class="badge bg-info">Workflow</span>
-                                                <span th:case="'STATUS_CHANGE'" class="badge bg-warning">Status</span>
-                                                <span th:case="'Status Change'" class="badge bg-warning">Status</span>
-                                                <span th:case="'Comment'" class="badge bg-primary">Comment</span>
-                                                <span th:case="'File Upload'" class="badge bg-success">File</span>
-                                                <span th:case="*" class="badge bg-secondary" th:text="${n.type}"></span>
-                                            </span>
+                                            <span class="notification-type-badge"
+                                                  th:classappend="${n.badgeClass}"
+                                                  th:text="${n.displayLabel}">Notification</span>
                                             <div class="notification-component" th:text="${n.component}">Component</div>
                                         </div>
                                         
@@ -217,3 +211,4 @@
 </div>
 </body>
 </html>
+

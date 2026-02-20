@@ -17,5 +17,7 @@ public class NotificationItemDTO {
     private String by;                // User or role
     private LocalDateTime timestamp;  // When
     private boolean isRead;           // Read/unread status
+    private String displayLabel;      // User-friendly notification label
+    private String badgeClass;        // CSS class for badge styling
     private List<AttachmentDTO> attachments; // Files or links related to this notification
 }

@@ -18,7 +18,6 @@ public class ControlDTO {
     private String controlStatus;
     private String controlDescription;
     private String prp;
-    private String controlOperatorsProgram;
     private String soqmHeadComments;
     private String processOwnerComments;
     private String createdByEmail;

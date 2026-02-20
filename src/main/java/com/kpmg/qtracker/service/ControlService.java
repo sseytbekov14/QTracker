@@ -8,6 +8,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.util.StatusDisplayMapper;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +29,7 @@ public class ControlService implements IControlService {
     private final UserService userService;
     private final UserRepository userRepository;
     private final ControlAssignmentRepository controlAssignmentRepository;
+    private final StatusDisplayMapper statusDisplayMapper;
     private ControlAssignmentService controlAssignmentService;
     private IPerformanceService performanceService;
 
@@ -63,9 +65,9 @@ public class ControlService implements IControlService {
         // 1. Получить все контроли
         List<Control> allControls = getAllControls();
 
-        // 2. Фильтровать по статусу "Control Operator Review"
+        // 2. Filter by status "REVIEW"
         return allControls.stream()
-                .filter(control -> "Control Operator Review".equals(control.getControlStatus()))
+                .filter(control -> "REVIEW".equals(control.getPerformanceStatus()))
                 .collect(Collectors.toList());
     }
 
@@ -74,25 +76,25 @@ public class ControlService implements IControlService {
     }
 
     public List<Control> getControlsForSoqmLead() {
-        // SOQM Lead видит контроли в статусе "SoQM Head Review"
+        // SOQM Lead sees controls in status "SOQM_HEAD_REVIEW"
         return getAllControls().stream()
-                .filter(control -> "SoQM Head Review".equals(control.getControlStatus()))
+                .filter(control -> "SOQM_HEAD_REVIEW".equals(control.getPerformanceStatus()))
                 .collect(Collectors.toList());
     }
 
     public List<Control> getControlsForProcessOwner() {
-        // Process Owner видит контроли в статусе "Process Owner Review"
+        // Process Owner sees controls in status "PROCESS_OWNER_REVIEW"
         return getAllControls().stream()
-                .filter(control -> "Process Owner Review".equals(control.getControlStatus()))
+                .filter(control -> "PROCESS_OWNER_REVIEW".equals(control.getPerformanceStatus()))
                 .collect(Collectors.toList());
     }
 
     public List<Control> getControlsByPerformanceStatus(String performanceStatus) {
-        // Now use control_status instead
+        // Now use performance_status instead
         List<Control> allControls = getAllControls();
 
         return allControls.stream()
-                .filter(control -> performanceStatus.equals(control.getControlStatus()))
+                .filter(control -> performanceStatus.equals(control.getPerformanceStatus()))
                 .collect(Collectors.toList());
     }
 
@@ -173,11 +175,11 @@ public class ControlService implements IControlService {
     public List<ControlResponseDTO> getUserControlsDTO(String userEmail) {
         List<Control> controls = controlRepository.findByCreatedByMailOrderByCreatedAtDesc(userEmail);
         
-        // Fix empty control_status values
+        // Fix empty performance_status values
         for (Control control : controls) {
-            if (control.getControlStatus() == null || control.getControlStatus().trim().isEmpty()) {
-                control.setControlStatus("In Progress");
-                logger.info("Fixed control {} status to 'In Progress'", control.getControlId());
+            if (control.getPerformanceStatus() == null || control.getPerformanceStatus().trim().isEmpty()) {
+                control.setPerformanceStatus("DRAFT");
+                logger.info("Fixed control {} performance status to 'DRAFT'", control.getControlId());
             }
         }
         
@@ -322,12 +324,9 @@ public class ControlService implements IControlService {
         dto.setNonAuditServicesApplicability(control.getNonAuditServicesApplicability());
         dto.setHomogeneity(control.getHomogeneity());
         
-        // Set control status - if null or empty, default to "In Progress"
+        // Set UI control status (no workflow defaults here)
         String status = control.getControlStatus();
-        if (status == null || status.trim().isEmpty()) {
-            status = "In Progress";
-        }
-        dto.setControlStatus(status);
+        dto.setControlStatus(status != null && !status.trim().isEmpty() ? status : null);
         
         dto.setControlDescription(control.getControlDescription());
         dto.setPrp(control.getPrp());
@@ -422,19 +421,19 @@ public class ControlService implements IControlService {
             dto.setDeadline(control.getDeadline());
         }
         
-        // Use control_status for all status display
-        String controlStatus = control.getControlStatus();
-        if (controlStatus == null || controlStatus.isEmpty()) {
-            controlStatus = "In Progress";
+        // Use performance_status for workflow display
+        String performanceStatus = control.getPerformanceStatus();
+        if (performanceStatus == null || performanceStatus.isEmpty()) {
+            performanceStatus = "DRAFT";
         }
         
-        dto.setPerformanceStatus(controlStatus);
-        dto.setPerformanceStatusDisplay(controlStatus);
+        dto.setPerformanceStatus(performanceStatus);
+        dto.setPerformanceStatusDisplay(statusDisplayMapper.display(performanceStatus));
         
         // Check if control is in workflow (initiated)
-        boolean isInitiated = controlStatus != null && 
-                              !controlStatus.equals("In Progress") && 
-                              !controlStatus.isEmpty();
+        boolean isInitiated = performanceStatus != null
+                && !performanceStatus.equals("DRAFT")
+                && !performanceStatus.isEmpty();
         dto.setPerformanceInitiated(isInitiated);
         dto.setGoToPerformanceCycle(isInitiated);
 
@@ -446,17 +445,17 @@ public class ControlService implements IControlService {
                     dto.setWorkflowStatus(currentStep.getStatus().name());
                     dto.setWorkflowStatusDisplay(currentStep.getStatus().getDisplayName());
                 } else {
-                    dto.setWorkflowStatus("NOT_STARTED");
-                    dto.setWorkflowStatusDisplay("Not Started");
+                    dto.setWorkflowStatus("DRAFT");
+                    dto.setWorkflowStatusDisplay("Draft");
                 }
             } catch (Exception e) {
                 logger.error("Error getting workflow status for control {}: {}", control.getId(), e.getMessage());
-                dto.setWorkflowStatus("NOT_STARTED");
-                dto.setWorkflowStatusDisplay("Not Started");
+                dto.setWorkflowStatus("DRAFT");
+                dto.setWorkflowStatusDisplay("Draft");
             }
         } else {
-            dto.setWorkflowStatus("NOT_STARTED");
-            dto.setWorkflowStatusDisplay("Not Started");
+            dto.setWorkflowStatus("DRAFT");
+            dto.setWorkflowStatusDisplay("Draft");
         }
 
         return dto;
@@ -501,9 +500,7 @@ public class ControlService implements IControlService {
         dto.setId(user.getId());
         dto.setDisplayName(user.getDisplayName());
         dto.setMail(user.getMail());
-        dto.setDepartment(user.getDepartment());
         dto.setTitle(user.getTitle());
-        dto.setOffice(user.getOffice());
         return dto;
     }
 
@@ -523,9 +520,9 @@ public class ControlService implements IControlService {
             control.setCreatedAt(LocalDateTime.now());
             control.setUpdatedAt(LocalDateTime.now());
 
-            // ★ УСТАНАВЛИВАЕМ STATUS = Not Started
-            if (control.getControlStatus() == null || control.getControlStatus().isEmpty()) {
-                control.setControlStatus("In Progress");
+            // Set initial workflow status to DRAFT
+            if (control.getPerformanceStatus() == null || control.getPerformanceStatus().isEmpty()) {
+                control.setPerformanceStatus("DRAFT");
             }
 
             Control savedControl = controlRepository.save(control);
@@ -652,7 +649,7 @@ public class ControlService implements IControlService {
         String workflowStatus = dto.getWorkflowStatus();
 
         dto.setCanInitiateWorkflow(
-                "NOT_STARTED".equals(workflowStatus) && isFacilitator
+                "DRAFT".equals(workflowStatus) && isFacilitator
         );
 
         dto.setCanSubmitForReview(
@@ -672,7 +669,7 @@ public class ControlService implements IControlService {
         );
 
         dto.setCanReturnWorkflow(
-                !"NOT_STARTED".equals(workflowStatus) &&
+                !"DRAFT".equals(workflowStatus) &&
                         !"COMPLETED".equals(workflowStatus)
         );
 
@@ -700,15 +697,15 @@ public class ControlService implements IControlService {
         logger.info("Found {} controls created by user", userCreatedControls.size());
         allControls.addAll(userCreatedControls);
 
-        // 2. Если пользователь FACILITATOR - добавляем контролы с статусом "Facilitator Review" где он Facilitator
+        // 2. If user is FACILITATOR - add controls with status "IN_PROGRESS" where they are Facilitator
         Optional<User> userOpt = userRepository.findByMail(userEmail);
         if (userOpt.isPresent() && "FACILITATOR".equals(userOpt.get().getRole())) {
-            logger.info("User is FACILITATOR, adding Facilitator Review controls");
+            logger.info("User is FACILITATOR, adding IN_PROGRESS controls");
             
             List<Control> allControlsList = controlRepository.findAll();
             for (Control control : allControlsList) {
                 // Проверяем статус
-                if ("Facilitator Review".equals(control.getControlStatus())) {
+                if ("IN_PROGRESS".equals(control.getPerformanceStatus())) {
                     // Проверяем assignment
                     Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(control.getId());
                     if (assignmentOpt.isPresent()) {
@@ -831,13 +828,13 @@ public class ControlService implements IControlService {
         if (userRole == null) return null;
         switch (userRole.toUpperCase()) {
             case "FACILITATOR":
-                return "Facilitator Review";
+                return "IN_PROGRESS";
             case "CONTROL_OPERATOR":
-                return "Control Operator Review";
+                return "REVIEW";
             case "SOQM_LEAD":
-                return "SoQM Lead Review";
+                return "SOQM_HEAD_REVIEW";
             case "PROCESS_OWNER":
-                return "Process Owner Review";
+                return "PROCESS_OWNER_REVIEW";
             default:
                 return null;
         }

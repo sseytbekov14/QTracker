@@ -4,11 +4,21 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.util.Locale;
+import java.util.Set;
 
 @Entity
-@Table(name = "control_controls")
+@Table(name = "controls")
 @Data
 public class Control {
+    private static final Set<String> WORKFLOW_STATUSES = Set.of(
+            "DRAFT",
+            "IN_PROGRESS",
+            "REVIEW",
+            "SOQM_HEAD_REVIEW",
+            "PROCESS_OWNER_REVIEW",
+            "COMPLETED"
+    );
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,6 +36,8 @@ public class Control {
     private String nonAuditServicesApplicability;
     private String homogeneity;
     private String controlStatus;
+    @Column(name = "performance_status")
+    private String performanceStatus;
 
     @Column(length = 1000)
     private String controlDescription;
@@ -33,8 +45,6 @@ public class Control {
     @Column(length = 1000)
     private String prp;
     
-    @Column(name = "control_operators_program", length = 2000)
-    private String controlOperatorsProgram;
     
     @Column(name = "soqm_head_comments", length = 2000)
     private String soqmHeadComments;
@@ -60,4 +70,26 @@ public class Control {
 
     @Column(name = "attachment_documents_path", length = 500)
     private String attachmentDocumentsPath;
+
+    @PrePersist
+    @PreUpdate
+    private void ensurePerformanceStatus() {
+        if (performanceStatus == null || performanceStatus.isBlank()) {
+            performanceStatus = "DRAFT";
+        }
+    }
+
+    public String getPerformanceStatus() {
+        if (performanceStatus != null && !performanceStatus.isBlank()) {
+            return performanceStatus;
+        }
+        if (controlStatus == null || controlStatus.isBlank()) {
+            return performanceStatus;
+        }
+        String normalized = controlStatus.trim()
+                .replace('-', '_')
+                .replace(' ', '_')
+                .toUpperCase(Locale.ROOT);
+        return WORKFLOW_STATUSES.contains(normalized) ? normalized : performanceStatus;
+    }
 }

@@ -64,33 +64,33 @@ public class PerformanceController {
                 System.out.println("⚠️ No actualOperationDate provided in request");
             }
 
-            // ★★★ ИСПРАВЛЕННАЯ ЛОГИКА СТАТУСА - use control_status now
-            String currentStatus = control.getControlStatus();
+            // ★★★ ИСПРАВЛЕННАЯ ЛОГИКА СТАТУСА - use performance_status now
+            String currentStatus = control.getPerformanceStatus();
             if (currentStatus == null || currentStatus.isEmpty()) {
-                currentStatus = "In Progress";
+                currentStatus = "DRAFT";
             }
             System.out.println("📊 Current control status: " + currentStatus);
 
             boolean hasNewData = (soqmYear != null && !soqmYear.trim().isEmpty()) ||
                     (actualOperationDate != null && !actualOperationDate.trim().isEmpty());
 
-            // If status is "In Progress" and has new data, keep it as "In Progress"
-            if ("In Progress".equals(currentStatus) && hasNewData) {
-                System.out.println("✅ Status remains: In Progress");
+            // If status is "IN_PROGRESS" and has new data, keep it as "IN_PROGRESS"
+            if ("IN_PROGRESS".equals(currentStatus) && hasNewData) {
+                System.out.println("✅ Status remains: IN_PROGRESS");
             }
 
             System.out.println("📊 Final status to save: " + currentStatus);
 
-            // Update control_status instead of performance_status
+            // Update performance_status instead of performance_status
             if (currentStatus != null && !currentStatus.isEmpty()) {
-                control.setControlStatus(currentStatus);
+                control.setPerformanceStatus(currentStatus);
                 controlService.save(control);
             }
 
             performanceService.savePerformance(performanceDTO, control);
 
             System.out.println("✅ Auto-save successful for control ID: " + controlId);
-            System.out.println("📊 Saved control status: " + control.getControlStatus());
+            System.out.println("📊 Saved control status: " + control.getPerformanceStatus());
             System.out.println("=== END AUTO-SAVE ===");
 
             return ResponseEntity.ok().build();
@@ -158,7 +158,7 @@ public class PerformanceController {
             model.addAttribute("initiationDate", performance.getCreatedAt()); // Дата создания performance
             model.addAttribute("operationDate", assignment.getControlOperationDate());
             model.addAttribute("actualOperationDate", performance.getActualOperationDate());
-            model.addAttribute("performanceStatus", control.getControlStatus()); // Use control_status
+            model.addAttribute("performanceStatus", control.getPerformanceStatus()); // Use performance_status
             model.addAttribute("facilitator", facilitator);
             model.addAttribute("controlOperator", controlOperator);
             model.addAttribute("processOwner", processOwner);
@@ -208,11 +208,11 @@ public class PerformanceController {
                 return ResponseEntity.badRequest().body("Facilitator not assigned to this control");
             }
 
-            // Save performance record without status (we only use control_status now)
+            // Save performance record without status (we only use performance_status now)
             performanceService.savePerformance(performanceDTO, control);
 
-            // Set control status to "Facilitator Review" so it appears in facilitator's My Items
-            control.setControlStatus("Facilitator Review");
+            // Set control status to "IN_PROGRESS" so it appears in facilitator's My Items
+            control.setPerformanceStatus("IN_PROGRESS");
             controlService.save(control);
 
             workflowService.initiateWorkflow(control.getId(), facilitatorEmail);

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title th:text="'Performance - ' + ${control.controlId}">Performance - Control 11</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/style.css?v=2" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
     <style>
         body {
@@ -106,7 +106,7 @@
             cursor: not-allowed;
         }
 
-        /* Стили для кастомного календаря */
+        /* ����� ��� ���������� ��������� */
         .date-input-container {
             position: relative;
             width: 100%;
@@ -281,7 +281,7 @@
         <!-- Main Content -->
         <div class="col-12">
             <div class="performance-container">
-                <!-- Header БЕЗ кнопки Back -->
+                <!-- Header ��� ������ Back -->
 
                 <!-- Page Title -->
                 <h1 class="mb-3">SoQM Tool</h1>
@@ -457,18 +457,13 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <strong>Control Performance Status:</strong>
-                                <span th:switch="${control.controlStatus}">
-                                    <span th:case="'Completed'" class="badge bg-success ms-2" th:text="${control.controlStatus}"></span>
-                                    <span th:case="'In Progress'" class="badge bg-warning ms-2" th:text="${control.controlStatus}"></span>
-                                    <span th:case="'Facilitator Review'" class="badge bg-info ms-2" th:text="${control.controlStatus}"></span>
-                                    <span th:case="'Control Operator Review'" class="badge bg-primary ms-2" th:text="${control.controlStatus}"></span>
-                                    <span th:case="'SoQM Lead Review'" class="badge bg-secondary ms-2" th:text="${control.controlStatus}"></span>
-                                    <span th:case="'Process Owner Review'" class="badge bg-secondary ms-2" th:text="${control.controlStatus}"></span>
-                                    <span th:case="'Returned by Control Operator'" class="badge bg-danger ms-2" th:text="${control.controlStatus}"></span>
-                                    <span th:case="'Returned by SoQM Lead'" class="badge bg-danger ms-2" th:text="${control.controlStatus}"></span>
-                                    <span th:case="'Returned by Process Owner'" class="badge bg-danger ms-2" th:text="${control.controlStatus}"></span>
-                                    <span th:case="'Reject'" class="badge bg-dark ms-2" th:text="${control.controlStatus}"></span>
-                                    <span th:case="*" class="badge bg-secondary ms-2" th:text="${control.controlStatus != null && !#strings.isEmpty(control.controlStatus) ? control.controlStatus : 'In Progress'}">In Progress</span>
+                                <span th:switch="${performanceStatus}">
+                                    <span th:case="'COMPLETED'" class="badge bg-success ms-2" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
+                                    <span th:case="'IN_PROGRESS'" class="badge bg-warning ms-2" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
+                                    <span th:case="'REVIEW'" class="badge bg-primary ms-2" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
+                                    <span th:case="'SOQM_HEAD_REVIEW'" class="badge bg-secondary ms-2" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
+                                    <span th:case="'PROCESS_OWNER_REVIEW'" class="badge bg-secondary ms-2" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
+                                    <span th:case="*" class="badge bg-secondary ms-2" th:text="${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">Draft</span>
                                 </span>
                             </div>
                             <div class="col-md-6">
@@ -483,7 +478,7 @@
                         <button type="button" id="initiateBtn" class="btn btn-primary" disabled>Initiate</button>
                         <a href="/" class="btn btn-outline-secondary">Home</a>
                         <a th:href="@{/view-control/{id}(id=${control.id})}" class="btn btn-outline-secondary">View Control</a>
-                        <!-- Кнопка Back с правильной логикой -->
+                        <!-- ������ Back � ���������� ������� -->
                         <button type="button" class="btn btn-outline-secondary" id="backBtn">Back</button>
                     </div>
                 </form>
@@ -494,10 +489,10 @@
     </div>
 </div>
 
-<!-- Overlay для календаря -->
+<!-- Overlay ��� ��������� -->
 <div class="calendar-overlay" id="calendarOverlay"></div>
 
-<!-- Календарь (скрытый по умолчанию) -->
+<!-- ��������� (������� �� ���������) -->
 <div class="calendar-modal" id="calendarModal">
     <div class="calendar-header">
         <div class="calendar-navigation">
@@ -538,13 +533,14 @@
         <button type="button" class="btn btn-sm btn-primary" id="calendarOkBtn">OK</button>
     </div>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<div th:replace="fragments/app-modal :: appModal"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app-modal.js?v=3"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('=== ИНИЦИАЛИЗАЦИЯ СТРАНИЦЫ ===');
+        console.log('=== ������������� �������� ===');
 
-        // Основные элементы
+        // �������� ��������
         const initiateBtn = document.getElementById('initiateBtn');
         const soqmYearSelect = document.getElementById('soqmYear');
         const actualDateInput = document.getElementById('actualOperationDate');
@@ -557,7 +553,7 @@
         console.log('Actual Date Input value:', actualDateInput.value);
         console.log('SoQM Year value:', soqmYearSelect.value);
 
-        // === КАЛЕНДАРЬ ===
+        // === ��������� ===
         const calendarTriggerBtn = document.getElementById('calendarTriggerBtn');
         const calendarModal = document.getElementById('calendarModal');
         const calendarOverlay = document.getElementById('calendarOverlay');
@@ -568,21 +564,21 @@
         const currentDay = document.getElementById('currentDay');
         const currentDate = document.getElementById('currentDate');
         const currentYear = document.getElementById('currentYear');
-        const prevMonthBtn = document.getElementById('prevMonthBtn'); // Добавляем
-        const nextMonthBtn = document.getElementById('nextMonthBtn'); // Добавляем
+        const prevMonthBtn = document.getElementById('prevMonthBtn'); // ���������
+        const nextMonthBtn = document.getElementById('nextMonthBtn'); // ���������
 
-        // Переменные календаря
+        // ���������� ���������
         let selectedDate = null;
         let currentMonth = new Date().getMonth();
         let currentYearValue = new Date().getFullYear();
         let originalDateValue = '';
 
-        // Месяцы и дни
+        // ������ � ���
         const monthNames = ["January", "February", "March", "April", "May", "June",
                            "July", "August", "September", "October", "November", "December"];
         const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-        // === ФУНКЦИИ КАЛЕНДАРЯ ===
+        // === ������� ��������� ===
 
         function formatIsoToDisplay(isoDate) {
             if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
@@ -642,10 +638,10 @@
             return date;
         }
 
-        // Инициализация даты
+        // ������������� ����
         function initCalendarDate() {
             const inputValue = (actualDateIsoInput && actualDateIsoInput.value) ? actualDateIsoInput.value : parseDisplayToIso(actualDateInput.value);
-            console.log('Инициализация календаря с датой:', inputValue);
+            console.log('������������� ��������� � �����:', inputValue);
 
             if (inputValue && inputValue.trim()) {
                 const date = parseIsoToDate(inputValue.trim());
@@ -653,49 +649,49 @@
                     selectedDate = date;
                     currentMonth = date.getMonth();
                     currentYearValue = date.getFullYear();
-                    console.log('✅ Установлена дата из поля:', selectedDate.toDateString());
+                    console.log('? ����������� ���� �� ����:', selectedDate.toDateString());
                     return;
                 }
             }
 
-            // Если не удалось распарсить, используем текущую дату
+            // ���� �� ������� ����������, ���������� ������� ����
             selectedDate = new Date();
             currentMonth = selectedDate.getMonth();
             currentYearValue = selectedDate.getFullYear();
-            console.log('ℹ️ Используем текущую дату:', selectedDate.toDateString());
+            console.log('?? ���������� ������� ����:', selectedDate.toDateString());
         }
 
-        // Генерация календаря
+        // ��������� ���������
         function generateCalendar() {
-            console.log('📅 Генерация календаря для', monthNames[currentMonth], currentYearValue);
+            console.log('?? ��������� ��������� ���', monthNames[currentMonth], currentYearValue);
 
-            // Обновляем заголовок
+            // ��������� ���������
             displayMonthYear.textContent = `${monthNames[currentMonth]} ${currentYearValue}`;
 
-            // Получаем первый и последний день месяца
+            // �������� ������ � ��������� ���� ������
             const firstDay = new Date(currentYearValue, currentMonth, 1);
             const lastDay = new Date(currentYearValue, currentMonth + 1, 0);
             const daysInMonth = lastDay.getDate();
             const startingDay = firstDay.getDay(); // 0 = Sunday
 
-            // Очищаем дни
+            // ������� ���
             calendarDays.innerHTML = '';
 
-            // Пустые ячейки для дней предыдущего месяца
+            // ������ ������ ��� ���� ����������� ������
             for (let i = 0; i < startingDay; i++) {
                 const emptyCell = document.createElement('div');
                 emptyCell.className = 'day-cell empty';
                 calendarDays.appendChild(emptyCell);
             }
 
-            // Дни текущего месяца
+            // ��� �������� ������
             for (let day = 1; day <= daysInMonth; day++) {
                 const dayCell = document.createElement('div');
                 dayCell.className = 'day-cell';
                 dayCell.textContent = day;
                 dayCell.dataset.day = day;
 
-                // Проверяем, является ли этот день выбранным
+                // ���������, �������� �� ���� ���� ���������
                 const isSelected = selectedDate &&
                     selectedDate.getDate() === day &&
                     selectedDate.getMonth() === currentMonth &&
@@ -703,56 +699,56 @@
 
                 if (isSelected) {
                     dayCell.classList.add('selected');
-                    console.log(`✅ День ${day} выделен как выбранный`);
+                    console.log(`? ���� ${day} ������� ��� ���������`);
                 }
 
                 dayCell.addEventListener('click', function() {
-                    console.log(`🎯 Выбран день: ${day} ${monthNames[currentMonth]} ${currentYearValue}`);
+                    console.log(`?? ������ ����: ${day} ${monthNames[currentMonth]} ${currentYearValue}`);
                     selectDay(day);
                 });
 
                 calendarDays.appendChild(dayCell);
             }
 
-            // Обновляем отображение даты
+            // ��������� ����������� ����
             updateDateDisplay();
         }
 
-        // Выбор дня
+        // ����� ���
         function selectDay(day) {
             selectedDate = new Date(currentYearValue, currentMonth, day);
-            console.log('📅 Выбрана дата:', selectedDate.toDateString());
+            console.log('?? ������� ����:', selectedDate.toDateString());
 
-            // Снимаем выделение со всех дней
+            // ������� ��������� �� ���� ����
             document.querySelectorAll('.day-cell').forEach(cell => {
                 cell.classList.remove('selected');
             });
 
-            // Находим и выделяем выбранный день
+            // ������� � �������� ��������� ����
             const dayCells = calendarDays.querySelectorAll('.day-cell:not(.empty)');
             const dayIndex = day - 1;
 
             if (dayCells[dayIndex]) {
                 dayCells[dayIndex].classList.add('selected');
-                console.log(`✅ День ${day} выделен визуально`);
+                console.log(`? ���� ${day} ������� ���������`);
             }
 
             updateDateDisplay();
         }
 
-        // Обновление отображения даты
+        // ���������� ����������� ����
         function updateDateDisplay() {
             if (selectedDate) {
                 currentDay.textContent = dayNames[selectedDate.getDay()];
                 currentDate.textContent = `${monthNames[selectedDate.getMonth()]} ${selectedDate.getDate()}`;
                 currentYear.textContent = selectedDate.getFullYear();
-                console.log('📅 Отображение обновлено:', currentDate.textContent);
+                console.log('?? ����������� ���������:', currentDate.textContent);
             }
         }
 
-        // Навигация по месяцам
+        // ��������� �� �������
         function prevMonth() {
-            console.log('⬅️ Предыдущий месяц');
+            console.log('?? ���������� �����');
             currentMonth--;
             if (currentMonth < 0) {
                 currentMonth = 11;
@@ -762,7 +758,7 @@
         }
 
         function nextMonth() {
-            console.log('➡️ Следующий месяц');
+            console.log('?? ��������� �����');
             currentMonth++;
             if (currentMonth > 11) {
                 currentMonth = 0;
@@ -771,9 +767,9 @@
             generateCalendar();
         }
 
-        // === ОБРАБОТЧИКИ КНОПОК НАВИГАЦИИ ===
+        // === ����������� ������ ��������� ===
 
-        // Назначаем обработчики для кнопок Prev и Next
+        // ��������� ����������� ��� ������ Prev � Next
         if (prevMonthBtn) {
             prevMonthBtn.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -790,34 +786,34 @@
             });
         }
 
-        // === ОБРАБОТЧИКИ КАЛЕНДАРЯ ===
+        // === ����������� ��������� ===
 
-        // Открытие календаря
+        // �������� ���������
         calendarTriggerBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
 
             originalDateValue = actualDateInput.value;
-            console.log('📅 Открытие календаря');
-            console.log('Исходное значение поля:', originalDateValue);
+            console.log('?? �������� ���������');
+            console.log('�������� �������� ����:', originalDateValue);
 
-            // Инициализируем дату
+            // �������������� ����
             initCalendarDate();
 
-            // Генерируем календарь
+            // ���������� ���������
             generateCalendar();
 
-            // Показываем календарь
+            // ���������� ���������
             calendarModal.style.display = 'block';
             calendarOverlay.style.display = 'block';
         });
 
-        // Кнопка OK
+        // ������ OK
         calendarOkBtn.addEventListener('click', async function() {
-            console.log('✅ Нажата кнопка OK');
+            console.log('? ������ ������ OK');
 
             if (selectedDate) {
-                // Форматируем дату в dd/MM/yyyy
+                // ����������� ���� � dd/MM/yyyy
                 const day = String(selectedDate.getDate()).padStart(2, '0');
                 const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
                 const year = selectedDate.getFullYear();
@@ -828,47 +824,47 @@
                     actualDateIsoInput.value = isoDate;
                 }
 
-                console.log('📅 Установлена дата в поле:', isoDate);
+                console.log('?? ����������� ���� � ����:', isoDate);
 
-                // Закрываем календарь
+                // ��������� ���������
                 calendarModal.style.display = 'none';
                 calendarOverlay.style.display = 'none';
 
-                // Сохраняем и ОБНОВЛЯЕМ данные на странице
+                // ��������� � ��������� ������ �� ��������
                 try {
-                    console.log('💾 Начинаем сохранение...');
+                    console.log('?? �������� ����������...');
                     await saveData();
-                    console.log('💾 Дата успешно сохранена!');
+                    console.log('?? ���� ������� ���������!');
 
-                    // Показываем сообщение об успешном сохранении
+                    // ���������� ��������� �� �������� ����������
                     showSuccessMessage('Date saved successfully!');
 
-                    // Обновляем UI
+                    // ��������� UI
                     updateStatus();
                     updateInitiateButton();
 
-                    // ЗАГРУЖАЕМ ДАННЫЕ ЗАНОВО ИЗ БАЗЫ для подтверждения
+                    // ��������� ������ ������ �� ���� ��� �������������
                     await loadPerformanceData();
 
                 } catch (error) {
-                    console.error('❌ Ошибка сохранения:', error);
-                    showErrorMessage('Ошибка сохранения даты: ' + error.message);
+                    console.error('? ������ ����������:', error);
+                    showErrorMessage('������ ���������� ����: ' + error.message);
                 }
             } else {
-                console.warn('⚠️ Нет выбранной даты!');
-                showErrorMessage('Пожалуйста, выберите дату');
+                console.warn('?? ��� ��������� ����!');
+                showErrorMessage('����������, �������� ����');
             }
         });
 
-        // Кнопка Cancel
+        // ������ Cancel
         calendarCancelBtn.addEventListener('click', function() {
-            console.log('❌ Нажата кнопка Cancel');
+            console.log('? ������ ������ Cancel');
             actualDateInput.value = originalDateValue;
             calendarModal.style.display = 'none';
             calendarOverlay.style.display = 'none';
         });
 
-        // Закрытие по оверлею
+        // �������� �� �������
         calendarOverlay.addEventListener('click', function() {
             calendarModal.style.display = 'none';
             calendarOverlay.style.display = 'none';
@@ -882,46 +878,48 @@
             }
         });
 
-        // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+        // === ��������������� ������� ===
 
-        function showSuccessMessage(message) {
-            // Создаем сообщение об успехе
-            const alertDiv = document.createElement('div');
-            alertDiv.className = 'alert alert-success alert-dismissible fade show';
-            alertDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999;';
-            alertDiv.innerHTML = `
-                <strong>&#10003;</strong> ${message}
-                <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
-            `;
-            document.body.appendChild(alertDiv);
-
-            // Автоматически удаляем через 3 секунды
-            setTimeout(() => {
-                if (alertDiv.parentElement) {
-                    alertDiv.remove();
-                }
-            }, 3000);
+                function showSuccessMessage(message) {
+            if (window.showAppModal) {
+                showAppModal({
+                    variant: 'success',
+                    title: 'Success',
+                    message: message
+                });
+            } else {
+                alert(message);
+            }
         }
 
-        function showErrorMessage(message) {
-            alert(message); // Пока используем стандартный alert для ошибок
+                function showErrorMessage(message) {
+            if (window.showAppModal) {
+                showAppModal({
+                    variant: 'error',
+                    title: 'Error',
+                    message: message,
+                    autoCloseMs: 0
+                });
+            } else {
+                alert(message);
+            }
         }
 
 async function saveData() {
     return new Promise((resolve, reject) => {
-        console.log('💾 Функция saveData вызвана');
+        console.log('?? ������� saveData �������');
 
         const params = new URLSearchParams();
         params.append('controlId', controlId);
 
-        // ★ ВСЕ 4 ПОЛЯ
+        // ? ��� 4 ����
         const controlOperator = document.getElementById('controlOperator')?.value || '';
         const facilitator = document.getElementById('facilitator')?.value || '';
         const controlOperationDate = document.getElementById('controlOperationDate')?.value || '';
         const soqmYear = document.getElementById('soqmYear')?.value || '';
         const actualDateInput = (document.getElementById('actualOperationDateIso')?.value || '').trim();
 
-        // Отправляем все поля
+        // ���������� ��� ����
         if (controlOperator && controlOperator.trim() && controlOperator !== 'Not set') {
             params.append('controlOperator', controlOperator);
         }
@@ -935,13 +933,13 @@ async function saveData() {
             params.append('soqmYear', soqmYear);
         }
 
-        // Дата - в формате yyyy-MM-dd
+        // ���� - � ������� yyyy-MM-dd
         if (actualDateInput) {
             params.append('actualOperationDate', actualDateInput);
         }
 
-        console.log('🌐 Отправка всех полей на /api/performance/auto-save');
-        console.log('📤 Параметры:', params.toString());
+        console.log('?? �������� ���� ����� �� /api/performance/auto-save');
+        console.log('?? ���������:', params.toString());
 
         fetch('/api/performance/auto-save', {
             method: 'POST',
@@ -952,7 +950,7 @@ async function saveData() {
         })
         .then(response => {
             if (response.ok) {
-                console.log('✅ Все данные успешно сохранены');
+                console.log('? ��� ������ ������� ���������');
                 resolve();
             } else {
                 return response.text().then(text => {
@@ -966,24 +964,24 @@ async function saveData() {
     });
 }
 
-        // === НОВАЯ ФУНКЦИЯ: Загрузка данных performance ===
+        // === ����� �������: �������� ������ performance ===
         async function loadPerformanceData() {
             try {
-                console.log('📥 Загрузка данных performance для controlId:', controlId);
+                console.log('?? �������� ������ performance ��� controlId:', controlId);
 
-                // ИСПРАВЛЕНО: Используем правильный endpoint
+                // ����������: ���������� ���������� endpoint
                 const response = await fetch(`/api/performance/${controlId}`);
 
                 if (response.ok) {
                     const performanceData = await response.json();
-                    console.log('📥 Загруженные данные performance:', performanceData);
+                    console.log('?? ����������� ������ performance:', performanceData);
 
-                    // Обновляем поле даты если данные есть
+                    // ��������� ���� ���� ���� ������ ����
                     if (performanceData.actualOperationDate) {
-                        // Дата приходит в формате "yyyy-MM-dd" из базы
-                        console.log('📅 Дата из базы:', performanceData.actualOperationDate);
+                        // ���� �������� � ������� "yyyy-MM-dd" �� ����
+                        console.log('?? ���� �� ����:', performanceData.actualOperationDate);
 
-                        // Разбиваем на части
+                        // ��������� �� �����
                         if (/^\d{4}-\d{2}-\d{2}$/.test(performanceData.actualOperationDate)) {
                             actualDateInput.value = formatIsoToDisplay(performanceData.actualOperationDate);
                             if (actualDateIsoInput) {
@@ -994,62 +992,62 @@ async function saveData() {
                             console.error("Invalid date format from DB, expected yyyy-MM-dd:", performanceData.actualOperationDate);
                         }
                     } else {
-                        console.log('📅 Нет даты в базе данных');
+                        console.log('?? ��� ���� � ���� ������');
                     }
 
-                    // Обновляем SoQM Year если данные есть
+                    // ��������� SoQM Year ���� ������ ����
                     if (performanceData.soqmYear) {
                         soqmYearSelect.value = performanceData.soqmYear;
-                        console.log('📅 Установлен SoQM Year из базы:', performanceData.soqmYear);
+                        console.log('?? ���������� SoQM Year �� ����:', performanceData.soqmYear);
                     }
 
-                    // Обновляем UI
+                    // ��������� UI
                     updateStatus();
                     updateInitiateButton();
 
                     return performanceData;
                 } else {
-                    console.log('ℹ️ Нет данных performance или ошибка загрузки, статус:', response.status);
+                    console.log('?? ��� ������ performance ��� ������ ��������, ������:', response.status);
                     return null;
                 }
             } catch (error) {
-                console.error('❌ Ошибка загрузки данных performance:', error);
+                console.error('? ������ �������� ������ performance:', error);
                 return null;
             }
         }
 
-        // === ОСНОВНЫЕ ФУНКЦИИ ===
+        // === �������� ������� ===
 
-        // Обновление статуса
+        // ���������� �������
         function updateStatus() {
-            console.log('🔄 Обновление статуса...');
+            console.log('?? ���������� �������...');
 
-            // Статус даты
+            // ������ ����
             const dateStatus = document.getElementById('actualDateStatus');
             const hasDate = actualDateInput.value && actualDateInput.value.trim();
 
             if (hasDate) {
                 dateStatus.innerHTML = '&#10003;';
                 dateStatus.className = 'checklist-status status-completed';
-                console.log('✓ Дата установлена');
+                console.log('? ���� �����������');
             } else {
                 dateStatus.innerHTML = '&#10007;';
                 dateStatus.className = 'checklist-status status-pending';
-                console.log('✗ Дата не установлена');
+                console.log('? ���� �� �����������');
             }
 
-            // Статус SoQM Year
+            // ������ SoQM Year
             const soqmStatus = document.getElementById('soqmYearStatus');
             const hasSoqmYear = soqmYearSelect.value && soqmYearSelect.value.trim();
 
             if (hasSoqmYear) {
                 soqmStatus.innerHTML = '&#10003;';
                 soqmStatus.className = 'checklist-status status-completed';
-                console.log('✓ SoQM Year установлен');
+                console.log('? SoQM Year ����������');
             } else {
                 soqmStatus.innerHTML = '&#10007;';
                 soqmStatus.className = 'checklist-status status-pending';
-                console.log('✗ SoQM Year не установлен');
+                console.log('? SoQM Year �� ����������');
             }
         }
 
@@ -1106,18 +1104,18 @@ function checkFields() {
     const soqmYearValue = requiredElements.soqmYear?.value?.trim() || '';
     const actualDateValue = requiredElements.actualOperationDate?.value?.trim() || '';
 
-    // Логи для отладки
-    console.log('=== ПРОВЕРКА ОБЯЗАТЕЛЬНЫХ ПОЛЕЙ ===');
-    console.log('1. Control Operator:', controlOperatorValue, isControlOperatorValid ? '✓' : '✗');
-    console.log('2. Facilitator:', facilitatorValue, isFacilitatorValid ? '✓' : '✗');
-    console.log('3. SoQM Lead / Delegate:', soqmLeadValue, isSoqmLeadValid ? '✓' : '✗');
-    console.log('4. Process Owner:', processOwnerValue, isProcessOwnerValid ? '✓' : '✗');
-    console.log('5. Control Frequency:', controlFrequencyValue, isControlFrequencyValid ? '✓' : '✗');
-    console.log('6. Control Operation Date:', controlOperationDateValue, isControlOperationDateValid ? '✓' : '✗');
-    console.log('7. SoQM Year:', soqmYearValue, isSoqmYearValid ? '✓' : '✗');
-    console.log('8. Actual Date:', actualDateValue, isActualDateValid ? '✓' : '✗');
+    // ���� ��� �������
+    console.log('=== �������� ������������ ����� ===');
+    console.log('1. Control Operator:', controlOperatorValue, isControlOperatorValid ? '?' : '?');
+    console.log('2. Facilitator:', facilitatorValue, isFacilitatorValid ? '?' : '?');
+    console.log('3. SoQM Lead / Delegate:', soqmLeadValue, isSoqmLeadValid ? '?' : '?');
+    console.log('4. Process Owner:', processOwnerValue, isProcessOwnerValid ? '?' : '?');
+    console.log('5. Control Frequency:', controlFrequencyValue, isControlFrequencyValid ? '?' : '?');
+    console.log('6. Control Operation Date:', controlOperationDateValue, isControlOperationDateValid ? '?' : '?');
+    console.log('7. SoQM Year:', soqmYearValue, isSoqmYearValid ? '?' : '?');
+    console.log('8. Actual Date:', actualDateValue, isActualDateValid ? '?' : '?');
 
-    // Все поля должны быть валидны
+    // ��� ���� ������ ���� �������
     const allValid = isControlOperatorValid &&
                      isFacilitatorValid &&
                      isSoqmLeadValid &&
@@ -1127,7 +1125,7 @@ function checkFields() {
                      isSoqmYearValid &&
                      isActualDateValid;
 
-    console.log('✅ Все обязательные поля заполнены:', allValid);
+    console.log('? ��� ������������ ���� ���������:', allValid);
     return allValid;
 }
 
@@ -1155,125 +1153,121 @@ function setupRequiredFieldsValidation() {
 
 function updateInitiateButton() {
     const isComplete = checkFields();
-    console.log('🔄 Обновление кнопки Initiate. Все поля заполнены:', isComplete);
+    console.log('?? ���������� ������ Initiate. ��� ���� ���������:', isComplete);
 
     if (isComplete) {
         initiateBtn.disabled = false;
         initiateBtn.classList.remove('btn-secondary');
         initiateBtn.classList.add('btn-primary');
         requiredMessage.style.display = 'none';
-        console.log('✅ Кнопка Initiate активна');
+        console.log('? ������ Initiate �������');
     } else {
         initiateBtn.disabled = true;
         initiateBtn.classList.remove('btn-primary');
         initiateBtn.classList.add('btn-secondary');
         requiredMessage.style.display = 'block';
-        console.log('❌ Кнопка Initiate неактивна - не все поля заполнены');
+        console.log('? ������ Initiate ��������� - �� ��� ���� ���������');
     }
 }
 
-        // Автосохранение
+        // ��������������
         function autoSave() {
-            console.log('💾 Автосохранение...');
+            console.log('?? ��������������...');
             saveData().catch(error => {
-                console.error('⚠️ Ошибка автосохранения:', error);
+                console.error('?? ������ ��������������:', error);
             });
         }
 
-        // === ОБРАБОТЧИКИ СОБЫТИЙ ===
+        // === ����������� ������� ===
 
         // SoQM Year
         soqmYearSelect.addEventListener('change', function() {
-            console.log('📝 SoQM Year изменен:', this.value);
+            console.log('?? SoQM Year �������:', this.value);
             updateStatus();
             updateInitiateButton();
 
-            // Сохраняем если есть дата
+            // ��������� ���� ���� ����
             if (actualDateInput.value && actualDateInput.value.trim()) {
-                console.log('💾 Автосохранение из-за изменения SoQM Year');
+                console.log('?? �������������� ��-�� ��������� SoQM Year');
                 autoSave();
             }
         });
 
-        // Поле даты
+        // ���� ����
         actualDateInput.addEventListener('change', function() {
-            console.log('📝 Поле даты изменено:', this.value);
+            console.log('?? ���� ���� ��������:', this.value);
             updateStatus();
             updateInitiateButton();
 
-            // Сохраняем если есть SoQM Year
+            // ��������� ���� ���� SoQM Year
             if (soqmYearSelect.value && soqmYearSelect.value.trim()) {
-                console.log('💾 Автосохранение из-за изменения даты');
+                console.log('?? �������������� ��-�� ��������� ����');
                 autoSave();
             }
         });
 
         setupRequiredFieldsValidation();
 
-        // Кнопка Back - ИСПРАВЛЕННЫЙ ВАРИАНТ (БЕЗ ПОДТВЕРЖДЕНИЯ)
+        // ������ Back - ������������ ������� (��� �������������)
         backBtn.addEventListener('click', function() {
-            console.log('⬅️ Кнопка Back нажата');
+            console.log('?? ������ Back ������');
 
-            // Автоматически сохраняем без подтверждения
+            // ������������� ��������� ��� �������������
             const currentDateValue = actualDateInput.value;
             if (currentDateValue && currentDateValue.trim() && currentDateValue !== originalDateValue) {
-                console.log('💾 Автосохранение перед переходом...');
-                // Сохраняем в фоне, не ждем ответа
+                console.log('?? �������������� ����� ���������...');
+                // ��������� � ����, �� ���� ������
                 saveData().catch(error => {
-                    console.error('⚠️ Ошибка автосохранения при переходе:', error);
+                    console.error('?? ������ �������������� ��� ��������:', error);
                 });
             }
 
-            // Переход назад
+            // ������� �����
             if (window.history.length > 1 && document.referrer && document.referrer.includes(window.location.host)) {
                 window.history.back();
             } else {
                 window.location.href = '/controls';
-            } // Небольшая задержка чтобы saveData успел запуститься
+            } // ��������� �������� ����� saveData ����� �����������
         });
 
-// Кнопка Initiate
+// ������ Initiate
 initiateBtn.addEventListener('click', async function() {
-    console.log('🚀 Кнопка Initiate нажата');
+    console.log('?? ������ Initiate ������');
 
     if (!checkFields()) {
-        alert('Пожалуйста, заполните все обязательные поля.');
+        showAppModal({ variant: 'warning', title: 'Missing Required Field', message: '����������, ��������� ��� ������������ ����.', autoCloseMs: 0 });
         return;
     }
 
-    // Показываем loading
+    // ���������� loading
     initiateBtn.disabled = true;
     initiateBtn.textContent = 'Initializing...';
 
     try {
-        // 1. Сохраняем данные performance
+        // 1. ��������� ������ performance
         const formData = new FormData();
         formData.append('controlId', controlId);
         formData.append('soqmYear', soqmYearSelect.value);
 
-        // Дата в правильном формате
+        // ���� � ���������� �������
         const dateStr = (actualDateIsoInput?.value || parseDisplayToIso(actualDateInput.value)).trim();
         if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
             formData.append('actualOperationDate', dateStr);
         }
 
-        // 2. Инициализируем performance
+        // 2. �������������� performance
         const response = await fetch('/api/performance/initiate', {
             method: 'POST',
             body: formData
         });
 
 if (response.ok) {
-    console.log('✅ Performance initiated successfully!');
-    Swal.fire({
-        icon: 'success',
+    console.log('? Performance initiated successfully!');
+    showAppModal({
+        variant: 'success',
         title: 'Initiated',
-        text: 'Performance has been successfully initiated',
-        confirmButtonText: 'OK',
-        timer: 2000,
-        timerProgressBar: true
-    }).then(() => {
-        window.location.href = '/'; // Редирект после закрытия alert
+        message: 'Performance has been successfully initiated',
+        redirectUrl: '/'
     });
 
 } else {
@@ -1282,49 +1276,59 @@ if (response.ok) {
         }
 
     } catch (error) {
-        console.error('❌ Error initiating performance:', error);
-        alert('Error initiating performance: ' + error.message);
+        console.error('? Error initiating performance:', error);
+        showAppModal({ variant: 'error', title: 'Initiation Failed', message: 'Error initiating performance: ' + error.message, autoCloseMs: 0 });
 
-        // Восстанавливаем кнопку
+        // ��������������� ������
         initiateBtn.disabled = false;
         initiateBtn.textContent = 'Initiate';
     }
 });
 
-        // === ИНИЦИАЛИЗАЦИЯ СТРАНИЦЫ ===
+        // === ������������� �������� ===
         async function initPage() {
-            console.log('=== НАЧАЛО ИНИЦИАЛИЗАЦИИ ===');
+            console.log('=== ������ ������������� ===');
 
-            // Сохраняем исходное значение даты
+            // ��������� �������� �������� ����
             originalDateValue = actualDateInput.value;
 
-            // ЗАГРУЖАЕМ ДАННЫЕ ИЗ БАЗЫ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
-            console.log('📥 Загрузка сохраненных данных performance...');
+            // ��������� ������ �� ���� ��� �������� ��������
+            console.log('?? �������� ����������� ������ performance...');
             await loadPerformanceData();
 
-            // Обновляем UI
+            // ��������� UI
             updateStatus();
             updateInitiateButton();
 
-            // Автосохранение при загрузке если есть новые данные
+            // �������������� ��� �������� ���� ���� ����� ������
             if ((actualDateInput.value && actualDateInput.value.trim() && actualDateInput.value !== originalDateValue) ||
                 (soqmYearSelect.value && soqmYearSelect.value.trim())) {
-                console.log('💾 Автосохранение при загрузке страницы...');
+                console.log('?? �������������� ��� �������� ��������...');
                 setTimeout(() => {
                     autoSave();
                 }, 500);
             }
 
-            console.log('=== ИНИЦИАЛИЗАЦИЯ ЗАВЕРШЕНА ===');
+            console.log('=== ������������� ��������� ===');
         }
 
-        // Запускаем инициализацию
+        // ��������� �������������
         initPage();
     });
 </script>
 
+
+
 </body>
 </html>
+
+
+
+
+
+
+
+
 
 
 

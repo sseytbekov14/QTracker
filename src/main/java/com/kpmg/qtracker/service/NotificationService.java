@@ -4,6 +4,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.repository.NotificationRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.util.StatusDisplayMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -24,12 +25,25 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final NotificationTemplateService notificationTemplateService;
     private final ObjectProvider<EmailNotificationChannel> emailNotificationChannelProvider;
+    private final StatusDisplayMapper statusDisplayMapper;
+    private static final String TYPE_AUTO_CREATED = "CONTROL_AUTO_CREATED";
+    private static final String TYPE_INITIATE = "INITIATE";
+    private static final long RETURN_DEDUPE_WINDOW_MINUTES = 5;
+    private static final java.time.format.DateTimeFormatter AUTO_CREATE_DATE_FORMAT =
+            java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy");
     
     /**
      * Send notification to specific users about control initiation
      */
     @Transactional
     public void sendInitiateNotifications(Control control, List<String> recipientEmails) {
+        if (control == null || recipientEmails == null || recipientEmails.isEmpty()) {
+            return;
+        }
+        if (control.getId() != null
+                && notificationRepository.existsByControlIdAndType(control.getId(), TYPE_INITIATE)) {
+            return;
+        }
         sendTemplateNotifications(control, recipientEmails, NotificationTemplateService.TemplateType.ACTIVATION, false);
     }
     
@@ -70,11 +84,39 @@ public class NotificationService {
         if (control == null || recipientEmail == null || recipientEmail.isBlank()) {
             return;
         }
+        String displayOld = statusDisplayMapper.display(oldStatus);
+        String displayNew = statusDisplayMapper.display(newStatus);
         NotificationTemplateService.NotificationTemplate template =
                 new NotificationTemplateService.NotificationTemplate(
                         "Control " + control.getControlId() + " status changed",
-                        "Status changed from '" + oldStatus + "' to '" + newStatus + "'",
+                        "Status changed from '" + displayOld + "' to '" + displayNew + "'",
                         "STATUS_CHANGE");
+        createNotification(recipientEmail, control, template);
+    }
+
+    @Transactional
+    public void sendAutoCreatedNotification(Control control,
+                                            String recipientEmail,
+                                            String frequencyLabel,
+                                            java.time.LocalDate operationDate) {
+        if (control == null || recipientEmail == null || recipientEmail.isBlank() || operationDate == null) {
+            return;
+        }
+        if (notificationRepository.existsByControlIdAndType(control.getId(), TYPE_AUTO_CREATED)) {
+            return;
+        }
+        String controlName = control.getControlId() != null ? control.getControlId() : "Control";
+        String frequency = (frequencyLabel == null || frequencyLabel.isBlank())
+                ? "scheduled"
+                : frequencyLabel.trim();
+        String dateText = operationDate.format(AUTO_CREATE_DATE_FORMAT);
+        NotificationTemplateService.NotificationTemplate template =
+                new NotificationTemplateService.NotificationTemplate(
+                        "Auto-created control: " + controlName,
+                        "A new " + frequency + " control occurrence was created automatically for " + dateText
+                                + ". Please review and initiate.",
+                        TYPE_AUTO_CREATED
+                );
         createNotification(recipientEmail, control, template);
     }
 
@@ -97,6 +139,66 @@ public class NotificationService {
         }
     }
 
+    @Transactional
+    public void sendReturnNotifications(Control control,
+                                        List<String> recipientEmails,
+                                        String performedByRole,
+                                        String message,
+                                        String notificationType) {
+        if (control == null || recipientEmails == null || recipientEmails.isEmpty()) {
+            return;
+        }
+        String roleLabel = mapRoleLabel(performedByRole);
+        String title = "Control Returned by " + roleLabel;
+        NotificationTemplateService.NotificationTemplate template =
+                new NotificationTemplateService.NotificationTemplate(
+                        title,
+                        message,
+                        notificationType
+                );
+
+        Set<String> unique = new LinkedHashSet<>();
+        for (String email : recipientEmails) {
+            if (email != null && !email.isBlank()) {
+                unique.add(email.trim());
+            }
+        }
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime start = now.minusMinutes(RETURN_DEDUPE_WINDOW_MINUTES);
+        LocalDateTime end = now.plusSeconds(1);
+
+        for (String email : unique) {
+            userRepository.findByMail(email).ifPresent(user -> {
+                boolean alreadySent = notificationRepository
+                        .existsByControlIdAndUserIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                                control.getId(),
+                                user.getId(),
+                                notificationType,
+                                start,
+                                end
+                        );
+                if (alreadySent) {
+                    return;
+                }
+
+                Notification notif = new Notification();
+                notif.setUserId(user.getId());
+                notif.setControlId(control.getId());
+                notif.setType(template.getNotificationType());
+                notif.setTitle(template.getSubject());
+                notif.setMessage(template.getBody());
+                notif.setLink(notificationTemplateService.buildControlLink(control));
+                notif.setIsRead(false);
+                notificationRepository.save(notif);
+
+                EmailNotificationChannel emailChannel = emailNotificationChannelProvider.getIfAvailable();
+                if (emailChannel != null) {
+                    emailChannel.send(email, template.getSubject(), template.getBody());
+                }
+            });
+        }
+    }
+
     private void createNotification(String email,
                                     Control control,
                                     NotificationTemplateService.TemplateType templateType,
@@ -115,11 +217,12 @@ public class NotificationService {
                             user.getDisplayName(),
                             roleLabel
                     );
+            String submitTitle = buildSubmitTitle(templateType);
             Notification notif = new Notification();
             notif.setUserId(user.getId());
             notif.setControlId(control.getId());
             notif.setType(template.getNotificationType());
-            notif.setTitle(template.getSubject());
+            notif.setTitle(submitTitle != null ? submitTitle : template.getSubject());
             notif.setMessage(template.getBody());
             notif.setLink(notificationTemplateService.buildControlLink(control));
             notif.setIsRead(false);
@@ -128,7 +231,13 @@ public class NotificationService {
             if (emailChannel != null) {
                 emailChannel.send(email, template.getSubject(), template.getBody());
             }
-            log.debug("Created notification for user {}", email);
+            log.debug("Notification created: controlId={}, userId={}, email={}, role={}, templateType={}, subject={}",
+                    control.getId(),
+                    user.getId(),
+                    email,
+                    user.getRole(),
+                    templateType,
+                    template.getSubject());
         });
     }
 
@@ -152,7 +261,13 @@ public class NotificationService {
             if (emailChannel != null) {
                 emailChannel.send(email, template.getSubject(), template.getBody());
             }
-            log.debug("Created notification for user {}", email);
+            log.debug("Notification created: controlId={}, userId={}, email={}, role={}, templateType={}, subject={}",
+                    control.getId(),
+                    user.getId(),
+                    email,
+                    user.getRole(),
+                    template.getNotificationType(),
+                    template.getSubject());
         });
     }
 
@@ -173,6 +288,22 @@ public class NotificationService {
                 return "Admin";
             default:
                 return "User";
+        }
+    }
+
+    private String buildSubmitTitle(NotificationTemplateService.TemplateType templateType) {
+        if (templateType == null) {
+            return null;
+        }
+        switch (templateType) {
+            case FACILITATOR_TO_OPERATOR:
+                return "Control Submitted by Facilitator";
+            case OPERATOR_TO_SOQM:
+                return "Control Submitted by Control Operator";
+            case SOQM_TO_OWNER:
+                return "Control Submitted by SoQM Head";
+            default:
+                return null;
         }
     }
     

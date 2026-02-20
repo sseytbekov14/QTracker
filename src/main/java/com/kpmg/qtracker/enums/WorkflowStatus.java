@@ -1,15 +1,12 @@
 package com.kpmg.qtracker.enums;
 
 public enum WorkflowStatus {
-    NOT_STARTED("Not Started"),        // ★ ДОБАВЬТЕ ЭТУ СТРОЧКУ
     DRAFT("Draft"),
-    FACILITATOR_REVIEW("With Facilitator"),
-    CONTROL_OPERATOR_REVIEW("With Control Operator"),
-    SOQM_LEAD_REVIEW("With SOQM Lead"),
-    PROCESS_OWNER_REVIEW("With Process Owner"),
-    COMPLETED("Completed"),
-    RETURNED("Returned for Revision"),
-    REJECTED("Rejected");
+    IN_PROGRESS("In Progress"),
+    REVIEW("Review"),
+    SOQM_HEAD_REVIEW("SoQM Head Review"),
+    PROCESS_OWNER_REVIEW("Process Owner Review"),
+    COMPLETED("Completed");
 
     private final String displayName;
 

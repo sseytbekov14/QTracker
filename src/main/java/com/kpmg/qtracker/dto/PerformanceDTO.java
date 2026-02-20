@@ -16,7 +16,7 @@ public class PerformanceDTO {
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate actualOperationDate;
     private String assignedTo;
-    private String performanceStatus = "Not Started";
+    private String performanceStatus = "DRAFT";
 
     public boolean isAllFieldsCompleted() {
         return controlOperator != null && !controlOperator.trim().isEmpty() &&

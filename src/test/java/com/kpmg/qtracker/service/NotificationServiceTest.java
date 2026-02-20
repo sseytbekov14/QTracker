@@ -5,6 +5,7 @@ import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.NotificationRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.util.StatusDisplayMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -24,6 +26,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
@@ -51,7 +54,8 @@ class NotificationServiceTest {
                 notificationRepository,
                 userRepository,
                 notificationTemplateService,
-                emailChannelProvider
+                emailChannelProvider,
+                new StatusDisplayMapper()
         );
     }
 
@@ -123,6 +127,76 @@ class NotificationServiceTest {
         verify(emailChannel, times(1)).send("userb@example.test", "Subject", "Body");
     }
 
+    @Test
+    void sendTemplateNotifications_submitOverridesNotificationTitleOnly() {
+        Control control = controlWithId(13L);
+        User recipient = userWithId(7L, "submit@example.test", "CONTROL_OPERATOR");
+
+        when(userRepository.findByMail("submit@example.test")).thenReturn(Optional.of(recipient));
+        stubTemplate();
+        when(emailChannelProvider.getIfAvailable()).thenReturn(emailChannel);
+
+        notificationService.sendTemplateNotifications(
+                control,
+                List.of("submit@example.test"),
+                NotificationTemplateService.TemplateType.FACILITATOR_TO_OPERATOR,
+                false
+        );
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+        Notification saved = captor.getValue();
+        assertEquals("Control Submitted by Facilitator", saved.getTitle());
+        verify(emailChannel).send(eq("submit@example.test"), eq("Subject"), eq("Body"));
+    }
+
+    @Test
+    void sendTemplateNotifications_nonSubmitKeepsTemplateTitle() {
+        Control control = controlWithId(14L);
+        User recipient = userWithId(8L, "complete@example.test", "PROCESS_OWNER");
+
+        when(userRepository.findByMail("complete@example.test")).thenReturn(Optional.of(recipient));
+        stubTemplate();
+        when(emailChannelProvider.getIfAvailable()).thenReturn(null);
+
+        notificationService.sendTemplateNotifications(
+                control,
+                List.of("complete@example.test"),
+                NotificationTemplateService.TemplateType.COMPLETED_ALL,
+                false
+        );
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+        Notification saved = captor.getValue();
+        assertEquals("Subject", saved.getTitle());
+    }
+
+    @Test
+    void sendInitiateNotifications_isIdempotent() {
+        Control control = controlWithId(15L);
+        User userA = userWithId(9L, "fac@example.test", "FACILITATOR");
+        User userB = userWithId(10L, "op@example.test", "CONTROL_OPERATOR");
+
+        when(notificationRepository.existsByControlIdAndType(control.getId(), "INITIATE"))
+                .thenReturn(false, true);
+        when(userRepository.findByMail("fac@example.test")).thenReturn(Optional.of(userA));
+        when(userRepository.findByMail("op@example.test")).thenReturn(Optional.of(userB));
+        stubTemplate();
+        when(emailChannelProvider.getIfAvailable()).thenReturn(null);
+
+        notificationService.sendInitiateNotifications(
+                control,
+                List.of("fac@example.test", "op@example.test")
+        );
+        notificationService.sendInitiateNotifications(
+                control,
+                List.of("fac@example.test", "op@example.test")
+        );
+
+        verify(notificationRepository, times(2)).save(any(Notification.class));
+    }
+
     private void stubTemplate() {
         NotificationTemplateService.NotificationTemplate template =
                 new NotificationTemplateService.NotificationTemplate("Subject", "Body", "WORKFLOW_STEP");
@@ -155,3 +229,4 @@ class NotificationServiceTest {
         return user;
     }
 }
+
