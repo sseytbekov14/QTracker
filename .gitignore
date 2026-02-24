@@ -45,3 +45,4 @@ logs/
 ### Misc build outputs ###
 out/
 .gradle/
+migration/
