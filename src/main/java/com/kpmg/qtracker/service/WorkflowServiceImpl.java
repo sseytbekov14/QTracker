@@ -1,4 +1,4 @@
-﻿package com.kpmg.qtracker.service;
+package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.*;
@@ -97,8 +97,12 @@ public class WorkflowServiceImpl implements WorkflowService {
 
             String userRole = userOpt.get().getRole();
 
-            // в… РљРЅРѕРїРєРё РґР»СЏ FACILITATOR
-            if ("FACILITATOR".equals(userRole) && WorkflowStatus.IN_PROGRESS.name().equals(performanceStatus)) {
+            // Get assignment-based roles for this specific control
+            List<String> userRolesForControl = controlAssignmentService.getUserRolesForControl(controlId, userEmail);
+
+            // ★ Buttons for FACILITATOR (check assignment, not just global role)
+            boolean actAsFacilitator = userRolesForControl.contains("FACILITATOR");
+            if (actAsFacilitator && WorkflowStatus.IN_PROGRESS.name().equals(performanceStatus)) {
                 buttons.add(new WorkflowButtonDTO(
                         "SUBMIT_FOR_REVIEW",
                         "Submit for Review",
@@ -108,8 +112,9 @@ public class WorkflowServiceImpl implements WorkflowService {
                 ));
             }
 
-            // в… РљРЅРѕРїРєРё РґР»СЏ CONTROL_OPERATOR
-            if ("CONTROL_OPERATOR".equals(userRole) && WorkflowStatus.REVIEW.name().equals(performanceStatus)) {
+            // ★ Buttons for CONTROL_OPERATOR (check assignment, not just global role)
+            boolean actAsControlOperator = userRolesForControl.contains("CONTROL_OPERATOR");
+            if (actAsControlOperator && WorkflowStatus.REVIEW.name().equals(performanceStatus)) {
                 buttons.add(new WorkflowButtonDTO(
                         "SUBMIT_FOR_SOQM",
                         "Submit for SoQM",
@@ -127,8 +132,9 @@ public class WorkflowServiceImpl implements WorkflowService {
                 ));
             }
 
-            // в… РљРЅРѕРїРєРё РґР»СЏ SOQM_LEAD
-            if ("SOQM_LEAD".equals(userRole) && WorkflowStatus.SOQM_HEAD_REVIEW.name().equals(performanceStatus)) {
+            // ★ Buttons for SOQM_LEAD (check assignment or global role)
+            boolean actAsSoqmLead = userRolesForControl.contains("SOQM_LEAD");
+            if (actAsSoqmLead && WorkflowStatus.SOQM_HEAD_REVIEW.name().equals(performanceStatus)) {
                 buttons.add(new WorkflowButtonDTO(
                         "SEND_TO_PROCESS_OWNER",
                         "Send to Process Owner",
@@ -154,8 +160,9 @@ public class WorkflowServiceImpl implements WorkflowService {
                 ));
             }
 
-            // в… РљРЅРѕРїРєРё РґР»СЏ PROCESS_OWNER
-            if ("PROCESS_OWNER".equals(userRole) && WorkflowStatus.PROCESS_OWNER_REVIEW.name().equals(performanceStatus)) {
+            // ★ Buttons for PROCESS_OWNER (check assignment, not just global role)
+            boolean actAsProcessOwner = userRolesForControl.contains("PROCESS_OWNER");
+            if (actAsProcessOwner && WorkflowStatus.PROCESS_OWNER_REVIEW.name().equals(performanceStatus)) {
                 buttons.add(new WorkflowButtonDTO(
                         "COMPLETE",
                         "Complete",
@@ -512,8 +519,27 @@ public class WorkflowServiceImpl implements WorkflowService {
             // 8. View all data
             permissions.put("canView", true); // Boolean
             permissions.put("canEditAll", canEditAll); // Boolean
-            permissions.put("canEditStepsPerformed", (isFacilitator || isControlOperator) && !canEditAll); // Boolean
-            permissions.put("canEditProcessOwnerComments", isProcessOwner && !canEditAll); // Boolean
+            // Check if user is shared viewer for COMPLETED controls
+            boolean isSharedCompleted = false;
+            {
+                ControlAssignmentDTO sharedAssignment = controlAssignmentService.getAssignmentByControlId(controlId);
+                if (sharedAssignment != null && sharedAssignment.getControlSharedWith() != null) {
+                    isSharedCompleted = sharedAssignment.getControlSharedWith().stream()
+                            .anyMatch(e -> e != null && e.equalsIgnoreCase(userEmail));
+                }
+                Control sharedControl = controlService.getControlById(controlId).orElse(null);
+                isSharedCompleted = isSharedCompleted
+                        && sharedControl != null
+                        && "COMPLETED".equals(sharedControl.getPerformanceStatus());
+            }
+
+            boolean canEditSteps = ((isFacilitator || isControlOperator) && !canEditAll)
+                    || (isSharedCompleted && (isFacilitator || isControlOperator));
+            boolean canEditPOComments = (isProcessOwner && !canEditAll)
+                    || (isSharedCompleted && isProcessOwner);
+
+            permissions.put("canEditStepsPerformed", canEditSteps); // Boolean
+            permissions.put("canEditProcessOwnerComments", canEditPOComments); // Boolean
 
             // 9. Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ - С‚РѕР¶Рµ Boolean!
             permissions.put("isAdmin", false); // Boolean

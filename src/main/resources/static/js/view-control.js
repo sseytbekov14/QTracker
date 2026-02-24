@@ -564,8 +564,19 @@ function confirmWorkflowAction() {
             if (searchInput) searchInput.value = '';
 
             if (facilitatorUsers.length === 0) {
-                loadUsersByRole('FACILITATOR').then((users) => {
-                    facilitatorUsers = users;
+                // Facilitator and Control Operator are interchangeable
+                Promise.all([
+                    loadUsersByRole('FACILITATOR'),
+                    loadUsersByRole('CONTROL_OPERATOR')
+                ]).then(([facilitators, operators]) => {
+                    const seen = new Set();
+                    facilitatorUsers = [];
+                    [...facilitators, ...operators].forEach(u => {
+                        if (!seen.has(u.mail || u.email)) {
+                            seen.add(u.mail || u.email);
+                            facilitatorUsers.push(u);
+                        }
+                    });
                     displayUserDropdownList(facilitatorUsers);
                 });
             } else {
@@ -678,8 +689,19 @@ function confirmWorkflowAction() {
             if (searchInput) searchInput.value = '';
 
             if (controlOperatorUsers.length === 0) {
-                loadUsersByRole('CONTROL_OPERATOR').then((users) => {
-                    controlOperatorUsers = users;
+                // Facilitator and Control Operator are interchangeable
+                Promise.all([
+                    loadUsersByRole('CONTROL_OPERATOR'),
+                    loadUsersByRole('FACILITATOR')
+                ]).then(([operators, facilitators]) => {
+                    const seen = new Set();
+                    controlOperatorUsers = [];
+                    [...operators, ...facilitators].forEach(u => {
+                        if (!seen.has(u.mail || u.email)) {
+                            seen.add(u.mail || u.email);
+                            controlOperatorUsers.push(u);
+                        }
+                    });
                     displayControlOperatorList(controlOperatorUsers);
                 });
             } else {
@@ -1261,6 +1283,14 @@ function confirmWorkflowAction() {
                         if (stepsField) {
                             stepsField.dispatchEvent(new Event('input', { bubbles: true }));
                         }
+                        const soqmField = form.querySelector('textarea[name="soqmHeadComments"]');
+                        if (soqmField) {
+                            soqmField.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        const poField = form.querySelector('textarea[name="processOwnerComments"]');
+                        if (poField) {
+                            poField.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
                     }
                 }
             }
@@ -1432,7 +1462,8 @@ function makeAllFormsEditable() {
         
         // Enable file inputs
         if (field.type === 'file') {
-            field.style.opacity = '1';
+            const zone = field.closest('.kpmg-upload-zone');
+            if (zone) zone.removeAttribute('data-disabled');
         }
     });
 
@@ -1474,7 +1505,8 @@ function makeAllFormsEditable() {
         
         // Enable file inputs
         if (field.type === 'file') {
-            field.style.opacity = '1';
+            const zone = field.closest('.kpmg-upload-zone');
+            if (zone) zone.removeAttribute('data-disabled');
         }
     });
 
@@ -1613,9 +1645,13 @@ function saveControlData(controlId) {
                 // Disable file inputs completely and clear selection
                 if (field.type === 'file') {
                     field.disabled = true;
-                    field.style.pointerEvents = 'none';
-                    field.style.opacity = '0.6';
                     field.value = ''; // Clear file selection
+                    
+                    // Disable upload zone
+                    const zone = field.closest('.kpmg-upload-zone');
+                    if (zone) {
+                        zone.setAttribute('data-disabled', 'true');
+                    }
                     
                     // Clear "Selected X file(s)" display, but keep existing uploaded files
                     if (field.id === 'attachmentDetailsInput') {
@@ -1699,6 +1735,7 @@ function saveControlData(controlId) {
 
     function switchToEditMode() {
         captureEditModeSnapshot();
+        document.body.classList.add('edit-mode-active');
 
         const actionButtons = document.querySelector('.action-buttons');
         if (actionButtons) actionButtons.classList.add('d-none');
@@ -1716,6 +1753,7 @@ function saveControlData(controlId) {
 
     function switchToReadOnlyMode() {
         restoreFromEditModeSnapshot();
+        document.body.classList.remove('edit-mode-active');
 
         const actionButtons = document.querySelector('.action-buttons');
         if (actionButtons) actionButtons.classList.remove('d-none');
@@ -1729,8 +1767,8 @@ function saveControlData(controlId) {
         if (editBtn) {
             editBtn.classList.remove('d-none');
             editBtn.textContent = 'Edit';
-            editBtn.classList.remove('btn-success');
-            editBtn.classList.add('btn-primary');
+            editBtn.classList.remove('btn-success', 'btn-primary');
+            editBtn.classList.add('btn-outline-secondary');
         }
 
         makeAllFormsReadOnly();
@@ -2964,6 +3002,16 @@ function saveDocumentsData(controlId) {
                             console.log('🔒 Control in PROCESS_OWNER_REVIEW - locking for non-Process Owner');
                             lockControlForm();
                         }
+                    } else if (workflowStatus === 'COMPLETED') {
+                        // Check if user is shared viewer — allow field-level edit
+                        const isSharedViewerFlag = document.getElementById('isSharedViewer')?.value === 'true';
+                        if (isSharedViewerFlag) {
+                            console.log('✅ Shared viewer on COMPLETED control - field-level edit via permissions');
+                            // Don't lock — Edit button stays visible, permissions will restrict to specific fields
+                        } else {
+                            console.log('🔒 Control COMPLETED - locking form');
+                            lockControlForm();
+                        }
                     } else {
                         // Control is in other workflow status - lock it
                         console.log('🔒 Control in workflow - locking form');
@@ -3322,7 +3370,8 @@ document.addEventListener('click', async (event) => {
     const submitToSoqmLeadBtn = event.target.closest('#submitToSoqmLeadBtn');
     const returnToOperatorBtn = event.target.closest('#returnToOperatorBtn');
     const returnToSoqmLeadBtn = event.target.closest('#returnToSoqmLeadBtn');
-    if (!reviewBtn && !processOwnerBtn && !returnToFacilitatorBtn && !submitToSoqmLeadBtn && !returnToOperatorBtn && !returnToSoqmLeadBtn) {
+    const sharedSubmitToSoqmBtn = event.target.closest('#sharedSubmitToSoqmBtn');
+    if (!reviewBtn && !processOwnerBtn && !returnToFacilitatorBtn && !submitToSoqmLeadBtn && !returnToOperatorBtn && !returnToSoqmLeadBtn && !sharedSubmitToSoqmBtn) {
         return;
     }
 
@@ -3396,6 +3445,18 @@ document.addEventListener('click', async (event) => {
             modal.show();
         }
     }
+
+    if (sharedSubmitToSoqmBtn) {
+        console.log('Shared Submit for SoQM Team clicked');
+        if (!await ensureWorkflowRoleReady()) {
+            return;
+        }
+        const modalElement = document.getElementById('sharedSubmitSoqmModal');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        }
+    }
 });
 
 document.addEventListener('submit', (event) => {
@@ -3404,7 +3465,7 @@ document.addEventListener('submit', (event) => {
         return;
     }
 
-    if (form.querySelector('#submitForReviewBtn, #submitToProcessOwnerBtn, #submitToSoqmLeadBtn, #returnToFacilitatorBtn, #returnToOperatorBtn, #returnToSoqmLeadBtn')) {
+    if (form.querySelector('#submitForReviewBtn, #submitToProcessOwnerBtn, #submitToSoqmLeadBtn, #returnToFacilitatorBtn, #returnToOperatorBtn, #returnToSoqmLeadBtn, #sharedSubmitToSoqmBtn')) {
         event.preventDefault();
     }
 });
@@ -3480,6 +3541,32 @@ async function confirmSubmitToSoqmLead() {
         confirmModalId: 'submitSoqmLeadModal',
         successRedirectUrl: '/',
         successLogMessage: 'Submit for SoQM Team Review success -> showing popup',
+        successTimerMs: 2500
+    });
+}
+
+// ========== SHARED SUBMIT TO SOQM LEAD (Shared viewer → SoQM Lead from COMPLETED) ==========
+async function confirmSharedSubmitToSoqmLead() {
+    console.log('🔘 Confirm Shared Submit to SoQM Lead');
+
+    if (!await ensureWorkflowRoleReady()) {
+        return;
+    }
+
+    const controlIdElement = document.querySelector('input[name="id"]');
+    const controlId = controlIdElement ? controlIdElement.value : null;
+
+    if (!controlId) {
+        alert('Error: Control ID not found');
+        return;
+    }
+
+    submitWorkflowActionWithModal({
+        url: '/api/workflow/shared-submit-to-soqm-lead?controlId=' + controlId,
+        confirmBtnId: 'confirmSharedSubmitSoqmBtn',
+        confirmModalId: 'sharedSubmitSoqmModal',
+        successRedirectUrl: '/',
+        successLogMessage: 'Shared Submit for SoQM Team success -> showing popup',
         successTimerMs: 2500
     });
 }
@@ -4111,6 +4198,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (confirmSubmitSoqmLeadBtn) {
         confirmSubmitSoqmLeadBtn.addEventListener('click', confirmSubmitToSoqmLead);
         console.log('✅ Confirm Submit to SoQM Lead handler added');
+    }
+
+    const confirmSharedSubmitSoqmBtn = document.getElementById('confirmSharedSubmitSoqmBtn');
+    if (confirmSharedSubmitSoqmBtn) {
+        confirmSharedSubmitSoqmBtn.addEventListener('click', confirmSharedSubmitToSoqmLead);
+        console.log('✅ Confirm Shared Submit to SoQM Lead handler added');
     }
 
     const confirmReturnFacilitatorBtn = document.getElementById('confirmReturnFacilitatorBtn');

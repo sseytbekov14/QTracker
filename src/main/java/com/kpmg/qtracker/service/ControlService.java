@@ -3,7 +3,6 @@ package com.kpmg.qtracker.service;
 import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
-import com.kpmg.qtracker.entity.ControlPerformance;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
@@ -31,7 +30,6 @@ public class ControlService implements IControlService {
     private final ControlAssignmentRepository controlAssignmentRepository;
     private final StatusDisplayMapper statusDisplayMapper;
     private ControlAssignmentService controlAssignmentService;
-    private IPerformanceService performanceService;
 
     private static final Logger logger = LoggerFactory.getLogger(ControlService.class);
 
@@ -46,12 +44,6 @@ public class ControlService implements IControlService {
     @Lazy
     public void setWorkflowService(WorkflowService workflowService) {
         this.workflowService = workflowService;
-    }
-
-    @Autowired
-    @Lazy
-    public void setPerformanceService(IPerformanceService performanceService) {
-        this.performanceService = performanceService;
     }
 
     @Autowired
@@ -528,9 +520,6 @@ public class ControlService implements IControlService {
             Control savedControl = controlRepository.save(control);
             logger.info("Control created successfully: {}", control.getControlId());
 
-            // ★ СОЗДАЕМ ЗАПИСЬ В PERFORMANCE ТАБЛИЦЕ
-            createPerformanceRecordForControl(savedControl);
-
             return savedControl;
         } catch (IllegalArgumentException e) {
             logger.warn("Validation error for control ID {}: {}", control.getControlId(), e.getMessage());
@@ -546,46 +535,6 @@ public class ControlService implements IControlService {
         logger.info("Saving control with ID: {}", control.getControlId());
         control.setUpdatedAt(LocalDateTime.now());
         return controlRepository.save(control);
-    }
-
-    // ★ НОВЫЙ МЕТОД: Создание performance записи
-    private void createPerformanceRecordForControl(Control control) {
-        try {
-            // Проверяем, не создана ли уже запись
-            Optional<ControlPerformance> existingPerformance = performanceService.findByControlId(control.getId());
-
-            if (existingPerformance.isPresent()) {
-                logger.info("Performance record already exists for control: {}", control.getId());
-                return;
-            }
-
-            // Создаем новую запись
-            ControlPerformance performance = new ControlPerformance();
-            performance.setControlId(control.getId());
-            performance.setCreatedAt(LocalDate.now());
-            performance.setUpdatedAt(LocalDate.now());
-
-            // Если нужно установить другие поля из control
-            performance.setControlFrequency(control.getControlFrequency());
-
-            // Сохраняем через performanceService
-            if (performanceService != null) {
-                // Через DTO
-                PerformanceDTO performanceDTO = new PerformanceDTO();
-                performanceDTO.setControlId(control.getId());
-                performanceDTO.setControlFrequency(control.getControlFrequency());
-
-                performanceService.savePerformance(performanceDTO, control);
-                logger.info("Performance record created successfully for control: {}", control.getId());
-            } else {
-                logger.warn("PerformanceService is not available for control: {}", control.getId());
-            }
-
-        } catch (Exception e) {
-            logger.error("Failed to create performance record for control {}: {}",
-                    control.getId(), e.getMessage());
-            // Не прерываем основной процесс создания контроля
-        }
     }
 
     @Override
@@ -697,22 +646,18 @@ public class ControlService implements IControlService {
         logger.info("Found {} controls created by user", userCreatedControls.size());
         allControls.addAll(userCreatedControls);
 
-        // 2. If user is FACILITATOR - add controls with status "IN_PROGRESS" where they are Facilitator
-        Optional<User> userOpt = userRepository.findByMail(userEmail);
-        if (userOpt.isPresent() && "FACILITATOR".equals(userOpt.get().getRole())) {
-            logger.info("User is FACILITATOR, adding IN_PROGRESS controls");
+        // 2. Add controls where user is assigned as Facilitator (regardless of global role)
+        {
+            logger.info("Checking Facilitator assignments for user");
             
             List<Control> allControlsList = controlRepository.findAll();
             for (Control control : allControlsList) {
-                // Проверяем статус
                 if ("IN_PROGRESS".equals(control.getPerformanceStatus())) {
-                    // Проверяем assignment
                     Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(control.getId());
                     if (assignmentOpt.isPresent()) {
                         ControlAssignment assignment = assignmentOpt.get();
                         String facilitator = assignment.getFacilitator();
                         
-                        // Проверяем содержит ли email пользователя
                         if (facilitator != null && facilitator.contains(userEmail)) {
                             allControls.add(control);
                             logger.info("✅ Control {} assigned to facilitator {}", control.getControlId(), userEmail);

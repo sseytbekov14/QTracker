@@ -7,7 +7,8 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDocumentsRepository;
-import com.kpmg.qtracker.repository.NotificationReadRepository;
+import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
+
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
 import com.kpmg.qtracker.service.ControlDocumentsService;
@@ -67,13 +68,13 @@ class ViewControllerStatusFilterTest {
     private ControlDocumentsService controlDocumentsService;
 
     @MockBean
-    private NotificationReadRepository notificationReadRepository;
-
-    @MockBean
     private NotificationService notificationService;
 
     @MockBean
     private NotificationTypeDisplayMapper notificationTypeDisplayMapper;
+
+    @MockBean
+    private WorkflowHistoryRepository workflowHistoryRepository;
 
     @MockBean(name = "statusDisplayMapper")
     private StatusDisplayMapper statusDisplayMapper;
@@ -587,8 +588,7 @@ class ViewControllerStatusFilterTest {
 
         when(controlService.getControlById(18L)).thenReturn(java.util.Optional.of(control));
         when(controlAssignmentService.getAssignmentByControlId(18L)).thenReturn(null);
-        when(performanceService.findByControlId(18L)).thenReturn(java.util.Optional.empty());
-        when(performanceService.convertToDTO(null, control)).thenReturn(performanceDTO);
+        when(performanceService.buildPerformanceDTO(control)).thenReturn(performanceDTO);
 
         MvcResult result = mockMvc.perform(get("/performance/18")
                         .sessionAttr("currentUser", currentUser))

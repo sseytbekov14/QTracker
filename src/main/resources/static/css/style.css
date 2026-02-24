@@ -1,7 +1,7 @@
 .sidebar {
-    background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+    background: #1a1f2e;
     min-height: 100vh;
-    border-right: 3px solid #667eea;
+    border-right: 2px solid #00338D;
     display: flex;
     flex-direction: column;
     position: fixed;
@@ -10,40 +10,39 @@
     width: 16.666667%;
     overflow-y: auto;
     z-index: 1000;
-    box-shadow: 4px 0 15px rgba(0, 0, 0, 0.2);
+    box-shadow: none;
 }
 
 .sidebar h6, .sidebar small {
-    color: #e2e8f0 !important;
+    color: #c8cdd8 !important;
 }
 
 .sidebar hr {
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.08);
     margin: 0.75rem 0;
 }
 
 .sidebar .nav-link {
-    color: #cbd5e0;
-    padding: 0.65rem 1rem;
-    border-radius: 0.5rem;
-    margin-bottom: 0.3rem;
-    transition: all 0.3s ease;
+    color: #9ba3b5;
+    padding: 0.6rem 1rem;
+    border-radius: 3px;
+    margin-bottom: 0.2rem;
+    transition: all 0.12s ease;
     font-weight: 500;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     position: relative;
 }
 
 .sidebar .nav-link:hover {
-    background: rgba(102, 126, 234, 0.2);
+    background: rgba(0, 51, 141, 0.2);
     color: #ffffff;
-    transform: translateX(3px);
 }
 
 .sidebar .nav-link.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #00338D;
     color: #ffffff;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
     font-weight: 600;
+    box-shadow: none;
 }
 
 .sidebar .nav-link i {
@@ -51,33 +50,44 @@
 }
 
 .sidebar .btn-outline-secondary {
-    color: #cbd5e0;
-    border-color: rgba(255, 255, 255, 0.2);
+    color: #9ba3b5;
+    border-color: rgba(255, 255, 255, 0.15);
     width: 100%;
     font-weight: 600;
-    transition: all 0.3s ease;
+    font-size: 0.8rem;
+    border-radius: 3px;
+    transition: all 0.12s ease;
 }
 
 .sidebar .btn-outline-secondary:hover {
-    background: rgba(220, 38, 38, 0.2);
-    border-color: #ef4444;
+    background: rgba(200, 16, 46, 0.15);
+    border-color: #c8102e;
     color: #ffffff;
-    transform: translateY(-1px);
 }
 
 .sidebar-content {
     flex: 1;
 }
 
+/* KPMG logo hover */
+.sidebar-content a > img[alt="KPMG"] {
+    transition: opacity 0.2s;
+    border-radius: 4px;
+}
+
+.sidebar-content a > img[alt="KPMG"]:hover {
+    opacity: 0.7;
+}
+
 .sidebar-footer {
     margin-top: 1rem;
     padding: 0.75rem 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-footer small {
-    color: #94a3b8 !important;
-    font-size: 0.75rem;
+    color: #6c7489 !important;
+    font-size: 0.72rem;
 }
 
 /* Отступ для основного контента при фиксированном sidebar */
@@ -555,13 +565,11 @@
 }
 
 .control-table tbody tr {
-    transition: all 0.2s ease;
+    transition: background 0.15s;
 }
 
 .control-table tbody tr:hover {
-    background-color: #f0f4ff;
-    transform: scale(1.01);
-    box-shadow: 0 2px 8px rgba(13, 110, 253, 0.1);
+    background-color: #eef2f9;
 }
 
 .control-table tbody td {
@@ -1111,14 +1119,43 @@
     color: #ffffff;
 }
 
-/* Changelog timeline */
+/* Changelog timeline — KPMG Style */
 .changelog-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
     flex-wrap: wrap;
+}
+
+.changelog-filter-btn {
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 5px 14px;
+    border: 1px solid #d8dce5;
+    color: #5c6478;
+    background: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.changelog-filter-btn:hover {
+    border-color: #00338D;
+    color: #00338D;
+    background: #f7f8fa;
+}
+
+.changelog-filter-btn.active {
+    background: #00338D;
+    border-color: #00338D;
+    color: #ffffff;
+}
+
+.changelog-count {
+    font-size: 0.72rem;
+    color: #9ba3b5;
+    font-weight: 500;
 }
 
 .changelog-timeline {
@@ -1133,42 +1170,41 @@
     bottom: 0;
     left: 12px;
     width: 2px;
-    background: #e2e8f0;
+    background: #d8dce5;
 }
 
 .changelog-entry {
     position: relative;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
 }
 
 .changelog-entry-marker {
     position: absolute;
     left: -24px;
     top: 20px;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
-    background: #0d6efd;
-    border: 3px solid #ffffff;
-    box-shadow: 0 0 0 2px #cfe2ff;
+    background: #00338D;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 2px #d8dce5;
 }
 
 .changelog-entry-marker.workflow {
-    background: #f59e0b;
-    box-shadow: 0 0 0 2px #fde68a;
+    background: #d4a843;
+    box-shadow: 0 0 0 2px #f0e4c4;
 }
 
 .changelog-entry-marker.updated {
-    background: #10b981;
-    box-shadow: 0 0 0 2px #a7f3d0;
+    background: #009a44;
+    box-shadow: 0 0 0 2px #c8e6d4;
 }
 
 .changelog-card {
     background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
+    border: 1px solid #d8dce5;
+    border-radius: 6px;
     padding: 14px 16px;
-    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);
 }
 
 .changelog-header {
@@ -1186,23 +1222,24 @@
 }
 
 .changelog-date {
-    font-weight: 600;
-    color: #0f172a;
+    font-weight: 700;
+    color: #2d3340;
+    font-size: 0.84rem;
 }
 
 .changelog-user {
-    font-size: 0.9rem;
-    color: #475569;
+    font-size: 0.78rem;
+    color: #5c6478;
 }
 
 .changelog-user span {
-    color: #94a3b8;
+    color: #9ba3b5;
 }
 
 .changelog-event-title {
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     font-weight: 600;
-    color: #1f2937;
+    color: #2d3340;
     margin-bottom: 8px;
 }
 
@@ -1211,8 +1248,8 @@
     flex-wrap: wrap;
     gap: 8px;
     align-items: center;
-    padding: 6px 0;
-    border-bottom: 1px dashed #e2e8f0;
+    padding: 5px 0;
+    border-bottom: 1px solid #eef0f4;
 }
 
 .changelog-change-row:last-child {
@@ -1222,21 +1259,24 @@
 .changelog-field {
     min-width: 160px;
     font-weight: 600;
-    color: #111827;
+    color: #5c6478;
+    font-size: 0.8rem;
 }
 
 .changelog-old {
-    color: #94a3b8;
+    color: #9ba3b5;
+    font-size: 0.8rem;
 }
 
 .changelog-new {
     font-weight: 700;
-    color: #0f172a;
+    color: #2d3340;
+    font-size: 0.8rem;
 }
 
 .changelog-arrow {
-    color: #94a3b8;
-    font-size: 0.85rem;
+    color: #9ba3b5;
+    font-size: 0.8rem;
 }
 
 .changelog-workflow-block {
@@ -1247,7 +1287,8 @@
 
 .changelog-workflow-action {
     font-weight: 600;
-    color: #1f2937;
+    color: #2d3340;
+    font-size: 0.82rem;
 }
 
 .changelog-workflow-flow {
@@ -1258,32 +1299,50 @@
 }
 
 .changelog-step {
-    background: #f1f5f9;
-    color: #0f172a;
+    background: #eef0f4;
+    color: #2d3340;
     padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 0.8rem;
+    border-radius: 3px;
+    font-size: 0.74rem;
     font-weight: 600;
 }
 
 .changelog-workflow-comment {
-    color: #475569;
-    font-size: 0.9rem;
+    color: #5c6478;
+    font-size: 0.8rem;
 }
 
 .badge-changelog-created {
-    background: #0ea5e9;
+    background: #00338D;
     color: #ffffff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 
 .badge-changelog-updated {
-    background: #10b981;
+    background: #009a44;
     color: #ffffff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 
 .badge-changelog-workflow {
-    background: #f59e0b;
-    color: #1f2937;
+    background: #d4a843;
+    color: #ffffff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 
 @media (max-width: 576px) {

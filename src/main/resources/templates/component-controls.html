@@ -4,124 +4,450 @@
     <meta charset="UTF-8">
     <title>Component Controls - QTracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/style.css?v=2" rel="stylesheet">
+    <link href="/css/style.css?v=7" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
     <style>
-        .badge.bg-danger { background-color: #dc3545 !important; }
-        .badge.bg-warning { background-color: #ffc107 !important; color: #000 !important; }
-        .badge.bg-success { background-color: #198754 !important; }
-        .badge.bg-info { background-color: #0dcaf0 !important; }
-        .badge.bg-primary { background-color: #0d6efd !important; }
-        .badge.bg-secondary { background-color: #6c757d !important; }
+/* ═══════════════════════
+   KPMG BRAND TOKENS
+   ═══════════════════════ */
+:root {
+    --kpmg-blue: #00338D;
+    --kpmg-blue-light: #005EB8;
+    --kpmg-blue-dark: #002060;
+    --kpmg-gray-50: #f7f8fa;
+    --kpmg-gray-100: #eef0f4;
+    --kpmg-gray-200: #d8dce5;
+    --kpmg-gray-300: #cdd0d6;
+    --kpmg-gray-400: #9ba3b5;
+    --kpmg-gray-500: #8b90a0;
+    --kpmg-gray-600: #5c6478;
+    --kpmg-gray-700: #495057;
+    --kpmg-gray-800: #2d3340;
+    --kpmg-white: #ffffff;
+    --kpmg-green: #009a44;
+    --kpmg-red: #c8102e;
+    --kpmg-amber: #d4a843;
+}
 
-        .component-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1.1rem 1.25rem;
-            border-radius: 0.55rem;
-            margin-bottom: 1.25rem;
-        }
+body {
+    background: var(--kpmg-gray-50);
+    margin: 0;
+    padding: 0;
+}
 
-        .control-table { font-size: 0.82rem; }
-        .control-table th { font-weight: 600; background-color: #f8f9fa; }
-        .control-table td { vertical-align: middle; }
+/* ═══════════════════════
+   PAGE HEADER
+   ═══════════════════════ */
+.page-header {
+    background: var(--kpmg-blue);
+    color: var(--kpmg-white);
+    padding: 18px 32px;
+    margin: 16px 20px 0 20px;
+    border-bottom: 3px solid var(--kpmg-blue-light);
+    border-radius: 6px 6px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
 
-        /* Компактный алерт */
-        .compact-alert {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            min-width: 300px;
-            max-width: 400px;
-            z-index: 9999;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            border-radius: 8px;
-            border: none;
-        }
+.page-header h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.3px;
+}
 
-        /* Full screen контейнер */
-        .full-screen-container {
-            min-height: 100vh;
-            background: #f8f9fa;
-        }
+.page-header .subtitle {
+    font-size: 0.76rem;
+    color: rgba(255,255,255,0.65);
+    margin: 2px 0 0 0;
+}
 
-        /* Кликабельные строки */
-        .clickable-row {
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        .clickable-row:hover {
-            background-color: #f8f9fa !important;
-        }
+.header-actions {
+    display: flex;
+    gap: 8px;
+}
 
-        /* Стили для компактного отображения пользователей */
-        .user-list-compact {
-            max-height: 60px;
-            overflow-y: auto;
-            font-size: 0.8rem;
-        }
-        .user-badge {
-            display: inline-block;
-            background: #e9ecef;
-            padding: 2px 6px;
-            border-radius: 3px;
-            margin: 1px;
-            font-size: 0.75rem;
-        }
+.btn-header {
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 6px 16px;
+    border-radius: 3px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+    text-decoration: none;
+}
 
-        .floating-nav {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            display: flex;
-            gap: 0.5rem;
-            z-index: 1050;
-        }
+.btn-header-outline {
+    background: transparent;
+    color: var(--kpmg-white);
+    border: 1px solid rgba(255,255,255,0.4);
+}
 
-        .search-box {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-            padding: 0.75rem;
-            background: white;
-            border: 2px solid #e9ecef;
-            border-radius: 0.6rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        }
+.btn-header-outline:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--kpmg-white);
+    border-color: rgba(255,255,255,0.7);
+}
 
-        .search-box input {
-            flex: 1;
-            border: none;
-            outline: none;
-            font-size: 0.9rem;
-            padding: 0.5rem 0.75rem;
-        }
+.btn-header-solid {
+    background: var(--kpmg-white);
+    color: var(--kpmg-blue);
+}
 
-        .search-box input::placeholder {
-            color: #999;
-        }
+.btn-header-solid:hover {
+    background: var(--kpmg-gray-100);
+    color: var(--kpmg-blue);
+}
 
-        .search-box button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 0.4rem;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.85rem;
-            transition: all 0.3s ease;
-        }
+/* ═══════════════════════
+   STATS BAR
+   ═══════════════════════ */
+.stats-bar {
+    display: flex;
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+    margin: 0 20px;
+}
 
-        .search-box button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
+.stat-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 12px 16px;
+    border-right: 1px solid var(--kpmg-gray-200);
+}
+
+.stat-item:last-child {
+    border-right: none;
+}
+
+.stat-value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--kpmg-gray-800);
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--kpmg-gray-400);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-value.green { color: var(--kpmg-green); }
+.stat-value.red { color: var(--kpmg-red); }
+.stat-value.amber { color: var(--kpmg-amber); }
+.stat-value.blue { color: var(--kpmg-blue); }
+
+/* ═══════════════════════
+   TOOLBAR
+   ═══════════════════════ */
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 32px;
+    margin: 0 20px;
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+}
+
+.search-input-wrapper {
+    flex: 1;
+    position: relative;
+}
+
+.search-input-wrapper svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: var(--kpmg-gray-400);
+}
+
+.search-input {
+    width: 100%;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 4px;
+    padding: 8px 12px 8px 36px;
+    font-size: 0.82rem;
+    color: var(--kpmg-gray-800);
+    transition: border-color 0.2s;
+    outline: none;
+}
+
+.search-input:focus {
+    border-color: var(--kpmg-blue);
+    box-shadow: 0 0 0 2px rgba(0, 51, 141, 0.08);
+}
+
+.search-input::placeholder {
+    color: var(--kpmg-gray-400);
+}
+
+.result-count {
+    font-size: 0.72rem;
+    color: var(--kpmg-gray-400);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* ═══════════════════════
+   TABLE
+   ═══════════════════════ */
+.table-wrapper {
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+    margin: 0 20px;
+    border-radius: 0 0 6px 6px;
+    overflow-x: auto;
+}
+
+.controls-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.controls-table thead th {
+    background: var(--kpmg-gray-50);
+    color: var(--kpmg-gray-600);
+    font-weight: 700;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--kpmg-gray-200);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.controls-table thead th:first-child {
+    min-width: 180px;
+}
+
+.controls-table tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--kpmg-gray-100);
+    vertical-align: middle;
+    color: var(--kpmg-gray-800);
+}
+
+.controls-table tbody tr {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.controls-table tbody tr:hover {
+    background: var(--kpmg-gray-50);
+}
+
+.controls-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Control ID */
+.control-id-text {
+    font-weight: 700;
+    color: var(--kpmg-blue);
+    font-size: 0.8rem;
+    letter-spacing: 0.2px;
+}
+
+/* User display */
+.user-badge {
+    font-size: 0.78rem;
+    color: var(--kpmg-gray-700);
+}
+
+.user-placeholder {
+    color: var(--kpmg-gray-400);
+    font-size: 0.78rem;
+}
+
+/* ═══════════════════════
+   STATUS BADGES
+   ═══════════════════════ */
+.status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.status-draft {
+    background: var(--kpmg-gray-100);
+    color: var(--kpmg-gray-600);
+    border: 1px solid var(--kpmg-gray-200);
+}
+
+.status-progress {
+    background: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffe0b2;
+}
+
+.status-review {
+    background: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+
+.status-soqm {
+    background: #f3e5f5;
+    color: #7b1fa2;
+    border: 1px solid #e1bee7;
+}
+
+.status-po {
+    background: #ede7f6;
+    color: #4527a0;
+    border: 1px solid #d1c4e9;
+}
+
+.status-completed {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+
+.status-overdue {
+    background: #ffebee;
+    color: var(--kpmg-red);
+    border: 1px solid #ffcdd2;
+}
+
+/* Category badges */
+.cat-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.cat-enhanced {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+
+.cat-existing {
+    background: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+
+.cat-new {
+    background: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffe0b2;
+}
+
+.cat-default {
+    background: var(--kpmg-gray-100);
+    color: var(--kpmg-gray-600);
+    border: 1px solid var(--kpmg-gray-200);
+}
+
+/* ═══════════════════════
+   EMPTY STATE
+   ═══════════════════════ */
+.empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--kpmg-gray-400);
+}
+
+.empty-state-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 12px;
+    color: var(--kpmg-gray-300);
+}
+
+.empty-state-text {
+    font-size: 0.84rem;
+    font-weight: 500;
+}
+
+/* ═══════════════════════
+   BREADCRUMB
+   ═══════════════════════ */
+.page-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 32px;
+    margin: 0 20px;
+    font-size: 0.76rem;
+    color: var(--kpmg-gray-400);
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+}
+
+.page-breadcrumb a {
+    color: var(--kpmg-blue);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.page-breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.page-breadcrumb .separator {
+    color: var(--kpmg-gray-300);
+}
+
+/* ═══════════════════════
+   SUCCESS ALERT
+   ═══════════════════════ */
+.compact-alert {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    min-width: 280px;
+    max-width: 380px;
+    z-index: 9999;
+    border-radius: 4px;
+    border: none;
+    padding: 12px 16px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    background: var(--kpmg-green);
+    color: var(--kpmg-white);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.compact-alert .btn-close {
+    filter: invert(1);
+}
     </style>
 </head>
 <body>
-<!-- Success Alert (скрытый по умолчанию) -->
-<div class="alert alert-success alert-dismissible fade show compact-alert"
+
+<!-- Success Alert -->
+<div class="compact-alert alert-dismissible fade show"
      id="successAlert" style="display: none;">
     <div class="d-flex align-items-center">
         <div class="flex-grow-1">
@@ -132,139 +458,158 @@
     </div>
 </div>
 
-<div class="container-fluid full-screen-container p-0">
-    <!-- Header с навигацией -->
-    <!-- Main Content -->
-    <div class="container-fluid p-3">
-        <!-- Component Header -->
-        <div class="component-header">
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <div>
-                    <h4 class="mb-1" style="font-size: 1.1rem;" th:text="'Controls - ' + ${currentComponent}">Controls - HR</h4>
-                    <h6 class="mb-0" style="font-size: 0.9rem;">Component Controls Overview</h6>
-                </div>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-light btn-sm" onclick="history.back()">
-                        <i class="bi bi-arrow-left me-1"></i>Back
-                    </button>
-                    <a href="/" class="btn btn-light btn-sm">
-                        <i class="bi bi-house-door me-1"></i>Home
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Controls Table -->
-        <div class="card">
-            <div class="card-body p-3">
-                <!-- Search Box -->
-                <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="Search controls (ID, Type, Facilitator...)" />
-                    <button onclick="filterTable()">Search</button>
-                </div>
-
-                <table class="table table-striped table-hover control-table" style="margin-bottom: 0;" id="controlsTable">
-                    <thead>
-                    <tr>
-                        <th>CONTROL ID</th>
-                        <th>Control Type</th>
-                        <th>Control Frequency</th>
-                        <th>Facilitator / Preparer (s)</th>
-                        <th>Control Operator</th>
-                        <th>SoQM Lead / Delegate</th>
-                        <th>Process Owner</th>
-                        <th>Control Category</th>
-                        <th>Control Operation Date</th>
-                        <th>Performance Status</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr th:each="control : ${controls}"
-                        class="clickable-row"
-                        th:data-control-id="${control.id}"
-                        th:onclick="|window.location.href=${control.goToPerformanceCycle} ? '/performance-cycle/' + ${control.id} : '/performance/' + ${control.id}|">
-
-                        <!-- CONTROL ID -->
-                        <td>
-                            <strong class="control-id-display" th:text="${control.controlId}">CTRL-2025-001</strong>
-                        </td>
-
-                        <!-- Control Type -->
-                        <td th:text="${control.controlType}">Manual</td>
-
-                        <!-- Control Frequency -->
-                        <td th:text="${control.controlFrequency}">Monthly</td>
-
-                        <!-- Facilitator / Preparer (s) -->
-                        <td>
-                            <span class="facilitator-display" th:data-control-id="${control.id}">-</span>
-                        </td>
-
-                        <!-- Control Operator -->
-                        <td>
-                            <span class="control-operator-display" th:data-control-id="${control.id}">-</span>
-                        </td>
-
-                        <!-- SoQM Lead / Delegate -->
-                        <td>
-                            <span class="soqm-lead-display" th:data-control-id="${control.id}">-</span>
-                        </td>
-
-                        <!-- Process Owner -->
-                        <td>
-                            <span class="process-owner-display" th:data-control-id="${control.id}">-</span>
-                        </td>
-
-                        <!-- Control Category -->
-                        <td>
-                            <th:block th:switch="${control.controlCategory}">
-                                <span th:case="'New'" class="badge bg-primary" th:text="${control.controlCategory}">New</span>
-                                <span th:case="'Enhanced'" class="badge bg-warning" th:text="${control.controlCategory}">Enhanced</span>
-                                <span th:case="'Existing'" class="badge bg-success" th:text="${control.controlCategory}">Existing</span>
-                                <span th:case="*" class="badge bg-secondary" th:text="${control.controlCategory}">Other</span>
-                            </th:block>
-                        </td>
-
-                        <!-- Control Operation Date -->
-                        <td>
-                            <span th:if="${control.deadline != null}" th:text="${#temporals.format(control.deadline, 'dd.MM.yyyy')}">25.12.2025</span>
-                            <span th:if="${control.deadline == null}" th:text="${control.controlOperationDate != null} ? ${#temporals.format(control.controlOperationDate, 'dd.MM.yyyy')} : '-'">-</span>
-                        </td>
-
-                        <!-- Performance Status -->
-                        <td>
-                            <span th:switch="${control.performanceStatus}">
-                                <span th:case="'COMPLETED'" class="badge bg-success" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                <span th:case="'IN_PROGRESS'" class="badge bg-warning" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                <span th:case="'REVIEW'" class="badge bg-primary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                <span th:case="'SOQM_HEAD_REVIEW'" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                <span th:case="'PROCESS_OWNER_REVIEW'" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                <span th:case="*" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus) ?: 'Draft'}">Draft</span>
-                            </span>
-                        </td>
-                    </tr>
-                    <tr th:if="${#lists.isEmpty(controls)}">
-                        <td colspan="10" class="text-center text-muted py-4">
-                            No controls found for this component.
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <!-- <div class="text-center mt-5 pt-4 border-top">
-            <small class="text-muted">Registered to</small><br>
-            <small><strong>KPMG Kazakhstan</strong></small><br>
-            <small><strong>QTracker Version 2025</strong></small>
-        </div> -->
+<!-- ═══════ PAGE HEADER ═══════ -->
+<div class="page-header">
+    <div>
+        <h1 th:text="'Controls — ' + ${currentComponent}">Controls — All</h1>
+        <div class="subtitle">Component Controls Overview</div>
     </div>
+    <div class="header-actions">
+        <button type="button" class="btn-header btn-header-outline" onclick="history.back()">← Back</button>
+        <a href="/" class="btn-header btn-header-solid">Home</a>
+    </div>
+</div>
+
+<!-- ═══════ BREADCRUMB ═══════ -->
+<nav class="page-breadcrumb">
+    <a href="/#action-centre">Action Centre</a>
+    <span class="separator">/</span>
+    <span th:text="${currentComponent}">All</span>
+</nav>
+
+<!-- ═══════ STATS BAR ═══════ -->
+<div class="stats-bar" id="statsBar">
+    <div class="stat-item">
+        <div class="stat-value" id="totalCount">—</div>
+        <div class="stat-label">Total</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value blue" id="activeCount">—</div>
+        <div class="stat-label">Active</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value green" id="completedCount">—</div>
+        <div class="stat-label">Completed</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value red" id="overdueCount">—</div>
+        <div class="stat-label">Overdue</div>
+    </div>
+</div>
+
+<!-- ═══════ TOOLBAR ═══════ -->
+<div class="toolbar">
+    <div class="search-input-wrapper">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input type="text" class="search-input" id="searchInput"
+               placeholder="Search controls (ID, Type, Facilitator...)">
+    </div>
+    <span class="result-count" id="resultCount"></span>
+</div>
+
+<!-- ═══════ TABLE ═══════ -->
+<div class="table-wrapper">
+    <table class="controls-table" id="controlsTable">
+        <thead>
+            <tr>
+                <th>Control ID</th>
+                <th>Control Type</th>
+                <th>Frequency</th>
+                <th>Facilitator / Preparer(s)</th>
+                <th>Control Operator</th>
+                <th>SoQM Lead / Delegate</th>
+                <th>Process Owner</th>
+                <th>Category</th>
+                <th>Operation Date</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="control : ${controls}"
+                th:data-control-id="${control.id}"
+                th:onclick="|window.location.href=${control.goToPerformanceCycle} ? '/performance-cycle/' + ${control.id} : '/performance/' + ${control.id}|">
+
+                <!-- CONTROL ID -->
+                <td>
+                    <span class="control-id-text" th:text="${control.controlId}">CTRL-001</span>
+                </td>
+
+                <!-- Control Type -->
+                <td th:text="${control.controlType}">Manual</td>
+
+                <!-- Frequency -->
+                <td th:text="${control.controlFrequency}">Monthly</td>
+
+                <!-- Facilitator / Preparer(s) -->
+                <td>
+                    <span class="user-placeholder facilitator-display" th:data-control-id="${control.id}">-</span>
+                </td>
+
+                <!-- Control Operator -->
+                <td>
+                    <span class="user-placeholder control-operator-display" th:data-control-id="${control.id}">-</span>
+                </td>
+
+                <!-- SoQM Lead / Delegate -->
+                <td>
+                    <span class="user-placeholder soqm-lead-display" th:data-control-id="${control.id}">-</span>
+                </td>
+
+                <!-- Process Owner -->
+                <td>
+                    <span class="user-placeholder process-owner-display" th:data-control-id="${control.id}">-</span>
+                </td>
+
+                <!-- Category -->
+                <td>
+                    <th:block th:switch="${control.controlCategory}">
+                        <span th:case="'New'" class="cat-badge cat-new" th:text="${control.controlCategory}">New</span>
+                        <span th:case="'Enhanced'" class="cat-badge cat-enhanced" th:text="${control.controlCategory}">Enhanced</span>
+                        <span th:case="'Existing'" class="cat-badge cat-existing" th:text="${control.controlCategory}">Existing</span>
+                        <span th:case="*" class="cat-badge cat-default" th:text="${control.controlCategory}">—</span>
+                    </th:block>
+                </td>
+
+                <!-- Operation Date -->
+                <td>
+                    <span th:if="${control.deadline != null}" th:text="${#temporals.format(control.deadline, 'dd.MM.yyyy')}">25.12.2025</span>
+                    <span th:if="${control.deadline == null}" th:text="${control.controlOperationDate != null} ? ${#temporals.format(control.controlOperationDate, 'dd.MM.yyyy')} : '—'">—</span>
+                </td>
+
+                <!-- Performance Status -->
+                <td>
+                    <span th:switch="${control.performanceStatus}">
+                        <span th:case="'COMPLETED'" class="status-badge status-completed" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                        <span th:case="'IN_PROGRESS'" class="status-badge status-progress" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                        <span th:case="'REVIEW'" class="status-badge status-review" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                        <span th:case="'SOQM_HEAD_REVIEW'" class="status-badge status-soqm" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                        <span th:case="'PROCESS_OWNER_REVIEW'" class="status-badge status-po" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                        <span th:case="*" class="status-badge status-draft" th:text="${@statusDisplayMapper.display(control.performanceStatus) ?: 'Draft'}">Draft</span>
+                    </span>
+                </td>
+            </tr>
+
+            <!-- Empty State -->
+            <tr th:if="${#lists.isEmpty(controls)}" class="empty-row">
+                <td colspan="10" style="border: none; padding: 0;">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                            </svg>
+                        </div>
+                        <div class="empty-state-text">No controls found for this component</div>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // Load assignment data for each control on page load
     document.addEventListener('DOMContentLoaded', async function() {
         sessionStorage.setItem('returnToComponent', window.location.href);
         sessionStorage.setItem('returnToPath', window.location.pathname);
@@ -273,137 +618,115 @@
 
         if (urlParams.get('success') === 'true') {
             showSuccessAlert('Control created successfully!');
-            const newUrl = window.location.pathname;
-            window.history.replaceState({}, '', newUrl);
+            window.history.replaceState({}, '', window.location.pathname);
         }
 
         if (urlParams.get('updated') === 'true') {
             showSuccessAlert('Control updated successfully!');
-            const newUrl = window.location.pathname;
-            window.history.replaceState({}, '', newUrl);
+            window.history.replaceState({}, '', window.location.pathname);
         }
 
         // Load assignment data for each control
         const rows = document.querySelectorAll('[data-control-id]');
         for (const row of rows) {
             const controlId = row.getAttribute('data-control-id');
-            await loadAssignmentDataForComponent(controlId);
+            await loadAssignmentData(controlId);
         }
+
+        // Calculate stats
+        calculateStats();
     });
 
-    async function loadAssignmentDataForComponent(controlId) {
+    // ── Load assignment data ──
+    async function loadAssignmentData(controlId) {
         try {
             const response = await fetch('/api/control-assignment?controlId=' + controlId);
-            if (response.ok) {
-                const data = await response.json();
-                
-                // Display Facilitator
-                const facDisplay = document.querySelector(`.facilitator-display[data-control-id="${controlId}"]`);
-                if (facDisplay && data.facilitator && data.facilitator.length > 0) {
-                    facDisplay.textContent = data.facilitator.join(', ');
-                    facDisplay.className = 'user-badge';
-                }
+            if (!response.ok) return;
+            const data = await response.json();
 
-                // Display Control Operator
-                const opDisplay = document.querySelector(`.control-operator-display[data-control-id="${controlId}"]`);
-                if (opDisplay && data.controlOperator && data.controlOperator.length > 0) {
-                    opDisplay.textContent = data.controlOperator.join(', ');
-                    opDisplay.className = 'user-badge';
+            const set = (cls, field) => {
+                const el = document.querySelector(`.${cls}[data-control-id="${controlId}"]`);
+                if (el && data[field] && data[field].length > 0) {
+                    el.textContent = data[field].join(', ');
+                    el.className = `user-badge ${cls}`;
+                    el.setAttribute('data-control-id', controlId);
                 }
+            };
 
-                // Display Process Owner
-                const ownerDisplay = document.querySelector(`.process-owner-display[data-control-id="${controlId}"]`);
-                if (ownerDisplay && data.processOwner && data.processOwner.length > 0) {
-                    ownerDisplay.textContent = data.processOwner.join(', ');
-                    ownerDisplay.className = 'user-badge';
-                }
-
-                // Display SoQM Lead
-                const soqmDisplay = document.querySelector(`.soqm-lead-display[data-control-id="${controlId}"]`);
-                if (soqmDisplay && data.soqmLead && data.soqmLead.length > 0) {
-                    soqmDisplay.textContent = data.soqmLead.join(', ');
-                    soqmDisplay.className = 'user-badge';
-                }
-            }
-        } catch (error) {
-            console.error('Error loading assignment data for control ' + controlId, error);
+            set('facilitator-display', 'facilitator');
+            set('control-operator-display', 'controlOperator');
+            set('soqm-lead-display', 'soqmLead');
+            set('process-owner-display', 'processOwner');
+        } catch (err) {
+            console.error('Error loading assignment for ' + controlId, err);
         }
     }
 
-    // Filter table rows by CONTROL ID
-    function filterControls() {
-        const input = document.getElementById('controlSearchInput');
-        const query = (input?.value || '').trim().toUpperCase();
-        const rows = document.querySelectorAll('[data-control-id]');
+    // ── Calculate stats ──
+    function calculateStats() {
+        const rows = document.querySelectorAll('#controlsTable tbody tr:not(.empty-row)');
+        let total = 0, completed = 0, overdue = 0;
 
         rows.forEach(row => {
-            const idCell = row.querySelector('.control-id-display');
-            const idText = idCell ? idCell.textContent.toUpperCase() : '';
-            row.style.display = !query || idText.includes(query) ? '' : 'none';
+            total++;
+            const statusBadge = row.querySelector('.status-badge');
+            if (statusBadge) {
+                if (statusBadge.classList.contains('status-completed')) completed++;
+                if (statusBadge.classList.contains('status-overdue')) overdue++;
+            }
         });
+
+        const active = total - completed;
+
+        document.getElementById('totalCount').textContent = total;
+        document.getElementById('activeCount').textContent = active;
+        document.getElementById('completedCount').textContent = completed;
+        document.getElementById('overdueCount').textContent = overdue;
     }
 
-    // Filter table by search input (inline search)
+    // ── Search / Filter ──
     function filterTable() {
-        const searchInput = document.getElementById('searchInput');
-        if (!searchInput) return;
-
-        const query = searchInput.value.trim().toLowerCase();
-        const table = document.getElementById('controlsTable');
-        if (!table) return;
-
-        const rows = table.querySelectorAll('tbody tr');
-        let visibleCount = 0;
+        const query = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+        const rows = document.querySelectorAll('#controlsTable tbody tr:not(.empty-row)');
+        let visible = 0;
 
         rows.forEach(row => {
             const text = row.textContent.toLowerCase();
-            const isMatch = !query || text.includes(query);
-            row.style.display = isMatch ? '' : 'none';
-            if (isMatch) visibleCount++;
+            const match = !query || text.includes(query);
+            row.style.display = match ? '' : 'none';
+            if (match) visible++;
         });
 
-        if (visibleCount === 0 && query) {
-            console.log('No results found');
+        const countEl = document.getElementById('resultCount');
+        if (countEl) {
+            countEl.textContent = query ? `${visible} of ${rows.length}` : '';
         }
     }
 
-    // Live search as you type
     document.addEventListener('DOMContentLoaded', () => {
-        const searchInput = document.getElementById('searchInput');
-        if (searchInput) {
-            searchInput.addEventListener('input', filterTable);
-            searchInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    filterTable();
-                }
-            });
-        }
-
-        const input = document.getElementById('controlSearchInput');
+        const input = document.getElementById('searchInput');
         if (input) {
-            input.addEventListener('input', filterControls);
+            input.addEventListener('input', filterTable);
+            input.addEventListener('keypress', e => {
+                if (e.key === 'Enter') filterTable();
+            });
         }
     });
 
+    // ── Alerts ──
     function showSuccessAlert(message) {
         const alert = document.getElementById('successAlert');
-        const messageElement = document.getElementById('alertMessage');
-
-        if (alert && messageElement) {
-            messageElement.textContent = message;
+        const msg = document.getElementById('alertMessage');
+        if (alert && msg) {
+            msg.textContent = message;
             alert.style.display = 'block';
-
-            setTimeout(() => {
-                alert.style.display = 'none';
-            }, 3000);
+            setTimeout(() => { alert.style.display = 'none'; }, 3000);
         }
     }
 
     function hideSuccessAlert() {
         const alert = document.getElementById('successAlert');
-        if (alert) {
-            alert.style.display = 'none';
-        }
+        if (alert) alert.style.display = 'none';
     }
 </script>
 

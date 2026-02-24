@@ -308,6 +308,35 @@ public class NotificationService {
     }
     
     /**
+     * Send notification when a control is shared with a user
+     */
+    @Transactional
+    public void sendSharedWithNotification(Control control, String recipientEmail, String sharedByDisplayName) {
+        if (control == null || recipientEmail == null || recipientEmail.isBlank()) {
+            return;
+        }
+        String controlName = control.getControlId() != null ? control.getControlId() : "Control";
+        String title = "Control " + controlName + " shared with you";
+        String message = sharedByDisplayName + " shared control " + controlName + " with you (view-only).";
+
+        userRepository.findByMail(recipientEmail).ifPresent(user -> {
+            Notification notif = new Notification();
+            notif.setUserId(user.getId());
+            notif.setControlId(control.getId());
+            notif.setType("CONTROL_SHARED");
+            notif.setTitle(title);
+            notif.setMessage(message);
+            notif.setLink(notificationTemplateService.buildPerformanceCycleLink(control));
+            notif.setIsRead(false);
+            notificationRepository.save(notif);
+            EmailNotificationChannel emailChannel = emailNotificationChannelProvider.getIfAvailable();
+            if (emailChannel != null) {
+                emailChannel.send(recipientEmail, title, message);
+            }
+        });
+    }
+
+    /**
      * Get all notifications for a user
      */
     public List<Notification> getUserNotifications(Long userId) {

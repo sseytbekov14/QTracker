@@ -29,7 +29,6 @@ public class WorkflowController {
     private final IPerformanceService performanceService;
     private final ControlService controlService;
     private final ControlAssignmentService controlAssignmentService;
-    private final WorkflowCommentService workflowCommentService;
     private final WorkflowHistoryRepository workflowHistoryRepository;
     private final NotificationService notificationService;
     private final WorkflowRequiredFieldService requiredFieldService;
@@ -81,31 +80,19 @@ public class WorkflowController {
             }
 
             control.setPerformanceStatus(newStatus);
-            controlService.save(control);
 
-            // Обновляем performance record (без статуса)
-            ControlPerformance performance = performanceService.findByControlId(controlId)
-                    .orElse(new ControlPerformance());
-            performance.setControlId(controlId);
-            performance.setUpdatedAt(LocalDate.now());
-
-            // Если есть комментарий - сохраняем
-            if (comment != null && !comment.trim().isEmpty()) {
-                WorkflowCommentDTO commentDTO = new WorkflowCommentDTO();
-                commentDTO.setControlId(controlId);
-                commentDTO.setComment(comment);
-                commentDTO.setUserEmail(userEmail);
-                commentDTO.setUserName(currentUser.getDisplayName());
-                commentDTO.setStepType(getCurrentStepFromStatus(currentPerformanceStatus));
-                commentDTO.setType(CommentType.GENERAL_COMMENT);
-
-                workflowCommentService.addComment(controlId, commentDTO);
+            // Save return comments to control
+            if (comment != null && !comment.isEmpty()) {
+                if ("RETURN_TO_FACILITATOR".equals(normalizedAction)) {
+                    control.setReturnToFacilitatorComment(comment);
+                } else if ("SEND_BACK_TO_OPERATOR".equals(normalizedAction)) {
+                    control.setReturnToOperatorComment(comment);
+                } else if ("RETURN_TO_SOQM_LEAD".equals(normalizedAction)) {
+                    control.setReturnToSoqmTeamComment(comment);
+                }
             }
 
-            performanceService.savePerformance(
-                    performanceService.convertToDTO(performance, control),
-                    control
-            );
+            controlService.save(control);
 
             // Создаем запись в истории workflow
             createWorkflowHistory(controlId, currentUser, action,
@@ -394,6 +381,9 @@ public class WorkflowController {
 
             // Update control status
             control.setPerformanceStatus("REVIEW");
+            if (comments != null && !comments.isEmpty()) {
+                control.setReturnToOperatorComment(comments);
+            }
             controlService.save(control);
 
             // Create workflow history
@@ -501,6 +491,9 @@ public class WorkflowController {
 
             // Update control status
             control.setPerformanceStatus("SOQM_HEAD_REVIEW");
+            if (comments != null && !comments.isEmpty()) {
+                control.setReturnToSoqmTeamComment(comments);
+            }
             controlService.save(control);
 
             // Create workflow history

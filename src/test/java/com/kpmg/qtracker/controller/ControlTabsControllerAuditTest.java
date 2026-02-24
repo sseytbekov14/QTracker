@@ -8,6 +8,7 @@ import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdhocDay0NotificationService;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.service.AnnualSemiDay0NotificationService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
@@ -65,6 +66,8 @@ class ControlTabsControllerAuditTest {
     private AdhocDay0NotificationService adhocDay0NotificationService;
     @MockBean
     private AnnualSemiDay0NotificationService annualSemiDay0NotificationService;
+    @MockBean
+    private NotificationService notificationService;
 
     @Test
     void saveControlDetails_whenNoChanges_doesNotLogAudit() throws Exception {

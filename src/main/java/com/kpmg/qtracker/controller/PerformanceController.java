@@ -3,7 +3,6 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.dto.PerformanceDTO;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
-import com.kpmg.qtracker.entity.ControlPerformance;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.PerformanceService;
@@ -39,112 +38,51 @@ public class PerformanceController {
                                                  @RequestParam(required = false) String actualOperationDate,
                                                  @RequestParam Long controlId) {
         try {
-            System.out.println("=== AUTO-SAVE PERFORMANCE ===");
-            System.out.println("Control ID: " + controlId);
-            System.out.println("SoQM Year: " + soqmYear);
-            System.out.println("Actual Date from request: '" + actualOperationDate + "'");
-
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found"));
 
-            PerformanceDTO performanceDTO = new PerformanceDTO();
-            performanceDTO.setControlId(controlId);
-            performanceDTO.setSoqmYear(soqmYear);
-
-            if (actualOperationDate != null && !actualOperationDate.trim().isEmpty()) {
-                System.out.println("Attempting to parse date: '" + actualOperationDate + "'");
-                try {
-                    performanceDTO.setActualOperationDate(LocalDate.parse(actualOperationDate));
-                    System.out.println("Parsed as ISO format: " + performanceDTO.getActualOperationDate());
-                } catch (DateTimeParseException e) {
-                    log.warn("Rejected non-ISO actualOperationDate '{}'. Expected yyyy-MM-dd", actualOperationDate);
-                    throw new RuntimeException("Invalid date format: " + actualOperationDate + ". Expected: yyyy-MM-dd");
-                }
-            } else {
-                System.out.println("⚠️ No actualOperationDate provided in request");
+            // Save soqmYear directly to controls table
+            if (soqmYear != null && !soqmYear.trim().isEmpty()) {
+                performanceService.saveSoqmYear(controlId, soqmYear);
             }
-
-            // ★★★ ИСПРАВЛЕННАЯ ЛОГИКА СТАТУСА - use performance_status now
-            String currentStatus = control.getPerformanceStatus();
-            if (currentStatus == null || currentStatus.isEmpty()) {
-                currentStatus = "DRAFT";
-            }
-            System.out.println("📊 Current control status: " + currentStatus);
-
-            boolean hasNewData = (soqmYear != null && !soqmYear.trim().isEmpty()) ||
-                    (actualOperationDate != null && !actualOperationDate.trim().isEmpty());
-
-            // If status is "IN_PROGRESS" and has new data, keep it as "IN_PROGRESS"
-            if ("IN_PROGRESS".equals(currentStatus) && hasNewData) {
-                System.out.println("✅ Status remains: IN_PROGRESS");
-            }
-
-            System.out.println("📊 Final status to save: " + currentStatus);
-
-            // Update performance_status instead of performance_status
-            if (currentStatus != null && !currentStatus.isEmpty()) {
-                control.setPerformanceStatus(currentStatus);
-                controlService.save(control);
-            }
-
-            performanceService.savePerformance(performanceDTO, control);
-
-            System.out.println("✅ Auto-save successful for control ID: " + controlId);
-            System.out.println("📊 Saved control status: " + control.getPerformanceStatus());
-            System.out.println("=== END AUTO-SAVE ===");
 
             return ResponseEntity.ok().build();
         } catch (Exception e) {
-            System.out.println("❌ Error in auto-save: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Error in auto-save: {}", e.getMessage());
             return ResponseEntity.badRequest().body("Error auto-saving: " + e.getMessage());
         }
     }
 
     @GetMapping("/performance-cycle/{controlId}")
     public String performanceCycle(@PathVariable Long controlId, Model model, HttpSession session) {
-        // Проверка авторизации
         User currentUser = (User) session.getAttribute("currentUser");
         if (currentUser == null) {
             return "redirect:/login";
         }
 
         try {
-            // 1. Получаем Control
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found"));
 
-            // 2. Получаем Performance (после инициализации)
-            ControlPerformance performance = performanceService.findByControlId(controlId)
-                    .orElseThrow(() -> new RuntimeException("Performance not initialized"));
-
-            // 3. Получаем Assignment
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
 
-            // 4. Получаем Process Owner из Assignment
             String processOwner = "Not assigned";
             if (assignment.getProcessOwner() != null && !assignment.getProcessOwner().isEmpty()) {
-                List<String> processOwners = assignment.getProcessOwner();
-                // Берем первого process owner
-                String email = processOwners.get(0);
+                String email = assignment.getProcessOwner().get(0);
                 Optional<User> ownerUser = userService.getUserByEmail(email);
                 processOwner = ownerUser.map(User::getDisplayName).orElse(email);
             }
 
-            // 5. Получаем Facilitator из Assignment
             String facilitator = "Not assigned";
             if (assignment.getFacilitator() != null && !assignment.getFacilitator().isEmpty()) {
-                List<String> facilitators = assignment.getFacilitator();
-                String email = facilitators.get(0);
+                String email = assignment.getFacilitator().get(0);
                 Optional<User> facilitatorUser = userService.getUserByEmail(email);
                 facilitator = facilitatorUser.map(User::getDisplayName).orElse(email);
             }
 
-            // 6. Получаем Control Operator из Assignment
             String controlOperator = "Not assigned";
             if (assignment.getControlOperator() != null && !assignment.getControlOperator().isEmpty()) {
-                List<String> operators = assignment.getControlOperator();
-                String email = operators.get(0);
+                String email = assignment.getControlOperator().get(0);
                 Optional<User> operatorUser = userService.getUserByEmail(email);
                 controlOperator = operatorUser.map(User::getDisplayName).orElse(email);
             }
@@ -154,11 +92,11 @@ public class PerformanceController {
             model.addAttribute("controlId", control.getControlId());
             model.addAttribute("control", control);
 
-            model.addAttribute("soqmYear", performance.getSoqmYear());
-            model.addAttribute("initiationDate", performance.getCreatedAt()); // Дата создания performance
+            model.addAttribute("soqmYear", control.getSoqmYear());
+            model.addAttribute("initiationDate", control.getCreatedAt() != null ? control.getCreatedAt().toLocalDate() : null);
             model.addAttribute("operationDate", assignment.getControlOperationDate());
-            model.addAttribute("actualOperationDate", performance.getActualOperationDate());
-            model.addAttribute("performanceStatus", control.getPerformanceStatus()); // Use performance_status
+            model.addAttribute("actualOperationDate", control.getCreatedAt() != null ? control.getCreatedAt().toLocalDate() : null);
+            model.addAttribute("performanceStatus", control.getPerformanceStatus());
             model.addAttribute("facilitator", facilitator);
             model.addAttribute("controlOperator", controlOperator);
             model.addAttribute("processOwner", processOwner);
@@ -168,7 +106,6 @@ public class PerformanceController {
             return "performance-cycle";
 
         } catch (Exception e) {
-            // В случае ошибки возвращаемся на страницу performance
             return "redirect:/performance/" + controlId + "?error=" + e.getMessage();
         }
     }
@@ -179,13 +116,7 @@ public class PerformanceController {
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found"));
 
-            Optional<ControlPerformance> performance = performanceService.findByControlId(controlId);
-
-            PerformanceDTO performanceDTO = performanceService.convertToDTO(
-                    performance.orElse(null),
-                    control
-            );
-
+            PerformanceDTO performanceDTO = performanceService.buildPerformanceDTO(control);
             return ResponseEntity.ok(performanceDTO);
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
@@ -208,10 +139,11 @@ public class PerformanceController {
                 return ResponseEntity.badRequest().body("Facilitator not assigned to this control");
             }
 
-            // Save performance record without status (we only use performance_status now)
-            performanceService.savePerformance(performanceDTO, control);
+            // Save soqmYear to controls
+            if (performanceDTO.getSoqmYear() != null && !performanceDTO.getSoqmYear().trim().isEmpty()) {
+                control.setSoqmYear(performanceDTO.getSoqmYear());
+            }
 
-            // Set control status to "IN_PROGRESS" so it appears in facilitator's My Items
             control.setPerformanceStatus("IN_PROGRESS");
             controlService.save(control);
 
@@ -223,4 +155,3 @@ public class PerformanceController {
         }
     }
 }
-

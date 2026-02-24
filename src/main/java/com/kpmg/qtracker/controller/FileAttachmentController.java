@@ -194,6 +194,71 @@ public class FileAttachmentController {
         }
     }
 
+    /**
+     * Delete a single file from a control's attachment list
+     * DELETE /api/attachments/delete/{controlId}
+     */
+    @DeleteMapping("/delete/{controlId}")
+    public ResponseEntity<Map<String, Object>> deleteFile(
+            @PathVariable Long controlId,
+            @RequestParam("filename") String filename,
+            @RequestParam("type") String type) {
+
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8);
+            Control control = controlService.getControlById(controlId)
+                    .orElseThrow(() -> new RuntimeException("Control not found: " + controlId));
+
+            String currentPath;
+            if ("details".equalsIgnoreCase(type)) {
+                currentPath = control.getAttachmentDetailsPath();
+            } else {
+                currentPath = control.getAttachmentDocumentsPath();
+            }
+
+            if (currentPath == null || currentPath.isBlank()) {
+                response.put("success", false);
+                response.put("message", "No files to delete");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            // Remove the file from the semicolon-separated list
+            String[] files = currentPath.split(";");
+            StringBuilder updated = new StringBuilder();
+            for (String f : files) {
+                if (f.trim().isEmpty()) continue;
+                if (f.trim().equals(decodedFilename.trim())) continue; // skip deleted
+                if (updated.length() > 0) updated.append(";");
+                updated.append(f.trim());
+            }
+
+            String newPath = updated.length() > 0 ? updated.toString() : null;
+            if ("details".equalsIgnoreCase(type)) {
+                control.setAttachmentDetailsPath(newPath);
+            } else {
+                control.setAttachmentDocumentsPath(newPath);
+            }
+            controlService.updateControl(control);
+
+            // Try to delete physical file
+            try {
+                String controlFolder = resolveControlFolder(control);
+                fileStorageService.deleteFile(decodedFilename, controlFolder);
+            } catch (Exception e) {
+                System.out.println("⚠️ Could not delete physical file: " + e.getMessage());
+            }
+
+            response.put("success", true);
+            response.put("message", "File deleted");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
     private int countExistingFiles(String storedList) {
         if (storedList == null || storedList.isBlank()) {
             return 0;

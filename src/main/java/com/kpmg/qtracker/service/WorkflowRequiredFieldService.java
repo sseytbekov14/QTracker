@@ -26,8 +26,8 @@ public class WorkflowRequiredFieldService {
         String status = normalizeStatus(control.getPerformanceStatus());
         ControlDetails details = controlDetailsRepository.findByControlId(control.getId()).orElse(null);
 
-        boolean requiresSteps = ("FACILITATOR".equals(role) && "IN_PROGRESS".equals(status))
-                || ("CONTROL_OPERATOR".equals(role) && "REVIEW".equals(status))
+        boolean requiresSteps = (("FACILITATOR".equals(role) || "CONTROL_OPERATOR".equals(role)) && "IN_PROGRESS".equals(status))
+                || (("CONTROL_OPERATOR".equals(role) || "FACILITATOR".equals(role)) && "REVIEW".equals(status))
                 || ("SOQM_LEAD".equals(role) && "SOQM_HEAD_REVIEW".equals(status));
 
         if (!requiresSteps) {

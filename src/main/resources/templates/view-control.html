@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title th:text="'Control - ' + ${control.controlId}">Control - Sultan</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/style.css?v=6" rel="stylesheet">
-    <link href="/css/view-control.css?v=3.0" rel="stylesheet">
+    <link href="/css/style.css?v=7" rel="stylesheet">
+    <link href="/css/view-control.css?v=7" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
     <style>
         /* Control Operator Program validation styling */
@@ -94,44 +94,37 @@
         
         /* Role-based field restrictions */
         .role-restricted-field:disabled {
-            background-color: #e9ecef !important;
-            color: #6c757d !important;
+            background-color: #f7f8fa !important;
+            color: #5c6478 !important;
             cursor: not-allowed !important;
-            border-color: #dee2e6 !important;
+            border-color: #d8dce5 !important;
             opacity: 1 !important;
         }
         
         .role-restricted-field:disabled::placeholder {
-            color: #adb5bd;
+            color: #9ba3b5;
         }
         
         .role-restricted-field[readonly] {
-            background-color: #e9ecef !important;
-            color: #6c757d !important;
+            background-color: #f7f8fa !important;
+            color: #5c6478 !important;
             cursor: not-allowed !important;
-            border-color: #dee2e6 !important;
+            border-color: #d8dce5 !important;
         }
         
         .role-restricted-field[readonly]::placeholder {
-            color: #adb5bd;
+            color: #9ba3b5;
         }
 
         textarea[name="controlStepsPerformed"][disabled],
         textarea[name="controlStepsPerformed"][readonly] {
-            background-color: #e9ecef !important;
+            background-color: #f7f8fa !important;
         }
         
         .role-restricted-label {
             position: relative;
         }
         
-        .role-restricted-label::after {
-            content: \"🔒 Read-only\";
-            margin-left: 8px;
-            font-size: 12px;
-            color: #6c757d;
-            font-weight: normal;
-        }
         .required-hint {
             color: #dc3545;
             font-size: 0.875rem;
@@ -141,6 +134,98 @@
         .field-required-error {
             border-color: #dc3545 !important;
             box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.15) !important;
+        }
+
+        /* KPMG Upload Zone */
+        .kpmg-upload-zone {
+            border: 2px dashed #d8dce5;
+            border-radius: 8px;
+            background: #f7f8fa;
+            transition: border-color 0.2s, background 0.2s;
+            cursor: pointer;
+        }
+        .kpmg-upload-zone:hover,
+        .kpmg-upload-zone.drag-over {
+            border-color: #00338D;
+            background: #eef2f9;
+        }
+        .kpmg-upload-zone[data-disabled="true"] {
+            opacity: 0.55;
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+        .kpmg-upload-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 16px;
+            position: relative;
+        }
+        .kpmg-upload-text {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #5c6478;
+        }
+        .kpmg-upload-hint {
+            font-size: 0.72rem;
+            color: #9ba3b5;
+            margin-top: 2px;
+        }
+        .kpmg-upload-input {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .kpmg-upload-zone[data-disabled="true"] .kpmg-upload-input {
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+        .kpmg-file-list {
+            font-size: 0.8rem;
+            color: #5c6478;
+            line-height: 1.7;
+        }
+        .kpmg-file-badge {
+            display: inline-flex;
+            align-items: center;
+            margin: 2px 4px 2px 0;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #00338D;
+        }
+        .kpmg-file-badge .badge {
+            font-size: 0.72rem;
+            font-weight: 500;
+            padding: 4px 8px;
+            border-radius: 4px 0 0 4px;
+            background: #00338D !important;
+            color: #fff !important;
+            margin: 0;
+        }
+        .kpmg-file-badge .badge:hover {
+            background: #005EB8 !important;
+        }
+        .kpmg-file-delete {
+            display: none;
+            border: none;
+            background: #c8102e;
+            color: #fff;
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 3px 7px;
+            cursor: pointer;
+            line-height: 1;
+            border-radius: 0 4px 4px 0;
+        }
+        .kpmg-file-delete:hover {
+            background: #a00d24;
+        }
+        .edit-mode-active .kpmg-file-delete {
+            display: inline-block;
         }
     </style>
 </head>
@@ -400,14 +485,22 @@
 
                                 <div class="row">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label">Attachment (Details) - Max 20 files</label>
-                                        <div class="input-group">
-                                            <input type="file" class="form-control" name="attachedFile" id="attachmentDetailsInput" multiple>
-                                            <a id="downloadDetailsBtn" href="#" class="btn btn-outline-info" style="display: none;" download>
-                                                <i class="bi bi-download"></i> Download
-                                            </a>
+                                        <label class="form-label">Attachment (Details)</label>
+                                        <div class="kpmg-upload-zone" id="detailsUploadZone">
+                                            <div class="kpmg-upload-inner">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="#9ba3b5" viewBox="0 0 16 16" class="mb-2">
+                                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.1A1.5 1.5 0 0 0 2.5 14h11a1.5 1.5 0 0 0 1.5-1.5v-2.1a.5.5 0 0 1 1 0v2.1a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5v-2.1a.5.5 0 0 1 .5-.5z"/>
+                                                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                                                </svg>
+                                                <span class="kpmg-upload-text">Choose files or drag & drop</span>
+                                                <span class="kpmg-upload-hint">Up to 50 files</span>
+                                                <input type="file" class="kpmg-upload-input" name="attachedFile" id="attachmentDetailsInput" multiple>
+                                            </div>
                                         </div>
-                                        <small class="text-muted d-block mt-1" id="detailsFileInfo"></small>
+                                        <a id="downloadDetailsBtn" href="#" class="btn btn-outline-info btn-sm mt-1" style="display: none;" download>
+                                            <i class="bi bi-download"></i> Download
+                                        </a>
+                                        <div class="kpmg-file-list mt-2" id="detailsFileInfo"></div>
                                     </div>
                                 </div>
                             </div>
@@ -578,7 +671,7 @@
                                                name="controlOperationDeadline"
                                                id="controlOperationDeadline"
                                                readonly
-                                               style="background-color: #e9ecef; pointer-events: none;">
+                                               style="background-color: #f7f8fa; pointer-events: none;">
                                     </div>
                                     <div class="col-md-4 mb-3">
                                         <label class="form-label">Next Control Operation Date</label>
@@ -587,7 +680,7 @@
                                                name="nextControlOperationDate"
                                                id="nextControlOperationDate"
                                                readonly
-                                               style="background-color: #e9ecef; pointer-events: none;">
+                                               style="background-color: #f7f8fa; pointer-events: none;">
                                     </div>
                                 </div>
                             </div>
@@ -603,14 +696,22 @@
 
                                 <div class="row">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label">Attachment (Documents) - Max 20 files</label>
-                                        <div class="input-group">
-                                            <input type="file" class="form-control" name="attachment" id="attachmentDocumentsInput" multiple>
-                                            <a id="downloadDocumentsBtn" href="#" class="btn btn-outline-info" style="display: none;" download>
-                                                <i class="bi bi-download"></i> Download
-                                            </a>
+                                        <label class="form-label">Attachment (Documents)</label>
+                                        <div class="kpmg-upload-zone" id="documentsUploadZone">
+                                            <div class="kpmg-upload-inner">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="#9ba3b5" viewBox="0 0 16 16" class="mb-2">
+                                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.1A1.5 1.5 0 0 0 2.5 14h11a1.5 1.5 0 0 0 1.5-1.5v-2.1a.5.5 0 0 1 1 0v2.1a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5v-2.1a.5.5 0 0 1 .5-.5z"/>
+                                                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                                                </svg>
+                                                <span class="kpmg-upload-text">Choose files or drag & drop</span>
+                                                <span class="kpmg-upload-hint">Up to 50 files</span>
+                                                <input type="file" class="kpmg-upload-input" name="attachment" id="attachmentDocumentsInput" multiple>
+                                            </div>
                                         </div>
-                                        <small class="text-muted d-block mt-1" id="documentsFileInfo"></small>
+                                        <a id="downloadDocumentsBtn" href="#" class="btn btn-outline-info btn-sm mt-1" style="display: none;" download>
+                                            <i class="bi bi-download"></i> Download
+                                        </a>
+                                        <div class="kpmg-file-list mt-2" id="documentsFileInfo"></div>
                                     </div>
                                 </div>
 
@@ -632,13 +733,13 @@
                 <div class="action-buttons">
                     <div class="d-flex justify-content-between align-items-center">
                         <!-- Левая сторона: Home, Changelog, Rename ID -->
-                        <div>
+                        <div class="d-flex align-items-center gap-2">
                             <a href="/" class="btn btn-outline-secondary">Home</a>
                             <button class="btn btn-outline-secondary" id="changelogBtn">Changelog</button>
-                            <button class="btn btn-outline-secondary" id="renameIdBtn" th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or userRole == 'SOQM_LEAD')}">Rename ID</button>
+                            <button class="btn btn-outline-secondary" id="renameIdBtn" th:if="${userRole == 'SOQM_LEAD'}">Rename ID</button>
                         </div>
 
-                        <!-- Правая сторона: Workflow кнопки + Edit + Back -->
+                        <!-- Правая сторона: Workflow кнопки + Back + Edit -->
                         <div class="d-flex align-items-center gap-2">
                             <!-- Workflow кнопки (будут показываться динамически) -->
                             <div id="workflow-buttons-container" class="d-inline-flex align-items-center gap-2">
@@ -675,6 +776,7 @@
                                         class="btn btn-success workflow-submit-btn soqm-action-btn"
                                         id="submitToProcessOwnerBtn"
                                         style="display: none;"
+                                        disabled
                                         title="Submit this control to Process Owner for review">
                                     Send to Process Owner
                                 </button>
@@ -684,6 +786,7 @@
                                         class="btn btn-warning workflow-submit-btn soqm-action-btn"
                                         id="returnToOperatorBtn"
                                         style="display: none;"
+                                        disabled
                                         title="Return this control to Control Operator for revision">
                                     Return to Operator
                                 </button>
@@ -693,6 +796,7 @@
                                         class="btn btn-success workflow-submit-btn po-action-btn"
                                         id="completeControlBtn"
                                         style="display: none;"
+                                        disabled
                                         data-bs-toggle="modal"
                                         data-bs-target="#completeControlModal"
                                         title="Complete this control">
@@ -704,23 +808,25 @@
                                         class="btn btn-warning workflow-submit-btn po-action-btn"
                                         id="returnToSoqmLeadBtn"
                                         style="display: none;"
+                                        disabled
                                         title="Return this control to SoQM Lead for revision">
                                     Return for SoQM Team Review
                                 </button>
                             </div>
 
-                            <!-- Edit и Back кнопки -->
-                            <button class="btn btn-primary" id="editBtn" th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or userRole == 'SOQM_LEAD')}">Edit</button>
                             <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Back</button>
+                            <button class="btn btn-outline-secondary" id="editBtn" th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or userRole == 'SOQM_LEAD')}">Edit</button>
                         </div>
                     </div>
                 </div>
 
-                <div class="edit-nav-panel mb-4 d-none" id="editNavPanel">
-                    <div class="d-flex justify-content-end gap-2">
-                        <a href="/" class="btn btn-outline-secondary">Home</a>
-                        <button type="button" class="btn btn-primary" id="saveEditBtn">Save</button>
-                        <button type="button" class="btn btn-outline-secondary" id="cancelEditBtn">Cancel</button>
+                <div class="edit-nav-panel d-none" id="editNavPanel">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="/" class="btn btn-outline-secondary" style="border-color:#d8dce5; color:#495057; font-size:0.8rem; font-weight:600;">Home</a>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary" id="cancelEditBtn" style="border-color:#d8dce5; color:#495057; font-size:0.8rem; font-weight:600;">Cancel</button>
+                            <button type="button" class="btn" id="saveEditBtn" style="background:#00338D; border-color:#00338D; color:#fff; font-size:0.8rem; font-weight:600;">Save</button>
+                        </div>
                     </div>
                 </div>
 
@@ -750,22 +856,22 @@
 
                 <div class="modal fade" id="changelogModal" tabindex="-1">
                     <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Control Changelog</h5>
+                        <div class="modal-content" style="border: 1px solid #d8dce5; border-radius: 6px;">
+                            <div class="modal-header" style="border-bottom: 2px solid #00338D; padding: 14px 20px;">
+                                <h5 class="modal-title" style="font-size: 0.95rem; font-weight: 700; color: #2d3340;">Control Changelog</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
-                            <div class="modal-body">
+                            <div class="modal-body" style="padding: 16px 20px;">
                                 <div id="changelogToolbar" class="changelog-toolbar d-none">
                                     <div class="btn-group" role="group" aria-label="Changelog filter">
-                                        <button type="button" class="btn btn-outline-primary active" data-changelog-filter="all" id="changelogFilterAll">All</button>
-                                        <button type="button" class="btn btn-outline-primary" data-changelog-filter="workflow" id="changelogFilterWorkflow">Workflow</button>
-                                        <button type="button" class="btn btn-outline-primary" data-changelog-filter="field" id="changelogFilterField">Field Changes</button>
+                                        <button type="button" class="btn changelog-filter-btn active" data-changelog-filter="all" id="changelogFilterAll">All</button>
+                                        <button type="button" class="btn changelog-filter-btn" data-changelog-filter="workflow" id="changelogFilterWorkflow">Workflow</button>
+                                        <button type="button" class="btn changelog-filter-btn" data-changelog-filter="field" id="changelogFilterField">Field Changes</button>
                                     </div>
-                                    <div class="changelog-count text-muted small" id="changelogCount"></div>
+                                    <div class="changelog-count" id="changelogCount"></div>
                                 </div>
-                                <div id="changelogLoading" class="text-center text-muted py-3">Loading...</div>
-                                <div id="changelogEmpty" class="text-center text-muted py-3" style="display: none;">
+                                <div id="changelogLoading" class="text-center py-3" style="color: #9ba3b5;">Loading...</div>
+                                <div id="changelogEmpty" class="text-center py-3" style="display: none; color: #9ba3b5;">
                                     No history available.
                                 </div>
                                 <div id="changelogList" class="changelog-timeline"></div>
@@ -1079,6 +1185,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (submitToProcessOwnerBtn) {
             submitToProcessOwnerBtn.style.display = 'inline-block';
             console.log('   ✅ Submit to Process Owner button shown for SoQM Lead');
+
+            // Keep buttons disabled until SoQM Head/Team Comments is filled
+            const soqmCommentsField = document.getElementById('soqmHeadComments');
+            if (soqmCommentsField) {
+                const toggleBtns = () => {
+                    const filled = !!soqmCommentsField.value.trim();
+                    submitToProcessOwnerBtn.disabled = !filled;
+                    if (returnToOperatorBtn) returnToOperatorBtn.disabled = !filled;
+                };
+                toggleBtns(); // set initial state based on existing value
+                soqmCommentsField.addEventListener('input', toggleBtns);
+                soqmCommentsField.addEventListener('change', toggleBtns);
+            }
         }
         if (returnToOperatorBtn) {
             returnToOperatorBtn.style.display = 'inline-block';
@@ -1095,6 +1214,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (returnToSoqmLeadBtn) {
             returnToSoqmLeadBtn.style.display = 'inline-block';
             console.log('   ✅ Return to SoQM Lead button shown for Process Owner');
+        }
+
+        // Keep buttons disabled until Process Owner Comments is filled
+        const poCommentsField = document.getElementById('processOwnerComments');
+        if (poCommentsField) {
+            const togglePoBtns = () => {
+                const filled = !!poCommentsField.value.trim();
+                if (completeControlBtn) completeControlBtn.disabled = !filled;
+                if (returnToSoqmLeadBtn) returnToSoqmLeadBtn.disabled = !filled;
+            };
+            togglePoBtns();
+            poCommentsField.addEventListener('input', togglePoBtns);
+            poCommentsField.addEventListener('change', togglePoBtns);
         }
     }
 
@@ -1212,9 +1344,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 field.setAttribute('disabled', 'disabled');
                 field.setAttribute('readonly', 'readonly');
                 field.style.cursor = 'not-allowed';
-                field.style.backgroundColor = '#e9ecef';
-                field.style.color = '#6c757d';
-                field.style.borderColor = '#dee2e6';
+                field.style.backgroundColor = '#f7f8fa';
+                field.style.color = '#5c6478';
+                field.style.borderColor = '#d8dce5';
                 
                 // Add visual indicator to label
                 const label = field.parentElement?.querySelector('.form-label');
@@ -1279,9 +1411,9 @@ document.addEventListener('DOMContentLoaded', function() {
         controlStepsField.setAttribute('disabled', 'disabled');
         controlStepsField.setAttribute('readonly', 'readonly');
         controlStepsField.style.cursor = 'not-allowed';
-        controlStepsField.style.backgroundColor = '#e9ecef';
-        controlStepsField.style.color = '#6c757d';
-        controlStepsField.style.borderColor = '#dee2e6';
+        controlStepsField.style.backgroundColor = '#f7f8fa';
+        controlStepsField.style.color = '#5c6478';
+        controlStepsField.style.borderColor = '#d8dce5';
     }
 
     // Apply restrictions on page load
@@ -1329,17 +1461,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const detailsFileInfo = document.getElementById('detailsFileInfo');
     const documentsFileInfo = document.getElementById('documentsFileInfo');
     
+    // Upload zone elements
+    const detailsZone = document.getElementById('detailsUploadZone');
+    const documentsZone = document.getElementById('documentsUploadZone');
+
     // Initially disable file inputs (read-only mode by default)
-    if (detailsInput) {
-        detailsInput.disabled = true;
-        detailsInput.style.pointerEvents = 'none';
-        detailsInput.style.opacity = '0.6';
+    if (detailsZone) {
+        detailsZone.setAttribute('data-disabled', 'true');
+        if (detailsInput) detailsInput.disabled = true;
     }
-    if (documentsInput) {
-        documentsInput.disabled = true;
-        documentsInput.style.pointerEvents = 'none';
-        documentsInput.style.opacity = '0.6';
+    if (documentsZone) {
+        documentsZone.setAttribute('data-disabled', 'true');
+        if (documentsInput) documentsInput.disabled = true;
     }
+
+    // Drag & drop visual feedback
+    [detailsZone, documentsZone].forEach(zone => {
+        if (!zone) return;
+        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+        zone.addEventListener('drop', () => zone.classList.remove('drag-over'));
+    });
     
     // Load existing attachments on page load
     loadExistingAttachments();
@@ -1458,12 +1600,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     const files = data.attachmentDetailsPath.split(';').filter(f => f.trim());
                     if (files.length > 0) {
                         const fileLinks = files.map(file => {
-                            const filename = file.split('_').slice(2).join('_') || file; // Extract original name
-                            return `<a href="/api/attachments/download/${encodeURIComponent(file)}?controlId=${controlId}" class="badge bg-info text-decoration-none me-1" download><i class="bi bi-download"></i> ${filename}</a>`;
+                            const filename = file.split('_').slice(2).join('_') || file;
+                            return `<span class="kpmg-file-badge"><a href="/api/attachments/download/${encodeURIComponent(file)}?controlId=${controlId}" class="badge text-decoration-none" download>${filename}</a><button type="button" class="kpmg-file-delete" data-file="${encodeURIComponent(file)}" data-type="details" title="Remove file">&times;</button></span>`;
                         }).join(' ');
                         detailsFileInfo.innerHTML = `📎 Files (${files.length}): ${fileLinks}`;
-                        if (downloadDetailsBtn) downloadDetailsBtn.style.display = 'none'; // Hide old button
+                        if (downloadDetailsBtn) downloadDetailsBtn.style.display = 'none';
                     }
+                } else if (detailsFileInfo) {
+                    detailsFileInfo.innerHTML = '';
                 }
                 
                 // Show Documents attachments if exist (semicolon-separated list)
@@ -1471,16 +1615,39 @@ document.addEventListener('DOMContentLoaded', function() {
                     const files = data.attachmentDocumentsPath.split(';').filter(f => f.trim());
                     if (files.length > 0) {
                         const fileLinks = files.map(file => {
-                            const filename = file.split('_').slice(2).join('_') || file; // Extract original name
-                            return `<a href="/api/attachments/download/${encodeURIComponent(file)}?controlId=${controlId}" class="badge bg-info text-decoration-none me-1" download><i class="bi bi-download"></i> ${filename}</a>`;
+                            const filename = file.split('_').slice(2).join('_') || file;
+                            return `<span class="kpmg-file-badge"><a href="/api/attachments/download/${encodeURIComponent(file)}?controlId=${controlId}" class="badge text-decoration-none" download>${filename}</a><button type="button" class="kpmg-file-delete" data-file="${encodeURIComponent(file)}" data-type="documents" title="Remove file">&times;</button></span>`;
                         }).join(' ');
                         documentsFileInfo.innerHTML = `📎 Files (${files.length}): ${fileLinks}`;
-                        if (downloadDocumentsBtn) downloadDocumentsBtn.style.display = 'none'; // Hide old button
+                        if (downloadDocumentsBtn) downloadDocumentsBtn.style.display = 'none';
                     }
+                } else if (documentsFileInfo) {
+                    documentsFileInfo.innerHTML = '';
                 }
             })
             .catch(error => console.warn('⚠️ Could not load attachments:', error));
     }
+
+    // Delete file handler (event delegation)
+    document.addEventListener('click', async function(e) {
+        const btn = e.target.closest('.kpmg-file-delete');
+        if (!btn) return;
+        e.preventDefault();
+        const file = btn.getAttribute('data-file');
+        const type = btn.getAttribute('data-type');
+        try {
+            const resp = await fetch(`/api/attachments/delete/${controlId}?filename=${file}&type=${type}`, { method: 'DELETE' });
+            const data = await resp.json();
+            if (data.success) {
+                loadExistingAttachments();
+            } else {
+                alert(data.message || 'Failed to delete file');
+            }
+        } catch (err) {
+            console.error('Delete error:', err);
+            alert('Failed to delete file');
+        }
+    });
     
     // Expose function globally for Cancel button to call
     window.reloadExistingAttachments = loadExistingAttachments;

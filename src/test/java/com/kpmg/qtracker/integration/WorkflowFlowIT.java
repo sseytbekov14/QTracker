@@ -84,7 +84,6 @@ class WorkflowFlowIT {
         ControlDetails details = new ControlDetails();
         details.setControlId(control.getId());
         details.setControlStepsPerformed("Steps performed");
-        details.setControlOperatorsProgram("Operator program");
         details.setSoqmHeadComments("SoQM comments");
         details.setProcessOwnerComments("Process owner comments");
         controlDetailsRepository.save(details);
@@ -191,10 +190,10 @@ class WorkflowFlowIT {
     }
 
     @Test
-    void submitToSoqmLead_requiresControlOperatorsProgram() throws Exception {
+    void submitToSoqmLead_requiresControlStepsPerformed() throws Exception {
         control.setPerformanceStatus("REVIEW");
         controlRepository.save(control);
-        updateDetails(control.getId(), details -> details.setControlOperatorsProgram(""));
+        updateDetails(control.getId(), details -> details.setControlStepsPerformed(""));
 
         mockMvc.perform(post("/api/workflow/submit-to-soqm-lead")
                         .param("controlId", String.valueOf(control.getId()))

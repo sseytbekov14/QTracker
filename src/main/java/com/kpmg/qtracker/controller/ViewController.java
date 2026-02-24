@@ -3,12 +3,10 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
-import com.kpmg.qtracker.entity.ControlPerformance;
 import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.entity.NotificationRead;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDocumentsRepository;
-import com.kpmg.qtracker.repository.NotificationReadRepository;
+import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.*;
 import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
 import jakarta.servlet.http.HttpSession;
@@ -19,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.kpmg.qtracker.service.WorkflowService;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -38,8 +37,8 @@ public class ViewController {
     private final ControlAssignmentRepository controlAssignmentRepository;
     private final ControlDetailsService controlDetailsService;
     private final ControlDocumentsRepository controlDocumentsRepository;
-    private final NotificationReadRepository notificationReadRepository;
     private final NotificationService notificationService;
+    private final WorkflowHistoryRepository workflowHistoryRepository;
     private final NotificationTypeDisplayMapper notificationTypeDisplayMapper;
 
     private User getCurrentUser(HttpSession session) {
@@ -95,7 +94,8 @@ public class ViewController {
     }
 
     @GetMapping("/performance/{controlId}")
-    public String performanceChecklist(@PathVariable Long controlId, Model model, HttpSession session) {
+    public String performanceChecklist(@PathVariable Long controlId, Model model, HttpSession session,
+                                       RedirectAttributes redirectAttributes) {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
 
@@ -103,6 +103,12 @@ public class ViewController {
 
         Control control = controlService.getControlById(controlId)
                 .orElseThrow(() -> new RuntimeException("Control not found with id: " + controlId));
+
+        if (!canViewControl(controlId, control, currentUser)) {
+            redirectAttributes.addFlashAttribute("accessDeniedMessage",
+                    "Access revoked — you no longer have permission to view this control.");
+            return "redirect:/controls";
+        }
         String performanceStatus = control.getPerformanceStatus();
         if (performanceStatus == null || performanceStatus.isBlank()) {
             performanceStatus = "DRAFT";
@@ -111,56 +117,8 @@ public class ViewController {
         // Получаем данные из Assignment
         ControlAssignmentDTO assignmentDTO = controlAssignmentService.getAssignmentByControlId(controlId);
 
-        // Получаем данные Performance
-        PerformanceDTO performanceDTO = performanceService.findByControlId(controlId)
-                .map(perf -> performanceService.convertToDTO(perf, control))
-                .orElse(performanceService.convertToDTO(null, control));
-
-        // Автозаполняем Control Operator и Facilitator из Assignment если они пустые
-        if (assignmentDTO != null) {
-            if ((performanceDTO.getControlOperator() == null || performanceDTO.getControlOperator().isEmpty())
-                    && assignmentDTO.getControlOperator() != null && !assignmentDTO.getControlOperator().isEmpty()) {
-                performanceDTO.setControlOperator(String.join(", ", assignmentDTO.getControlOperator()));
-            }
-
-            if ((performanceDTO.getFacilitator() == null || performanceDTO.getFacilitator().isEmpty())
-                    && assignmentDTO.getFacilitator() != null && !assignmentDTO.getFacilitator().isEmpty()) {
-                performanceDTO.setFacilitator(String.join(", ", assignmentDTO.getFacilitator()));
-            }
-
-            // Также Control Operation Date
-            if (performanceDTO.getControlOperationDate() == null && assignmentDTO.getControlOperationDate() != null) {
-                performanceDTO.setControlOperationDate(assignmentDTO.getControlOperationDate());
-            }
-
-            // ВАЖНОЕ ИСПРАВЛЕНИЕ: Устанавливаем Assigned To как имя первого Facilitator
-            if (assignmentDTO.getFacilitator() != null && !assignmentDTO.getFacilitator().isEmpty()) {
-                // Получаем первого facilitator из списка
-                String facilitatorEmail = assignmentDTO.getFacilitator().get(0);
-
-                // Находим пользователя по email
-                Optional<User> facilitatorUser = userService.getUserByEmail(facilitatorEmail);
-
-                if (facilitatorUser.isPresent()) {
-                    performanceDTO.setAssignedTo(facilitatorUser.get().getDisplayName());
-                } else {
-                    performanceDTO.setAssignedTo(facilitatorEmail); // показываем email если пользователь не найден
-                }
-            }
-
-            // Дополнительно: если Assigned To все еще пустое, проверяем Control Operator
-            if ((performanceDTO.getAssignedTo() == null || performanceDTO.getAssignedTo().isEmpty() ||
-                    performanceDTO.getAssignedTo().equals("0") || performanceDTO.getAssignedTo().equals("Not assigned"))
-                    && assignmentDTO.getControlOperator() != null && !assignmentDTO.getControlOperator().isEmpty()) {
-                // Берем первого Control Operator
-                String operatorEmail = assignmentDTO.getControlOperator().get(0);
-                Optional<User> operatorUser = userService.getUserByEmail(operatorEmail);
-
-                if (operatorUser.isPresent()) {
-                    performanceDTO.setAssignedTo(operatorUser.get().getDisplayName());
-                }
-            }
-        }
+        // Получаем данные Performance (built from Control + Assignment, no separate table)
+        PerformanceDTO performanceDTO = performanceService.buildPerformanceDTO(control);
 
         // Если Assigned To все еще пустое или "Not assigned", устанавливаем дефолтное значение
         if (performanceDTO.getAssignedTo() == null || performanceDTO.getAssignedTo().isEmpty() ||
@@ -201,8 +159,8 @@ public class ViewController {
         // Use Map for O(1) deduplication instead of stream().anyMatch()
         Map<Long, ControlResponseDTO> controlMap = new LinkedHashMap<>();
 
-        // ★ ADMIN sees ALL controls
-        if ("ADMIN".equals(userRole)) {
+        // ★ ADMIN and SOQM_LEAD see ALL controls
+        if ("ADMIN".equals(userRole) || "SOQM_LEAD".equals(userRole)) {
             List<Control> allControlsList = controlService.getAllControls();
             for (Control control : allControlsList) {
                 ControlResponseDTO dto = controlService.convertToResponseDTO(control);
@@ -215,35 +173,50 @@ public class ViewController {
                 controlMap.put(control.getId(), control);
             }
 
-            // If user is FACILITATOR, also add controls assigned to them (all statuses)
-            if ("FACILITATOR".equals(userRole)) {
+            // Add controls assigned to user as Facilitator
+            {
                 List<ControlResponseDTO> facilitatorControls = controlService.getFacilitatorControlsDTO(userEmail);
                 for (ControlResponseDTO control : facilitatorControls) {
                     controlMap.putIfAbsent(control.getId(), control);
                 }
             }
 
-            // If user is CONTROL_OPERATOR, also add controls assigned to them
-            if ("CONTROL_OPERATOR".equals(userRole)) {
+            // Add controls assigned to user as Control Operator
+            {
                 List<Control> operatorControls = controlService.getControlOperatorControls(userEmail);
                 for (Control control : operatorControls) {
                     controlMap.putIfAbsent(control.getId(), controlService.convertToResponseDTO(control));
                 }
             }
 
-            // If user is PROCESS_OWNER, also add controls assigned to them
-            if ("PROCESS_OWNER".equals(userRole)) {
+            // Add controls assigned to user as Process Owner
+            {
                 List<Control> ownerControls = controlService.getProcessOwnerControls(userEmail);
                 for (Control control : ownerControls) {
                     controlMap.putIfAbsent(control.getId(), controlService.convertToResponseDTO(control));
                 }
             }
 
-            // If user is SOQM_LEAD, also add controls assigned to them
+            // Add controls assigned to user as SoQM Lead
             if ("SOQM_LEAD".equals(userRole)) {
                 List<Control> soqmControls = controlService.getSoqmLeadControls(userEmail);
                 for (Control control : soqmControls) {
                     controlMap.putIfAbsent(control.getId(), controlService.convertToResponseDTO(control));
+                }
+            }
+
+            // Add controls shared with user
+            {
+                List<Control> allControlsForShared = controlService.getAllControls();
+                for (Control control : allControlsForShared) {
+                    if (control == null || control.getId() == null || controlMap.containsKey(control.getId())) {
+                        continue;
+                    }
+                    if (isSharedWithUser(control.getId(), userEmail)) {
+                        ControlResponseDTO dto = controlService.convertToResponseDTO(control);
+                        dto.setSharedViewOnly(true);
+                        controlMap.put(control.getId(), dto);
+                    }
                 }
             }
         }
@@ -266,6 +239,7 @@ public class ViewController {
         int completedControls = 0;
         int overdueControls = 0;
         boolean isAdmin = "ADMIN".equals(userRole);
+        boolean isSoqmRole = "SOQM_LEAD".equals(userRole);
         LocalDate todayAlmaty = LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
         
         for (ControlResponseDTO control : allControls) {
@@ -282,8 +256,8 @@ public class ViewController {
 
             if ("COMPLETED".equals(status)) {
                 completedControls++;
-            } else if (isAdmin) {
-                // ADMIN: все незавершенные контроли считаются активными
+            } else if (isAdmin || isSoqmRole) {
+                // ADMIN and SOQM_LEAD: все незавершенные контроли считаются активными
                 activeControls++;
             } else {
                 boolean isCreator = userEmail.equals(control.getCreatedByEmail());
@@ -317,6 +291,64 @@ public class ViewController {
                 })
                 .limit(5)
                 .collect(Collectors.toList()));
+
+        // ===== ACTION CENTRE DATA =====
+        List<Control> controlsForAction = controlService.getAllControls();
+        Map<String, Long> componentStats = new HashMap<>();
+        String[] allComponentNames = {"HR", "INTR", "M&R", "RAP", "A&C", "I&C", "GOV", "EP", "RER", "TECHR"};
+        for (String c : allComponentNames) {
+            componentStats.put(c, 0L);
+        }
+
+        if ("SOQM_LEAD".equals(userRole)) {
+            for (Control ctrl : controlsForAction) {
+                String comp = ctrl.getComponent();
+                if (comp != null && !comp.trim().isEmpty() && componentStats.containsKey(comp)) {
+                    componentStats.put(comp, componentStats.get(comp) + 1);
+                }
+            }
+            componentStats.put("All", (long) controlsForAction.size());
+        } else {
+            long nonDraftCount = 0L;
+            for (Control ctrl : controlsForAction) {
+                String ctrlStatus = normalizeStatus(ctrl.getPerformanceStatus());
+                if ("DRAFT".equals(ctrlStatus)) continue;
+                // Check if user has access to this control
+                boolean hasAccess = false;
+                String creatorEmail = ctrl.getCreatedBy() != null ? ctrl.getCreatedBy().getMail() : null;
+                if (userEmail.equals(creatorEmail)) hasAccess = true;
+                if (!hasAccess) {
+                    try {
+                        ControlAssignmentDTO asgn = controlAssignmentService.getAssignmentByControlId(ctrl.getId());
+                        if (asgn != null) {
+                            if (asgn.getFacilitator() != null && asgn.getFacilitator().contains(userEmail)) hasAccess = true;
+                            if (asgn.getControlOperator() != null && asgn.getControlOperator().contains(userEmail)) hasAccess = true;
+                            if (asgn.getProcessOwner() != null && asgn.getProcessOwner().contains(userEmail)) hasAccess = true;
+                            if (asgn.getSoqmLead() != null && asgn.getSoqmLead().contains(userEmail)) hasAccess = true;
+                        }
+                    } catch (Exception ignored) {}
+                }
+                if (!hasAccess) continue;
+                nonDraftCount++;
+                String comp = ctrl.getComponent();
+                if (comp != null && !comp.trim().isEmpty() && componentStats.containsKey(comp)) {
+                    componentStats.put(comp, componentStats.get(comp) + 1);
+                }
+            }
+            componentStats.put("All", nonDraftCount);
+        }
+        model.addAttribute("componentStats", componentStats);
+
+        // ===== NOTIFICATIONS DATA =====
+        List<com.kpmg.qtracker.entity.Notification> dbNotifications =
+                notificationService.getUserNotifications(currentUser.getId());
+        List<NotificationItemDTO> notifications = dbNotifications.stream()
+                .filter(notif -> !notificationTypeDisplayMapper.isHiddenType(notif.getType()))
+                .map(this::convertNotificationToDTO)
+                .collect(Collectors.toList());
+        session.setAttribute("cachedNotifications", notifications);
+        List<NotificationGroupDTO> groupedNotifications = groupNotificationsByDate(notifications);
+        model.addAttribute("notificationGroups", groupedNotifications);
 
         return "dashboard";
     }
@@ -416,33 +448,27 @@ public class ViewController {
                 controlMap.put(control.getId(), control);
             }
 
-            // If user is FACILITATOR, also add controls assigned to them (all statuses)
-            if ("FACILITATOR".equals(userRole)) {
+            // Add controls assigned to user as Facilitator
+            {
                 List<ControlResponseDTO> facilitatorControls = controlService.getFacilitatorControlsDTO(userEmail);
                 for (ControlResponseDTO control : facilitatorControls) {
                     controlMap.putIfAbsent(control.getId(), control);
                 }
             }
 
-            // If user is CONTROL_OPERATOR, also add controls assigned to them
-            if ("CONTROL_OPERATOR".equals(userRole)) {
+            // Add controls assigned to user as Control Operator
+            {
                 List<Control> operatorControls = controlService.getControlOperatorControls(userEmail);
                 for (Control control : operatorControls) {
-                    if (!controlMap.containsKey(control.getId())) {
-                        ControlResponseDTO dto = controlService.convertToResponseDTO(control);
-                        controlMap.put(control.getId(), dto);
-                    }
+                    controlMap.putIfAbsent(control.getId(), controlService.convertToResponseDTO(control));
                 }
             }
 
-            // If user is PROCESS_OWNER, also add controls assigned to them
-            if ("PROCESS_OWNER".equals(userRole)) {
+            // Add controls assigned to user as Process Owner
+            {
                 List<Control> ownerControls = controlService.getProcessOwnerControls(userEmail);
                 for (Control control : ownerControls) {
-                    if (!controlMap.containsKey(control.getId())) {
-                        ControlResponseDTO dto = controlService.convertToResponseDTO(control);
-                        controlMap.put(control.getId(), dto);
-                    }
+                    controlMap.putIfAbsent(control.getId(), controlService.convertToResponseDTO(control));
                 }
             }
         }
@@ -650,6 +676,45 @@ public class ViewController {
         return false;
     }
 
+    /**
+     * Unified access check: can this user view the given control?
+     * Allowed if:
+     *  a) ADMIN or SOQM_LEAD role, OR
+     *  b) creator of the control, OR
+     *  c) assigned as facilitator/operator/soqm lead/process owner, OR
+     *  d) present in control_shared_with
+     */
+    private boolean canViewControl(Long controlId, Control control, User user) {
+        String role = user.getRole();
+        String email = user.getMail();
+
+        // (a) System-wide roles
+        if ("ADMIN".equals(role) || "SOQM_LEAD".equals(role)) {
+            return true;
+        }
+
+        // (b) Creator
+        if (control.getCreatedBy() != null && email.equalsIgnoreCase(control.getCreatedBy().getMail())) {
+            return true;
+        }
+
+        // (c) & (d) Check assignment
+        try {
+            ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
+            if (assignment != null) {
+                if (containsEmailNormalized(assignment.getFacilitator(), email)) return true;
+                if (containsEmailNormalized(assignment.getControlOperator(), email)) return true;
+                if (containsEmailNormalized(assignment.getSoqmLead(), email)) return true;
+                if (containsEmailNormalized(assignment.getProcessOwner(), email)) return true;
+                if (containsEmailNormalized(assignment.getControlSharedWith(), email)) return true;
+            }
+        } catch (Exception e) {
+            // assignment not found — deny
+        }
+
+        return false;
+    }
+
     @GetMapping("/notifications")
     public String notifications(Model model, HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
@@ -731,124 +796,7 @@ public class ViewController {
         User currentUser = getCurrentUser(session);
         notificationService.markAllAsRead(currentUser.getId());
 
-        return "redirect:/notifications";
-    }
-
-    private List<NotificationItemDTO> buildNotifications(User currentUser) {
-        List<NotificationItemDTO> notifications = new ArrayList<>();
-
-        String userEmail = currentUser.getMail();
-        String userRole = currentUser.getRole();
-        Long userId = currentUser.getId();
-
-        // Get all read notification IDs for this user
-        List<String> readNotificationIds = notificationReadRepository.findReadNotificationIdsByUserId(userId);
-
-        // Collect related controls similar to /controls
-        Map<Long, Control> relatedControls = new LinkedHashMap<>();
-
-        if ("ADMIN".equals(userRole)) {
-            for (Control c : controlService.getAllControls()) {
-                relatedControls.put(c.getId(), c);
-            }
-        } else {
-            // Created by user
-            for (Control c : controlService.getUserControls(userEmail)) {
-                relatedControls.put(c.getId(), c);
-            }
-
-            // Assigned roles
-            for (Control c : controlService.getControlOperatorControls(userEmail)) {
-                relatedControls.putIfAbsent(c.getId(), c);
-            }
-            for (Control c : controlService.getProcessOwnerControls(userEmail)) {
-                relatedControls.putIfAbsent(c.getId(), c);
-            }
-            for (Control c : controlService.getSoqmLeadControls(userEmail)) {
-                relatedControls.putIfAbsent(c.getId(), c);
-            }
-            // Facilitator controls (DTO -> Control via id lookup)
-            for (ControlResponseDTO dto : controlService.getFacilitatorControlsDTO(userEmail)) {
-                controlService.getControlById(dto.getId()).ifPresent(c -> relatedControls.putIfAbsent(c.getId(), c));
-            }
-        }
-
-        // For each control, generate events
-        for (Control control : relatedControls.values()) {
-            Long cid = control.getId();
-            String controlIdNumber = control.getControlId();
-
-            // Status change (use updatedAt if present)
-            NotificationItemDTO statusItem = new NotificationItemDTO();
-            String statusNotifId = "status-" + cid;
-            statusItem.setId(statusNotifId);
-            statusItem.setType("Status Change");
-            statusItem.setControlId(cid);
-            statusItem.setControlIdNumber(controlIdNumber);
-            statusItem.setComponent(control.getComponent());
-            String statusText = (control.getPerformanceStatus() != null ? control.getPerformanceStatus() : "DRAFT");
-            statusItem.setMessage("Status set to: " + statusText);
-            statusItem.setFullText("The control status has been updated to: " + statusText + "\n\nControl: " + controlIdNumber + "\nComponent: " + control.getComponent());
-            statusItem.setBy(control.getCreatedBy() != null ? control.getCreatedBy().getDisplayName() : "System");
-            statusItem.setTimestamp(control.getUpdatedAt() != null ? control.getUpdatedAt() : control.getCreatedAt());
-            statusItem.setRead(readNotificationIds.contains(statusNotifId));
-            statusItem.setAttachments(new ArrayList<>());
-            applyNotificationDisplay(statusItem);
-            notifications.add(statusItem);
-
-            // Comments (SoQM Head)
-            ControlDetailsDTO details = controlDetailsService.getDetailsByControlId(cid);
-            if (details != null) {
-                if (details.getSoqmHeadComments() != null && !details.getSoqmHeadComments().trim().isEmpty()) {
-                    NotificationItemDTO commentItem = new NotificationItemDTO();
-                    String commentNotifId = "comment-soqm-" + cid;
-                    commentItem.setId(commentNotifId);
-                    commentItem.setType("Comment");
-                    commentItem.setControlId(cid);
-                    commentItem.setControlIdNumber(controlIdNumber);
-                    commentItem.setComponent(control.getComponent());
-                    commentItem.setMessage("SoQM Lead commented: " + details.getSoqmHeadComments());
-                    commentItem.setFullText("SoQM Lead Comment:\n\n" + details.getSoqmHeadComments());
-                    commentItem.setBy("SoQM Lead");
-                    commentItem.setTimestamp(control.getUpdatedAt());
-                    commentItem.setRead(readNotificationIds.contains(commentNotifId));
-                    commentItem.setAttachments(new ArrayList<>());
-                    applyNotificationDisplay(commentItem);
-                    notifications.add(commentItem);
-                }
-                if (details.getProcessOwnerComments() != null && !details.getProcessOwnerComments().trim().isEmpty()) {
-                    NotificationItemDTO commentItem = new NotificationItemDTO();
-                    String commentNotifId = "comment-owner-" + cid;
-                    commentItem.setId(commentNotifId);
-                    commentItem.setType("Comment");
-                    commentItem.setControlId(cid);
-                    commentItem.setControlIdNumber(controlIdNumber);
-                    commentItem.setComponent(control.getComponent());
-                    commentItem.setMessage("Process Owner commented: " + details.getProcessOwnerComments());
-                    commentItem.setFullText("Process Owner Comment:\n\n" + details.getProcessOwnerComments());
-                    commentItem.setBy("Process Owner");
-                    commentItem.setTimestamp(control.getUpdatedAt());
-                    commentItem.setRead(readNotificationIds.contains(commentNotifId));
-                    commentItem.setAttachments(new ArrayList<>());
-                    applyNotificationDisplay(commentItem);
-                    notifications.add(commentItem);
-                }
-            }
-
-            // File uploads (external links removed)
-        }
-
-        // Sort newest first by timestamp
-        notifications.sort((a, b) -> {
-            LocalDateTime ta = a.getTimestamp();
-            LocalDateTime tb = b.getTimestamp();
-            if (ta == null && tb == null) return 0;
-            if (ta == null) return 1;
-            if (tb == null) return -1;
-            return tb.compareTo(ta);
-        });
-
-        return notifications;
+        return "redirect:/#notifications";
     }
 
     private void applyNotificationDisplay(NotificationItemDTO dto) {
@@ -929,47 +877,20 @@ public class ViewController {
                     // SoQM Lead sees ALL controls
                     shouldShow = true;
                     break;
-                case "CONTROL_OPERATOR":
-                    // Show if created OR assigned to them
-                    boolean isAssignedOperator = false;
-                    try {
-                        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
-                        if (assignment != null && assignment.getControlOperator() != null) {
-                            isAssignedOperator = assignment.getControlOperator().contains(userEmail);
-                        }
-                    } catch (Exception e) {
-                        // Assignment not found
-                    }
-                    shouldShow = isCreator || isAssignedOperator;
-                    break;
-                case "PROCESS_OWNER":
-                    // Show if created OR assigned to them
-                    boolean isAssignedOwner = false;
-                    try {
-                        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
-                        if (assignment != null && assignment.getProcessOwner() != null) {
-                            isAssignedOwner = assignment.getProcessOwner().contains(userEmail);
-                        }
-                    } catch (Exception e) {
-                        // Assignment not found
-                    }
-                    shouldShow = isCreator || isAssignedOwner;
-                    break;
-                case "FACILITATOR":
-                    // Show if created OR assigned as facilitator
-                    boolean isFacilitator = false;
-                    try {
-                        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
-                        if (assignment != null && assignment.getFacilitator() != null) {
-                            isFacilitator = assignment.getFacilitator().contains(userEmail);
-                        }
-                    } catch (Exception e) {
-                        // Assignment not found
-                    }
-                    shouldShow = isCreator || isFacilitator;
-                    break;
                 default:
-                    shouldShow = isCreator;
+                    // For all other roles, check assignment-based access
+                    try {
+                        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
+                        if (assignment != null) {
+                            if (assignment.getFacilitator() != null && assignment.getFacilitator().contains(userEmail)) shouldShow = true;
+                            if (assignment.getControlOperator() != null && assignment.getControlOperator().contains(userEmail)) shouldShow = true;
+                            if (assignment.getProcessOwner() != null && assignment.getProcessOwner().contains(userEmail)) shouldShow = true;
+                            if (assignment.getSoqmLead() != null && assignment.getSoqmLead().contains(userEmail)) shouldShow = true;
+                        }
+                    } catch (Exception e) {
+                        // Assignment not found
+                    }
+                    shouldShow = shouldShow || isCreator;
                     break;
             }
 
@@ -994,7 +915,8 @@ public class ViewController {
 
 
     @GetMapping("/view-control/{id}")
-    public String viewControl(@PathVariable Long id, Model model, HttpSession session) {
+    public String viewControl(@PathVariable Long id, Model model, HttpSession session,
+                              RedirectAttributes redirectAttributes) {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
 
@@ -1002,6 +924,12 @@ public class ViewController {
 
         Control control = controlService.getControlById(id)
                 .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
+
+        if (!canViewControl(id, control, currentUser)) {
+            redirectAttributes.addFlashAttribute("accessDeniedMessage",
+                    "Access revoked — you no longer have permission to view this control.");
+            return "redirect:/controls";
+        }
 
         // Use performance_status instead
         String performanceStatus = control.getPerformanceStatus();
@@ -1019,50 +947,48 @@ public class ViewController {
         String userRole = currentUser.getRole();
         boolean isCreator = control.getCreatedBy() != null && control.getCreatedBy().getMail().equals(userEmail);
         boolean isInProgress = "IN_PROGRESS".equals(performanceStatus);
+
+        // Determine roles based on assignment (not just global role)
+        Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(id);
+        ControlAssignment assignment = assignmentOpt.orElse(null);
+
         List<String> facilitators = controlService.getFacilitatorsForControl(id);
         boolean isFacilitator = facilitators != null && facilitators.contains(userEmail);
-        
-        // Check if user is Control Operator for this control
-        boolean isControlOperator = false;
-        if ("CONTROL_OPERATOR".equals(userRole)) {
-            Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(id);
-            if (assignmentOpt.isPresent()) {
-                String operatorField = assignmentOpt.get().getControlOperator();
-                isControlOperator = operatorField != null && operatorField.contains(userEmail);
-            }
-        }
-        
-        // Check if user is SoQM Lead for this control
-        boolean isSoqmLead = false;
-        if ("SOQM_LEAD".equals(userRole)) {
-            Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(id);
-            if (assignmentOpt.isPresent()) {
-                String soqmField = assignmentOpt.get().getSoqmLead();
-                isSoqmLead = soqmField != null && soqmField.contains(userEmail);
-            }
-        }
-        
-        // Check if user is Process Owner for this control
-        boolean isProcessOwner = false;
-        if ("PROCESS_OWNER".equals(userRole)) {
-            Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(id);
-            if (assignmentOpt.isPresent()) {
-                String poField = assignmentOpt.get().getProcessOwner();
-                isProcessOwner = poField != null && poField.contains(userEmail);
-            }
-        }
+
+        boolean isControlOperator = assignment != null
+                && assignment.getControlOperator() != null
+                && assignment.getControlOperator().toLowerCase().contains(userEmail.toLowerCase());
+
+        boolean isSoqmLead = "SOQM_LEAD".equals(userRole)
+                || (assignment != null && assignment.getSoqmLead() != null
+                    && assignment.getSoqmLead().toLowerCase().contains(userEmail.toLowerCase()));
+
+        boolean isProcessOwner = assignment != null
+                && assignment.getProcessOwner() != null
+                && assignment.getProcessOwner().toLowerCase().contains(userEmail.toLowerCase());
         
         // Control Operator can edit when status is "REVIEW"
         boolean isControlOperatorReview = "REVIEW".equals(performanceStatus);
         boolean isSoqmLeadReview = "SOQM_HEAD_REVIEW".equals(performanceStatus);
         boolean isProcessOwnerReview = "PROCESS_OWNER_REVIEW".equals(performanceStatus);
-        
+
+        // Check if user is shared viewer
+        boolean isSharedViewer = false;
+        if (assignment != null) {
+            String sharedField = assignment.getControlSharedWith();
+            isSharedViewer = sharedField != null && sharedField.toLowerCase().contains(userEmail.toLowerCase());
+        }
+
+        // Shared users can edit specific fields when COMPLETED
+        boolean isCompletedShared = isSharedViewer && "COMPLETED".equals(performanceStatus);
+
         boolean canEdit = "SOQM_LEAD".equals(userRole) ||
                 (isCreator && isInProgress) ||
                 (isFacilitator && "IN_PROGRESS".equals(performanceStatus)) ||
                 (isControlOperator && isControlOperatorReview) ||
                 (isSoqmLead && isSoqmLeadReview) ||
-                (isProcessOwner && isProcessOwnerReview);
+                (isProcessOwner && isProcessOwnerReview) ||
+                isCompletedShared;
         boolean readOnly = !canEdit;
 
         model.addAttribute("userName", currentUser.getDisplayName());
@@ -1076,6 +1002,14 @@ public class ViewController {
         model.addAttribute("isControlOperator", isControlOperator);
         model.addAttribute("isSoqmLead", isSoqmLead);
         model.addAttribute("isProcessOwner", isProcessOwner);
+        model.addAttribute("isSharedViewer", isSharedViewer);
+
+        // Check if this shared viewer already submitted from COMPLETED
+        boolean hasSharedSubmitted = false;
+        if (isSharedViewer) {
+            hasSharedSubmitted = workflowHistoryRepository.hasSharedSubmitted(id, userEmail);
+        }
+        model.addAttribute("hasSharedSubmitted", hasSharedSubmitted);
 
         return "view-control";
     }
@@ -1109,7 +1043,8 @@ public class ViewController {
     }
 
     @GetMapping("/edit-control/{id}")
-    public String editControl(@PathVariable Long id, Model model, HttpSession session) {
+    public String editControl(@PathVariable Long id, Model model, HttpSession session,
+                              RedirectAttributes redirectAttributes) {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
 
@@ -1117,6 +1052,12 @@ public class ViewController {
 
         Control control = controlService.getControlById(id)
                 .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
+
+        if (!canViewControl(id, control, currentUser)) {
+            redirectAttributes.addFlashAttribute("accessDeniedMessage",
+                    "Access revoked — you no longer have permission to view this control.");
+            return "redirect:/controls";
+        }
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userTitle", currentUser.getTitle());
@@ -1168,48 +1109,20 @@ public class ViewController {
                     // SoQM Lead sees ALL controls
                     shouldShow = true;
                     break;
-                case "CONTROL_OPERATOR":
-                    // Show if created OR assigned to them
-                    boolean isAssignedOperator = false;
-                    try {
-                        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
-                        if (assignment != null && assignment.getControlOperator() != null) {
-                            isAssignedOperator = assignment.getControlOperator().contains(userEmail);
-                        }
-                    } catch (Exception e) {
-                        // Assignment not found
-                    }
-                    shouldShow = isCreator || isAssignedOperator;
-                    break;
-                case "PROCESS_OWNER":
-                    // Show if created OR assigned to them
-                    boolean isAssignedOwner = false;
-                    try {
-                        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
-                        if (assignment != null && assignment.getProcessOwner() != null) {
-                            isAssignedOwner = assignment.getProcessOwner().contains(userEmail);
-                        }
-                    } catch (Exception e) {
-                        // Assignment not found
-                    }
-                    shouldShow = isCreator || isAssignedOwner;
-                    break;
-                case "FACILITATOR":
-                    // Show if created OR assigned as facilitator
-                    boolean isFacilitator = false;
-                    try {
-                        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
-                        if (assignment != null && assignment.getFacilitator() != null) {
-                            isFacilitator = assignment.getFacilitator().contains(userEmail);
-                        }
-                    } catch (Exception e) {
-                        // Assignment not found
-                    }
-                    shouldShow = isCreator || isFacilitator;
-                    break;
                 default:
-                    // Other roles see only controls they created
-                    shouldShow = isCreator;
+                    // For all other roles, check assignment-based access
+                    try {
+                        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
+                        if (assignment != null) {
+                            if (assignment.getFacilitator() != null && assignment.getFacilitator().contains(userEmail)) shouldShow = true;
+                            if (assignment.getControlOperator() != null && assignment.getControlOperator().contains(userEmail)) shouldShow = true;
+                            if (assignment.getProcessOwner() != null && assignment.getProcessOwner().contains(userEmail)) shouldShow = true;
+                            if (assignment.getSoqmLead() != null && assignment.getSoqmLead().contains(userEmail)) shouldShow = true;
+                        }
+                    } catch (Exception e) {
+                        // Assignment not found
+                    }
+                    shouldShow = shouldShow || isCreator;
                     break;
             }
 
@@ -1281,7 +1194,8 @@ public class ViewController {
     }
 
     @GetMapping("/performance-cycle/{controlId}")
-    public String performanceCycle(@PathVariable Long controlId, Model model, HttpSession session) {
+    public String performanceCycle(@PathVariable Long controlId, Model model, HttpSession session,
+                                   RedirectAttributes redirectAttributes) {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
 
@@ -1292,10 +1206,14 @@ public class ViewController {
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + controlId));
 
-            // 2. Получаем Performance (после инициализации)
-            PerformanceDTO performanceDTO = performanceService.findByControlId(controlId)
-                    .map(perf -> performanceService.convertToDTO(perf, control))
-                    .orElseThrow(() -> new RuntimeException("Performance not initialized"));
+            if (!canViewControl(controlId, control, currentUser)) {
+                redirectAttributes.addFlashAttribute("accessDeniedMessage",
+                        "Access revoked — you no longer have permission to view this control.");
+                return "redirect:/controls";
+            }
+
+            // 2. Получаем Performance DTO (built from Control + Assignment)
+            PerformanceDTO performanceDTO = performanceService.buildPerformanceDTO(control);
 
             // 3. Получаем Assignment
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
@@ -1346,6 +1264,12 @@ public class ViewController {
             model.addAttribute("processOwner", processOwner);
             model.addAttribute("lastUpdatedBy", currentUser.getDisplayName());
             model.addAttribute("lastUpdatedOn", LocalDateTime.now());
+
+            // Check if current user is a shared viewer
+            boolean isShared = assignment.getControlSharedWith() != null
+                    && assignment.getControlSharedWith().stream()
+                        .anyMatch(e -> e != null && e.equalsIgnoreCase(currentUser.getMail()));
+            model.addAttribute("isShared", isShared);
 
             return "performance-cycle";
 

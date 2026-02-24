@@ -98,10 +98,20 @@ public class FileStorageService {
      * Deletes a file from storage
      */
     public void deleteFile(String filename) throws IOException {
+        deleteFile(filename, null);
+    }
+
+    /**
+     * Deletes a file from storage within a control folder
+     */
+    public void deleteFile(String filename, String controlFolder) throws IOException {
         if (filename == null || filename.isEmpty()) {
             return;
         }
-        Path filePath = Paths.get(uploadDir).resolve(filename);
+        String safeFolder = sanitizeFolderName(controlFolder);
+        Path filePath = (safeFolder == null || safeFolder.isBlank())
+                ? Paths.get(uploadDir).resolve(filename)
+                : Paths.get(uploadDir, safeFolder).resolve(filename);
         Files.deleteIfExists(filePath);
         System.out.println("🗑️ File deleted: " + filePath);
     }

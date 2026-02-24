@@ -2,147 +2,358 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>My Controls - QTracker</title>
+    <title>Controls - QTracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=6" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
 
-    <style>/* =========================
+    <style>
 /* =====================
-   BADGES (как в рабочей)
+   KPMG BRAND
    ===================== */
-.badge.bg-danger { background-color: #dc3545 !important; }
-.badge.bg-warning { background-color: #ffc107 !important; color: #000 !important; }
-.badge.bg-success { background-color: #198754 !important; }
-.badge.bg-info { background-color: #0dcaf0 !important; }
-.badge.bg-primary { background-color: #0d6efd !important; }
-.badge.bg-secondary { background-color: #6c757d !important; }
-
-/* =====================
-   CONTROL TABLE (SAFE)
-   ===================== */
-
-.control-table {
-  font-size: 0.82rem;
-    width: 100%;
-    table-layout: auto;   /* ВАЖНО */
+:root {
+    --kpmg-blue: #00338D;
+    --kpmg-blue-light: #005EB8;
+    --kpmg-blue-dark: #002060;
+    --kpmg-gray-50: #f7f8fa;
+    --kpmg-gray-100: #eef0f4;
+    --kpmg-gray-200: #d8dce5;
+    --kpmg-gray-400: #9ba3b5;
+    --kpmg-gray-600: #5c6478;
+    --kpmg-gray-800: #2d3340;
+    --kpmg-white: #ffffff;
+    --kpmg-green: #009a44;
+    --kpmg-red: #c8102e;
+    --kpmg-amber: #d4a843;
 }
 
-.control-table th {
+body { background: var(--kpmg-gray-50); }
+
+/* =====================
+   PAGE HEADER
+   ===================== */
+.page-header {
+    background: var(--kpmg-blue);
+    color: var(--kpmg-white);
+    padding: 20px 24px;
+    border-bottom: 3px solid var(--kpmg-blue-light);
+}
+
+.page-header h1 {
+    font-size: 1.35rem;
     font-weight: 600;
-    background-color: #f8f9fa;
-  padding: 9px 12px;
-    vertical-align: middle;
-    white-space: nowrap;
+    margin: 0;
 }
 
-.control-table td {
-  padding: 9px 12px;
-    vertical-align: middle;
+.page-header .subtitle {
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.65);
+    margin: 2px 0 0 0;
 }
 
-/* НИЧЕГО НЕ ТРОГАЕМ:
-   display, position, table-row и т.д.
-   Bootstrap всё делает правильно */
-
-/* =====================
-   CLICKABLE ROWS
-   ===================== */
-
-
-.clickable-row {
-    position: relative;
-    cursor: pointer;
-    transition: background-color 0.2s ease, box-shadow 0.2s ease;
-    border-bottom: 6px solid #fff;
-}
-
-.clickable-row:hover {
-    background-color: #f8f9fa !important;
-}/* Editable rows: strong blue tint with green accent */
-.clickable-row.editable-row {
-    cursor: pointer;
-    background-color: #d1e7ff !important;
-    border-left: 4px solid #28a745;
-}
-
-.clickable-row.editable-row:hover {
-    background-color: #b3d9ff !important;
-    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.25);
-}
-
-/* View-only rows: strong gray with red accent */
-.clickable-row.view-only-row {
-    cursor: not-allowed;
-    background-color: #e8e8e8 !important;
-    border-left: 4px solid #dc3545;
-    opacity: 0.75;
-}
-
-.clickable-row.view-only-row:hover {
-    background-color: #dcdcdc !important;
-    opacity: 0.85;
-}/* =====================
-   OPTIONAL: STATUS ALIGN
-   ===================== */
-
-.control-table td:last-child {
-    white-space: nowrap;
-}
-
-/* =====================
-   USER LIST (если нужно)
-   ===================== */
-
-.user-list-compact {
-    max-height: 60px;
-    overflow-y: auto;
-    font-size: 0.8rem;
-}
-
-.user-badge {
-    display: inline-block;
-    background: #e9ecef;
-    padding: 2px 6px;
+.page-header .btn-export {
+    background: var(--kpmg-white);
+    color: var(--kpmg-blue);
+    border: none;
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 5px 14px;
     border-radius: 3px;
-    margin: 1px;
-    font-size: 0.75rem;
+}
+
+.page-header .btn-export:hover {
+    background: var(--kpmg-gray-100);
 }
 
 /* =====================
-   FILTER DROPDOWN
+   STATS BAR
    ===================== */
-.form-select {
-    border: 1px solid #dee2e6;
-    border-radius: 0.5rem;
-    padding: 0.5rem 2.5rem 0.5rem 0.75rem;
-    font-size: 0.9rem;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+.stats-bar {
+    display: flex;
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
 }
 
-.form-select:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15);
+.stats-bar .stat-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 0.76rem;
+    color: var(--kpmg-gray-600);
+    border-right: 1px solid var(--kpmg-gray-200);
+}
+
+.stats-bar .stat-item:last-child { border-right: none; }
+
+.stats-bar .stat-num {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.stats-bar .total .stat-num { color: var(--kpmg-blue); }
+.stats-bar .active .stat-num { color: var(--kpmg-amber); }
+.stats-bar .completed .stat-num { color: var(--kpmg-green); }
+.stats-bar .overdue .stat-num { color: var(--kpmg-red); }
+
+/* =====================
+   TOOLBAR
+   ===================== */
+.controls-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+}
+
+.controls-toolbar .form-select,
+.controls-toolbar .form-control {
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 3px;
+    padding: 5px 10px;
+    font-size: 0.78rem;
+    color: var(--kpmg-gray-800);
+}
+
+.controls-toolbar .form-select:focus,
+.controls-toolbar .form-control:focus {
+    border-color: var(--kpmg-blue);
+    box-shadow: 0 0 0 2px rgba(0,51,141,0.1);
     outline: none;
 }
 
-.form-select:hover {
-    border-color: #667eea;
+/* ── Custom Dropdown ── */
+.kpmg-dropdown {
+    position: relative;
+    min-width: 180px;
+    user-select: none;
 }
 
-.form-label {
-    font-size: 0.9rem;
-    color: #495057;
+.kpmg-dropdown-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 12px;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 3px;
+    background: var(--kpmg-white);
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--kpmg-gray-800);
+    transition: border-color 0.15s;
+}
+
+.kpmg-dropdown-toggle:hover {
+    border-color: var(--kpmg-blue);
+}
+
+.kpmg-dropdown.open .kpmg-dropdown-toggle {
+    border-color: var(--kpmg-blue);
+    box-shadow: 0 0 0 2px rgba(0,51,141,0.1);
+}
+
+.kpmg-dropdown-arrow {
+    width: 16px;
+    height: 16px;
+    color: var(--kpmg-gray-400);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+}
+
+.kpmg-dropdown.open .kpmg-dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.kpmg-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0,20,60,0.12);
+    z-index: 100;
+    display: none;
+    padding: 4px 0;
+}
+
+.kpmg-dropdown.open .kpmg-dropdown-menu {
+    display: block;
+}
+
+.kpmg-dropdown-item {
+    padding: 7px 14px;
+    font-size: 0.78rem;
+    color: var(--kpmg-gray-700);
+    cursor: pointer;
+    transition: background 0.1s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.kpmg-dropdown-item:hover {
+    background: var(--kpmg-gray-50);
+    color: var(--kpmg-gray-800);
+}
+
+.kpmg-dropdown-item.active {
+    background: var(--kpmg-blue);
+    color: var(--kpmg-white);
+    font-weight: 600;
+}
+
+.kpmg-dropdown-item.active:hover {
+    background: var(--kpmg-blue-light);
+}
+
+.controls-toolbar .btn-search {
+    background: var(--kpmg-blue);
+    color: var(--kpmg-white);
+    border: none;
+    border-radius: 3px;
+    padding: 5px 12px;
+    font-size: 0.78rem;
     font-weight: 500;
 }
 
+.controls-toolbar .btn-search:hover {
+    background: var(--kpmg-blue-light);
+}
+
+/* =====================
+   TABLE
+   ===================== */
+.table-wrapper {
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+    overflow-x: auto;
+}
+
+.control-table {
+    font-size: 0.78rem;
+    width: 100%;
+    margin: 0;
+    border-collapse: collapse;
+}
+
+.control-table thead th {
+    background: var(--kpmg-gray-50);
+    color: var(--kpmg-gray-600);
+    font-weight: 600;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--kpmg-gray-200);
+    white-space: nowrap;
+    vertical-align: middle;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.control-table tbody td {
+    padding: 9px 14px;
+    vertical-align: middle;
+    color: var(--kpmg-gray-800);
+    border-bottom: 1px solid var(--kpmg-gray-100);
+}
+
+.control-table tbody tr:last-child td { border-bottom: none; }
+
+/* =====================
+   ROW STATES
+   ===================== */
+.clickable-row {
+    cursor: pointer;
+    transition: background 0.1s;
+    border-left: 3px solid transparent;
+}
+
+.clickable-row:hover {
+    background-color: #eef2f9 !important;
+}
+
+.clickable-row.editable-row {
+    background: var(--kpmg-white) !important;
+    border-left: 3px solid var(--kpmg-green);
+}
+
+.clickable-row.editable-row:hover {
+    background: #edf5f0 !important;
+}
+
+.clickable-row.view-only-row {
+    cursor: default;
+    background: var(--kpmg-gray-50) !important;
+    border-left: 3px solid var(--kpmg-gray-200);
+}
+
+.clickable-row.view-only-row:hover {
+    background: var(--kpmg-gray-100) !important;
+}
+
+.clickable-row.completed-row { border-left-color: var(--kpmg-green); }
+.clickable-row.overdue-row { border-left-color: var(--kpmg-red) !important; }
+
+/* =====================
+   CONTROL ID
+   ===================== */
+.control-id-text {
+    font-weight: 600;
+    color: var(--kpmg-blue);
+    font-size: 0.78rem;
+}
+
+/* =====================
+   STATUS BADGES
+   ===================== */
+.badge {
+    font-weight: 500;
+    font-size: 0.67rem;
+    padding: 3px 8px;
+    border-radius: 3px;
+}
+
+.status-draft      { background: var(--kpmg-gray-200); color: var(--kpmg-gray-600); }
+.status-progress   { background: #fff3cd; color: #856404; }
+.status-review     { background: #cce5ff; color: #004085; }
+.status-soqm       { background: #e2d5f1; color: #4a2d7a; }
+.status-po         { background: #d4edda; color: #155724; }
+.status-completed  { background: var(--kpmg-green); color: var(--kpmg-white); }
+.status-overdue    { background: var(--kpmg-red); color: var(--kpmg-white); }
+
+.control-table td:last-child { white-space: nowrap; }
+
+/* =====================
+   EMPTY STATE
+   ===================== */
+.empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--kpmg-gray-400);
+}
+
+.empty-state i { font-size: 2.5rem; display: block; margin-bottom: 8px; }
+.empty-state p { font-size: 0.85rem; margin: 0; }
 </style>
-    <!-- SheetJS will be lazy-loaded on demand to avoid blocking page load -->
 </head>
 <body>
 <div class="container-fluid">
     <div class="row">
+        <!-- Sidebar -->
         <div class="col-md-2 sidebar p-3">
             <div class="sidebar-content">
                 <div class="d-flex align-items-center mb-3">
@@ -156,14 +367,6 @@
                 <hr>
                 <ul class="nav flex-column">
                     <li class="nav-item"><a class="nav-link active" href="/controls">Controls</a></li>
-                  <li class="nav-item">
-                    <a class="nav-link" href="/notifications">
-                      Notifications
-                      <span th:if="${unreadNotifications != null and unreadNotifications > 0}"
-                          class="notif-pill"
-                          th:text="${unreadNotifications}">0</span>
-                    </a>
-                  </li>
                 </ul>
             </div>
             <div class="mt-2">
@@ -177,72 +380,106 @@
             </div>
         </div>
 
+        <!-- Main Content -->
         <div class="col-md-10">
-            <div class="p-4">
-                <!-- Enhanced Header -->
-                <div class="dashboard-header-enhanced mb-4">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h1 class="mb-1">Controls</h1>
-                            <p class="mb-0 text-white-50">View and manage your assigned controls</p>
-                        </div>
-                        <button onclick="exportToExcel()" class="btn btn-light"
-                                th:if="${userRole == 'SOQM_LEAD'}"
-                                th:attr="data-user-email=${userEmail}" id="exportBtn">
-                            <i class="bi bi-download me-1"></i>Export to Excel
-                        </button>
+            <div class="p-3">
+
+                <!-- Access Denied Flash Message -->
+                <div th:if="${accessDeniedMessage}" class="alert alert-warning d-flex align-items-center mb-3" role="alert"
+                     style="border: 1px solid #d4a843; background: #fef9ee; color: #5c4813; font-size: 0.85rem; font-weight: 500; border-radius: 6px; padding: 12px 16px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="#d4a843" class="me-2 flex-shrink-0" viewBox="0 0 16 16">
+                        <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                    </svg>
+                    <span th:text="${accessDeniedMessage}"></span>
+                </div>
+
+                <!-- Page Header -->
+                <div class="page-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1>Controls</h1>
+                        <p class="subtitle">View and manage your assigned controls</p>
+                    </div>
+                    <button onclick="exportToExcel()" class="btn-export"
+                            th:if="${userRole == 'SOQM_LEAD'}"
+                            th:attr="data-user-email=${userEmail}" id="exportBtn">
+                        <i class="bi bi-download me-1"></i>Export to Excel
+                    </button>
+                </div>
+
+                <!-- Stats Bar -->
+                <div class="stats-bar">
+                    <div class="stat-item total">
+                        <span>Total</span>
+                        <span class="stat-num" id="statTotal">0</span>
+                    </div>
+                    <div class="stat-item active">
+                        <span>Active</span>
+                        <span class="stat-num" id="statActive">0</span>
+                    </div>
+                    <div class="stat-item completed">
+                        <span>Completed</span>
+                        <span class="stat-num" id="statCompleted">0</span>
+                    </div>
+                    <div class="stat-item overdue">
+                        <span>Overdue</span>
+                        <span class="stat-num" id="statOverdue">0</span>
                     </div>
                 </div>
 
-                <!-- Filter Dropdown + Search -->
-                <div class="mb-3 d-flex align-items-center gap-2">
-                    <div class="d-flex flex-row w-100 justify-content-between align-items-center">
-                        <div style="min-width:220px;max-width:220px;">
-                            <select id="statusFilter" class="form-select" style="width:100%;">
-                                <option value="" th:selected="${statusFilter == null or statusFilter == ''}">All Controls</option>
-                                <option value="DRAFT" th:selected="${statusFilter == 'DRAFT'}" th:if="${userRole == 'SOQM_LEAD'}">Draft</option>
-                                <option value="IN_PROGRESS" th:selected="${statusFilter == 'IN_PROGRESS'}">In Progress</option>
-                                <option value="REVIEW" th:selected="${statusFilter == 'REVIEW'}">Review</option>
-                                <option value="SOQM_HEAD_REVIEW" th:selected="${statusFilter == 'SOQM_HEAD_REVIEW'}">SoQM Head Review</option>
-                                <option value="PROCESS_OWNER_REVIEW" th:selected="${statusFilter == 'PROCESS_OWNER_REVIEW'}">Process Owner Review</option>
-                                <option value="COMPLETED" th:selected="${statusFilter == 'COMPLETED'}">Completed</option>
-                                <option value="OVERDUE" th:selected="${statusFilter == 'OVERDUE'}">Overdue Controls</option>
-                            </select>
+                <!-- Toolbar -->
+                <div class="controls-toolbar">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="kpmg-dropdown" id="statusDropdown">
+                            <div class="kpmg-dropdown-toggle" id="statusDropdownToggle">
+                                <span id="statusDropdownLabel">All Controls</span>
+                                <svg class="kpmg-dropdown-arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+                            </div>
+                            <div class="kpmg-dropdown-menu" id="statusDropdownMenu">
+                                <div class="kpmg-dropdown-item active" data-value="">All Controls</div>
+                                <div class="kpmg-dropdown-item" data-value="DRAFT" th:if="${userRole == 'SOQM_LEAD'}">Draft</div>
+                                <div class="kpmg-dropdown-item" data-value="IN_PROGRESS">In Progress</div>
+                                <div class="kpmg-dropdown-item" data-value="REVIEW">Review</div>
+                                <div class="kpmg-dropdown-item" data-value="SOQM_HEAD_REVIEW">SoQM Head Review</div>
+                                <div class="kpmg-dropdown-item" data-value="PROCESS_OWNER_REVIEW">Process Owner Review</div>
+                                <div class="kpmg-dropdown-item" data-value="COMPLETED">Completed</div>
+                                <div class="kpmg-dropdown-item" data-value="OVERDUE">Overdue Controls</div>
+                            </div>
                         </div>
-                        <div class="d-flex flex-row ms-auto" style="gap:8px;">
-                            <input type="text" id="controlsSearchInput" class="form-control" style="min-width:220px;max-width:220px;" placeholder="Search...">
-                            <button class="btn btn-primary" id="controlsSearchBtn"><i class="bi bi-search"></i> Search</button>
-                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="text" id="controlsSearchInput" class="form-control" style="min-width:200px;max-width:240px;" placeholder="Search...">
+                        <button class="btn btn-search" id="controlsSearchBtn"><i class="bi bi-search"></i></button>
                     </div>
                 </div>
 
-                <div class="card shadow-sm border-0">
-                    <div class="card-body p-0" style="overflow-x: auto;">
-                        <table class="table table-hover control-table mb-0" style="min-width: 100%;">
-                            <thead>
-                              <tr>
-                                <th style="width: 50px;">№</th>
-                                <th>CONTROL ID</th>
+                <!-- Table -->
+                <div class="table-wrapper">
+                    <table class="table control-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">№</th>
+                                <th style="min-width: 200px;">Control ID</th>
                                 <th>Component</th>
-                                <th>Control Type</th>
-                                <th>Frequency of Control</th>
-                                <th>Control operation date</th>
+                                <th>Type</th>
+                                <th>Frequency</th>
+                                <th>Operation Date</th>
                                 <th>Control Operator</th>
                                 <th>Process Owner</th>
-                                <th>SoQM Head/Delegate</th>
+                                <th>SoQM Head</th>
                                 <th>Deadline</th>
-                                <th>Performance Status</th>
-                              </tr>
-                            </thead>
-                            <tbody>
+                                <th style="min-width: 110px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
                             <tr th:each="control, stat : ${controls}"
-                              class="clickable-row"
-                              th:classappend="${userRole == 'ADMIN' ? ' view-only-row' : (userRole == 'SOQM_LEAD' ? ' editable-row' : (((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (#lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (#lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (#lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (#lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW'))) ? ' editable-row' : ' view-only-row'))} + (${#strings.equals(control.performanceStatus, 'COMPLETED')} ? ' completed-row' : '') + (${control.overdue} ? ' overdue-row' : '')"
-                              th:attr="data-id=${control.id}, data-go-cycle=${control.goToPerformanceCycle}, data-editable=${!control.sharedViewOnly and (userRole == 'ADMIN' ? false : (userRole == 'SOQM_LEAD' ? true : ((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (#lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (#lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (#lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (#lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW')))))}, data-shared=${control.sharedViewOnly}">
-                              <td th:text="${stat.count}">1</td>
+                                class="clickable-row"
+                                th:classappend="${userRole == 'ADMIN' ? ' view-only-row' : (userRole == 'SOQM_LEAD' ? ' editable-row' : (((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (#lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (#lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (#lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (#lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW'))) ? ' editable-row' : ' view-only-row'))} + (${#strings.equals(control.performanceStatus, 'COMPLETED')} ? ' completed-row' : '') + (${control.overdue} ? ' overdue-row' : '')"
+                                th:attr="data-id=${control.id}, data-go-cycle=${control.goToPerformanceCycle}, data-editable=${!control.sharedViewOnly and (userRole == 'ADMIN' ? false : (userRole == 'SOQM_LEAD' ? true : ((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (#lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (#lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (#lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (#lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW')))))}, data-shared=${control.sharedViewOnly}">
+
+                                <td th:text="${stat.count}">1</td>
                                 <td>
-                                    <span th:text="${control.controlId}">CTRL-001</span>
-                                    <span th:if="${control.sharedViewOnly}" class="badge bg-info ms-2">Shared (view-only)</span>
+                                    <span class="control-id-text" th:text="${control.controlId}">CTRL-001</span>
+                                    <span th:if="${control.sharedViewOnly}" class="badge bg-info ms-1" style="font-size:0.6rem;">Shared</span>
                                 </td>
                                 <td th:text="${control.component}">HR</td>
                                 <td th:text="${control.controlType}">Manual</td>
@@ -250,275 +487,196 @@
                                 <td>
                                     <span th:if="${control.controlOperationDate != null}"
                                           th:text="${#temporals.format(control.controlOperationDate, 'dd.MM.yyyy')}">-</span>
-                                    <span th:if="${control.controlOperationDate == null}" class="text-muted">-</span>
+                                    <span th:if="${control.controlOperationDate == null}" class="text-muted">—</span>
                                 </td>
-                                <td th:text="${(control.controlOperatorUsers != null and !#lists.isEmpty(control.controlOperatorUsers)) ? #strings.listJoin(control.controlOperatorUsers.![displayName], ', ') : (control.controlOperators != null ? #strings.listJoin(control.controlOperators, ', ') : '')}">-</td>
-                                <td th:text="${(control.processOwnerUsers != null and !#lists.isEmpty(control.processOwnerUsers)) ? #strings.listJoin(control.processOwnerUsers.![displayName], ', ') : (control.processOwners != null ? #strings.listJoin(control.processOwners, ', ') : '')}">-</td>
-                                <td th:text="${(control.soqmLeadUsers != null and !#lists.isEmpty(control.soqmLeadUsers)) ? #strings.listJoin(control.soqmLeadUsers.![displayName], ', ') : (control.soqmLeads != null ? #strings.listJoin(control.soqmLeads, ', ') : '')}">-</td>
+                                <td th:text="${(control.controlOperatorUsers != null and !#lists.isEmpty(control.controlOperatorUsers)) ? #strings.listJoin(control.controlOperatorUsers.![displayName], ', ') : (control.controlOperators != null ? #strings.listJoin(control.controlOperators, ', ') : '')}">—</td>
+                                <td th:text="${(control.processOwnerUsers != null and !#lists.isEmpty(control.processOwnerUsers)) ? #strings.listJoin(control.processOwnerUsers.![displayName], ', ') : (control.processOwners != null ? #strings.listJoin(control.processOwners, ', ') : '')}">—</td>
+                                <td th:text="${(control.soqmLeadUsers != null and !#lists.isEmpty(control.soqmLeadUsers)) ? #strings.listJoin(control.soqmLeadUsers.![displayName], ', ') : (control.soqmLeads != null ? #strings.listJoin(control.soqmLeads, ', ') : '')}">—</td>
                                 <td>
                                     <span th:if="${control.deadline != null}" th:text="${#temporals.format(control.deadline, 'dd.MM.yyyy')}">-</span>
-                                    <span th:if="${control.deadline == null}" class="text-muted">-</span>
+                                    <span th:if="${control.deadline == null}" class="text-muted">—</span>
                                 </td>
                                 <td>
                                     <span th:switch="${control.performanceStatus}">
-                                        <span th:case="'COMPLETED'" class="badge bg-success" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                        <span th:case="'IN_PROGRESS'" class="badge bg-warning" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                        <span th:case="'REVIEW'" class="badge bg-primary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                        <span th:case="'SOQM_HEAD_REVIEW'" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                        <span th:case="'PROCESS_OWNER_REVIEW'" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                        <span th:case="*" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus) ?: 'Draft'}">Draft</span>
+                                        <span th:case="'COMPLETED'" class="badge status-completed" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="'IN_PROGRESS'" class="badge status-progress" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="'REVIEW'" class="badge status-review" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="'SOQM_HEAD_REVIEW'" class="badge status-soqm" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="'PROCESS_OWNER_REVIEW'" class="badge status-po" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="*" class="badge status-draft" th:text="${@statusDisplayMapper.display(control.performanceStatus) ?: 'Draft'}">Draft</span>
                                     </span>
-                                    <span th:if="${control.overdue}" class="badge bg-danger ms-2">Overdue</span>
+                                    <span th:if="${control.overdue}" class="badge status-overdue ms-1">Overdue</span>
                                 </td>
                             </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                            <tr th:if="${#lists.isEmpty(controls)}">
+                                <td colspan="11">
+                                    <div class="empty-state">
+                                        <i class="bi bi-inbox"></i>
+                                        <p>No controls found</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
+
             </div>
         </div>
     </div>
 </div>
 
 <script>
-// Enable row navigation with view-only mode for non-editable rows
+// Stats
 document.addEventListener('DOMContentLoaded', function() {
-  const rows = document.querySelectorAll('.clickable-row');
-
-  rows.forEach(row => {
-    const isEditable = String(row.getAttribute('data-editable')) === 'true';
-    const isShared = String(row.getAttribute('data-shared')) === 'true';
-    const id = row.getAttribute('data-id');
-    
-    if (isEditable) {
-      row.classList.add('editable-row');
-      row.classList.remove('view-only-row');
-    } else {
-      row.classList.add('view-only-row');
-      row.classList.remove('editable-row');
-    }
-    
-    row.addEventListener('click', function() {
-      if (isShared) {
-        window.location.href = `/view-control/${id}`;
-        return;
-      }
-      if (!isEditable) {
-        window.location.href = `/performance-cycle/${id}`;
-        return;
-      }
-      const goCycle = String(this.getAttribute('data-go-cycle')) === 'true';
-      const url = goCycle ? `/performance-cycle/${id}` : `/performance/${id}`;
-      window.location.href = url;
-    });
-  });
-});
-
-// Search/filter controls table by input (live search)
-document.addEventListener('DOMContentLoaded', function() {
-  const searchBtn = document.getElementById('controlsSearchBtn');
-  const searchInput = document.getElementById('controlsSearchInput');
-  const table = document.querySelector('.control-table');
-  if (!searchBtn || !searchInput || !table) return;
-
-  function normalize(text) {
-    return text.toLowerCase().replace(/\s+/g, '');
-  }
-
-  function doSearch() {
-    const query = normalize(searchInput.value);
-    const rows = table.querySelectorAll('tbody tr');
+    const rows = document.querySelectorAll('.control-table tbody tr.clickable-row');
+    let total = 0, active = 0, completed = 0, overdue = 0;
     rows.forEach(row => {
-      let found = false;
-      row.querySelectorAll('td').forEach(cell => {
-        if (normalize(cell.textContent).includes(query)) {
-          found = true;
-        }
-      });
-      row.style.display = found || !query ? '' : 'none';
+        total++;
+        const badges = row.querySelectorAll('td:last-child .badge');
+        let done = false, late = false;
+        badges.forEach(b => {
+            if (b.classList.contains('status-completed')) done = true;
+            if (b.classList.contains('status-overdue')) late = true;
+        });
+        if (done) completed++; else active++;
+        if (late) overdue++;
     });
-  }
-
-  searchBtn.addEventListener('click', doSearch);
-  searchInput.addEventListener('input', doSearch);
-
-  searchInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') doSearch();
-  });
+    const el = id => document.getElementById(id);
+    if (el('statTotal')) el('statTotal').textContent = total;
+    if (el('statActive')) el('statActive').textContent = active;
+    if (el('statCompleted')) el('statCompleted').textContent = completed;
+    if (el('statOverdue')) el('statOverdue').textContent = overdue;
 });
 
-// Simple bootstrap-styled toast
-function showToast(message, type = 'success', timeout = 2000) {
-  let container = document.getElementById('toast-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'toast-container';
-    container.style.position = 'fixed';
-    container.style.top = '20px';
-    container.style.right = '20px';
-    container.style.zIndex = '1080';
-    container.style.maxWidth = '320px';
-    document.body.appendChild(container);
-  }
+// Row navigation
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.clickable-row').forEach(row => {
+        const isEditable = String(row.getAttribute('data-editable')) === 'true';
+        const isShared = String(row.getAttribute('data-shared')) === 'true';
+        const id = row.getAttribute('data-id');
+        if (isEditable) { row.classList.add('editable-row'); row.classList.remove('view-only-row'); }
+        else { row.classList.add('view-only-row'); row.classList.remove('editable-row'); }
 
-  const alert = document.createElement('div');
-  alert.className = `alert alert-${type} shadow-sm mb-2 fade show`;
-  alert.role = 'alert';
-  alert.style.minWidth = '260px';
-  alert.textContent = message;
-  container.appendChild(alert);
+        row.addEventListener('click', function() {
+            if (isShared || !isEditable) { window.location.href = `/performance-cycle/${id}`; return; }
+            const goCycle = String(this.getAttribute('data-go-cycle')) === 'true';
+            window.location.href = goCycle ? `/performance-cycle/${id}` : `/performance/${id}`;
+        });
+    });
+});
 
-  setTimeout(() => {
-    alert.classList.remove('show');
-    alert.classList.add('hide');
-    setTimeout(() => alert.remove(), 300);
-  }, timeout);
+// Search
+document.addEventListener('DOMContentLoaded', function() {
+    const searchBtn = document.getElementById('controlsSearchBtn');
+    const searchInput = document.getElementById('controlsSearchInput');
+    const table = document.querySelector('.control-table');
+    if (!searchBtn || !searchInput || !table) return;
+    function norm(t) { return t.toLowerCase().replace(/\s+/g, ''); }
+    function doSearch() {
+        const q = norm(searchInput.value);
+        table.querySelectorAll('tbody tr').forEach(row => {
+            let found = false;
+            row.querySelectorAll('td').forEach(c => { if (norm(c.textContent).includes(q)) found = true; });
+            row.style.display = found || !q ? '' : 'none';
+        });
+    }
+    searchBtn.addEventListener('click', doSearch);
+    searchInput.addEventListener('input', doSearch);
+    searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+});
+
+// Toast
+function showToast(msg, type = 'success', ms = 2000) {
+    let c = document.getElementById('toast-container');
+    if (!c) { c = document.createElement('div'); c.id = 'toast-container'; c.style.cssText = 'position:fixed;top:20px;right:20px;z-index:1080;max-width:320px;'; document.body.appendChild(c); }
+    const a = document.createElement('div'); a.className = `alert alert-${type} shadow-sm mb-2 fade show`; a.role = 'alert'; a.style.minWidth = '260px'; a.textContent = msg; c.appendChild(a);
+    setTimeout(() => { a.classList.remove('show'); a.classList.add('hide'); setTimeout(() => a.remove(), 300); }, ms);
 }
 
-// Load SheetJS lazily when needed
+// Excel
 function loadSheetJS() {
-  return new Promise((resolve, reject) => {
-    if (window.XLSX) return resolve();
-    const script = document.createElement('script');
-    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load Excel export module'));
-    document.head.appendChild(script);
-  });
+    return new Promise((ok, fail) => {
+        if (window.XLSX) return ok();
+        const s = document.createElement('script');
+        s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+        s.onload = ok; s.onerror = () => fail(new Error('Failed'));
+        document.head.appendChild(s);
+    });
 }
 
 function exportToExcel() {
-  const btn = document.getElementById('exportBtn');
-  const userEmail = btn ? btn.getAttribute('data-user-email') : null;
-
-  if (!userEmail) {
-    showToast('User email not found. Please login again.', 'danger', 2500);
-    return;
-  }
-
-  btn.disabled = true;
-  btn.innerHTML = 'Loading export...';
-  loadSheetJS()
-    .then(() => {
-      btn.innerHTML = 'Generating...';
-      const table = document.querySelector('.control-table');
-      if (!table) {
-        showToast('Table not found', 'danger', 2500);
-        return;
-      }
-
-      const wb = XLSX.utils.book_new();
-      
-      const headers = [];
-      const headerCells = table.querySelectorAll('thead tr th');
-      headerCells.forEach(th => {
-        headers.push(th.textContent.trim());
-      });
-
-      const data = [headers];
-      const rows = table.querySelectorAll('tbody tr.clickable-row');
-      
-      rows.forEach(row => {
-        const rowData = [];
-        const cells = row.querySelectorAll('td');
-        
-        cells.forEach(cell => {
-          let cellText = '';
-          const badge = cell.querySelector('.badge');
-          if (badge) {
-            cellText = badge.textContent.trim();
-          } else {
-            cellText = cell.textContent.trim();
-          }
-          if (cellText === '-' || cellText === '') {
-            cellText = '-';
-          }
-          rowData.push(cellText);
+    const btn = document.getElementById('exportBtn');
+    const email = btn?.getAttribute('data-user-email');
+    if (!email) { showToast('User email not found.', 'danger'); return; }
+    btn.disabled = true; btn.innerHTML = 'Exporting...';
+    loadSheetJS().then(() => {
+        const table = document.querySelector('.control-table');
+        if (!table) { showToast('Table not found', 'danger'); return; }
+        const wb = XLSX.utils.book_new();
+        const headers = []; table.querySelectorAll('thead th').forEach(th => headers.push(th.textContent.trim()));
+        const data = [headers];
+        table.querySelectorAll('tbody tr.clickable-row').forEach(row => {
+            const rd = [];
+            row.querySelectorAll('td').forEach(cell => {
+                const b = cell.querySelector('.badge');
+                rd.push((b ? b.textContent.trim() : cell.textContent.trim()) || '—');
+            });
+            data.push(rd);
         });
-        data.push(rowData);
-      });
-
-      const ws = XLSX.utils.aoa_to_sheet(data);
-
-      ws['!cols'] = [
-        { wch: 5 },   // №
-        { wch: 20 },  // CONTROL ID
-        { wch: 15 },  // Component
-        { wch: 15 },  // Control Type
-        { wch: 20 },  // Frequency of Control
-        { wch: 18 },  // Control operation date
-        { wch: 25 },  // Control Operator
-        { wch: 25 },  // Process Owner
-        { wch: 25 },  // SoQM Head/Delegate
-        { wch: 12 },  // Deadline
-        { wch: 25 }   // Performance Status
-      ];
-
-      XLSX.utils.book_append_sheet(wb, ws, 'My Controls');
-
-      const today = new Date().toISOString().split('T')[0];
-      const userPart = userEmail.split('@')[0];
-      const filename = `QTracker_${userPart}_${today}.xlsx`;
-      XLSX.writeFile(wb, filename);
-      
-      showToast(`Exported ${data.length - 1} row(s) successfully!`, 'success', 2000);
-    })
-    .catch(() => {
-      showToast('Export module failed to load.', 'danger', 2500);
-    })
-    .finally(() => {
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = 'Export Excel';
-      }
-    });
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        ws['!cols'] = [{ wch: 5 },{ wch: 28 },{ wch: 12 },{ wch: 12 },{ wch: 14 },{ wch: 14 },{ wch: 22 },{ wch: 22 },{ wch: 22 },{ wch: 12 },{ wch: 18 }];
+        XLSX.utils.book_append_sheet(wb, ws, 'Controls');
+        const today = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(wb, `QTracker_${email.split('@')[0]}_${today}.xlsx`);
+        showToast(`Exported ${data.length - 1} row(s)`);
+    }).catch(() => showToast('Export failed.', 'danger'))
+      .finally(() => { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-download me-1"></i>Export to Excel'; }});
 }
 
-// Filter controls table by status dropdown
+// Status filter — custom dropdown
 document.addEventListener('DOMContentLoaded', function() {
-    const filterSelect = document.getElementById('controlsFilter');
-    const statusSelect = document.getElementById('statusFilter');
-    if (!filterSelect && !statusSelect) return;
+    const dropdown = document.getElementById('statusDropdown');
+    const toggle = document.getElementById('statusDropdownToggle');
+    const menu = document.getElementById('statusDropdownMenu');
+    const label = document.getElementById('statusDropdownLabel');
+    if (!dropdown || !toggle || !menu || !label) return;
 
-    const applyFilters = function() {
-      const url = new URL(window.location.href);
-      if (filterSelect) {
-        const scopeValue = filterSelect.value || 'all';
-        if (scopeValue === 'completed') {
-          url.searchParams.set('filter', 'COMPLETED');
-          url.searchParams.set('scope', 'all');
-        } else if (scopeValue === 'overdue') {
-          url.searchParams.set('filter', 'OVERDUE');
-          url.searchParams.set('scope', 'all');
-        } else {
-          url.searchParams.set('scope', 'all');
-          url.searchParams.delete('filter');
-        }
-      }
-      if (statusSelect) {
-        const statusValue = statusSelect.value || '';
-        if (statusValue === 'OVERDUE') {
-          url.searchParams.set('filter', 'OVERDUE');
-          url.searchParams.delete('status');
-        } else if (statusValue) {
-          url.searchParams.set('status', statusValue);
-          url.searchParams.delete('filter');
-        } else {
-          url.searchParams.delete('status');
-          url.searchParams.delete('filter');
-        }
-      } else {
-        url.searchParams.delete('status');
-      }
-      window.location.href = url.toString();
-    };
+    // Set active item from URL
+    const url = new URL(window.location.href);
+    const currentStatus = url.searchParams.get('status') || '';
+    const currentFilter = url.searchParams.get('filter') || '';
+    const activeValue = currentFilter === 'OVERDUE' ? 'OVERDUE' : currentStatus;
 
-    if (filterSelect) {
-      filterSelect.addEventListener('change', applyFilters);
-    }
-    if (statusSelect) {
-      statusSelect.addEventListener('change', applyFilters);
-    }
+    menu.querySelectorAll('.kpmg-dropdown-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.value === activeValue) {
+            item.classList.add('active');
+            label.textContent = item.textContent;
+        }
+    });
+
+    // Toggle open/close
+    toggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        dropdown.classList.toggle('open');
+    });
+
+    // Item click
+    menu.addEventListener('click', function(e) {
+        const item = e.target.closest('.kpmg-dropdown-item');
+        if (!item) return;
+        const v = item.dataset.value;
+        const navUrl = new URL(window.location.href);
+        if (v === 'OVERDUE') { navUrl.searchParams.set('filter', 'OVERDUE'); navUrl.searchParams.delete('status'); }
+        else if (v) { navUrl.searchParams.set('status', v); navUrl.searchParams.delete('filter'); }
+        else { navUrl.searchParams.delete('status'); navUrl.searchParams.delete('filter'); }
+        window.location.href = navUrl.toString();
+    });
+
+    // Close on outside click
+    document.addEventListener('click', function() {
+        dropdown.classList.remove('open');
+    });
 });
 </script>
 </body>

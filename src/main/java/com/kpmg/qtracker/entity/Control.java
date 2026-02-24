@@ -71,6 +71,18 @@ public class Control {
     @Column(name = "attachment_documents_path", length = 500)
     private String attachmentDocumentsPath;
 
+    @Column(name = "soqm_year")
+    private String soqmYear;
+
+    @Column(name = "return_to_facilitator_comment", length = 2000)
+    private String returnToFacilitatorComment;
+
+    @Column(name = "return_to_operator_comment", length = 2000)
+    private String returnToOperatorComment;
+
+    @Column(name = "return_to_soqm_team_comment", length = 2000)
+    private String returnToSoqmTeamComment;
+
     @PrePersist
     @PreUpdate
     private void ensurePerformanceStatus() {

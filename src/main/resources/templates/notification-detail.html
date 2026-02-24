@@ -4,186 +4,475 @@
     <meta charset="UTF-8">
     <title>Notification - QTracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/style.css?v=2" rel="stylesheet">
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%2300338D' rx='15'/%3E%3Ctext x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'%3EQ%3C/text%3E%3C/svg%3E">
+    <link href="/css/style.css?v=7" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
     <style>
-        .notification-detail-card { 
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            border-radius: 0.75rem;
-            overflow: hidden;
-        }
-        .notification-meta { 
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 0;
-        }
-        .notification-body { 
-            white-space: pre-wrap; 
-            line-height: 1.6;
-            font-size: 0.95rem;
-            color: #495057;
-        }
-        .attachment-item { 
-            border: 2px solid #dee2e6;
-            border-radius: 0.5rem;
-            padding: 0.75rem;
-            transition: all 0.3s ease;
-            background: white;
-        }
-        .attachment-item:hover {
-            border-color: #0d6efd;
-            background: #f0f4ff;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(13, 110, 253, 0.15);
-        }
-        .attachment-item a { 
-            text-decoration: none;
-            color: #0d6efd;
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-        .attachment-item a:hover { 
-            color: #0a58ca;
-        }
-        .card-header {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%) !important;
-            border-bottom: 2px solid #e9ecef !important;
-        }
-        .info-label {
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #6c757d;
-        }
-        .info-value {
-            font-size: 0.95rem;
-            font-weight: 600;
-            color: #212529;
-        }
+:root {
+    --kpmg-blue: #00338D;
+    --kpmg-blue-light: #005EB8;
+    --kpmg-blue-dark: #002060;
+    --kpmg-gray-50: #f7f8fa;
+    --kpmg-gray-100: #eef0f4;
+    --kpmg-gray-200: #d8dce5;
+    --kpmg-gray-300: #cdd0d6;
+    --kpmg-gray-400: #9ba3b5;
+    --kpmg-gray-500: #8b90a0;
+    --kpmg-gray-600: #5c6478;
+    --kpmg-gray-700: #495057;
+    --kpmg-gray-800: #2d3340;
+    --kpmg-white: #ffffff;
+    --kpmg-green: #009a44;
+    --kpmg-red: #c8102e;
+    --kpmg-amber: #d4a843;
+}
+
+body {
+    background: var(--kpmg-gray-50);
+    margin: 0;
+    padding: 0;
+}
+
+.page-wrapper {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 16px 20px;
+}
+
+/* ── Breadcrumb ── */
+.page-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 0.76rem;
+    color: var(--kpmg-gray-400);
+}
+
+.page-breadcrumb a {
+    color: var(--kpmg-blue);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.page-breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.page-breadcrumb .separator {
+    color: var(--kpmg-gray-300);
+}
+
+/* ── Page Header ── */
+.page-header {
+    background: var(--kpmg-blue);
+    color: var(--kpmg-white);
+    padding: 16px 28px;
+    border-radius: 6px 6px 0 0;
+    border-bottom: 3px solid var(--kpmg-blue-light);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.page-header-icon {
+    width: 36px;
+    height: 36px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.page-header h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.3px;
+}
+
+.page-header p {
+    margin: 2px 0 0 0;
+    font-size: 0.76rem;
+    color: rgba(255,255,255,0.65);
+}
+
+/* ── Card ── */
+.notif-card {
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+}
+
+/* ── Type badge row ── */
+.notif-badge-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--kpmg-gray-100);
+}
+
+.notif-badge-row .notif-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--kpmg-gray-800);
+    margin-left: 12px;
+}
+
+.notif-badge-row .notif-date {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--kpmg-gray-400);
+}
+
+/* ── Type badge ── */
+.type-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.type-activated {
+    background: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+
+.type-reminder {
+    background: #fff8e1;
+    color: #f57f17;
+    border: 1px solid #fff3c4;
+}
+
+.type-overdue {
+    background: #ffebee;
+    color: var(--kpmg-red);
+    border: 1px solid #ffcdd2;
+}
+
+.type-completed {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+
+.type-auto-created {
+    background: #f3e5f5;
+    color: #7b1fa2;
+    border: 1px solid #e1bee7;
+}
+
+.type-default {
+    background: var(--kpmg-gray-100);
+    color: var(--kpmg-gray-600);
+    border: 1px solid var(--kpmg-gray-200);
+}
+
+/* ── Metadata bar ── */
+.notif-meta {
+    display: flex;
+    padding: 0;
+    background: var(--kpmg-gray-50);
+    border-bottom: 1px solid var(--kpmg-gray-100);
+}
+
+.meta-item {
+    flex: 1;
+    padding: 12px 28px;
+    border-right: 1px solid var(--kpmg-gray-200);
+}
+
+.meta-item:last-child {
+    border-right: none;
+}
+
+.meta-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--kpmg-gray-400);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.meta-value {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--kpmg-gray-800);
+}
+
+/* ── Message body ── */
+.notif-body {
+    padding: 20px 28px;
+}
+
+.notif-body-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--kpmg-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 12px;
+}
+
+.notif-body-title svg {
+    width: 16px;
+    height: 16px;
+    color: var(--kpmg-blue);
+}
+
+.notif-text {
+    white-space: pre-wrap;
+    line-height: 1.7;
+    font-size: 0.88rem;
+    color: var(--kpmg-gray-700);
+}
+
+/* ── Attachments ── */
+.notif-attachments {
+    padding: 16px 28px;
+    border-top: 1px solid var(--kpmg-gray-100);
+}
+
+.notif-attachments-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--kpmg-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 12px;
+}
+
+.notif-attachments-title svg {
+    width: 16px;
+    height: 16px;
+}
+
+.attachment-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 4px;
+    background: var(--kpmg-gray-50);
+    transition: border-color 0.2s;
+    margin-bottom: 8px;
+}
+
+.attachment-item:hover {
+    border-color: var(--kpmg-blue);
+}
+
+.attachment-item a {
+    text-decoration: none;
+    color: var(--kpmg-blue);
+    font-weight: 600;
+    font-size: 0.82rem;
+}
+
+.attachment-item a:hover {
+    text-decoration: underline;
+}
+
+.att-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--kpmg-gray-100);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.att-icon svg {
+    width: 16px;
+    height: 16px;
+    color: var(--kpmg-gray-600);
+}
+
+/* ── Action bar ── */
+.notif-actions {
+    display: flex;
+    gap: 10px;
+    padding: 14px 28px;
+    border-top: 1px solid var(--kpmg-gray-200);
+    background: var(--kpmg-gray-50);
+    border-radius: 0 0 6px 6px;
+}
+
+.btn-notif-secondary {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 4px;
+    border: 1px solid var(--kpmg-gray-300);
+    background: var(--kpmg-white);
+    color: var(--kpmg-gray-700);
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.btn-notif-secondary:hover {
+    border-color: var(--kpmg-blue);
+    color: var(--kpmg-blue);
+    background: var(--kpmg-white);
+}
+
+.btn-notif-primary {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 4px;
+    border: none;
+    background: var(--kpmg-blue);
+    color: var(--kpmg-white);
+    text-decoration: none;
+    transition: background 0.2s;
+}
+
+.btn-notif-primary:hover {
+    background: var(--kpmg-blue-dark);
+    color: var(--kpmg-white);
+}
     </style>
 </head>
 <body>
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-2 sidebar p-3">
-            <div class="sidebar-content">
-                <div class="d-flex align-items-center mb-3">
-                    <a href="/" class="me-2">
-                        <img src="/images/kpmg_white.png" alt="KPMG" style="height: 45px; width: auto;">
-                    </a>
-                    <h6 class="mb-0" th:text="${userName}">Full Name</h6>
-                </div>
-                <small class="text-muted" th:text="${userTitle}">Title</small><br>
-                <small class="text-muted" th:text="${userEmail}">email@kpmg.kz</small>
-                <hr>
-                <ul class="nav flex-column">
-                    <li class="nav-item"><a class="nav-link" href="/controls">Controls</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="/notifications">Notifications</a></li>
-                </ul>
+<div class="page-wrapper">
+
+    <!-- Breadcrumb -->
+    <nav class="page-breadcrumb">
+        <a href="/#action-centre">Dashboard</a>
+        <span class="separator">/</span>
+        <a href="/#notifications">Notifications</a>
+        <span class="separator">/</span>
+        <span>Details</span>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="page-header-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 01-3.46 0"/>
+            </svg>
+        </div>
+        <div>
+            <h2>Notification Details</h2>
+            <p>View detailed information about this notification</p>
+        </div>
+    </div>
+
+    <!-- Error handling -->
+    <div th:if="${error}" style="padding: 16px 28px; background: #ffebee; color: #c8102e; border: 1px solid var(--kpmg-gray-200); border-top: none; font-size: 0.85rem; font-weight: 500;">
+        <span th:text="${error}">Error message</span>
+    </div>
+
+    <!-- Notification Card -->
+    <div th:if="${notification != null}" class="notif-card">
+
+        <!-- Badge + Title row -->
+        <div class="notif-badge-row">
+            <div class="d-flex align-items-center">
+                <span th:switch="${notification.badgeClass}">
+                    <span th:case="'badge-activated'" class="type-badge type-activated" th:text="${notification.displayLabel}">Activated</span>
+                    <span th:case="'badge-reminder'" class="type-badge type-reminder" th:text="${notification.displayLabel}">Reminder</span>
+                    <span th:case="'badge-overdue'" class="type-badge type-overdue" th:text="${notification.displayLabel}">Overdue</span>
+                    <span th:case="'badge-completed'" class="type-badge type-completed" th:text="${notification.displayLabel}">Completed</span>
+                    <span th:case="'badge-auto-created'" class="type-badge type-auto-created" th:text="${notification.displayLabel}">Auto Created</span>
+                    <span th:case="*" class="type-badge type-default" th:text="${notification.displayLabel}">Notification</span>
+                </span>
+                <span class="notif-title" th:text="${notification.message}">Notification Title</span>
             </div>
-            <div class="mt-2">
-                <a href="/logout" class="btn btn-outline-secondary btn-sm">Logout</a>
+            <span class="notif-date" th:text="${#temporals.format(notification.timestamp, 'dd.MM.yyyy')}">Date</span>
+        </div>
+
+        <!-- Metadata bar -->
+        <div class="notif-meta">
+            <div class="meta-item">
+                <div class="meta-label">Control ID</div>
+                <div class="meta-value" th:text="${notification.controlIdNumber}">CTRL-000</div>
             </div>
-            <div class="sidebar-footer">
-                <hr class="my-2">
-                <small class="text-muted">Register on</small><br>
-                <small><strong>KPMG Kazakhstan</strong></small><br>
-                <small><strong>QTracker Version 2025</strong></small>
+            <div class="meta-item">
+                <div class="meta-label">Component</div>
+                <div class="meta-value" th:text="${notification.component}">Component</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">From</div>
+                <div class="meta-value" th:text="${notification.by}">User</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label">Date</div>
+                <div class="meta-value" th:text="${#temporals.format(notification.timestamp, 'dd.MM.yyyy')}">Date</div>
             </div>
         </div>
 
-        <div class="col-md-10">
-            <div class="p-4">
-                <!-- Enhanced Header -->
-                <div class="dashboard-header-enhanced mb-4">
-                    <h1 class="mb-1">Notification Details</h1>
-                    <p class="mb-0 text-white-50">View detailed information about this notification</p>
-                </div>
+        <!-- Message body -->
+        <div class="notif-body">
+            <div class="notif-body-title">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+                Message
+            </div>
+            <div class="notif-text" th:text="${notification.fullText}">
+                Full notification text goes here...
+            </div>
+        </div>
 
-                <!-- Error handling -->
-                <div th:if="${error}" class="alert alert-danger">
-                    <span th:text="${error}">Error message</span>
-                </div>
-
-                <!-- Notification Card -->
-                <div th:if="${notification != null}" class="card border-0 notification-detail-card">
-                    <!-- Card Header with Badge -->
-                    <div class="card-header py-3">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center gap-3">
-                                <span class="notification-type-badge"
-                                      th:classappend="${notification.badgeClass}"
-                                      th:text="${notification.displayLabel}">Notification</span>
-                                <h5 class="mb-0" th:text="${notification.message}">Notification Title</h5>
-                            </div>
-                            <span class="badge bg-light text-dark" th:text="${#temporals.format(notification.timestamp, 'dd.MM.yyyy')}">Date</span>
+        <!-- Attachments Section -->
+        <div th:if="${notification.attachments != null and !#lists.isEmpty(notification.attachments)}" class="notif-attachments">
+            <div class="notif-attachments-title">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+                </svg>
+                Attachments &amp; Links
+            </div>
+            <div class="row g-2">
+                <div th:each="att : ${notification.attachments}" class="col-md-6">
+                    <div class="attachment-item">
+                        <div class="att-icon">
+                            <svg th:if="${att.type == 'file'}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                                <polyline points="14,2 14,8 20,8"/>
+                            </svg>
+                            <svg th:if="${att.type == 'link'}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+                                <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+                            </svg>
+                            <svg th:if="${att.type != 'file' and att.type != 'link'}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+                            </svg>
                         </div>
-                    </div>
-
-                    <!-- Metadata Section -->
-                    <div class="card-body notification-meta py-4">
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <div class="info-label">Control ID</div>
-                                <div class="info-value" th:text="${notification.controlIdNumber}">CTRL-000</div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="info-label">Component</div>
-                                <div class="info-value" th:text="${notification.component}">Component</div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="info-label">From</div>
-                                <div class="info-value" th:text="${notification.by}">User</div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="info-label">Date</div>
-                                <div class="info-value" th:text="${#temporals.format(notification.timestamp, 'dd.MM.yyyy')}">Date</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Full Text Section -->
-                    <div class="card-body py-4">
-                        <h6 class="text-primary fw-bold mb-3">📝 Message</h6>
-                        <div class="notification-body" th:text="${notification.fullText}">
-                            Full notification text goes here...
-                        </div>
-                    </div>
-
-                    <!-- Attachments Section -->
-                    <div th:if="${notification.attachments != null and !#lists.isEmpty(notification.attachments)}" class="card-body border-top py-4">
-                        <h6 class="text-primary fw-bold mb-3">📎 Attachments & Links</h6>
-                        <div class="row g-3">
-                            <div th:each="att : ${notification.attachments}" class="col-md-6 mb-3">
-                                <div class="attachment-item">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span th:switch="${att.type}">
-                                            <span th:case="'file'">📄</span>
-                                            <span th:case="'link'">🔗</span>
-                                            <span th:case="*">📎</span>
-                                        </span>
-                                        <a th:href="${att.url}" th:target="${att.type == 'link' ? '_blank' : '_self'}" th:text="${att.name}">
-                                            Attachment Name
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="card-body border-top py-3" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);">
-                        <div class="d-flex gap-3 flex-wrap">
-                            <a href="/notifications" class="btn btn-outline-secondary">
-                                ← Back to Notifications
-                            </a>
-                            <a th:href="@{/performance-cycle/{id}(id=${notification.controlId})}" class="btn btn-primary">
-                                → Go to Control
-                            </a>
-                        </div>
+                        <a th:href="${att.url}" th:target="${att.type == 'link' ? '_blank' : '_self'}" th:text="${att.name}">
+                            Attachment Name
+                        </a>
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="notif-actions">
+            <a href="/#notifications" class="btn-notif-secondary">← Back to Notifications</a>
+            <a th:href="@{/performance-cycle/{id}(id=${notification.controlId})}" class="btn-notif-primary">→ Go to Control</a>
         </div>
     </div>
 </div>

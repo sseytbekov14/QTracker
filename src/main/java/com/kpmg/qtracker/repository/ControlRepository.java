@@ -19,6 +19,9 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
 
     boolean existsByControlId(String controlId);
 
+    @Query("SELECT c.controlId FROM Control c WHERE c.controlId LIKE :prefix ORDER BY c.controlId DESC")
+    List<String> findControlIdsByPrefix(@Param("prefix") String prefix);
+
     default boolean isControlIdUnique(String controlId) {
         return findByControlId(controlId).isEmpty();
     }

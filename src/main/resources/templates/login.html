@@ -4,199 +4,320 @@
     <meta charset="UTF-8">
     <title>Login - QTracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/style.css?v=2" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        .login-container {
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .login-container::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
-            background-size: 50px 50px;
-            animation: float 20s linear infinite;
-        }
-        
-        @keyframes float {
-            0% { transform: translate(0, 0); }
-            100% { transform: translate(50px, 50px); }
-        }
-        
-        .login-card {
-            background: white;
-            padding: 2.25rem 1.75rem;
-            border-radius: 1.1rem;
-            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
-            width: 100%;
-            max-width: 380px;
-            position: relative;
-            z-index: 1;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-        }
-        
-        .logo-section {
-            text-align: center;
-            margin-bottom: 1.75rem;
-        }
-        
-        .kpmg-logo-img {
-            height: 50px;
-            width: auto;
-            margin-bottom: 1rem;
-        }
-        
-        .kpmg-title {
-            color: #00338D;
-            font-weight: 700;
-            font-size: 1.5rem;
-            letter-spacing: -0.4px;
-            margin-bottom: 0.2rem;
-        }
-        
-        .kpmg-subtitle {
-            color: #666;
-            font-size: 0.82rem;
-            font-weight: 400;
-        }
-        
-        .form-label {
-            color: #333;
-            font-weight: 600;
-            font-size: 0.85rem;
-            margin-bottom: 0.35rem;
-            text-transform: capitalize;
-        }
-        
-        .form-control {
-            border: 2px solid #e0e0e0;
-            border-radius: 0.45rem;
-            padding: 0.6rem 0.85rem;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-        }
-        
-        .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-            outline: none;
-        }
-        
-        .form-control::placeholder {
-            color: #999;
-        }
-        
-        .btn-login {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            padding: 0.7rem 1.25rem;
-            font-size: 0.95rem;
-            font-weight: 600;
-            border-radius: 0.45rem;
-            color: white;
-            transition: all 0.3s ease;
-            margin-top: 0.6rem;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.28);
-        }
-        
-        .btn-login:hover {
-            background: linear-gradient(135deg, #5568d3 0%, #6a3f92 100%);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-            transform: translateY(-2px);
-            color: white;
-        }
-        
-        .btn-login:active {
-            transform: translateY(0);
-        }
-        
-        .error-message {
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-            padding: 0.65rem 0.9rem;
-            border-radius: 0.45rem;
-            margin-top: 0.8rem;
-            font-size: 0.85rem;
-        }
-        
-        .login-footer {
-            position: absolute;
-            bottom: 1.2rem;
-            left: 50%;
-            transform: translateX(-50%);
-            text-align: center;
-            color: rgba(255, 255, 255, 0.8);
-            z-index: 1;
-        }
-        
-        .login-footer small {
-            font-size: 0.8rem;
-            line-height: 1.45;
-        }
-        
-        .login-footer strong {
-            display: block;
-            margin: 0.25rem 0;
-            font-weight: 600;
-        }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #d6e4f0;
+    min-height: 100vh;
+}
+
+.login-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+/* ── Background building pattern ── */
+.login-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    overflow: hidden;
+    background: linear-gradient(160deg, #e8f0f8 0%, #c8d8ea 30%, #6a9fd8 60%, #1a5da8 80%, #00338D 100%);
+}
+
+.login-bg::before {
+    content: '';
+    position: absolute;
+    bottom: -10%;
+    right: -5%;
+    width: 65%;
+    height: 110%;
+    background:
+        repeating-linear-gradient(
+            72deg,
+            rgba(255,255,255,0.08) 0px,
+            rgba(255,255,255,0.08) 1px,
+            transparent 1px,
+            transparent 28px
+        ),
+        repeating-linear-gradient(
+            162deg,
+            rgba(255,255,255,0.06) 0px,
+            rgba(255,255,255,0.06) 1px,
+            transparent 1px,
+            transparent 40px
+        ),
+        linear-gradient(160deg, rgba(100,160,220,0.3) 0%, rgba(0,51,141,0.6) 100%);
+    transform: skewX(-8deg);
+}
+
+.login-bg::after {
+    content: '';
+    position: absolute;
+    bottom: -5%;
+    right: 15%;
+    width: 40%;
+    height: 90%;
+    background:
+        repeating-linear-gradient(
+            76deg,
+            rgba(255,255,255,0.06) 0px,
+            rgba(255,255,255,0.06) 1px,
+            transparent 1px,
+            transparent 22px
+        ),
+        repeating-linear-gradient(
+            166deg,
+            rgba(255,255,255,0.04) 0px,
+            rgba(255,255,255,0.04) 1px,
+            transparent 1px,
+            transparent 35px
+        ),
+        linear-gradient(155deg, rgba(80,140,200,0.2) 0%, rgba(0,51,141,0.5) 100%);
+    transform: skewX(-5deg);
+}
+
+/* ── Top bar ── */
+.login-topbar {
+    background: #002060;
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    z-index: 2;
+}
+
+.topbar-logo {
+    height: 28px;
+    width: auto;
+}
+
+.topbar-divider {
+    width: 1px;
+    height: 20px;
+    background: rgba(255,255,255,0.2);
+}
+
+.topbar-text {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 0.3px;
+}
+
+/* ── Main area ── */
+.login-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    position: relative;
+    z-index: 2;
+}
+
+.login-card {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    width: 100%;
+    max-width: 420px;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 20, 60, 0.18);
+}
+
+/* ── Card header ── */
+.login-card-header {
+    background: #00338D;
+    padding: 28px 32px 24px;
+    text-align: center;
+    border-bottom: 3px solid #005EB8;
+}
+
+.login-card-header h1 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 4px 0;
+    letter-spacing: 0.3px;
+}
+
+.login-card-header p {
+    font-size: 0.76rem;
+    color: rgba(255,255,255,0.6);
+    margin: 0;
+}
+
+/* ── Card body ── */
+.login-card-body {
+    padding: 28px 32px 24px;
+}
+
+.form-label {
+    font-weight: 600;
+    color: #2d3340;
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+    letter-spacing: 0.2px;
+}
+
+.form-control {
+    border: 1px solid #d8dce5;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 0.88rem;
+    color: #2d3340;
+    transition: border-color 0.2s;
+    background: #ffffff;
+}
+
+.form-control:focus {
+    border-color: #00338D;
+    box-shadow: 0 0 0 2px rgba(0, 51, 141, 0.1);
+    outline: none;
+}
+
+.form-control::placeholder {
+    color: #9ba3b5;
+}
+
+.btn-login {
+    background: #00338D;
+    border: none;
+    padding: 10px 24px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border-radius: 4px;
+    color: #ffffff;
+    transition: background 0.2s;
+    letter-spacing: 0.3px;
+    width: 100%;
+    margin-top: 4px;
+}
+
+.btn-login:hover {
+    background: #002060;
+    color: #ffffff;
+}
+
+.btn-login:active {
+    background: #001a4d;
+}
+
+.error-message {
+    background: #ffebee;
+    border: 1px solid #ffcdd2;
+    color: #c8102e;
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin-top: 12px;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+.mb-field {
+    margin-bottom: 16px;
+}
+
+/* ── Footer ── */
+.login-footer {
+    text-align: center;
+    padding: 24px 20px 20px;
+}
+
+.login-footer {
+    position: relative;
+    z-index: 2;
+}
+
+.login-footer-reg {
+    font-size: 0.76rem;
+    color: #ffffff;
+    opacity: 0.7;
+    margin-bottom: 2px;
+}
+
+.login-footer-company {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 8px;
+}
+
+.login-footer-version {
+    font-size: 0.72rem;
+    color: #ffffff;
+    opacity: 0.5;
+    letter-spacing: 0.3px;
+}
     </style>
 </head>
 <body>
-<div class="login-container">
-    <div class="login-card">
-        <div class="logo-section">
-            <h1 class="kpmg-title">KPMG QTracker</h1>
-            <p class="kpmg-subtitle">Quality Control Management System</p>
-        </div>
+<div class="login-page">
 
-        <form th:action="@{/login}" method="post">
-            <div class="mb-3">
-                <label for="username" class="form-label">Username</label>
-                <input type="text" class="form-control" id="username" name="username" required
-                       placeholder="Enter your username">
-            </div>
+    <!-- Background -->
+    <div class="login-bg"></div>
 
-            <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control" id="password" name="password" required
-                       placeholder="Enter your password">
-            </div>
-            <div th:if="${error}" class="error-message" th:text="${error}"></div>
-
-            <div class="d-grid">
-                <button type="submit" class="btn btn-login">Login</button>
-            </div>
-        </form>
+    <!-- Top bar -->
+    <div class="login-topbar">
+        <img src="/images/kpmg_white.png" alt="KPMG" class="topbar-logo">
+        <div class="topbar-divider"></div>
+        <span class="topbar-text">QTracker</span>
     </div>
 
+    <!-- Main -->
+    <div class="login-main">
+        <div class="login-card">
+
+            <!-- Card header -->
+            <div class="login-card-header">
+                <h1>KPMG QTracker</h1>
+                <p>Quality Control Management System</p>
+            </div>
+
+            <!-- Card body -->
+            <div class="login-card-body">
+                <form th:action="@{/login}" method="post">
+                    <div class="mb-field">
+                        <label for="username" class="form-label">Login</label>
+                        <input type="text" class="form-control" id="username" name="username" required
+                               placeholder="Enter your username" autocomplete="username">
+                    </div>
+
+                    <div class="mb-field">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required
+                               placeholder="Enter your password" autocomplete="current-password">
+                    </div>
+
+                    <div th:if="${error}" class="error-message" th:text="${error}"></div>
+
+                    <button type="submit" class="btn-login">Sign in</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
     <div class="login-footer">
-        <small>
-            Registered to<br>
-            <strong>KPMG Kazakhstan</strong><br>
-            QTracker | Version 2026
-        </small>
+        <div class="login-footer-reg">Registered to</div>
+        <div class="login-footer-company">KPMG Kazakhstan</div>
+        <div class="login-footer-version">QTracker | Version 2026</div>
     </div>
 </div>
 </body>

@@ -2,545 +2,782 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title th:text="'Performance - ' + ${control.controlId}">Performance - Control 11</title>
+    <title th:text="'Performance - ' + ${control.controlId}">Performance - Control</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/style.css?v=2" rel="stylesheet">
+    <link href="/css/style.css?v=7" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
     <style>
-        body {
-            background: #ffffff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .performance-container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 1.25rem;
-        }
-        .performance-header {
-            background: white;
-            color: #333;
-            padding: 1rem 0;
-            margin-bottom: 1.5rem;
-            border-bottom: 2px solid #e0e0e0;
-        }
-        .performance-header h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin: 0;
-            color: #333;
-        }
-        .checklist-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            margin-bottom: 2rem;
-        }
-        .checklist-table td {
-            padding: 0.75rem 1rem;
-            border: 1px solid #dee2e6;
-            vertical-align: middle;
-        }
-        .checklist-table td:first-child {
-            width: 50px;
-            text-align: center;
-            border-right: none;
-        }
-        .checklist-table td:nth-child(2) {
-            width: 35%;
-            font-weight: 500;
-            border-left: none;
-            border-right: none;
-        }
-        .checklist-table td:last-child {
-            border-left: none;
-        }
-        .checklist-status {
-            font-size: 1.5rem;
-        }
-        .status-pending { color: #dc3545; }
-        .status-completed { color: #198754; }
-        .form-section {
-            background: white;
-            padding: 0;
-            margin-bottom: 2rem;
-        }
-        .nav-buttons {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 1rem;
-            flex-wrap: wrap;
-        }
-        .nav-buttons .btn {
-            flex: 1;
-            min-width: 120px;
-        }
-        .required-message {
-            color: #dc3545;
-            font-weight: 500;
-            margin-top: 0.5rem;
-            font-size: 0.9rem;
-        }
-        .status-section {
-            background: #e9ecef;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin-bottom: 1rem;
-        }
-        .form-control:read-only {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            color: #6c757d;
-        }
-        .readonly-field {
-            background-color: #f8f9fa !important;
-            cursor: not-allowed;
-            color: #6c757d;
-        }
-        .empty-field {
-            color: #999;
-            font-style: italic;
-        }
-        .btn:disabled {
-            background-color: #6c757d !important;
-            border-color: #6c757d !important;
-            cursor: not-allowed;
-        }
+/* ═══════════════════════
+   KPMG BRAND TOKENS
+   ═══════════════════════ */
+:root {
+    --kpmg-blue: #00338D;
+    --kpmg-blue-light: #005EB8;
+    --kpmg-blue-dark: #002060;
+    --kpmg-gray-50: #f7f8fa;
+    --kpmg-gray-100: #eef0f4;
+    --kpmg-gray-200: #d8dce5;
+    --kpmg-gray-300: #cdd0d6;
+    --kpmg-gray-400: #9ba3b5;
+    --kpmg-gray-500: #8b90a0;
+    --kpmg-gray-600: #5c6478;
+    --kpmg-gray-700: #495057;
+    --kpmg-gray-800: #2d3340;
+    --kpmg-white: #ffffff;
+    --kpmg-green: #009a44;
+    --kpmg-red: #c8102e;
+    --kpmg-amber: #d4a843;
+}
 
-        /* ����� ��� ���������� ��������� */
-        .date-input-container {
-            position: relative;
-            width: 100%;
-        }
+body {
+    background: var(--kpmg-gray-50);
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
 
-        .date-input {
-            padding-right: 35px !important;
-            background-color: white !important;
-            cursor: pointer;
-        }
+.page-wrapper {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 20px 20px;
+}
 
-        .calendar-btn {
-            position: absolute;
-            right: 5px;
-            top: 50%;
-            transform: translateY(-50%);
-            border: none;
-            background: transparent;
-            cursor: pointer;
-            font-size: 18px;
-            padding: 2px 6px;
-            z-index: 10;
-        }
+/* ═══════════════════════
+   PAGE HEADER
+   ═══════════════════════ */
+.page-header {
+    background: var(--kpmg-blue);
+    color: var(--kpmg-white);
+    padding: 16px 24px;
+    border-radius: 6px 6px 0 0;
+    border-bottom: 3px solid var(--kpmg-blue-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
 
-        .calendar-btn:hover {
-            background-color: #f0f0f0;
-            border-radius: 4px;
-        }
+.page-header-content h1 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.3px;
+}
 
-        .calendar-modal {
-            position: fixed;
-            z-index: 1050;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            width: 320px;
-            display: none;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-        }
+.page-header-content .subtitle {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.65);
+    margin: 2px 0 0 0;
+}
 
-        .calendar-header {
-            margin-bottom: 15px;
-        }
+.page-header-content .control-id-header {
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin: 4px 0 0 0;
+    color: rgba(255,255,255,0.9);
+}
+
+/* ═══════════════════════
+   BREADCRUMB
+   ═══════════════════════ */
+.page-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 24px;
+    font-size: 0.72rem;
+    color: var(--kpmg-gray-400);
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+}
+
+.page-breadcrumb a {
+    color: var(--kpmg-blue);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.page-breadcrumb a:hover { text-decoration: underline; }
+.page-breadcrumb .sep { color: var(--kpmg-gray-300); }
+
+/* ═══════════════════════
+   REQUIRED MESSAGE
+   ═══════════════════════ */
+.required-banner {
+    padding: 8px 24px;
+    background: #fff5f5;
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+    border-left: 3px solid var(--kpmg-red);
+    font-size: 0.76rem;
+    color: var(--kpmg-red);
+    font-weight: 500;
+    font-style: italic;
+}
+
+/* ═══════════════════════
+   CHECKLIST TABLE
+   ═══════════════════════ */
+.checklist-card {
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+}
+
+.checklist-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.checklist-table tr {
+    border-bottom: 1px solid var(--kpmg-gray-100);
+}
+
+.checklist-table tr:last-child {
+    border-bottom: none;
+}
+
+.checklist-table td {
+    padding: 9px 12px;
+    vertical-align: middle;
+}
+
+.checklist-table td:first-child {
+    width: 40px;
+    text-align: center;
+    padding-right: 0;
+}
+
+.checklist-table td:nth-child(2) {
+    width: 220px;
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: var(--kpmg-gray-800);
+    white-space: nowrap;
+}
+
+.checklist-table td:last-child {
+    padding-left: 16px;
+}
+
+/* Status icons */
+.check-icon {
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.check-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.check-ok svg {
+    color: var(--kpmg-green);
+}
+
+.check-missing svg {
+    color: var(--kpmg-red);
+}
+
+/* Form controls inside checklist */
+.checklist-table .form-control,
+.checklist-table .form-select {
+    border: 1px solid var(--kpmg-gray-300);
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    color: var(--kpmg-gray-800);
+    transition: border-color 0.2s;
+}
+
+.checklist-table .form-control:focus,
+.checklist-table .form-select:focus {
+    border-color: var(--kpmg-blue);
+    box-shadow: 0 0 0 2px rgba(0,51,141,0.08);
+    outline: none;
+}
+
+.checklist-table .readonly-field {
+    background: var(--kpmg-gray-50) !important;
+    color: var(--kpmg-gray-600);
+    cursor: default;
+    border: 1px solid var(--kpmg-gray-200);
+}
+
+.checklist-table .empty-field {
+    color: var(--kpmg-gray-400);
+    font-style: italic;
+}
+
+/* ═══════════════════════
+   STATUS BAR
+   ═══════════════════════ */
+.status-bar {
+    padding: 10px 24px;
+    background: var(--kpmg-gray-50);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    font-size: 0.78rem;
+}
+
+.status-bar strong {
+    color: var(--kpmg-gray-800);
+    font-weight: 600;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    margin-left: 6px;
+}
+
+.status-draft {
+    background: var(--kpmg-gray-100);
+    color: var(--kpmg-gray-600);
+    border: 1px solid var(--kpmg-gray-200);
+}
+
+.status-progress {
+    background: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffe0b2;
+}
+
+.status-review {
+    background: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+
+.status-soqm {
+    background: #f3e5f5;
+    color: #7b1fa2;
+    border: 1px solid #e1bee7;
+}
+
+.status-po {
+    background: #ede7f6;
+    color: #4527a0;
+    border: 1px solid #d1c4e9;
+}
+
+.status-completed {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+
+/* ═══════════════════════
+   ACTION BAR
+   ═══════════════════════ */
+.action-bar {
+    padding: 12px 24px;
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-kpmg-primary {
+    background: var(--kpmg-blue);
+    border: none;
+    padding: 7px 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 4px;
+    color: var(--kpmg-white);
+    transition: background 0.2s;
+    cursor: pointer;
+}
+
+.btn-kpmg-primary:hover {
+    background: var(--kpmg-blue-dark);
+    color: var(--kpmg-white);
+}
+
+.btn-kpmg-primary:disabled {
+    background: var(--kpmg-gray-300);
+    color: var(--kpmg-gray-500);
+    cursor: not-allowed;
+}
+
+.btn-kpmg-outline {
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-300);
+    padding: 7px 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 4px;
+    color: var(--kpmg-gray-700);
+    transition: all 0.2s;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-kpmg-outline:hover {
+    border-color: var(--kpmg-blue);
+    color: var(--kpmg-blue);
+    background: var(--kpmg-gray-50);
+}
+
+/* ═══════════════════════
+   DATE PICKER
+   ═══════════════════════ */
+.date-input-container {
+    position: relative;
+    width: 100%;
+}
+
+.date-input {
+    padding-right: 35px !important;
+    background-color: white !important;
+    cursor: pointer;
+}
+
+.calendar-btn {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 2px 6px;
+    z-index: 10;
+}
+
+.calendar-btn:hover {
+    background-color: var(--kpmg-gray-100);
+    border-radius: 4px;
+}
+
+.calendar-modal {
+    position: fixed;
+    z-index: 1050;
+    background: white;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 6px;
+    padding: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    width: 320px;
+    display: none;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
 
 .calendar-navigation {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
-    padding: 10px;
-    background: #f8f9fa;
-    border-radius: 5px;
-    border: 1px solid #dee2e6;
+    margin-bottom: 12px;
+    padding: 8px;
+    background: var(--kpmg-gray-50);
+    border-radius: 4px;
+    border: 1px solid var(--kpmg-gray-200);
 }
 
 .calendar-navigation button {
-    padding: 6px 12px;
-    font-size: 14px;
-    min-width: 80px;
+    padding: 5px 12px;
+    font-size: 0.78rem;
+    min-width: 70px;
+    border: 1px solid var(--kpmg-gray-300);
+    background: var(--kpmg-white);
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--kpmg-gray-700);
+}
+
+.calendar-navigation button:hover {
+    border-color: var(--kpmg-blue);
+    color: var(--kpmg-blue);
 }
 
 .month-year-span {
-    font-size: 16px;
-    font-weight: bold;
-    color: #333;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--kpmg-gray-800);
     text-align: center;
     flex-grow: 1;
-    margin: 0 15px;
+    margin: 0 12px;
 }
 
-.day-cell[data-day] {
-    cursor: pointer;
+.current-date-display {
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 0.82rem;
+    color: var(--kpmg-gray-700);
 }
+
+#currentDay { font-weight: 700; font-size: 0.88rem; color: var(--kpmg-gray-800); }
+#currentDate { font-size: 0.82rem; }
+#currentYear { font-size: 0.82rem; color: var(--kpmg-gray-500); }
+
+.weekdays {
+    display: flex;
+    font-size: 0.7rem;
+    color: var(--kpmg-gray-500);
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--kpmg-gray-200);
+    padding-bottom: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.weekdays div { flex: 1; text-align: center; }
+
+.days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+}
+
+.day-cell {
+    padding: 7px 0;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    color: var(--kpmg-gray-800);
+}
+
+.day-cell:hover { background: var(--kpmg-gray-100); }
 
 .day-cell.selected {
-    background-color: #007bff !important;
-    color: white !important;
-    font-weight: bold;
+    background: var(--kpmg-blue) !important;
+    color: var(--kpmg-white) !important;
+    font-weight: 700;
 }
 
-        .current-date-display {
-            text-align: center;
-            margin-bottom: 10px;
-        }
+.day-cell.empty { cursor: default; background: none; }
+.day-cell.empty:hover { background: none; }
 
-        .month-year-display {
-            font-size: 16px;
-            font-weight: bold;
-            color: #333;
-        }
+.day-cell[data-day] { cursor: pointer; }
 
-        .weekdays {
-            display: flex;
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 8px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
-        }
+.calendar-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--kpmg-gray-200);
+}
 
-        .weekdays div {
-            flex: 1;
-            text-align: center;
-            font-weight: 500;
-        }
+.calendar-footer .btn-cal-cancel {
+    padding: 6px 16px;
+    font-size: 0.78rem;
+    border: 1px solid var(--kpmg-gray-300);
+    background: var(--kpmg-white);
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--kpmg-gray-700);
+}
 
-        .days {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 4px;
-        }
+.calendar-footer .btn-cal-ok {
+    padding: 6px 16px;
+    font-size: 0.78rem;
+    border: none;
+    background: var(--kpmg-blue);
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--kpmg-white);
+}
 
-        .day-cell {
-            padding: 8px 0;
-            text-align: center;
-            cursor: pointer;
-            border-radius: 4px;
-            font-size: 14px;
-            min-height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
+.calendar-footer .btn-cal-ok:hover { background: var(--kpmg-blue-dark); }
+.calendar-footer .btn-cal-cancel:hover { border-color: var(--kpmg-blue); color: var(--kpmg-blue); }
 
-        .day-cell:hover {
-            background-color: #e9ecef;
-        }
+.calendar-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1040;
+    display: none;
+}
 
-        .day-cell.selected {
-            background-color: #007bff;
-            color: white;
-            font-weight: bold;
-        }
-
-        .day-cell.empty {
-            cursor: default;
-            background: none;
-        }
-
-        .day-cell.empty:hover {
-            background: none;
-        }
-
-        .calendar-footer {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px solid #eee;
-        }
-
-        .calendar-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 1040;
-            display: none;
-        }
+.calendar-header { margin-bottom: 12px; }
     </style>
 </head>
 <body>
-<div class="container-fluid">
-    <div class="row">
-        <!-- Main Content -->
-        <div class="col-12">
-            <div class="performance-container">
-                <!-- Header ��� ������ Back -->
 
-                <!-- Page Title -->
-                <h1 class="mb-3">SoQM Tool</h1>
+<div class="page-wrapper">
 
-                <!-- Performance Header -->
-                <div class="performance-header">
-                    <h2>Control <span th:text="${control.controlId}">test3</span> initiation checklist</h2>
-                    <div class="required-message" id="requiredMessage" style="color: #dc3545; font-style: italic; margin-top: 0.5rem;">
-                        * Required fields are missing. Please get in touch with the SoQM Team.
-                    </div>
-                </div>
-
-                <form id="performanceForm" th:action="@{/api/performance/initiate}" method="post">
-                    <input type="hidden" name="controlId" th:value="${control.id}">
-
-                    <!-- Initiate Performance Section -->
-                    <div class="form-section">
-                        <table class="checklist-table">
-                            <tbody>
-                                <!-- Facilitator / Preparer (Read Only) -->
-                                <tr>
-                                    <td>
-                                        <div class="checklist-status" th:classappend="${(performance.facilitator != null and !performance.facilitator.isEmpty()) ? 'status-completed' : 'status-pending'}">
-                                            <span th:utext="${(performance.facilitator != null and !performance.facilitator.isEmpty()) ? '&#10003;' : '&#10007;'}"></span>
-                                        </div>
-                                    </td>
-                                    <td><strong>Facilitator / Preparer (s)</strong></td>
-                                    <td>
-                                        <input type="text" class="form-control form-control-sm readonly-field" readonly
-                                               th:value="${performance.facilitator ?: '()'}"
-                                               th:classappend="${(performance.facilitator != null and !performance.facilitator.isEmpty()) ? '' : 'empty-field'}"
-                                               id="facilitator" name="facilitator">
-                                    </td>
-                                </tr>
-
-                                <!-- Control Operator (Read Only) -->
-                                <tr>
-                                    <td>
-                                        <div class="checklist-status" th:classappend="${(performance.controlOperator != null and !performance.controlOperator.isEmpty()) ? 'status-completed' : 'status-pending'}">
-                                            <span th:utext="${(performance.controlOperator != null and !performance.controlOperator.isEmpty()) ? '&#10003;' : '&#10007;'}"></span>
-                                        </div>
-                                    </td>
-                                    <td><strong>Control Operator</strong></td>
-                                    <td>
-                                        <input type="text" class="form-control form-control-sm readonly-field" readonly
-                                               th:value="${performance.controlOperator ?: '()'}"
-                                               th:classappend="${(performance.controlOperator != null and !performance.controlOperator.isEmpty()) ? '' : 'empty-field'}"
-                                               id="controlOperator" name="controlOperator">
-                                    </td>
-                                </tr>
-
-                                <!-- SoQM Lead / Delegate (Read Only) -->
-                                <tr>
-                                    <td>
-                                        <div class="checklist-status" th:classappend="${(assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead)) ? 'status-completed' : 'status-pending'}">
-                                            <span th:utext="${(assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead)) ? '&#10003;' : '&#10007;'}"></span>
-                                        </div>
-                                    </td>
-                                    <td><strong>SoQM Lead / Delegate</strong></td>
-                                    <td>
-                                        <input type="text" class="form-control form-control-sm readonly-field" readonly
-                                               th:value="${assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead) ? assignment.soqmLead[0] : '()'}"
-                                               th:classappend="${(assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead)) ? '' : 'empty-field'}"
-                                               id="soqmLead" name="soqmLead">
-                                    </td>
-                                </tr>
-
-                                <!-- Process Owner (Read Only) -->
-                                <tr>
-                                    <td>
-                                        <div class="checklist-status" th:classappend="${(assignment != null and assignment.processOwner != null and !#lists.isEmpty(assignment.processOwner)) ? 'status-completed' : 'status-pending'}">
-                                            <span th:utext="${(assignment != null and assignment.processOwner != null and !#lists.isEmpty(assignment.processOwner)) ? '&#10003;' : '&#10007;'}"></span>
-                                        </div>
-                                    </td>
-                                    <td><strong>Process Owner</strong></td>
-                                    <td>
-                                        <input type="text" class="form-control form-control-sm readonly-field" readonly
-                                               th:value="${assignment != null and assignment.processOwner != null and !#lists.isEmpty(assignment.processOwner) ? assignment.processOwner[0] : '()'}"
-                                               th:classappend="${(assignment != null and assignment.processOwner != null and !#lists.isEmpty(assignment.processOwner)) ? '' : 'empty-field'}"
-                                               id="processOwner" name="processOwner">
-                                    </td>
-                                </tr>
-
-                                <!-- Control Frequency (Read Only from Control) -->
-                                <tr>
-                                    <td>
-                                        <div class="checklist-status" th:classappend="${(control.controlFrequency != null and !control.controlFrequency.isEmpty()) ? 'status-completed' : 'status-pending'}">
-                                            <span th:utext="${(control.controlFrequency != null and !control.controlFrequency.isEmpty()) ? '&#10003;' : '&#10007;'}"></span>
-                                        </div>
-                                    </td>
-                                    <td><strong>Control Frequency</strong></td>
-                                    <td>
-                                        <input type="text" class="form-control form-control-sm readonly-field" readonly
-                                               th:value="${control.controlFrequency}"
-                                               id="controlFrequency" name="controlFrequency">
-                                    </td>
-                                </tr>
-
-                                <!-- Control Operation Date (Read Only) -->
-                                <tr>
-                                    <td>
-                                        <div class="checklist-status" th:classappend="${performance.controlOperationDate != null ? 'status-completed' : 'status-pending'}">
-                                            <span th:utext="${performance.controlOperationDate != null ? '&#10003;' : '&#10007;'}"></span>
-                                        </div>
-                                    </td>
-                                    <td><strong>Control Operation Date</strong></td>
-                                    <td>
-                                        <input type="text" class="form-control form-control-sm readonly-field" readonly
-                                               th:value="${performance.controlOperationDate != null ? #temporals.format(performance.controlOperationDate, 'dd.MM.yyyy') : ''}"
-                                               id="controlOperationDateDisplay">
-                                        <input type="hidden"
-                                               th:value="${performance.controlOperationDate != null ? #temporals.format(performance.controlOperationDate, 'yyyy-MM-dd') : ''}"
-                                               id="controlOperationDate" name="controlOperationDate">
-                                    </td>
-                                </tr>
-
-                                <!-- SoQM Year (Editable) -->
-                                <tr>
-                                    <td>
-                                        <div class="checklist-status status-pending" id="soqmYearStatus">
-                                            &#10007;
-                                        </div>
-                                    </td>
-                                    <td><strong>SoQM Year (Select)</strong></td>
-                                    <td>
-                                        <select class="form-select form-select-sm" name="soqmYear" id="soqmYear" style="background-color: white;">
-                                            <option value="">Select SoQM Year</option>
-                                            <option value="1 OCT 2024 - 30 SEP 2025" th:selected="${performance.soqmYear == '1 OCT 2024 - 30 SEP 2025'}">1 OCT 2024 - 30 SEP 2025</option>
-                                            <option value="1 OCT 2025 - 30 SEP 2026" th:selected="${performance.soqmYear == '1 OCT 2025 - 30 SEP 2026'}">1 OCT 2025 - 30 SEP 2026</option>
-                                            <option value="1 OCT 2026 - 30 SEP 2027" th:selected="${performance.soqmYear == '1 OCT 2026 - 30 SEP 2027'}">1 OCT 2026 - 30 SEP 2027</option>
-                                            <option value="1 OCT 2027 - 30 SEP 2028" th:selected="${performance.soqmYear == '1 OCT 2027 - 30 SEP 2028'}">1 OCT 2027 - 30 SEP 2028</option>
-                                        </select>
-                                    </td>
-                                </tr>
-
-                                <!-- Actual Date of Operation (Editable) -->
-                                <tr>
-                                    <td>
-                                        <div class="checklist-status status-pending" id="actualDateStatus">
-                                            &#10007;
-                                        </div>
-                                    </td>
-                                    <td><strong>Actual Date of Operation</strong></td>
-                                    <td>
-                                        <div class="date-input-container">
-                                            <input type="text"
-                                                   class="form-control form-control-sm date-input"
-                                                   id="actualOperationDate"
-                                                   readonly
-                                                   placeholder="Select date"
-                                                   style="background-color: white;"
-                                                   th:value="${performance.actualOperationDate != null ?
-                                                       #temporals.format(performance.actualOperationDate, 'dd.MM.yyyy') :
-                                                       (control.createdAt != null ? #temporals.format(control.createdAt, 'dd.MM.yyyy') : '')}">
-                                            <input type="hidden"
-                                                   id="actualOperationDateIso"
-                                                   name="actualOperationDate"
-                                                   th:value="${performance.actualOperationDate != null ?
-                                                       #temporals.format(performance.actualOperationDate, 'yyyy-MM-dd') :
-                                                       (control.createdAt != null ? #temporals.format(control.createdAt, 'yyyy-MM-dd') : '')}">
-                                            <button type="button" class="calendar-btn" id="calendarTriggerBtn">
-                                                &#128197;
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Status Section -->
-                    <div class="status-section">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <strong>Control Performance Status:</strong>
-                                <span th:switch="${performanceStatus}">
-                                    <span th:case="'COMPLETED'" class="badge bg-success ms-2" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
-                                    <span th:case="'IN_PROGRESS'" class="badge bg-warning ms-2" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
-                                    <span th:case="'REVIEW'" class="badge bg-primary ms-2" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
-                                    <span th:case="'SOQM_HEAD_REVIEW'" class="badge bg-secondary ms-2" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
-                                    <span th:case="'PROCESS_OWNER_REVIEW'" class="badge bg-secondary ms-2" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
-                                    <span th:case="*" class="badge bg-secondary ms-2" th:text="${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">Draft</span>
-                                </span>
-                            </div>
-                            <div class="col-md-6">
-                                <strong>Assigned to:</strong>
-                                <span class="ms-2" th:text="${performance.assignedTo} ?: 'Not assigned'">0</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Navigation Buttons -->
-                    <div class="nav-buttons">
-                        <button type="button" id="initiateBtn" class="btn btn-primary" disabled>Initiate</button>
-                        <a href="/" class="btn btn-outline-secondary">Home</a>
-                        <a th:href="@{/view-control/{id}(id=${control.id})}" class="btn btn-outline-secondary">View Control</a>
-                        <!-- ������ Back � ���������� ������� -->
-                        <button type="button" class="btn btn-outline-secondary" id="backBtn">Back</button>
-                    </div>
-                </form>
-
-                <!-- Footer -->
-            </div>
-        </div>
+<!-- ═══════ PAGE HEADER ═══════ -->
+<div class="page-header">
+    <div class="page-header-content">
+        <h1>SoQM Tool</h1>
+        <div class="subtitle">Initiation Checklist</div>
+        <div class="control-id-header" th:text="'Control ' + ${control.controlId}">Control HR-CTRL-MF-1/FY26/Central/FEB</div>
     </div>
 </div>
 
-<!-- Overlay ��� ��������� -->
+<!-- ═══════ BREADCRUMB ═══════ -->
+<nav class="page-breadcrumb">
+    <a href="/">Dashboard</a>
+    <span class="sep">/</span>
+    <a href="/controls">Controls</a>
+    <span class="sep">/</span>
+    <span th:text="${control.controlId}">HR-CTRL-MF-1</span>
+</nav>
+
+<!-- ═══════ REQUIRED MESSAGE ═══════ -->
+<div class="required-banner" id="requiredMessage">
+    * Required fields are missing. Please get in touch with the SoQM Team.
+</div>
+
+<!-- ═══════ FORM ═══════ -->
+<form id="performanceForm" th:action="@{/api/performance/initiate}" method="post">
+    <input type="hidden" name="controlId" th:value="${control.id}">
+
+    <!-- ═══════ CHECKLIST TABLE ═══════ -->
+    <div class="checklist-card">
+        <table class="checklist-table">
+            <tbody>
+                <!-- Facilitator / Preparer -->
+                <tr>
+                    <td>
+                        <div class="check-icon"
+                             th:classappend="${(performance.facilitator != null and !performance.facilitator.isEmpty()) ? 'check-ok' : 'check-missing'}">
+                            <svg th:if="${performance.facilitator != null and !performance.facilitator.isEmpty()}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                            <svg th:unless="${performance.facilitator != null and !performance.facilitator.isEmpty()}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                        </div>
+                    </td>
+                    <td>Facilitator / Preparer(s)</td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm readonly-field" readonly
+                               th:value="${performance.facilitator ?: '()'}"
+                               th:classappend="${(performance.facilitator != null and !performance.facilitator.isEmpty()) ? '' : 'empty-field'}"
+                               id="facilitator" name="facilitator">
+                    </td>
+                </tr>
+
+                <!-- Control Operator -->
+                <tr>
+                    <td>
+                        <div class="check-icon"
+                             th:classappend="${(performance.controlOperator != null and !performance.controlOperator.isEmpty()) ? 'check-ok' : 'check-missing'}">
+                            <svg th:if="${performance.controlOperator != null and !performance.controlOperator.isEmpty()}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                            <svg th:unless="${performance.controlOperator != null and !performance.controlOperator.isEmpty()}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                        </div>
+                    </td>
+                    <td>Control Operator</td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm readonly-field" readonly
+                               th:value="${performance.controlOperator ?: '()'}"
+                               th:classappend="${(performance.controlOperator != null and !performance.controlOperator.isEmpty()) ? '' : 'empty-field'}"
+                               id="controlOperator" name="controlOperator">
+                    </td>
+                </tr>
+
+                <!-- SoQM Lead / Delegate -->
+                <tr>
+                    <td>
+                        <div class="check-icon"
+                             th:classappend="${(assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead)) ? 'check-ok' : 'check-missing'}">
+                            <svg th:if="${assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead)}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                            <svg th:unless="${assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead)}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                        </div>
+                    </td>
+                    <td>SoQM Lead / Delegate</td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm readonly-field" readonly
+                               th:value="${assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead) ? assignment.soqmLead[0] : '()'}"
+                               th:classappend="${(assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead)) ? '' : 'empty-field'}"
+                               id="soqmLead" name="soqmLead">
+                    </td>
+                </tr>
+
+                <!-- Process Owner -->
+                <tr>
+                    <td>
+                        <div class="check-icon"
+                             th:classappend="${(assignment != null and assignment.processOwner != null and !#lists.isEmpty(assignment.processOwner)) ? 'check-ok' : 'check-missing'}">
+                            <svg th:if="${assignment != null and assignment.processOwner != null and !#lists.isEmpty(assignment.processOwner)}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                            <svg th:unless="${assignment != null and assignment.processOwner != null and !#lists.isEmpty(assignment.processOwner)}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                        </div>
+                    </td>
+                    <td>Process Owner</td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm readonly-field" readonly
+                               th:value="${assignment != null and assignment.processOwner != null and !#lists.isEmpty(assignment.processOwner) ? assignment.processOwner[0] : '()'}"
+                               th:classappend="${(assignment != null and assignment.processOwner != null and !#lists.isEmpty(assignment.processOwner)) ? '' : 'empty-field'}"
+                               id="processOwner" name="processOwner">
+                    </td>
+                </tr>
+
+                <!-- Control Frequency -->
+                <tr>
+                    <td>
+                        <div class="check-icon"
+                             th:classappend="${(control.controlFrequency != null and !control.controlFrequency.isEmpty()) ? 'check-ok' : 'check-missing'}">
+                            <svg th:if="${control.controlFrequency != null and !control.controlFrequency.isEmpty()}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                            <svg th:unless="${control.controlFrequency != null and !control.controlFrequency.isEmpty()}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                        </div>
+                    </td>
+                    <td>Control Frequency</td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm readonly-field" readonly
+                               th:value="${control.controlFrequency}"
+                               id="controlFrequency" name="controlFrequency">
+                    </td>
+                </tr>
+
+                <!-- Control Operation Date -->
+                <tr>
+                    <td>
+                        <div class="check-icon"
+                             th:classappend="${performance.controlOperationDate != null ? 'check-ok' : 'check-missing'}">
+                            <svg th:if="${performance.controlOperationDate != null}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+                            <svg th:unless="${performance.controlOperationDate != null}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                        </div>
+                    </td>
+                    <td>Control Operation Date</td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm readonly-field" readonly
+                               th:value="${performance.controlOperationDate != null ? #temporals.format(performance.controlOperationDate, 'dd.MM.yyyy') : ''}"
+                               id="controlOperationDateDisplay">
+                        <input type="hidden"
+                               th:value="${performance.controlOperationDate != null ? #temporals.format(performance.controlOperationDate, 'yyyy-MM-dd') : ''}"
+                               id="controlOperationDate" name="controlOperationDate">
+                    </td>
+                </tr>
+
+                <!-- SoQM Year (Editable) -->
+                <tr>
+                    <td>
+                        <div class="check-icon check-missing" id="soqmYearStatus">
+                            <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                        </div>
+                    </td>
+                    <td>SoQM Year (Select)</td>
+                    <td>
+                        <select class="form-select form-select-sm" name="soqmYear" id="soqmYear">
+                            <option value="">Select SoQM Year</option>
+                            <option value="1 OCT 2024 - 30 SEP 2025" th:selected="${performance.soqmYear == '1 OCT 2024 - 30 SEP 2025'}">1 OCT 2024 - 30 SEP 2025</option>
+                            <option value="1 OCT 2025 - 30 SEP 2026" th:selected="${performance.soqmYear == '1 OCT 2025 - 30 SEP 2026'}">1 OCT 2025 - 30 SEP 2026</option>
+                            <option value="1 OCT 2026 - 30 SEP 2027" th:selected="${performance.soqmYear == '1 OCT 2026 - 30 SEP 2027'}">1 OCT 2026 - 30 SEP 2027</option>
+                            <option value="1 OCT 2027 - 30 SEP 2028" th:selected="${performance.soqmYear == '1 OCT 2027 - 30 SEP 2028'}">1 OCT 2027 - 30 SEP 2028</option>
+                        </select>
+                    </td>
+                </tr>
+
+                <!-- Actual Date of Operation (Editable) -->
+                <tr>
+                    <td>
+                        <div class="check-icon check-missing" id="actualDateStatus">
+                            <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                        </div>
+                    </td>
+                    <td>Actual Date of Operation</td>
+                    <td>
+                        <div class="date-input-container">
+                            <input type="text"
+                                   class="form-control form-control-sm date-input"
+                                   id="actualOperationDate"
+                                   readonly
+                                   placeholder="Select date"
+                                   th:value="${performance.actualOperationDate != null ?
+                                       #temporals.format(performance.actualOperationDate, 'dd.MM.yyyy') :
+                                       (control.createdAt != null ? #temporals.format(control.createdAt, 'dd.MM.yyyy') : '')}">
+                            <input type="hidden"
+                                   id="actualOperationDateIso"
+                                   name="actualOperationDate"
+                                   th:value="${performance.actualOperationDate != null ?
+                                       #temporals.format(performance.actualOperationDate, 'yyyy-MM-dd') :
+                                       (control.createdAt != null ? #temporals.format(control.createdAt, 'yyyy-MM-dd') : '')}">
+                            <button type="button" class="calendar-btn" id="calendarTriggerBtn"><svg width="18" height="18" fill="none" stroke="#5c6478" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ═══════ STATUS BAR ═══════ -->
+    <div class="status-bar">
+        <div>
+            <strong>Status:</strong>
+            <span th:switch="${performanceStatus}">
+                <span th:case="'COMPLETED'" class="status-badge status-completed" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
+                <span th:case="'IN_PROGRESS'" class="status-badge status-progress" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
+                <span th:case="'REVIEW'" class="status-badge status-review" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
+                <span th:case="'SOQM_HEAD_REVIEW'" class="status-badge status-soqm" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
+                <span th:case="'PROCESS_OWNER_REVIEW'" class="status-badge status-po" th:text="${@statusDisplayMapper.display(performanceStatus)}"></span>
+                <span th:case="*" class="status-badge status-draft" th:text="${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">Draft</span>
+            </span>
+        </div>
+        <div>
+            <strong>Assigned to:</strong>
+            <span style="margin-left: 6px; color: var(--kpmg-gray-700);" th:text="${performance.assignedTo} ?: 'Not assigned'">Not assigned</span>
+        </div>
+    </div>
+
+    <!-- ═══════ ACTION BAR ═══════ -->
+    <div class="action-bar">
+        <button type="button" class="btn-kpmg-outline" id="backBtn">Back</button>
+        <a href="/" class="btn-kpmg-outline">Home</a>
+        <a th:href="@{/view-control/{id}(id=${control.id})}" class="btn-kpmg-outline">View Control</a>
+        <button type="button" id="initiateBtn" class="btn-kpmg-primary" disabled>Initiate</button>
+    </div>
+</form>
+
+</div>
+
 <div class="calendar-overlay" id="calendarOverlay"></div>
 
-<!-- ��������� (������� �� ���������) -->
 <div class="calendar-modal" id="calendarModal">
     <div class="calendar-header">
         <div class="calendar-navigation">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="prevMonthBtn">
-                &lt; Prev
-            </button>
-            <div class="month-year text-center">
-                <span id="displayMonthYear" style="font-weight: bold;">December 2025</span>
-            </div>
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="nextMonthBtn">
-                Next &gt;
-            </button>
+            <button type="button" id="prevMonthBtn">&lt; Prev</button>
+            <div class="month-year-span" id="displayMonthYear">December 2025</div>
+            <button type="button" id="nextMonthBtn">Next &gt;</button>
         </div>
         <div class="current-date-display">
-            <div id="currentDay" style="font-weight: bold; font-size: 16px;">Tuesday</div>
-            <div id="currentDate" style="font-size: 14px;">December 2</div>
-            <div id="currentYear" style="font-size: 14px; color: #666;">2025</div>
+            <div id="currentDay">Tuesday</div>
+            <div id="currentDate">December 2</div>
+            <div id="currentYear">2025</div>
         </div>
     </div>
-
     <div class="calendar">
         <div class="weekdays">
-            <div>Sun</div>
-            <div>Mon</div>
-            <div>Tue</div>
-            <div>Wed</div>
-            <div>Thu</div>
-            <div>Fri</div>
-            <div>Sat</div>
+            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
         </div>
-
-        <div class="days" id="calendarDays">
-        </div>
+        <div class="days" id="calendarDays"></div>
     </div>
-
     <div class="calendar-footer">
-        <button type="button" class="btn btn-sm btn-outline-secondary" id="calendarCancelBtn">Cancel</button>
-        <button type="button" class="btn btn-sm btn-primary" id="calendarOkBtn">OK</button>
+        <button type="button" class="btn-cal-cancel" id="calendarCancelBtn">Cancel</button>
+        <button type="button" class="btn-cal-ok" id="calendarOkBtn">OK</button>
     </div>
 </div>
+
 <div th:replace="fragments/app-modal :: appModal"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/js/app-modal.js?v=3"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('=== ������������� �������� ===');
-
-        // �������� ��������
         const initiateBtn = document.getElementById('initiateBtn');
         const soqmYearSelect = document.getElementById('soqmYear');
         const actualDateInput = document.getElementById('actualOperationDate');
@@ -549,11 +786,7 @@
         const controlId = document.querySelector('input[name="controlId"]').value;
         const backBtn = document.getElementById('backBtn');
 
-        console.log('Control ID:', controlId);
-        console.log('Actual Date Input value:', actualDateInput.value);
-        console.log('SoQM Year value:', soqmYearSelect.value);
-
-        // === ��������� ===
+        // === Calendar elements ===
         const calendarTriggerBtn = document.getElementById('calendarTriggerBtn');
         const calendarModal = document.getElementById('calendarModal');
         const calendarOverlay = document.getElementById('calendarOverlay');
@@ -564,313 +797,164 @@
         const currentDay = document.getElementById('currentDay');
         const currentDate = document.getElementById('currentDate');
         const currentYear = document.getElementById('currentYear');
-        const prevMonthBtn = document.getElementById('prevMonthBtn'); // ���������
-        const nextMonthBtn = document.getElementById('nextMonthBtn'); // ���������
+        const prevMonthBtn = document.getElementById('prevMonthBtn');
+        const nextMonthBtn = document.getElementById('nextMonthBtn');
 
-        // ���������� ���������
         let selectedDate = null;
         let currentMonth = new Date().getMonth();
         let currentYearValue = new Date().getFullYear();
         let originalDateValue = '';
 
-        // ������ � ���
         const monthNames = ["January", "February", "March", "April", "May", "June",
                            "July", "August", "September", "October", "November", "December"];
         const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-        // === ������� ��������� ===
-
+        // === Date helpers ===
         function formatIsoToDisplay(isoDate) {
-            if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
-                return '';
-            }
+            if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return '';
             const parts = isoDate.split('-');
             return `${parts[2]}.${parts[1]}.${parts[0]}`;
         }
 
         function parseDisplayToIso(displayDate) {
-            if (!displayDate || typeof displayDate !== 'string') {
-                return '';
-            }
+            if (!displayDate || typeof displayDate !== 'string') return '';
             const trimmed = displayDate.trim();
-
             const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-            if (isoMatch) {
-                return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
-            }
-
+            if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
             const displayMatch = trimmed.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-            if (!displayMatch) {
-                return '';
-            }
-
-            const day = Number(displayMatch[1]);
-            const month = Number(displayMatch[2]);
-            const year = Number(displayMatch[3]);
+            if (!displayMatch) return '';
+            const day = Number(displayMatch[1]), month = Number(displayMatch[2]), year = Number(displayMatch[3]);
             const date = new Date(year, month - 1, day);
-            if (
-                date.getFullYear() !== year ||
-                date.getMonth() + 1 !== month ||
-                date.getDate() !== day
-            ) {
-                return '';
-            }
-
-            return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            if (date.getFullYear() !== year || date.getMonth() + 1 !== month || date.getDate() !== day) return '';
+            return `${String(year).padStart(4,'0')}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
         }
 
         function parseIsoToDate(isoDate) {
-            if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
-                return null;
-            }
+            if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
             const parts = isoDate.split('-');
-            const year = Number(parts[0]);
-            const month = Number(parts[1]);
-            const day = Number(parts[2]);
-            const date = new Date(year, month - 1, day);
-            if (
-                date.getFullYear() !== year ||
-                date.getMonth() + 1 !== month ||
-                date.getDate() !== day
-            ) {
-                return null;
-            }
+            const y = Number(parts[0]), m = Number(parts[1]), d = Number(parts[2]);
+            const date = new Date(y, m - 1, d);
+            if (date.getFullYear() !== y || date.getMonth() + 1 !== m || date.getDate() !== d) return null;
             return date;
         }
 
-        // ������������� ����
         function initCalendarDate() {
             const inputValue = (actualDateIsoInput && actualDateIsoInput.value) ? actualDateIsoInput.value : parseDisplayToIso(actualDateInput.value);
-            console.log('������������� ��������� � �����:', inputValue);
-
             if (inputValue && inputValue.trim()) {
                 const date = parseIsoToDate(inputValue.trim());
                 if (date) {
                     selectedDate = date;
                     currentMonth = date.getMonth();
                     currentYearValue = date.getFullYear();
-                    console.log('? ����������� ���� �� ����:', selectedDate.toDateString());
                     return;
                 }
             }
-
-            // ���� �� ������� ����������, ���������� ������� ����
             selectedDate = new Date();
             currentMonth = selectedDate.getMonth();
             currentYearValue = selectedDate.getFullYear();
-            console.log('?? ���������� ������� ����:', selectedDate.toDateString());
         }
 
-        // ��������� ���������
         function generateCalendar() {
-            console.log('?? ��������� ��������� ���', monthNames[currentMonth], currentYearValue);
-
-            // ��������� ���������
             displayMonthYear.textContent = `${monthNames[currentMonth]} ${currentYearValue}`;
-
-            // �������� ������ � ��������� ���� ������
             const firstDay = new Date(currentYearValue, currentMonth, 1);
             const lastDay = new Date(currentYearValue, currentMonth + 1, 0);
             const daysInMonth = lastDay.getDate();
-            const startingDay = firstDay.getDay(); // 0 = Sunday
-
-            // ������� ���
+            const startingDay = firstDay.getDay();
             calendarDays.innerHTML = '';
-
-            // ������ ������ ��� ���� ����������� ������
             for (let i = 0; i < startingDay; i++) {
                 const emptyCell = document.createElement('div');
                 emptyCell.className = 'day-cell empty';
                 calendarDays.appendChild(emptyCell);
             }
-
-            // ��� �������� ������
             for (let day = 1; day <= daysInMonth; day++) {
                 const dayCell = document.createElement('div');
                 dayCell.className = 'day-cell';
                 dayCell.textContent = day;
                 dayCell.dataset.day = day;
-
-                // ���������, �������� �� ���� ���� ���������
-                const isSelected = selectedDate &&
-                    selectedDate.getDate() === day &&
-                    selectedDate.getMonth() === currentMonth &&
-                    selectedDate.getFullYear() === currentYearValue;
-
-                if (isSelected) {
-                    dayCell.classList.add('selected');
-                    console.log(`? ���� ${day} ������� ��� ���������`);
-                }
-
-                dayCell.addEventListener('click', function() {
-                    console.log(`?? ������ ����: ${day} ${monthNames[currentMonth]} ${currentYearValue}`);
-                    selectDay(day);
-                });
-
+                const isSelected = selectedDate && selectedDate.getDate() === day && selectedDate.getMonth() === currentMonth && selectedDate.getFullYear() === currentYearValue;
+                if (isSelected) dayCell.classList.add('selected');
+                dayCell.addEventListener('click', function() { selectDay(day); });
                 calendarDays.appendChild(dayCell);
             }
-
-            // ��������� ����������� ����
             updateDateDisplay();
         }
 
-        // ����� ���
         function selectDay(day) {
             selectedDate = new Date(currentYearValue, currentMonth, day);
-            console.log('?? ������� ����:', selectedDate.toDateString());
-
-            // ������� ��������� �� ���� ����
-            document.querySelectorAll('.day-cell').forEach(cell => {
-                cell.classList.remove('selected');
-            });
-
-            // ������� � �������� ��������� ����
+            document.querySelectorAll('.day-cell').forEach(cell => cell.classList.remove('selected'));
             const dayCells = calendarDays.querySelectorAll('.day-cell:not(.empty)');
-            const dayIndex = day - 1;
-
-            if (dayCells[dayIndex]) {
-                dayCells[dayIndex].classList.add('selected');
-                console.log(`? ���� ${day} ������� ���������`);
-            }
-
+            if (dayCells[day - 1]) dayCells[day - 1].classList.add('selected');
             updateDateDisplay();
         }
 
-        // ���������� ����������� ����
         function updateDateDisplay() {
             if (selectedDate) {
                 currentDay.textContent = dayNames[selectedDate.getDay()];
                 currentDate.textContent = `${monthNames[selectedDate.getMonth()]} ${selectedDate.getDate()}`;
                 currentYear.textContent = selectedDate.getFullYear();
-                console.log('?? ����������� ���������:', currentDate.textContent);
             }
         }
 
-        // ��������� �� �������
-        function prevMonth() {
-            console.log('?? ���������� �����');
+        function prevMonthFn() {
             currentMonth--;
-            if (currentMonth < 0) {
-                currentMonth = 11;
-                currentYearValue--;
-            }
+            if (currentMonth < 0) { currentMonth = 11; currentYearValue--; }
             generateCalendar();
         }
 
-        function nextMonth() {
-            console.log('?? ��������� �����');
+        function nextMonthFn() {
             currentMonth++;
-            if (currentMonth > 11) {
-                currentMonth = 0;
-                currentYearValue++;
-            }
+            if (currentMonth > 11) { currentMonth = 0; currentYearValue++; }
             generateCalendar();
         }
 
-        // === ����������� ������ ��������� ===
+        if (prevMonthBtn) prevMonthBtn.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); prevMonthFn(); });
+        if (nextMonthBtn) nextMonthBtn.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); nextMonthFn(); });
 
-        // ��������� ����������� ��� ������ Prev � Next
-        if (prevMonthBtn) {
-            prevMonthBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                prevMonth();
-            });
-        }
-
-        if (nextMonthBtn) {
-            nextMonthBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                nextMonth();
-            });
-        }
-
-        // === ����������� ��������� ===
-
-        // �������� ���������
+        // === Calendar open/close ===
         calendarTriggerBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
+            e.preventDefault(); e.stopPropagation();
             originalDateValue = actualDateInput.value;
-            console.log('?? �������� ���������');
-            console.log('�������� �������� ����:', originalDateValue);
-
-            // �������������� ����
             initCalendarDate();
-
-            // ���������� ���������
             generateCalendar();
-
-            // ���������� ���������
             calendarModal.style.display = 'block';
             calendarOverlay.style.display = 'block';
         });
 
-        // ������ OK
         calendarOkBtn.addEventListener('click', async function() {
-            console.log('? ������ ������ OK');
-
             if (selectedDate) {
-                // ����������� ���� � dd/MM/yyyy
                 const day = String(selectedDate.getDate()).padStart(2, '0');
                 const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
                 const year = selectedDate.getFullYear();
-
                 const isoDate = `${year}-${month}-${day}`;
                 actualDateInput.value = formatIsoToDisplay(isoDate);
-                if (actualDateIsoInput) {
-                    actualDateIsoInput.value = isoDate;
-                }
-
-                console.log('?? ����������� ���� � ����:', isoDate);
-
-                // ��������� ���������
+                if (actualDateIsoInput) actualDateIsoInput.value = isoDate;
                 calendarModal.style.display = 'none';
                 calendarOverlay.style.display = 'none';
-
-                // ��������� � ��������� ������ �� ��������
                 try {
-                    console.log('?? �������� ����������...');
                     await saveData();
-                    console.log('?? ���� ������� ���������!');
-
-                    // ���������� ��������� �� �������� ����������
                     showSuccessMessage('Date saved successfully!');
-
-                    // ��������� UI
                     updateStatus();
                     updateInitiateButton();
-
-                    // ��������� ������ ������ �� ���� ��� �������������
                     await loadPerformanceData();
-
                 } catch (error) {
-                    console.error('? ������ ����������:', error);
-                    showErrorMessage('������ ���������� ����: ' + error.message);
+                    showErrorMessage('Error saving date: ' + error.message);
                 }
             } else {
-                console.warn('?? ��� ��������� ����!');
-                showErrorMessage('����������, �������� ����');
+                showErrorMessage('Please select a date');
             }
         });
 
-        // ������ Cancel
         calendarCancelBtn.addEventListener('click', function() {
-            console.log('? ������ ������ Cancel');
             actualDateInput.value = originalDateValue;
             calendarModal.style.display = 'none';
             calendarOverlay.style.display = 'none';
         });
 
-        // �������� �� �������
         calendarOverlay.addEventListener('click', function() {
             calendarModal.style.display = 'none';
             calendarOverlay.style.display = 'none';
         });
 
-        // Escape
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && calendarModal.style.display === 'block') {
                 calendarModal.style.display = 'none';
@@ -878,447 +962,216 @@
             }
         });
 
-        // === ��������������� ������� ===
-
-                function showSuccessMessage(message) {
-            if (window.showAppModal) {
-                showAppModal({
-                    variant: 'success',
-                    title: 'Success',
-                    message: message
-                });
-            } else {
-                alert(message);
-            }
+        // === Messages ===
+        function showSuccessMessage(message) {
+            if (window.showAppModal) { showAppModal({ variant: 'success', title: 'Success', message: message }); }
+            else { alert(message); }
         }
 
-                function showErrorMessage(message) {
-            if (window.showAppModal) {
-                showAppModal({
-                    variant: 'error',
-                    title: 'Error',
-                    message: message,
-                    autoCloseMs: 0
-                });
-            } else {
-                alert(message);
-            }
+        function showErrorMessage(message) {
+            if (window.showAppModal) { showAppModal({ variant: 'error', title: 'Error', message: message, autoCloseMs: 0 }); }
+            else { alert(message); }
         }
 
-async function saveData() {
-    return new Promise((resolve, reject) => {
-        console.log('?? ������� saveData �������');
+        // === Save data ===
+        async function saveData() {
+            return new Promise((resolve, reject) => {
+                const params = new URLSearchParams();
+                params.append('controlId', controlId);
+                const controlOperator = document.getElementById('controlOperator')?.value || '';
+                const facilitator = document.getElementById('facilitator')?.value || '';
+                const controlOperationDate = document.getElementById('controlOperationDate')?.value || '';
+                const soqmYear = document.getElementById('soqmYear')?.value || '';
+                const actualDateVal = (document.getElementById('actualOperationDateIso')?.value || '').trim();
+                if (controlOperator && controlOperator.trim() && controlOperator !== 'Not set') params.append('controlOperator', controlOperator);
+                if (facilitator && facilitator.trim() && facilitator !== 'Not set') params.append('facilitator', facilitator);
+                if (controlOperationDate && controlOperationDate.trim()) params.append('controlOperationDate', controlOperationDate);
+                if (soqmYear && soqmYear.trim()) params.append('soqmYear', soqmYear);
+                if (actualDateVal) params.append('actualOperationDate', actualDateVal);
 
-        const params = new URLSearchParams();
-        params.append('controlId', controlId);
-
-        // ? ��� 4 ����
-        const controlOperator = document.getElementById('controlOperator')?.value || '';
-        const facilitator = document.getElementById('facilitator')?.value || '';
-        const controlOperationDate = document.getElementById('controlOperationDate')?.value || '';
-        const soqmYear = document.getElementById('soqmYear')?.value || '';
-        const actualDateInput = (document.getElementById('actualOperationDateIso')?.value || '').trim();
-
-        // ���������� ��� ����
-        if (controlOperator && controlOperator.trim() && controlOperator !== 'Not set') {
-            params.append('controlOperator', controlOperator);
-        }
-        if (facilitator && facilitator.trim() && facilitator !== 'Not set') {
-            params.append('facilitator', facilitator);
-        }
-        if (controlOperationDate && controlOperationDate.trim()) {
-            params.append('controlOperationDate', controlOperationDate);
-        }
-        if (soqmYear && soqmYear.trim()) {
-            params.append('soqmYear', soqmYear);
-        }
-
-        // ���� - � ������� yyyy-MM-dd
-        if (actualDateInput) {
-            params.append('actualOperationDate', actualDateInput);
+                fetch('/api/performance/auto-save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params.toString()
+                })
+                .then(response => {
+                    if (response.ok) resolve();
+                    else return response.text().then(text => { reject(new Error(text || 'Server error')); });
+                })
+                .catch(error => { reject(new Error('Network error: ' + error.message)); });
+            });
         }
 
-        console.log('?? �������� ���� ����� �� /api/performance/auto-save');
-        console.log('?? ���������:', params.toString());
-
-        fetch('/api/performance/auto-save', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: params.toString()
-        })
-        .then(response => {
-            if (response.ok) {
-                console.log('? ��� ������ ������� ���������');
-                resolve();
-            } else {
-                return response.text().then(text => {
-                    reject(new Error(text || 'Server error'));
-                });
-            }
-        })
-        .catch(error => {
-            reject(new Error('Network error: ' + error.message));
-        });
-    });
-}
-
-        // === ����� �������: �������� ������ performance ===
+        // === Load performance data ===
         async function loadPerformanceData() {
             try {
-                console.log('?? �������� ������ performance ��� controlId:', controlId);
-
-                // ����������: ���������� ���������� endpoint
                 const response = await fetch(`/api/performance/${controlId}`);
-
                 if (response.ok) {
-                    const performanceData = await response.json();
-                    console.log('?? ����������� ������ performance:', performanceData);
-
-                    // ��������� ���� ���� ���� ������ ����
-                    if (performanceData.actualOperationDate) {
-                        // ���� �������� � ������� "yyyy-MM-dd" �� ����
-                        console.log('?? ���� �� ����:', performanceData.actualOperationDate);
-
-                        // ��������� �� �����
-                        if (/^\d{4}-\d{2}-\d{2}$/.test(performanceData.actualOperationDate)) {
-                            actualDateInput.value = formatIsoToDisplay(performanceData.actualOperationDate);
-                            if (actualDateIsoInput) {
-                                actualDateIsoInput.value = performanceData.actualOperationDate;
-                            }
-                            console.log("Loaded actualOperationDate from DB:", performanceData.actualOperationDate);
-                        } else {
-                            console.error("Invalid date format from DB, expected yyyy-MM-dd:", performanceData.actualOperationDate);
-                        }
-                    } else {
-                        console.log('?? ��� ���� � ���� ������');
+                    const data = await response.json();
+                    if (data.actualOperationDate && /^\d{4}-\d{2}-\d{2}$/.test(data.actualOperationDate)) {
+                        actualDateInput.value = formatIsoToDisplay(data.actualOperationDate);
+                        if (actualDateIsoInput) actualDateIsoInput.value = data.actualOperationDate;
                     }
-
-                    // ��������� SoQM Year ���� ������ ����
-                    if (performanceData.soqmYear) {
-                        soqmYearSelect.value = performanceData.soqmYear;
-                        console.log('?? ���������� SoQM Year �� ����:', performanceData.soqmYear);
-                    }
-
-                    // ��������� UI
+                    if (data.soqmYear) soqmYearSelect.value = data.soqmYear;
                     updateStatus();
                     updateInitiateButton();
-
-                    return performanceData;
-                } else {
-                    console.log('?? ��� ������ performance ��� ������ ��������, ������:', response.status);
-                    return null;
+                    return data;
                 }
+                return null;
             } catch (error) {
-                console.error('? ������ �������� ������ performance:', error);
+                console.error('Error loading performance data:', error);
                 return null;
             }
         }
 
-        // === �������� ������� ===
+        // === Status updates ===
+        const svgCheck = '<svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
+        const svgCross = '<svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>';
 
-        // ���������� �������
         function updateStatus() {
-            console.log('?? ���������� �������...');
-
-            // ������ ����
             const dateStatus = document.getElementById('actualDateStatus');
             const hasDate = actualDateInput.value && actualDateInput.value.trim();
-
             if (hasDate) {
-                dateStatus.innerHTML = '&#10003;';
-                dateStatus.className = 'checklist-status status-completed';
-                console.log('? ���� �����������');
+                dateStatus.innerHTML = svgCheck;
+                dateStatus.className = 'check-icon check-ok';
             } else {
-                dateStatus.innerHTML = '&#10007;';
-                dateStatus.className = 'checklist-status status-pending';
-                console.log('? ���� �� �����������');
+                dateStatus.innerHTML = svgCross;
+                dateStatus.className = 'check-icon check-missing';
             }
 
-            // ������ SoQM Year
             const soqmStatus = document.getElementById('soqmYearStatus');
             const hasSoqmYear = soqmYearSelect.value && soqmYearSelect.value.trim();
-
             if (hasSoqmYear) {
-                soqmStatus.innerHTML = '&#10003;';
-                soqmStatus.className = 'checklist-status status-completed';
-                console.log('? SoQM Year ����������');
+                soqmStatus.innerHTML = svgCheck;
+                soqmStatus.className = 'check-icon check-ok';
             } else {
-                soqmStatus.innerHTML = '&#10007;';
-                soqmStatus.className = 'checklist-status status-pending';
-                console.log('? SoQM Year �� ����������');
+                soqmStatus.innerHTML = svgCross;
+                soqmStatus.className = 'check-icon check-missing';
             }
         }
 
-function isFieldFilled(element) {
-    if (!element) {
-        return false;
-    }
+        // === Field validation ===
+        function isFieldFilled(element) {
+            if (!element) return false;
+            if (element instanceof HTMLSelectElement && element.multiple) return Array.from(element.selectedOptions || []).some(opt => (opt.value || '').trim() !== '');
+            if (element instanceof HTMLInputElement && (element.type === 'checkbox' || element.type === 'radio')) return element.checked;
+            const rawValue = element.value;
+            if (Array.isArray(rawValue)) return rawValue.length > 0;
+            const value = (rawValue || '').toString().trim();
+            const emptyValues = new Set(['', '()', 'Not set', 'Not assigned', '0', 'null', 'undefined']);
+            return !emptyValues.has(value);
+        }
 
-    if (element instanceof HTMLSelectElement && element.multiple) {
-        return Array.from(element.selectedOptions || []).some(opt => (opt.value || '').trim() !== '');
-    }
+        function checkFields() {
+            const fields = {
+                controlOperator: document.getElementById('controlOperator'),
+                facilitator: document.getElementById('facilitator'),
+                soqmLead: document.getElementById('soqmLead'),
+                processOwner: document.getElementById('processOwner'),
+                controlFrequency: document.getElementById('controlFrequency'),
+                controlOperationDate: document.getElementById('controlOperationDate'),
+                soqmYear: document.getElementById('soqmYear'),
+                actualOperationDate: document.getElementById('actualOperationDateIso')
+            };
+            return Object.values(fields).every(f => isFieldFilled(f));
+        }
 
-    if (element instanceof HTMLInputElement && (element.type === 'checkbox' || element.type === 'radio')) {
-        return element.checked;
-    }
-
-    const rawValue = element.value;
-    if (Array.isArray(rawValue)) {
-        return rawValue.length > 0;
-    }
-
-    const value = (rawValue || '').toString().trim();
-    const emptyValues = new Set(['', '()', 'Not set', 'Not assigned', '0', 'null', 'undefined']);
-    return !emptyValues.has(value);
-}
-
-function checkFields() {
-    const requiredElements = {
-        controlOperator: document.getElementById('controlOperator'),
-        facilitator: document.getElementById('facilitator'),
-        soqmLead: document.getElementById('soqmLead'),
-        processOwner: document.getElementById('processOwner'),
-        controlFrequency: document.getElementById('controlFrequency'),
-        controlOperationDate: document.getElementById('controlOperationDate'),
-        soqmYear: document.getElementById('soqmYear'),
-        actualOperationDate: document.getElementById('actualOperationDateIso')
-    };
-
-    const isControlOperatorValid = isFieldFilled(requiredElements.controlOperator);
-    const isFacilitatorValid = isFieldFilled(requiredElements.facilitator);
-    const isSoqmLeadValid = isFieldFilled(requiredElements.soqmLead);
-    const isProcessOwnerValid = isFieldFilled(requiredElements.processOwner);
-    const isControlFrequencyValid = isFieldFilled(requiredElements.controlFrequency);
-    const isControlOperationDateValid = isFieldFilled(requiredElements.controlOperationDate);
-    const isSoqmYearValid = isFieldFilled(requiredElements.soqmYear);
-    const isActualDateValid = isFieldFilled(requiredElements.actualOperationDate);
-
-    const controlOperatorValue = requiredElements.controlOperator?.value?.trim() || '';
-    const facilitatorValue = requiredElements.facilitator?.value?.trim() || '';
-    const soqmLeadValue = requiredElements.soqmLead?.value?.trim() || '';
-    const processOwnerValue = requiredElements.processOwner?.value?.trim() || '';
-    const controlFrequencyValue = requiredElements.controlFrequency?.value?.trim() || '';
-    const controlOperationDateValue = requiredElements.controlOperationDate?.value?.trim() || '';
-    const soqmYearValue = requiredElements.soqmYear?.value?.trim() || '';
-    const actualDateValue = requiredElements.actualOperationDate?.value?.trim() || '';
-
-    // ���� ��� �������
-    console.log('=== �������� ������������ ����� ===');
-    console.log('1. Control Operator:', controlOperatorValue, isControlOperatorValid ? '?' : '?');
-    console.log('2. Facilitator:', facilitatorValue, isFacilitatorValid ? '?' : '?');
-    console.log('3. SoQM Lead / Delegate:', soqmLeadValue, isSoqmLeadValid ? '?' : '?');
-    console.log('4. Process Owner:', processOwnerValue, isProcessOwnerValid ? '?' : '?');
-    console.log('5. Control Frequency:', controlFrequencyValue, isControlFrequencyValid ? '?' : '?');
-    console.log('6. Control Operation Date:', controlOperationDateValue, isControlOperationDateValid ? '?' : '?');
-    console.log('7. SoQM Year:', soqmYearValue, isSoqmYearValid ? '?' : '?');
-    console.log('8. Actual Date:', actualDateValue, isActualDateValid ? '?' : '?');
-
-    // ��� ���� ������ ���� �������
-    const allValid = isControlOperatorValid &&
-                     isFacilitatorValid &&
-                     isSoqmLeadValid &&
-                     isProcessOwnerValid &&
-                     isControlFrequencyValid &&
-                     isControlOperationDateValid &&
-                     isSoqmYearValid &&
-                     isActualDateValid;
-
-    console.log('? ��� ������������ ���� ���������:', allValid);
-    return allValid;
-}
-
-function setupRequiredFieldsValidation() {
-    const requiredFieldIds = [
-        'facilitator',
-        'controlOperator',
-        'soqmLead',
-        'processOwner',
-        'controlFrequency',
-        'controlOperationDate',
-        'soqmYear',
-        'actualOperationDate',
-        'actualOperationDateIso'
-    ];
-
-    requiredFieldIds.forEach((id) => {
-        const field = document.getElementById(id);
-        if (!field) return;
-        ['change', 'input'].forEach((eventName) => {
-            field.addEventListener(eventName, updateInitiateButton);
-        });
-    });
-}
-
-function updateInitiateButton() {
-    const isComplete = checkFields();
-    console.log('?? ���������� ������ Initiate. ��� ���� ���������:', isComplete);
-
-    if (isComplete) {
-        initiateBtn.disabled = false;
-        initiateBtn.classList.remove('btn-secondary');
-        initiateBtn.classList.add('btn-primary');
-        requiredMessage.style.display = 'none';
-        console.log('? ������ Initiate �������');
-    } else {
-        initiateBtn.disabled = true;
-        initiateBtn.classList.remove('btn-primary');
-        initiateBtn.classList.add('btn-secondary');
-        requiredMessage.style.display = 'block';
-        console.log('? ������ Initiate ��������� - �� ��� ���� ���������');
-    }
-}
-
-        // ��������������
-        function autoSave() {
-            console.log('?? ��������������...');
-            saveData().catch(error => {
-                console.error('?? ������ ��������������:', error);
+        function setupRequiredFieldsValidation() {
+            ['facilitator','controlOperator','soqmLead','processOwner','controlFrequency','controlOperationDate','soqmYear','actualOperationDate','actualOperationDateIso'].forEach(id => {
+                const field = document.getElementById(id);
+                if (!field) return;
+                ['change', 'input'].forEach(ev => field.addEventListener(ev, updateInitiateButton));
             });
         }
 
-        // === ����������� ������� ===
+        function updateInitiateButton() {
+            const isComplete = checkFields();
+            if (isComplete) {
+                initiateBtn.disabled = false;
+                requiredMessage.style.display = 'none';
+            } else {
+                initiateBtn.disabled = true;
+                requiredMessage.style.display = 'block';
+            }
+        }
 
-        // SoQM Year
+        function autoSave() {
+            saveData().catch(error => console.error('Auto-save error:', error));
+        }
+
+        // === Event listeners ===
         soqmYearSelect.addEventListener('change', function() {
-            console.log('?? SoQM Year �������:', this.value);
             updateStatus();
             updateInitiateButton();
-
-            // ��������� ���� ���� ����
-            if (actualDateInput.value && actualDateInput.value.trim()) {
-                console.log('?? �������������� ��-�� ��������� SoQM Year');
-                autoSave();
-            }
+            if (actualDateInput.value && actualDateInput.value.trim()) autoSave();
         });
 
-        // ���� ����
         actualDateInput.addEventListener('change', function() {
-            console.log('?? ���� ���� ��������:', this.value);
             updateStatus();
             updateInitiateButton();
-
-            // ��������� ���� ���� SoQM Year
-            if (soqmYearSelect.value && soqmYearSelect.value.trim()) {
-                console.log('?? �������������� ��-�� ��������� ����');
-                autoSave();
-            }
+            if (soqmYearSelect.value && soqmYearSelect.value.trim()) autoSave();
         });
 
         setupRequiredFieldsValidation();
 
-        // ������ Back - ������������ ������� (��� �������������)
+        // Back button
         backBtn.addEventListener('click', function() {
-            console.log('?? ������ Back ������');
-
-            // ������������� ��������� ��� �������������
             const currentDateValue = actualDateInput.value;
             if (currentDateValue && currentDateValue.trim() && currentDateValue !== originalDateValue) {
-                console.log('?? �������������� ����� ���������...');
-                // ��������� � ����, �� ���� ������
-                saveData().catch(error => {
-                    console.error('?? ������ �������������� ��� ��������:', error);
-                });
+                saveData().catch(error => console.error('Auto-save on exit error:', error));
             }
-
-            // ������� �����
             if (window.history.length > 1 && document.referrer && document.referrer.includes(window.location.host)) {
                 window.history.back();
             } else {
                 window.location.href = '/controls';
-            } // ��������� �������� ����� saveData ����� �����������
+            }
         });
 
-// ������ Initiate
-initiateBtn.addEventListener('click', async function() {
-    console.log('?? ������ Initiate ������');
+        // Initiate button
+        initiateBtn.addEventListener('click', async function() {
+            if (!checkFields()) {
+                showAppModal({ variant: 'warning', title: 'Missing Required Field', message: 'Please fill all required fields.', autoCloseMs: 0 });
+                return;
+            }
+            initiateBtn.disabled = true;
+            initiateBtn.textContent = 'Initializing...';
 
-    if (!checkFields()) {
-        showAppModal({ variant: 'warning', title: 'Missing Required Field', message: '����������, ��������� ��� ������������ ����.', autoCloseMs: 0 });
-        return;
-    }
+            try {
+                const formData = new FormData();
+                formData.append('controlId', controlId);
+                formData.append('soqmYear', soqmYearSelect.value);
+                const dateStr = (actualDateIsoInput?.value || parseDisplayToIso(actualDateInput.value)).trim();
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) formData.append('actualOperationDate', dateStr);
 
-    // ���������� loading
-    initiateBtn.disabled = true;
-    initiateBtn.textContent = 'Initializing...';
-
-    try {
-        // 1. ��������� ������ performance
-        const formData = new FormData();
-        formData.append('controlId', controlId);
-        formData.append('soqmYear', soqmYearSelect.value);
-
-        // ���� � ���������� �������
-        const dateStr = (actualDateIsoInput?.value || parseDisplayToIso(actualDateInput.value)).trim();
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-            formData.append('actualOperationDate', dateStr);
-        }
-
-        // 2. �������������� performance
-        const response = await fetch('/api/performance/initiate', {
-            method: 'POST',
-            body: formData
+                const response = await fetch('/api/performance/initiate', { method: 'POST', body: formData });
+                if (response.ok) {
+                    showAppModal({ variant: 'success', title: 'Initiated', message: 'Performance has been successfully initiated', redirectUrl: '/' });
+                } else {
+                    const text = await response.text();
+                    throw new Error(text || 'Server error during initiation');
+                }
+            } catch (error) {
+                showAppModal({ variant: 'error', title: 'Initiation Failed', message: 'Error: ' + error.message, autoCloseMs: 0 });
+                initiateBtn.disabled = false;
+                initiateBtn.textContent = 'Initiate';
+            }
         });
 
-if (response.ok) {
-    console.log('? Performance initiated successfully!');
-    showAppModal({
-        variant: 'success',
-        title: 'Initiated',
-        message: 'Performance has been successfully initiated',
-        redirectUrl: '/'
-    });
-
-} else {
-            const text = await response.text();
-            throw new Error(text || 'Server error during initiation');
-        }
-
-    } catch (error) {
-        console.error('? Error initiating performance:', error);
-        showAppModal({ variant: 'error', title: 'Initiation Failed', message: 'Error initiating performance: ' + error.message, autoCloseMs: 0 });
-
-        // ��������������� ������
-        initiateBtn.disabled = false;
-        initiateBtn.textContent = 'Initiate';
-    }
-});
-
-        // === ������������� �������� ===
+        // === Init ===
         async function initPage() {
-            console.log('=== ������ ������������� ===');
-
-            // ��������� �������� �������� ����
             originalDateValue = actualDateInput.value;
-
-            // ��������� ������ �� ���� ��� �������� ��������
-            console.log('?? �������� ����������� ������ performance...');
             await loadPerformanceData();
-
-            // ��������� UI
             updateStatus();
             updateInitiateButton();
-
-            // �������������� ��� �������� ���� ���� ����� ������
             if ((actualDateInput.value && actualDateInput.value.trim() && actualDateInput.value !== originalDateValue) ||
                 (soqmYearSelect.value && soqmYearSelect.value.trim())) {
-                console.log('?? �������������� ��� �������� ��������...');
-                setTimeout(() => {
-                    autoSave();
-                }, 500);
+                setTimeout(() => autoSave(), 500);
             }
-
-            console.log('=== ������������� ��������� ===');
         }
 
-        // ��������� �������������
         initPage();
     });
 </script>
-
-
-
 </body>
 </html>
 

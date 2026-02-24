@@ -4,47 +4,149 @@
     <meta charset="UTF-8">
     <title>Performance Cycle - QTracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=2" rel="stylesheet">
+    <link href="/css/style.css?v=7" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
     <style>
+        :root {
+            --kpmg-blue: #00338D;
+            --kpmg-blue-light: #005EB8;
+            --kpmg-blue-dark: #002060;
+            --kpmg-gray-50: #f7f8fa;
+            --kpmg-gray-100: #eef0f4;
+            --kpmg-gray-200: #d8dce5;
+            --kpmg-gray-300: #cdd0d6;
+            --kpmg-gray-400: #9ba3b5;
+            --kpmg-gray-600: #5c6478;
+            --kpmg-gray-700: #495057;
+            --kpmg-gray-800: #2d3340;
+            --kpmg-white: #ffffff;
+            --kpmg-green: #009a44;
+            --kpmg-red: #c8102e;
+            --kpmg-amber: #d4a843;
+        }
+
+        .page-wrapper {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 20px 24px;
+        }
+
+        /* ── Header ── */
+        .page-header {
+            background: var(--kpmg-blue);
+            color: var(--kpmg-white);
+            padding: 18px 24px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .page-header h1 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin: 0 0 2px 0;
+            letter-spacing: 0.3px;
+        }
+
+        .page-header p {
+            font-size: 0.72rem;
+            color: rgba(255,255,255,0.6);
+            margin: 0;
+        }
+
+        .page-header .btn-download {
+            background: var(--kpmg-white);
+            color: var(--kpmg-blue);
+            border: none;
+            padding: 7px 16px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .page-header .btn-download:hover {
+            background: var(--kpmg-gray-100);
+            color: var(--kpmg-blue-dark);
+        }
+
+        /* ── Breadcrumb ── */
+        .breadcrumb-bar {
+            background: var(--kpmg-gray-50);
+            border: 1px solid var(--kpmg-gray-200);
+            border-radius: 4px;
+            padding: 8px 16px;
+            margin-bottom: 16px;
+            font-size: 0.72rem;
+            color: var(--kpmg-gray-600);
+        }
+
+        .breadcrumb-bar a {
+            color: var(--kpmg-blue);
+            text-decoration: none;
+        }
+
+        .breadcrumb-bar a:hover {
+            text-decoration: underline;
+        }
+
+        .breadcrumb-bar .separator {
+            margin: 0 6px;
+            color: var(--kpmg-gray-400);
+        }
+
+        /* ── Performance Card ── */
         .performance-card {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
-            border: 2px solid #dee2e6;
-            border-radius: 0.65rem;
-            padding: 1.1rem 1.2rem;
-            margin-bottom: 1.25rem;
+            background: var(--kpmg-white);
+            border: 1px solid var(--kpmg-gray-200);
+            border-radius: 6px;
+            margin-bottom: 16px;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.07);
+            transition: border-color 0.2s;
         }
 
         .performance-card:hover {
-            border-color: #667eea;
-            box-shadow: 0 8px 18px rgba(102, 126, 234, 0.18);
-            transform: translateY(-3px);
+            border-color: var(--kpmg-blue-light);
         }
 
-        .card-header-custom {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 0.85rem 1.2rem;
-            border-radius: 0.6rem;
-            margin-bottom: 1rem;
+        .card-header-bar {
+            background: var(--kpmg-blue);
+            color: var(--kpmg-white);
+            padding: 12px 20px;
+            border-radius: 6px 6px 0 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .card-header-custom h4 {
+        .card-header-bar h4 {
             margin: 0;
-            font-size: 1.05rem;
+            font-size: 0.84rem;
             font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .card-header-bar .header-icon {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        .card-body-content {
+            padding: 16px 20px;
         }
 
         .data-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0.55rem 0;
-            border-bottom: 1px solid #f1f3f5;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--kpmg-gray-100);
         }
 
         .data-row:last-child {
@@ -63,105 +165,220 @@
             text-align: right;
         }
 
-        .label {
+        .data-label {
             font-weight: 600;
-            color: #495057;
-            font-size: 0.8rem;
-            margin-right: 0.4rem;
+            color: var(--kpmg-gray-600);
+            font-size: 0.74rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-right: 6px;
         }
 
-        .value {
-            color: #212529;
-            font-size: 0.85rem;
-        }
-
-        .action-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.75rem;
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid #e9ecef;
-        }
-        
-        .badge {
-            padding: 0.35rem 0.65rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .dashboard-header-enhanced h1 {
-            font-size: 1.35rem;
-        }
-
-        .dashboard-header-enhanced p {
+        .data-value {
+            color: var(--kpmg-gray-800);
             font-size: 0.82rem;
+            font-weight: 500;
         }
 
-        .performance-history-table {
+        .updated-row {
+            margin-top: 8px;
+            padding-top: 10px;
+            border-top: 1px solid var(--kpmg-gray-200);
+        }
+
+        .updated-row small {
+            color: var(--kpmg-gray-400);
+            font-size: 0.7rem;
+        }
+
+        /* ── Status Badges ── */
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 3px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .status-completed {
+            background: #e6f4ec;
+            color: var(--kpmg-green);
+            border: 1px solid var(--kpmg-green);
+        }
+
+        .status-in-progress {
+            background: #fef8e8;
+            color: var(--kpmg-amber);
+            border: 1px solid var(--kpmg-amber);
+        }
+
+        .status-review {
+            background: #e8eef8;
+            color: var(--kpmg-blue);
+            border: 1px solid var(--kpmg-blue);
+        }
+
+        .status-default {
+            background: var(--kpmg-gray-100);
+            color: var(--kpmg-gray-600);
+            border: 1px solid var(--kpmg-gray-300);
+        }
+
+        /* ── History Table ── */
+        .history-section {
+            margin-bottom: 16px;
+        }
+
+        .history-header {
+            background: var(--kpmg-blue);
+            color: var(--kpmg-white);
+            padding: 10px 20px;
+            border-radius: 6px 6px 0 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .history-header h5 {
+            margin: 0;
+            font-size: 0.84rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .history-header .header-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.76rem;
+        }
+
+        .history-table thead th {
+            background: var(--kpmg-gray-50);
+            color: var(--kpmg-gray-600);
+            font-weight: 700;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            padding: 10px 14px;
+            border-bottom: 2px solid var(--kpmg-gray-200);
+            text-align: left;
+        }
+
+        .history-table tbody td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--kpmg-gray-100);
+            color: var(--kpmg-gray-700);
+        }
+
+        .history-table tbody tr {
+            /* no hover effect */
+        }
+
+        .history-table-wrapper {
+            border: 1px solid var(--kpmg-gray-200);
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            overflow: hidden;
+        }
+
+        /* ── Action Bar ── */
+        .action-bar {
+            background: var(--kpmg-white);
+            border: 1px solid var(--kpmg-gray-200);
+            border-radius: 6px;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .action-bar .btn-action {
+            padding: 7px 18px;
             font-size: 0.78rem;
-        }
-
-        .performance-history-table th {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
             font-weight: 600;
-            padding: 0.7rem 0.8rem;
-            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid var(--kpmg-gray-300);
+            background: var(--kpmg-white);
+            color: var(--kpmg-gray-700);
+            cursor: pointer;
         }
 
-        .performance-history-table td {
-            padding: 0.65rem 0.8rem;
-            border-bottom: 1px solid #e9ecef;
+        .action-bar .btn-action:hover {
+            border-color: var(--kpmg-blue);
+            color: var(--kpmg-blue);
+            background: var(--kpmg-gray-50);
         }
 
-        .performance-history-table tbody tr:hover {
-            background: rgba(102, 126, 234, 0.05);
+        .action-bar .btn-action svg {
+            width: 14px;
+            height: 14px;
         }
     </style>
 </head>
 <body>
 <div class="container-fluid">
     <div class="row">
-        <!-- Main Content -->
         <div class="col-12">
-            <div class="py-3 px-3">
-                <!-- Enhanced Header -->
-                <div class="dashboard-header-enhanced">
-                    <div class="d-flex align-items-center justify-content-between" style="position: relative; z-index: 2;">
-                        <div>
-                            <h1>🔄 Performance Cycle in Progress</h1>
-                            <p class="mb-0">Performance management and tracking</p>
-                        </div>
-                        <a th:if="${userRole == 'SOQM_LEAD' and (#strings.equals(performanceStatus, 'COMPLETED') or #strings.equals(control.performanceStatus, 'COMPLETED'))}"
-                           th:href="@{/api/controls/{id}/export/completed(id=${control.id})}"
-                           class="btn btn-light">
-                            <i class="bi bi-download me-1"></i>Download Control
-                        </a>
+            <div class="page-wrapper">
+
+                <!-- Header -->
+                <div class="page-header">
+                    <div>
+                        <h1>Performance Cycle</h1>
+                        <p>Performance management and tracking</p>
                     </div>
+                    <a th:if="${(userRole == 'SOQM_LEAD' or isShared == true) and (#strings.equals(performanceStatus, 'COMPLETED') or #strings.equals(control.performanceStatus, 'COMPLETED'))}"
+                       th:href="@{/api/controls/{id}/export/completed(id=${control.id})}"
+                       class="btn-download">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download
+                    </a>
                 </div>
 
-                <!-- Performance Card (кликабельная) -->
+                <!-- Breadcrumb -->
+                <div class="breadcrumb-bar">
+                    <a href="/">Dashboard</a>
+                    <span class="separator">/</span>
+                    <a href="/controls">Controls</a>
+                    <span class="separator">/</span>
+                    <span>Performance Cycle</span>
+                </div>
+
+                <!-- Performance Card -->
                 <div class="performance-card" onclick="goToControl()">
-                    <div class="card-header-custom">
+                    <div class="card-header-bar">
+                        <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                         <h4>CONTROL ID: <span th:text="${controlId}">CTRL-2024-001</span></h4>
                     </div>
 
-                    <!-- Row 1: SoQM Year | Performance Status -->
+                    <div class="card-body-content">
+                        <!-- Row 1: SoQM Year | Performance Status -->
                         <div class="data-row">
                             <div class="left-column">
-                                <span class="label">SoQM Year:</span>
-                                <span class="value" th:text="${soqmYear ?: 'Not set'}">1 OCT 2023 - 30 SEP 2024</span>
+                                <span class="data-label">SoQM Year:</span>
+                                <span class="data-value" th:text="${soqmYear ?: 'Not set'}">1 OCT 2023 - 30 SEP 2024</span>
                             </div>
                             <div class="right-column">
-                                <span class="label">Performance Status:</span>
+                                <span class="data-label">Performance Status:</span>
                                 <span th:switch="${control.performanceStatus}">
-                                    <span th:case="'COMPLETED'" class="badge bg-success" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                    <span th:case="'IN_PROGRESS'" class="badge bg-warning" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                    <span th:case="'REVIEW'" class="badge bg-primary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                    <span th:case="'SOQM_HEAD_REVIEW'" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                    <span th:case="'PROCESS_OWNER_REVIEW'" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                    <span th:case="*" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus) ?: 'Draft'}">Draft</span>
+                                    <span th:case="'COMPLETED'" class="status-badge status-completed" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                    <span th:case="'IN_PROGRESS'" class="status-badge status-in-progress" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                    <span th:case="'REVIEW'" class="status-badge status-review" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                    <span th:case="'SOQM_HEAD_REVIEW'" class="status-badge status-review" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                    <span th:case="'PROCESS_OWNER_REVIEW'" class="status-badge status-review" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                    <span th:case="*" class="status-badge status-default" th:text="${@statusDisplayMapper.display(control.performanceStatus) ?: 'Draft'}">Draft</span>
                                 </span>
                             </div>
                         </div>
@@ -169,121 +386,122 @@
                         <!-- Row 2: Initiation Date | Facilitator -->
                         <div class="data-row">
                             <div class="left-column">
-                                <span class="label">Initiation Date:</span>
-                                <span class="value" th:text="${initiationDate != null ? #temporals.format(initiationDate, 'dd.MM.yyyy') : 'Not set'}">
+                                <span class="data-label">Initiation Date:</span>
+                                <span class="data-value" th:text="${initiationDate != null ? #temporals.format(initiationDate, 'dd.MM.yyyy') : 'Not set'}">
                                     5.12.2024
                                 </span>
                             </div>
                             <div class="right-column">
-                                <span class="label">Facilitator / Preparer (s):</span>
-                                <span class="value" th:text="${facilitator ?: 'Not assigned'}">John Doe</span>
+                                <span class="data-label">Facilitator / Preparer (s):</span>
+                                <span class="data-value" th:text="${facilitator ?: 'Not assigned'}">John Doe</span>
                             </div>
                         </div>
 
                         <!-- Row 3: Operation Date | Control Operator -->
                         <div class="data-row">
                             <div class="left-column">
-                                <span class="label">Operation Date:</span>
-                                <span class="value" th:text="${operationDate != null ? #temporals.format(operationDate, 'dd.MM.yyyy') : 'Not set'}">
+                                <span class="data-label">Operation Date:</span>
+                                <span class="data-value" th:text="${operationDate != null ? #temporals.format(operationDate, 'dd.MM.yyyy') : 'Not set'}">
                                     12.12.2024
                                 </span>
                             </div>
                             <div class="right-column">
-                                <span class="label">Control Operator:</span>
-                                <span class="value" th:text="${controlOperator ?: 'Not assigned'}">Jane Smith</span>
+                                <span class="data-label">Control Operator:</span>
+                                <span class="data-value" th:text="${controlOperator ?: 'Not assigned'}">Jane Smith</span>
                             </div>
                         </div>
 
                         <!-- Row 4: Actual Date of Operation | Process Owner -->
                         <div class="data-row">
                             <div class="left-column">
-                                <span class="label">Actual Date of Operation:</span>
-                                <span class="value" th:text="${actualOperationDate != null ? #temporals.format(actualOperationDate, 'dd.MM.yyyy') : 'Not set'}">
+                                <span class="data-label">Actual Date of Operation:</span>
+                                <span class="data-value" th:text="${actualOperationDate != null ? #temporals.format(actualOperationDate, 'dd.MM.yyyy') : 'Not set'}">
                                     10.12.2024
                                 </span>
                             </div>
                             <div class="right-column">
-                                <span class="label">Process Owner:</span>
-                                <span class="value" th:text="${processOwner ?: 'Not assigned'}">Mike Johnson</span>
+                                <span class="data-label">Process Owner:</span>
+                                <span class="data-value" th:text="${processOwner ?: 'Not assigned'}">Mike Johnson</span>
                             </div>
                         </div>
 
                         <!-- Row 5: Last Updated Info -->
-                        <div class="data-row mt-3 pt-3 border-top">
+                        <div class="data-row updated-row">
                             <div class="left-column">
-                                <small class="text-muted">
-                                    Last Updated By: <span th:text="${lastUpdatedBy}">Current User</span>
-                                </small>
+                                <small>Last Updated By: <span th:text="${lastUpdatedBy}">Current User</span></small>
                             </div>
                             <div class="right-column">
-                                <small class="text-muted">
-                                    Last Updated On:
+                                <small>Last Updated On:
                                     <span th:text="${lastUpdatedOn != null ? #temporals.format(lastUpdatedOn, 'dd.MM.yyyy') : 'Just now'}">
                                         5.12.2024
                                     </span>
                                 </small>
                             </div>
                         </div>
-                </div>
-
-                <!-- Performance History Table -->
-                <div class="card border-0 shadow-sm mt-3">
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <h5 class="p-2 mb-0" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 0.95rem; border-radius: 0.65rem 0.65rem 0 0;">📊 Performance History</h5>
-                            <table class="table table-hover performance-history-table mb-0">
-                        <thead>
-                        <tr>
-                            <th>SoQM Year</th>
-                            <th>Initiated Date</th>
-                            <th>Operated Date</th>
-                            <th>Actual Operation Date</th>
-                            <th>Performance Status</th>
-                            <th>Last Updated By</th>
-                            <th>Last Updated On</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td th:text="${soqmYear ?: ''}"></td>
-                            <td th:text="${initiationDate != null ? #temporals.format(initiationDate, 'dd.MM.yyyy') : ''}"></td>
-                            <td th:text="${operationDate != null ? #temporals.format(operationDate, 'dd.MM.yyyy') : ''}"></td>
-                            <td th:text="${actualOperationDate != null ? #temporals.format(actualOperationDate, 'dd.MM.yyyy') : ''}"></td>
-                            <td>
-                                <span th:switch="${control.performanceStatus}">
-                                    <span th:case="'COMPLETED'" class="badge bg-success" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                    <span th:case="'IN_PROGRESS'" class="badge bg-warning" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                    <span th:case="'REVIEW'" class="badge bg-primary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                    <span th:case="'SOQM_HEAD_REVIEW'" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                    <span th:case="'PROCESS_OWNER_REVIEW'" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                    <span th:case="*" class="badge bg-secondary" th:text="${@statusDisplayMapper.display(control.performanceStatus) ?: 'Draft'}"></span>
-                                </span>
-                            </td>
-                            <td th:text="${lastUpdatedBy ?: ''}"></td>
-                            <td th:text="${lastUpdatedOn != null ? #temporals.format(lastUpdatedOn, 'dd.MM.yyyy') : ''}"></td>
-                        </tr>
-                        </tbody>
-                    </table>
-                        </div>
                     </div>
                 </div>
 
-                <!-- Action Buttons -->
-                <div class="action-buttons">
-                    <a href="/" class="btn btn-light">
-                        <i class="bi bi-house-door me-1"></i>Home
-                    </a>
-                    <button onclick="goBack()" class="btn btn-light">
-                        <i class="bi bi-arrow-left me-1"></i>Back
-                    </button>
+                <!-- Performance History -->
+                <div class="history-section">
+                    <div class="history-header">
+                        <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <h5>Performance History</h5>
+                    </div>
+                    <div class="history-table-wrapper">
+                        <table class="history-table">
+                            <thead>
+                            <tr>
+                                <th>SoQM Year</th>
+                                <th>Initiated Date</th>
+                                <th>Operated Date</th>
+                                <th>Actual Operation Date</th>
+                                <th>Performance Status</th>
+                                <th>Last Updated By</th>
+                                <th>Last Updated On</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td th:text="${soqmYear ?: ''}"></td>
+                                <td th:text="${initiationDate != null ? #temporals.format(initiationDate, 'dd.MM.yyyy') : ''}"></td>
+                                <td th:text="${operationDate != null ? #temporals.format(operationDate, 'dd.MM.yyyy') : ''}"></td>
+                                <td th:text="${actualOperationDate != null ? #temporals.format(actualOperationDate, 'dd.MM.yyyy') : ''}"></td>
+                                <td>
+                                    <span th:switch="${control.performanceStatus}">
+                                        <span th:case="'COMPLETED'" class="status-badge status-completed" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="'IN_PROGRESS'" class="status-badge status-in-progress" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="'REVIEW'" class="status-badge status-review" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="'SOQM_HEAD_REVIEW'" class="status-badge status-review" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="'PROCESS_OWNER_REVIEW'" class="status-badge status-review" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
+                                        <span th:case="*" class="status-badge status-default" th:text="${@statusDisplayMapper.display(control.performanceStatus) ?: 'Draft'}"></span>
+                                    </span>
+                                </td>
+                                <td th:text="${lastUpdatedBy ?: ''}"></td>
+                                <td th:text="${lastUpdatedOn != null ? #temporals.format(lastUpdatedOn, 'dd.MM.yyyy') : ''}"></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+
+                <!-- Action Bar -->
+                <div class="action-bar">
+                    <button onclick="goBack()" class="btn-action">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                        Back
+                    </button>
+                    <a href="/" class="btn-action">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                        Home
+                    </a>
+                </div>
+
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    // Получаем controlId из URL или из данных на странице
     const controlId = window.location.pathname.split('/').pop();
 
     function goToControl() {
@@ -298,7 +516,6 @@
         }
     }
 
-    // Добавляем обработчик для успешного инициирования
     document.addEventListener('DOMContentLoaded', function() {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('status') === 'initiated') {
@@ -309,17 +526,13 @@
     function showSuccessAlert(message) {
         const alertDiv = document.createElement('div');
         alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+        alertDiv.style.zIndex = '9999';
         alertDiv.innerHTML = `
-            <strong>✓ Success!</strong> ${message}
+            <strong>Success!</strong> ${message}
             <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
         `;
         document.body.appendChild(alertDiv);
-
-        setTimeout(() => {
-            if (alertDiv.parentElement) {
-                alertDiv.remove();
-            }
-        }, 3000);
+        setTimeout(() => { if (alertDiv.parentElement) alertDiv.remove(); }, 3000);
     }
 </script>
 </body>

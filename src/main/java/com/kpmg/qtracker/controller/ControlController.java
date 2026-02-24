@@ -55,6 +55,7 @@ public class ControlController {
     private final AdminAuditService adminAuditService;
     private final ControlHistoryService controlHistoryService;
     private final StatusDisplayMapper statusDisplayMapper;
+    private final com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;
     private static final Logger logger = LoggerFactory.getLogger(ControlController.class);
 
     @GetMapping
@@ -62,6 +63,22 @@ public class ControlController {
         return controlService.getAllControls().stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Generate a Control ID automatically based on component and frequency.
+     * GET /api/controls/generate-id?component=HR&frequency=Monthly
+     */
+    @GetMapping("/generate-id")
+    public ResponseEntity<Map<String, String>> generateControlId(
+            @RequestParam String component,
+            @RequestParam String frequency) {
+        try {
+            String controlId = controlIdGeneratorService.generateControlId(component, frequency);
+            return ResponseEntity.ok(Map.of("controlId", controlId));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @GetMapping("/check-id-unique")
@@ -464,17 +481,17 @@ public class ControlController {
             // ============================================
             // ROLE-BASED FIELD RESTRICTIONS VALIDATION
             // ============================================
-            // Control Operator CANNOT modify SoQM and Process Owner comments
-            if ("CONTROL_OPERATOR".equals(userRole)) {
+            // Facilitator/Control Operator CANNOT modify SoQM and Process Owner comments
+            if ("CONTROL_OPERATOR".equals(userRole) || "FACILITATOR".equals(userRole)) {
                 if (controlDTO.getSoqmHeadComments() != null && 
                     !controlDTO.getSoqmHeadComments().equals(existingControl.getSoqmHeadComments())) {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: Control Operator cannot modify SoQM Head/Team Comments");
+                            .body("VALIDATION_ERROR: Facilitator/Control Operator cannot modify SoQM Head/Team Comments");
                 }
                 if (controlDTO.getProcessOwnerComments() != null && 
                     !controlDTO.getProcessOwnerComments().equals(existingControl.getProcessOwnerComments())) {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: Control Operator cannot modify Process Owner Comments");
+                            .body("VALIDATION_ERROR: Facilitator/Control Operator cannot modify Process Owner Comments");
                 }
             }
             
@@ -657,11 +674,15 @@ public class ControlController {
         if (status == null) {
             status = "";
         }
+        boolean isSharedCompleted = "COMPLETED".equals(status)
+                && containsEmail(assignment != null ? assignment.getControlSharedWith() : null, userEmail);
+
         return (isCreator && "IN_PROGRESS".equals(status))
                 || (isFacilitator && "IN_PROGRESS".equals(status))
                 || (isControlOperator && "REVIEW".equals(status))
                 || (isSoqmLead && "SOQM_HEAD_REVIEW".equals(status))
-                || (isProcessOwner && "PROCESS_OWNER_REVIEW".equals(status));
+                || (isProcessOwner && "PROCESS_OWNER_REVIEW".equals(status))
+                || isSharedCompleted;
     }
 
     private boolean containsEmail(List<String> emails, String userEmail) {
@@ -686,15 +707,22 @@ public class ControlController {
                 response.getWriter().write("User not authenticated");
                 return;
             }
-            if (!"SOQM_LEAD".equals(currentUser.getRole())) {
+            Control control = controlService.getControlById(id)
+                    .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
+
+            // Allow SOQM_LEAD or users the control is shared with
+            boolean isSoqmLead = "SOQM_LEAD".equals(currentUser.getRole());
+            ControlAssignmentDTO assignmentCheck = controlAssignmentService.getAssignmentByControlId(id);
+            boolean isSharedWith = assignmentCheck != null
+                    && assignmentCheck.getControlSharedWith() != null
+                    && assignmentCheck.getControlSharedWith().stream()
+                        .anyMatch(e -> e != null && e.equalsIgnoreCase(currentUser.getMail()));
+            if (!isSoqmLead && !isSharedWith) {
                 response.setStatus(HttpStatus.FORBIDDEN.value());
                 response.setContentType("text/plain");
                 response.getWriter().write("Forbidden");
                 return;
             }
-
-            Control control = controlService.getControlById(id)
-                    .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
 
             String performanceStatus = control.getPerformanceStatus();
             if (performanceStatus == null || performanceStatus.isBlank()) {
@@ -710,9 +738,7 @@ public class ControlController {
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
             ControlDetailsDTO details = controlDetailsService.getDetailsByControlId(control.getId());
             ControlDocumentsDTO documents = controlDocumentsService.getDocumentsByControlId(control.getId());
-            PerformanceDTO performanceDTO = performanceService.findByControlId(control.getId())
-                    .map(perf -> performanceService.convertToDTO(perf, control))
-                    .orElse(new PerformanceDTO());
+            PerformanceDTO performanceDTO = performanceService.buildPerformanceDTO(control);
 
             Workbook workbook = new XSSFWorkbook();
             Sheet sheet = workbook.createSheet("Control");

@@ -6,8 +6,7 @@ import com.kpmg.qtracker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -22,11 +21,13 @@ public class SimpleRoleService {
     }
 
     public boolean isFacilitator(String email) {
-        return hasRole(email, "FACILITATOR");
+        Optional<User> user = userRepository.findByMail(email);
+        return user.isPresent() && ("FACILITATOR".equals(user.get().getRole()) || "CONTROL_OPERATOR".equals(user.get().getRole()));
     }
 
     public boolean isControlOperator(String email) {
-        return hasRole(email, "CONTROL_OPERATOR");
+        Optional<User> user = userRepository.findByMail(email);
+        return user.isPresent() && ("CONTROL_OPERATOR".equals(user.get().getRole()) || "FACILITATOR".equals(user.get().getRole()));
     }
 
     public boolean isSoqmLead(String email) {
@@ -39,6 +40,19 @@ public class SimpleRoleService {
 
     // Получение пользователей по роли
     public List<UserDTO> getUsersByRole(String role) {
+        // For FACILITATOR or CONTROL_OPERATOR, return users with either role (interchangeable)
+        if ("FACILITATOR".equals(role) || "CONTROL_OPERATOR".equals(role)) {
+            Set<String> seen = new java.util.HashSet<>();
+            List<UserDTO> result = new java.util.ArrayList<>();
+            for (String r : new String[]{"FACILITATOR", "CONTROL_OPERATOR"}) {
+                for (User user : userRepository.findByRole(r)) {
+                    if (user.getMail() != null && seen.add(user.getMail().toLowerCase())) {
+                        result.add(convertToDTO(user));
+                    }
+                }
+            }
+            return result;
+        }
         return userRepository.findByRole(role).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());

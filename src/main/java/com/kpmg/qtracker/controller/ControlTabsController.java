@@ -27,6 +27,7 @@ public class ControlTabsController {
     private final RecurringDay0NotificationService recurringDay0NotificationService;
     private final AdhocDay0NotificationService adhocDay0NotificationService;
     private final AnnualSemiDay0NotificationService annualSemiDay0NotificationService;
+    private final NotificationService notificationService;
 
     @PostMapping("/api/control-details")
     public ResponseEntity<?> saveControlDetails(@RequestBody ControlDetailsDTO detailsDTO, HttpSession session) {
@@ -134,6 +135,22 @@ public class ControlTabsController {
             recurringDay0NotificationService.maybeSendImmediateDay0(assignmentDTO.getControlId());
             adhocDay0NotificationService.maybeSendImmediateDay0(assignmentDTO.getControlId());
             annualSemiDay0NotificationService.maybeSendImmediateDay0(assignmentDTO.getControlId());
+
+            // Send notifications to newly shared users
+            List<String> oldShared = existingAssignment != null && existingAssignment.getControlSharedWith() != null
+                    ? existingAssignment.getControlSharedWith() : List.of();
+            List<String> newShared = mergedAssignment.getControlSharedWith() != null
+                    ? mergedAssignment.getControlSharedWith() : List.of();
+            Set<String> oldSharedSet = new LinkedHashSet<>();
+            for (String e : oldShared) {
+                if (e != null && !e.isBlank()) oldSharedSet.add(e.trim().toLowerCase());
+            }
+            for (String email : newShared) {
+                if (email != null && !email.isBlank() && !oldSharedSet.contains(email.trim().toLowerCase())) {
+                    notificationService.sendSharedWithNotification(control, email.trim(), currentUser.getDisplayName());
+                }
+            }
+
             logChanges(session, assignmentDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
@@ -292,11 +309,15 @@ public class ControlTabsController {
         if (status == null) {
             status = "";
         }
+        boolean isSharedCompleted = "COMPLETED".equals(status)
+                && containsEmail(assignment != null ? assignment.getControlSharedWith() : null, userEmail);
+
         return (isCreator && "IN_PROGRESS".equals(status))
                 || (isFacilitator && "IN_PROGRESS".equals(status))
                 || (isControlOperator && "REVIEW".equals(status))
                 || (isSoqmLead && "SOQM_HEAD_REVIEW".equals(status))
-                || (isProcessOwner && "PROCESS_OWNER_REVIEW".equals(status));
+                || (isProcessOwner && "PROCESS_OWNER_REVIEW".equals(status))
+                || isSharedCompleted;
     }
 
     private boolean containsEmail(List<String> emails, String userEmail) {
@@ -322,7 +343,7 @@ public class ControlTabsController {
 
         String role = user != null ? user.getRole() : null;
         boolean allowAll = "SOQM_LEAD".equals(role) || "ADMIN".equals(role);
-        boolean allowSteps = "FACILITATOR".equals(role);
+        boolean allowSteps = "FACILITATOR".equals(role) || "CONTROL_OPERATOR".equals(role);
         boolean allowProcessOwner = "PROCESS_OWNER".equals(role);
 
         merged.setProcessName(resolveString(existing != null ? existing.getProcessName() : null,

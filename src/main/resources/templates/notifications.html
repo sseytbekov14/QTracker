@@ -4,211 +4,440 @@
     <meta charset="UTF-8">
     <title>Notifications - QTracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/style.css?v=2" rel="stylesheet">
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%2300338D' rx='15'/%3E%3Ctext x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'%3EQ%3C/text%3E%3C/svg%3E">
+    <link href="/css/style.css?v=7" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
     <style>
-        .notification-group-section {
-            margin-bottom: 2rem;
-        }
-        
-        .notification-group-header {
-            padding-left: 0.5rem;
-            padding-right: 0.5rem;
-            margin-bottom: 0.75rem;
-            margin-top: 1rem;
-        }
-        
-        .notification-group-header:first-child {
-            margin-top: 0;
-        }
-        
-        .notification-item {
-            border-left: 4px solid transparent;
-            border-radius: 8px;
-            margin-bottom: 0.75rem;
-            padding: 1rem;
-            background: #ffffff;
-            border: 1px solid #e9ecef;
-            transition: all 0.2s ease;
-            cursor: pointer;
-        }
-        
-        .notification-item:hover {
-            background: #f8f9fa;
-            border-color: #0d6efd;
-            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.1);
-        }
-        
-        .notification-item.unread {
-            border-left-color: #0d6efd;
-            background: #f0f6ff;
-            border-color: #0d6efd;
-        }
-        
-        .notification-item.unread .notification-message {
-            font-weight: 600;
-            color: #212529;
-        }
-        
-        .notification-badge {
-            min-width: 60px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .notification-empty {
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-        
-        .notification-badge-label {
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .notification-component {
-            font-size: 0.85rem;
-            color: #6c757d;
-            margin-top: 0.25rem;
-        }
-        
-        .notification-meta {
-            font-size: 0.875rem;
-            color: #6c757d;
-            margin-top: 0.5rem;
-        }
-        
-        .notification-time {
-            font-size: 0.875rem;
-            color: #6c757d;
-            white-space: nowrap;
-        }
-        
-        .notification-message {
-            font-size: 0.95rem;
-            color: #495057;
-            transition: color 0.2s;
-        }
+:root {
+    --kpmg-blue: #00338D;
+    --kpmg-blue-light: #005EB8;
+    --kpmg-blue-dark: #002060;
+    --kpmg-gray-50: #f7f8fa;
+    --kpmg-gray-100: #eef0f4;
+    --kpmg-gray-200: #d8dce5;
+    --kpmg-gray-300: #cdd0d6;
+    --kpmg-gray-400: #9ba3b5;
+    --kpmg-gray-500: #8b90a0;
+    --kpmg-gray-600: #5c6478;
+    --kpmg-gray-700: #495057;
+    --kpmg-gray-800: #2d3340;
+    --kpmg-white: #ffffff;
+    --kpmg-green: #009a44;
+    --kpmg-red: #c8102e;
+    --kpmg-amber: #d4a843;
+}
+
+body {
+    background: var(--kpmg-gray-50);
+    margin: 0;
+    padding: 0;
+}
+
+.page-wrapper {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 16px 20px;
+}
+
+/* ── Breadcrumb ── */
+.page-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 0.76rem;
+    color: var(--kpmg-gray-400);
+}
+
+.page-breadcrumb a {
+    color: var(--kpmg-blue);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.page-breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.page-breadcrumb .separator {
+    color: var(--kpmg-gray-300);
+}
+
+/* ── Page Header ── */
+.page-header {
+    background: var(--kpmg-blue);
+    color: var(--kpmg-white);
+    padding: 16px 28px;
+    border-radius: 6px 6px 0 0;
+    border-bottom: 3px solid var(--kpmg-blue-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.page-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.page-header-icon {
+    width: 36px;
+    height: 36px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.page-header h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.3px;
+}
+
+.page-header p {
+    margin: 2px 0 0 0;
+    font-size: 0.76rem;
+    color: rgba(255,255,255,0.65);
+}
+
+.btn-mark-read {
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 6px 16px;
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.4);
+    background: transparent;
+    color: var(--kpmg-white);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-mark-read:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.7);
+}
+
+/* ── Card wrapper ── */
+.notif-list-card {
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    padding: 0;
+}
+
+/* ── Empty state ── */
+.notif-empty {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--kpmg-gray-400);
+}
+
+.notif-empty-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 12px;
+    color: var(--kpmg-gray-300);
+}
+
+.notif-empty-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--kpmg-gray-600);
+    margin-bottom: 4px;
+}
+
+.notif-empty-text {
+    font-size: 0.78rem;
+    color: var(--kpmg-gray-400);
+}
+
+/* ── Group header ── */
+.notif-group-date {
+    padding: 10px 28px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--kpmg-gray-400);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: var(--kpmg-gray-50);
+    border-bottom: 1px solid var(--kpmg-gray-100);
+}
+
+.notif-group-date:first-child {
+    border-radius: 0;
+}
+
+/* ── Notification item ── */
+.notif-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 28px;
+    border-bottom: 1px solid var(--kpmg-gray-100);
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.15s;
+    cursor: pointer;
+}
+
+.notif-item:last-child {
+    border-bottom: none;
+}
+
+.notif-item:hover {
+    background: var(--kpmg-gray-50);
+}
+
+.notif-item.unread {
+    border-left: 3px solid var(--kpmg-blue);
+    background: #f0f4ff;
+    padding-left: 25px;
+}
+
+.notif-item.unread .notif-item-message {
+    font-weight: 700;
+    color: var(--kpmg-gray-800);
+}
+
+/* Item badge area */
+.notif-item-badge {
+    min-width: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding-top: 2px;
+}
+
+.notif-item-component {
+    font-size: 0.7rem;
+    color: var(--kpmg-gray-400);
+    font-weight: 500;
+}
+
+/* Type badges */
+.type-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.type-activated {
+    background: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+
+.type-reminder {
+    background: #fff8e1;
+    color: #f57f17;
+    border: 1px solid #fff3c4;
+}
+
+.type-overdue {
+    background: #ffebee;
+    color: var(--kpmg-red);
+    border: 1px solid #ffcdd2;
+}
+
+.type-completed {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+
+.type-auto-created {
+    background: #f3e5f5;
+    color: #7b1fa2;
+    border: 1px solid #e1bee7;
+}
+
+.type-default {
+    background: var(--kpmg-gray-100);
+    color: var(--kpmg-gray-600);
+    border: 1px solid var(--kpmg-gray-200);
+}
+
+/* Item content */
+.notif-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.notif-item-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+}
+
+.notif-item-message {
+    font-size: 0.85rem;
+    color: var(--kpmg-gray-700);
+    font-weight: 500;
+}
+
+.notif-item-time {
+    font-size: 0.75rem;
+    color: var(--kpmg-gray-400);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.notif-item-meta {
+    font-size: 0.78rem;
+    color: var(--kpmg-gray-500);
+    margin-top: 3px;
+}
+
+.notif-item-meta .ctrl-id {
+    font-weight: 600;
+    color: var(--kpmg-gray-600);
+}
+
+.notif-item-meta .dot {
+    margin: 0 6px;
+    color: var(--kpmg-gray-300);
+}
+
+/* Right side */
+.notif-item-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+    padding-top: 2px;
+}
+
+.new-badge {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    background: #fff8e1;
+    color: var(--kpmg-amber);
+    border: 1px solid #fff3c4;
+}
+
+.view-link {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--kpmg-blue);
+}
     </style>
 </head>
 <body>
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-2 sidebar p-3">
-            <div class="sidebar-content">
-                <div class="d-flex align-items-center mb-3">
-                    <a href="/" class="me-2">
-                        <img src="/images/kpmg_white.png" alt="KPMG" style="height: 45px; width: auto;">
-                    </a>
-                    <h6 class="mb-0" th:text="${userName}">Full Name</h6>
-                </div>
-                <small class="text-muted" th:text="${userTitle}">Title</small><br>
-                <small class="text-muted" th:text="${userEmail}">email@kpmg.kz</small>
-                <hr>
-                <ul class="nav flex-column">
-                    <li class="nav-item"><a class="nav-link" href="/controls">Controls</a></li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/notifications">
-                            Notifications
-                            <span th:if="${unreadNotifications != null and unreadNotifications > 0}"
-                                  class="notif-pill"
-                                  th:text="${unreadNotifications}">0</span>
-                        </a>
-                    </li>
-                </ul>
+<div class="page-wrapper">
+
+    <!-- Breadcrumb -->
+    <nav class="page-breadcrumb">
+        <a href="/#action-centre">Dashboard</a>
+        <span class="separator">/</span>
+        <span>Notifications</span>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <div class="page-header-icon">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                </svg>
             </div>
-            <div class="mt-2">
-                <a href="/logout" class="btn btn-outline-secondary btn-sm">Logout</a>
-            </div>
-            <div class="sidebar-footer">
-                <hr class="my-2">
-                <small class="text-muted">Register on</small><br>
-                <small><strong>KPMG Kazakhstan</strong></small><br>
-                <small><strong>QTracker Version 2025</strong></small>
+            <div>
+                <h2>Notifications</h2>
+                <p>Stay updated with your control activities</p>
             </div>
         </div>
+        <form method="post" action="/notifications/mark-all-read" class="m-0">
+            <button type="submit" class="btn-mark-read">✓ Mark all as read</button>
+        </form>
+    </div>
 
-        <div class="col-md-10">
-            <div class="p-4">
-                <!-- Enhanced Header -->
-                <div class="dashboard-header-enhanced mb-4">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h1 class="mb-1">Notifications</h1>
-                            <p class="mb-0 text-white-50">Stay updated with your control activities</p>
-                        </div>
-                        <form method="post" action="/notifications/mark-all-read" class="m-0">
-                            <button type="submit" class="btn btn-light">✓ Mark all as read</button>
-                        </form>
-                    </div>
+    <!-- Notification List -->
+    <div class="notif-list-card">
+
+        <!-- Empty state -->
+        <div th:if="${notificationGroups == null or #lists.isEmpty(notificationGroups)}" class="notif-empty">
+            <div class="notif-empty-icon">
+                <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                </svg>
+            </div>
+            <div class="notif-empty-title">No notifications yet</div>
+            <div class="notif-empty-text">You're all caught up!</div>
+        </div>
+
+        <!-- Groups -->
+        <div th:if="${notificationGroups != null and !#lists.isEmpty(notificationGroups)}">
+            <div th:each="group : ${notificationGroups}">
+
+                <!-- Date Group Header -->
+                <div class="notif-group-date"
+                     th:text="${!#lists.isEmpty(group.notifications) and group.notifications[0].timestamp != null ? #temporals.format(group.notifications[0].timestamp, 'dd.MM.yyyy') : group.dateLabel}">
+                    23.02.2026
                 </div>
 
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body p-4">
-                        <div th:if="${notificationGroups == null or #lists.isEmpty(notificationGroups)}" class="text-center text-muted py-5 notification-empty">
-                            <div class="display-6 mb-3">🔔</div>
-                            <div class="fw-semibold">No notifications yet</div>
-                            <div class="small">You're all caught up!</div>
-                        </div>
+                <!-- Notifications in this group -->
+                <a th:each="n : ${group.notifications}"
+                   th:href="@{/notification/{id}(id=${n.id})}"
+                   class="notif-item"
+                   th:classappend="${!n.read} ? 'unread' : ''">
 
-                        <div th:if="${notificationGroups != null and !#lists.isEmpty(notificationGroups)}">
-                            <div th:each="group : ${notificationGroups}" class="notification-group-section">
-                                <!-- Date Group Header -->
-                                <div class="notification-group-header">
-                                    <div class="text-muted small fw-semibold"
-                                         th:text="${!#lists.isEmpty(group.notifications) and group.notifications[0].timestamp != null ? #temporals.format(group.notifications[0].timestamp, 'dd.MM.yyyy') : group.dateLabel}">
-                                        4.2.2026
-                                    </div>
-                                </div>
-                                
-                                <!-- Notifications in this group -->
-                                <div>
-                                    <a th:each="n : ${group.notifications}"
-                                       th:href="@{/notification/{id}(id=${n.id})}"
-                                       class="notification-item d-flex align-items-start gap-3"
-                                       th:classappend="${!n.read} ? 'unread' : ''"
-                                       style="text-decoration: none; color: inherit;">
-                                        
-                                        <!-- Left side: Badge and component -->
-                                        <div class="notification-badge flex-shrink-0">
-                                            <span class="notification-type-badge"
-                                                  th:classappend="${n.badgeClass}"
-                                                  th:text="${n.displayLabel}">Notification</span>
-                                            <div class="notification-component" th:text="${n.component}">Component</div>
-                                        </div>
-                                        
-                                        <!-- Center: Message and meta -->
-                                        <div class="flex-grow-1">
-                                            <div class="d-flex justify-content-between align-items-baseline">
-                                                <div class="notification-message" th:text="${n.message}">Message</div>
-                                                <div class="notification-time flex-shrink-0 ms-2" th:text="${n.timestamp != null ? #temporals.format(n.timestamp, 'h:mm a') : ''}">Time</div>
-                                            </div>
-                                            <div class="notification-meta">
-                                                <span class="fw-semibold" th:text="${n.controlIdNumber}">CTRL-000</span>
-                                                <span class="mx-2">•</span>
-                                                <span th:text="${n.by}">User</span>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Right side: New badge and View -->
-                                        <div class="flex-shrink-0 d-flex flex-column align-items-end gap-2">
-                                            <span th:if="${!n.read}" class="badge bg-warning-subtle text-warning">New</span>
-                                            <span class="text-primary small" style="font-weight: 500;">View</span>
-                                        </div>
-                                    </a>
-                                </div>
-                            </div>
+                    <!-- Left: Badge + component -->
+                    <div class="notif-item-badge">
+                        <span th:switch="${n.badgeClass}">
+                            <span th:case="'badge-activated'" class="type-badge type-activated" th:text="${n.displayLabel}">Activated</span>
+                            <span th:case="'badge-reminder'" class="type-badge type-reminder" th:text="${n.displayLabel}">Reminder</span>
+                            <span th:case="'badge-overdue'" class="type-badge type-overdue" th:text="${n.displayLabel}">Overdue</span>
+                            <span th:case="'badge-completed'" class="type-badge type-completed" th:text="${n.displayLabel}">Completed</span>
+                            <span th:case="'badge-auto-created'" class="type-badge type-auto-created" th:text="${n.displayLabel}">Auto Created</span>
+                            <span th:case="*" class="type-badge type-default" th:text="${n.displayLabel}">Notification</span>
+                        </span>
+                        <span class="notif-item-component" th:text="${n.component}">HR</span>
+                    </div>
+
+                    <!-- Center: Message + meta -->
+                    <div class="notif-item-content">
+                        <div class="notif-item-top">
+                            <div class="notif-item-message" th:text="${n.message}">Message</div>
+                            <div class="notif-item-time" th:text="${n.timestamp != null ? #temporals.format(n.timestamp, 'h:mm a') : ''}">3:15 PM</div>
+                        </div>
+                        <div class="notif-item-meta">
+                            <span class="ctrl-id" th:text="${n.controlIdNumber}">CTRL-000</span>
+                            <span class="dot">·</span>
+                            <span th:text="${n.by}">User</span>
                         </div>
                     </div>
-                </div>
+
+                    <!-- Right: New badge + View -->
+                    <div class="notif-item-right">
+                        <span th:if="${!n.read}" class="new-badge">New</span>
+                        <span class="view-link">View</span>
+                    </div>
+                </a>
             </div>
         </div>
     </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 

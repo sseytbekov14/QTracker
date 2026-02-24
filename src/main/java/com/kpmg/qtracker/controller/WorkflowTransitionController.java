@@ -101,11 +101,6 @@ public class WorkflowTransitionController {
 
             Control control = controlOpt.get();
 
-            // Only Facilitator can submit
-            if (!"FACILITATOR".equals(currentUser.getRole())) {
-                return ResponseEntity.status(403).body(Map.of("success", false, "message", "Only Facilitator can submit control"));
-            }
-
             // Verify that current user is assigned as facilitator for this control
             Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(controlId);
             if (assignmentOpt.isEmpty()) {
@@ -183,11 +178,6 @@ public class WorkflowTransitionController {
 
             Control control = controlOpt.get();
 
-            // Only Control Operator can submit to SoQM Lead
-            if (!"CONTROL_OPERATOR".equals(currentUser.getRole())) {
-                return ResponseEntity.status(403).body(Map.of("success", false, "message", "Only Control Operator can submit to SoQM Lead"));
-            }
-
             // Verify that current user is assigned as control operator for this control
             Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(controlId);
             if (assignmentOpt.isEmpty()) {
@@ -248,6 +238,89 @@ public class WorkflowTransitionController {
         }
     }
 
+    @PostMapping("/shared-submit-to-soqm-lead")
+    public ResponseEntity<?> sharedSubmitToSoqmLead(
+            @RequestParam Long controlId,
+            HttpSession session) {
+
+        try {
+            User currentUser = (User) session.getAttribute("currentUser");
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("success", false, "message", "Unauthorized"));
+            }
+
+            Optional<Control> controlOpt = controlService.getControlById(controlId);
+            if (controlOpt.isEmpty()) {
+                return ResponseEntity.status(404).body(Map.of("success", false, "message", "Control not found"));
+            }
+
+            Control control = controlOpt.get();
+
+            // Only allow from COMPLETED status
+            if (!"COMPLETED".equals(control.getPerformanceStatus())) {
+                return ResponseEntity.status(400).body(Map.of("success", false,
+                        "message", "Control must be in COMPLETED status"));
+            }
+
+            // Verify user is a shared viewer
+            Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(controlId);
+            if (assignmentOpt.isEmpty()) {
+                return ResponseEntity.status(400).body(Map.of("success", false, "message", "Control assignment not found"));
+            }
+
+            ControlAssignment assignment = assignmentOpt.get();
+            String sharedField = assignment.getControlSharedWith();
+            String userEmail = currentUser.getMail();
+            if (sharedField == null || !sharedField.toLowerCase().contains(userEmail.toLowerCase())) {
+                return ResponseEntity.status(403).body(Map.of("success", false,
+                        "message", "You are not a shared viewer for this control"));
+            }
+
+            // Only shared viewers who are assigned as FACILITATOR, CONTROL_OPERATOR, or PROCESS_OWNER can submit
+            // (role check is already handled by the shared viewer check above)
+
+            // Verify SoQM Lead is assigned
+            if (assignment.getSoqmLead() == null || assignment.getSoqmLead().isEmpty()) {
+                return ResponseEntity.status(400).body(Map.of("success", false,
+                        "message", "SoQM Lead not assigned"));
+            }
+
+            String previousStatus = control.getPerformanceStatus();
+
+            // Transition: COMPLETED → SOQM_HEAD_REVIEW
+            control.setPerformanceStatus("SOQM_HEAD_REVIEW");
+            controlService.save(control);
+
+            // Workflow history
+            WorkflowHistory history = new WorkflowHistory();
+            history.setControlId(controlId);
+            history.setActionType(WorkflowActionType.SUBMIT_TO_SOQM_LEAD);
+            history.setPerformedByEmail(userEmail);
+            history.setPerformedByName(currentUser.getDisplayName());
+            history.setFromStep(previousStatus);
+            history.setToStep("SOQM_HEAD_REVIEW");
+            history.setComments("Shared viewer (" + currentUser.getRole() + ") submitted completed control to SoQM Lead for review");
+            workflowHistoryRepository.save(history);
+
+            // Notify SoQM Lead
+            sendNotificationToRole(control, assignment.getSoqmLead(),
+                    NotificationTemplateService.TemplateType.OPERATOR_TO_SOQM, false);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Control submitted to SoQM Lead for review");
+            response.put("controlStatus", control.getPerformanceStatus());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "Error submitting control: " + e.getMessage()
+            ));
+        }
+    }
+
     private void sendNotificationToRole(Control control,
                                         String assignedField,
                                         NotificationTemplateService.TemplateType templateType,
@@ -273,6 +346,15 @@ public class WorkflowTransitionController {
         return new ArrayList<>(emails);
     }
 
+    private String removeEmailFromList(String commaSeparated, String emailToRemove) {
+        if (commaSeparated == null || emailToRemove == null) {
+            return commaSeparated;
+        }
+        List<String> emails = splitRecipients(commaSeparated);
+        emails.removeIf(e -> e.equalsIgnoreCase(emailToRemove));
+        return emails.isEmpty() ? null : String.join(",", emails);
+    }
+
     @PostMapping("/return-to-facilitator")
     public ResponseEntity<?> returnToFacilitator(
             @RequestParam Long controlId,
@@ -292,11 +374,6 @@ public class WorkflowTransitionController {
 
             Control control = controlOpt.get();
 
-            // Only Control Operator can return to Facilitator
-            if (!"CONTROL_OPERATOR".equals(currentUser.getRole())) {
-                return ResponseEntity.status(403).body(Map.of("success", false, "message", "Only Control Operator can return control to Facilitator"));
-            }
-
             // Verify that current user is assigned as control operator for this control
             Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(controlId);
             if (assignmentOpt.isEmpty()) {
@@ -313,6 +390,9 @@ public class WorkflowTransitionController {
 
             // Update workflow status back to In Progress
             control.setPerformanceStatus("IN_PROGRESS");
+            if (comments != null && !comments.isEmpty()) {
+                control.setReturnToFacilitatorComment(comments);
+            }
             controlService.save(control);
 
             // Add workflow history record

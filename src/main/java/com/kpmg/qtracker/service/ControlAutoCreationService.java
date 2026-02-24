@@ -36,6 +36,7 @@ public class ControlAutoCreationService {
     private final ControlScheduleCalculator scheduleCalculator;
     private final ControlAssignmentService controlAssignmentService;
     private final NotificationService notificationService;
+    private final ControlIdGeneratorService controlIdGeneratorService;
 
     @Transactional
     public void runDailyAutoCreation(LocalDate today) {
@@ -137,13 +138,14 @@ public class ControlAutoCreationService {
             return new AutoCreationResult(false, null, null, false);
         }
 
-        String baseControlId = resolveBaseControlId(previousControl.getControlId());
+        String baseControlId = controlIdGeneratorService.extractBaseId(previousControl.getControlId());
         String baseControlIdLike = escapeForLike(baseControlId);
         if (assignmentRepository.existsByBaseControlIdAndOperationDate(baseControlId, baseControlIdLike, today)) {
             return new AutoCreationResult(false, null, null, true);
         }
 
-        String newControlId = generateUniqueControlId(baseControlId, today);
+        String newControlId = controlIdGeneratorService.generateNextPeriodControlId(
+                baseControlId, previousControl.getControlFrequency(), today);
         LocalDate deadline = scheduleCalculator.calculateDeadline(frequency, today);
         LocalDate nextDate = scheduleCalculator.calculateNextDate(frequency, today);
 

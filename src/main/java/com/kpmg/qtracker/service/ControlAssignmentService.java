@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+import java.util.*;import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -145,15 +145,15 @@ public class ControlAssignmentService {
         });
     }
 
-    // Методы проверки ролей через поле role в User
+    // Методы проверки ролей — Facilitator and Control Operator are interchangeable
     public boolean isUserFacilitator(Long controlId, String userEmail) {
         Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && "FACILITATOR".equals(user.get().getRole());
+        return user.isPresent() && ("FACILITATOR".equals(user.get().getRole()) || "CONTROL_OPERATOR".equals(user.get().getRole()));
     }
 
     public boolean isUserControlOperator(Long controlId, String userEmail) {
         Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && "CONTROL_OPERATOR".equals(user.get().getRole());
+        return user.isPresent() && ("CONTROL_OPERATOR".equals(user.get().getRole()) || "FACILITATOR".equals(user.get().getRole()));
     }
 
     public boolean isUserSoqmLead(Long controlId, String userEmail) {
@@ -171,6 +171,38 @@ public class ControlAssignmentService {
         Optional<User> user = userRepository.findByMail(userEmail);
 
         if (user.isPresent()) {
+            String globalRole = user.get().getRole();
+            if ("ADMIN".equals(globalRole)) {
+                roles.add("ADMIN");
+                return roles;
+            }
+            if ("SOQM_LEAD".equals(globalRole)) {
+                roles.add("SOQM_LEAD");
+                return roles;
+            }
+        }
+
+        // Check assignment-based roles for this specific control
+        Optional<ControlAssignment> assignmentOpt = assignmentRepository.findByControlId(controlId);
+        if (assignmentOpt.isPresent()) {
+            ControlAssignment assignment = assignmentOpt.get();
+
+            if (containsEmail(assignment.getFacilitator(), userEmail)) {
+                roles.add("FACILITATOR");
+            }
+            if (containsEmail(assignment.getControlOperator(), userEmail)) {
+                roles.add("CONTROL_OPERATOR");
+            }
+            if (containsEmail(assignment.getProcessOwner(), userEmail)) {
+                roles.add("PROCESS_OWNER");
+            }
+            if (containsEmail(assignment.getSoqmLead(), userEmail)) {
+                roles.add("SOQM_LEAD");
+            }
+        }
+
+        // Fallback: if no assignment-based roles found, use global role
+        if (roles.isEmpty() && user.isPresent()) {
             String role = user.get().getRole();
             if (role != null) {
                 roles.add(role);
@@ -178,6 +210,15 @@ public class ControlAssignmentService {
         }
 
         return roles;
+    }
+
+    private boolean containsEmail(String fieldValue, String email) {
+        if (fieldValue == null || fieldValue.isBlank() || email == null) {
+            return false;
+        }
+        return java.util.Arrays.stream(fieldValue.split("[,;]"))
+                .map(String::trim)
+                .anyMatch(e -> e.equalsIgnoreCase(email));
     }
 
     // ★ ДОБАВИТЬ метод для получения пользователей по роли
@@ -191,9 +232,17 @@ public class ControlAssignmentService {
             return;
         }
 
+        // Facilitator and Control Operator are interchangeable roles
+        Set<String> allowedRoles = new HashSet<>();
+        allowedRoles.add(requiredRole);
+        if ("FACILITATOR".equals(requiredRole) || "CONTROL_OPERATOR".equals(requiredRole)) {
+            allowedRoles.add("FACILITATOR");
+            allowedRoles.add("CONTROL_OPERATOR");
+        }
+
         for (String email : userEmails) {
             Optional<User> user = userRepository.findByMail(email);
-            boolean hasRole = user.isPresent() && requiredRole.equals(user.get().getRole());
+            boolean hasRole = user.isPresent() && allowedRoles.contains(user.get().getRole());
 
             if (!hasRole) {
                 throw new RuntimeException(errorMessage + ": " + email);

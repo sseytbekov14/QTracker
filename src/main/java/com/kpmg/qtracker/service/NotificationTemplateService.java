@@ -249,6 +249,18 @@ public class NotificationTemplateService {
         return base + path;
     }
 
+    public String buildPerformanceCycleLink(Control control) {
+        if (control == null) {
+            return "";
+        }
+        String path = "/performance-cycle/" + control.getId();
+        if (baseUrl == null || baseUrl.trim().isEmpty()) {
+            return path;
+        }
+        String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        return base + path;
+    }
+
     private String buildControlLabel(Control control) {
         if (control == null) {
             return "Control";

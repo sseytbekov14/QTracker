@@ -4,318 +4,501 @@
     <meta charset="UTF-8">
     <title>New Control - QTracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/style.css?v=6" rel="stylesheet">
+    <link href="/css/style.css?v=7" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
     <style>
+        :root {
+            --kpmg-blue: #00338D;
+            --kpmg-blue-light: #005EB8;
+            --kpmg-blue-dark: #002060;
+            --kpmg-green: #009a44;
+            --kpmg-red: #c8102e;
+            --kpmg-gray-50: #f8f9fa;
+            --kpmg-gray-100: #f0f1f3;
+            --kpmg-gray-200: #e2e4e8;
+            --kpmg-gray-300: #cdd0d6;
+            --kpmg-gray-500: #8b90a0;
+            --kpmg-gray-700: #495057;
+            --kpmg-gray-800: #343a40;
+        }
+
         body {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            background: var(--kpmg-gray-50);
             min-height: 100vh;
-            padding: 1rem 1.5rem;
+            padding: 0;
+            margin: 0;
         }
-        .form-container {
-            max-width: 100%;
+
+        .page-wrapper {
+            max-width: 960px;
             margin: 0 auto;
+            padding: 16px 20px;
         }
-        
+
+        /* ── Page Header ── */
         .page-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: 0.75rem 0.75rem 0 0;
-            margin-bottom: 0;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-            position: relative;
-            overflow: hidden;
+            background: var(--kpmg-blue);
+            color: #fff;
+            padding: 14px 28px;
+            border-radius: 6px 6px 0 0;
+            display: flex;
+            align-items: center;
+            gap: 14px;
         }
-        
-        .page-header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
-            background-size: 50px 50px;
-            animation: float 20s linear infinite;
+
+        .page-header-icon {
+            width: 34px;
+            height: 34px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
         }
-        
+
         .page-header h2 {
-            font-size: 1.25rem;
+            font-size: 1.15rem;
             font-weight: 700;
             margin: 0;
-            position: relative;
-            z-index: 1;
+            letter-spacing: 0.3px;
         }
-        
+
         .page-header p {
-            margin: 0.2rem 0 0 0;
-            font-size: 0.8rem;
-            opacity: 0.9;
-            position: relative;
-            z-index: 1;
+            margin: 2px 0 0 0;
+            font-size: 0.78rem;
+            opacity: 0.8;
         }
-        
+
+        /* ── Form Card ── */
         .form-card {
-            border-radius: 0 0 0.75rem 0.75rem;
-            border: none;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            background: #fff;
+            border: 1px solid var(--kpmg-gray-200);
+            border-top: none;
+            border-radius: 0 0 6px 6px;
         }
-        
+
+        .form-card .card-body {
+            padding: 18px 28px 14px !important;
+        }
+
+        /* ── Section Headers ── */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid var(--kpmg-blue);
+        }
+
+        .section-icon {
+            width: 24px;
+            height: 24px;
+            background: var(--kpmg-blue);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--kpmg-blue);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0;
+        }
+
+        /* ── Section Divider ── */
+        .section-divider {
+            border: none;
+            border-top: 1px solid var(--kpmg-gray-200);
+            margin: 12px 0;
+        }
+
+        /* ── Form Controls ── */
         .form-label {
             font-weight: 600;
-            color: #495057;
-            font-size: 0.75rem;
-            margin-bottom: 0.25rem;
+            color: var(--kpmg-gray-700);
+            font-size: 0.73rem;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
-        
-        .form-control, .form-select {
-            border: 2px solid #e0e0e0;
-            border-radius: 0.4rem;
-            padding: 0.35rem 0.65rem;
-            transition: all 0.3s ease;
-            font-size: 0.85rem;
+
+        .form-control,
+        .form-select {
+            border: 1px solid var(--kpmg-gray-300);
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 0.82rem;
+            color: var(--kpmg-gray-800);
+            transition: border-color 0.2s;
+            background-color: #fff;
         }
-        
-        .form-control:focus, .form-select:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--kpmg-blue);
+            box-shadow: 0 0 0 2px rgba(0, 51, 141, 0.1);
             outline: none;
         }
-        
-        .btn-primary-custom {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            padding: 0.5rem 1.25rem;
-            font-size: 0.85rem;
-            font-weight: 600;
-            border-radius: 0.4rem;
-            color: white;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+
+        .form-control::placeholder {
+            color: var(--kpmg-gray-500);
         }
-        
-        .btn-primary-custom:hover {
-            background: linear-gradient(135deg, #5568d3 0%, #6a3f92 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+
+        .form-control.is-invalid,
+        .form-select.is-invalid {
+            border-color: var(--kpmg-red);
+            box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.08);
         }
-        
-        .btn-back-custom {
-            background: white;
-            border: 2px solid #dee2e6;
-            padding: 0.5rem 1.25rem;
-            font-size: 0.85rem;
-            font-weight: 600;
-            border-radius: 0.4rem;
-            color: #6c757d;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-back-custom:hover {
-            border-color: #6c757d;
-            color: #495057;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        
-        .section-divider {
-            border-top: 2px solid #e9ecef;
-            margin: 1rem 0;
-        }
-        
-        .section-title {
-            font-size: 0.9rem;
-            margin-bottom: 0.6rem;
-            font-weight: 700;
-        }
-        
-        .mb-3 {
-            margin-bottom: 0.6rem !important;
-        }
-        
-        .card-body {
-            padding: 1.25rem !important;
-        }
-        
+
         textarea.form-control {
-            min-height: 70px;
+            min-height: 60px;
+            resize: vertical;
         }
-        
-        .row {
-            row-gap: 0.6rem;
+
+        /* ── Control ID field ── */
+        .control-id-wrapper {
+            position: relative;
+        }
+
+        .control-id-wrapper .form-control {
+            font-weight: 600;
+            color: var(--kpmg-blue);
+            letter-spacing: 0.3px;
+        }
+
+        .control-id-hint {
+            font-size: 0.7rem;
+            color: var(--kpmg-gray-500);
+            margin-top: 3px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .control-id-hint svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        /* ── Required fields note ── */
+        .required-note {
+            font-size: 0.75rem;
+            color: var(--kpmg-red);
+            font-weight: 600;
+        }
+
+        /* ── Row gap ── */
+        .form-row {
+            margin-bottom: 8px;
+        }
+
+        .mb-field {
+            margin-bottom: 8px;
+        }
+
+        /* ── Buttons ── */
+        .btn-kpmg-primary {
+            background: var(--kpmg-blue);
+            border: none;
+            padding: 8px 22px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            border-radius: 4px;
+            color: #fff;
+            transition: background 0.2s;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-kpmg-primary:hover {
+            background: var(--kpmg-blue-dark);
+            color: #fff;
+        }
+
+        .btn-kpmg-primary:disabled {
+            background: var(--kpmg-gray-300);
+            color: var(--kpmg-gray-500);
+        }
+
+        .btn-kpmg-secondary {
+            background: #fff;
+            border: 1px solid var(--kpmg-gray-300);
+            padding: 8px 22px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            border-radius: 4px;
+            color: var(--kpmg-gray-700);
+            transition: all 0.2s;
+        }
+
+        .btn-kpmg-secondary:hover {
+            border-color: var(--kpmg-blue);
+            color: var(--kpmg-blue);
+            background: var(--kpmg-gray-50);
+        }
+
+        /* ── Breadcrumb ── */
+        .page-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            font-size: 0.76rem;
+            color: var(--kpmg-gray-500);
+        }
+
+        .page-breadcrumb a {
+            color: var(--kpmg-blue);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .page-breadcrumb a:hover {
+            text-decoration: underline;
+        }
+
+        .page-breadcrumb .separator {
+            color: var(--kpmg-gray-300);
+        }
+
+        /* ── Footer actions ── */
+        .form-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 12px;
+            border-top: 1px solid var(--kpmg-gray-200);
         }
     </style>
 </head>
 <body>
-    <div class="form-container">
+    <div class="page-wrapper">
+
+        <!-- Breadcrumb -->
+        <nav class="page-breadcrumb">
+            <a href="/">Dashboard</a>
+            <span class="separator">/</span>
+            <span>Create New Control</span>
+        </nav>
+
+        <!-- Page Header -->
         <div class="page-header">
-            <h2>➕ Create New Control</h2>
-            <p>Fill in the control information to create a new quality control entry</p>
+            <div class="page-header-icon">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+            </div>
+            <div>
+                <h2>Create New Control</h2>
+                <p>Fill in the control information to create a new quality control entry</p>
+            </div>
         </div>
-        <div class="card form-card">
-            <div class="card-body p-4">
-                        <form id="controlForm" th:action="@{/api/controls}" method="post">
-                            <input type="hidden" name="createdByEmail" th:value="${userEmail}">
-                            <input type="hidden" name="facilitator" value="">
-                            <input type="hidden" name="controlOperator" value="">
-                            <input type="hidden" name="soqmLead" value="">
-                            <input type="hidden" name="processOwner" value="">
 
-                            <!-- Section: Basic Information -->
-                            <h5 class="section-title text-primary">📋 Basic Information</h5>
+        <!-- Form Card -->
+        <div class="form-card">
+            <div class="card-body">
+                <form id="controlForm" th:action="@{/api/controls}" method="post">
+                    <input type="hidden" name="createdByEmail" th:value="${userEmail}">
+                    <input type="hidden" name="facilitator" value="">
+                    <input type="hidden" name="controlOperator" value="">
+                    <input type="hidden" name="soqmLead" value="">
+                    <input type="hidden" name="processOwner" value="">
 
-                            <!-- Row 1: Control ID, Frequency, Category, Type -->
-                            <div class="row">
-                                <div class="col-md-3 mb-3">
-                                    <label for="controlId" class="form-label">CONTROL ID <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="controlId" name="controlId" required placeholder="Enter Control ID">
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <label for="controlFrequency" class="form-label">Control Frequency <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="controlFrequency" name="controlFrequency" required>
-                                        <option value="">Select Frequency</option>
-                                        <option value="Monthly">Monthly</option>
-                                        <option value="Quarterly">Quarterly</option>
-                                        <option value="Ad-hoc">Ad-hoc</option>
-                                        <option value="Recurring">Recurring</option>
-                                        <option value="Annual">Annual</option>
-                                        <option value="Semi Annual">Semi Annual</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <label for="controlCategory" class="form-label">Control Category</label>
-                                    <select class="form-select" id="controlCategory" name="controlCategory">
-                                        <option value="">Select Category</option>
-                                        <option value="Enhanced">Enhanced</option>
-                                        <option value="Existing">Existing</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <label for="controlType" class="form-label">Control Type <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="controlType" name="controlType" required>
-                                        <option value="">Select Type</option>
-                                        <option value="Manual">Manual</option>
-                                        <option value="Automated">Automated</option>
-                                        <option value="IT Dependent Manual">IT Dependent Manual</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="section-divider"></div>
-                            
-                            <!-- Section: Component & Operations -->
-                            <h5 class="section-title text-primary">🏢 Component & Operations</h5>
-
-                            <!-- Row 2: Component, Operated By, References -->
-                            <div class="row">
-                                <div class="col-md-4 mb-3">
-                                    <label for="component" class="form-label">Component <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="component" name="component" required>
-                                        <option value="">Select Component</option>
-                                        <option value="HR">Human Resources (HR)</option>
-                                        <option value="A&C">Acceptance and Continuance (A&C)</option>
-                                        <option value="EP">Engagement Performance (EP)</option>
-                                        <option value="INTR">Intellectual Resources (INTR)</option>
-                                        <option value="I&C">Information and Communication (I&C)</option>
-                                        <option value="RER">Relevant Ethical Requirements (RER)</option>
-                                        <option value="M&R">Monitoring and Remediation (M&R)</option>
-                                        <option value="GOV">Governance (GOV)</option>
-                                        <option value="TECHR">Technological Resources (TECHR)</option>
-                                        <option value="RAP">Risk Assessment Process (RAP)</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="operatedBy" class="form-label">Operated By <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="operatedBy" name="operatedBy" required>
-                                        <option value="">Select Operator</option>
-                                        <option value="Member Firm">Member Firm</option>
-                                        <option value="Network">Network</option>
-                                        <option value="Network (MF initiated)">Network (MF initiated)</option>
-                                        <option value="Sub Regional">Sub Regional</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="referencesToControl" class="form-label">References to this Control</label>
-                                    <input type="text" class="form-control" id="referencesToControl" name="referencesToControl" placeholder="Enter references">
-                                </div>
-                            </div>
-
-                            <div class="section-divider"></div>
-                            
-                            <!-- Section: Priority & Applicability -->
-                            <h5 class="section-title text-primary">⚙️ Priority & Applicability</h5>
-
-                            <!-- Row 3: Priority, Non-Audit Services, Homogeneity -->
-                            <div class="row">
-                                <div class="col-md-4 mb-3">
-                                    <label for="priority" class="form-label">Priority <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="priority" name="priority" required>
-                                        <option value="">Select Priority</option>
-                                        <option value="High">High</option>
-                                        <option value="Medium">Medium</option>
-                                        <option value="Low">Low</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="nonAuditServicesApplicability" class="form-label">Non-Audit Services Applicability <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="nonAuditServicesApplicability" name="nonAuditServicesApplicability" required>
-                                        <option value="">Select Applicability</option>
-                                        <option value="ALL">ALL</option>
-                                        <option value="AFS">AFS</option>
-                                        <option value="Elected (Audit, Assurance, ORS only)">Elected (Audit, Assurance, ORS only)</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="homogeneity" class="form-label">Homogeneity</label>
-                                    <select class="form-select" id="homogeneity" name="homogeneity">
-                                        <option value="">Select Homogeneity</option>
-                                        <option value="Homogenous">Homogenous</option>
-                                        <option value="Non-Homogenous">Non-Homogenous</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="section-divider"></div>
-                            
-                            <!-- Section: Descriptions -->
-                            <h5 class="section-title text-primary">📝 Descriptions</h5>
-
-                            <!-- Row 4: Descriptions -->
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="controlDescription" class="form-label">Control Description</label>
-                                    <textarea class="form-control" id="controlDescription" name="controlDescription" rows="3" placeholder="Enter detailed control description"></textarea>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="prp" class="form-label">PRP</label>
-                                    <textarea class="form-control" id="prp" name="prp" rows="3" placeholder="Enter PRP details"></textarea>
-                                </div>
-                            </div>
-
-                            <!-- Required fields note -->
-                            <div class="row mb-3">
-                                <div class="col-12">
-                                    <small class="text-danger fw-semibold">* Data fields must be completed</small>
-                                </div>
-                            </div>
-
-                            <div class="section-divider"></div>
-
-                            <!-- Buttons -->
-                            <div class="row">
-                                <div class="col-12 d-flex gap-3 justify-content-end">
-                                    <button type="button" class="btn btn-back-custom" onclick="window.location.href='/'">
-                                        ← Back to Dashboard
-                                    </button>
-                                    <button type="submit" class="btn btn-primary-custom">
-                                        ✓ Create Control
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
+                    <!-- ═══════ Section: Basic Information ═══════ -->
+                    <div class="section-header">
+                        <div class="section-icon">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                                <rect x="9" y="3" width="6" height="4" rx="1"/>
+                            </svg>
+                        </div>
+                        <span class="section-title">Basic Information</span>
                     </div>
-                </div>
+
+                    <!-- Row 1: Component, Frequency, Control ID -->
+                    <div class="row form-row">
+                        <div class="col-md-4 mb-field">
+                            <label for="component" class="form-label">Component <span class="text-danger">*</span></label>
+                            <select class="form-select" id="component" name="component" required onchange="autoGenerateControlId()">
+                                <option value="">Select Component</option>
+                                <option value="HR">Human Resources (HR)</option>
+                                <option value="A&C">Acceptance and Continuance (A&C)</option>
+                                <option value="EP">Engagement Performance (EP)</option>
+                                <option value="INTR">Intellectual Resources (INTR)</option>
+                                <option value="I&C">Information and Communication (I&C)</option>
+                                <option value="RER">Relevant Ethical Requirements (RER)</option>
+                                <option value="M&R">Monitoring and Remediation (M&R)</option>
+                                <option value="GOV">Governance (GOV)</option>
+                                <option value="TECHR">Technological Resources (TECHR)</option>
+                                <option value="RAP">Risk Assessment Process (RAP)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-field">
+                            <label for="controlFrequency" class="form-label">Control Frequency <span class="text-danger">*</span></label>
+                            <select class="form-select" id="controlFrequency" name="controlFrequency" required onchange="autoGenerateControlId()">
+                                <option value="">Select Frequency</option>
+                                <option value="Monthly">Monthly</option>
+                                <option value="Quarterly">Quarterly</option>
+                                <option value="Ad-hoc">Ad-hoc</option>
+                                <option value="Recurring">Recurring</option>
+                                <option value="Annual">Annual</option>
+                                <option value="Semi Annual">Semi Annual</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-field">
+                            <label for="controlId" class="form-label">Control ID <span class="text-danger">*</span></label>
+                            <div class="control-id-wrapper">
+                                <input type="text" class="form-control" id="controlId" name="controlId" required placeholder="Select Component & Frequency">
+                            </div>
+                            <div class="control-id-hint">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
+                                </svg>
+                                Auto-generated
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Category, Type -->
+                    <div class="row form-row">
+                        <div class="col-md-4 mb-field">
+                            <label for="controlCategory" class="form-label">Control Category</label>
+                            <select class="form-select" id="controlCategory" name="controlCategory">
+                                <option value="">Select Category</option>
+                                <option value="Enhanced">Enhanced</option>
+                                <option value="Existing">Existing</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-field">
+                            <label for="controlType" class="form-label">Control Type <span class="text-danger">*</span></label>
+                            <select class="form-select" id="controlType" name="controlType" required>
+                                <option value="">Select Type</option>
+                                <option value="Manual">Manual</option>
+                                <option value="Automated">Automated</option>
+                                <option value="IT Dependent Manual">IT Dependent Manual</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <!-- ═══════ Section: Operations ═══════ -->
+                    <div class="section-header">
+                        <div class="section-icon">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M3 21h18M3 7v1a3 3 0 006 0V7m0 1a3 3 0 006 0V7m0 1a3 3 0 006 0V7H3"/>
+                                <path d="M5 21V10.7M19 21V10.7"/>
+                            </svg>
+                        </div>
+                        <span class="section-title">Operations</span>
+                    </div>
+
+                    <div class="row form-row">
+                        <div class="col-md-6 mb-field">
+                            <label for="operatedBy" class="form-label">Operated By <span class="text-danger">*</span></label>
+                            <select class="form-select" id="operatedBy" name="operatedBy" required>
+                                <option value="">Select Operator</option>
+                                <option value="Member Firm">Member Firm</option>
+                                <option value="Network">Network</option>
+                                <option value="Network (MF initiated)">Network (MF initiated)</option>
+                                <option value="Sub Regional">Sub Regional</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-field">
+                            <label for="referencesToControl" class="form-label">References to this Control</label>
+                            <input type="text" class="form-control" id="referencesToControl" name="referencesToControl" placeholder="Enter references">
+                        </div>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <!-- ═══════ Section: Priority & Applicability ═══════ -->
+                    <div class="section-header">
+                        <div class="section-icon">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/>
+                            </svg>
+                        </div>
+                        <span class="section-title">Priority & Applicability</span>
+                    </div>
+
+                    <div class="row form-row">
+                        <div class="col-md-4 mb-field">
+                            <label for="priority" class="form-label">Priority <span class="text-danger">*</span></label>
+                            <select class="form-select" id="priority" name="priority" required>
+                                <option value="">Select Priority</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-field">
+                            <label for="nonAuditServicesApplicability" class="form-label">Non-Audit Services Applicability <span class="text-danger">*</span></label>
+                            <select class="form-select" id="nonAuditServicesApplicability" name="nonAuditServicesApplicability" required>
+                                <option value="">Select Applicability</option>
+                                <option value="ALL">ALL</option>
+                                <option value="AFS">AFS</option>
+                                <option value="Elected (Audit, Assurance, ORS only)">Elected (Audit, Assurance, ORS only)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-field">
+                            <label for="homogeneity" class="form-label">Homogeneity</label>
+                            <select class="form-select" id="homogeneity" name="homogeneity">
+                                <option value="">Select Homogeneity</option>
+                                <option value="Homogenous">Homogenous</option>
+                                <option value="Non-Homogenous">Non-Homogenous</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <!-- ═══════ Section: Descriptions ═══════ -->
+                    <div class="section-header">
+                        <div class="section-icon">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                                <polyline points="14,2 14,8 20,8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                        </div>
+                        <span class="section-title">Descriptions</span>
+                    </div>
+
+                    <div class="row form-row">
+                        <div class="col-md-6 mb-field">
+                            <label for="controlDescription" class="form-label">Control Description</label>
+                            <textarea class="form-control" id="controlDescription" name="controlDescription" rows="2" placeholder="Enter detailed control description"></textarea>
+                        </div>
+                        <div class="col-md-6 mb-field">
+                            <label for="prp" class="form-label">PRP</label>
+                            <textarea class="form-control" id="prp" name="prp" rows="2" placeholder="Enter PRP details"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="form-footer">
+                        <span class="required-note">* Required fields must be completed</span>
+                        <div class="d-flex gap-3">
+                            <button type="button" class="btn btn-kpmg-secondary" onclick="window.location.href='/'">
+                                ← Back to Dashboard
+                            </button>
+                            <button type="submit" class="btn btn-kpmg-primary">
+                                Create Control
+                            </button>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -326,11 +509,44 @@
 
     <script>
         function getRequiredFieldLabel(field) {
-            const label = field.closest('.mb-3')?.querySelector('label');
+            const label = field.closest('.mb-field')?.querySelector('label')
+                       || field.closest('.mb-3')?.querySelector('label');
             if (label) {
                 return label.textContent.replace('*', '').trim();
             }
             return field.name || 'Field';
+        }
+
+        // ★ Auto-generate Control ID from Component + Frequency
+        function autoGenerateControlId() {
+            const component = document.getElementById('component').value;
+            const frequency = document.getElementById('controlFrequency').value;
+            const controlIdInput = document.getElementById('controlId');
+
+            if (!component || !frequency) {
+                controlIdInput.value = '';
+                controlIdInput.placeholder = 'Select Component & Frequency';
+                return;
+            }
+
+            controlIdInput.value = 'Generating...';
+
+            fetch(`/api/controls/generate-id?component=${encodeURIComponent(component)}&frequency=${encodeURIComponent(frequency)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.controlId) {
+                        controlIdInput.value = data.controlId;
+                        controlIdInput.classList.remove('is-invalid');
+                    } else {
+                        controlIdInput.value = '';
+                        controlIdInput.placeholder = data.error || 'Error generating ID';
+                    }
+                })
+                .catch(err => {
+                    console.error('Error generating Control ID:', err);
+                    controlIdInput.value = '';
+                    controlIdInput.placeholder = 'Error generating ID';
+                });
         }
 
         function showRequiredFieldAlert(message, field) {
@@ -450,8 +666,6 @@
             });
         });
     </script>
-        </div>
-    </div>
 </body>
 </html>
 

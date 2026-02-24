@@ -1,171 +1,244 @@
-        .view-control-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
-        }
-        .control-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-            color: white;
-            padding: 1.5rem 2rem;
-            border-radius: 0.75rem;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-        .control-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: repeating-linear-gradient(
-                45deg,
-                transparent,
-                transparent 10px,
-                rgba(255, 255, 255, 0.05) 10px,
-                rgba(255, 255, 255, 0.05) 20px
-            );
-            animation: slide 20s linear infinite;
-        }
-        .control-header h2 {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-            position: relative;
-            z-index: 2;
-        }
-        .control-header h4 {
-            font-size: 1.1rem;
-            margin-bottom: 0.3rem;
-            position: relative;
-            z-index: 2;
-        }
-        .control-header p {
-            font-size: 0.85rem;
-            position: relative;
-            z-index: 2;
-        }
-        .nav-tabs {
-            border-bottom: 2px solid #e9ecef;
-        }
-        .nav-tabs .nav-link {
-            color: #495057;
-            font-weight: 500;
-            padding: 0.75rem 1.25rem;
-            border: none;
-            transition: all 0.3s ease;
-        }
-        .nav-tabs .nav-link:hover {
-            color: #667eea;
-            background: rgba(102, 126, 234, 0.05);
-        }
-        .nav-tabs .nav-link.active {
-            color: #667eea;
-            border-bottom: 3px solid #667eea;
-            font-weight: 600;
-            background: rgba(102, 126, 234, 0.05);
-        }
+/* ═══════════════════════════════════════
+   VIEW CONTROL — KPMG CORPORATE STYLE
+   ═══════════════════════════════════════ */
 
-        .tab-content {
-            padding: 1.5rem 0;
-        }
-        .form-section {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
-            padding: 1.25rem;
-            border-radius: 0.75rem;
-            margin-bottom: 1rem;
-            border: 1px solid #e9ecef;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        .form-section h5 {
-            font-size: 1.1rem;
-            color: #495057;
-            margin-bottom: 1rem;
-            font-weight: 600;
-        }
-        .readonly-field {
-            background-color: #f1f3f5 !important;
-            border: 1px solid #dee2e6;
-            cursor: not-allowed;
-            pointer-events: none;
-            user-select: none;
-            font-size: 0.9rem;
-            padding: 0.5rem 0.75rem;
-        }
-        .readonly-select {
-            background-color: #f1f3f5 !important;
-            border: 1px solid #dee2e6;
-            cursor: not-allowed;
-            pointer-events: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-        }
-        .editable-field {
-            background-color: white !important;
-            border: 1px solid #ced4da;
-            pointer-events: auto;
-            font-size: 0.9rem;
-            padding: 0.5rem 0.75rem;
-            transition: border-color 0.2s ease;
-        }
-        .editable-field:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15);
-        }
-        .form-label {
-            font-weight: 600;
-            font-size: 0.85rem;
-            color: #495057;
-            margin-bottom: 0.4rem;
-        }
-        .editable-select {
-            background-color: white !important;
-            border: 1px solid #ced4da;
-            pointer-events: auto;
-            -webkit-appearance: menulist;
-            -moz-appearance: menulist;
-            appearance: menulist;
-        }
-        .action-buttons {
-            position: sticky;
-            bottom: 0;
-            background: linear-gradient(to top, #ffffff 0%, #f8f9fa 100%);
-            padding: 1rem 1.5rem;
-            border-top: 2px solid #e9ecef;
-            margin-top: 1rem;
-            box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
-        }
-        .action-buttons .btn {
-            padding: 0.6rem 1.5rem;
-            font-size: 0.9rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        .action-buttons .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        #workflow-buttons-container .workflow-submit-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            line-height: 1.2;
-            min-height: 38px;
-            white-space: normal;
-        }
-        .required-field::after {
-            content: " *";
-            color: #dc3545;
-        }
+:root {
+    --kpmg-blue: #00338D;
+    --kpmg-blue-light: #005EB8;
+    --kpmg-blue-dark: #002060;
+    --kpmg-gray-50: #f7f8fa;
+    --kpmg-gray-100: #eef0f4;
+    --kpmg-gray-200: #d8dce5;
+    --kpmg-gray-300: #cdd0d6;
+    --kpmg-gray-400: #9ba3b5;
+    --kpmg-gray-500: #8b90a0;
+    --kpmg-gray-600: #5c6478;
+    --kpmg-gray-700: #495057;
+    --kpmg-gray-800: #2d3340;
+    --kpmg-white: #ffffff;
+    --kpmg-green: #009a44;
+    --kpmg-red: #c8102e;
+}
 
+/* ── Container ── */
+.view-control-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 24px;
+}
+
+/* ── Header ── */
+.control-header {
+    background: var(--kpmg-blue);
+    color: var(--kpmg-white);
+    padding: 18px 24px;
+    border-radius: 6px 6px 0 0;
+    border-bottom: 3px solid var(--kpmg-blue-light);
+}
+
+.control-header h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: 0.3px;
+}
+
+.control-header h4 {
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+    color: rgba(255,255,255,0.9);
+}
+
+.control-header p {
+    font-size: 0.74rem;
+    color: rgba(255,255,255,0.6);
+    margin: 0;
+}
+
+/* ── Tabs ── */
+.nav-tabs {
+    border-bottom: 2px solid var(--kpmg-gray-200);
+    background: var(--kpmg-white);
+    padding: 0 24px;
+    margin: 0;
+}
+
+.nav-tabs .nav-link {
+    color: var(--kpmg-gray-600);
+    font-weight: 600;
+    font-size: 0.8rem;
+    padding: 10px 18px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    transition: color 0.2s;
+}
+
+.nav-tabs .nav-link:hover {
+    color: var(--kpmg-blue);
+    background: transparent;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--kpmg-blue);
+    border-bottom: 2px solid var(--kpmg-blue);
+    font-weight: 700;
+    background: transparent;
+}
+
+/* ── Tab Content ── */
+.tab-content {
+    padding: 20px 0 0 0;
+}
+
+/* ── Form Section ── */
+.form-section {
+    background: var(--kpmg-white);
+    padding: 20px 24px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    border: 1px solid var(--kpmg-gray-200);
+}
+
+.form-section h5 {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--kpmg-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--kpmg-blue);
+}
+
+/* ── Form Labels ── */
+.form-label {
+    font-weight: 600;
+    font-size: 0.74rem;
+    color: var(--kpmg-gray-600);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.required-field::after {
+    content: " *";
+    color: var(--kpmg-red);
+}
+
+/* ── Readonly Fields ── */
+.readonly-field {
+    background-color: var(--kpmg-gray-50) !important;
+    border: 1px solid var(--kpmg-gray-200);
+    cursor: default;
+    pointer-events: none;
+    user-select: none;
+    font-size: 0.84rem;
+    padding: 8px 12px;
+    color: var(--kpmg-gray-700);
+    border-radius: 4px;
+}
+
+.readonly-select {
+    background-color: var(--kpmg-gray-50) !important;
+    border: 1px solid var(--kpmg-gray-200);
+    cursor: default;
+    pointer-events: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+/* ── Editable Fields ── */
+.editable-field {
+    background-color: var(--kpmg-white) !important;
+    border: 1px solid var(--kpmg-gray-300);
+    pointer-events: auto;
+    font-size: 0.84rem;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: border-color 0.2s;
+}
+
+.editable-field:focus {
+    border-color: var(--kpmg-blue);
+    box-shadow: 0 0 0 2px rgba(0, 51, 141, 0.1);
+}
+
+.editable-select {
+    background-color: var(--kpmg-white) !important;
+    border: 1px solid var(--kpmg-gray-300);
+    pointer-events: auto;
+    -webkit-appearance: menulist;
+    -moz-appearance: menulist;
+    appearance: menulist;
+}
+
+/* ── Action Buttons Bar ── */
+.action-buttons {
+    position: sticky;
+    bottom: 0;
+    background: var(--kpmg-white);
+    padding: 14px 24px;
+    border-top: 1px solid var(--kpmg-gray-200);
+    margin-top: 16px;
+    border-radius: 0 0 6px 6px;
+}
+
+.action-buttons .btn {
+    padding: 8px 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.action-buttons .btn-primary {
+    background: var(--kpmg-blue);
+    border-color: var(--kpmg-blue);
+}
+
+.action-buttons .btn-primary:hover {
+    background: var(--kpmg-blue-dark);
+    border-color: var(--kpmg-blue-dark);
+}
+
+.action-buttons .btn-outline-secondary {
+    border-color: var(--kpmg-gray-300);
+    color: var(--kpmg-gray-700);
+}
+
+.action-buttons .btn-outline-secondary:hover {
+    border-color: var(--kpmg-blue);
+    color: var(--kpmg-blue);
+    background: var(--kpmg-gray-50);
+}
+
+.action-buttons .btn:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* ── Workflow Buttons ── */
+#workflow-buttons-container .workflow-submit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.2;
+    min-height: 36px;
+    white-space: normal;
+}
+
+/* ── User Dropdowns ── */
 .facilitator-dropdown {
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 4px;
     padding: 10px;
-    background: #f8f9fa;
+    background: var(--kpmg-gray-50);
 }
 
 .selected-users-container {
@@ -173,10 +246,10 @@
     flex-wrap: wrap;
     gap: 6px;
     padding: 6px;
-    background: white;
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
-    min-height: 40px;
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 4px;
+    min-height: 36px;
     max-height: 100px;
     overflow-y: auto;
 }
@@ -185,17 +258,18 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 2px 6px;
-    background: #e7f1ff;
-    border: 1px solid #0d6efd;
+    padding: 2px 8px;
+    background: #e8eef8;
+    border: 1px solid var(--kpmg-blue-light);
     border-radius: 50px;
-    font-size: 11px;
+    font-size: 0.7rem;
+    color: var(--kpmg-blue);
 }
 
 .selected-user-badge .remove-btn {
     background: none;
     border: none;
-    color: #dc3545;
+    color: var(--kpmg-red);
     cursor: pointer;
     font-size: 12px;
     padding: 0;
@@ -209,15 +283,15 @@
 }
 
 .selected-user-badge .remove-btn:hover {
-    background: #dc3545;
-    color: white;
+    background: var(--kpmg-red);
+    color: var(--kpmg-white);
 }
 
 .user-list-item {
     padding: 4px 8px;
     cursor: pointer;
-    border-bottom: 1px solid #f8f9fa;
-    transition: background-color 0.2s;
+    border-bottom: 1px solid var(--kpmg-gray-100);
+    transition: background-color 0.15s;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -225,20 +299,20 @@
 }
 
 .user-list-item:hover {
-    background-color: #f8f9fa;
+    background-color: var(--kpmg-gray-50);
 }
 
 .user-list-item.selected {
-    background-color: #e7f1ff;
-    border-left: 3px solid #0d6efd;
+    background-color: #e8eef8;
+    border-left: 3px solid var(--kpmg-blue);
 }
 
 .user-list-item .user-avatar {
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: #0d6efd;
-    color: white;
+    background: var(--kpmg-blue);
+    color: var(--kpmg-white);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -249,113 +323,21 @@
 
 .user-list-item .user-info {
     flex: 1;
-    min-width: 0; /* Для корректного обрезания текста */
+    min-width: 0;
 }
 
 .user-list-item .user-name {
     font-weight: 500;
-    color: #212529;
-    font-size: 12px;
+    color: var(--kpmg-gray-800);
+    font-size: 0.72rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-/* Стили для выпадающего списка */
-.facilitator-dropdown {
-    position: relative;
-}
-
-.selected-user-display input {
-    background: white url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") right 0.75rem center/16px 12px no-repeat;
-    cursor: pointer;
-}
-
-.dropdown-users {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: white;
-    border: 1px solid #dee2e6;
-    border-top: none;
-    border-radius: 0 0 0.375rem 0.375rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    z-index: 1000;
-    margin-top: -1px;
-}
-
-.dropdown-search {
-    border-bottom: 1px solid #dee2e6;
-    background: #f8f9fa;
-}
-
-.compact-user-item {
-    padding: 6px 10px;
-    cursor: pointer;
-    border-bottom: 1px solid #f8f9fa;
-    transition: background-color 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-}
-
-.compact-user-item:hover {
-    background-color: #f8f9fa;
-}
-
-.compact-user-item.selected {
-    background-color: #e7f1ff;
-}
-
-.compact-user-item .user-initials {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #0d6efd;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 9px;
-    flex-shrink: 0;
-}
-
-.compact-user-item .user-details {
-    flex: 1;
-    min-width: 0;
-}
-
-.compact-user-item .user-name {
-    font-weight: 500;
-    color: #212529;
-    font-size: 11px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.compact-user-item .user-email {
-    color: #6c757d;
-    font-size: 9px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.no-users-message {
-    padding: 10px;
-    text-align: center;
-    color: #6c757d;
-    font-size: 11px;
-    font-style: italic;
 }
 
 .user-list-item .user-email {
-    color: #6c757d;
-    font-size: 10px;
+    color: var(--kpmg-gray-500);
+    font-size: 0.62rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -372,23 +354,115 @@
     height: 14px;
 }
 
-.no-users-found {
+/* ── Dropdown ── */
+.facilitator-dropdown {
+    position: relative;
+}
+
+.selected-user-display input {
+    background: var(--kpmg-white) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23495057' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") right 0.75rem center/16px 12px no-repeat;
+    cursor: pointer;
+}
+
+.dropdown-users {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    z-index: 1000;
+    margin-top: -1px;
+}
+
+.dropdown-search {
+    border-bottom: 1px solid var(--kpmg-gray-200);
+    background: var(--kpmg-gray-50);
+}
+
+.compact-user-item {
+    padding: 6px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--kpmg-gray-100);
+    transition: background-color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.72rem;
+}
+
+.compact-user-item:hover {
+    background-color: var(--kpmg-gray-50);
+}
+
+.compact-user-item.selected {
+    background-color: #e8eef8;
+}
+
+.compact-user-item .user-initials {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--kpmg-blue);
+    color: var(--kpmg-white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 9px;
+    flex-shrink: 0;
+}
+
+.compact-user-item .user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.compact-user-item .user-name {
+    font-weight: 500;
+    color: var(--kpmg-gray-800);
+    font-size: 0.68rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.compact-user-item .user-email {
+    color: var(--kpmg-gray-500);
+    font-size: 0.58rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.no-users-message {
     padding: 10px;
     text-align: center;
-    color: #6c757d;
-    font-size: 12px;
+    color: var(--kpmg-gray-500);
+    font-size: 0.7rem;
     font-style: italic;
 }
 
-/* Стили для множественного выбора */
+.no-users-found {
+    padding: 10px;
+    text-align: center;
+    color: var(--kpmg-gray-500);
+    font-size: 0.72rem;
+    font-style: italic;
+}
+
+/* ── Multiple Selection ── */
 .multiple-selection .selected-users-container {
-    min-height: 40px;
+    min-height: 36px;
     max-height: 100px;
     overflow-y: auto;
     padding: 5px;
-    background: white;
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 4px;
     margin-bottom: 5px;
 }
 
@@ -397,11 +471,12 @@
     align-items: center;
     gap: 4px;
     padding: 2px 8px;
-    background: #e7f1ff;
-    border: 1px solid #0d6efd;
+    background: #e8eef8;
+    border: 1px solid var(--kpmg-blue-light);
     border-radius: 50px;
-    font-size: 11px;
+    font-size: 0.68rem;
     margin: 2px;
+    color: var(--kpmg-blue);
 }
 
 .multiple-selection .dropdown-users {
@@ -428,12 +503,14 @@
 }
 
 .multiple-selection .placeholder-text {
-    color: #6c757d;
+    color: var(--kpmg-gray-500);
     font-style: italic;
     padding: 10px;
     text-align: center;
+    font-size: 0.72rem;
 }
 
+/* ── Disabled / Utility ── */
 .btn-disabled {
     opacity: 0.6;
     cursor: not-allowed;
@@ -443,19 +520,16 @@
 #confirmRenameBtn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-    background-color: #6c757d !important;
-    border-color: #6c757d !important;
+    background-color: var(--kpmg-gray-400) !important;
+    border-color: var(--kpmg-gray-400) !important;
 }
 
 #confirmRenameBtn:not(:disabled):hover {
-    background-color: #0b5ed7 !important;
-    border-color: #0a58ca !important;
+    background-color: var(--kpmg-blue-dark) !important;
+    border-color: var(--kpmg-blue-dark) !important;
 }
 
-/* Workflow кнопки */
-
-
-/* Радиокнопки в модалке */
+/* ── Workflow radio buttons ── */
 #workflowApprovalSection .form-check-input {
     width: 18px;
     height: 18px;
@@ -464,4 +538,29 @@
 #workflowApprovalSection .form-check-label {
     font-size: 16px;
     margin-left: 6px;
+}
+
+/* ── Edit Navigation Panel ── */
+.edit-nav-panel {
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 6px;
+    padding: 12px 24px;
+    margin-top: 12px;
+}
+
+.edit-nav-panel .btn:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.edit-nav-panel #saveEditBtn:hover {
+    background: var(--kpmg-blue-dark) !important;
+    border-color: var(--kpmg-blue-dark) !important;
+}
+
+.edit-nav-panel .btn-outline-secondary:hover {
+    border-color: var(--kpmg-blue) !important;
+    color: var(--kpmg-blue) !important;
+    background: var(--kpmg-gray-50) !important;
 }
