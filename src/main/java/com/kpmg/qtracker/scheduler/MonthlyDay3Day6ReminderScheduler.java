@@ -13,7 +13,7 @@ public class MonthlyDay3Day6ReminderScheduler {
 
     private final MonthlyDay3Day6ReminderService monthlyDay3Day6ReminderService;
 
-    @Scheduled(cron = "0 30 09 * * *", zone = "Asia/Almaty")
+    @Scheduled(cron = "0 47 11 * * *", zone = "Asia/Almaty")
     public void runMonthlyDayReminders() {
         log.info("Scheduler trigger: monthly day3/day6 reminders");
         MonthlyDay3Day6ReminderService.DayReminderRunSummary summary =

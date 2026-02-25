@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 public class MonthlyDay0NotificationScheduler {
     private final MonthlyDay0NotificationService monthlyDay0NotificationService;
 
-    @Scheduled(cron = "0 35 16 * * *", zone = "Asia/Almaty")
+    @Scheduled(cron = "0 34 11 * * *", zone = "Asia/Almaty")
     public void runDay0Notifications() {
         log.info("Scheduler trigger: monthly day0 notifications");
         MonthlyDay0NotificationService.Day0RunSummary summary =

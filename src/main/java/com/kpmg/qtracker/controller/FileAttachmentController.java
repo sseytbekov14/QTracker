@@ -1,8 +1,12 @@
 package com.kpmg.qtracker.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.FileStorageService;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -12,7 +16,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -22,6 +29,8 @@ public class FileAttachmentController {
 
     private final FileStorageService fileStorageService;
     private final ControlService controlService;
+    private final AdminAuditService adminAuditService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Upload files for a control
@@ -31,7 +40,8 @@ public class FileAttachmentController {
     public ResponseEntity<Map<String, Object>> uploadFiles(
             @PathVariable Long controlId,
             @RequestParam(value = "attachmentDetails", required = false) MultipartFile[] detailsFiles,
-            @RequestParam(value = "attachmentDocuments", required = false) MultipartFile[] documentsFiles) {
+            @RequestParam(value = "attachmentDocuments", required = false) MultipartFile[] documentsFiles,
+            HttpSession session) {
         
         Map<String, Object> response = new HashMap<>();
         
@@ -41,6 +51,9 @@ public class FileAttachmentController {
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found: " + controlId));
             String controlFolder = resolveControlFolder(control);
+            User currentUser = getCurrentUser(session);
+            List<String> addedDetails = new ArrayList<>();
+            List<String> addedDocuments = new ArrayList<>();
 
             // Save details attachments (multiple files)
             if (detailsFiles != null && detailsFiles.length > 0) {
@@ -62,6 +75,9 @@ public class FileAttachmentController {
                             filenames.append(";"); // Use semicolon as separator
                         }
                         filenames.append(filename);
+                        if (filename != null && !filename.isBlank()) {
+                            addedDetails.add(filename);
+                        }
                         System.out.println("✅ Details file saved: " + filename);
                     }
                 }
@@ -93,6 +109,9 @@ public class FileAttachmentController {
                             filenames.append(";");
                         }
                         filenames.append(filename);
+                        if (filename != null && !filename.isBlank()) {
+                            addedDocuments.add(filename);
+                        }
                         System.out.println("✅ Documents file saved: " + filename);
                     }
                 }
@@ -106,6 +125,8 @@ public class FileAttachmentController {
 
             // Update control in database
             controlService.updateControl(control);
+            logAttachmentAdds(currentUser, control, "DETAILS", addedDetails);
+            logAttachmentAdds(currentUser, control, "DOCUMENTS", addedDocuments);
             
             response.put("success", true);
             response.put("message", "Files uploaded successfully");
@@ -202,13 +223,17 @@ public class FileAttachmentController {
     public ResponseEntity<Map<String, Object>> deleteFile(
             @PathVariable Long controlId,
             @RequestParam("filename") String filename,
-            @RequestParam("type") String type) {
+            @RequestParam("type") String type,
+            HttpSession session) {
 
         Map<String, Object> response = new HashMap<>();
         try {
             String decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8);
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found: " + controlId));
+            User currentUser = getCurrentUser(session);
+            boolean removed = false;
+            String tabLabel = "details".equalsIgnoreCase(type) ? "DETAILS" : "DOCUMENTS";
 
             String currentPath;
             if ("details".equalsIgnoreCase(type)) {
@@ -228,7 +253,10 @@ public class FileAttachmentController {
             StringBuilder updated = new StringBuilder();
             for (String f : files) {
                 if (f.trim().isEmpty()) continue;
-                if (f.trim().equals(decodedFilename.trim())) continue; // skip deleted
+                if (f.trim().equals(decodedFilename.trim())) {
+                    removed = true;
+                    continue; // skip deleted
+                }
                 if (updated.length() > 0) updated.append(";");
                 updated.append(f.trim());
             }
@@ -249,6 +277,9 @@ public class FileAttachmentController {
                 System.out.println("⚠️ Could not delete physical file: " + e.getMessage());
             }
 
+            if (removed) {
+                logAttachmentChange(currentUser, control, "ATTACHMENT_REMOVED", tabLabel, decodedFilename, "");
+            }
             response.put("success", true);
             response.put("message", "File deleted");
             return ResponseEntity.ok(response);
@@ -307,6 +338,59 @@ public class FileAttachmentController {
                     .orElse(null);
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    private User getCurrentUser(HttpSession session) {
+        if (session == null) {
+            return null;
+        }
+        return (User) session.getAttribute("currentUser");
+    }
+
+    private void logAttachmentAdds(User user, Control control, String tabLabel, List<String> filenames) {
+        if (filenames == null || filenames.isEmpty()) {
+            return;
+        }
+        for (String filename : filenames) {
+            if (filename == null || filename.isBlank()) {
+                continue;
+            }
+            logAttachmentChange(user, control, "ATTACHMENT_ADDED", tabLabel, "", filename);
+        }
+    }
+
+    private void logAttachmentChange(User user, Control control, String actionType, String tabLabel,
+                                     String oldFileName, String newFileName) {
+        if (user == null || user.getMail() == null || user.getMail().isBlank() || control == null) {
+            return;
+        }
+        String fieldLabel = "Attachment (" + tabLabel + ")";
+        List<String> changedFields = List.of(fieldLabel);
+        Map<String, String> previousValues = new LinkedHashMap<>();
+        Map<String, String> newValues = new LinkedHashMap<>();
+        if (oldFileName != null && !oldFileName.isBlank()) {
+            previousValues.put(fieldLabel, oldFileName);
+        }
+        if (newFileName != null && !newFileName.isBlank()) {
+            newValues.put(fieldLabel, newFileName);
+        }
+        try {
+            String changedFieldsJson = objectMapper.writeValueAsString(changedFields);
+            String previousJson = objectMapper.writeValueAsString(previousValues);
+            String newJson = objectMapper.writeValueAsString(newValues);
+            adminAuditService.logActionWithChanges(
+                    user.getMail(),
+                    user.getDisplayName(),
+                    actionType,
+                    control,
+                    "Attachment " + tabLabel,
+                    changedFieldsJson,
+                    previousJson,
+                    newJson
+            );
+        } catch (Exception e) {
+            System.out.println("⚠️ Failed to log attachment change: " + e.getMessage());
         }
     }
 }

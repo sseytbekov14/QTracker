@@ -103,19 +103,19 @@ class MonthlyDay3Day6ReminderServiceTest {
     }
 
     @Test
-    void day6SendsToSoqmLeadOnly() {
+    void day6SendsToControlOperatorOnly() {
         LocalDate today = LocalDate.now(clock);
         LocalDate operationDate = workingDaysService.addWorkingDays(today, -6);
         ReminderControlProjection row = projectionFor(
                 11L,
                 "CTRL-11",
                 "Monthly",
-                "SOQM_HEAD_REVIEW",
+                "REVIEW",
                 operationDate,
                 LocalDate.of(2026, 2, 22),
                 null,
+                "operator@kpmg.kz",
                 null,
-                "soqm@kpmg.kz",
                 null
         );
 
@@ -123,8 +123,8 @@ class MonthlyDay3Day6ReminderServiceTest {
         when(notificationRepository.existsByControlIdAndType(11L, MonthlyDay3Day6ReminderService.TYPE_DAY6))
                 .thenReturn(false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/11");
-        when(userRepository.findByMail("soqm@kpmg.kz"))
-                .thenReturn(Optional.of(userWithId(2L, "soqm@kpmg.kz")));
+        when(userRepository.findByMail("operator@kpmg.kz"))
+                .thenReturn(Optional.of(userWithId(2L, "operator@kpmg.kz")));
 
         service.runDailyReminders();
 

@@ -610,6 +610,8 @@ body {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    let userDisplayMap = null;
+
     document.addEventListener('DOMContentLoaded', async function() {
         sessionStorage.setItem('returnToComponent', window.location.href);
         sessionStorage.setItem('returnToPath', window.location.pathname);
@@ -626,6 +628,8 @@ body {
             window.history.replaceState({}, '', window.location.pathname);
         }
 
+        await loadUserDisplayMap();
+
         // Load assignment data for each control
         const rows = document.querySelectorAll('[data-control-id]');
         for (const row of rows) {
@@ -637,17 +641,63 @@ body {
         calculateStats();
     });
 
+    async function loadUserDisplayMap() {
+        if (userDisplayMap) return userDisplayMap;
+        try {
+            const response = await fetch('/api/users/all');
+            if (!response.ok) {
+                userDisplayMap = {};
+                return userDisplayMap;
+            }
+            const users = await response.json();
+            userDisplayMap = {};
+            if (Array.isArray(users)) {
+                users.forEach(user => {
+                    if (!user || !user.mail) return;
+                    const key = String(user.mail).toLowerCase();
+                    const displayName = user.displayName && String(user.displayName).trim()
+                        ? user.displayName
+                        : user.mail;
+                    userDisplayMap[key] = displayName;
+                });
+            }
+            return userDisplayMap;
+        } catch (err) {
+            console.error('Error loading users for display names', err);
+            userDisplayMap = {};
+            return userDisplayMap;
+        }
+    }
+
+    function mapUserNames(values) {
+        if (!values) return [];
+        const items = Array.isArray(values) ? values : [values];
+        return items
+            .map(value => {
+                const trimmed = value ? String(value).trim() : '';
+                if (!trimmed) return null;
+                if (!userDisplayMap) return trimmed;
+                const key = trimmed.toLowerCase();
+                return userDisplayMap[key] || trimmed;
+            })
+            .filter(Boolean);
+    }
+
     // ── Load assignment data ──
     async function loadAssignmentData(controlId) {
         try {
+            if (!userDisplayMap) {
+                await loadUserDisplayMap();
+            }
             const response = await fetch('/api/control-assignment?controlId=' + controlId);
             if (!response.ok) return;
             const data = await response.json();
 
             const set = (cls, field) => {
                 const el = document.querySelector(`.${cls}[data-control-id="${controlId}"]`);
-                if (el && data[field] && data[field].length > 0) {
-                    el.textContent = data[field].join(', ');
+                const names = mapUserNames(data[field]);
+                if (el && names.length > 0) {
+                    el.textContent = names.join(', ');
                     el.className = `user-badge ${cls}`;
                     el.setAttribute('data-control-id', controlId);
                 }

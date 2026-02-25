@@ -49,17 +49,20 @@ class RecurringDay5Day12ReminderServiceTest {
     private NotificationTemplateService notificationTemplateService;
 
     private Clock clock;
+    private WorkingDaysService workingDaysService;
     private RecurringDay5Day12ReminderService service;
 
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(Instant.parse("2026-02-06T04:00:00Z"), ZoneId.of("Asia/Almaty"));
+        workingDaysService = new WorkingDaysService();
         service = new RecurringDay5Day12ReminderService(
                 controlRepository,
                 notificationRepository,
                 userRepository,
                 controlDetailsService,
                 notificationTemplateService,
+                workingDaysService,
                 clock
         );
     }
@@ -67,7 +70,7 @@ class RecurringDay5Day12ReminderServiceTest {
     @Test
     void day5WithFacilitatorResponseUsesSubmitText() {
         LocalDate today = LocalDate.now(clock);
-        LocalDate operationDate = today.minusDays(5);
+        LocalDate operationDate = workingDaysService.addWorkingDays(today, -5);
         ReminderControlProjection row = projectionFor(
                 51L,
                 "CTRL-51",
@@ -111,7 +114,7 @@ class RecurringDay5Day12ReminderServiceTest {
     @Test
     void day12WithoutResponseUsesCloseText() {
         LocalDate today = LocalDate.now(clock);
-        LocalDate operationDate = today.minusDays(12);
+        LocalDate operationDate = workingDaysService.addWorkingDays(today, -12);
         ReminderControlProjection row = projectionFor(
                 52L,
                 "CTRL-52",
@@ -154,12 +157,12 @@ class RecurringDay5Day12ReminderServiceTest {
     @Test
     void dedupeSkipsWhenAlreadySentToday() {
         LocalDate today = LocalDate.now(clock);
-        LocalDate operationDate = today.minusDays(5);
+        LocalDate operationDate = workingDaysService.addWorkingDays(today, -5);
         ReminderControlProjection row = projectionFor(
                 53L,
                 null,
                 "Recurring",
-                "SOQM_HEAD_REVIEW",
+                "REVIEW",
                 operationDate,
                 null,
                 null,

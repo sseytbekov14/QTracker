@@ -93,6 +93,9 @@ public class ReminderNotificationService {
     private ControlReminderResult processControlWithSummary(Control control,
                                                             ControlAssignmentDTO assignment,
                                                             LocalDate today) {
+        if (control == null || isExcludedStatus(control.getPerformanceStatus())) {
+            return ControlReminderResult.skipped(control, "status excluded", control != null ? control.getPerformanceStatus() : null);
+        }
         LocalDate operationDate = assignment.getControlOperationDate();
         LocalDate deadlineDate = assignment.getControlOperationDeadline();
         if (operationDate == null || deadlineDate == null) {
@@ -248,7 +251,6 @@ public class ReminderNotificationService {
         Set<String> emails = new LinkedHashSet<>();
         addAll(emails, assignment.getFacilitator());
         addAll(emails, assignment.getControlOperator());
-        addAll(emails, assignment.getSoqmLead());
         return new ArrayList<>(emails);
     }
 
@@ -265,10 +267,11 @@ public class ReminderNotificationService {
 
     private boolean isExcludedStatus(String status) {
         if (status == null || status.isBlank()) {
-            return false;
+            return true;
         }
-        String normalized = status.trim();
-        return STATUS_COMPLETED.equalsIgnoreCase(normalized);
+        String normalized = status.trim().toUpperCase(Locale.ROOT);
+        return !"IN_PROGRESS".equals(normalized)
+                && !"REVIEW".equals(normalized);
     }
 
     private boolean hasResponse(Control control) {

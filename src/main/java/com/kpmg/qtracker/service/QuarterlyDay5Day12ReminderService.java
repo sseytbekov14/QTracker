@@ -37,6 +37,7 @@ public class QuarterlyDay5Day12ReminderService {
     private final UserRepository userRepository;
     private final ControlDetailsService controlDetailsService;
     private final NotificationTemplateService notificationTemplateService;
+    private final WorkingDaysService workingDaysService;
     private final Clock clock;
 
     @Transactional
@@ -106,10 +107,10 @@ public class QuarterlyDay5Day12ReminderService {
     }
 
     private String determineType(LocalDate today, LocalDate operationDate) {
-        if (today.equals(operationDate.plusDays(5))) {
+        if (today.equals(workingDaysService.addWorkingDays(operationDate, 5))) {
             return TYPE_DAY5;
         }
-        if (today.equals(operationDate.plusDays(12))) {
+        if (today.equals(workingDaysService.addWorkingDays(operationDate, 12))) {
             return TYPE_DAY12;
         }
         return null;
@@ -190,11 +191,11 @@ public class QuarterlyDay5Day12ReminderService {
 
     private boolean isExcludedStatus(String status) {
         if (status == null || status.isBlank()) {
-            return false;
+            return true;
         }
         String normalized = normalizeStatus(status);
-        return "DRAFT".equals(normalized)
-                || "COMPLETED".equals(normalized);
+        return !"IN_PROGRESS".equals(normalized)
+                && !"REVIEW".equals(normalized);
     }
 
     private Role resolveRole(String status) {
@@ -205,8 +206,6 @@ public class QuarterlyDay5Day12ReminderService {
         return switch (normalized) {
             case "IN_PROGRESS" -> Role.FACILITATOR;
             case "REVIEW" -> Role.CONTROL_OPERATOR;
-            case "SOQM_HEAD_REVIEW" -> Role.SOQM_LEAD;
-            case "PROCESS_OWNER_REVIEW" -> Role.PROCESS_OWNER;
             default -> null;
         };
     }
@@ -216,8 +215,6 @@ public class QuarterlyDay5Day12ReminderService {
         switch (role) {
             case FACILITATOR -> addRecipients(recipients, splitEmails(row.getFacilitator()));
             case CONTROL_OPERATOR -> addRecipients(recipients, splitEmails(row.getControlOperator()));
-            case SOQM_LEAD -> addRecipients(recipients, splitEmails(row.getSoqmLead()));
-            case PROCESS_OWNER -> addRecipients(recipients, splitEmails(row.getProcessOwner()));
         }
         return new ArrayList<>(recipients);
     }
@@ -262,9 +259,7 @@ public class QuarterlyDay5Day12ReminderService {
 
     enum Role {
         FACILITATOR,
-        CONTROL_OPERATOR,
-        SOQM_LEAD,
-        PROCESS_OWNER
+        CONTROL_OPERATOR
     }
 
     @Getter

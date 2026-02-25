@@ -149,7 +149,7 @@ class ReminderNotificationServiceTest {
                 eq(false)
         );
         assertThat(recipients.getValue())
-                .containsExactly("facilitator@kpmg.kz", "operator@kpmg.kz", "soqm@kpmg.kz");
+                .containsExactly("facilitator@kpmg.kz", "operator@kpmg.kz");
         assertLoggedEntry(overdue1Date, CODE_OVERDUE_1);
     }
 
@@ -273,7 +273,7 @@ class ReminderNotificationServiceTest {
                 eq(false)
         );
         assertThat(recipients.getValue())
-                .containsExactly("facilitator@kpmg.kz", "operator@kpmg.kz", "soqm@kpmg.kz");
+                .containsExactly("facilitator@kpmg.kz", "operator@kpmg.kz");
         assertLoggedDates(today);
     }
 
@@ -302,7 +302,7 @@ class ReminderNotificationServiceTest {
                 eq(false)
         );
         assertThat(recipients.getValue())
-                .containsExactly("facilitator@kpmg.kz", "operator@kpmg.kz", "soqm@kpmg.kz");
+                .containsExactly("facilitator@kpmg.kz", "operator@kpmg.kz");
         assertLoggedEntry(today, expectedCode);
     }
 
@@ -336,7 +336,7 @@ class ReminderNotificationServiceTest {
                 eq(false)
         );
         assertThat(recipients.getValue())
-                .containsExactly("facilitator@kpmg.kz", "operator@kpmg.kz", "soqm@kpmg.kz");
+                .containsExactly("facilitator@kpmg.kz", "operator@kpmg.kz");
         assertLoggedDates(today);
     }
 
@@ -369,7 +369,7 @@ class ReminderNotificationServiceTest {
                 eq(false)
         );
         assertThat(recipients.getAllValues()).allSatisfy(value -> assertThat(value)
-                .containsExactly("facilitator@kpmg.kz", "operator@kpmg.kz", "soqm@kpmg.kz"));
+                .containsExactly("facilitator@kpmg.kz", "operator@kpmg.kz"));
         assertLoggedEntries(CODE_OVERDUE_REPEAT, firstRepeat, secondRepeat);
     }
 
@@ -496,11 +496,26 @@ class ReminderNotificationServiceTest {
         verify(logRepository, never()).save(any());
     }
 
+    @Test
+    void skipsWhenStatusIsNotInProgressOrReview() {
+        Control control = controlWithFrequency(70L, "Monthly");
+        control.setControlStatus("SOQM_HEAD_REVIEW");
+        LocalDate operationDate = workingDaysService.addWorkingDays(TODAY, -3);
+        LocalDate today = TODAY;
+
+        ControlAssignmentDTO assignment = assignmentWithDates(operationDate, operationDate.plusDays(100));
+
+        service.processControl(control, assignment, today);
+
+        verify(notificationService, never()).sendTemplateNotifications(any(), any(), any(), anyBoolean());
+        verify(logRepository, never()).save(any());
+    }
+
     private Control controlWithFrequency(Long id, String frequency) {
         Control control = new Control();
         control.setId(id);
         control.setControlFrequency(frequency);
-        control.setControlStatus("DRAFT");
+        control.setControlStatus("IN_PROGRESS");
         return control;
     }
 

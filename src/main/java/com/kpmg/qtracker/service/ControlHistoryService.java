@@ -71,7 +71,7 @@ public class ControlHistoryService {
                 continue;
             }
             ControlHistoryEntryDTO editEntry = new ControlHistoryEntryDTO();
-            editEntry.setEventName("Edit Control");
+            editEntry.setEventName(mapAuditActionName(log));
             editEntry.setTableType("DIFF");
             editEntry.setCreatedAt(log.getCreatedAt());
             editEntry.setActorName(log.getAdminName());
@@ -203,6 +203,36 @@ public class ControlHistoryService {
                 return "SoQM Head/Lead";
             default:
                 return field;
+        }
+    }
+
+    private String mapAuditActionName(AdminAuditLog log) {
+        if (log == null) {
+            return "Edit Control";
+        }
+        String actionType = log.getActionType();
+        if (actionType == null || actionType.isBlank()) {
+            return "Edit Control";
+        }
+        String tabSuffix = "";
+        String description = log.getActionDescription();
+        if (description != null) {
+            String upper = description.toUpperCase(Locale.ROOT);
+            if (upper.contains("DETAILS")) {
+                tabSuffix = " (Details)";
+            } else if (upper.contains("DOCUMENTS")) {
+                tabSuffix = " (Documents)";
+            }
+        }
+        switch (actionType) {
+            case "ATTACHMENT_ADDED":
+                return "Attachment Added" + tabSuffix;
+            case "ATTACHMENT_REMOVED":
+                return "Attachment Removed" + tabSuffix;
+            case "ATTACHMENT_REPLACED":
+                return "Attachment Replaced" + tabSuffix;
+            default:
+                return "Edit Control";
         }
     }
 

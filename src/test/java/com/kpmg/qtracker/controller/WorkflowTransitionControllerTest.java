@@ -9,18 +9,17 @@ import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.service.WorkflowRequiredFieldService;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -48,7 +47,7 @@ class WorkflowTransitionControllerTest {
     private WorkflowRequiredFieldService requiredFieldService;
 
     @Test
-    void initiateControl_sendsNotificationsToFacilitatorAndOperator() throws Exception {
+    void initiateControl_doesNotSendImmediateNotifications() throws Exception {
         User currentUser = new User();
         currentUser.setId(1L);
         currentUser.setRole("SOQM_LEAD");
@@ -74,9 +73,6 @@ class WorkflowTransitionControllerTest {
                         .sessionAttr("currentUser", currentUser))
                 .andExpect(status().isOk());
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<String>> captor = ArgumentCaptor.forClass(List.class);
-        verify(notificationService).sendInitiateNotifications(eq(control), captor.capture());
-        assertThat(captor.getValue()).containsExactlyInAnyOrder("fac@example.test", "op@example.test");
+        verify(notificationService, never()).sendInitiateNotifications(eq(control), anyList());
     }
 }

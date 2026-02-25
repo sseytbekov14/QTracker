@@ -49,17 +49,20 @@ class QuarterlyDay5Day12ReminderServiceTest {
     private NotificationTemplateService notificationTemplateService;
 
     private Clock clock;
+    private WorkingDaysService workingDaysService;
     private QuarterlyDay5Day12ReminderService service;
 
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(Instant.parse("2026-02-06T04:00:00Z"), ZoneId.of("Asia/Almaty"));
+        workingDaysService = new WorkingDaysService();
         service = new QuarterlyDay5Day12ReminderService(
                 controlRepository,
                 notificationRepository,
                 userRepository,
                 controlDetailsService,
                 notificationTemplateService,
+                workingDaysService,
                 clock
         );
     }
@@ -67,7 +70,7 @@ class QuarterlyDay5Day12ReminderServiceTest {
     @Test
     void day5WithFacilitatorResponseUsesSubmitText() {
         LocalDate today = LocalDate.now(clock);
-        LocalDate operationDate = today.minusDays(5);
+        LocalDate operationDate = workingDaysService.addWorkingDays(today, -5);
         ReminderControlProjection row = projectionFor(
                 31L,
                 "CTRL-31",
@@ -111,7 +114,7 @@ class QuarterlyDay5Day12ReminderServiceTest {
     @Test
     void day12WithoutResponseUsesCloseText() {
         LocalDate today = LocalDate.now(clock);
-        LocalDate operationDate = today.minusDays(12);
+        LocalDate operationDate = workingDaysService.addWorkingDays(today, -12);
         ReminderControlProjection row = projectionFor(
                 32L,
                 "CTRL-32",
@@ -154,12 +157,12 @@ class QuarterlyDay5Day12ReminderServiceTest {
     @Test
     void dedupeSkipsWhenAlreadySentToday() {
         LocalDate today = LocalDate.now(clock);
-        LocalDate operationDate = today.minusDays(5);
+        LocalDate operationDate = workingDaysService.addWorkingDays(today, -5);
         ReminderControlProjection row = projectionFor(
                 33L,
                 null,
                 "Quarterly",
-                "SOQM_HEAD_REVIEW",
+                "REVIEW",
                 operationDate,
                 null,
                 null,

@@ -52,27 +52,6 @@ public class WorkflowServiceImpl implements WorkflowService {
                 "IN_PROGRESS",
                 "Workflow initiated by facilitator");
 
-        // 6. Send notifications to all assigned roles (facilitator + operator + SOQM lead + process owner)
-        Control control = controlService.getControlById(controlId).orElse(null);
-        if (control != null) {
-            List<String> recipients = new ArrayList<>();
-            if (assignment.getFacilitator() != null) {
-                recipients.addAll(assignment.getFacilitator());
-            }
-            if (assignment.getControlOperator() != null) {
-                recipients.addAll(assignment.getControlOperator());
-            }
-
-            if (!recipients.isEmpty()) {
-                // Remove duplicates while preserving order
-                List<String> uniqueRecipients = recipients.stream()
-                        .filter(Objects::nonNull)
-                        .distinct()
-                        .collect(Collectors.toList());
-                notificationService.sendInitiateNotifications(control, uniqueRecipients);
-            }
-        }
-
         log.info("Workflow initiated successfully with {} steps", steps.size());
     }
 

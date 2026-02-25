@@ -49,17 +49,20 @@ class AnnualSemiDay5Day25ReminderServiceTest {
     private NotificationTemplateService notificationTemplateService;
 
     private Clock clock;
+    private WorkingDaysService workingDaysService;
     private AnnualSemiDay5Day25ReminderService service;
 
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(Instant.parse("2026-02-06T04:00:00Z"), ZoneId.of("Asia/Almaty"));
+        workingDaysService = new WorkingDaysService();
         service = new AnnualSemiDay5Day25ReminderService(
                 controlRepository,
                 notificationRepository,
                 userRepository,
                 controlDetailsService,
                 notificationTemplateService,
+                workingDaysService,
                 clock
         );
     }
@@ -67,7 +70,7 @@ class AnnualSemiDay5Day25ReminderServiceTest {
     @Test
     void day5WithFacilitatorResponseUsesSubmitText() {
         LocalDate today = LocalDate.now(clock);
-        LocalDate operationDate = today.minusDays(5);
+        LocalDate operationDate = workingDaysService.addWorkingDays(today, -5);
         ReminderControlProjection row = projectionFor(
                 101L,
                 "CTRL-101",
@@ -111,7 +114,7 @@ class AnnualSemiDay5Day25ReminderServiceTest {
     @Test
     void day25WithoutResponseUsesCloseText() {
         LocalDate today = LocalDate.now(clock);
-        LocalDate operationDate = today.minusDays(25);
+        LocalDate operationDate = workingDaysService.addWorkingDays(today, -25);
         ReminderControlProjection row = projectionFor(
                 102L,
                 "CTRL-102",
@@ -154,12 +157,12 @@ class AnnualSemiDay5Day25ReminderServiceTest {
     @Test
     void dedupeSkipsWhenAlreadySentToday() {
         LocalDate today = LocalDate.now(clock);
-        LocalDate operationDate = today.minusDays(5);
+        LocalDate operationDate = workingDaysService.addWorkingDays(today, -5);
         ReminderControlProjection row = projectionFor(
                 103L,
                 null,
                 "Annual",
-                "SOQM_HEAD_REVIEW",
+                "REVIEW",
                 operationDate,
                 null,
                 null,

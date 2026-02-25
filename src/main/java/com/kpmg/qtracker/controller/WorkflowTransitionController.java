@@ -61,13 +61,6 @@ public class WorkflowTransitionController {
             control.setPerformanceStatus("IN_PROGRESS");
             controlService.save(control);
 
-            List<String> recipients = new ArrayList<>();
-            recipients.addAll(splitRecipients(assignment.getFacilitator()));
-            recipients.addAll(splitRecipients(assignment.getControlOperator()));
-            if (!recipients.isEmpty()) {
-                notificationService.sendInitiateNotifications(control, recipients);
-            }
-
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Control initiated and sent to Facilitator for review");
