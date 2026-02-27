@@ -8,6 +8,7 @@ import java.util.Optional;
 
 public interface IControlService {
     List<Control> getAllControls();
+    List<Control> findVisibleControlsForUser(String userEmail, String userRole);
     List<Control> getUserControls(String userEmail);
     List<Control> getAllUserControls(String userEmail);
     List<Control> getControlsByComponent(String component);

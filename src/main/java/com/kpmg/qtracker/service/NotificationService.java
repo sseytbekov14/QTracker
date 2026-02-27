@@ -11,6 +11,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -208,11 +209,12 @@ public class NotificationService {
         }
         userRepository.findByMail(email).ifPresent(user -> {
             String roleLabel = mapRoleLabel(user.getRole());
+            LocalDate templateDate = resolveTemplateDate(control, templateType);
             NotificationTemplateService.NotificationTemplate template =
                     notificationTemplateService.render(
                             templateType,
                             control,
-                            control.getDeadline(),
+                            templateDate,
                             resubmitted,
                             user.getDisplayName(),
                             roleLabel
@@ -304,6 +306,29 @@ public class NotificationService {
                 return "Control Submitted by SoQM Head";
             default:
                 return null;
+        }
+    }
+
+    private LocalDate resolveTemplateDate(Control control, NotificationTemplateService.TemplateType templateType) {
+        if (control == null) {
+            return null;
+        }
+        if (templateType == null) {
+            return control.getDeadline();
+        }
+        switch (templateType) {
+            case REMINDER_1:
+            case REMINDER_1_FORWARD:
+            case REMINDER_1_OPEN:
+            case REMINDER_2:
+            case REMINDER_2_FORWARD:
+            case REMINDER_2_OPEN:
+                if (control.getControlOperationDate() != null) {
+                    return control.getControlOperationDate();
+                }
+                return control.getDeadline();
+            default:
+                return control.getDeadline();
         }
     }
     

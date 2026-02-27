@@ -45,12 +45,12 @@ class AnnualSemiOverdueServiceTest {
     private NotificationTemplateService notificationTemplateService;
 
     private Clock clock;
-    private AnnualSemiOverdueService service;
+    private AnnualNotificationService service;
 
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(Instant.parse("2026-02-06T04:00:00Z"), ZoneId.of("Asia/Almaty"));
-        service = new AnnualSemiOverdueService(
+        service = new AnnualNotificationService(
                 controlRepository,
                 notificationRepository,
                 userRepository,
@@ -81,7 +81,7 @@ class AnnualSemiOverdueServiceTest {
         when(controlRepository.findAnnualSemiOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 111L,
-                AnnualSemiOverdueService.TYPE_OVERDUE_1,
+                AnnualNotificationService.TYPE_OVERDUE_1,
                 dayStart,
                 nextDayStart)).thenReturn(false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/111");
@@ -94,7 +94,7 @@ class AnnualSemiOverdueServiceTest {
         verify(notificationRepository).save(captor.capture());
         List<Notification> notifications = captor.getAllValues();
         assertThat(notifications).hasSize(1);
-        assertThat(notifications.get(0).getType()).isEqualTo(AnnualSemiOverdueService.TYPE_OVERDUE_1);
+        assertThat(notifications.get(0).getType()).isEqualTo(AnnualNotificationService.TYPE_OVERDUE_1);
     }
 
     @Test
@@ -121,7 +121,7 @@ class AnnualSemiOverdueServiceTest {
         when(controlRepository.findAnnualSemiOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 112L,
-                AnnualSemiOverdueService.TYPE_OVERDUE_REPEAT,
+                AnnualNotificationService.TYPE_OVERDUE_REPEAT,
                 dayStart,
                 nextDayStart)).thenReturn(false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/112");
@@ -133,11 +133,11 @@ class AnnualSemiOverdueServiceTest {
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(captor.capture());
         Notification saved = captor.getValue();
-        assertThat(saved.getType()).isEqualTo(AnnualSemiOverdueService.TYPE_OVERDUE_REPEAT);
+        assertThat(saved.getType()).isEqualTo(AnnualNotificationService.TYPE_OVERDUE_REPEAT);
         assertThat(saved.getUserId()).isEqualTo(2L);
         verify(notificationRepository, never()).existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 eq(112L),
-                eq(AnnualSemiOverdueService.TYPE_OVERDUE_1),
+                eq(AnnualNotificationService.TYPE_OVERDUE_1),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)
         );
@@ -166,7 +166,7 @@ class AnnualSemiOverdueServiceTest {
         when(controlRepository.findAnnualSemiOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 113L,
-                AnnualSemiOverdueService.TYPE_OVERDUE_REPEAT,
+                AnnualNotificationService.TYPE_OVERDUE_REPEAT,
                 dayStart,
                 nextDayStart)).thenReturn(true);
 
@@ -215,4 +215,6 @@ class AnnualSemiOverdueServiceTest {
         return user;
     }
 }
+
+
 

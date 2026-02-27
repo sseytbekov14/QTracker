@@ -452,10 +452,10 @@ public class WorkflowController {
             history.setCreatedAt(LocalDateTime.now());
             workflowHistoryRepository.save(history);
 
-            // Notify all participants
+            // Notify control participants (excluding process owner and shared users)
             notificationService.sendTemplateNotifications(
                     control,
-                    assignmentEmails(controlId, "ALL"),
+                    assignmentEmails(controlId, "COMPLETED"),
                     NotificationTemplateService.TemplateType.COMPLETED_ALL,
                     false
             );
@@ -595,7 +595,7 @@ public class WorkflowController {
         if ("COMPLETE".equals(normalizedAction)) {
             notificationService.sendTemplateNotifications(
                     control,
-                    assignmentEmails(control.getId(), "ALL"),
+                    assignmentEmails(control.getId(), "COMPLETED"),
                     NotificationTemplateService.TemplateType.COMPLETED_ALL,
                     false
             );
@@ -626,6 +626,11 @@ public class WorkflowController {
                 addAll(recipients, assignment.getControlOperator());
                 addAll(recipients, assignment.getSoqmLead());
                 addAll(recipients, assignment.getProcessOwner());
+                break;
+            case "COMPLETED":
+                addAll(recipients, assignment.getFacilitator());
+                addAll(recipients, assignment.getControlOperator());
+                addAll(recipients, assignment.getSoqmLead());
                 break;
             default:
                 break;

@@ -13,6 +13,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -24,11 +26,14 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class MonthlyDay3Day6ReminderServiceTest {
 
     @Mock
@@ -45,13 +50,13 @@ class MonthlyDay3Day6ReminderServiceTest {
 
     private WorkingDaysService workingDaysService;
     private Clock clock;
-    private MonthlyDay3Day6ReminderService service;
+    private MonthlyNotificationService service;
 
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(Instant.parse("2026-02-06T04:00:00Z"), ZoneId.of("Asia/Almaty"));
         workingDaysService = new WorkingDaysService();
-        service = new MonthlyDay3Day6ReminderService(
+        service = new MonthlyNotificationService(
                 controlRepository,
                 notificationRepository,
                 userRepository,
@@ -62,7 +67,7 @@ class MonthlyDay3Day6ReminderServiceTest {
     }
 
     @Test
-    void day3SendsToFacilitatorOnly() {
+    void day3SendsToFacilitatorAndOperatorOnly_forInProgress() {
         LocalDate today = LocalDate.now(clock);
         LocalDate operationDate = workingDaysService.addWorkingDays(today, -3);
         ReminderControlProjection row = projectionFor(
@@ -73,37 +78,42 @@ class MonthlyDay3Day6ReminderServiceTest {
                 operationDate,
                 LocalDate.of(2026, 2, 20),
                 "facilitator@kpmg.kz",
+                "operator@kpmg.kz",
                 null,
-                null,
-                null
+                "owner@kpmg.kz"
         );
 
         when(controlRepository.findMonthlyDay3Day6Candidates()).thenReturn(List.of(row));
-        when(notificationRepository.existsByControlIdAndType(10L, MonthlyDay3Day6ReminderService.TYPE_DAY3))
+        when(notificationRepository.existsByControlIdAndType(10L, MonthlyNotificationService.TYPE_DAY3))
                 .thenReturn(false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/10");
         when(userRepository.findByMail("facilitator@kpmg.kz"))
                 .thenReturn(Optional.of(userWithId(1L, "facilitator@kpmg.kz")));
+        when(userRepository.findByMail("operator@kpmg.kz"))
+                .thenReturn(Optional.of(userWithId(2L, "operator@kpmg.kz")));
 
         service.runDailyReminders();
 
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
-        verify(notificationRepository).save(captor.capture());
-        Notification saved = captor.getValue();
-        assertThat(saved.getUserId()).isEqualTo(1L);
-        assertThat(saved.getType()).isEqualTo(MonthlyDay3Day6ReminderService.TYPE_DAY3);
-        assertThat(saved.getTitle()).isEqualTo("Control reminder: CTRL-10");
+        verify(notificationRepository, times(2)).save(captor.capture());
+        List<Notification> saved = captor.getAllValues();
+        assertThat(saved).extracting(Notification::getUserId).containsExactlyInAnyOrder(1L, 2L);
         Control control = new Control();
         control.setControlId("CTRL-10");
-        assertThat(saved.getMessage())
-                .isEqualTo(ControlNotificationText.reminder1Body(
-                        control,
-                        LocalDate.of(2026, 2, 20),
-                        "/view-control/10"));
+        control.setControlFrequency("Monthly");
+        control.setControlStatus("IN_PROGRESS");
+        assertThat(saved).allSatisfy(notification -> {
+            assertThat(notification.getType()).isEqualTo(MonthlyNotificationService.TYPE_DAY3);
+            assertThat(notification.getTitle()).isEqualTo(ControlNotificationText.dayReminderSubject(3, control));
+        });
+        assertThat(saved).extracting(Notification::getMessage).containsOnly(
+                ControlNotificationText.dayReminderBody(3, control, operationDate, "/view-control/10")
+        );
+        verify(userRepository, never()).findByMail("owner@kpmg.kz");
     }
 
     @Test
-    void day6SendsToControlOperatorOnly() {
+    void day6SendsToFacilitatorAndOperatorOnly_forReview() {
         LocalDate today = LocalDate.now(clock);
         LocalDate operationDate = workingDaysService.addWorkingDays(today, -6);
         ReminderControlProjection row = projectionFor(
@@ -113,26 +123,55 @@ class MonthlyDay3Day6ReminderServiceTest {
                 "REVIEW",
                 operationDate,
                 LocalDate.of(2026, 2, 22),
-                null,
+                "facilitator@kpmg.kz",
                 "operator@kpmg.kz",
                 null,
-                null
+                "owner@kpmg.kz"
         );
 
         when(controlRepository.findMonthlyDay3Day6Candidates()).thenReturn(List.of(row));
-        when(notificationRepository.existsByControlIdAndType(11L, MonthlyDay3Day6ReminderService.TYPE_DAY6))
+        when(notificationRepository.existsByControlIdAndType(11L, MonthlyNotificationService.TYPE_DAY6))
                 .thenReturn(false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/11");
+        when(userRepository.findByMail("facilitator@kpmg.kz"))
+                .thenReturn(Optional.of(userWithId(3L, "facilitator@kpmg.kz")));
         when(userRepository.findByMail("operator@kpmg.kz"))
-                .thenReturn(Optional.of(userWithId(2L, "operator@kpmg.kz")));
+                .thenReturn(Optional.of(userWithId(4L, "operator@kpmg.kz")));
 
         service.runDailyReminders();
 
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
-        verify(notificationRepository).save(captor.capture());
-        Notification saved = captor.getValue();
-        assertThat(saved.getUserId()).isEqualTo(2L);
-        assertThat(saved.getType()).isEqualTo(MonthlyDay3Day6ReminderService.TYPE_DAY6);
+        verify(notificationRepository, times(2)).save(captor.capture());
+        List<Notification> saved = captor.getAllValues();
+        assertThat(saved).extracting(Notification::getUserId).containsExactlyInAnyOrder(3L, 4L);
+        assertThat(saved).allSatisfy(notification ->
+                assertThat(notification.getType()).isEqualTo(MonthlyNotificationService.TYPE_DAY6));
+        verify(userRepository, never()).findByMail("owner@kpmg.kz");
+    }
+
+    @Test
+    void skipsStatusesOutsideInProgressAndReview() {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate operationDate = workingDaysService.addWorkingDays(today, -3);
+        ReminderControlProjection row = projectionFor(
+                13L,
+                "CTRL-13",
+                "Monthly",
+                "PROCESS_OWNER_REVIEW",
+                operationDate,
+                LocalDate.of(2026, 2, 25),
+                "facilitator@kpmg.kz",
+                "operator@kpmg.kz",
+                null,
+                "owner@kpmg.kz"
+        );
+
+        when(controlRepository.findMonthlyDay3Day6Candidates()).thenReturn(List.of(row));
+
+        service.runDailyReminders();
+
+        verify(notificationRepository, never()).save(any(Notification.class));
+        verify(userRepository, never()).findByMail(eq("owner@kpmg.kz"));
     }
 
     @Test
@@ -153,7 +192,7 @@ class MonthlyDay3Day6ReminderServiceTest {
         );
 
         when(controlRepository.findMonthlyDay3Day6Candidates()).thenReturn(List.of(row));
-        when(notificationRepository.existsByControlIdAndType(12L, MonthlyDay3Day6ReminderService.TYPE_DAY3))
+        when(notificationRepository.existsByControlIdAndType(12L, MonthlyNotificationService.TYPE_DAY3))
                 .thenReturn(true);
 
         service.runDailyReminders();
@@ -205,4 +244,6 @@ class MonthlyDay3Day6ReminderServiceTest {
         return user;
     }
 }
+
+
 

@@ -3,6 +3,7 @@ package com.kpmg.qtracker.util;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NotificationTypeDisplayMapperTest {
 
@@ -50,13 +51,7 @@ class NotificationTypeDisplayMapperTest {
         assertEquals(false, mapper.isHiddenType("INITIATE"));
         assertEquals(false, mapper.isHiddenType("CONTROL_INITIATED"));
         assertEquals(false, mapper.isHiddenType("MONTHLY_DAY0"));
-    }
-
-    @Test
-    void mapsDraftInitiateReminder() {
-        NotificationTypeDisplayMapper.Display display = mapper.map("DRAFT_INITIATE_REMINDER", null);
-        assertEquals("Initiate Control", display.label());
-        assertEquals("badge-reminder", display.badgeClass());
+        assertTrue(mapper.isHiddenType("DRAFT_INITIATE_REMINDER"));
     }
 
     @Test
@@ -73,3 +68,4 @@ class NotificationTypeDisplayMapperTest {
         assertEquals("badge-auto-created", display.badgeClass());
     }
 }
+

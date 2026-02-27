@@ -410,19 +410,19 @@ body { background: var(--kpmg-gray-50); }
                 <div class="stats-bar">
                     <div class="stat-item total">
                         <span>Total</span>
-                        <span class="stat-num" id="statTotal">0</span>
+                        <span class="stat-num" id="statTotal" th:text="${totalControls}">0</span>
                     </div>
                     <div class="stat-item active">
                         <span>Active</span>
-                        <span class="stat-num" id="statActive">0</span>
+                        <span class="stat-num" id="statActive" th:text="${activeControls}">0</span>
                     </div>
                     <div class="stat-item completed">
                         <span>Completed</span>
-                        <span class="stat-num" id="statCompleted">0</span>
+                        <span class="stat-num" id="statCompleted" th:text="${completedControls}">0</span>
                     </div>
                     <div class="stat-item overdue">
                         <span>Overdue</span>
-                        <span class="stat-num" id="statOverdue">0</span>
+                        <span class="stat-num" id="statOverdue" th:text="${overdueControls}">0</span>
                     </div>
                 </div>
 
@@ -436,7 +436,7 @@ body { background: var(--kpmg-gray-50); }
                             </div>
                             <div class="kpmg-dropdown-menu" id="statusDropdownMenu">
                                 <div class="kpmg-dropdown-item active" data-value="">All Controls</div>
-                                <div class="kpmg-dropdown-item" data-value="DRAFT" th:if="${userRole == 'SOQM_LEAD'}">Draft</div>
+                                <div class="kpmg-dropdown-item" data-value="DRAFT" th:if="${userIsSoqm}">Draft</div>
                                 <div class="kpmg-dropdown-item" data-value="IN_PROGRESS">In Progress</div>
                                 <div class="kpmg-dropdown-item" data-value="REVIEW">Review</div>
                                 <div class="kpmg-dropdown-item" data-value="SOQM_HEAD_REVIEW">SoQM Head Review</div>
@@ -473,8 +473,8 @@ body { background: var(--kpmg-gray-50); }
                         <tbody>
                             <tr th:each="control, stat : ${controls}"
                                 class="clickable-row"
-                                th:classappend="${userRole == 'ADMIN' ? ' view-only-row' : (userRole == 'SOQM_LEAD' ? ' editable-row' : (((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (#lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (#lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (#lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (#lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW'))) ? ' editable-row' : ' view-only-row'))} + (${#strings.equals(control.performanceStatus, 'COMPLETED')} ? ' completed-row' : '') + (${control.overdue} ? ' overdue-row' : '')"
-                                th:attr="data-id=${control.id}, data-go-cycle=${control.goToPerformanceCycle}, data-editable=${!control.sharedViewOnly and (userRole == 'ADMIN' ? false : (userRole == 'SOQM_LEAD' ? true : ((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (#lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (#lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (#lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (#lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW')))))}, data-shared=${control.sharedViewOnly}">
+                                th:classappend="${userIsAdmin ? ' view-only-row' : (userIsSoqm ? ' editable-row' : (((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (control.facilitators != null and #lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (control.controlOperators != null and #lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (control.soqmLeads != null and #lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (control.processOwners != null and #lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW'))) ? ' editable-row' : ' view-only-row'))} + (${#strings.equals(control.performanceStatus, 'COMPLETED')} ? ' completed-row' : '') + (${control.overdue} ? ' overdue-row' : '')"
+                                th:attr="data-id=${control.id}, data-go-cycle=${control.goToPerformanceCycle}, data-editable=${!control.sharedViewOnly and (userIsAdmin ? false : (userIsSoqm ? true : ((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (control.facilitators != null and #lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (control.controlOperators != null and #lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (control.soqmLeads != null and #lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (control.processOwners != null and #lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW')))))}, data-shared=${control.sharedViewOnly}">
 
                                 <td th:text="${stat.count}">1</td>
                                 <td>
@@ -526,28 +526,6 @@ body { background: var(--kpmg-gray-50); }
 </div>
 
 <script>
-// Stats
-document.addEventListener('DOMContentLoaded', function() {
-    const rows = document.querySelectorAll('.control-table tbody tr.clickable-row');
-    let total = 0, active = 0, completed = 0, overdue = 0;
-    rows.forEach(row => {
-        total++;
-        const badges = row.querySelectorAll('td:last-child .badge');
-        let done = false, late = false;
-        badges.forEach(b => {
-            if (b.classList.contains('status-completed')) done = true;
-            if (b.classList.contains('status-overdue')) late = true;
-        });
-        if (done) completed++; else active++;
-        if (late) overdue++;
-    });
-    const el = id => document.getElementById(id);
-    if (el('statTotal')) el('statTotal').textContent = total;
-    if (el('statActive')) el('statActive').textContent = active;
-    if (el('statCompleted')) el('statCompleted').textContent = completed;
-    if (el('statOverdue')) el('statOverdue').textContent = overdue;
-});
-
 // Row navigation
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.clickable-row').forEach(row => {
@@ -645,7 +623,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const url = new URL(window.location.href);
     const currentStatus = url.searchParams.get('status') || '';
     const currentFilter = url.searchParams.get('filter') || '';
-    const activeValue = currentFilter === 'OVERDUE' ? 'OVERDUE' : currentStatus;
+    const activeValue = currentFilter === 'OVERDUE'
+        ? 'OVERDUE'
+        : (currentFilter === 'COMPLETED' ? 'COMPLETED' : currentStatus);
 
     menu.querySelectorAll('.kpmg-dropdown-item').forEach(item => {
         item.classList.remove('active');

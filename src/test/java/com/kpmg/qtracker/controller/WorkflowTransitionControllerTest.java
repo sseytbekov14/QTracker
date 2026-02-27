@@ -76,3 +76,4 @@ class WorkflowTransitionControllerTest {
         verify(notificationService, never()).sendInitiateNotifications(eq(control), anyList());
     }
 }
+

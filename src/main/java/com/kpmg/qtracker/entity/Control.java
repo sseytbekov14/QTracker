@@ -65,6 +65,8 @@ public class Control {
     @Column(name = "deadline")
     private LocalDate deadline;
 
+    private LocalDate controlOperationDate;
+
     @Column(name = "attachment_details_path", length = 500)
     private String attachmentDetailsPath;
 

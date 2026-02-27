@@ -96,6 +96,31 @@ public class ControlService implements IControlService {
     }
 
     @Override
+    public List<Control> findVisibleControlsForUser(String userEmail, String userRole) {
+        if (userEmail == null || userEmail.isBlank()) {
+            return Collections.emptyList();
+        }
+        if (isAdminRole(userRole)) {
+            return getAllControls();
+        }
+
+        Set<Long> visibleControlIds = new LinkedHashSet<>();
+        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByFacilitator(userEmail));
+        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByControlOperator(userEmail));
+        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsBySoqmLead(userEmail));
+        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByProcessOwner(userEmail));
+        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByControlSharedWith(userEmail));
+
+        if (visibleControlIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Control> visibleControls = controlRepository.findAllById(visibleControlIds);
+        visibleControls.sort(Comparator.comparing(Control::getId, Comparator.nullsLast(Long::compareTo)).reversed());
+        return visibleControls;
+    }
+
+    @Override
     public List<Control> getUserControls(String userEmail) {
         logger.info("=== GET USER CONTROLS IMPROVED ===");
         logger.info("User email: {}", userEmail);
@@ -750,6 +775,28 @@ public class ControlService implements IControlService {
             }
         }
         return new ArrayList<>();
+    }
+
+    private boolean isAdminRole(String userRole) {
+        if (userRole == null) {
+            return false;
+        }
+        String normalized = userRole.trim()
+                .replace('-', '_')
+                .replace(' ', '_')
+                .toUpperCase(java.util.Locale.ROOT);
+        return "ADMIN".equals(normalized) || normalized.startsWith("SOQM");
+    }
+
+    private void addVisibleIds(Set<Long> target, List<Long> source) {
+        if (source == null) {
+            return;
+        }
+        for (Long id : source) {
+            if (id != null) {
+                target.add(id);
+            }
+        }
     }
 
     /**

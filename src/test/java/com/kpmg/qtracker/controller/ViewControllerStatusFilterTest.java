@@ -97,10 +97,7 @@ class ViewControllerStatusFilterTest {
         inProgressControl.setControlStatus("IN_PROGRESS");
         inProgressControl.setCreatedAt(java.time.LocalDateTime.now());
 
-        when(controlService.getUserControlsDTO("soqm@kpmg.kz"))
-                .thenReturn(List.of(reviewControl, inProgressControl));
-        when(controlService.getSoqmLeadControls("soqm@kpmg.kz"))
-                .thenReturn(List.of());
+        mockVisibleControls(currentUser, List.of(reviewControl, inProgressControl));
         when(notificationService.countUnread(1L)).thenReturn(0L);
 
         MvcResult result = mockMvc.perform(get("/controls")
@@ -138,10 +135,7 @@ class ViewControllerStatusFilterTest {
         otherControl.setFacilitators(List.of("other@kpmg.kz"));
         otherControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(1));
 
-        when(controlService.getUserControlsDTO("facilitator@kpmg.kz"))
-                .thenReturn(List.of(assignedControl, otherControl));
-        when(controlService.getFacilitatorControlsDTO("facilitator@kpmg.kz"))
-                .thenReturn(List.of());
+        mockVisibleControls(currentUser, List.of(assignedControl, otherControl));
         when(notificationService.countUnread(2L)).thenReturn(0L);
 
         MvcResult result = mockMvc.perform(get("/controls")
@@ -169,6 +163,7 @@ class ViewControllerStatusFilterTest {
         ControlResponseDTO overdueControl = new ControlResponseDTO();
         overdueControl.setId(60L);
         overdueControl.setControlStatus("IN_PROGRESS");
+        overdueControl.setDeadline(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).minusDays(1));
         overdueControl.setFacilitators(List.of());
         overdueControl.setControlOperators(List.of());
         overdueControl.setSoqmLeads(List.of());
@@ -178,21 +173,14 @@ class ViewControllerStatusFilterTest {
         ControlResponseDTO notOverdueControl = new ControlResponseDTO();
         notOverdueControl.setId(61L);
         notOverdueControl.setControlStatus("REVIEW");
+        notOverdueControl.setDeadline(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).plusDays(1));
         notOverdueControl.setFacilitators(List.of());
         notOverdueControl.setControlOperators(List.of());
         notOverdueControl.setSoqmLeads(List.of());
         notOverdueControl.setProcessOwners(List.of());
         notOverdueControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(1));
 
-        when(controlService.getUserControlsDTO("facilitator@kpmg.kz"))
-                .thenReturn(List.of(overdueControl, notOverdueControl));
-        when(controlService.getFacilitatorControlsDTO("facilitator@kpmg.kz"))
-                .thenReturn(List.of());
-
-        java.time.LocalDate today =
-                java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
-        when(controlAssignmentRepository.findOverdueControlIds(today))
-                .thenReturn(List.of(60L));
+        mockVisibleControls(currentUser, List.of(overdueControl, notOverdueControl));
 
         MvcResult result = mockMvc.perform(get("/controls")
                         .param("filter", "OVERDUE")
@@ -229,10 +217,7 @@ class ViewControllerStatusFilterTest {
         overdueControl.setProcessOwners(List.of());
         overdueControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(2));
 
-        when(controlService.getUserControlsDTO("facilitator@kpmg.kz"))
-                .thenReturn(List.of(overdueControl));
-        when(controlService.getFacilitatorControlsDTO("facilitator@kpmg.kz"))
-                .thenReturn(List.of());
+        mockVisibleControls(currentUser, List.of(overdueControl));
 
         MvcResult result = mockMvc.perform(get("/controls")
                         .param("scope", "all")
@@ -273,9 +258,8 @@ class ViewControllerStatusFilterTest {
         ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
         assignmentDTO.setControlSharedWith(List.of("shared@kpmg.kz"));
 
-        when(controlService.getUserControlsDTO("shared@kpmg.kz")).thenReturn(List.of());
-        when(controlService.getFacilitatorControlsDTO("shared@kpmg.kz")).thenReturn(List.of());
-        when(controlService.getAllControls()).thenReturn(List.of(sharedControl));
+        when(controlService.findVisibleControlsForUser("shared@kpmg.kz", "FACILITATOR"))
+                .thenReturn(List.of(sharedControl));
         when(controlService.convertToResponseDTO(sharedControl)).thenReturn(sharedDto);
         when(controlAssignmentService.getAssignmentByControlId(200L)).thenReturn(assignmentDTO);
 
@@ -320,10 +304,7 @@ class ViewControllerStatusFilterTest {
         reviewControl.setProcessOwners(List.of());
         reviewControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(1));
 
-        when(controlService.getUserControlsDTO("operator@kpmg.kz"))
-                .thenReturn(List.of(draftControl, reviewControl));
-        when(controlService.getControlOperatorControls("operator@kpmg.kz"))
-                .thenReturn(List.of());
+        mockVisibleControls(currentUser, List.of(draftControl, reviewControl));
         when(notificationService.countUnread(3L)).thenReturn(0L);
 
         MvcResult result = mockMvc.perform(get("/controls")
@@ -341,7 +322,7 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
-    void controls_completedFilter_returnsOnlyCompleted() throws Exception {
+    void controls_completedStatusFilter_returnsOnlyCompleted() throws Exception {
         User currentUser = new User();
         currentUser.setId(14L);
         currentUser.setRole("CONTROL_OPERATOR");
@@ -368,13 +349,10 @@ class ViewControllerStatusFilterTest {
         inProgressControl.setProcessOwners(List.of());
         inProgressControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(1));
 
-        when(controlService.getUserControlsDTO("operator@kpmg.kz"))
-                .thenReturn(List.of(completedControl, inProgressControl));
-        when(controlService.getControlOperatorControls("operator@kpmg.kz"))
-                .thenReturn(List.of());
+        mockVisibleControls(currentUser, List.of(completedControl, inProgressControl));
 
         MvcResult result = mockMvc.perform(get("/controls")
-                        .param("filter", "COMPLETED")
+                        .param("status", "COMPLETED")
                         .sessionAttr("currentUser", currentUser))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -415,10 +393,7 @@ class ViewControllerStatusFilterTest {
         reviewControl.setProcessOwners(List.of());
         reviewControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(1));
 
-        when(controlService.getUserControlsDTO("facilitator@kpmg.kz"))
-                .thenReturn(List.of(completedControl, reviewControl));
-        when(controlService.getFacilitatorControlsDTO("facilitator@kpmg.kz"))
-                .thenReturn(List.of());
+        mockVisibleControls(currentUser, List.of(completedControl, reviewControl));
 
         MvcResult result = mockMvc.perform(get("/controls")
                         .sessionAttr("currentUser", currentUser))
@@ -543,7 +518,7 @@ class ViewControllerStatusFilterTest {
 
         mockMvc.perform(get("/view-control/30")
                         .sessionAttr("currentUser", currentUser))
-                .andExpect(status().isNotFound());
+                .andExpect(status().is3xxRedirection());
     }
 
     @Test
@@ -585,9 +560,11 @@ class ViewControllerStatusFilterTest {
         control.setPerformanceStatus("REVIEW");
 
         PerformanceDTO performanceDTO = new PerformanceDTO();
+        ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
+        assignmentDTO.setFacilitator(List.of("facilitator@kpmg.kz"));
 
         when(controlService.getControlById(18L)).thenReturn(java.util.Optional.of(control));
-        when(controlAssignmentService.getAssignmentByControlId(18L)).thenReturn(null);
+        when(controlAssignmentService.getAssignmentByControlId(18L)).thenReturn(assignmentDTO);
         when(performanceService.buildPerformanceDTO(control)).thenReturn(performanceDTO);
 
         MvcResult result = mockMvc.perform(get("/performance/18")
@@ -619,10 +596,7 @@ class ViewControllerStatusFilterTest {
         activeControl.setFacilitators(List.of("facilitator@kpmg.kz"));
         activeControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(1));
 
-        when(controlService.getUserControlsDTO("facilitator@kpmg.kz"))
-                .thenReturn(List.of(draftControl));
-        when(controlService.getFacilitatorControlsDTO("facilitator@kpmg.kz"))
-                .thenReturn(List.of(activeControl));
+        mockVisibleControls(currentUser, List.of(draftControl, activeControl));
         when(notificationService.countUnread(6L)).thenReturn(0L);
 
         MvcResult result = mockMvc.perform(get("/")
@@ -632,6 +606,42 @@ class ViewControllerStatusFilterTest {
 
         assertThat(result.getModelAndView().getModel().get("totalControls")).isEqualTo(1);
         assertThat(result.getModelAndView().getModel().get("activeControls")).isEqualTo(1);
+    }
+
+    @Test
+    void dashboard_activeCountsAllNonCompletedVisibleControls() throws Exception {
+        User currentUser = new User();
+        currentUser.setId(17L);
+        currentUser.setRole("FACILITATOR");
+        currentUser.setMail("facilitator@kpmg.kz");
+        currentUser.setDisplayName("Facilitator User");
+
+        ControlResponseDTO reviewControl = new ControlResponseDTO();
+        reviewControl.setId(42L);
+        reviewControl.setControlStatus("REVIEW");
+        reviewControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(2));
+
+        ControlResponseDTO inProgressControl = new ControlResponseDTO();
+        inProgressControl.setId(43L);
+        inProgressControl.setControlStatus("IN_PROGRESS");
+        inProgressControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(1));
+
+        ControlResponseDTO completedControl = new ControlResponseDTO();
+        completedControl.setId(44L);
+        completedControl.setControlStatus("COMPLETED");
+        completedControl.setCreatedAt(java.time.LocalDateTime.now().minusHours(10));
+
+        mockVisibleControls(currentUser, List.of(reviewControl, inProgressControl, completedControl));
+        when(notificationService.countUnread(17L)).thenReturn(0L);
+
+        MvcResult result = mockMvc.perform(get("/")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(result.getModelAndView().getModel().get("totalControls")).isEqualTo(3);
+        assertThat(result.getModelAndView().getModel().get("activeControls")).isEqualTo(2);
+        assertThat(result.getModelAndView().getModel().get("completedControls")).isEqualTo(1);
     }
 
     @Test
@@ -666,10 +676,7 @@ class ViewControllerStatusFilterTest {
         draftControl.setFacilitators(List.of("facilitator@kpmg.kz"));
         draftControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(1));
 
-        when(controlService.getUserControlsDTO("facilitator@kpmg.kz"))
-                .thenReturn(List.of(overdueControl, completedControl, draftControl));
-        when(controlService.getFacilitatorControlsDTO("facilitator@kpmg.kz"))
-                .thenReturn(List.of());
+        mockVisibleControls(currentUser, List.of(overdueControl, completedControl, draftControl));
 
         MvcResult result = mockMvc.perform(get("/")
                         .sessionAttr("currentUser", currentUser))
@@ -678,4 +685,159 @@ class ViewControllerStatusFilterTest {
 
         assertThat(result.getModelAndView().getModel().get("overdueControls")).isEqualTo(1);
     }
+
+    @Test
+    void controls_counters_useSameRulesAsListFiltering() throws Exception {
+        User currentUser = new User();
+        currentUser.setId(16L);
+        currentUser.setRole("ADMIN");
+        currentUser.setMail("admin@kpmg.kz");
+        currentUser.setDisplayName("Admin User");
+
+        java.time.LocalDate yesterday =
+                java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).minusDays(1);
+        java.time.LocalDate tomorrow =
+                java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).plusDays(1);
+
+        ControlResponseDTO completedControl = new ControlResponseDTO();
+        completedControl.setId(1000L);
+        completedControl.setControlStatus("COMPLETED");
+        completedControl.setDeadline(yesterday);
+        completedControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(3));
+
+        ControlResponseDTO inProgressOverdue = new ControlResponseDTO();
+        inProgressOverdue.setId(1001L);
+        inProgressOverdue.setControlStatus("IN_PROGRESS");
+        inProgressOverdue.setDeadline(yesterday);
+        inProgressOverdue.setCreatedAt(java.time.LocalDateTime.now().minusDays(2));
+
+        ControlResponseDTO draftFuture = new ControlResponseDTO();
+        draftFuture.setId(1002L);
+        draftFuture.setControlStatus("DRAFT");
+        draftFuture.setDeadline(tomorrow);
+        draftFuture.setCreatedAt(java.time.LocalDateTime.now().minusDays(1));
+
+        mockVisibleControls(currentUser, List.of(completedControl, inProgressOverdue, draftFuture));
+
+        MvcResult result = mockMvc.perform(get("/controls")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(result.getModelAndView().getModel().get("totalControls")).isEqualTo(3);
+        assertThat(result.getModelAndView().getModel().get("completedControls")).isEqualTo(1);
+        assertThat(result.getModelAndView().getModel().get("activeControls")).isEqualTo(2);
+        assertThat(result.getModelAndView().getModel().get("overdueControls")).isEqualTo(1);
+    }
+
+    @Test
+    void controls_soqmDelegateSeesAllVisibleIncludingDraft() throws Exception {
+        User currentUser = new User();
+        currentUser.setId(23L);
+        currentUser.setRole("SOQM_DELEGATE");
+        currentUser.setMail("soqm.delegate@kpmg.kz");
+        currentUser.setDisplayName("SoQM Delegate");
+
+        ControlResponseDTO draftControl = new ControlResponseDTO();
+        draftControl.setId(110L);
+        draftControl.setControlStatus("DRAFT");
+        draftControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(3));
+
+        ControlResponseDTO reviewControl = new ControlResponseDTO();
+        reviewControl.setId(111L);
+        reviewControl.setControlStatus("REVIEW");
+        reviewControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(2));
+
+        ControlResponseDTO completedControl = new ControlResponseDTO();
+        completedControl.setId(112L);
+        completedControl.setControlStatus("COMPLETED");
+        completedControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(1));
+
+        mockVisibleControls(currentUser, List.of(draftControl, reviewControl, completedControl));
+
+        MvcResult result = mockMvc.perform(get("/controls")
+                        .param("scope", "all")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        @SuppressWarnings("unchecked")
+        List<ControlResponseDTO> controls =
+                (List<ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
+
+        assertThat(controls).hasSize(3);
+        assertThat(result.getModelAndView().getModel().get("totalControls")).isEqualTo(3);
+        assertThat(result.getModelAndView().getModel().get("activeControls")).isEqualTo(2);
+        assertThat(result.getModelAndView().getModel().get("completedControls")).isEqualTo(1);
+    }
+
+    @Test
+    void componentAll_soqmDelegateCountersUseAllControls() throws Exception {
+        User currentUser = new User();
+        currentUser.setId(24L);
+        currentUser.setRole("SOQM_DELEGATE");
+        currentUser.setMail("soqm.delegate@kpmg.kz");
+        currentUser.setDisplayName("SoQM Delegate");
+
+        java.time.LocalDate yesterday =
+                java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).minusDays(1);
+        java.time.LocalDate tomorrow =
+                java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).plusDays(1);
+
+        ControlResponseDTO draftControl = new ControlResponseDTO();
+        draftControl.setId(120L);
+        draftControl.setControlStatus("DRAFT");
+        draftControl.setComponent("HR");
+        draftControl.setDeadline(tomorrow);
+        draftControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(3));
+
+        ControlResponseDTO inProgressOverdue = new ControlResponseDTO();
+        inProgressOverdue.setId(121L);
+        inProgressOverdue.setControlStatus("IN_PROGRESS");
+        inProgressOverdue.setComponent("INTR");
+        inProgressOverdue.setDeadline(yesterday);
+        inProgressOverdue.setCreatedAt(java.time.LocalDateTime.now().minusDays(2));
+
+        ControlResponseDTO completedControl = new ControlResponseDTO();
+        completedControl.setId(122L);
+        completedControl.setControlStatus("COMPLETED");
+        completedControl.setComponent("RER");
+        completedControl.setDeadline(yesterday);
+        completedControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(1));
+
+        mockVisibleControls(currentUser, List.of(draftControl, inProgressOverdue, completedControl));
+
+        MvcResult result = mockMvc.perform(get("/component/All")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        @SuppressWarnings("unchecked")
+        List<ControlResponseDTO> controls =
+                (List<ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
+
+        assertThat(controls).hasSize(3);
+        assertThat(result.getModelAndView().getModel().get("totalControls")).isEqualTo(3);
+        assertThat(result.getModelAndView().getModel().get("activeControls")).isEqualTo(2);
+        assertThat(result.getModelAndView().getModel().get("completedControls")).isEqualTo(1);
+        assertThat(result.getModelAndView().getModel().get("overdueControls")).isEqualTo(1);
+    }
+
+    private void mockVisibleControls(User user, List<ControlResponseDTO> dtos) {
+        List<Control> controls = new java.util.ArrayList<>();
+        for (ControlResponseDTO dto : dtos) {
+            Control control = new Control();
+            control.setId(dto.getId());
+            control.setPerformanceStatus(dto.getPerformanceStatus());
+            control.setCreatedAt(dto.getCreatedAt());
+            control.setUpdatedAt(dto.getUpdatedAt());
+            control.setDeadline(dto.getDeadline());
+            control.setComponent(dto.getComponent());
+            controls.add(control);
+            when(controlService.convertToResponseDTO(control)).thenReturn(dto);
+        }
+        when(controlService.findVisibleControlsForUser(user.getMail(), user.getRole()))
+                .thenReturn(controls);
+    }
 }
+

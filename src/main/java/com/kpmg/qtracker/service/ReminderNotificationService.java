@@ -298,6 +298,7 @@ public class ReminderNotificationService {
         control.setControlFrequency(row.getFrequency());
         control.setControlStatus(row.getStatus());
         control.setDeadline(row.getDeadlineDate());
+        control.setControlOperationDate(row.getOperationDate());
         return control;
     }
 

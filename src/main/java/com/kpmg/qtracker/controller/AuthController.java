@@ -4,6 +4,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.UserService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ import java.util.Optional;
 public class AuthController {
 
     private final UserService userService;
+    private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/login")
     public String loginPage() {
@@ -30,16 +32,28 @@ public class AuthController {
                         Model model) {
 
         Optional<User> userOpt = userService.getUserByUsername(username);
+        if (userOpt.isEmpty()) {
+            userOpt = userService.getUserByEmail(username);
+        }
 
         if (userOpt.isPresent()) {
             User user = userOpt.get();
 
-            // Проверяем пароль и статус пользователя
-            if (user.getPassword().equals(password) && Boolean.TRUE.equals(user.getEnabled())) {
+            boolean passwordMatches = false;
+            String storedPassword = user.getPassword();
+            if (storedPassword != null) {
+                try {
+                    passwordMatches = passwordEncoder.matches(password, storedPassword);
+                } catch (IllegalArgumentException ignored) {
+                    passwordMatches = storedPassword.equals(password);
+                }
+            }
+
+            if (passwordMatches && Boolean.TRUE.equals(user.getEnabled())) {
                 session.setAttribute("currentUser", user);
                 session.setAttribute("userRole", user.getRole());
 
-                System.out.println("★ LOGIN SUCCESS: User " + user.getMail() +
+                System.out.println("LOGIN SUCCESS: User " + user.getMail() +
                         " with role: " + user.getRole());
 
                 return "redirect:/";

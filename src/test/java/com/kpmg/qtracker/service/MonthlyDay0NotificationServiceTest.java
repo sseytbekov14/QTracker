@@ -1,7 +1,6 @@
 package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.Control;
-import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
@@ -51,13 +50,13 @@ class MonthlyDay0NotificationServiceTest {
     @Mock
     private NotificationTemplateService notificationTemplateService;
 
-    private MonthlyDay0NotificationService service;
+    private MonthlyNotificationService service;
     private Clock clock;
 
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(Instant.parse("2026-02-06T04:00:00Z"), ZoneId.of("Asia/Almaty"));
-        service = new MonthlyDay0NotificationService(
+        service = new MonthlyNotificationService(
                 controlRepository,
                 assignmentRepository,
                 notificationRepository,
@@ -70,9 +69,10 @@ class MonthlyDay0NotificationServiceTest {
     @Test
     void runDailySkipsSecondRunSameDay() {
         LocalDate today = LocalDate.now(clock);
+        LocalDate operationDate = today;
         LocalDate deadlineDate = LocalDate.of(2026, 2, 10);
-        ReminderControlProjection row = projectionFor(1L, "CTRL-1", "Monthly", "Not Started",
-                deadlineDate, "facilitator@kpmg.kz", "operator@kpmg.kz");
+        ReminderControlProjection row = projectionFor(1L, "CTRL-1", "Monthly", "IN_PROGRESS",
+                operationDate, deadlineDate, "facilitator@kpmg.kz", "operator@kpmg.kz");
 
         LocalDateTime dayStart = today.atStartOfDay();
         LocalDateTime nextDayStart = today.plusDays(1).atStartOfDay();
@@ -80,27 +80,29 @@ class MonthlyDay0NotificationServiceTest {
         when(controlRepository.findMonthlyDay0Candidates(today)).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 1L,
-                MonthlyDay0NotificationService.NOTIFICATION_TYPE,
+                MonthlyNotificationService.NOTIFICATION_TYPE,
                 dayStart,
                 nextDayStart)).thenReturn(false, true);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/1");
         when(userRepository.findByMail("facilitator@kpmg.kz")).thenReturn(Optional.of(userWithId(10L)));
         when(userRepository.findByMail("operator@kpmg.kz")).thenReturn(Optional.of(userWithId(11L)));
 
-        MonthlyDay0NotificationService.Day0RunSummary first = service.runDailyDay0Notifications();
-        MonthlyDay0NotificationService.Day0RunSummary second = service.runDailyDay0Notifications();
+        MonthlyNotificationService.Day0RunSummary first = service.runDailyDay0Notifications();
+        MonthlyNotificationService.Day0RunSummary second = service.runDailyDay0Notifications();
 
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository, times(2)).save(captor.capture());
         List<Notification> saved = captor.getAllValues();
         assertThat(saved).hasSize(2);
+        Control expectedControl = new Control();
+        expectedControl.setControlId("CTRL-1");
+        expectedControl.setControlFrequency("Monthly");
+        expectedControl.setControlStatus("IN_PROGRESS");
         assertThat(saved).allSatisfy(notification -> {
-            assertThat(notification.getType()).isEqualTo(MonthlyDay0NotificationService.NOTIFICATION_TYPE);
-            assertThat(notification.getTitle()).isEqualTo("Control opened: CTRL-1");
-            Control control = new Control();
-            control.setControlId("CTRL-1");
+            assertThat(notification.getType()).isEqualTo(MonthlyNotificationService.NOTIFICATION_TYPE);
+            assertThat(notification.getTitle()).isEqualTo(ControlNotificationText.dayReminderSubject(0, expectedControl));
             assertThat(notification.getMessage())
-                    .isEqualTo(ControlNotificationText.activationBody(control, deadlineDate));
+                    .isEqualTo(ControlNotificationText.dayReminderBody(0, expectedControl, operationDate, "/view-control/1"));
         });
 
         assertThat(first.getSentCount()).isEqualTo(2);
@@ -110,13 +112,14 @@ class MonthlyDay0NotificationServiceTest {
 
     @Test
     void runDailySendsAgainNextDay() {
-        ReminderControlProjection row = projectionFor(2L, "CTRL-2", "Monthly", "Not Started",
-                LocalDate.of(2026, 2, 11), "facilitator@kpmg.kz", "operator@kpmg.kz");
+        LocalDate operationDate = LocalDate.now(clock);
+        ReminderControlProjection row = projectionFor(2L, "CTRL-2", "Monthly", "IN_PROGRESS",
+                operationDate, LocalDate.of(2026, 2, 11), "facilitator@kpmg.kz", "operator@kpmg.kz");
 
         when(controlRepository.findMonthlyDay0Candidates(any(LocalDate.class))).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 eq(2L),
-                eq(MonthlyDay0NotificationService.NOTIFICATION_TYPE),
+                eq(MonthlyNotificationService.NOTIFICATION_TYPE),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class))).thenReturn(false, false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/2");
@@ -133,7 +136,7 @@ class MonthlyDay0NotificationServiceTest {
         service.runDailyDay0Notifications();
 
         Clock nextDayClock = Clock.fixed(Instant.parse("2026-02-07T04:00:00Z"), ZoneId.of("Asia/Almaty"));
-        MonthlyDay0NotificationService nextDayService = new MonthlyDay0NotificationService(
+        MonthlyNotificationService nextDayService = new MonthlyNotificationService(
                 controlRepository,
                 assignmentRepository,
                 notificationRepository,
@@ -147,50 +150,39 @@ class MonthlyDay0NotificationServiceTest {
     }
 
     @Test
-    void immediateSendAfter0930() {
-        ZoneId zone = ZoneId.of("Asia/Almaty");
-        LocalDateTime now = LocalDateTime.of(2026, 2, 6, 10, 5);
-        Clock immediateClock = Clock.fixed(now.atZone(zone).toInstant(), zone);
-        MonthlyDay0NotificationService immediateService = new MonthlyDay0NotificationService(
-                controlRepository,
-                assignmentRepository,
-                notificationRepository,
-                userRepository,
-                notificationTemplateService,
-                immediateClock
-        );
+    void maybeSendImmediateDay0_isDisabled() {
+        boolean sent = service.maybeSendImmediateDay0(3L);
 
-        Control control = new Control();
-        control.setId(3L);
-        control.setControlId("CTRL-3");
-        control.setControlFrequency("Monthly");
-        control.setControlStatus("Not Started");
-        User creator = new User();
-        creator.setId(99L);
-        control.setCreatedBy(creator);
-        control.setCreatedAt(LocalDateTime.of(2026, 2, 6, 9, 45));
+        assertThat(sent).isFalse();
+        verify(notificationRepository, times(0)).save(any(Notification.class));
+    }
 
-        ControlAssignment assignment = new ControlAssignment();
-        assignment.setControlId(3L);
-        assignment.setControlOperationDate(LocalDate.of(2026, 2, 6));
-        assignment.setControlOperationDeadline(LocalDate.of(2026, 2, 12));
-        assignment.setFacilitator("facilitator@kpmg.kz");
-        assignment.setControlOperator("operator@kpmg.kz");
+    @Test
+    void runDailySendsForReviewStatus() {
+        LocalDate today = LocalDate.now(clock);
+        ReminderControlProjection row = projectionFor(
+                4L,
+                "CTRL-4",
+                "Monthly",
+                "REVIEW",
+                today,
+                LocalDate.of(2026, 2, 15),
+                "facilitator@kpmg.kz",
+                "operator@kpmg.kz");
 
-        when(controlRepository.findById(3L)).thenReturn(Optional.of(control));
-        when(assignmentRepository.findByControlId(3L)).thenReturn(Optional.of(assignment));
+        when(controlRepository.findMonthlyDay0Candidates(today)).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                eq(3L),
-                eq(MonthlyDay0NotificationService.NOTIFICATION_TYPE),
+                eq(4L),
+                eq(MonthlyNotificationService.NOTIFICATION_TYPE),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class))).thenReturn(false);
-        when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/3");
-        when(userRepository.findByMail("facilitator@kpmg.kz")).thenReturn(Optional.of(userWithId(30L)));
-        when(userRepository.findByMail("operator@kpmg.kz")).thenReturn(Optional.of(userWithId(31L)));
+        when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/4");
+        when(userRepository.findByMail("facilitator@kpmg.kz")).thenReturn(Optional.of(userWithId(40L)));
+        when(userRepository.findByMail("operator@kpmg.kz")).thenReturn(Optional.of(userWithId(41L)));
 
-        boolean sent = immediateService.maybeSendImmediateDay0(3L);
+        MonthlyNotificationService.Day0RunSummary summary = service.runDailyDay0Notifications();
 
-        assertThat(sent).isTrue();
+        assertThat(summary.getSentCount()).isEqualTo(2);
         verify(notificationRepository, times(2)).save(any(Notification.class));
     }
 
@@ -198,6 +190,7 @@ class MonthlyDay0NotificationServiceTest {
                                                     String name,
                                                     String frequency,
                                                     String status,
+                                                    LocalDate operationDate,
                                                     LocalDate deadlineDate,
                                                     String facilitator,
                                                     String operator) {
@@ -206,7 +199,7 @@ class MonthlyDay0NotificationServiceTest {
         when(projection.getControlName()).thenReturn(name);
         when(projection.getFrequency()).thenReturn(frequency);
         when(projection.getStatus()).thenReturn(status);
-        when(projection.getDeadlineDate()).thenReturn(deadlineDate);
+        when(projection.getOperationDate()).thenReturn(operationDate);
         when(projection.getFacilitator()).thenReturn(facilitator);
         when(projection.getControlOperator()).thenReturn(operator);
         return projection;
@@ -220,4 +213,6 @@ class MonthlyDay0NotificationServiceTest {
         return user;
     }
 }
+
+
 

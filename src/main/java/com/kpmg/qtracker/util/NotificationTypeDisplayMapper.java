@@ -22,10 +22,6 @@ public class NotificationTypeDisplayMapper {
             return new Display("Notification", CLASS_DEFAULT);
         }
 
-        if ("DRAFT_INITIATE_REMINDER".equals(normalized)) {
-            return new Display("Initiate Control", CLASS_REMINDER);
-        }
-
         if ("INITIATE".equals(normalized) || "CONTROL_INITIATED".equals(normalized)) {
             return new Display("Control Initiated", CLASS_ACTIVATED);
         }
@@ -87,7 +83,7 @@ public class NotificationTypeDisplayMapper {
 
     public boolean isHiddenType(String type) {
         String normalized = normalize(type);
-        return false;
+        return "DRAFT_INITIATE_REMINDER".equals(normalized);
     }
 
     private String normalize(String type) {

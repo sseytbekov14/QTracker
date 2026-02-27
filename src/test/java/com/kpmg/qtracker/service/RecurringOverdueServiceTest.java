@@ -45,12 +45,12 @@ class RecurringOverdueServiceTest {
     private NotificationTemplateService notificationTemplateService;
 
     private Clock clock;
-    private RecurringOverdueService service;
+    private RecurringNotificationService service;
 
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(Instant.parse("2026-02-06T04:00:00Z"), ZoneId.of("Asia/Almaty"));
-        service = new RecurringOverdueService(
+        service = new RecurringNotificationService(
                 controlRepository,
                 notificationRepository,
                 userRepository,
@@ -81,7 +81,7 @@ class RecurringOverdueServiceTest {
         when(controlRepository.findRecurringOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 61L,
-                RecurringOverdueService.TYPE_OVERDUE_1,
+                RecurringNotificationService.TYPE_OVERDUE_1,
                 dayStart,
                 nextDayStart)).thenReturn(false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/61");
@@ -94,7 +94,7 @@ class RecurringOverdueServiceTest {
         verify(notificationRepository).save(captor.capture());
         List<Notification> notifications = captor.getAllValues();
         assertThat(notifications).hasSize(1);
-        assertThat(notifications.get(0).getType()).isEqualTo(RecurringOverdueService.TYPE_OVERDUE_1);
+        assertThat(notifications.get(0).getType()).isEqualTo(RecurringNotificationService.TYPE_OVERDUE_1);
     }
 
     @Test
@@ -121,7 +121,7 @@ class RecurringOverdueServiceTest {
         when(controlRepository.findRecurringOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 62L,
-                RecurringOverdueService.TYPE_OVERDUE_REPEAT,
+                RecurringNotificationService.TYPE_OVERDUE_REPEAT,
                 dayStart,
                 nextDayStart)).thenReturn(false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/62");
@@ -133,11 +133,11 @@ class RecurringOverdueServiceTest {
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(captor.capture());
         Notification saved = captor.getValue();
-        assertThat(saved.getType()).isEqualTo(RecurringOverdueService.TYPE_OVERDUE_REPEAT);
+        assertThat(saved.getType()).isEqualTo(RecurringNotificationService.TYPE_OVERDUE_REPEAT);
         assertThat(saved.getUserId()).isEqualTo(2L);
         verify(notificationRepository, never()).existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 eq(62L),
-                eq(RecurringOverdueService.TYPE_OVERDUE_1),
+                eq(RecurringNotificationService.TYPE_OVERDUE_1),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)
         );
@@ -166,7 +166,7 @@ class RecurringOverdueServiceTest {
         when(controlRepository.findRecurringOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 63L,
-                RecurringOverdueService.TYPE_OVERDUE_REPEAT,
+                RecurringNotificationService.TYPE_OVERDUE_REPEAT,
                 dayStart,
                 nextDayStart)).thenReturn(true);
 
@@ -215,4 +215,6 @@ class RecurringOverdueServiceTest {
         return user;
     }
 }
+
+
 

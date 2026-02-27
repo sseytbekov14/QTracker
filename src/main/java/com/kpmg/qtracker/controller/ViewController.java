@@ -156,133 +156,14 @@ public class ViewController {
         // Unread notifications badge
         model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
 
-        // Use Map for O(1) deduplication instead of stream().anyMatch()
-        Map<Long, ControlResponseDTO> controlMap = new LinkedHashMap<>();
+        List<ControlResponseDTO> allControls = findControlsVisibleToUser(currentUser);
+        boolean hideDraftControls = !isGlobalVisibilityRole(userRole);
+        ControlCounters dashboardCounters = countControlsVisibleToUser(allControls, hideDraftControls);
 
-        // ★ ADMIN and SOQM_LEAD see ALL controls
-        if ("ADMIN".equals(userRole) || "SOQM_LEAD".equals(userRole)) {
-            List<Control> allControlsList = controlService.getAllControls();
-            for (Control control : allControlsList) {
-                ControlResponseDTO dto = controlService.convertToResponseDTO(control);
-                controlMap.put(control.getId(), dto);
-            }
-        } else {
-            // Always show controls created by the user
-            List<ControlResponseDTO> userControls = controlService.getUserControlsDTO(userEmail);
-            for (ControlResponseDTO control : userControls) {
-                controlMap.put(control.getId(), control);
-            }
-
-            // Add controls assigned to user as Facilitator
-            {
-                List<ControlResponseDTO> facilitatorControls = controlService.getFacilitatorControlsDTO(userEmail);
-                for (ControlResponseDTO control : facilitatorControls) {
-                    controlMap.putIfAbsent(control.getId(), control);
-                }
-            }
-
-            // Add controls assigned to user as Control Operator
-            {
-                List<Control> operatorControls = controlService.getControlOperatorControls(userEmail);
-                for (Control control : operatorControls) {
-                    controlMap.putIfAbsent(control.getId(), controlService.convertToResponseDTO(control));
-                }
-            }
-
-            // Add controls assigned to user as Process Owner
-            {
-                List<Control> ownerControls = controlService.getProcessOwnerControls(userEmail);
-                for (Control control : ownerControls) {
-                    controlMap.putIfAbsent(control.getId(), controlService.convertToResponseDTO(control));
-                }
-            }
-
-            // Add controls assigned to user as SoQM Lead
-            if ("SOQM_LEAD".equals(userRole)) {
-                List<Control> soqmControls = controlService.getSoqmLeadControls(userEmail);
-                for (Control control : soqmControls) {
-                    controlMap.putIfAbsent(control.getId(), controlService.convertToResponseDTO(control));
-                }
-            }
-
-            // Add controls shared with user
-            {
-                List<Control> allControlsForShared = controlService.getAllControls();
-                for (Control control : allControlsForShared) {
-                    if (control == null || control.getId() == null || controlMap.containsKey(control.getId())) {
-                        continue;
-                    }
-                    if (isSharedWithUser(control.getId(), userEmail)) {
-                        ControlResponseDTO dto = controlService.convertToResponseDTO(control);
-                        dto.setSharedViewOnly(true);
-                        controlMap.put(control.getId(), dto);
-                    }
-                }
-            }
-        }
-
-        List<ControlResponseDTO> allControls = new ArrayList<>(controlMap.values());
-        boolean excludeDraftForCounts = !"SOQM_LEAD".equals(userRole);
-        int totalControls;
-        if (excludeDraftForCounts) {
-            totalControls = (int) allControls.stream()
-                    .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
-                    .count();
-        } else {
-            totalControls = allControls.size();
-        }
-
-        // Count only editable controls as active
-        // ★ ADMIN: all non-completed controls are active
-        // Logic: editable if (creator AND status "DRAFT") OR (facilitator AND status "IN_PROGRESS") OR (operator AND status "REVIEW") OR (soqm AND status "SOQM_HEAD_REVIEW") OR (po AND status "PROCESS_OWNER_REVIEW")
-        int activeControls = 0;
-        int completedControls = 0;
-        int overdueControls = 0;
-        boolean isAdmin = "ADMIN".equals(userRole);
-        boolean isSoqmRole = "SOQM_LEAD".equals(userRole);
-        LocalDate todayAlmaty = LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
-        
-        for (ControlResponseDTO control : allControls) {
-            String status = normalizeStatus(control.getPerformanceStatus());
-            if (!"DRAFT".equals(status) && !"COMPLETED".equals(status)) {
-                LocalDate deadline = control.getDeadline();
-                if (deadline != null && deadline.isBefore(todayAlmaty)) {
-                    overdueControls++;
-                }
-            }
-            if (excludeDraftForCounts && "DRAFT".equals(status)) {
-                continue;
-            }
-
-            if ("COMPLETED".equals(status)) {
-                completedControls++;
-            } else if (isAdmin || isSoqmRole) {
-                // ADMIN and SOQM_LEAD: все незавершенные контроли считаются активными
-                activeControls++;
-            } else {
-                boolean isCreator = userEmail.equals(control.getCreatedByEmail());
-                boolean isFacilitator = control.getFacilitators() != null && control.getFacilitators().contains(userEmail);
-                boolean isOperator = control.getControlOperators() != null && control.getControlOperators().contains(userEmail);
-                boolean isSoqmLead = control.getSoqmLeads() != null && control.getSoqmLeads().contains(userEmail);
-                boolean isProcessOwner = control.getProcessOwners() != null && control.getProcessOwners().contains(userEmail);
-                
-                boolean isEditable = "SOQM_LEAD".equals(userRole) ||
-                        (isCreator && "DRAFT".equals(status)) ||
-                        (isFacilitator && "IN_PROGRESS".equals(status)) ||
-                        (isOperator && "REVIEW".equals(status)) ||
-                        (isSoqmLead && "SOQM_HEAD_REVIEW".equals(status)) ||
-                        (isProcessOwner && "PROCESS_OWNER_REVIEW".equals(status));
-                
-                if (isEditable) {
-                    activeControls++;
-                }
-            }
-        }
-
-        model.addAttribute("totalControls", totalControls);
-        model.addAttribute("activeControls", activeControls);
-        model.addAttribute("completedControls", completedControls);
-        model.addAttribute("overdueControls", overdueControls);
+        model.addAttribute("totalControls", dashboardCounters.total());
+        model.addAttribute("activeControls", dashboardCounters.active());
+        model.addAttribute("completedControls", dashboardCounters.completed());
+        model.addAttribute("overdueControls", dashboardCounters.overdue());
 
         model.addAttribute("recentControls", allControls.stream()
                 .sorted((c1, c2) -> {
@@ -293,15 +174,15 @@ public class ViewController {
                 .collect(Collectors.toList()));
 
         // ===== ACTION CENTRE DATA =====
-        List<Control> controlsForAction = controlService.getAllControls();
+        List<ControlResponseDTO> controlsForAction = allControls;
         Map<String, Long> componentStats = new HashMap<>();
         String[] allComponentNames = {"HR", "INTR", "M&R", "RAP", "A&C", "I&C", "GOV", "EP", "RER", "TECHR"};
         for (String c : allComponentNames) {
             componentStats.put(c, 0L);
         }
 
-        if ("SOQM_LEAD".equals(userRole)) {
-            for (Control ctrl : controlsForAction) {
+        if (isSoqmRole(userRole)) {
+            for (ControlResponseDTO ctrl : controlsForAction) {
                 String comp = ctrl.getComponent();
                 if (comp != null && !comp.trim().isEmpty() && componentStats.containsKey(comp)) {
                     componentStats.put(comp, componentStats.get(comp) + 1);
@@ -310,25 +191,9 @@ public class ViewController {
             componentStats.put("All", (long) controlsForAction.size());
         } else {
             long nonDraftCount = 0L;
-            for (Control ctrl : controlsForAction) {
+            for (ControlResponseDTO ctrl : controlsForAction) {
                 String ctrlStatus = normalizeStatus(ctrl.getPerformanceStatus());
                 if ("DRAFT".equals(ctrlStatus)) continue;
-                // Check if user has access to this control
-                boolean hasAccess = false;
-                String creatorEmail = ctrl.getCreatedBy() != null ? ctrl.getCreatedBy().getMail() : null;
-                if (userEmail.equals(creatorEmail)) hasAccess = true;
-                if (!hasAccess) {
-                    try {
-                        ControlAssignmentDTO asgn = controlAssignmentService.getAssignmentByControlId(ctrl.getId());
-                        if (asgn != null) {
-                            if (asgn.getFacilitator() != null && asgn.getFacilitator().contains(userEmail)) hasAccess = true;
-                            if (asgn.getControlOperator() != null && asgn.getControlOperator().contains(userEmail)) hasAccess = true;
-                            if (asgn.getProcessOwner() != null && asgn.getProcessOwner().contains(userEmail)) hasAccess = true;
-                            if (asgn.getSoqmLead() != null && asgn.getSoqmLead().contains(userEmail)) hasAccess = true;
-                        }
-                    } catch (Exception ignored) {}
-                }
-                if (!hasAccess) continue;
                 nonDraftCount++;
                 String comp = ctrl.getComponent();
                 if (comp != null && !comp.trim().isEmpty() && componentStats.containsKey(comp)) {
@@ -379,16 +244,12 @@ public class ViewController {
             overdueFilter = true;
             normalizedStatus = "";
         }
-        if ("COMPLETED".equalsIgnoreCase(normalizedStatus)) {
-            completedFilter = true;
-            normalizedStatus = "";
-        }
         String statusFilter = "";
         String effectiveScope;
         if (normalizedScope.isBlank()) {
             if (defaultAllControls) {
                 effectiveScope = "all";
-            } else if ("SOQM_LEAD".equals(userRole)) {
+            } else if (isSoqmRole(userRole)) {
                 effectiveScope = "all";
             } else {
                 effectiveScope = "ADMIN".equals(userRole) ? "active" : "mine";
@@ -396,7 +257,7 @@ public class ViewController {
         } else {
             effectiveScope = normalizedScope;
         }
-        if (!"SOQM_LEAD".equals(userRole)) {
+        if (!isSoqmRole(userRole)) {
             if (!"active".equals(effectiveScope) && !"all".equals(effectiveScope)) {
                 effectiveScope = "active";
             }
@@ -405,7 +266,7 @@ public class ViewController {
                 effectiveScope = "all";
             }
         }
-        if (completedFilter && !"SOQM_LEAD".equals(userRole)) {
+        if (completedFilter && !isSoqmRole(userRole)) {
             effectiveScope = "all";
         }
         
@@ -418,8 +279,7 @@ public class ViewController {
                     "REVIEW",
                     "SOQM_HEAD_REVIEW",
                     "PROCESS_OWNER_REVIEW",
-                    "COMPLETED",
-                    "OVERDUE"
+                    "COMPLETED"
             );
             if (allowedStatuses.contains(upperStatus)) {
                 statusFilter = upperStatus;
@@ -431,66 +291,7 @@ public class ViewController {
             System.out.println("ℹ️ normalizedStatus is blank");
         }
 
-        // Use LinkedHashMap to preserve order and Set for O(1) lookup
-        Map<Long, ControlResponseDTO> controlMap = new LinkedHashMap<>();
-        
-        // ★ ADMIN and SOQM_LEAD see ALL controls
-        if ("ADMIN".equals(userRole) || "SOQM_LEAD".equals(userRole)) {
-            List<Control> allControls = controlService.getAllControls();
-            for (Control control : allControls) {
-                ControlResponseDTO dto = controlService.convertToResponseDTO(control);
-                controlMap.put(control.getId(), dto);
-            }
-        } else {
-            // Always show controls created by the user
-            List<ControlResponseDTO> userControls = controlService.getUserControlsDTO(userEmail);
-            for (ControlResponseDTO control : userControls) {
-                controlMap.put(control.getId(), control);
-            }
-
-            // Add controls assigned to user as Facilitator
-            {
-                List<ControlResponseDTO> facilitatorControls = controlService.getFacilitatorControlsDTO(userEmail);
-                for (ControlResponseDTO control : facilitatorControls) {
-                    controlMap.putIfAbsent(control.getId(), control);
-                }
-            }
-
-            // Add controls assigned to user as Control Operator
-            {
-                List<Control> operatorControls = controlService.getControlOperatorControls(userEmail);
-                for (Control control : operatorControls) {
-                    controlMap.putIfAbsent(control.getId(), controlService.convertToResponseDTO(control));
-                }
-            }
-
-            // Add controls assigned to user as Process Owner
-            {
-                List<Control> ownerControls = controlService.getProcessOwnerControls(userEmail);
-                for (Control control : ownerControls) {
-                    controlMap.putIfAbsent(control.getId(), controlService.convertToResponseDTO(control));
-                }
-            }
-        }
-
-        if (!"ADMIN".equals(userRole) && !"SOQM_LEAD".equals(userRole)) {
-            List<Control> allControls = controlService.getAllControls();
-            for (Control control : allControls) {
-                if (control == null || control.getId() == null || controlMap.containsKey(control.getId())) {
-                    continue;
-                }
-                if (isSharedWithUser(control.getId(), userEmail)) {
-                    ControlResponseDTO dto = controlService.convertToResponseDTO(control);
-                    dto.setSharedViewOnly(true);
-                    controlMap.put(control.getId(), dto);
-                }
-            }
-        }
-
-        // Note: In /controls page, SOQM_LEAD sees both created controls AND assigned controls
-        // In /component/All and /action-centre, they see ALL controls
-
-        List<ControlResponseDTO> userControlsList = new ArrayList<>(controlMap.values());
+        List<ControlResponseDTO> userControlsList = findControlsVisibleToUser(currentUser);
         // Sort by updated date in descending order (most recently updated first)
         userControlsList.sort((c1, c2) -> {
             LocalDateTime date1 = c1.getUpdatedAt() != null ? c1.getUpdatedAt() : c1.getCreatedAt();
@@ -498,12 +299,10 @@ public class ViewController {
             return date2.compareTo(date1);
         });
 
+        LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
         if (overdueFilter) {
-            LocalDate todayAlmaty = LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
-            List<Long> overdueIdList = controlAssignmentRepository.findOverdueControlIds(todayAlmaty);
-            Set<Long> overdueIds = overdueIdList == null ? Set.of() : new HashSet<>(overdueIdList);
             userControlsList = userControlsList.stream()
-                    .filter(control -> control.getId() != null && overdueIds.contains(control.getId()))
+                    .filter(control -> isOverdue(control, todayAlmaty))
                     .collect(Collectors.toList());
             System.out.println("controls filter scope=overdue user=" + userEmail
                     + " count=" + userControlsList.size());
@@ -512,7 +311,7 @@ public class ViewController {
                 int beforeCount = userControlsList.size();
                 // Only apply active queue filter if NO status filter is specified
                 if (statusFilter.isBlank()) {
-                    if ("ADMIN".equals(userRole) || "SOQM_LEAD".equals(userRole)) {
+                    if (isGlobalVisibilityRole(userRole)) {
                         userControlsList = userControlsList.stream()
                                 .filter(control -> control.getPerformanceStatus() == null
                                         || !"COMPLETED".equalsIgnoreCase(control.getPerformanceStatus()))
@@ -557,26 +356,29 @@ public class ViewController {
             }
         }
         
-        // For non-SOQM_LEAD users, hide DRAFT controls unless they are the creator
-        if (!"SOQM_LEAD".equals(userRole) && !"ADMIN".equals(userRole)) {
+        // For non-admin/non-SOQM users, hide DRAFT controls in the controls list.
+        if (!isGlobalVisibilityRole(userRole)) {
             userControlsList = userControlsList.stream()
                     .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
                     .collect(Collectors.toList());
         }
 
-        LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
         for (ControlResponseDTO control : userControlsList) {
             control.setOverdue(isOverdue(control, todayAlmaty));
         }
+
+        ControlCounters counters = countControlsVisibleToUser(userControlsList, false);
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userTitle", currentUser.getTitle());
         model.addAttribute("userEmail", userEmail);
         model.addAttribute("userRole", userRole);
+        model.addAttribute("userIsAdmin", isAdminRole(userRole));
+        model.addAttribute("userIsSoqm", isSoqmRole(userRole));
         String resolvedControlsFilter = effectiveScope;
-        if (overdueFilter && !"SOQM_LEAD".equals(userRole)) {
+        if (overdueFilter && !isSoqmRole(userRole)) {
             resolvedControlsFilter = "overdue";
-        } else if (completedFilter && !"SOQM_LEAD".equals(userRole)) {
+        } else if (completedFilter && !isSoqmRole(userRole)) {
             resolvedControlsFilter = "completed";
         }
         model.addAttribute("controlsFilter", resolvedControlsFilter);
@@ -588,9 +390,82 @@ public class ViewController {
         }
         model.addAttribute("statusFilter", resolvedStatusFilter);
         model.addAttribute("controls", userControlsList);
+        model.addAttribute("totalControls", counters.total());
+        model.addAttribute("activeControls", counters.active());
+        model.addAttribute("completedControls", counters.completed());
+        model.addAttribute("overdueControls", counters.overdue());
         model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
 
         return "controls";
+    }
+
+    private List<ControlResponseDTO> findControlsVisibleToUser(User currentUser) {
+        if (currentUser == null) {
+            return new ArrayList<>();
+        }
+        String userRole = currentUser.getRole();
+        String userEmail = currentUser.getMail();
+        List<Control> visibleControls = controlService.findVisibleControlsForUser(userEmail, userRole);
+        Map<Long, ControlResponseDTO> controlMap = new LinkedHashMap<>();
+        for (Control control : visibleControls) {
+            if (control == null || control.getId() == null) {
+                continue;
+            }
+            ControlResponseDTO dto = controlService.convertToResponseDTO(control);
+            boolean sharedOnly = !isGlobalVisibilityRole(userRole)
+                    && isSharedWithUser(control.getId(), userEmail)
+                    && !isDirectlyAssignedToUser(dto, userEmail);
+            dto.setSharedViewOnly(sharedOnly);
+            controlMap.put(control.getId(), dto);
+        }
+        return new ArrayList<>(controlMap.values());
+    }
+
+    private ControlCounters countControlsVisibleToUser(List<ControlResponseDTO> controls, boolean hideDraftControls) {
+        List<ControlResponseDTO> base = controls == null ? new ArrayList<>() : new ArrayList<>(controls);
+        if (hideDraftControls) {
+            base = base.stream()
+                    .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
+                    .collect(Collectors.toList());
+        }
+        LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
+        int totalControls = base.size();
+        int completedControls = (int) base.stream()
+                .filter(control -> "COMPLETED".equals(normalizeStatus(control.getPerformanceStatus())))
+                .count();
+        int activeControls = totalControls - completedControls;
+        int overdueControls = (int) base.stream()
+                .filter(control -> {
+                    String status = normalizeStatus(control.getPerformanceStatus());
+                    LocalDate deadline = control.getDeadline();
+                    return !"COMPLETED".equals(status)
+                            && deadline != null
+                            && deadline.isBefore(todayAlmaty);
+                })
+                .count();
+        return new ControlCounters(totalControls, activeControls, completedControls, overdueControls);
+    }
+
+    private boolean isAdminRole(String userRole) {
+        return userRole != null && "ADMIN".equalsIgnoreCase(userRole.trim());
+    }
+
+    private boolean isSoqmRole(String userRole) {
+        if (userRole == null) {
+            return false;
+        }
+        String normalized = userRole.trim()
+                .replace('-', '_')
+                .replace(' ', '_')
+                .toUpperCase(Locale.ROOT);
+        return normalized.startsWith("SOQM");
+    }
+
+    private boolean isGlobalVisibilityRole(String userRole) {
+        return isAdminRole(userRole) || isSoqmRole(userRole);
+    }
+
+    private record ControlCounters(int total, int active, int completed, int overdue) {
     }
 
     private String normalizeStatus(String status) {
@@ -605,7 +480,7 @@ public class ViewController {
             return false;
         }
         String status = normalizeStatus(control.getPerformanceStatus());
-        if ("DRAFT".equals(status) || "COMPLETED".equals(status)) {
+        if ("COMPLETED".equals(status)) {
             return false;
         }
         LocalDate deadline = control.getDeadline();
@@ -645,6 +520,16 @@ public class ViewController {
         return false;
     }
 
+    private boolean isDirectlyAssignedToUser(ControlResponseDTO control, String userEmail) {
+        if (control == null || userEmail == null) {
+            return false;
+        }
+        return listContains(control.getFacilitators(), userEmail)
+                || listContains(control.getControlOperators(), userEmail)
+                || listContains(control.getSoqmLeads(), userEmail)
+                || listContains(control.getProcessOwners(), userEmail);
+    }
+
     private boolean isSharedWithUser(Long controlId, String userEmail) {
         if (controlId == null || userEmail == null) {
             return false;
@@ -679,7 +564,7 @@ public class ViewController {
     /**
      * Unified access check: can this user view the given control?
      * Allowed if:
-     *  a) ADMIN or SOQM_LEAD role, OR
+     *  a) ADMIN or SOQM role, OR
      *  b) creator of the control, OR
      *  c) assigned as facilitator/operator/soqm lead/process owner, OR
      *  d) present in control_shared_with
@@ -689,7 +574,7 @@ public class ViewController {
         String email = user.getMail();
 
         // (a) System-wide roles
-        if ("ADMIN".equals(role) || "SOQM_LEAD".equals(role)) {
+        if (isGlobalVisibilityRole(role)) {
             return true;
         }
 
@@ -847,68 +732,34 @@ public class ViewController {
 
         User currentUser = getCurrentUser(session);
         String userRole = currentUser.getRole();
-        String userEmail = currentUser.getMail();
-
-        List<Control> allControls;
-
-        if ("All".equals(componentName)) {
-            allControls = controlService.getAllControls();
-        } else {
-            allControls = controlService.getControlsByComponent(componentName);
-        }
-
-        // Use the SAME logic as /controls page
-        List<Control> filteredControls = new ArrayList<>();
-
-        for (Control control : allControls) {
-            boolean shouldShow = false;
-            String performanceStatus = control.getPerformanceStatus();
-            if (performanceStatus == null || performanceStatus.isEmpty()) {
-                performanceStatus = "DRAFT";
-            }
-            if (!"SOQM_LEAD".equals(userRole) && "DRAFT".equals(normalizeStatus(performanceStatus))) {
-                continue;
-            }
-
-            boolean isCreator = control.getCreatedBy() != null && userEmail.equals(control.getCreatedBy().getMail());
-
-            switch (userRole) {
-                case "SOQM_LEAD":
-                    // SoQM Lead sees ALL controls
-                    shouldShow = true;
-                    break;
-                default:
-                    // For all other roles, check assignment-based access
-                    try {
-                        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
-                        if (assignment != null) {
-                            if (assignment.getFacilitator() != null && assignment.getFacilitator().contains(userEmail)) shouldShow = true;
-                            if (assignment.getControlOperator() != null && assignment.getControlOperator().contains(userEmail)) shouldShow = true;
-                            if (assignment.getProcessOwner() != null && assignment.getProcessOwner().contains(userEmail)) shouldShow = true;
-                            if (assignment.getSoqmLead() != null && assignment.getSoqmLead().contains(userEmail)) shouldShow = true;
-                        }
-                    } catch (Exception e) {
-                        // Assignment not found
-                    }
-                    shouldShow = shouldShow || isCreator;
-                    break;
-            }
-
-            if (shouldShow) {
-                filteredControls.add(control);
-            }
-        }
-
-        List<ControlResponseDTO> controlDTOs = filteredControls.stream()
-                .map(controlService::convertToResponseDTO)
-                .sorted((c1, c2) -> c2.getId().compareTo(c1.getId())) // Sort by ID desc (newest first)
+        List<ControlResponseDTO> visibleControls = findControlsVisibleToUser(currentUser);
+        List<ControlResponseDTO> controlDTOs = visibleControls.stream()
+                .filter(control -> "All".equalsIgnoreCase(componentName)
+                        || (control.getComponent() != null && componentName.equalsIgnoreCase(control.getComponent())))
+                .sorted((c1, c2) -> c2.getId().compareTo(c1.getId()))
                 .collect(Collectors.toList());
+
+        boolean hideDraftControls = !isGlobalVisibilityRole(userRole);
+        ControlCounters counters = countControlsVisibleToUser(controlDTOs, hideDraftControls);
+        if (hideDraftControls) {
+            controlDTOs = controlDTOs.stream()
+                    .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
+                    .collect(Collectors.toList());
+        }
+        LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
+        for (ControlResponseDTO control : controlDTOs) {
+            control.setOverdue(isOverdue(control, todayAlmaty));
+        }
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userTitle", currentUser.getTitle());
         model.addAttribute("userEmail", currentUser.getMail());
         model.addAttribute("controls", controlDTOs);
         model.addAttribute("currentComponent", componentName);
+        model.addAttribute("totalControls", counters.total());
+        model.addAttribute("activeControls", counters.active());
+        model.addAttribute("completedControls", counters.completed());
+        model.addAttribute("overdueControls", counters.overdue());
 
         return "component-controls";
     }
@@ -936,7 +787,7 @@ public class ViewController {
         if (performanceStatus == null || performanceStatus.isEmpty()) {
             performanceStatus = "DRAFT";
         }
-        if (!"SOQM_LEAD".equals(currentUser.getRole())
+        if (!isGlobalVisibilityRole(currentUser.getRole())
                 && "DRAFT".equals(normalizeStatus(performanceStatus))) {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.NOT_FOUND, "Control not found");
@@ -959,7 +810,7 @@ public class ViewController {
                 && assignment.getControlOperator() != null
                 && assignment.getControlOperator().toLowerCase().contains(userEmail.toLowerCase());
 
-        boolean isSoqmLead = "SOQM_LEAD".equals(userRole)
+        boolean isSoqmLead = isSoqmRole(userRole)
                 || (assignment != null && assignment.getSoqmLead() != null
                     && assignment.getSoqmLead().toLowerCase().contains(userEmail.toLowerCase()));
 
@@ -982,7 +833,7 @@ public class ViewController {
         // Shared users can edit specific fields when COMPLETED
         boolean isCompletedShared = isSharedViewer && "COMPLETED".equals(performanceStatus);
 
-        boolean canEdit = "SOQM_LEAD".equals(userRole) ||
+        boolean canEdit = isSoqmRole(userRole) ||
                 (isCreator && isInProgress) ||
                 (isFacilitator && "IN_PROGRESS".equals(performanceStatus)) ||
                 (isControlOperator && isControlOperatorReview) ||
@@ -1104,26 +955,22 @@ public class ViewController {
 
             boolean isCreator = control.getCreatedBy() != null && userEmail.equals(control.getCreatedBy().getMail());
 
-            switch (userRole) {
-                case "SOQM_LEAD":
-                    // SoQM Lead sees ALL controls
-                    shouldShow = true;
-                    break;
-                default:
-                    // For all other roles, check assignment-based access
-                    try {
-                        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
-                        if (assignment != null) {
-                            if (assignment.getFacilitator() != null && assignment.getFacilitator().contains(userEmail)) shouldShow = true;
-                            if (assignment.getControlOperator() != null && assignment.getControlOperator().contains(userEmail)) shouldShow = true;
-                            if (assignment.getProcessOwner() != null && assignment.getProcessOwner().contains(userEmail)) shouldShow = true;
-                            if (assignment.getSoqmLead() != null && assignment.getSoqmLead().contains(userEmail)) shouldShow = true;
-                        }
-                    } catch (Exception e) {
-                        // Assignment not found
+            if (isSoqmRole(userRole)) {
+                shouldShow = true;
+            } else {
+                // For all other roles, check assignment-based access
+                try {
+                    ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
+                    if (assignment != null) {
+                        if (assignment.getFacilitator() != null && assignment.getFacilitator().contains(userEmail)) shouldShow = true;
+                        if (assignment.getControlOperator() != null && assignment.getControlOperator().contains(userEmail)) shouldShow = true;
+                        if (assignment.getProcessOwner() != null && assignment.getProcessOwner().contains(userEmail)) shouldShow = true;
+                        if (assignment.getSoqmLead() != null && assignment.getSoqmLead().contains(userEmail)) shouldShow = true;
                     }
-                    shouldShow = shouldShow || isCreator;
-                    break;
+                } catch (Exception e) {
+                    // Assignment not found
+                }
+                shouldShow = shouldShow || isCreator;
             }
 
             if (shouldShow) {
@@ -1146,7 +993,7 @@ public class ViewController {
             componentStats.put(component, 0L);
         }
 
-        if ("SOQM_LEAD".equals(userRole)) {
+        if (isSoqmRole(userRole)) {
             for (Control control : controlsToShow) {
                 String component = control.getComponent();
                 if (component != null && !component.trim().isEmpty()) {

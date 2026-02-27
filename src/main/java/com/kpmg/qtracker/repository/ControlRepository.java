@@ -73,9 +73,9 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.soqm_lead                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
-            WHERE LOWER(c.control_frequency) = 'monthly'
+            WHERE LOWER(TRIM(c.control_frequency)) = 'monthly'
               AND c.control_operation_date = :operationDate
-              AND c.created_by IS NOT NULL
+              AND COALESCE(UPPER(TRIM(c.performance_status)), '') IN ('IN_PROGRESS', 'REVIEW')
             """, nativeQuery = true)
     List<ReminderControlProjection> findMonthlyDay0Candidates(@Param("operationDate") java.time.LocalDate operationDate);
 
@@ -128,9 +128,9 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.soqm_lead                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
-            WHERE LOWER(c.control_frequency) = 'quarterly'
+            WHERE LOWER(TRIM(c.control_frequency)) = 'quarterly'
               AND c.control_operation_date = :operationDate
-              AND c.created_by IS NOT NULL
+              AND COALESCE(UPPER(TRIM(c.performance_status)), '') IN ('IN_PROGRESS', 'REVIEW')
             """, nativeQuery = true)
     List<ReminderControlProjection> findQuarterlyDay0Candidates(@Param("operationDate") java.time.LocalDate operationDate);
 
@@ -183,9 +183,9 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.soqm_lead                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
-            WHERE LOWER(c.control_frequency) = 'recurring'
+            WHERE LOWER(TRIM(c.control_frequency)) = 'recurring'
               AND c.control_operation_date = :operationDate
-              AND c.created_by IS NOT NULL
+              AND COALESCE(UPPER(TRIM(c.performance_status)), '') IN ('IN_PROGRESS', 'REVIEW')
             """, nativeQuery = true)
     List<ReminderControlProjection> findRecurringDay0Candidates(@Param("operationDate") java.time.LocalDate operationDate);
 
@@ -238,9 +238,9 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.soqm_lead                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
-            WHERE LOWER(c.control_frequency) = 'ad-hoc'
+            WHERE LOWER(TRIM(c.control_frequency)) IN ('ad-hoc', 'ad hoc')
               AND c.control_operation_date = :operationDate
-              AND c.created_by IS NOT NULL
+              AND COALESCE(UPPER(TRIM(c.performance_status)), '') IN ('IN_PROGRESS', 'REVIEW')
             """, nativeQuery = true)
     List<ReminderControlProjection> findAdhocDay0Candidates(@Param("operationDate") java.time.LocalDate operationDate);
 
@@ -293,9 +293,17 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.soqm_lead                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
-            WHERE LOWER(c.control_frequency) IN ('annual', 'semi annual')
+            WHERE LOWER(TRIM(c.control_frequency)) IN (
+                    'annual',
+                    'annually',
+                    'semi annual',
+                    'semi-annual',
+                    'semiannually',
+                    'semi-annually',
+                    'semiannual'
+                  )
               AND c.control_operation_date = :operationDate
-              AND c.created_by IS NOT NULL
+              AND COALESCE(UPPER(TRIM(c.performance_status)), '') IN ('IN_PROGRESS', 'REVIEW')
             """, nativeQuery = true)
     List<ReminderControlProjection> findAnnualSemiDay0Candidates(@Param("operationDate") java.time.LocalDate operationDate);
 

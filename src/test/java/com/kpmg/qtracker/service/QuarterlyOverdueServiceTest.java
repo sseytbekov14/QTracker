@@ -45,12 +45,12 @@ class QuarterlyOverdueServiceTest {
     private NotificationTemplateService notificationTemplateService;
 
     private Clock clock;
-    private QuarterlyOverdueService service;
+    private QuarterlyNotificationService service;
 
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(Instant.parse("2026-02-06T04:00:00Z"), ZoneId.of("Asia/Almaty"));
-        service = new QuarterlyOverdueService(
+        service = new QuarterlyNotificationService(
                 controlRepository,
                 notificationRepository,
                 userRepository,
@@ -81,7 +81,7 @@ class QuarterlyOverdueServiceTest {
         when(controlRepository.findQuarterlyOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 41L,
-                QuarterlyOverdueService.TYPE_OVERDUE_1,
+                QuarterlyNotificationService.TYPE_OVERDUE_1,
                 dayStart,
                 nextDayStart)).thenReturn(false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/41");
@@ -94,7 +94,7 @@ class QuarterlyOverdueServiceTest {
         verify(notificationRepository).save(captor.capture());
         List<Notification> notifications = captor.getAllValues();
         assertThat(notifications).hasSize(1);
-        assertThat(notifications.get(0).getType()).isEqualTo(QuarterlyOverdueService.TYPE_OVERDUE_1);
+        assertThat(notifications.get(0).getType()).isEqualTo(QuarterlyNotificationService.TYPE_OVERDUE_1);
     }
 
     @Test
@@ -121,7 +121,7 @@ class QuarterlyOverdueServiceTest {
         when(controlRepository.findQuarterlyOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 42L,
-                QuarterlyOverdueService.TYPE_OVERDUE_REPEAT,
+                QuarterlyNotificationService.TYPE_OVERDUE_REPEAT,
                 dayStart,
                 nextDayStart)).thenReturn(false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/42");
@@ -133,11 +133,11 @@ class QuarterlyOverdueServiceTest {
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(captor.capture());
         Notification saved = captor.getValue();
-        assertThat(saved.getType()).isEqualTo(QuarterlyOverdueService.TYPE_OVERDUE_REPEAT);
+        assertThat(saved.getType()).isEqualTo(QuarterlyNotificationService.TYPE_OVERDUE_REPEAT);
         assertThat(saved.getUserId()).isEqualTo(2L);
         verify(notificationRepository, never()).existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 eq(42L),
-                eq(QuarterlyOverdueService.TYPE_OVERDUE_1),
+                eq(QuarterlyNotificationService.TYPE_OVERDUE_1),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)
         );
@@ -166,7 +166,7 @@ class QuarterlyOverdueServiceTest {
         when(controlRepository.findQuarterlyOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 43L,
-                QuarterlyOverdueService.TYPE_OVERDUE_REPEAT,
+                QuarterlyNotificationService.TYPE_OVERDUE_REPEAT,
                 dayStart,
                 nextDayStart)).thenReturn(true);
 
@@ -215,4 +215,6 @@ class QuarterlyOverdueServiceTest {
         return user;
     }
 }
+
+
 

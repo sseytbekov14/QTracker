@@ -100,6 +100,9 @@ public interface ControlAssignmentRepository extends JpaRepository<ControlAssign
     @Query("SELECT ca.controlId FROM ControlAssignment ca WHERE ca.soqmLead LIKE %:email%")
     List<Long> findControlIdsBySoqmLead(@Param("email") String email);
 
+    @Query("SELECT ca.controlId FROM ControlAssignment ca WHERE ca.controlSharedWith LIKE %:email%")
+    List<Long> findControlIdsByControlSharedWith(@Param("email") String email);
+
     @Query(value = """
             SELECT c.id
             FROM controls c

@@ -46,13 +46,13 @@ class MonthlyOverdueServiceTest {
 
     private WorkingDaysService workingDaysService;
     private Clock clock;
-    private MonthlyOverdueService service;
+    private MonthlyNotificationService service;
 
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(Instant.parse("2026-02-06T04:00:00Z"), ZoneId.of("Asia/Almaty"));
         workingDaysService = new WorkingDaysService();
-        service = new MonthlyOverdueService(
+        service = new MonthlyNotificationService(
                 controlRepository,
                 notificationRepository,
                 userRepository,
@@ -84,7 +84,7 @@ class MonthlyOverdueServiceTest {
         when(controlRepository.findMonthlyOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 21L,
-                MonthlyOverdueService.TYPE_OVERDUE_1,
+                MonthlyNotificationService.TYPE_OVERDUE_1,
                 dayStart,
                 nextDayStart)).thenReturn(false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/21");
@@ -97,7 +97,7 @@ class MonthlyOverdueServiceTest {
         verify(notificationRepository).save(captor.capture());
         List<Notification> notifications = captor.getAllValues();
         assertThat(notifications).hasSize(1);
-        assertThat(notifications.get(0).getType()).isEqualTo(MonthlyOverdueService.TYPE_OVERDUE_1);
+        assertThat(notifications.get(0).getType()).isEqualTo(MonthlyNotificationService.TYPE_OVERDUE_1);
     }
 
     @Test
@@ -126,7 +126,7 @@ class MonthlyOverdueServiceTest {
         when(controlRepository.findMonthlyOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 22L,
-                MonthlyOverdueService.TYPE_OVERDUE_REPEAT,
+                MonthlyNotificationService.TYPE_OVERDUE_REPEAT,
                 dayStart,
                 nextDayStart)).thenReturn(false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/22");
@@ -138,11 +138,11 @@ class MonthlyOverdueServiceTest {
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(captor.capture());
         Notification saved = captor.getValue();
-        assertThat(saved.getType()).isEqualTo(MonthlyOverdueService.TYPE_OVERDUE_REPEAT);
+        assertThat(saved.getType()).isEqualTo(MonthlyNotificationService.TYPE_OVERDUE_REPEAT);
         assertThat(saved.getUserId()).isEqualTo(2L);
         verify(notificationRepository, never()).existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 eq(22L),
-                eq(MonthlyOverdueService.TYPE_OVERDUE_1),
+                eq(MonthlyNotificationService.TYPE_OVERDUE_1),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)
         );
@@ -170,7 +170,7 @@ class MonthlyOverdueServiceTest {
         when(controlRepository.findMonthlyOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 23L,
-                MonthlyOverdueService.TYPE_OVERDUE_REPEAT,
+                MonthlyNotificationService.TYPE_OVERDUE_REPEAT,
                 dayStart,
                 nextDayStart)).thenReturn(true);
 
@@ -219,4 +219,6 @@ class MonthlyOverdueServiceTest {
         return user;
     }
 }
+
+
 

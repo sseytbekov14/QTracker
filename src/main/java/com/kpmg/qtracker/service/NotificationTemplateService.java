@@ -135,81 +135,15 @@ public class NotificationTemplateService {
                         "WORKFLOW_STEP"
                 );
             case REMINDER_1:
-                return new NotificationTemplate(
-                        "Control Reminder",
-                        greeting + "\n" +
-                                "\n" +
-                                "We kindly remind you to complete the control " + controlIdAndNameComma + ". You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
-                                "\n" +
-                                "Thank you,\n" +
-                                "\n" +
-                                "Kind regards,\n" +
-                                "SoQM Team",
-                        "REMINDER"
-                );
             case REMINDER_1_FORWARD:
-                return new NotificationTemplate(
-                        "Control Reminder",
-                        greeting + "\n" +
-                                "\n" +
-                                "We kindly remind you to complete the control " + controlIdAndNameComma + ". You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
-                                "\n" +
-                                "Thank you,\n" +
-                                "\n" +
-                                "Kind regards,\n" +
-                                "SoQM Team",
-                        "REMINDER"
-                );
             case REMINDER_1_OPEN:
-                return new NotificationTemplate(
-                        "Control Reminder",
-                        greeting + "\n" +
-                                "\n" +
-                                "We kindly remind you to complete the control " + controlIdAndNameComma + ". You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
-                                "\n" +
-                                "Thank you,\n" +
-                                "\n" +
-                                "Kind regards,\n" +
-                                "SoQM Team",
-                        "REMINDER"
-                );
             case REMINDER_2:
-                return new NotificationTemplate(
-                        "Control Reminder",
-                        greeting + "\n" +
-                                "\n" +
-                                "Control " + controlIdAndNameComma + " deadline is approaching. You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
-                                "\n" +
-                                "Thank you,\n" +
-                                "\n" +
-                                "Kind regards,\n" +
-                                "SoQM Team",
-                        "REMINDER"
-                );
             case REMINDER_2_FORWARD:
-                return new NotificationTemplate(
-                        "Control Reminder",
-                        greeting + "\n" +
-                                "\n" +
-                                "Control " + controlIdAndNameComma + " deadline is approaching. You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
-                                "\n" +
-                                "Thank you,\n" +
-                                "\n" +
-                                "Kind regards,\n" +
-                                "SoQM Team",
-                        "REMINDER"
-                );
             case REMINDER_2_OPEN:
+                int day = resolveReminderDay(type, control != null ? control.getControlFrequency() : null);
                 return new NotificationTemplate(
-                        "Control Reminder",
-                        greeting + "\n" +
-                                "\n" +
-                                "Control " + controlIdAndNameComma + " deadline is approaching. You can access the control using the following link " + link + ". The deadline of the control is on " + deadlineText + "\n" +
-                                "\n" +
-                                "Thank you,\n" +
-                                "\n" +
-                                "Kind regards,\n" +
-                                "SoQM Team",
+                        ControlNotificationText.dayReminderSubject(day, control),
+                        ControlNotificationText.dayReminderBody(day, control, deadline, link),
                         "REMINDER"
                 );
             case DEADLINE:
@@ -285,6 +219,31 @@ public class NotificationTemplateService {
         }
         String id = control.getControlId() != null ? control.getControlId().trim() : "";
         return id.isEmpty() ? "Control" : id;
+    }
+
+    private int resolveReminderDay(TemplateType type, String frequency) {
+        if (type == null) {
+            return 0;
+        }
+        boolean firstReminder = switch (type) {
+            case REMINDER_1, REMINDER_1_FORWARD, REMINDER_1_OPEN -> true;
+            default -> false;
+        };
+        String normalized = frequency == null ? "" : frequency.trim().toLowerCase();
+        boolean monthly = normalized.contains("month");
+        boolean annual = normalized.contains("annual");
+        boolean semiAnnual = normalized.contains("semi");
+
+        if (firstReminder) {
+            return monthly ? 3 : 5;
+        }
+        if (monthly) {
+            return 6;
+        }
+        if (annual || semiAnnual) {
+            return 25;
+        }
+        return 12;
     }
 
     private String buildControlName(Control control) {

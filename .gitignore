@@ -40,9 +40,13 @@ logs/
 ### Env files ###
 .env
 .env.*
+!.env.example
 ### OS ###
 .DS_Store
 ### Misc build outputs ###
 out/
 .gradle/
 migration/
+!src/main/resources/db/migration/
+!src/main/resources/db/migration/*.sql
+qtracker.backup 

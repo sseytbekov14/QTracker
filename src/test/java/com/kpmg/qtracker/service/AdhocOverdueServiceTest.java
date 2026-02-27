@@ -45,12 +45,12 @@ class AdhocOverdueServiceTest {
     private NotificationTemplateService notificationTemplateService;
 
     private Clock clock;
-    private AdhocOverdueService service;
+    private AdhocNotificationService service;
 
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(Instant.parse("2026-02-06T04:00:00Z"), ZoneId.of("Asia/Almaty"));
-        service = new AdhocOverdueService(
+        service = new AdhocNotificationService(
                 controlRepository,
                 notificationRepository,
                 userRepository,
@@ -81,7 +81,7 @@ class AdhocOverdueServiceTest {
         when(controlRepository.findAdhocOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 81L,
-                AdhocOverdueService.TYPE_OVERDUE_1,
+                AdhocNotificationService.TYPE_OVERDUE_1,
                 dayStart,
                 nextDayStart)).thenReturn(false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/81");
@@ -94,7 +94,7 @@ class AdhocOverdueServiceTest {
         verify(notificationRepository).save(captor.capture());
         List<Notification> notifications = captor.getAllValues();
         assertThat(notifications).hasSize(1);
-        assertThat(notifications.get(0).getType()).isEqualTo(AdhocOverdueService.TYPE_OVERDUE_1);
+        assertThat(notifications.get(0).getType()).isEqualTo(AdhocNotificationService.TYPE_OVERDUE_1);
     }
 
     @Test
@@ -121,7 +121,7 @@ class AdhocOverdueServiceTest {
         when(controlRepository.findAdhocOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 82L,
-                AdhocOverdueService.TYPE_OVERDUE_REPEAT,
+                AdhocNotificationService.TYPE_OVERDUE_REPEAT,
                 dayStart,
                 nextDayStart)).thenReturn(false);
         when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/82");
@@ -133,11 +133,11 @@ class AdhocOverdueServiceTest {
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(captor.capture());
         Notification saved = captor.getValue();
-        assertThat(saved.getType()).isEqualTo(AdhocOverdueService.TYPE_OVERDUE_REPEAT);
+        assertThat(saved.getType()).isEqualTo(AdhocNotificationService.TYPE_OVERDUE_REPEAT);
         assertThat(saved.getUserId()).isEqualTo(2L);
         verify(notificationRepository, never()).existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 eq(82L),
-                eq(AdhocOverdueService.TYPE_OVERDUE_1),
+                eq(AdhocNotificationService.TYPE_OVERDUE_1),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)
         );
@@ -166,7 +166,7 @@ class AdhocOverdueServiceTest {
         when(controlRepository.findAdhocOverdueCandidates()).thenReturn(List.of(row));
         when(notificationRepository.existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 83L,
-                AdhocOverdueService.TYPE_OVERDUE_REPEAT,
+                AdhocNotificationService.TYPE_OVERDUE_REPEAT,
                 dayStart,
                 nextDayStart)).thenReturn(true);
 
@@ -215,4 +215,6 @@ class AdhocOverdueServiceTest {
         return user;
     }
 }
+
+
 

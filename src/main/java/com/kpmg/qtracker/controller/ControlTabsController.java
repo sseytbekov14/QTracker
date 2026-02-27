@@ -22,11 +22,12 @@ public class ControlTabsController {
     private final UserService userService;
     private final ControlService controlService;
     private final AdminAuditService adminAuditService;
-    private final MonthlyDay0NotificationService monthlyDay0NotificationService;
-    private final QuarterlyDay0NotificationService quarterlyDay0NotificationService;
-    private final RecurringDay0NotificationService recurringDay0NotificationService;
-    private final AdhocDay0NotificationService adhocDay0NotificationService;
-    private final AnnualSemiDay0NotificationService annualSemiDay0NotificationService;
+    private final MonthlyNotificationService monthlyNotificationService;
+    private final QuarterlyNotificationService quarterlyNotificationService;
+    private final RecurringNotificationService recurringNotificationService;
+    private final AdhocNotificationService adhocNotificationService;
+    private final AnnualNotificationService annualNotificationService;
+    private final SemiAnnualNotificationService semiAnnualNotificationService;
     private final NotificationService notificationService;
 
     @PostMapping("/api/control-details")
@@ -130,11 +131,6 @@ public class ControlTabsController {
                     existingAssignment.getNextControlOperationDate(), mergedAssignment.getNextControlOperationDate());
 
             controlAssignmentService.saveAssignment(mergedAssignment);
-            monthlyDay0NotificationService.maybeSendImmediateDay0(assignmentDTO.getControlId());
-            quarterlyDay0NotificationService.maybeSendImmediateDay0(assignmentDTO.getControlId());
-            recurringDay0NotificationService.maybeSendImmediateDay0(assignmentDTO.getControlId());
-            adhocDay0NotificationService.maybeSendImmediateDay0(assignmentDTO.getControlId());
-            annualSemiDay0NotificationService.maybeSendImmediateDay0(assignmentDTO.getControlId());
 
             // Send notifications to newly shared users
             List<String> oldShared = existingAssignment != null && existingAssignment.getControlSharedWith() != null
