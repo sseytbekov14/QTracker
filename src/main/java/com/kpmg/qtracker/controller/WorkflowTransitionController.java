@@ -5,6 +5,8 @@ import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.enums.WorkflowActionType;
+import com.kpmg.qtracker.service.ControlPermission;
+import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.service.NotificationTemplateService;
@@ -27,6 +29,7 @@ public class WorkflowTransitionController {
     private final WorkflowHistoryRepository workflowHistoryRepository;
     private final NotificationService notificationService;
     private final WorkflowRequiredFieldService requiredFieldService;
+    private final ControlPermissionService controlPermissionService;
 
     @PostMapping("/initiate")
     public ResponseEntity<?> initiateControl(
@@ -45,6 +48,10 @@ public class WorkflowTransitionController {
             }
 
             Control control = controlOpt.get();
+            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            if (restrictedResponse != null) {
+                return restrictedResponse;
+            }
 
             // Get control assignment to find facilitator
             Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(controlId);
@@ -93,6 +100,10 @@ public class WorkflowTransitionController {
             }
 
             Control control = controlOpt.get();
+            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            if (restrictedResponse != null) {
+                return restrictedResponse;
+            }
 
             // Verify that current user is assigned as facilitator for this control
             Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(controlId);
@@ -170,6 +181,10 @@ public class WorkflowTransitionController {
             }
 
             Control control = controlOpt.get();
+            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            if (restrictedResponse != null) {
+                return restrictedResponse;
+            }
 
             // Verify that current user is assigned as control operator for this control
             Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(controlId);
@@ -248,6 +263,10 @@ public class WorkflowTransitionController {
             }
 
             Control control = controlOpt.get();
+            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            if (restrictedResponse != null) {
+                return restrictedResponse;
+            }
 
             // Only allow from COMPLETED status
             if (!"COMPLETED".equals(control.getPerformanceStatus())) {
@@ -366,6 +385,10 @@ public class WorkflowTransitionController {
             }
 
             Control control = controlOpt.get();
+            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            if (restrictedResponse != null) {
+                return restrictedResponse;
+            }
 
             // Verify that current user is assigned as control operator for this control
             Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(controlId);
@@ -407,13 +430,13 @@ public class WorkflowTransitionController {
             if (currentEmail != null) {
                 recipients.removeIf(email -> email.equalsIgnoreCase(currentEmail));
             }
-            String controlLabel = control.getControlId() != null ? control.getControlId() : String.valueOf(control.getId());
-            String message = "The control " + controlLabel + " has been returned to you for rework.";
             notificationService.sendReturnNotifications(
                     control,
                     recipients,
                     currentUser.getRole(),
-                    message,
+                    currentUser.getDisplayName(),
+                    "Facilitator",
+                    comments,
                     "RETURN_TO_FACILITATOR"
             );
 
@@ -431,4 +454,19 @@ public class WorkflowTransitionController {
             ));
         }
     }
+
+    private ResponseEntity<?> denyWorkflowActionIfRestricted(Control control, User currentUser) {
+        ControlPermission permission = controlPermissionService.resolve(control, currentUser);
+        if (!permission.canView()) {
+            return ResponseEntity.status(403).body(Map.of("success", false, "message", "Forbidden"));
+        }
+        if (!permission.canUseWorkflowActions()) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "success", false,
+                    "message", "Workflow actions are disabled for shared users on completed controls"
+            ));
+        }
+        return null;
+    }
 }
+

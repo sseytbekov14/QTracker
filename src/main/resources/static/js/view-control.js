@@ -15,6 +15,8 @@ const viewControl = (function() {
     let fullEditEnabled = false;
     let canEditStepsPerformed = false;
     let canEditProcessOwnerComments = false;
+    let canUseWorkflowActions = true;
+    let allowedEditableFields = [];
     let stepsPerformedEditOnly = false;
     let processOwnerCommentsEditOnly = false;
 
@@ -42,12 +44,16 @@ const viewControl = (function() {
             fullEditEnabled = isSoqmLeadRole();
             canEditStepsPerformed = false;
             canEditProcessOwnerComments = false;
+            canUseWorkflowActions = document.getElementById('canUseWorkflowActions')?.value !== 'false';
+            allowedEditableFields = [];
             stepsPerformedEditOnly = false;
             processOwnerCommentsEditOnly = false;
             window.qtrackerPermissions = {
                 canEditStepsPerformed: canEditStepsPerformed,
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
-                canEditAll: fullEditEnabled
+                canEditAll: fullEditEnabled,
+                canUseWorkflowActions: canUseWorkflowActions,
+                allowedEditableFields: allowedEditableFields
             };
             return;
         }
@@ -61,6 +67,10 @@ const viewControl = (function() {
             fullEditEnabled = Boolean(permissions.canEditAll);
             canEditStepsPerformed = Boolean(permissions.canEditStepsPerformed);
             canEditProcessOwnerComments = Boolean(permissions.canEditProcessOwnerComments);
+            canUseWorkflowActions = permissions.canUseWorkflowActions !== false;
+            allowedEditableFields = Array.isArray(permissions.allowedEditableFields)
+                ? permissions.allowedEditableFields
+                : [];
             stepsPerformedEditOnly = canEditStepsPerformed && !fullEditEnabled;
             processOwnerCommentsEditOnly = canEditProcessOwnerComments
                 && !fullEditEnabled
@@ -68,7 +78,9 @@ const viewControl = (function() {
             window.qtrackerPermissions = {
                 canEditStepsPerformed: canEditStepsPerformed,
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
-                canEditAll: fullEditEnabled
+                canEditAll: fullEditEnabled,
+                canUseWorkflowActions: canUseWorkflowActions,
+                allowedEditableFields: allowedEditableFields
             };
         } catch (error) {
             console.warn('Permissions fetch failed, falling back to role check:', error);
@@ -76,6 +88,8 @@ const viewControl = (function() {
             const roleValue = document.getElementById('currentUserRole')?.value || '';
             canEditStepsPerformed = roleValue === 'FACILITATOR' || roleValue === 'CONTROL_OPERATOR';
             canEditProcessOwnerComments = (document.getElementById('currentUserRole')?.value || '') === 'PROCESS_OWNER';
+            canUseWorkflowActions = document.getElementById('canUseWorkflowActions')?.value !== 'false';
+            allowedEditableFields = [];
             stepsPerformedEditOnly = canEditStepsPerformed && !fullEditEnabled;
             processOwnerCommentsEditOnly = canEditProcessOwnerComments
                 && !fullEditEnabled
@@ -83,9 +97,30 @@ const viewControl = (function() {
             window.qtrackerPermissions = {
                 canEditStepsPerformed: canEditStepsPerformed,
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
-                canEditAll: fullEditEnabled
+                canEditAll: fullEditEnabled,
+                canUseWorkflowActions: canUseWorkflowActions,
+                allowedEditableFields: allowedEditableFields
             };
         }
+    }
+
+    function areWorkflowActionsAllowed() {
+        if (window.qtrackerPermissions
+            && Object.prototype.hasOwnProperty.call(window.qtrackerPermissions, 'canUseWorkflowActions')) {
+            return Boolean(window.qtrackerPermissions.canUseWorkflowActions);
+        }
+        return document.getElementById('canUseWorkflowActions')?.value !== 'false';
+    }
+
+    function hideWorkflowActionsUi() {
+        const container = document.getElementById('workflow-buttons-container');
+        if (container) {
+            container.style.display = 'none';
+        }
+        document.querySelectorAll('.workflow-submit-btn, .workflow-btn').forEach(btn => {
+            btn.style.display = 'none';
+            btn.disabled = true;
+        });
     }
 
     function getFieldSnapshotKey(field, index) {
@@ -214,6 +249,10 @@ const viewControl = (function() {
 
 // Global function for showing workflow buttons by status and role
 window.showWorkflowButtonsByStatusAndRole = function(status, userRole) {
+    if (!areWorkflowActionsAllowed()) {
+        hideWorkflowActionsUi();
+        return;
+    }
     console.log('🔘 ГЛОБАЛЬНАЯ ФУНКЦИЯ: ПОКАЗ КНОПОК');
     console.log('   Статус:', status);
     console.log('   Роль:', userRole);
@@ -244,6 +283,10 @@ window.showWorkflowButtonsByStatusAndRole = function(status, userRole) {
 
 // Создадим простую глобальную функцию
 window.showAllWorkflowButtons = function() {
+    if (!areWorkflowActionsAllowed()) {
+        hideWorkflowActionsUi();
+        return;
+    }
     console.log('=== ПОКАЗ ВСЕХ КНОПОК ===');
 
     // Получаем данные
@@ -271,7 +314,7 @@ window.showAllWorkflowButtons = function() {
 
     // Показываем контейнер без рамки
     const container = document.getElementById('workflow-buttons-container');
-    if (container) {
+    if (container && areWorkflowActionsAllowed()) {
         container.style.display = 'inline-flex';
     }
 
@@ -478,6 +521,10 @@ function confirmWorkflowAction() {
 
                 // Redirect to dashboard after a short pause
                 setTimeout(() => {
+                if (!areWorkflowActionsAllowed()) {
+                    hideWorkflowActionsUi();
+                    return;
+                }
                     window.location.href = '/';
                 }, 800);
 
@@ -584,6 +631,10 @@ function confirmWorkflowAction() {
             }
 
             setTimeout(() => {
+                if (!areWorkflowActionsAllowed()) {
+                    hideWorkflowActionsUi();
+                    return;
+                }
                 const searchInput = document.getElementById('facilitatorSearchInput');
                 if (searchInput) searchInput.focus();
             }, 100);
@@ -709,6 +760,10 @@ function confirmWorkflowAction() {
             }
 
             setTimeout(() => {
+                if (!areWorkflowActionsAllowed()) {
+                    hideWorkflowActionsUi();
+                    return;
+                }
                 const searchInput = document.getElementById('controlOperatorSearchInput');
                 if (searchInput) searchInput.focus();
             }, 100);
@@ -803,6 +858,10 @@ function confirmWorkflowAction() {
             }
 
             setTimeout(() => {
+                if (!areWorkflowActionsAllowed()) {
+                    hideWorkflowActionsUi();
+                    return;
+                }
                 const searchInput = document.getElementById('soqmLeadSearchInput');
                 if (searchInput) searchInput.focus();
             }, 100);
@@ -897,6 +956,10 @@ function confirmWorkflowAction() {
             }
 
             setTimeout(() => {
+                if (!areWorkflowActionsAllowed()) {
+                    hideWorkflowActionsUi();
+                    return;
+                }
                 const searchInput = document.getElementById('processOwnerSearchInput');
                 if (searchInput) searchInput.focus();
             }, 100);
@@ -991,6 +1054,10 @@ function confirmWorkflowAction() {
             }
 
             setTimeout(() => {
+                if (!areWorkflowActionsAllowed()) {
+                    hideWorkflowActionsUi();
+                    return;
+                }
                 const searchInput = document.getElementById('sharedWithSearchInput');
                 if (searchInput) searchInput.focus();
             }, 100);
@@ -2025,30 +2092,40 @@ function saveControlChanges() {
         return Promise.reject('Control ID not found');
     }
 
-    console.log('🔄 SAVING ALL 4 TABS...');
+    const permissions = window.qtrackerPermissions || {};
+    const isLimitedFieldEdit = !permissions.canEditAll
+        && (permissions.canEditStepsPerformed || permissions.canEditProcessOwnerComments);
 
-    // 1. Сохраняем Control
+    if (isLimitedFieldEdit) {
+        console.log('Limited field edit mode: saving Details tab only');
+        return saveDetailsData(controlId)
+            .then(() => {
+                showAppModal({
+                    variant: 'success',
+                    title: 'Saved Successfully',
+                    message: 'Allowed control fields have been saved',
+                    autoCloseMs: 2500,
+                    redirectUrl: '/view-control/' + controlId
+                });
+                return { success: true };
+            })
+            .catch(error => {
+                console.error('Error saving control data:', error);
+                showAppModal({
+                    variant: 'error',
+                    title: 'Save Failed',
+                    message: 'Error saving control: ' + error.message,
+                    autoCloseMs: 0
+                });
+                throw error;
+            });
+    }
+
     return saveControlData(controlId)
+        .then(() => saveAssignmentData(controlId))
+        .then(() => saveDetailsData(controlId))
+        .then(() => saveDocumentsData(controlId))
         .then(() => {
-            console.log('✅ Control tab saved');
-            // 2. Сохраняем Assignment
-            return saveAssignmentData(controlId);
-        })
-        .then(() => {
-            console.log('✅ Assignment tab saved');
-            // 3. Сохраняем Details
-            return saveDetailsData(controlId);
-        })
-        .then(() => {
-            console.log('✅ Details tab saved');
-            // 4. Сохраняем Documents
-            return saveDocumentsData(controlId);
-        })
-        .then(() => {
-            console.log('✅ Documents tab saved');
-            console.log('🎉 ALL 4 TABS SAVED SUCCESSFULLY!');
-
-            // Общий алерт успеха
             showAppModal({
                 variant: 'success',
                 title: 'Saved Successfully',
@@ -2060,7 +2137,7 @@ function saveControlChanges() {
             return { success: true };
         })
         .catch(error => {
-            console.error('❌ Error saving control data:', error);
+            console.error('Error saving control data:', error);
 
             showAppModal({
                 variant: 'error',
@@ -2069,10 +2146,9 @@ function saveControlChanges() {
                 autoCloseMs: 0
             });
 
-            throw error; // Пробрасываем ошибку чтобы кнопка Save восстановилась
+            throw error;
         });
 }
-
 function saveAssignmentData(controlId) {
     console.log('=== SAVE ASSIGNMENT DATA ===');
 
@@ -2599,6 +2675,9 @@ function saveDocumentsData(controlId) {
             // LOAD DATA BEFORE INITIALIZING READONLY MODE
             const controlId = document.querySelector('input[name="id"]').value;
             await loadPermissions(controlId);
+            if (!areWorkflowActionsAllowed()) {
+                hideWorkflowActionsUi();
+            }
             await loadDetailsData(controlId);
             await loadDocumentsData(controlId);
             await loadUsers(); // This calls loadAssignmentData internally
@@ -2892,7 +2971,9 @@ function saveDocumentsData(controlId) {
             const performanceStatus = statusElement?.value;
             const controlIdValue = controlIdElement?.value;
 
-            if (userRole && performanceStatus && controlIdValue) {
+            if (!areWorkflowActionsAllowed()) {
+                hideWorkflowActionsUi();
+            } else if (userRole && performanceStatus && controlIdValue) {
                 console.log('🔄 Initializing workflow buttons...');
                 console.log(`   User Role: "${userRole}"`);
                 console.log(`   Status: "${performanceStatus}"`);
@@ -2934,6 +3015,10 @@ function saveDocumentsData(controlId) {
 
             // Даем время загрузиться всему контенту
             setTimeout(() => {
+                if (!areWorkflowActionsAllowed()) {
+                    hideWorkflowActionsUi();
+                    return;
+                }
                 const currentUserRole = document.getElementById('currentUserRole')?.value;
                 const currentStatus = document.getElementById('currentPerformanceStatus')?.value;
                 const workflowStatusInput = document.querySelector('input[name="performanceStatus"]');
@@ -3024,7 +3109,7 @@ function saveDocumentsData(controlId) {
 
                 // Show workflow container if needed
                 const container = document.getElementById('workflow-buttons-container');
-                if (container) {
+                if (container && areWorkflowActionsAllowed()) {
                     container.style.display = 'inline-flex';
                     console.log('✅ Контейнер показан!');
                 }
@@ -3078,17 +3163,15 @@ function applyDetailsPermissions(payload) {
         allowed.add('processOwnerComments');
     }
 
-    if (!detailsDataCache) {
-        return payload;
-    }
-
     const merged = { ...payload };
     Object.keys(merged).forEach(key => {
         if (key === 'controlId') {
             return;
         }
-        if (!allowed.has(key) && detailsDataCache[key] !== undefined && detailsDataCache[key] !== null) {
-            merged[key] = detailsDataCache[key];
+        if (!allowed.has(key)) {
+            // Server-side whitelist ignores null incoming values for restricted fields.
+            // This prevents accidental 403 when the browser sends stale/readonly form values.
+            merged[key] = null;
         }
     });
 
@@ -3226,6 +3309,16 @@ function saveDetailsDataSilently(controlId) {
 }
 
 async function ensureWorkflowRoleReady() {
+    if (!areWorkflowActionsAllowed()) {
+        showAppModal({
+            variant: 'warning',
+            title: 'Action Not Allowed',
+            message: 'Workflow actions are disabled for this control',
+            autoCloseMs: 0
+        });
+        return false;
+    }
+
     if (!validateWorkflowRoleRequirement()) {
         return false;
     }
@@ -3255,6 +3348,16 @@ async function ensureWorkflowRoleReady() {
 let currentSubmitAction = null;
 
 function submitWorkflowActionWithModal(options) {
+    if (!areWorkflowActionsAllowed()) {
+        showAppModal({
+            variant: 'warning',
+            title: 'Action Not Allowed',
+            message: 'Workflow actions are disabled for this control',
+            autoCloseMs: 0
+        });
+        return Promise.resolve();
+    }
+
     const {
         url,
         confirmBtnId,
@@ -4135,6 +4238,16 @@ function confirmWorkflowAction() {
 }
 
 async function performWorkflowAction(action, comment) {
+    if (!areWorkflowActionsAllowed()) {
+        showAppModal({
+            variant: 'warning',
+            title: 'Action Not Allowed',
+            message: 'Workflow actions are disabled for this control',
+            autoCloseMs: 0
+        });
+        return;
+    }
+
     const controlIdElement = document.querySelector('input[name="id"]');
     const controlId = controlIdElement ? controlIdElement.value : null;
 
@@ -4385,5 +4498,10 @@ async function confirmReturnToSoqmLead() {
 }
 
 window.viewControl = viewControl;
+
+
+
+
+
 
 

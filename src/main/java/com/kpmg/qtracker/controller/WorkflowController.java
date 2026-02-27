@@ -32,6 +32,7 @@ public class WorkflowController {
     private final WorkflowHistoryRepository workflowHistoryRepository;
     private final NotificationService notificationService;
     private final WorkflowRequiredFieldService requiredFieldService;
+    private final ControlPermissionService controlPermissionService;
 
     @PostMapping("/perform-action")
     @Transactional
@@ -48,6 +49,13 @@ public class WorkflowController {
             String action = request.getAction();
             String comment = request.getComment();
 
+            Control control = controlService.getControlById(controlId)
+                    .orElseThrow(() -> new RuntimeException("Control not found"));
+            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            if (restrictedResponse != null) {
+                return restrictedResponse;
+            }
+
             log.info("Workflow action: {} for control: {} by user: {}",
                     action, controlId, userEmail);
 
@@ -60,9 +68,6 @@ public class WorkflowController {
                     currentPerformanceStatus, action, userEmail, controlId);
 
             // Обновляем performance_status вместо performance_status
-            Control control = controlService.getControlById(controlId)
-                    .orElseThrow(() -> new RuntimeException("Control not found"));
-
             String normalizedAction = action != null ? action.trim().toUpperCase(Locale.ROOT) : "";
             boolean requiresSteps = Set.of(
                     "SUBMIT_FOR_REVIEW",
@@ -99,7 +104,7 @@ public class WorkflowController {
                     currentPerformanceStatus, newStatus, comment);
 
             // Send workflow notifications based on transition
-            sendWorkflowNotifications(control, action, currentPerformanceStatus, newStatus);
+            sendWorkflowNotifications(control, action, currentPerformanceStatus, newStatus, currentUser, comment);
 
             log.info("Workflow action completed successfully. New status: {}", newStatus);
 
@@ -240,6 +245,10 @@ public class WorkflowController {
 
             Control control = controlService.getControlById(actionDTO.getControlId())
                     .orElseThrow(() -> new RuntimeException("Control not found"));
+            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            if (restrictedResponse != null) {
+                return restrictedResponse;
+            }
             workflowService.approveStep(actionDTO, currentUser.getMail());
             return ResponseEntity.ok().build();
 
@@ -260,6 +269,10 @@ public class WorkflowController {
 
             Control control = controlService.getControlById(actionDTO.getControlId())
                     .orElseThrow(() -> new RuntimeException("Control not found"));
+            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            if (restrictedResponse != null) {
+                return restrictedResponse;
+            }
             workflowService.returnStep(actionDTO, currentUser.getMail());
             return ResponseEntity.ok().build();
 
@@ -320,6 +333,10 @@ public class WorkflowController {
                 return ResponseEntity.badRequest().body("Control not found");
             }
             Control control = controlOpt.get();
+            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            if (restrictedResponse != null) {
+                return restrictedResponse;
+            }
 
             Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control, currentUser);
             if (missingField.isPresent()) {
@@ -378,6 +395,10 @@ public class WorkflowController {
                 return ResponseEntity.badRequest().body("Control not found");
             }
             Control control = controlOpt.get();
+            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            if (restrictedResponse != null) {
+                return restrictedResponse;
+            }
 
             // Update control status
             control.setPerformanceStatus("REVIEW");
@@ -401,11 +422,19 @@ public class WorkflowController {
             workflowHistoryRepository.save(history);
 
             // Notify Control Operator only
-            notificationService.sendTemplateNotifications(
+            List<String> recipients = assignmentEmails(controlId, "CONTROL_OPERATOR");
+            String currentEmail = currentUser.getMail();
+            if (currentEmail != null) {
+                recipients.removeIf(email -> email != null && email.equalsIgnoreCase(currentEmail));
+            }
+            notificationService.sendReturnNotifications(
                     control,
-                    assignmentEmails(controlId, "CONTROL_OPERATOR"),
-                    NotificationTemplateService.TemplateType.SOQM_TO_OPERATOR_RETURN,
-                    false
+                    recipients,
+                    currentUser.getRole(),
+                    currentUser.getDisplayName(),
+                    "Control Operator",
+                    comments,
+                    "RETURN_TO_OPERATOR"
             );
 
             log.info("✅ Control {} returned to Control Operator successfully", controlId);
@@ -435,6 +464,10 @@ public class WorkflowController {
                 return ResponseEntity.badRequest().body("Control not found");
             }
             Control control = controlOpt.get();
+            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            if (restrictedResponse != null) {
+                return restrictedResponse;
+            }
 
             // Update control status to Completed
             control.setPerformanceStatus("COMPLETED");
@@ -488,6 +521,10 @@ public class WorkflowController {
                 return ResponseEntity.badRequest().body("Control not found");
             }
             Control control = controlOpt.get();
+            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            if (restrictedResponse != null) {
+                return restrictedResponse;
+            }
 
             // Update control status
             control.setPerformanceStatus("SOQM_HEAD_REVIEW");
@@ -519,13 +556,13 @@ public class WorkflowController {
             if (currentEmail != null) {
                 recipients.removeIf(email -> email != null && email.equalsIgnoreCase(currentEmail));
             }
-            String controlLabel = control.getControlId() != null ? control.getControlId() : String.valueOf(control.getId());
-            String message = "The control " + controlLabel + " has been returned to SoQM Team for review.";
             notificationService.sendReturnNotifications(
                     control,
                     recipients,
                     currentUser.getRole(),
-                    message,
+                    currentUser.getDisplayName(),
+                    "SoQM Team",
+                    comments,
                     "RETURN_TO_SOQM_LEAD"
             );
 
@@ -546,6 +583,15 @@ public class WorkflowController {
     }
 
     private void sendWorkflowNotifications(Control control, String action, String oldStatus, String newStatus) {
+        sendWorkflowNotifications(control, action, oldStatus, newStatus, null, null);
+    }
+
+    private void sendWorkflowNotifications(Control control,
+                                           String action,
+                                           String oldStatus,
+                                           String newStatus,
+                                           User currentUser,
+                                           String comment) {
         if (control == null || action == null) {
             return;
         }
@@ -573,11 +619,43 @@ public class WorkflowController {
         }
 
         if ("SEND_BACK_TO_OPERATOR".equals(normalizedAction)) {
-            notificationService.sendTemplateNotifications(
+            notificationService.sendReturnNotifications(
                     control,
-                    assignmentEmails(control.getId(), "CONTROL_OPERATOR"),
-                    NotificationTemplateService.TemplateType.SOQM_TO_OPERATOR_RETURN,
-                    false
+                    recipientsWithoutActor(assignmentEmails(control.getId(), "CONTROL_OPERATOR"),
+                            currentUser != null ? currentUser.getMail() : null),
+                    currentUser != null ? currentUser.getRole() : null,
+                    currentUser != null ? currentUser.getDisplayName() : null,
+                    "Control Operator",
+                    firstNonBlank(comment, control.getReturnToOperatorComment()),
+                    "RETURN_TO_OPERATOR"
+            );
+            return;
+        }
+
+        if ("RETURN_TO_FACILITATOR".equals(normalizedAction)) {
+            notificationService.sendReturnNotifications(
+                    control,
+                    recipientsWithoutActor(assignmentEmails(control.getId(), "FACILITATOR"),
+                            currentUser != null ? currentUser.getMail() : null),
+                    currentUser != null ? currentUser.getRole() : null,
+                    currentUser != null ? currentUser.getDisplayName() : null,
+                    "Facilitator",
+                    firstNonBlank(comment, control.getReturnToFacilitatorComment()),
+                    "RETURN_TO_FACILITATOR"
+            );
+            return;
+        }
+
+        if ("RETURN_TO_SOQM_LEAD".equals(normalizedAction)) {
+            notificationService.sendReturnNotifications(
+                    control,
+                    recipientsWithoutActor(assignmentEmails(control.getId(), "SOQM_LEAD"),
+                            currentUser != null ? currentUser.getMail() : null),
+                    currentUser != null ? currentUser.getRole() : null,
+                    currentUser != null ? currentUser.getDisplayName() : null,
+                    "SoQM Team",
+                    firstNonBlank(comment, control.getReturnToSoqmTeamComment()),
+                    "RETURN_TO_SOQM_LEAD"
             );
             return;
         }
@@ -600,6 +678,25 @@ public class WorkflowController {
                     false
             );
         }
+    }
+
+    private List<String> recipientsWithoutActor(List<String> recipients, String actorEmail) {
+        if (recipients == null || recipients.isEmpty() || actorEmail == null || actorEmail.isBlank()) {
+            return recipients == null ? List.of() : recipients;
+        }
+        List<String> filtered = new ArrayList<>(recipients);
+        filtered.removeIf(email -> email != null && email.equalsIgnoreCase(actorEmail));
+        return filtered;
+    }
+
+    private String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) {
+            return first;
+        }
+        if (second != null && !second.isBlank()) {
+            return second;
+        }
+        return null;
     }
 
     private List<String> assignmentEmails(Long controlId, String role) {
@@ -656,5 +753,17 @@ public class WorkflowController {
         log.info("Workflow notification: control={}, step={}, recipients={}",
                 control.getControlId(), stepName, recipients.size());
         notificationService.sendWorkflowStepNotifications(control, recipients, stepName, message);
+    }
+
+    private ResponseEntity<?> denyWorkflowActionIfRestricted(Control control, User currentUser) {
+        ControlPermission permission = controlPermissionService.resolve(control, currentUser);
+        if (!permission.canView()) {
+            return ResponseEntity.status(403).body("Forbidden");
+        }
+        if (!permission.canUseWorkflowActions()) {
+            return ResponseEntity.status(403)
+                    .body("Workflow actions are disabled for shared users on completed controls");
+        }
+        return null;
     }
 }

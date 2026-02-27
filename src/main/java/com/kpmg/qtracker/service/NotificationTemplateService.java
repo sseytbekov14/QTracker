@@ -170,6 +170,27 @@ public class NotificationTemplateService {
         }
     }
 
+    public NotificationTemplate renderReturnNotification(Control control,
+                                                         String returnedByName,
+                                                         String returnedToLabel,
+                                                         String comment,
+                                                         String notificationType) {
+        String controlId = buildControlId(control);
+        String subject = "Control Returned to " + formatReturnedToLabel(returnedToLabel);
+
+        StringBuilder body = new StringBuilder();
+        body.append("Control ID: ").append(controlId).append("\n");
+        body.append("Returned by: ").append(formatReturnedBy(returnedByName)).append("\n");
+
+        if (comment != null && !comment.isBlank()) {
+            body.append("\n");
+            body.append("Return Comment:\n");
+            body.append(comment.trim()).append("\n");
+        }
+
+        return new NotificationTemplate(subject, body.toString().trim(), notificationType);
+    }
+
     public String buildControlLink(Control control) {
         if (control == null) {
             return "";
@@ -288,6 +309,16 @@ public class NotificationTemplateService {
             return "Dear " + name + ",";
         }
         return "Dear User,";
+    }
+
+    private String formatReturnedBy(String returnedByName) {
+        String value = returnedByName != null ? returnedByName.trim() : "";
+        return value.isEmpty() ? "User" : value;
+    }
+
+    private String formatReturnedToLabel(String returnedToLabel) {
+        String value = returnedToLabel != null ? returnedToLabel.trim() : "";
+        return value.isEmpty() ? "User" : value;
     }
 
     @Getter

@@ -40,6 +40,7 @@ public class ViewController {
     private final NotificationService notificationService;
     private final WorkflowHistoryRepository workflowHistoryRepository;
     private final NotificationTypeDisplayMapper notificationTypeDisplayMapper;
+    private final ControlPermissionService controlPermissionService;
 
     private User getCurrentUser(HttpSession session) {
         return (User) session.getAttribute("currentUser");
@@ -563,41 +564,9 @@ public class ViewController {
 
     /**
      * Unified access check: can this user view the given control?
-     * Allowed if:
-     *  a) ADMIN or SOQM role, OR
-     *  b) creator of the control, OR
-     *  c) assigned as facilitator/operator/soqm lead/process owner, OR
-     *  d) present in control_shared_with
      */
     private boolean canViewControl(Long controlId, Control control, User user) {
-        String role = user.getRole();
-        String email = user.getMail();
-
-        // (a) System-wide roles
-        if (isGlobalVisibilityRole(role)) {
-            return true;
-        }
-
-        // (b) Creator
-        if (control.getCreatedBy() != null && email.equalsIgnoreCase(control.getCreatedBy().getMail())) {
-            return true;
-        }
-
-        // (c) & (d) Check assignment
-        try {
-            ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
-            if (assignment != null) {
-                if (containsEmailNormalized(assignment.getFacilitator(), email)) return true;
-                if (containsEmailNormalized(assignment.getControlOperator(), email)) return true;
-                if (containsEmailNormalized(assignment.getSoqmLead(), email)) return true;
-                if (containsEmailNormalized(assignment.getProcessOwner(), email)) return true;
-                if (containsEmailNormalized(assignment.getControlSharedWith(), email)) return true;
-            }
-        } catch (Exception e) {
-            // assignment not found — deny
-        }
-
-        return false;
+        return controlPermissionService.resolve(control, user).canView();
     }
 
     @GetMapping("/notifications")
@@ -763,8 +732,6 @@ public class ViewController {
 
         return "component-controls";
     }
-
-
     @GetMapping("/view-control/{id}")
     public String viewControl(@PathVariable Long id, Model model, HttpSession session,
                               RedirectAttributes redirectAttributes) {
@@ -776,13 +743,15 @@ public class ViewController {
         Control control = controlService.getControlById(id)
                 .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
 
-        if (!canViewControl(id, control, currentUser)) {
+        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(id);
+        ControlPermission permission = controlPermissionService.resolve(control, currentUser, assignment);
+
+        if (!permission.canView()) {
             redirectAttributes.addFlashAttribute("accessDeniedMessage",
-                    "Access revoked — you no longer have permission to view this control.");
+                    "Access revoked - you no longer have permission to view this control.");
             return "redirect:/controls";
         }
 
-        // Use performance_status instead
         String performanceStatus = control.getPerformanceStatus();
         if (performanceStatus == null || performanceStatus.isEmpty()) {
             performanceStatus = "DRAFT";
@@ -793,54 +762,8 @@ public class ViewController {
                     org.springframework.http.HttpStatus.NOT_FOUND, "Control not found");
         }
 
-        // Determine if current user can edit this control
         String userEmail = currentUser.getMail();
-        String userRole = currentUser.getRole();
-        boolean isCreator = control.getCreatedBy() != null && control.getCreatedBy().getMail().equals(userEmail);
-        boolean isInProgress = "IN_PROGRESS".equals(performanceStatus);
-
-        // Determine roles based on assignment (not just global role)
-        Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(id);
-        ControlAssignment assignment = assignmentOpt.orElse(null);
-
-        List<String> facilitators = controlService.getFacilitatorsForControl(id);
-        boolean isFacilitator = facilitators != null && facilitators.contains(userEmail);
-
-        boolean isControlOperator = assignment != null
-                && assignment.getControlOperator() != null
-                && assignment.getControlOperator().toLowerCase().contains(userEmail.toLowerCase());
-
-        boolean isSoqmLead = isSoqmRole(userRole)
-                || (assignment != null && assignment.getSoqmLead() != null
-                    && assignment.getSoqmLead().toLowerCase().contains(userEmail.toLowerCase()));
-
-        boolean isProcessOwner = assignment != null
-                && assignment.getProcessOwner() != null
-                && assignment.getProcessOwner().toLowerCase().contains(userEmail.toLowerCase());
-        
-        // Control Operator can edit when status is "REVIEW"
-        boolean isControlOperatorReview = "REVIEW".equals(performanceStatus);
-        boolean isSoqmLeadReview = "SOQM_HEAD_REVIEW".equals(performanceStatus);
-        boolean isProcessOwnerReview = "PROCESS_OWNER_REVIEW".equals(performanceStatus);
-
-        // Check if user is shared viewer
-        boolean isSharedViewer = false;
-        if (assignment != null) {
-            String sharedField = assignment.getControlSharedWith();
-            isSharedViewer = sharedField != null && sharedField.toLowerCase().contains(userEmail.toLowerCase());
-        }
-
-        // Shared users can edit specific fields when COMPLETED
-        boolean isCompletedShared = isSharedViewer && "COMPLETED".equals(performanceStatus);
-
-        boolean canEdit = isSoqmRole(userRole) ||
-                (isCreator && isInProgress) ||
-                (isFacilitator && "IN_PROGRESS".equals(performanceStatus)) ||
-                (isControlOperator && isControlOperatorReview) ||
-                (isSoqmLead && isSoqmLeadReview) ||
-                (isProcessOwner && isProcessOwnerReview) ||
-                isCompletedShared;
-        boolean readOnly = !canEdit;
+        boolean readOnly = !permission.canEdit();
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userTitle", currentUser.getTitle());
@@ -849,15 +772,17 @@ public class ViewController {
         model.addAttribute("control", control);
         model.addAttribute("performanceStatus", performanceStatus);
         model.addAttribute("readOnly", readOnly);
-        model.addAttribute("isFacilitator", isFacilitator);
-        model.addAttribute("isControlOperator", isControlOperator);
-        model.addAttribute("isSoqmLead", isSoqmLead);
-        model.addAttribute("isProcessOwner", isProcessOwner);
-        model.addAttribute("isSharedViewer", isSharedViewer);
+        model.addAttribute("isFacilitator", permission.isFacilitator());
+        model.addAttribute("isControlOperator", permission.isControlOperator());
+        model.addAttribute("isSoqmLead", permission.isSoqmLead());
+        model.addAttribute("isProcessOwner", permission.isProcessOwner());
+        model.addAttribute("isSharedViewer", permission.isSharedViewer());
+        model.addAttribute("canUseWorkflowActions", permission.canUseWorkflowActions());
+        model.addAttribute("allowedEditableFields", permission.getAllowedEditableFields());
+        model.addAttribute("allowedEditableFieldsCsv", String.join(",", permission.getAllowedEditableFields()));
 
-        // Check if this shared viewer already submitted from COMPLETED
         boolean hasSharedSubmitted = false;
-        if (isSharedViewer) {
+        if (permission.isSharedViewer()) {
             hasSharedSubmitted = workflowHistoryRepository.hasSharedSubmitted(id, userEmail);
         }
         model.addAttribute("hasSharedSubmitted", hasSharedSubmitted);
@@ -892,7 +817,6 @@ public class ViewController {
         dto.setUpdatedAt(control.getUpdatedAt());
         return dto;
     }
-
     @GetMapping("/edit-control/{id}")
     public String editControl(@PathVariable Long id, Model model, HttpSession session,
                               RedirectAttributes redirectAttributes) {
@@ -904,15 +828,19 @@ public class ViewController {
         Control control = controlService.getControlById(id)
                 .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
 
-        if (!canViewControl(id, control, currentUser)) {
+        ControlPermission permission = controlPermissionService.resolve(control, currentUser);
+        if (!permission.canView()) {
             redirectAttributes.addFlashAttribute("accessDeniedMessage",
-                    "Access revoked — you no longer have permission to view this control.");
+                    "Access revoked - you no longer have permission to view this control.");
             return "redirect:/controls";
         }
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userTitle", currentUser.getTitle());
         model.addAttribute("userEmail", currentUser.getMail());
+        model.addAttribute("readOnly", !permission.canEdit());
+        model.addAttribute("canUseWorkflowActions", permission.canUseWorkflowActions());
+        model.addAttribute("allowedEditableFields", permission.getAllowedEditableFields());
         model.addAttribute("control", control);
 
         return "edit-control";
@@ -1161,3 +1089,7 @@ public class ViewController {
         return groups;
     }
 }
+
+
+
+

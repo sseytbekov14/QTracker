@@ -8,6 +8,8 @@ import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdhocNotificationService;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.ControlPermission;
+import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.service.AnnualNotificationService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
@@ -31,7 +33,9 @@ import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -72,6 +76,8 @@ class ControlTabsControllerAuditTest {
     private SemiAnnualNotificationService semiAnnualNotificationService;
     @MockBean
     private NotificationService notificationService;
+    @MockBean
+    private ControlPermissionService controlPermissionService;
 
     @Test
     void saveControlDetails_whenNoChanges_doesNotLogAudit() throws Exception {
@@ -95,6 +101,10 @@ class ControlTabsControllerAuditTest {
 
         when(controlService.getControlById(1L)).thenReturn(Optional.of(control));
         when(controlAssignmentService.getAssignmentByControlId(1L)).thenReturn(assignmentDTO);
+        when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(assignmentDTO)))
+                .thenReturn(new ControlPermission(true, true,
+                        java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
+                        true, false, false, false, true, false, false, false));
         when(controlDetailsService.getDetailsByControlId(1L)).thenReturn(existingDetails);
         when(controlDetailsService.saveDetails(any(ControlDetailsDTO.class))).thenReturn(new ControlDetails());
 
@@ -139,6 +149,10 @@ class ControlTabsControllerAuditTest {
 
         when(controlService.getControlById(2L)).thenReturn(Optional.of(control));
         when(controlAssignmentService.getAssignmentByControlId(2L)).thenReturn(existingAssignment);
+        when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(existingAssignment)))
+                .thenReturn(new ControlPermission(true, true,
+                        java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
+                        true, false, false, false, true, false, false, false));
 
         mockMvc.perform(post("/api/control-assignment")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -152,6 +166,91 @@ class ControlTabsControllerAuditTest {
         verify(AdhocNotificationService, never()).maybeSendImmediateDay0(anyLong());
         verify(AnnualNotificationService, never()).maybeSendImmediateDay0(anyLong());
         verify(semiAnnualNotificationService, never()).maybeSendImmediateDay0(anyLong());
+    }
+
+    @Test
+    void saveControlDetails_sharedCompletedFacilitator_canUpdateOnlyControlSteps() throws Exception {
+        User sessionUser = new User();
+        sessionUser.setMail("shared-fac@kpmg.com");
+        sessionUser.setRole("FACILITATOR");
+        sessionUser.setDisplayName("Shared Facilitator");
+
+        Control control = new Control();
+        control.setId(3L);
+        control.setPerformanceStatus("COMPLETED");
+        control.setCreatedBy(sessionUser);
+
+        ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
+        assignmentDTO.setFacilitator(List.of("shared-fac@kpmg.com"));
+        assignmentDTO.setControlSharedWith(List.of("shared-fac@kpmg.com"));
+
+        ControlDetailsDTO existingDetails = new ControlDetailsDTO();
+        existingDetails.setControlId(3L);
+        existingDetails.setProcessName("Original Process");
+        existingDetails.setControlStepsPerformed("Old steps");
+
+        ControlDetailsDTO request = new ControlDetailsDTO();
+        request.setControlId(3L);
+        request.setControlStepsPerformed("Updated steps by shared user");
+
+        when(controlService.getControlById(3L)).thenReturn(Optional.of(control));
+        when(controlAssignmentService.getAssignmentByControlId(3L)).thenReturn(assignmentDTO);
+        when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(assignmentDTO)))
+                .thenReturn(new ControlPermission(true, true,
+                        java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
+                        false, false, true, true, true, false, false, false));
+        when(controlDetailsService.getDetailsByControlId(3L)).thenReturn(existingDetails);
+        when(controlDetailsService.saveDetails(any(ControlDetailsDTO.class))).thenReturn(new ControlDetails());
+
+        mockMvc.perform(post("/api/control-details")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isOk());
+
+        verify(controlDetailsService, times(1)).saveDetails(any(ControlDetailsDTO.class));
+    }
+
+    @Test
+    void saveControlDetails_sharedCompletedFacilitator_cannotUpdateDisallowedFields() throws Exception {
+        User sessionUser = new User();
+        sessionUser.setMail("shared-fac2@kpmg.com");
+        sessionUser.setRole("FACILITATOR");
+        sessionUser.setDisplayName("Shared Facilitator 2");
+
+        Control control = new Control();
+        control.setId(4L);
+        control.setPerformanceStatus("COMPLETED");
+        control.setCreatedBy(sessionUser);
+
+        ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
+        assignmentDTO.setFacilitator(List.of("shared-fac2@kpmg.com"));
+        assignmentDTO.setControlSharedWith(List.of("shared-fac2@kpmg.com"));
+
+        ControlDetailsDTO existingDetails = new ControlDetailsDTO();
+        existingDetails.setControlId(4L);
+        existingDetails.setProcessName("Original Process");
+        existingDetails.setControlStepsPerformed("Old steps");
+
+        ControlDetailsDTO request = new ControlDetailsDTO();
+        request.setControlId(4L);
+        request.setProcessName("Changed Process Name");
+
+        when(controlService.getControlById(4L)).thenReturn(Optional.of(control));
+        when(controlAssignmentService.getAssignmentByControlId(4L)).thenReturn(assignmentDTO);
+        when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(assignmentDTO)))
+                .thenReturn(new ControlPermission(true, true,
+                        java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
+                        false, false, true, true, true, false, false, false));
+        when(controlDetailsService.getDetailsByControlId(4L)).thenReturn(existingDetails);
+
+        mockMvc.perform(post("/api/control-details")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isForbidden());
+
+        verify(controlDetailsService, never()).saveDetails(any(ControlDetailsDTO.class));
     }
 }
 

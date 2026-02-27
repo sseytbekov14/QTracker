@@ -8,6 +8,7 @@ import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
 import com.kpmg.qtracker.service.ControlDocumentsService;
 import com.kpmg.qtracker.service.ControlHistoryService;
+import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
 import com.kpmg.qtracker.service.UserService;
@@ -61,6 +62,12 @@ class ControlControllerExportExcelTest {
 
     @MockBean
     private ControlHistoryService controlHistoryService;
+
+    @MockBean
+    private ControlPermissionService controlPermissionService;
+
+    @MockBean
+    private com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;
 
     @MockBean
     private StatusDisplayMapper statusDisplayMapper;

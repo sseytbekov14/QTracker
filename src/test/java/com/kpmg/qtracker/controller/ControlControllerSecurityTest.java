@@ -10,6 +10,8 @@ import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
 import com.kpmg.qtracker.service.ControlDocumentsService;
 import com.kpmg.qtracker.service.ControlHistoryService;
+import com.kpmg.qtracker.service.ControlPermission;
+import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
 import com.kpmg.qtracker.service.UserService;
@@ -27,6 +29,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -67,6 +70,12 @@ class ControlControllerSecurityTest {
 
     @MockBean
     private ControlHistoryService controlHistoryService;
+
+    @MockBean
+    private ControlPermissionService controlPermissionService;
+
+    @MockBean
+    private com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;
 
     @MockBean
     private StatusDisplayMapper statusDisplayMapper;
@@ -231,6 +240,9 @@ class ControlControllerSecurityTest {
         when(controlService.getControlById(200L)).thenReturn(Optional.of(existing));
         when(controlService.updateControl(any(Control.class))).thenReturn(updated);
         when(controlAssignmentService.getAssignmentByControlId(200L)).thenReturn(new ControlAssignmentDTO());
+        when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
+                        false, false, false, false, true, false));
 
         mockMvc.perform(put("/api/controls/200")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -255,8 +267,36 @@ class ControlControllerSecurityTest {
 
         when(controlService.getControlById(201L)).thenReturn(Optional.of(existing));
         when(controlAssignmentService.getAssignmentByControlId(201L)).thenReturn(new ControlAssignmentDTO());
+        when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
+                .thenReturn(ControlPermission.denied());
 
         mockMvc.perform(put("/api/controls/201")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isForbidden());
+
+        verify(controlService, never()).updateControl(any(Control.class));
+    }
+
+    @Test
+    void updateControl_whenCompletedAndNonSharedUser_returns403() throws Exception {
+        User sessionUser = userWithRole("FACILITATOR");
+        Control existing = new Control();
+        existing.setId(202L);
+        existing.setControlId("CTRL-202");
+        existing.setControlFrequency("Monthly");
+        existing.setPerformanceStatus("COMPLETED");
+
+        ControlDTO updateRequest = new ControlDTO();
+        updateRequest.setControlFrequency("Monthly");
+
+        when(controlService.getControlById(202L)).thenReturn(Optional.of(existing));
+        when(controlAssignmentService.getAssignmentByControlId(202L)).thenReturn(new ControlAssignmentDTO());
+        when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
+                .thenReturn(ControlPermission.denied());
+
+        mockMvc.perform(put("/api/controls/202")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateRequest))
                         .sessionAttr("currentUser", sessionUser))

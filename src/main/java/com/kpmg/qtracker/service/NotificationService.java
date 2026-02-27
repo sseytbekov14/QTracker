@@ -144,17 +144,20 @@ public class NotificationService {
     public void sendReturnNotifications(Control control,
                                         List<String> recipientEmails,
                                         String performedByRole,
-                                        String message,
+                                        String performedByName,
+                                        String returnedToLabel,
+                                        String returnComment,
                                         String notificationType) {
         if (control == null || recipientEmails == null || recipientEmails.isEmpty()) {
             return;
         }
-        String roleLabel = mapRoleLabel(performedByRole);
-        String title = "Control Returned by " + roleLabel;
+        String actor = normalizeActorName(performedByName, performedByRole);
         NotificationTemplateService.NotificationTemplate template =
-                new NotificationTemplateService.NotificationTemplate(
-                        title,
-                        message,
+                notificationTemplateService.renderReturnNotification(
+                        control,
+                        actor,
+                        returnedToLabel,
+                        returnComment,
                         notificationType
                 );
 
@@ -198,6 +201,14 @@ public class NotificationService {
                 }
             });
         }
+    }
+
+    private String normalizeActorName(String performedByName, String performedByRole) {
+        String name = performedByName != null ? performedByName.trim() : "";
+        if (!name.isEmpty()) {
+            return name;
+        }
+        return mapRoleLabel(performedByRole);
     }
 
     private void createNotification(String email,

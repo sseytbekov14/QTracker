@@ -237,6 +237,9 @@
 <input type="hidden" id="isControlOperator" th:value="${isControlOperator}">
 <input type="hidden" id="isSoqmLead" th:value="${isSoqmLead}">
 <input type="hidden" id="isProcessOwner" th:value="${isProcessOwner}">
+<input type="hidden" id="isSharedViewer" th:value="${isSharedViewer}">
+<input type="hidden" id="canUseWorkflowActions" th:value="${canUseWorkflowActions}">
+<input type="hidden" id="allowedEditableFields" th:value="${allowedEditableFieldsCsv}">
 
 <div class="container-fluid">
     <div class="row">
@@ -1141,6 +1144,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const isControlOperator = document.getElementById('isControlOperator')?.value === 'true';
     const isSoqmLead = document.getElementById('isSoqmLead')?.value === 'true';
     const isProcessOwner = document.getElementById('isProcessOwner')?.value === 'true';
+    const canUseWorkflowActions = document.getElementById('canUseWorkflowActions')?.value !== 'false';
     const performanceStatus = document.querySelector('input[name="performanceStatus"]')?.value;
     
     const submitToOperatorBtn = document.getElementById('submitForReviewBtn');
@@ -1160,16 +1164,24 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('   isControlOperator:', isControlOperator);
     console.log('   isSoqmLead:', isSoqmLead);
     console.log('   isProcessOwner:', isProcessOwner);
+    console.log('   canUseWorkflowActions:', canUseWorkflowActions);
     console.log('   performanceStatus:', performanceStatus);
 
+    if (!canUseWorkflowActions) {
+        const workflowContainer = document.getElementById('workflow-buttons-container');
+        if (workflowContainer) {
+            workflowContainer.style.display = 'none';
+        }
+    }
+
     // FACILITATOR: Show "Submit to Control Operator" button
-    if (submitToOperatorBtn && isFacilitator && performanceStatus === 'IN_PROGRESS') {
+    if (canUseWorkflowActions && submitToOperatorBtn && isFacilitator && performanceStatus === 'IN_PROGRESS') {
         submitToOperatorBtn.style.display = 'inline-block';
         console.log('   ✅ Submit to Control Operator button shown for Facilitator');
     }
 
     // CONTROL OPERATOR: Show "Submit to SoQM Lead" and "Return to Facilitator" buttons
-    if (isControlOperator && performanceStatus === 'REVIEW') {
+    if (canUseWorkflowActions && isControlOperator && performanceStatus === 'REVIEW') {
         if (submitToSoqmLeadBtn) {
             submitToSoqmLeadBtn.style.display = 'inline-block';
             console.log('   ✅ Submit to SoQM Lead button shown for Control Operator');
@@ -1181,7 +1193,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // SOQM LEAD: Show "Submit to Process Owner" and "Return to Operator" buttons
-    if (isSoqmLead && performanceStatus === 'SOQM_HEAD_REVIEW') {
+    if (canUseWorkflowActions && isSoqmLead && performanceStatus === 'SOQM_HEAD_REVIEW') {
         if (submitToProcessOwnerBtn) {
             submitToProcessOwnerBtn.style.display = 'inline-block';
             console.log('   ✅ Submit to Process Owner button shown for SoQM Lead');
@@ -1206,7 +1218,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // PROCESS OWNER: Show "Complete" and "Return to SoQM Lead" buttons
-    if (isProcessOwner && performanceStatus === 'PROCESS_OWNER_REVIEW') {
+    if (canUseWorkflowActions && isProcessOwner && performanceStatus === 'PROCESS_OWNER_REVIEW') {
         if (completeControlBtn) {
             completeControlBtn.style.display = 'inline-block';
             console.log('   ✅ Complete button shown for Process Owner');
@@ -1251,10 +1263,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const controlStepsHint = document.getElementById('controlStepsSubmitHint');
     const submitButtons = [];
 
-    if (isFacilitator && performanceStatus === 'IN_PROGRESS') {
+    if (canUseWorkflowActions && isFacilitator && performanceStatus === 'IN_PROGRESS') {
         submitButtons.push(submitToOperatorBtn);
     }
-    if (isControlOperator && performanceStatus === 'REVIEW') {
+    if (canUseWorkflowActions && isControlOperator && performanceStatus === 'REVIEW') {
         submitButtons.push(document.getElementById('submitToSoqmLeadBtn'));
     }
 

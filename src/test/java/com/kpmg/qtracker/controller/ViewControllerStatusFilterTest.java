@@ -12,6 +12,8 @@ import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
 import com.kpmg.qtracker.service.ControlDocumentsService;
+import com.kpmg.qtracker.service.ControlPermission;
+import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
 import com.kpmg.qtracker.service.NotificationService;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -75,6 +78,9 @@ class ViewControllerStatusFilterTest {
 
     @MockBean
     private WorkflowHistoryRepository workflowHistoryRepository;
+
+    @MockBean
+    private ControlPermissionService controlPermissionService;
 
     @MockBean(name = "statusDisplayMapper")
     private StatusDisplayMapper statusDisplayMapper;
@@ -512,9 +518,10 @@ class ViewControllerStatusFilterTest {
         draftControl.setControlStatus("DRAFT");
 
         when(controlService.getControlById(30L)).thenReturn(java.util.Optional.of(draftControl));
-        when(controlService.getFacilitatorsForControl(30L)).thenReturn(List.of());
-        when(controlAssignmentRepository.findByControlId(30L))
-                .thenReturn(java.util.Optional.empty());
+        ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
+        when(controlAssignmentService.getAssignmentByControlId(30L)).thenReturn(assignmentDTO);
+        when(controlPermissionService.resolve(draftControl, currentUser, assignmentDTO))
+                .thenReturn(ControlPermission.denied());
 
         mockMvc.perform(get("/view-control/30")
                         .sessionAttr("currentUser", currentUser))
@@ -538,8 +545,11 @@ class ViewControllerStatusFilterTest {
         draftControl.setCreatedBy(createdBy);
 
         when(controlService.getControlById(31L)).thenReturn(java.util.Optional.of(draftControl));
-        when(controlAssignmentRepository.findByControlId(31L))
-                .thenReturn(java.util.Optional.empty());
+        ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
+        when(controlAssignmentService.getAssignmentByControlId(31L)).thenReturn(assignmentDTO);
+        when(controlPermissionService.resolve(draftControl, currentUser, assignmentDTO))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
+                        false, false, false, false, true, false));
 
         mockMvc.perform(get("/view-control/31")
                         .sessionAttr("currentUser", currentUser))
@@ -566,6 +576,10 @@ class ViewControllerStatusFilterTest {
         when(controlService.getControlById(18L)).thenReturn(java.util.Optional.of(control));
         when(controlAssignmentService.getAssignmentByControlId(18L)).thenReturn(assignmentDTO);
         when(performanceService.buildPerformanceDTO(control)).thenReturn(performanceDTO);
+        when(controlPermissionService.resolve(any(Control.class), any(User.class)))
+                .thenReturn(new ControlPermission(true, true,
+                        java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
+                        true, false, false, false, true, false, false, false));
 
         MvcResult result = mockMvc.perform(get("/performance/18")
                         .sessionAttr("currentUser", currentUser))

@@ -29,6 +29,7 @@ public class ControlTabsController {
     private final AnnualNotificationService annualNotificationService;
     private final SemiAnnualNotificationService semiAnnualNotificationService;
     private final NotificationService notificationService;
+    private final ControlPermissionService controlPermissionService;
 
     @PostMapping("/api/control-details")
     public ResponseEntity<?> saveControlDetails(@RequestBody ControlDetailsDTO detailsDTO, HttpSession session) {
@@ -47,12 +48,19 @@ public class ControlTabsController {
             }
             Control control = controlService.getControlById(detailsDTO.getControlId()).orElse(null);
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(detailsDTO.getControlId());
-            if (!canUserEditControl(currentUser, control, assignment)) {
+            ControlPermission permission = controlPermissionService.resolve(control, currentUser, assignment);
+            if (!permission.canEdit()) {
                 return ResponseEntity.status(403)
                         .body("VALIDATION_ERROR: User does not have permission to edit this control");
             }
             ControlDetailsDTO existingDetails = controlDetailsService.getDetailsByControlId(detailsDTO.getControlId());
-            ControlDetailsDTO mergedDetails = mergeControlDetails(existingDetails, detailsDTO, currentUser);
+            if (permission.isSharedCompleted()) {
+                String validationError = validateSharedCompletedDetailsUpdate(existingDetails, detailsDTO, permission);
+                if (validationError != null) {
+                    return ResponseEntity.status(403).body(validationError);
+                }
+            }
+            ControlDetailsDTO mergedDetails = mergeControlDetails(existingDetails, detailsDTO, permission);
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
             List<String> changedFields = new ArrayList<>();
@@ -103,11 +111,16 @@ public class ControlTabsController {
                 return ResponseEntity.status(401).body("User not authenticated");
             }
             Control control = controlService.getControlById(assignmentDTO.getControlId()).orElse(null);
-            if (!canUserEditControl(currentUser, control, assignmentDTO)) {
+            ControlAssignmentDTO existingAssignment = controlAssignmentService.getAssignmentByControlId(assignmentDTO.getControlId());
+            ControlPermission permission = controlPermissionService.resolve(control, currentUser, existingAssignment);
+            if (!permission.canEdit()) {
                 return ResponseEntity.status(403)
                         .body("VALIDATION_ERROR: User does not have permission to edit this control");
             }
-            ControlAssignmentDTO existingAssignment = controlAssignmentService.getAssignmentByControlId(assignmentDTO.getControlId());
+            if (permission.isSharedCompleted()) {
+                return ResponseEntity.status(403)
+                        .body("VALIDATION_ERROR: Shared users on COMPLETED controls cannot edit assignment fields");
+            }
             ControlAssignmentDTO mergedAssignment = mergeControlAssignment(existingAssignment, assignmentDTO);
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
@@ -168,9 +181,14 @@ public class ControlTabsController {
             }
             Control control = controlService.getControlById(documentsDTO.getControlId()).orElse(null);
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(documentsDTO.getControlId());
-            if (!canUserEditControl(currentUser, control, assignment)) {
+            ControlPermission permission = controlPermissionService.resolve(control, currentUser, assignment);
+            if (!permission.canEdit()) {
                 return ResponseEntity.status(403)
                         .body("VALIDATION_ERROR: User does not have permission to edit this control");
+            }
+            if (permission.isSharedCompleted()) {
+                return ResponseEntity.status(403)
+                        .body("VALIDATION_ERROR: Shared users on COMPLETED controls cannot edit document fields");
             }
             ControlDocumentsDTO existingDocuments = controlDocumentsService.getDocumentsByControlId(documentsDTO.getControlId());
             ControlDocumentsDTO mergedDocuments = mergeControlDocuments(existingDocuments, documentsDTO);
@@ -285,62 +303,68 @@ public class ControlTabsController {
         }
     }
 
-    private boolean canUserEditControl(User user, Control control, ControlAssignmentDTO assignment) {
-        if (user == null || control == null) {
-            return false;
+    private String validateSharedCompletedDetailsUpdate(ControlDetailsDTO existing,
+                                                        ControlDetailsDTO incoming,
+                                                        ControlPermission permission) {
+        if (incoming == null || permission == null || !permission.isSharedCompleted()) {
+            return null;
         }
-        String role = user.getRole();
-        if ("SOQM_LEAD".equals(role) || "ADMIN".equals(role)) {
-            return true;
-        }
-        String status = control.getPerformanceStatus();
-        String userEmail = user.getMail();
-        boolean isCreator = control.getCreatedBy() != null
-                && userEmail != null
-                && userEmail.equalsIgnoreCase(control.getCreatedBy().getMail());
-        boolean isFacilitator = containsEmail(assignment != null ? assignment.getFacilitator() : null, userEmail);
-        boolean isControlOperator = containsEmail(assignment != null ? assignment.getControlOperator() : null, userEmail);
-        boolean isSoqmLead = containsEmail(assignment != null ? assignment.getSoqmLead() : null, userEmail);
-        boolean isProcessOwner = containsEmail(assignment != null ? assignment.getProcessOwner() : null, userEmail);
-        if (status == null) {
-            status = "";
-        }
-        boolean isSharedCompleted = "COMPLETED".equals(status)
-                && containsEmail(assignment != null ? assignment.getControlSharedWith() : null, userEmail);
+        ControlDetailsDTO safeExisting = existing != null ? existing : new ControlDetailsDTO();
+        Set<String> allowed = permission.getAllowedEditableFields();
 
-        return (isCreator && "IN_PROGRESS".equals(status))
-                || (isFacilitator && "IN_PROGRESS".equals(status))
-                || (isControlOperator && "REVIEW".equals(status))
-                || (isSoqmLead && "SOQM_HEAD_REVIEW".equals(status))
-                || (isProcessOwner && "PROCESS_OWNER_REVIEW".equals(status))
-                || isSharedCompleted;
+        if (!allowed.contains(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED)
+                && hasForbiddenChange(incoming.getControlStepsPerformed(), safeExisting.getControlStepsPerformed())) {
+            return sharedCompletedDeniedMessage(permission);
+        }
+        if (!allowed.contains(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS)
+                && hasForbiddenChange(incoming.getProcessOwnerComments(), safeExisting.getProcessOwnerComments())) {
+            return sharedCompletedDeniedMessage(permission);
+        }
+
+        if (hasForbiddenChange(incoming.getProcessName(), safeExisting.getProcessName())
+                || hasForbiddenChange(incoming.getHomogeneity(), safeExisting.getHomogeneity())
+                || hasForbiddenChange(incoming.getReferencesToControl(), safeExisting.getReferencesToControl())
+                || hasForbiddenChange(incoming.getDepartment(), safeExisting.getDepartment())
+                || hasForbiddenChange(incoming.getProcessActivities(), safeExisting.getProcessActivities())
+                || hasForbiddenChange(incoming.getOtherRelatedControls(), safeExisting.getOtherRelatedControls())
+                || hasForbiddenChange(incoming.getItApplications(), safeExisting.getItApplications())
+                || hasForbiddenChange(incoming.getSoqmHeadComments(), safeExisting.getSoqmHeadComments())) {
+            return sharedCompletedDeniedMessage(permission);
+        }
+        return null;
     }
 
-    private boolean containsEmail(List<String> emails, String userEmail) {
-        if (emails == null || userEmail == null) {
+    private String sharedCompletedDeniedMessage(ControlPermission permission) {
+        Set<String> allowed = permission != null ? permission.getAllowedEditableFields() : Set.of();
+        if (allowed.isEmpty()) {
+            return "VALIDATION_ERROR: Shared users on COMPLETED controls cannot edit fields for this role";
+        }
+        return "VALIDATION_ERROR: Shared users on COMPLETED controls can edit only: " + String.join(", ", allowed);
+    }
+
+    private boolean hasForbiddenChange(String incoming, String existing) {
+        if (incoming == null) {
             return false;
         }
-        for (String email : emails) {
-            if (email != null && email.equalsIgnoreCase(userEmail)) {
-                return true;
-            }
-        }
-        return false;
+        return !Objects.equals(normalizeString(incoming), normalizeString(existing));
+    }
+
+    private String normalizeString(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private ControlDetailsDTO mergeControlDetails(ControlDetailsDTO existing,
                                                   ControlDetailsDTO incoming,
-                                                  User user) {
+                                                  ControlPermission permission) {
         ControlDetailsDTO merged = new ControlDetailsDTO();
         Long controlId = incoming != null && incoming.getControlId() != null
                 ? incoming.getControlId()
                 : existing != null ? existing.getControlId() : null;
         merged.setControlId(controlId);
 
-        String role = user != null ? user.getRole() : null;
-        boolean allowAll = "SOQM_LEAD".equals(role) || "ADMIN".equals(role);
-        boolean allowSteps = "FACILITATOR".equals(role) || "CONTROL_OPERATOR".equals(role);
-        boolean allowProcessOwner = "PROCESS_OWNER".equals(role);
+        boolean allowAll = permission != null && permission.canEditAll();
+        boolean allowSteps = permission != null && permission.canEditStepsPerformed();
+        boolean allowProcessOwner = permission != null && permission.canEditProcessOwnerComments();
 
         merged.setProcessName(resolveString(existing != null ? existing.getProcessName() : null,
                 incoming != null ? incoming.getProcessName() : null, allowAll));

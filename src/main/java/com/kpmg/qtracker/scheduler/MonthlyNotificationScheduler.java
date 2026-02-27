@@ -13,7 +13,7 @@ public class MonthlyNotificationScheduler {
 
     private final MonthlyNotificationService monthlyNotificationService;
 
-    @Scheduled(cron = "0 34 11 * * *", zone = "Asia/Almaty")
+    @Scheduled(cron = "0 54 14 * * *", zone = "Asia/Almaty")
     public void runMonthlyNotifications() {
         runDay0();
         runDay3();

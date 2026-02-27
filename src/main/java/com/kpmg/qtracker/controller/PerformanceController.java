@@ -4,6 +4,8 @@ import com.kpmg.qtracker.dto.PerformanceDTO;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.service.ControlPermission;
+import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.PerformanceService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
@@ -32,6 +34,7 @@ public class PerformanceController {
     private final ControlAssignmentService controlAssignmentService;
     private final UserService userService;
     private final WorkflowService workflowService;
+    private final ControlPermissionService controlPermissionService;
 
     @PostMapping("/auto-save")
     public ResponseEntity<?> autoSavePerformance(@RequestParam(required = false) String soqmYear,
@@ -124,10 +127,21 @@ public class PerformanceController {
     }
 
     @PostMapping("/initiate")
-    public ResponseEntity<?> initiatePerformance(@ModelAttribute PerformanceDTO performanceDTO) {
+    public ResponseEntity<?> initiatePerformance(@ModelAttribute PerformanceDTO performanceDTO, HttpSession session) {
         try {
+            User currentUser = (User) session.getAttribute("currentUser");
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body("User not authenticated");
+            }
+
             Control control = controlService.getControlById(performanceDTO.getControlId())
                     .orElseThrow(() -> new RuntimeException("Control not found"));
+
+            ControlPermission permission = controlPermissionService.resolve(control, currentUser);
+            if (!permission.canUseWorkflowActions()) {
+                return ResponseEntity.status(403)
+                        .body("Workflow actions are disabled for shared users on completed controls");
+            }
 
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
             String facilitatorEmail = null;

@@ -160,5 +160,6 @@ class NotificationTemplateServiceTest {
         assertFalse(body.contains("CTRL-42 /"));
         assertFalse(body.contains("null"));
     }
+
 }
 

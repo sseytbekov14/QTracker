@@ -1,13 +1,16 @@
 package com.kpmg.qtracker.controller;
 
-import com.kpmg.qtracker.dto.UserDTO;
 import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.service.WorkflowService;
+import com.kpmg.qtracker.service.ControlPermission;
+import com.kpmg.qtracker.service.ControlPermissionService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -18,7 +21,7 @@ import java.util.Map;
 @Slf4j
 public class PermissionController {
 
-    private final WorkflowService workflowService;
+    private final ControlPermissionService controlPermissionService;
 
     @GetMapping("/{controlId}")
     public ResponseEntity<Map<String, Object>> getPermissions(
@@ -31,11 +34,18 @@ public class PermissionController {
                 return ResponseEntity.status(401).build();
             }
 
-            // Получаем права через WorkflowService
-            Map<String, Boolean> permissions = workflowService.getUserPermissions(
-                    controlId, currentUser.getMail());
+            ControlPermission permission = controlPermissionService.resolve(controlId, currentUser);
+            Map<String, Object> permissions = new HashMap<>();
+            permissions.put("canView", permission.canView());
+            permissions.put("canEdit", permission.canEdit());
+            permissions.put("canEditAll", permission.canEditAll());
+            permissions.put("canEditStepsPerformed", permission.canEditStepsPerformed());
+            permissions.put("canEditProcessOwnerComments", permission.canEditProcessOwnerComments());
+            permissions.put("canUseWorkflowActions", permission.canUseWorkflowActions());
+            permissions.put("allowedEditableFields", permission.getAllowedEditableFields());
+            permissions.put("isSharedViewer", permission.isSharedViewer());
+            permissions.put("isSharedCompleted", permission.isSharedCompleted());
 
-            // Создаем response
             Map<String, Object> response = new HashMap<>();
             response.put("controlId", controlId);
             response.put("userEmail", currentUser.getMail());
@@ -64,8 +74,7 @@ public class PermissionController {
                 return ResponseEntity.status(401).build();
             }
 
-            boolean canEdit = workflowService.canUserEditControl(
-                    controlId, currentUser.getMail());
+            boolean canEdit = controlPermissionService.resolve(controlId, currentUser).canEdit();
 
             Map<String, Boolean> response = new HashMap<>();
             response.put("canEdit", canEdit);

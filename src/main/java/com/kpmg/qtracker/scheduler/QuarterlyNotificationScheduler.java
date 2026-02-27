@@ -13,7 +13,7 @@ public class QuarterlyNotificationScheduler {
 
     private final QuarterlyNotificationService quarterlyNotificationService;
 
-    @Scheduled(cron = "0 04 16 * * *", zone = "Asia/Almaty")
+    @Scheduled(cron = "0 54 14 * * *", zone = "Asia/Almaty")
     public void runQuarterlyNotifications() {
         runDay0();
         runDay5();

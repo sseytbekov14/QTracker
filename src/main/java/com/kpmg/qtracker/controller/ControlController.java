@@ -16,6 +16,8 @@ import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
 import com.kpmg.qtracker.service.ControlDocumentsService;
 import com.kpmg.qtracker.service.ControlHistoryService;
+import com.kpmg.qtracker.service.ControlPermission;
+import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
 import com.kpmg.qtracker.service.UserService;
@@ -54,6 +56,7 @@ public class ControlController {
     private final IPerformanceService performanceService; // ДОБАВЛЕНО: поле для performanceService
     private final AdminAuditService adminAuditService;
     private final ControlHistoryService controlHistoryService;
+    private final ControlPermissionService controlPermissionService;
     private final StatusDisplayMapper statusDisplayMapper;
     private final com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;
     private static final Logger logger = LoggerFactory.getLogger(ControlController.class);
@@ -463,9 +466,14 @@ public class ControlController {
             Control existingControl = controlService.getControlById(id)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(id);
-            if (!canUserEditControl(currentUser, existingControl, assignment)) {
+            ControlPermission permission = controlPermissionService.resolve(existingControl, currentUser, assignment);
+            if (!permission.canEdit()) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body("VALIDATION_ERROR: User does not have permission to edit this control");
+            }
+            if (permission.isSharedCompleted()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("VALIDATION_ERROR: Shared users can edit only allowed fields in Control Details");
             }
             String previousFrequency = existingControl.getControlFrequency();
             String requestedFrequency = controlDTO.getControlFrequency();
@@ -652,49 +660,6 @@ public class ControlController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error updating control: " + e.getMessage());
         }
-    }
-
-    private boolean canUserEditControl(User user, Control control, ControlAssignmentDTO assignment) {
-        if (user == null || control == null) {
-            return false;
-        }
-        String role = user.getRole();
-        if ("SOQM_LEAD".equals(role) || "ADMIN".equals(role)) {
-            return true;
-        }
-        String status = control.getPerformanceStatus();
-        String userEmail = user.getMail();
-        boolean isCreator = control.getCreatedBy() != null
-                && userEmail != null
-                && userEmail.equalsIgnoreCase(control.getCreatedBy().getMail());
-        boolean isFacilitator = containsEmail(assignment != null ? assignment.getFacilitator() : null, userEmail);
-        boolean isControlOperator = containsEmail(assignment != null ? assignment.getControlOperator() : null, userEmail);
-        boolean isSoqmLead = containsEmail(assignment != null ? assignment.getSoqmLead() : null, userEmail);
-        boolean isProcessOwner = containsEmail(assignment != null ? assignment.getProcessOwner() : null, userEmail);
-        if (status == null) {
-            status = "";
-        }
-        boolean isSharedCompleted = "COMPLETED".equals(status)
-                && containsEmail(assignment != null ? assignment.getControlSharedWith() : null, userEmail);
-
-        return (isCreator && "IN_PROGRESS".equals(status))
-                || (isFacilitator && "IN_PROGRESS".equals(status))
-                || (isControlOperator && "REVIEW".equals(status))
-                || (isSoqmLead && "SOQM_HEAD_REVIEW".equals(status))
-                || (isProcessOwner && "PROCESS_OWNER_REVIEW".equals(status))
-                || isSharedCompleted;
-    }
-
-    private boolean containsEmail(List<String> emails, String userEmail) {
-        if (emails == null || userEmail == null) {
-            return false;
-        }
-        for (String email : emails) {
-            if (email != null && email.equalsIgnoreCase(userEmail)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     @GetMapping("/{id}/export/completed")
