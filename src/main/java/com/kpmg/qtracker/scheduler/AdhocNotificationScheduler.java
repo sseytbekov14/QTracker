@@ -13,7 +13,7 @@ public class AdhocNotificationScheduler {
 
     private final AdhocNotificationService adhocNotificationService;
 
-    @Scheduled(cron = "0 30 09 * * *", zone = "Asia/Almaty")
+    @Scheduled(cron = "0 55 15 * * *", zone = "Asia/Almaty")
     public void runAdhocNotifications() {
         runDay0();
         runDay5();

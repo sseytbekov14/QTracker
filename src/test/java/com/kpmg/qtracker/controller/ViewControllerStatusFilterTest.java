@@ -36,8 +36,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 @WebMvcTest(controllers = ViewController.class)
 class ViewControllerStatusFilterTest {
@@ -669,6 +673,53 @@ class ViewControllerStatusFilterTest {
         mockMvc.perform(get("/view-control/31")
                         .sessionAttr("currentUser", currentUser))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void viewControl_draft_sharedUser_getsFriendlyNotAvailablePage() throws Exception {
+        User currentUser = new User();
+        currentUser.setId(32L);
+        currentUser.setRole("CONTROL_OPERATOR");
+        currentUser.setMail("shared.operator@kpmg.kz");
+        currentUser.setDisplayName("Shared Operator");
+
+        User creator = new User();
+        creator.setMail("creator@kpmg.kz");
+        creator.setDisplayName("Creator");
+
+        Control draftControl = new Control();
+        draftControl.setId(32L);
+        draftControl.setControlId("QT-2026-001");
+        draftControl.setPerformanceStatus("DRAFT");
+        draftControl.setCreatedBy(creator);
+
+        ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
+        assignmentDTO.setControlSharedWith(List.of("shared.operator@kpmg.kz"));
+
+        when(controlService.getControlById(32L)).thenReturn(java.util.Optional.of(draftControl));
+        when(controlAssignmentService.getAssignmentByControlId(32L)).thenReturn(assignmentDTO);
+        when(controlPermissionService.resolve(draftControl, currentUser, assignmentDTO))
+                .thenReturn(new ControlPermission(
+                        true,
+                        false,
+                        java.util.Set.of(),
+                        false,
+                        false,
+                        true,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false
+                ));
+
+        mockMvc.perform(get("/view-control/32")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk())
+                .andExpect(view().name("control-not-available"))
+                .andExpect(content().string(containsString("Control Not Available Yet")))
+                .andExpect(content().string(containsString("Back to Controls")))
+                .andExpect(content().string(not(containsString("QT-2026-001"))));
     }
 
     @Test

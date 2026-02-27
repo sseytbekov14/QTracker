@@ -826,10 +826,12 @@ public class ViewController {
         if (performanceStatus == null || performanceStatus.isEmpty()) {
             performanceStatus = "DRAFT";
         }
-        if (!isGlobalVisibilityRole(currentUser.getRole())
-                && "DRAFT".equals(normalizeStatus(performanceStatus))) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.NOT_FOUND, "Control not found");
+        if ("DRAFT".equals(normalizeStatus(performanceStatus))
+                && shouldShowDraftSharedNotAvailablePage(control, currentUser, permission)) {
+            model.addAttribute("userName", currentUser.getDisplayName());
+            model.addAttribute("userTitle", currentUser.getTitle());
+            model.addAttribute("userEmail", currentUser.getMail());
+            return "control-not-available";
         }
 
         String userEmail = currentUser.getMail();
@@ -858,6 +860,40 @@ public class ViewController {
         model.addAttribute("hasSharedSubmitted", hasSharedSubmitted);
 
         return "view-control";
+    }
+
+    private boolean shouldShowDraftSharedNotAvailablePage(Control control,
+                                                          User currentUser,
+                                                          ControlPermission permission) {
+        if (control == null || currentUser == null || permission == null) {
+            return false;
+        }
+        if (!permission.isSharedViewer()) {
+            return false;
+        }
+        if (isControlCreator(control, currentUser)) {
+            return false;
+        }
+        return !isAuthorizedWorkflowRole(permission);
+    }
+
+    private boolean isControlCreator(Control control, User currentUser) {
+        if (control == null || currentUser == null || control.getCreatedBy() == null) {
+            return false;
+        }
+        String creatorEmail = control.getCreatedBy().getMail();
+        String userEmail = currentUser.getMail();
+        return creatorEmail != null
+                && userEmail != null
+                && creatorEmail.equalsIgnoreCase(userEmail);
+    }
+
+    private boolean isAuthorizedWorkflowRole(ControlPermission permission) {
+        return permission.canEditAll()
+                || permission.isFacilitator()
+                || permission.isControlOperator()
+                || permission.isSoqmLead()
+                || permission.isProcessOwner();
     }
 
     private ControlResponseDTO convertToResponseDTO(Control control) {

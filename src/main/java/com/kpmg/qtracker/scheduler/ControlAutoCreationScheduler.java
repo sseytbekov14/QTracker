@@ -20,7 +20,7 @@ public class ControlAutoCreationScheduler {
     private final ControlAutoCreationService autoCreationService;
     private final Clock clock;
 
-    @Scheduled(cron = "0 04 15 * * *", zone = "Asia/Almaty")
+    @Scheduled(cron = "0 07 16 * * *", zone = "Asia/Almaty")
     public void runDaily() {
         ZoneId zone = ZoneId.of("Asia/Almaty");
         ZonedDateTime now = ZonedDateTime.now(clock).withZoneSameInstant(zone);

@@ -13,7 +13,7 @@ public class SemiAnnualNotificationScheduler {
 
     private final SemiAnnualNotificationService semiAnnualNotificationService;
 
-    @Scheduled(cron = "0 30 09 * * *", zone = "Asia/Almaty")
+    @Scheduled(cron = "0 01 16 * * *", zone = "Asia/Almaty")
     public void runSemiAnnualNotifications() {
         runDay0();
         runDay25();

@@ -13,7 +13,7 @@ public class AnnualNotificationScheduler {
 
     private final AnnualNotificationService annualNotificationService;
 
-    @Scheduled(cron = "0 30 09 * * *", zone = "Asia/Almaty")
+    @Scheduled(cron = "0 01 16 * * *", zone = "Asia/Almaty")
     public void runAnnualNotifications() {
         runDay0();
         runDay25();

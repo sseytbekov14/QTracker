@@ -13,7 +13,7 @@ public class RecurringNotificationScheduler {
 
     private final RecurringNotificationService recurringNotificationService;
 
-    @Scheduled(cron = "0 04 10 * * *", zone = "Asia/Almaty")
+    @Scheduled(cron = "0 55 15 * * *", zone = "Asia/Almaty")
     public void runRecurringNotifications() {
         runDay0();
         runDay5();
