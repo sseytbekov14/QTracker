@@ -34,4 +34,14 @@ public interface WorkflowHistoryRepository extends JpaRepository<WorkflowHistory
            "AND h.fromStep = 'COMPLETED' " +
            "AND h.actionType = com.kpmg.qtracker.enums.WorkflowActionType.SUBMIT_TO_SOQM_LEAD")
     boolean hasSharedSubmitted(@Param("controlId") Long controlId, @Param("email") String email);
+
+    @Query("SELECT h.controlId, MAX(h.createdAt) " +
+           "FROM WorkflowHistory h " +
+           "WHERE h.controlId IN :controlIds " +
+           "AND ((h.toStep IS NOT NULL AND UPPER(TRIM(h.toStep)) = 'COMPLETED') " +
+           "OR (h.actionType = com.kpmg.qtracker.enums.WorkflowActionType.APPROVE " +
+           "AND h.fromStep IS NOT NULL " +
+           "AND UPPER(TRIM(h.fromStep)) = 'PROCESS_OWNER_REVIEW')) " +
+           "GROUP BY h.controlId")
+    List<Object[]> findLatestCompletionTimestampByControlIds(@Param("controlIds") List<Long> controlIds);
 }

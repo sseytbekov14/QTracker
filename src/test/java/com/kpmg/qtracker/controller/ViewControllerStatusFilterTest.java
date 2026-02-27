@@ -8,6 +8,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
+import com.kpmg.qtracker.repository.WorkflowStepRepository;
 
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
@@ -33,6 +34,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -78,6 +80,9 @@ class ViewControllerStatusFilterTest {
 
     @MockBean
     private WorkflowHistoryRepository workflowHistoryRepository;
+
+    @MockBean
+    private WorkflowStepRepository workflowStepRepository;
 
     @MockBean
     private ControlPermissionService controlPermissionService;
@@ -237,6 +242,116 @@ class ViewControllerStatusFilterTest {
 
         assertThat(controls).hasSize(1);
         assertThat(controls.get(0).isOverdue()).isTrue();
+    }
+
+    @Test
+    void controls_setsOverdueFlagForCompletedControlClosedAfterDeadline() throws Exception {
+        User currentUser = new User();
+        currentUser.setId(14L);
+        currentUser.setRole("FACILITATOR");
+        currentUser.setMail("facilitator@kpmg.kz");
+        currentUser.setDisplayName("Facilitator User");
+
+        java.time.LocalDate deadline =
+                java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).minusDays(2);
+
+        ControlResponseDTO completedControl = new ControlResponseDTO();
+        completedControl.setId(80L);
+        completedControl.setControlStatus("COMPLETED");
+        completedControl.setDeadline(deadline);
+        completedControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(10));
+
+        mockVisibleControls(currentUser, List.of(completedControl));
+        when(workflowStepRepository.findLatestCompletedAtByControlIds(anyList()))
+                .thenReturn(java.util.Collections.singletonList(new Object[]{80L, java.time.LocalDateTime.now().minusDays(1)}));
+        when(workflowHistoryRepository.findLatestCompletionTimestampByControlIds(anyList()))
+                .thenReturn(List.of());
+
+        MvcResult result = mockMvc.perform(get("/controls")
+                        .param("scope", "all")
+                        .param("status", "COMPLETED")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        @SuppressWarnings("unchecked")
+        List<ControlResponseDTO> controls =
+                (List<ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
+
+        assertThat(controls).hasSize(1);
+        assertThat(controls.get(0).isOverdue()).isTrue();
+    }
+
+    @Test
+    void controls_completedBeforeDeadline_isNotOverdue() throws Exception {
+        User currentUser = new User();
+        currentUser.setId(15L);
+        currentUser.setRole("FACILITATOR");
+        currentUser.setMail("facilitator@kpmg.kz");
+        currentUser.setDisplayName("Facilitator User");
+
+        java.time.LocalDate deadline =
+                java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).plusDays(1);
+
+        ControlResponseDTO completedControl = new ControlResponseDTO();
+        completedControl.setId(81L);
+        completedControl.setControlStatus("COMPLETED");
+        completedControl.setDeadline(deadline);
+        completedControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(3));
+
+        mockVisibleControls(currentUser, List.of(completedControl));
+        when(workflowStepRepository.findLatestCompletedAtByControlIds(anyList()))
+                .thenReturn(java.util.Collections.singletonList(new Object[]{81L, java.time.LocalDateTime.now().minusDays(1)}));
+        when(workflowHistoryRepository.findLatestCompletionTimestampByControlIds(anyList()))
+                .thenReturn(List.of());
+
+        MvcResult result = mockMvc.perform(get("/controls")
+                        .param("scope", "all")
+                        .param("status", "COMPLETED")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        @SuppressWarnings("unchecked")
+        List<ControlResponseDTO> controls =
+                (List<ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
+
+        assertThat(controls).hasSize(1);
+        assertThat(controls.get(0).isOverdue()).isFalse();
+    }
+
+    @Test
+    void controls_futureDeadline_isNotOverdue() throws Exception {
+        User currentUser = new User();
+        currentUser.setId(16L);
+        currentUser.setRole("FACILITATOR");
+        currentUser.setMail("facilitator@kpmg.kz");
+        currentUser.setDisplayName("Facilitator User");
+
+        ControlResponseDTO inProgressControl = new ControlResponseDTO();
+        inProgressControl.setId(82L);
+        inProgressControl.setControlStatus("IN_PROGRESS");
+        inProgressControl.setDeadline(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).plusDays(5));
+        inProgressControl.setCreatedAt(java.time.LocalDateTime.now().minusDays(1));
+
+        mockVisibleControls(currentUser, List.of(inProgressControl));
+        when(workflowStepRepository.findLatestCompletedAtByControlIds(anyList()))
+                .thenReturn(List.of());
+        when(workflowHistoryRepository.findLatestCompletionTimestampByControlIds(anyList()))
+                .thenReturn(List.of());
+
+        MvcResult result = mockMvc.perform(get("/controls")
+                        .param("scope", "all")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        @SuppressWarnings("unchecked")
+        List<ControlResponseDTO> controls =
+                (List<ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
+
+        assertThat(controls).hasSize(1);
+        assertThat(controls.get(0).isOverdue()).isFalse();
     }
 
     @Test

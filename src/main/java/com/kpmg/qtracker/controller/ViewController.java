@@ -7,6 +7,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
+import com.kpmg.qtracker.repository.WorkflowStepRepository;
 import com.kpmg.qtracker.service.*;
 import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
 import jakarta.servlet.http.HttpSession;
@@ -39,6 +40,7 @@ public class ViewController {
     private final ControlDocumentsRepository controlDocumentsRepository;
     private final NotificationService notificationService;
     private final WorkflowHistoryRepository workflowHistoryRepository;
+    private final WorkflowStepRepository workflowStepRepository;
     private final NotificationTypeDisplayMapper notificationTypeDisplayMapper;
     private final ControlPermissionService controlPermissionService;
 
@@ -158,8 +160,17 @@ public class ViewController {
         model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
 
         List<ControlResponseDTO> allControls = findControlsVisibleToUser(currentUser);
+        Map<Long, LocalDateTime> completionTimeByControlId = resolveCompletionTimes(allControls);
+        LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
+        for (ControlResponseDTO control : allControls) {
+            control.setOverdue(isOverdue(control, todayAlmaty, completionTimeByControlId));
+        }
         boolean hideDraftControls = !isGlobalVisibilityRole(userRole);
-        ControlCounters dashboardCounters = countControlsVisibleToUser(allControls, hideDraftControls);
+        ControlCounters dashboardCounters = countControlsVisibleToUser(
+                allControls,
+                hideDraftControls,
+                completionTimeByControlId
+        );
 
         model.addAttribute("totalControls", dashboardCounters.total());
         model.addAttribute("activeControls", dashboardCounters.active());
@@ -293,6 +304,7 @@ public class ViewController {
         }
 
         List<ControlResponseDTO> userControlsList = findControlsVisibleToUser(currentUser);
+        Map<Long, LocalDateTime> completionTimeByControlId = resolveCompletionTimes(userControlsList);
         // Sort by updated date in descending order (most recently updated first)
         userControlsList.sort((c1, c2) -> {
             LocalDateTime date1 = c1.getUpdatedAt() != null ? c1.getUpdatedAt() : c1.getCreatedAt();
@@ -303,7 +315,7 @@ public class ViewController {
         LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
         if (overdueFilter) {
             userControlsList = userControlsList.stream()
-                    .filter(control -> isOverdue(control, todayAlmaty))
+                    .filter(control -> isOverdue(control, todayAlmaty, completionTimeByControlId))
                     .collect(Collectors.toList());
             System.out.println("controls filter scope=overdue user=" + userEmail
                     + " count=" + userControlsList.size());
@@ -365,10 +377,10 @@ public class ViewController {
         }
 
         for (ControlResponseDTO control : userControlsList) {
-            control.setOverdue(isOverdue(control, todayAlmaty));
+            control.setOverdue(isOverdue(control, todayAlmaty, completionTimeByControlId));
         }
 
-        ControlCounters counters = countControlsVisibleToUser(userControlsList, false);
+        ControlCounters counters = countControlsVisibleToUser(userControlsList, false, completionTimeByControlId);
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userTitle", currentUser.getTitle());
@@ -423,6 +435,12 @@ public class ViewController {
     }
 
     private ControlCounters countControlsVisibleToUser(List<ControlResponseDTO> controls, boolean hideDraftControls) {
+        return countControlsVisibleToUser(controls, hideDraftControls, resolveCompletionTimes(controls));
+    }
+
+    private ControlCounters countControlsVisibleToUser(List<ControlResponseDTO> controls,
+                                                       boolean hideDraftControls,
+                                                       Map<Long, LocalDateTime> completionTimeByControlId) {
         List<ControlResponseDTO> base = controls == null ? new ArrayList<>() : new ArrayList<>(controls);
         if (hideDraftControls) {
             base = base.stream()
@@ -436,13 +454,7 @@ public class ViewController {
                 .count();
         int activeControls = totalControls - completedControls;
         int overdueControls = (int) base.stream()
-                .filter(control -> {
-                    String status = normalizeStatus(control.getPerformanceStatus());
-                    LocalDate deadline = control.getDeadline();
-                    return !"COMPLETED".equals(status)
-                            && deadline != null
-                            && deadline.isBefore(todayAlmaty);
-                })
+                .filter(control -> isOverdue(control, todayAlmaty, completionTimeByControlId))
                 .count();
         return new ControlCounters(totalControls, activeControls, completedControls, overdueControls);
     }
@@ -476,16 +488,73 @@ public class ViewController {
         return status.trim().toUpperCase(Locale.ROOT);
     }
 
-    private boolean isOverdue(ControlResponseDTO control, LocalDate today) {
+    private boolean isOverdue(ControlResponseDTO control,
+                              LocalDate today,
+                              Map<Long, LocalDateTime> completionTimeByControlId) {
         if (control == null || today == null) {
+            return false;
+        }
+        LocalDate deadline = control.getDeadline();
+        if (deadline == null) {
             return false;
         }
         String status = normalizeStatus(control.getPerformanceStatus());
         if ("COMPLETED".equals(status)) {
-            return false;
+            LocalDate completedDate = resolveCompletedDate(control, completionTimeByControlId);
+            return completedDate != null && completedDate.isAfter(deadline);
         }
-        LocalDate deadline = control.getDeadline();
-        return deadline != null && deadline.isBefore(today);
+        return deadline.isBefore(today);
+    }
+
+    private LocalDate resolveCompletedDate(ControlResponseDTO control,
+                                           Map<Long, LocalDateTime> completionTimeByControlId) {
+        if (control == null || control.getId() == null || completionTimeByControlId == null) {
+            return null;
+        }
+        LocalDateTime completedAt = completionTimeByControlId.get(control.getId());
+        return completedAt != null ? completedAt.toLocalDate() : null;
+    }
+
+    private Map<Long, LocalDateTime> resolveCompletionTimes(List<ControlResponseDTO> controls) {
+        if (controls == null || controls.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<Long> controlIds = controls.stream()
+                .map(ControlResponseDTO::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (controlIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, LocalDateTime> completionByControlId = new HashMap<>();
+
+        List<Object[]> stepRows = workflowStepRepository.findLatestCompletedAtByControlIds(controlIds);
+        mergeCompletionRows(completionByControlId, stepRows);
+
+        List<Object[]> historyRows = workflowHistoryRepository.findLatestCompletionTimestampByControlIds(controlIds);
+        mergeCompletionRows(completionByControlId, historyRows);
+
+        return completionByControlId;
+    }
+
+    private void mergeCompletionRows(Map<Long, LocalDateTime> target, List<Object[]> rows) {
+        if (target == null || rows == null || rows.isEmpty()) {
+            return;
+        }
+        for (Object[] row : rows) {
+            if (row == null || row.length < 2 || !(row[0] instanceof Number) || !(row[1] instanceof LocalDateTime)) {
+                continue;
+            }
+            Long controlId = ((Number) row[0]).longValue();
+            LocalDateTime completionTime = (LocalDateTime) row[1];
+            LocalDateTime existing = target.get(controlId);
+            if (existing == null || completionTime.isAfter(existing)) {
+                target.put(controlId, completionTime);
+            }
+        }
     }
 
     private boolean isActiveQueueForUser(ControlResponseDTO control, String userEmail) {
@@ -707,9 +776,10 @@ public class ViewController {
                         || (control.getComponent() != null && componentName.equalsIgnoreCase(control.getComponent())))
                 .sorted((c1, c2) -> c2.getId().compareTo(c1.getId()))
                 .collect(Collectors.toList());
+        Map<Long, LocalDateTime> completionTimeByControlId = resolveCompletionTimes(controlDTOs);
 
         boolean hideDraftControls = !isGlobalVisibilityRole(userRole);
-        ControlCounters counters = countControlsVisibleToUser(controlDTOs, hideDraftControls);
+        ControlCounters counters = countControlsVisibleToUser(controlDTOs, hideDraftControls, completionTimeByControlId);
         if (hideDraftControls) {
             controlDTOs = controlDTOs.stream()
                     .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
@@ -717,7 +787,7 @@ public class ViewController {
         }
         LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
         for (ControlResponseDTO control : controlDTOs) {
-            control.setOverdue(isOverdue(control, todayAlmaty));
+            control.setOverdue(isOverdue(control, todayAlmaty, completionTimeByControlId));
         }
 
         model.addAttribute("userName", currentUser.getDisplayName());

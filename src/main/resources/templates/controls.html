@@ -505,7 +505,9 @@ body { background: var(--kpmg-gray-50); }
                                         <span th:case="'PROCESS_OWNER_REVIEW'" class="badge status-po" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
                                         <span th:case="*" class="badge status-draft" th:text="${@statusDisplayMapper.display(control.performanceStatus) ?: 'Draft'}">Draft</span>
                                     </span>
-                                    <span th:if="${control.overdue}" class="badge status-overdue ms-1">Overdue</span>
+                                    <span th:if="${control.overdue}"
+                                          class="badge status-overdue ms-1"
+                                          th:title="${#strings.equals(control.performanceStatus, 'COMPLETED')} ? 'Closed after deadline' : 'Deadline passed'">Overdue</span>
                                 </td>
                             </tr>
                             <tr th:if="${#lists.isEmpty(controls)}">

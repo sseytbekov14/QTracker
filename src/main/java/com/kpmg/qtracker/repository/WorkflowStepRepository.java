@@ -29,4 +29,11 @@ public interface WorkflowStepRepository extends JpaRepository<WorkflowStep, Long
 
     // Найти шаг по controlId и sequenceOrder
     Optional<WorkflowStep> findByControlIdAndSequenceOrder(Long controlId, Integer sequenceOrder);
+
+    @Query("SELECT ws.controlId, MAX(ws.completedAt) " +
+           "FROM WorkflowStep ws " +
+           "WHERE ws.controlId IN :controlIds " +
+           "AND ws.completedAt IS NOT NULL " +
+           "GROUP BY ws.controlId")
+    List<Object[]> findLatestCompletedAtByControlIds(@Param("controlIds") List<Long> controlIds);
 }
