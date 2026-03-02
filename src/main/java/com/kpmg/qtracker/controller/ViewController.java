@@ -4,6 +4,9 @@ import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.exception.ControlNotAvailableException;
+import com.kpmg.qtracker.exception.ForbiddenException;
+import com.kpmg.qtracker.exception.ResourceNotFoundException;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
@@ -42,6 +45,7 @@ public class ViewController {
     private final WorkflowHistoryRepository workflowHistoryRepository;
     private final WorkflowStepRepository workflowStepRepository;
     private final NotificationTypeDisplayMapper notificationTypeDisplayMapper;
+    private final PermissionService permissionService;
     private final ControlPermissionService controlPermissionService;
 
     private User getCurrentUser(HttpSession session) {
@@ -811,15 +815,13 @@ public class ViewController {
         User currentUser = getCurrentUser(session);
 
         Control control = controlService.getControlById(id)
-                .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Control not found with id: " + id));
 
         ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(id);
-        ControlPermission permission = controlPermissionService.resolve(control, currentUser, assignment);
+        ControlPermission permission = permissionService.resolve(control, currentUser, assignment);
 
         if (!permission.canView()) {
-            redirectAttributes.addFlashAttribute("accessDeniedMessage",
-                    "Access revoked - you no longer have permission to view this control.");
-            return "redirect:/controls";
+            throw new ForbiddenException("You do not have permission to view this control.");
         }
 
         String performanceStatus = control.getPerformanceStatus();
@@ -827,11 +829,11 @@ public class ViewController {
             performanceStatus = "DRAFT";
         }
         if ("DRAFT".equals(normalizeStatus(performanceStatus))
-                && shouldShowDraftSharedNotAvailablePage(control, currentUser, permission)) {
-            model.addAttribute("userName", currentUser.getDisplayName());
-            model.addAttribute("userTitle", currentUser.getTitle());
-            model.addAttribute("userEmail", currentUser.getMail());
-            return "control-not-available";
+                && permissionService.isSharedOnly(control, currentUser, permission)) {
+            throw new ControlNotAvailableException(
+                    "This control is still in Draft and has not been initiated into the workflow. "
+                            + "You will get access after it is initiated."
+            );
         }
 
         String userEmail = currentUser.getMail();
@@ -860,40 +862,6 @@ public class ViewController {
         model.addAttribute("hasSharedSubmitted", hasSharedSubmitted);
 
         return "view-control";
-    }
-
-    private boolean shouldShowDraftSharedNotAvailablePage(Control control,
-                                                          User currentUser,
-                                                          ControlPermission permission) {
-        if (control == null || currentUser == null || permission == null) {
-            return false;
-        }
-        if (!permission.isSharedViewer()) {
-            return false;
-        }
-        if (isControlCreator(control, currentUser)) {
-            return false;
-        }
-        return !isAuthorizedWorkflowRole(permission);
-    }
-
-    private boolean isControlCreator(Control control, User currentUser) {
-        if (control == null || currentUser == null || control.getCreatedBy() == null) {
-            return false;
-        }
-        String creatorEmail = control.getCreatedBy().getMail();
-        String userEmail = currentUser.getMail();
-        return creatorEmail != null
-                && userEmail != null
-                && creatorEmail.equalsIgnoreCase(userEmail);
-    }
-
-    private boolean isAuthorizedWorkflowRole(ControlPermission permission) {
-        return permission.canEditAll()
-                || permission.isFacilitator()
-                || permission.isControlOperator()
-                || permission.isSoqmLead()
-                || permission.isProcessOwner();
     }
 
     private ControlResponseDTO convertToResponseDTO(Control control) {
@@ -932,13 +900,11 @@ public class ViewController {
         User currentUser = getCurrentUser(session);
 
         Control control = controlService.getControlById(id)
-                .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Control not found with id: " + id));
 
-        ControlPermission permission = controlPermissionService.resolve(control, currentUser);
+        ControlPermission permission = permissionService.resolve(control, currentUser);
         if (!permission.canView()) {
-            redirectAttributes.addFlashAttribute("accessDeniedMessage",
-                    "Access revoked - you no longer have permission to view this control.");
-            return "redirect:/controls";
+            throw new ForbiddenException("You do not have permission to view this control.");
         }
 
         model.addAttribute("userName", currentUser.getDisplayName());

@@ -18,6 +18,7 @@ import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
 import com.kpmg.qtracker.service.NotificationService;
+import com.kpmg.qtracker.service.PermissionService;
 import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.service.WorkflowService;
 import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
@@ -90,6 +91,9 @@ class ViewControllerStatusFilterTest {
 
     @MockBean
     private ControlPermissionService controlPermissionService;
+
+    @MockBean
+    private PermissionService permissionService;
 
     @MockBean(name = "statusDisplayMapper")
     private StatusDisplayMapper statusDisplayMapper;
@@ -634,17 +638,19 @@ class ViewControllerStatusFilterTest {
 
         Control draftControl = new Control();
         draftControl.setId(30L);
-        draftControl.setControlStatus("DRAFT");
+        draftControl.setPerformanceStatus("IN_PROGRESS");
 
         when(controlService.getControlById(30L)).thenReturn(java.util.Optional.of(draftControl));
         ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
         when(controlAssignmentService.getAssignmentByControlId(30L)).thenReturn(assignmentDTO);
-        when(controlPermissionService.resolve(draftControl, currentUser, assignmentDTO))
+        when(permissionService.resolve(draftControl, currentUser, assignmentDTO))
                 .thenReturn(ControlPermission.denied());
 
         mockMvc.perform(get("/view-control/30")
                         .sessionAttr("currentUser", currentUser))
-                .andExpect(status().is3xxRedirection());
+                .andExpect(status().isForbidden())
+                .andExpect(view().name("error/403"))
+                .andExpect(content().string(containsString("Access denied")));
     }
 
     @Test
@@ -666,7 +672,7 @@ class ViewControllerStatusFilterTest {
         when(controlService.getControlById(31L)).thenReturn(java.util.Optional.of(draftControl));
         ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
         when(controlAssignmentService.getAssignmentByControlId(31L)).thenReturn(assignmentDTO);
-        when(controlPermissionService.resolve(draftControl, currentUser, assignmentDTO))
+        when(permissionService.resolve(draftControl, currentUser, assignmentDTO))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
                         false, false, false, false, true, false));
 
@@ -698,7 +704,7 @@ class ViewControllerStatusFilterTest {
 
         when(controlService.getControlById(32L)).thenReturn(java.util.Optional.of(draftControl));
         when(controlAssignmentService.getAssignmentByControlId(32L)).thenReturn(assignmentDTO);
-        when(controlPermissionService.resolve(draftControl, currentUser, assignmentDTO))
+        when(permissionService.resolve(draftControl, currentUser, assignmentDTO))
                 .thenReturn(new ControlPermission(
                         true,
                         false,
@@ -712,6 +718,8 @@ class ViewControllerStatusFilterTest {
                         false,
                         false
                 ));
+        when(permissionService.isSharedOnly(any(Control.class), any(User.class), any(ControlPermission.class)))
+                .thenReturn(true);
 
         mockMvc.perform(get("/view-control/32")
                         .sessionAttr("currentUser", currentUser))
@@ -720,6 +728,67 @@ class ViewControllerStatusFilterTest {
                 .andExpect(content().string(containsString("Control Not Available Yet")))
                 .andExpect(content().string(containsString("Back to Controls")))
                 .andExpect(content().string(not(containsString("QT-2026-001"))));
+    }
+
+    @Test
+    void viewControl_notFound_returns404Page() throws Exception {
+        User currentUser = new User();
+        currentUser.setId(33L);
+        currentUser.setRole("FACILITATOR");
+        currentUser.setMail("facilitator@kpmg.kz");
+        currentUser.setDisplayName("Facilitator User");
+
+        when(controlService.getControlById(999L)).thenReturn(java.util.Optional.empty());
+
+        mockMvc.perform(get("/view-control/999")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isNotFound())
+                .andExpect(view().name("error/404"))
+                .andExpect(content().string(containsString("Page not found")));
+    }
+
+    @Test
+    void viewControl_normalAccess_returnsControlPage() throws Exception {
+        User currentUser = new User();
+        currentUser.setId(34L);
+        currentUser.setRole("FACILITATOR");
+        currentUser.setMail("facilitator@kpmg.kz");
+        currentUser.setDisplayName("Facilitator User");
+
+        User creator = new User();
+        creator.setMail("creator@kpmg.kz");
+        creator.setDisplayName("Creator");
+
+        Control control = new Control();
+        control.setId(34L);
+        control.setControlId("QT-2026-034");
+        control.setPerformanceStatus("IN_PROGRESS");
+        control.setCreatedBy(creator);
+
+        ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
+        assignmentDTO.setFacilitator(List.of("facilitator@kpmg.kz"));
+
+        when(controlService.getControlById(34L)).thenReturn(java.util.Optional.of(control));
+        when(controlAssignmentService.getAssignmentByControlId(34L)).thenReturn(assignmentDTO);
+        when(permissionService.resolve(control, currentUser, assignmentDTO))
+                .thenReturn(new ControlPermission(
+                        true,
+                        true,
+                        java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
+                        true,
+                        false,
+                        false,
+                        false,
+                        true,
+                        false,
+                        false,
+                        false
+                ));
+
+        mockMvc.perform(get("/view-control/34")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk())
+                .andExpect(view().name("view-control"));
     }
 
     @Test
