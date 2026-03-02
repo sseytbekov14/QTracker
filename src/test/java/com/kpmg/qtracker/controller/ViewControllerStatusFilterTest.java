@@ -12,6 +12,7 @@ import com.kpmg.qtracker.repository.WorkflowStepRepository;
 
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
+import com.kpmg.qtracker.service.DashboardService;
 import com.kpmg.qtracker.service.ControlDocumentsService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
@@ -58,6 +59,9 @@ class ViewControllerStatusFilterTest {
 
     @MockBean
     private IPerformanceService performanceService;
+
+    @MockBean
+    private DashboardService dashboardService;
 
     @MockBean
     private ControlAssignmentService controlAssignmentService;

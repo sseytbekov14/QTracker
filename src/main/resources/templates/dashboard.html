@@ -5,6 +5,7 @@
     <title>Dashboard - QTracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.css" rel="stylesheet">
     <link href="/css/style.css?v=6" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
     <style>
@@ -198,6 +199,157 @@ body { background: var(--kpmg-gray-50); }
     border: none;
     font-size: 0.85rem;
 }
+
+/* Deadlines block */
+.deadlines-block {
+    --deadlines-height: 420px;
+}
+.deadlines-block .deadlines-panel {
+    height: var(--deadlines-height);
+}
+.deadlines-block .deadlines-list {
+    height: var(--deadlines-height);
+    overflow-y: auto;
+    border: 1px solid var(--kpmg-gray-200);
+    background: var(--kpmg-white);
+}
+.deadlines-block .deadline-item {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--kpmg-gray-200);
+    line-height: 1.25;
+}
+.deadlines-block .deadline-item:last-child {
+    border-bottom: none;
+}
+.deadlines-block .deadline-link {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--kpmg-blue);
+    text-decoration: none;
+}
+.deadlines-block .deadline-name {
+    font-size: 0.7rem;
+    color: var(--kpmg-gray-600);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 170px;
+}
+.deadlines-block .deadline-date {
+    font-size: 0.66rem;
+    color: var(--kpmg-gray-400);
+    margin-top: 3px;
+}
+.deadlines-block .deadline-remaining {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--kpmg-gray-800);
+}
+.deadlines-block .deadline-remaining.is-overdue {
+    color: var(--kpmg-red);
+}
+.deadlines-block .deadline-status {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 6px;
+    font-size: 0.58rem;
+    font-weight: 600;
+    border-radius: 2px;
+    color: #ffffff;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+.deadlines-block #deadlineCalendarWrapper {
+    height: var(--deadlines-height);
+    border: 1px solid var(--kpmg-gray-200);
+    background: var(--kpmg-white);
+    padding: 3px;
+    overflow: hidden;
+}
+.deadlines-block #deadlineCalendar {
+    height: 100%;
+}
+.deadlines-block #deadlineCalendarWrapper .fc {
+    height: 100%;
+    font-size: 12px;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-toolbar {
+    padding: 4px;
+    margin: 0;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-toolbar.fc-header-toolbar {
+    margin-bottom: 0.2rem;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-toolbar-title {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--kpmg-gray-800);
+}
+.deadlines-block #deadlineCalendarWrapper .fc-button {
+    padding: 0.14rem 0.32rem;
+    font-size: 0.6rem;
+    line-height: 1.2;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-col-header-cell-cushion,
+.deadlines-block #deadlineCalendarWrapper .fc-daygrid-day-number {
+    font-size: 0.6rem;
+    padding: 1px 2px;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-col-header-cell {
+    padding: 2px;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-scrollgrid {
+    border-color: var(--kpmg-gray-200);
+}
+.deadlines-block #deadlineCalendarWrapper .fc-daygrid-day-frame {
+    min-height: 40px;
+    padding: 1px 0;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-daygrid-day-events {
+    margin-top: 1px;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-daygrid-event {
+    margin-top: 1px;
+    padding: 0 1px;
+    font-size: 0.56rem;
+    border-radius: 2px;
+    line-height: 1.15;
+    min-height: 14px;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-event-main {
+    overflow: hidden;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-event-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-daygrid-dot-event {
+    margin-top: 1px;
+    font-size: 0.56rem;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-daygrid-event-dot {
+    margin-right: 3px;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-daygrid-more-link {
+    font-size: 0.58rem;
+}
+@media (max-width: 1199.98px) {
+    .deadlines-block .deadlines-panel,
+    .deadlines-block .deadlines-list,
+    .deadlines-block #deadlineCalendarWrapper {
+        height: auto;
+        min-height: 0;
+    }
+    .deadlines-block .deadlines-list,
+    .deadlines-block #deadlineCalendarWrapper {
+        overflow: visible;
+    }
+    .deadlines-block #deadlineCalendar {
+        min-height: 320px;
+    }
+}
 </style>
 </head>
 <body>
@@ -305,6 +457,55 @@ body { background: var(--kpmg-gray-50); }
                                 <i class="bi bi-plus-lg"></i>
                                 New Control
                             </a>
+                        </div>
+
+                        <div th:if="${userRole != null}"
+                             id="dashboardCharts"
+                             th:attr="data-user-role=${userRole}"
+                             style="padding-top: 4px;">
+                            <div class="row g-3">
+                                <div class="col-12 col-lg-6">
+                                    <div style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
+                                        <div class="section-title" style="margin-bottom: 14px;"
+                                             th:text="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_LEAD')} ? 'CONTROLS BY FREQUENCY' : 'MY CONTROLS BY FREQUENCY'">
+                                            CONTROLS BY FREQUENCY
+                                        </div>
+                                        <div style="position: relative; height: 200px;">
+                                            <canvas id="statusBreakdownChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-lg-6">
+                                    <div style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
+                                        <div class="section-title" style="margin-bottom: 14px;"
+                                             th:text="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_LEAD')} ? 'CONTROLS BY COMPONENT' : 'MY CONTROLS BY COMPONENT'">
+                                            CONTROLS BY COMPONENT
+                                        </div>
+                                        <div style="position: relative; height: 200px;">
+                                            <canvas id="frequencyChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
+                                        <div class="row g-3 deadlines-block">
+                                            <div class="col-12 col-xl-4">
+                                                <div class="section-title" style="margin-bottom: 14px;">DEADLINE COUNTDOWN (FROM LAST 3 DAYS)</div>
+                                                <div id="deadlineCountdownList"
+                                                     class="deadlines-list deadlines-panel">
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-xl-8">
+                                                <div class="section-title" style="margin-bottom: 14px;">DEADLINE CALENDAR</div>
+                                                <div id="deadlineCalendarWrapper" class="deadlines-panel">
+                                                    <div id="deadlineCalendar">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                     </div>
@@ -454,7 +655,21 @@ body { background: var(--kpmg-gray-50); }
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.js"></script>
 <script>
+let statusBreakdownChartInstance;
+let frequencyChartInstance;
+let overdueTrendChartInstance;
+let deadlineCalendarInstance;
+let deadlineCountdownRefreshHandle;
+let deadlineCountdownTickHandle;
+
+if (window.Chart && window.ChartDataLabels) {
+    Chart.register(ChartDataLabels);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('success') === 'true') {
@@ -490,6 +705,11 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = '/component/' + comp;
         }
     });
+
+    const dashboardCharts = document.getElementById('dashboardCharts');
+    if (dashboardCharts && window.Chart) {
+        initializeAdminDashboardCharts();
+    }
 });
 
 function showSuccessAlert(message) {
@@ -501,6 +721,596 @@ function showSuccessAlert(message) {
 function hideSuccessAlert() {
     const a = document.getElementById('successAlert');
     if (a) a.style.display = 'none';
+}
+
+async function initializeAdminDashboardCharts() {
+    try {
+        const dashboardCharts = document.getElementById('dashboardCharts');
+        const userRole = dashboardCharts && dashboardCharts.dataset ? (dashboardCharts.dataset.userRole || '') : '';
+        const normalizedRole = userRole.trim().toUpperCase().replace(/[- ]/g, '_');
+        const isSoqmLead = normalizedRole === 'SOQM_LEAD';
+        const leftChartEndpoint = isSoqmLead
+            ? '/api/dashboard/admin/frequency'
+            : '/api/dashboard/my/frequency';
+        const rightChartEndpoint = isSoqmLead
+            ? '/api/dashboard/admin/component-breakdown'
+            : '/api/dashboard/my/component';
+
+        const [statusData, frequencyData] = await Promise.all([
+            fetchDashboardChartData(leftChartEndpoint),
+            fetchDashboardChartData(rightChartEndpoint)
+        ]);
+
+        renderStatusBreakdownChart(statusData);
+        renderFrequencyChart(frequencyData);
+        initializeDeadlineSection();
+    } catch (error) {
+        console.error('Unable to load dashboard chart data.', error);
+    }
+}
+
+async function fetchDashboardChartData(url) {
+    const response = await fetch(url, {
+        credentials: 'same-origin',
+        headers: {
+            'Accept': 'application/json'
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error('Request failed: ' + response.status);
+    }
+
+    return response.json();
+}
+
+function getDashboardChartPalette() {
+    const styles = getComputedStyle(document.documentElement);
+    return {
+        blue: styles.getPropertyValue('--kpmg-blue').trim(),
+        blueLight: styles.getPropertyValue('--kpmg-blue-light').trim(),
+        blueDark: styles.getPropertyValue('--kpmg-blue-dark').trim(),
+        gray200: styles.getPropertyValue('--kpmg-gray-200').trim(),
+        gray400: styles.getPropertyValue('--kpmg-gray-400').trim(),
+        gray600: styles.getPropertyValue('--kpmg-gray-600').trim(),
+        green: styles.getPropertyValue('--kpmg-green').trim(),
+        red: styles.getPropertyValue('--kpmg-red').trim(),
+        amber: styles.getPropertyValue('--kpmg-amber').trim()
+    };
+}
+
+function buildCartesianOptions(palette) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        layout: {
+            padding: {
+                top: 18
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const label = context && context.label ? context.label : 'Value';
+                        const dataset = context && context.dataset && Array.isArray(context.dataset.data)
+                            ? context.dataset.data
+                            : [];
+                        const value = Number(context && typeof context.raw !== 'undefined' ? context.raw : 0);
+                        return formatChartTooltipValue(label, value, dataset);
+                    }
+                }
+            },
+            datalabels: {
+                display: function(context) {
+                    const value = context && context.dataset && Array.isArray(context.dataset.data)
+                        ? Number(context.dataset.data[context.dataIndex] || 0)
+                        : 0;
+                    return value > 0;
+                },
+                color: palette.blueDark,
+                anchor: 'end',
+                align: 'top',
+                offset: 4,
+                clamp: true,
+                clip: false,
+                formatter: function(value) {
+                    return value > 0 ? value : '';
+                },
+                font: {
+                    size: 12,
+                    weight: '700'
+                }
+            }
+        },
+        scales: {
+            x: {
+                grid: {
+                    color: 'rgba(216, 220, 229, 0.4)',
+                    drawBorder: false
+                },
+                ticks: {
+                    color: palette.gray600,
+                    font: {
+                        size: 11
+                    }
+                }
+            },
+            y: {
+                beginAtZero: true,
+                grace: '12%',
+                grid: {
+                    color: 'rgba(216, 220, 229, 0.5)',
+                    drawBorder: false
+                },
+                ticks: {
+                    color: palette.gray600,
+                    precision: 0,
+                    font: {
+                        size: 11
+                    }
+                }
+            }
+        }
+    };
+}
+
+function renderStatusBreakdownChart(data) {
+    const canvas = document.getElementById('statusBreakdownChart');
+    if (!canvas) {
+        return;
+    }
+
+    if (statusBreakdownChartInstance) {
+        statusBreakdownChartInstance.destroy();
+    }
+
+    const palette = getDashboardChartPalette();
+    const chartData = normalizeChartData(data, 'No Data');
+
+    statusBreakdownChartInstance = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                data: chartData.values,
+                backgroundColor: chartData.labels.map(getFrequencyChartColor),
+                borderColor: '#ffffff',
+                borderWidth: 2,
+                hoverOffset: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            cutout: '62%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: palette.gray600,
+                        boxWidth: 12,
+                        boxHeight: 12,
+                        padding: 14,
+                        font: {
+                            size: 11
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context && context.label ? context.label : 'Value';
+                            const dataset = context && context.dataset && Array.isArray(context.dataset.data)
+                                ? context.dataset.data
+                                : [];
+                            const value = Number(context && typeof context.raw !== 'undefined' ? context.raw : 0);
+                            return formatChartTooltipValue(label, value, dataset);
+                        }
+                    }
+                },
+                datalabels: {
+                    display: function(context) {
+                        const dataset = context && context.dataset && Array.isArray(context.dataset.data)
+                            ? context.dataset.data
+                            : [];
+                        const value = Number(dataset[context.dataIndex] || 0);
+                        const total = dataset.reduce(function(sum, current) {
+                            return sum + Number(current || 0);
+                        }, 0);
+                        if (value <= 0 || total <= 0) {
+                            return false;
+                        }
+                        return (value / total) >= 0.04;
+                    },
+                    color: function(context) {
+                        const backgroundColor = context && context.dataset && Array.isArray(context.dataset.backgroundColor)
+                            ? context.dataset.backgroundColor[context.dataIndex]
+                            : null;
+                        return getChartDataLabelColor(backgroundColor, palette);
+                    },
+                    formatter: function(value) {
+                        return value > 0 ? value : '';
+                    },
+                    font: {
+                        size: 12,
+                        weight: '700'
+                    },
+                    anchor: 'center',
+                    align: 'center',
+                    offset: 0,
+                    clamp: false,
+                    clip: false,
+                    textStrokeColor: 'rgba(255, 255, 255, 0.18)',
+                    textStrokeWidth: 1
+                }
+            }
+        }
+    });
+}
+
+function getFrequencyChartColor(label) {
+    const normalized = (label || '').trim().toUpperCase();
+    if (normalized === 'MONTHLY') {
+        return '#0D47A1';
+    }
+    if (normalized === 'QUARTERLY') {
+        return '#1565C0';
+    }
+    if (normalized === 'RECURRING') {
+        return '#1E88E5';
+    }
+    if (normalized === 'ANNUAL') {
+        return '#42A5F5';
+    }
+    if (normalized === 'SEMI ANNUAL') {
+        return '#90CAF9';
+    }
+    if (normalized === 'AD-HOC' || normalized === 'AD HOC') {
+        return '#2E75B6';
+    }
+    return '#B0BEC5';
+}
+
+function formatChartTooltipValue(label, value, values) {
+    const total = Array.isArray(values)
+        ? values.reduce(function(sum, current) {
+            return sum + Number(current || 0);
+        }, 0)
+        : 0;
+    const percentage = total > 0 ? ((value / total) * 100) : 0;
+    return label + ': ' + value + ' (' + percentage.toFixed(1) + '%)';
+}
+
+function getChartDataLabelColor(backgroundColor, palette) {
+    if (!backgroundColor || typeof backgroundColor !== 'string') {
+        return palette.blueDark;
+    }
+
+    const hex = backgroundColor.replace('#', '').trim();
+    if (hex.length !== 6) {
+        return palette.blueDark;
+    }
+
+    const red = parseInt(hex.substring(0, 2), 16);
+    const green = parseInt(hex.substring(2, 4), 16);
+    const blue = parseInt(hex.substring(4, 6), 16);
+    const luminance = ((0.299 * red) + (0.587 * green) + (0.114 * blue)) / 255;
+
+    return luminance > 0.64 ? palette.blueDark : '#ffffff';
+}
+
+function renderFrequencyChart(data) {
+    const canvas = document.getElementById('frequencyChart');
+    if (!canvas) {
+        return;
+    }
+
+    if (frequencyChartInstance) {
+        frequencyChartInstance.destroy();
+    }
+
+    const palette = getDashboardChartPalette();
+    const chartData = normalizeChartData(data, 'No Data');
+
+    frequencyChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                data: chartData.values,
+                backgroundColor: palette.blueLight,
+                borderColor: palette.blue,
+                borderWidth: 1,
+                borderRadius: 4,
+                maxBarThickness: 36
+            }]
+        },
+        options: buildCartesianOptions(palette)
+    });
+}
+
+async function initializeDeadlineSection() {
+    await loadDeadlineCountdown();
+    if (deadlineCountdownRefreshHandle) {
+        clearInterval(deadlineCountdownRefreshHandle);
+    }
+    deadlineCountdownRefreshHandle = setInterval(loadDeadlineCountdown, 60000);
+    if (deadlineCountdownTickHandle) {
+        clearInterval(deadlineCountdownTickHandle);
+    }
+    deadlineCountdownTickHandle = setInterval(updateDeadlineCountdownTimers, 1000);
+    updateDeadlineCountdownTimers();
+    initializeDeadlineCalendar();
+}
+
+async function loadDeadlineCountdown() {
+    const container = document.getElementById('deadlineCountdownList');
+    if (!container) {
+        return;
+    }
+
+    try {
+        const items = await fetchDashboardChartData('/api/dashboard/deadline-countdown?days=3&limit=10');
+        renderDeadlineCountdown(items);
+    } catch (error) {
+        console.error('Unable to load deadline countdown.', error);
+        container.innerHTML = '<div style="padding: 16px; color: var(--kpmg-gray-400); font-size: 0.82rem;">Unable to load deadlines.</div>';
+    }
+}
+
+function renderDeadlineCountdown(items) {
+    const container = document.getElementById('deadlineCountdownList');
+    if (!container) {
+        return;
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+        container.innerHTML = '<div style="padding: 16px; color: var(--kpmg-gray-400); font-size: 0.82rem;">No upcoming deadlines in the next 3 days.</div>';
+        return;
+    }
+
+    container.innerHTML = items.map(function(item, index) {
+        const urgency = getDeadlineUrgency(item.deadline);
+        return '<div class="deadline-item" data-deadline="' + escapeAttribute(item.deadline || '') + '">'
+            + '<div class="d-flex justify-content-between align-items-start gap-2">'
+            + '<div style="min-width: 0;">'
+            + '<a href="' + escapeAttribute(item.url || '#') + '" class="deadline-link">'
+            + escapeHtml(item.controlId || 'Control')
+            + '</a>'
+            + '<div class="deadline-name">' + escapeHtml(item.name || 'Untitled Control') + '</div>'
+            + '<div class="deadline-date">' + escapeHtml(formatDeadlineDateTime(item.deadline)) + '</div>'
+            + '</div>'
+            + '<div class="text-end" style="white-space: nowrap;">'
+            + '<div class="deadline-remaining" data-deadline-text>' + escapeHtml(formatTimeLeft(item.deadline)) + '</div>'
+            + '<div><span class="deadline-status" style="background: ' + urgency.color + ';">' + escapeHtml(urgency.label) + '</span></div>'
+            + '</div>'
+            + '</div>'
+            + '</div>';
+    }).join('');
+
+    updateDeadlineCountdownTimers();
+}
+
+function initializeDeadlineCalendar() {
+    const calendarElement = document.getElementById('deadlineCalendar');
+    if (!calendarElement || !window.FullCalendar) {
+        return;
+    }
+
+    if (deadlineCalendarInstance) {
+        deadlineCalendarInstance.destroy();
+    }
+
+    deadlineCalendarInstance = new FullCalendar.Calendar(calendarElement, {
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: ''
+        },
+        height: '100%',
+        contentHeight: '100%',
+        fixedWeekCount: false,
+        dayMaxEvents: true,
+        eventDisplay: 'block',
+        displayEventTime: false,
+        events: async function(fetchInfo, successCallback, failureCallback) {
+            try {
+                const events = await fetchDashboardChartData('/api/dashboard/deadline-calendar?start='
+                    + encodeURIComponent(fetchInfo.startStr)
+                    + '&end='
+                    + encodeURIComponent(fetchInfo.endStr));
+                successCallback(Array.isArray(events) ? events.map(normalizeDeadlineCalendarEvent) : []);
+            } catch (error) {
+                console.error('Unable to load deadline calendar.', error);
+                failureCallback(error);
+            }
+        },
+        eventClick: function(info) {
+            if (info.event.url) {
+                info.jsEvent.preventDefault();
+                window.location.href = info.event.url;
+            }
+        },
+        eventDidMount: function(info) {
+            info.el.setAttribute('title', formatCalendarTooltip(info.event));
+        },
+        eventContent: function(arg) {
+            const shortTitle = truncateCalendarLabel(arg.event.title || '');
+            return {
+                html: '<span>' + escapeHtml(shortTitle) + '</span>'
+            };
+        }
+    });
+
+    deadlineCalendarInstance.render();
+}
+
+function normalizeDeadlineCalendarEvent(event) {
+    const safeEvent = event || {};
+    const title = (safeEvent.title || '').split(' - ')[0] || 'Control';
+    return {
+        title: title,
+        start: safeEvent.start,
+        url: safeEvent.url,
+        color: safeEvent.color
+    };
+}
+
+function formatDeadlineDateTime(deadline) {
+    if (!deadline) {
+        return 'No deadline';
+    }
+    const date = new Date(deadline);
+    if (Number.isNaN(date.getTime())) {
+        return 'No deadline';
+    }
+    return date.toLocaleString([], {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function formatTimeLeft(deadline) {
+    if (!deadline) {
+        return 'No deadline';
+    }
+    const target = new Date(deadline).getTime();
+    if (Number.isNaN(target)) {
+        return 'No deadline';
+    }
+
+    return formatDuration(target - Date.now());
+}
+
+function updateDeadlineCountdownTimers() {
+    document.querySelectorAll('#deadlineCountdownList .deadline-item').forEach(function(item) {
+        const deadline = item.getAttribute('data-deadline');
+        const target = deadline ? new Date(deadline).getTime() : NaN;
+        const display = item.querySelector('[data-deadline-text]');
+        if (!display || Number.isNaN(target)) {
+            return;
+        }
+
+        const diff = target - Date.now();
+        if (diff < 0) {
+            display.textContent = 'OVERDUE by ' + formatDuration(Math.abs(diff));
+            display.classList.add('is-overdue');
+        } else {
+            display.textContent = formatDuration(diff);
+            display.classList.remove('is-overdue');
+        }
+    });
+}
+
+function formatDuration(diffMs) {
+    const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return days + 'd ' + pad2(hours) + ':' + pad2(minutes) + ':' + pad2(seconds);
+}
+
+function pad2(value) {
+    return String(value).padStart(2, '0');
+}
+
+function getStatusBadgeColor(status) {
+    const palette = getDashboardChartPalette();
+    const normalized = (status || '').trim().toUpperCase();
+    if (normalized === 'COMPLETED') {
+        return palette.gray400;
+    }
+    if (normalized === 'REVIEW' || normalized === 'PROCESS_OWNER_REVIEW' || normalized === 'SOQM_HEAD_REVIEW') {
+        return palette.blue;
+    }
+    if (normalized === 'OVERDUE') {
+        return palette.red;
+    }
+    return palette.amber;
+}
+
+function getDeadlineUrgency(deadline) {
+    const palette = getDashboardChartPalette();
+    if (!deadline) {
+        return { label: 'DUE SOON', color: palette.blueLight };
+    }
+    const target = new Date(deadline);
+    if (Number.isNaN(target.getTime())) {
+        return { label: 'DUE SOON', color: palette.blueLight };
+    }
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+    const startOfDayAfterTomorrow = new Date(startOfTomorrow);
+    startOfDayAfterTomorrow.setDate(startOfDayAfterTomorrow.getDate() + 1);
+
+    if (target.getTime() < now.getTime()) {
+        return { label: 'OVERDUE', color: palette.red };
+    }
+    if (target.getTime() < startOfTomorrow.getTime()) {
+        return { label: 'DUE TODAY', color: palette.amber };
+    }
+    if (target.getTime() < startOfDayAfterTomorrow.getTime()) {
+        return { label: 'DUE TOMORROW', color: palette.blue };
+    }
+    return { label: 'DUE SOON', color: palette.blueLight };
+}
+
+function truncateCalendarLabel(value) {
+    const text = String(value || '').trim();
+    if (text.length <= 12) {
+        return text || 'Control';
+    }
+    return text.substring(0, 12).trim() + '...';
+}
+
+function formatCalendarTooltip(event) {
+    if (!event) {
+        return '';
+    }
+    const title = event.title || 'Control';
+    const deadline = event.start ? event.start.toLocaleDateString() : '';
+    return deadline ? title + ' | Deadline: ' + deadline : title;
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function escapeAttribute(value) {
+    return escapeHtml(value);
+}
+
+function normalizeChartData(data, fallbackLabel) {
+    if (!data || !Array.isArray(data.labels) || !Array.isArray(data.values) || data.labels.length === 0) {
+        return {
+            labels: [fallbackLabel],
+            values: [0]
+        };
+    }
+
+    return {
+        labels: data.labels,
+        values: data.values
+    };
 }
 </script>
 </body>

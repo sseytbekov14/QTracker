@@ -36,6 +36,7 @@ public class ViewController {
     private final UserService userService;
     private final IControlService controlService;
     private final IPerformanceService performanceService;
+    private final DashboardService dashboardService;
     private final ControlAssignmentService controlAssignmentService;
     private final WorkflowService workflowService;
     private final ControlAssignmentRepository controlAssignmentRepository;
@@ -175,6 +176,15 @@ public class ViewController {
                 hideDraftControls,
                 completionTimeByControlId
         );
+        if (isGlobalVisibilityRole(userRole)) {
+            DashboardService.DashboardKpiCounts serviceCounts = dashboardService.getKpiCounts();
+            dashboardCounters = new ControlCounters(
+                    Math.toIntExact(serviceCounts.total()),
+                    Math.toIntExact(serviceCounts.active()),
+                    Math.toIntExact(serviceCounts.completed()),
+                    Math.toIntExact(serviceCounts.overdue())
+            );
+        }
 
         model.addAttribute("totalControls", dashboardCounters.total());
         model.addAttribute("activeControls", dashboardCounters.active());
@@ -454,12 +464,12 @@ public class ViewController {
         LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
         int totalControls = base.size();
         int completedControls = (int) base.stream()
-                .filter(control -> "COMPLETED".equals(normalizeStatus(control.getPerformanceStatus())))
+                .filter(control -> isCompletedForDashboard(control, completionTimeByControlId))
                 .count();
-        int activeControls = totalControls - completedControls;
         int overdueControls = (int) base.stream()
-                .filter(control -> isOverdue(control, todayAlmaty, completionTimeByControlId))
+                .filter(control -> isCurrentOverdueForDashboard(control, todayAlmaty, completionTimeByControlId))
                 .count();
+        int activeControls = totalControls - completedControls - overdueControls;
         return new ControlCounters(totalControls, activeControls, completedControls, overdueControls);
     }
 
@@ -508,6 +518,30 @@ public class ViewController {
             return completedDate != null && completedDate.isAfter(deadline);
         }
         return deadline.isBefore(today);
+    }
+
+    private boolean isCompletedForDashboard(ControlResponseDTO control,
+                                            Map<Long, LocalDateTime> completionTimeByControlId) {
+        if (control == null) {
+            return false;
+        }
+        if ("COMPLETED".equals(normalizeStatus(control.getPerformanceStatus()))) {
+            return true;
+        }
+        return resolveCompletedDate(control, completionTimeByControlId) != null;
+    }
+
+    private boolean isCurrentOverdueForDashboard(ControlResponseDTO control,
+                                                 LocalDate today,
+                                                 Map<Long, LocalDateTime> completionTimeByControlId) {
+        if (control == null || today == null) {
+            return false;
+        }
+        if (isCompletedForDashboard(control, completionTimeByControlId)) {
+            return false;
+        }
+        LocalDate deadline = control.getDeadline();
+        return deadline != null && deadline.isBefore(today);
     }
 
     private LocalDate resolveCompletedDate(ControlResponseDTO control,
