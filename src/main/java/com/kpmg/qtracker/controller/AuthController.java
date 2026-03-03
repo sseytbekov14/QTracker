@@ -42,9 +42,9 @@ public class AuthController {
             boolean passwordMatches = false;
             String storedPassword = user.getPassword();
             if (storedPassword != null) {
-                try {
+                if (isBcryptHash(storedPassword)) {
                     passwordMatches = passwordEncoder.matches(password, storedPassword);
-                } catch (IllegalArgumentException ignored) {
+                } else {
                     passwordMatches = storedPassword.equals(password);
                 }
             }
@@ -61,6 +61,15 @@ public class AuthController {
         }
         model.addAttribute("error", "Invalid username or password");
         return "login";
+    }
+
+    private boolean isBcryptHash(String value) {
+        if (value == null) {
+            return false;
+        }
+        return value.startsWith("$2a$")
+                || value.startsWith("$2b$")
+                || value.startsWith("$2y$");
     }
 
     @GetMapping("/logout")
