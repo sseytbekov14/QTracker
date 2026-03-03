@@ -115,9 +115,6 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
 					<argLine>-XX:+EnableDynamicAgentLoading</argLine>
-					<systemPropertyVariables>
-						<spring.profiles.active>test</spring.profiles.active>
-					</systemPropertyVariables>
 				</configuration>
 			</plugin>
 			<plugin>

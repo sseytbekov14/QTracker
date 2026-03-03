@@ -27,3 +27,7 @@ spring:
       mode: never
   flyway:
     enabled: false
+
+file:
+  upload:
+    dir: ${FILE_UPLOAD_DIR:target/test-uploads}

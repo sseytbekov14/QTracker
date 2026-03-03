@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/QTracker}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+
+file:
+  upload:
+    dir: ${FILE_UPLOAD_DIR:uploads}
+
+logging:
+  level:
+    com.kpmg.qtracker.scheduler.ControlReminderScheduler: INFO
+    com.kpmg.qtracker.service.ReminderNotificationService: DEBUG
+    com.kpmg.qtracker.service.NotificationService: DEBUG
