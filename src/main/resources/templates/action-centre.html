@@ -11,21 +11,33 @@
         .clickable-component {
             cursor: pointer;
             transition: all 0.2s ease;
-            border: 1px solid #dee2e6;
+            border: 1px solid var(--border);
+            background: var(--surface-bg);
+            color: var(--text-primary);
         }
 
         .clickable-component:hover {
-            border-color: #0d6efd;
-            background-color: #f0f4ff;
+            border-color: var(--link);
+            background-color: var(--hover-bg);
         }
 
         .clickable-component:hover h6 {
-            color: #0d6efd;
+            color: var(--link);
         }
     </style>
 </head>
 
 <body>
+<script>
+(function() {
+    try {
+        var savedTheme = localStorage.getItem('qtrackerTheme');
+        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+    } catch (error) {
+        document.body.classList.add('theme-light');
+    }
+})();
+</script>
 <div class="container-fluid">
     <div class="row">
         <!-- Sidebar -->

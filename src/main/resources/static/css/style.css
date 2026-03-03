@@ -1,3 +1,50 @@
+:root {
+    --app-bg: #f7f8fa;
+    --surface-bg: #ffffff;
+    --surface-bg-2: #f7f8fa;
+    --text-primary: #2d3340;
+    --text-secondary: #5c6478;
+    --link: #00338D;
+    --border: #d8dce5;
+    --divider: #eef0f4;
+    --hover-bg: #f0f4fa;
+    --input-bg: #ffffff;
+    --input-text: #2d3340;
+    --muted: #9ba3b5;
+}
+
+body.theme-light {
+    --app-bg: #f7f8fa;
+    --surface-bg: #ffffff;
+    --surface-bg-2: #f7f8fa;
+    --text-primary: #2d3340;
+    --text-secondary: #5c6478;
+    --link: #00338D;
+    --border: #d8dce5;
+    --divider: #eef0f4;
+    --hover-bg: #f0f4fa;
+    --input-bg: #ffffff;
+    --input-text: #2d3340;
+    --muted: #9ba3b5;
+}
+
+body.theme-dark {
+    --app-bg: #101722;
+    --surface-bg: #182332;
+    --surface-bg-2: #132031;
+    --text-primary: #e9eef8;
+    --text-secondary: #b7c3d8;
+    --link: #7fb0ff;
+    --border: #3a4e6a;
+    --divider: #26384f;
+    --hover-bg: #223149;
+    --input-bg: #1a2a3d;
+    --input-text: #e9eef8;
+    --muted: #99abc7;
+    background: var(--app-bg);
+    color: var(--text-primary);
+}
+
 .sidebar {
     background: #1a1f2e;
     min-height: 100vh;
@@ -90,9 +137,16 @@
     font-size: 0.72rem;
 }
 
+body.theme-dark .sidebar,
+body.theme-dark .sidebar * {
+    color: inherit;
+}
+
 /* Отступ для основного контента при фиксированном sidebar */
 .col-md-10 {
     margin-left: 16.666667%;
+    background: transparent;
+    color: var(--text-primary);
 }
 
 /* ✨ Универсальная кнопка Back */
@@ -163,6 +217,8 @@
 .badge.bg-warning { background-color: #ffc107 !important; color: #000 !important; }
 .badge.bg-secondary { background-color: #6c757d !important; }
 
+body.theme-dark .badge.bg-warning { color: #000 !important; }
+
 .nav-link {
     color: #333;
     border-radius: 0.25rem;
@@ -175,6 +231,206 @@
     background: #d1ecf1;
     color: #0c5460;
     border-left: 4px solid #0c5460;
+}
+
+body.theme-dark :where(.col-md-10, .page-wrapper, .container, .container-fluid):not(.sidebar) {
+    color: var(--text-primary);
+}
+
+body.theme-dark :where(.card, .component-card, .clickable-component, .action-card, .stat-card, .notif-list-card, .control-table, .table, .list-group-item, .accordion-item, .form-container, .app-modal-content) {
+    background: var(--surface-bg);
+    color: var(--text-primary);
+    border-color: var(--border);
+}
+
+body.theme-dark :where(.card-header, .card-footer, .notif-group-date, .table-light, .table > :not(caption) > * > *, .table thead th) {
+    background: var(--surface-bg-2);
+    color: var(--text-primary);
+    border-color: var(--divider);
+}
+
+body.theme-dark .table,
+body.theme-dark .table td,
+body.theme-dark .table th,
+body.theme-dark .control-table thead th,
+body.theme-dark .control-table tbody td {
+    color: var(--text-primary);
+    border-color: var(--divider);
+}
+
+body.theme-dark .control-table thead th {
+    background: var(--surface-bg-2);
+}
+
+body.theme-dark .control-table tbody tr:hover,
+body.theme-dark .notif-item:hover,
+body.theme-dark .clickable-component:hover,
+body.theme-dark .component-card:hover,
+body.theme-dark .action-card:hover,
+body.theme-dark .list-group-item:hover {
+    background: var(--hover-bg);
+}
+
+body.theme-dark .notif-item.unread {
+    background: rgba(0, 94, 184, 0.14);
+}
+
+body.theme-dark .notif-empty,
+body.theme-dark .notif-empty-title,
+body.theme-dark .notif-empty-text,
+body.theme-dark .notif-item-component,
+body.theme-dark .notif-meta,
+body.theme-dark .notif-time,
+body.theme-dark .page-breadcrumb,
+body.theme-dark .page-breadcrumb .separator,
+body.theme-dark .page-footer,
+body.theme-dark .stat-label,
+body.theme-dark .comp-count,
+body.theme-dark .component-card h6,
+body.theme-dark .action-card h5,
+body.theme-dark .app-modal-message,
+body.theme-dark .col-md-10 .text-muted,
+body.theme-dark .page-wrapper .text-muted {
+    color: var(--text-secondary) !important;
+}
+
+body.theme-dark .notif-item,
+body.theme-dark .notif-item-message,
+body.theme-dark .notif-msg,
+body.theme-dark .app-modal-body,
+body.theme-dark .app-modal-title,
+body.theme-dark .home-icon-large,
+body.theme-dark .sort-options,
+body.theme-dark label,
+body.theme-dark .form-label,
+body.theme-dark p,
+body.theme-dark h1,
+body.theme-dark h2,
+body.theme-dark h3,
+body.theme-dark h4,
+body.theme-dark h5,
+body.theme-dark h6 {
+    color: var(--text-primary);
+}
+
+body.theme-dark .notif-item.unread .notif-item-message,
+body.theme-dark .clickable-component:hover h6,
+body.theme-dark .component-card:hover h6,
+body.theme-dark .action-card:hover,
+body.theme-dark .action-card:hover .action-icon,
+body.theme-dark .home-icon-large:hover {
+    color: var(--link);
+}
+
+body.theme-dark .col-md-10 a:not(.nav-link):not(.btn),
+body.theme-dark .page-wrapper a:not(.btn),
+body.theme-dark .container a:not(.btn):not(.nav-link) {
+    color: var(--link);
+}
+
+body.theme-dark .col-md-10 a:not(.nav-link):not(.btn):hover,
+body.theme-dark .page-wrapper a:not(.btn):hover,
+body.theme-dark .container a:not(.btn):not(.nav-link):hover {
+    color: var(--link);
+}
+
+body.theme-dark .btn-outline-secondary:not(.sidebar .btn-outline-secondary),
+body.theme-dark .btn-outline-primary,
+body.theme-dark .btn-outline-dark,
+body.theme-dark .btn-light {
+    background: transparent;
+    color: var(--text-primary);
+    border-color: var(--border);
+}
+
+body.theme-dark .btn-outline-secondary:not(.sidebar .btn-outline-secondary):hover,
+body.theme-dark .btn-outline-primary:hover,
+body.theme-dark .btn-outline-dark:hover,
+body.theme-dark .btn-light:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+    border-color: var(--link);
+}
+
+body.theme-dark .btn-back.btn-outline {
+    border-color: var(--border);
+    color: var(--text-secondary);
+}
+
+body.theme-dark .btn-back.btn-outline:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+}
+
+body.theme-dark .form-control,
+body.theme-dark .form-select,
+body.theme-dark textarea,
+body.theme-dark input:not([type="checkbox"]):not([type="radio"]),
+body.theme-dark select {
+    background: var(--input-bg);
+    color: var(--input-text);
+    border-color: var(--border);
+}
+
+body.theme-dark .form-control:focus,
+body.theme-dark .form-select:focus,
+body.theme-dark textarea:focus,
+body.theme-dark input:not([type="checkbox"]):not([type="radio"]):focus,
+body.theme-dark select:focus {
+    background: var(--input-bg);
+    color: var(--input-text);
+    border-color: var(--link);
+    box-shadow: 0 0 0 0.2rem rgba(127, 176, 255, 0.15);
+}
+
+body.theme-dark .form-control::placeholder,
+body.theme-dark textarea::placeholder {
+    color: var(--muted);
+}
+
+body.theme-dark .form-check-label,
+body.theme-dark .small,
+body.theme-dark small {
+    color: var(--text-secondary);
+}
+
+body.theme-dark hr,
+body.theme-dark .dropdown-divider,
+body.theme-dark .border,
+body.theme-dark .border-top,
+body.theme-dark .border-bottom {
+    border-color: var(--divider) !important;
+}
+
+body.theme-dark .clickable-component,
+body.theme-dark .component-card,
+body.theme-dark .component-card.clickable-component,
+body.theme-dark .action-card,
+body.theme-dark .stat-card,
+body.theme-dark .notif-list-card,
+body.theme-dark .list-group-item,
+body.theme-dark .table-responsive,
+body.theme-dark .accordion-button,
+body.theme-dark .accordion-body {
+    background: var(--surface-bg) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+}
+
+body.theme-dark .clickable-component h6,
+body.theme-dark .component-card h6,
+body.theme-dark .action-card h5,
+body.theme-dark .stat-card .stat-label {
+    color: var(--text-primary) !important;
+}
+
+body.theme-dark .clickable-component:hover,
+body.theme-dark .component-card:hover,
+body.theme-dark .component-card.clickable-component:hover,
+body.theme-dark .action-card:hover,
+body.theme-dark .list-group-item:hover,
+body.theme-dark .accordion-button:hover {
+    background: var(--hover-bg) !important;
 }
 
 /* Unified app notification modal */

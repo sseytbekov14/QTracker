@@ -227,9 +227,203 @@
         .edit-mode-active .kpmg-file-delete {
             display: inline-block;
         }
+
+        body.theme-dark .role-restricted-field:disabled,
+        body.theme-dark .role-restricted-field[readonly],
+        body.theme-dark textarea[name="controlStepsPerformed"][disabled],
+        body.theme-dark textarea[name="controlStepsPerformed"][readonly] {
+            background-color: var(--surface-bg-2) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border) !important;
+        }
+
+        body.theme-dark .role-restricted-field:disabled::placeholder,
+        body.theme-dark .role-restricted-field[readonly]::placeholder {
+            color: var(--text-secondary);
+        }
+
+        body.theme-dark .kpmg-upload-zone {
+            border-color: var(--border);
+            background: var(--surface-bg-2);
+        }
+
+        body.theme-dark .kpmg-upload-zone:hover,
+        body.theme-dark .kpmg-upload-zone.drag-over {
+            border-color: var(--link);
+            background: var(--hover-bg);
+        }
+
+        body.theme-dark .kpmg-upload-text,
+        body.theme-dark .kpmg-file-list {
+            color: var(--text-primary);
+        }
+
+        body.theme-dark .kpmg-upload-hint {
+            color: var(--text-secondary);
+        }
+
+        body.theme-dark #changelogBtn {
+            background: var(--surface-bg-2);
+            color: var(--text-primary);
+            border-color: var(--border);
+        }
+
+        body.theme-dark #changelogBtn:hover {
+            background: var(--hover-bg);
+            color: var(--link);
+            border-color: var(--link);
+        }
+
+        body.theme-dark #changelogModal .modal-content {
+            background: var(--surface-bg);
+            color: var(--text-primary);
+            border-color: var(--border) !important;
+        }
+
+        body.theme-dark #changelogModal .modal-header {
+            background: var(--surface-bg);
+            border-bottom-color: var(--divider) !important;
+        }
+
+        body.theme-dark #changelogModal .modal-title {
+            color: var(--text-primary) !important;
+        }
+
+        body.theme-dark #changelogModal .modal-body {
+            background: var(--surface-bg);
+            color: var(--text-primary);
+        }
+
+        body.theme-dark #changelogModal .btn-group .changelog-filter-btn {
+            background: var(--surface-bg-2);
+            color: var(--text-secondary);
+            border-color: var(--border);
+        }
+
+        body.theme-dark #changelogModal .btn-group .changelog-filter-btn.active,
+        body.theme-dark #changelogModal .btn-group .changelog-filter-btn:hover {
+            background: var(--link);
+            color: #ffffff;
+            border-color: var(--link);
+        }
+
+        body.theme-dark #changelogModal #changelogCount,
+        body.theme-dark #changelogModal #changelogLoading,
+        body.theme-dark #changelogModal #changelogEmpty {
+            color: var(--text-secondary) !important;
+        }
+
+        body.theme-dark #changelogModal .timeline-item,
+        body.theme-dark #changelogModal .changelog-entry,
+        body.theme-dark #changelogModal .card,
+        body.theme-dark #changelogModal .list-group-item {
+            background: var(--surface-bg-2) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border) !important;
+        }
+
+        body.theme-dark #changelogModal .changelog-entry,
+        body.theme-dark #changelogModal .changelog-card,
+        body.theme-dark #changelogModal .changelog-body,
+        body.theme-dark #changelogModal .changelog-header,
+        body.theme-dark #changelogModal .changelog-workflow-block,
+        body.theme-dark #changelogModal .changelog-change-row,
+        body.theme-dark #changelogModal #changelogList > div,
+        body.theme-dark #changelogModal #changelogList > div > div {
+            background: var(--surface-bg-2) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border) !important;
+        }
+
+        body.theme-dark #changelogModal .changelog-date,
+        body.theme-dark #changelogModal .changelog-user,
+        body.theme-dark #changelogModal .changelog-field,
+        body.theme-dark #changelogModal .changelog-old,
+        body.theme-dark #changelogModal .changelog-count,
+        body.theme-dark #changelogModal .changelog-arrow {
+            color: var(--text-secondary) !important;
+        }
+
+        body.theme-dark #changelogModal .changelog-event-title,
+        body.theme-dark #changelogModal .changelog-new,
+        body.theme-dark #changelogModal .changelog-workflow-action,
+        body.theme-dark #changelogModal .changelog-workflow-comment {
+            color: var(--text-primary) !important;
+        }
+
+        body.theme-dark #changelogModal .changelog-step {
+            background: rgba(127, 176, 255, 0.14) !important;
+            color: var(--text-primary) !important;
+            border: 1px solid var(--border);
+        }
+
+        body.theme-dark #renameIdModal .modal-content {
+            background: var(--surface-bg);
+            color: var(--text-primary);
+            border-color: var(--border);
+        }
+
+        body.theme-dark #renameIdModal .modal-header,
+        body.theme-dark #renameIdModal .modal-footer {
+            background: var(--surface-bg);
+            border-color: var(--divider);
+        }
+
+        body.theme-dark #renameIdModal .modal-title {
+            color: var(--text-primary);
+        }
+
+        body.theme-dark #renameIdModal .modal-body {
+            background: var(--surface-bg);
+            color: var(--text-primary);
+        }
+
+        body.theme-dark #renameIdModal .form-label,
+        body.theme-dark #renameIdModal .form-text {
+            color: var(--text-secondary) !important;
+        }
+
+        body.theme-dark #renameIdModal .form-control {
+            background: var(--input-bg);
+            color: var(--input-text);
+            border-color: var(--border);
+        }
+
+        body.theme-dark #renameIdModal .form-control:focus {
+            border-color: var(--link);
+            box-shadow: 0 0 0 2px rgba(127, 176, 255, 0.15);
+        }
+
+        body.theme-dark #renameIdModal .btn-secondary {
+            background: var(--surface-bg-2);
+            color: var(--text-primary);
+            border-color: var(--border);
+        }
+
+        body.theme-dark #renameIdModal .btn-secondary:hover {
+            background: var(--hover-bg);
+            color: var(--text-primary);
+            border-color: var(--link);
+        }
+
+        body.theme-dark #renameIdModal #confirmRenameBtn:disabled {
+            background-color: var(--surface-bg-2) !important;
+            border-color: var(--border) !important;
+            color: var(--text-secondary) !important;
+        }
     </style>
 </head>
 <body>
+<script>
+(function() {
+    try {
+        var savedTheme = localStorage.getItem('qtrackerTheme');
+        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+    } catch (error) {
+        document.body.classList.add('theme-light');
+    }
+})();
+</script>
 
 <input type="hidden" id="currentUserRole" th:value="${userRole}">
 <input type="hidden" id="currentPerformanceStatus" name="performanceStatus" th:value="${performanceStatus}">
@@ -1339,6 +1533,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const isEditMode = editNavPanel && !editNavPanel.classList.contains('d-none');
         
         console.log('🔐 Applying role-based restrictions for role:', currentUserRole);
+
+        const themeStyles = getComputedStyle(document.body);
+        const restrictedBackground = themeStyles.getPropertyValue('--surface-bg-2').trim() || '#f7f8fa';
+        const restrictedText = themeStyles.getPropertyValue('--text-primary').trim() || '#5c6478';
+        const restrictedBorder = themeStyles.getPropertyValue('--border').trim() || '#d8dce5';
         
         restrictedFields.forEach(field => {
             const fieldName = field.name;
@@ -1356,9 +1555,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 field.setAttribute('disabled', 'disabled');
                 field.setAttribute('readonly', 'readonly');
                 field.style.cursor = 'not-allowed';
-                field.style.backgroundColor = '#f7f8fa';
-                field.style.color = '#5c6478';
-                field.style.borderColor = '#d8dce5';
+                field.style.backgroundColor = restrictedBackground;
+                field.style.color = restrictedText;
+                field.style.borderColor = restrictedBorder;
                 
                 // Add visual indicator to label
                 const label = field.parentElement?.querySelector('.form-label');
@@ -1405,6 +1604,11 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        const themeStyles = getComputedStyle(document.body);
+        const restrictedBackground = themeStyles.getPropertyValue('--surface-bg-2').trim() || '#f7f8fa';
+        const restrictedText = themeStyles.getPropertyValue('--text-primary').trim() || '#5c6478';
+        const restrictedBorder = themeStyles.getPropertyValue('--border').trim() || '#d8dce5';
+
         console.log('🔒 Status-based restriction:', { statusValue, normalizedStatus, isEditMode });
 
         if ((canEditAll || canEditStepsPerformed) && isEditMode) {
@@ -1423,9 +1627,9 @@ document.addEventListener('DOMContentLoaded', function() {
         controlStepsField.setAttribute('disabled', 'disabled');
         controlStepsField.setAttribute('readonly', 'readonly');
         controlStepsField.style.cursor = 'not-allowed';
-        controlStepsField.style.backgroundColor = '#f7f8fa';
-        controlStepsField.style.color = '#5c6478';
-        controlStepsField.style.borderColor = '#d8dce5';
+        controlStepsField.style.backgroundColor = restrictedBackground;
+        controlStepsField.style.color = restrictedText;
+        controlStepsField.style.borderColor = restrictedBorder;
     }
 
     // Apply restrictions on page load

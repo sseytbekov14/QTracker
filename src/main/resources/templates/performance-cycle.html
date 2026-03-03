@@ -325,9 +325,87 @@
             width: 14px;
             height: 14px;
         }
+
+        body {
+            background: var(--app-bg);
+            color: var(--text-primary);
+        }
+
+        .page-wrapper {
+            color: var(--text-primary);
+        }
+
+        body.theme-dark .breadcrumb-bar,
+        body.theme-dark .performance-card,
+        body.theme-dark .history-table-wrapper,
+        body.theme-dark .action-bar {
+            background: var(--surface-bg) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border) !important;
+        }
+
+        body.theme-dark .breadcrumb-bar {
+            background: var(--surface-bg-2) !important;
+            color: var(--text-secondary) !important;
+        }
+
+        body.theme-dark .breadcrumb-bar a {
+            color: var(--link) !important;
+        }
+
+        body.theme-dark .breadcrumb-bar .separator,
+        body.theme-dark .data-label,
+        body.theme-dark .updated-row small {
+            color: var(--text-secondary) !important;
+        }
+
+        body.theme-dark .data-row,
+        body.theme-dark .updated-row,
+        body.theme-dark .history-table tbody td,
+        body.theme-dark .history-table thead th {
+            border-color: var(--divider) !important;
+        }
+
+        body.theme-dark .data-value,
+        body.theme-dark .history-table tbody td {
+            color: var(--text-primary) !important;
+        }
+
+        body.theme-dark .history-table thead th {
+            background: var(--surface-bg-2) !important;
+            color: var(--text-secondary) !important;
+        }
+
+        body.theme-dark .action-bar .btn-action {
+            background: var(--surface-bg-2) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border) !important;
+        }
+
+        body.theme-dark .action-bar .btn-action:hover {
+            background: var(--hover-bg) !important;
+            color: var(--link) !important;
+            border-color: var(--link) !important;
+        }
+
+        body.theme-dark .status-default {
+            background: var(--surface-bg-2) !important;
+            color: var(--text-secondary) !important;
+            border-color: var(--border) !important;
+        }
     </style>
 </head>
 <body>
+<script>
+(function() {
+    try {
+        var savedTheme = localStorage.getItem('qtrackerTheme');
+        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+    } catch (error) {
+        document.body.classList.add('theme-light');
+    }
+})();
+</script>
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">

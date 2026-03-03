@@ -278,9 +278,94 @@
             padding-top: 12px;
             border-top: 1px solid var(--kpmg-gray-200);
         }
+
+        body.theme-dark {
+            background: var(--app-bg);
+            color: var(--text-primary);
+        }
+
+        body.theme-dark .page-wrapper {
+            color: var(--text-primary);
+        }
+
+        body.theme-dark .page-breadcrumb {
+            color: var(--text-secondary);
+        }
+
+        body.theme-dark .page-breadcrumb a {
+            color: var(--link);
+        }
+
+        body.theme-dark .page-breadcrumb .separator,
+        body.theme-dark .control-id-hint,
+        body.theme-dark .form-label {
+            color: var(--text-secondary) !important;
+        }
+
+        body.theme-dark .form-card {
+            background: var(--surface-bg);
+            border-color: var(--border);
+        }
+
+        body.theme-dark .section-divider,
+        body.theme-dark .form-footer {
+            border-color: var(--divider);
+        }
+
+        body.theme-dark .section-title {
+            color: var(--card-title, var(--text-primary));
+        }
+
+        body.theme-dark .form-control,
+        body.theme-dark .form-select {
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            border-color: var(--border);
+        }
+
+        body.theme-dark .form-control:focus,
+        body.theme-dark .form-select:focus {
+            border-color: var(--link);
+            box-shadow: 0 0 0 2px rgba(127, 176, 255, 0.15);
+        }
+
+        body.theme-dark .form-control::placeholder {
+            color: var(--text-secondary);
+        }
+
+        body.theme-dark .control-id-wrapper .form-control {
+            color: var(--link);
+        }
+
+        body.theme-dark .btn-kpmg-secondary {
+            background: var(--surface-bg-2);
+            border-color: var(--border);
+            color: var(--text-primary);
+        }
+
+        body.theme-dark .btn-kpmg-secondary:hover {
+            border-color: var(--link);
+            color: var(--link);
+            background: var(--hover-bg);
+        }
+
+        body.theme-dark .btn-kpmg-primary:disabled {
+            background: var(--surface-bg-2);
+            color: var(--text-secondary);
+        }
     </style>
 </head>
 <body>
+<script>
+(function() {
+    try {
+        var savedTheme = localStorage.getItem('qtrackerTheme');
+        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+    } catch (error) {
+        document.body.classList.add('theme-light');
+    }
+})();
+</script>
     <div class="page-wrapper">
 
         <!-- Breadcrumb -->

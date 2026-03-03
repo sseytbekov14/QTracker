@@ -349,9 +349,128 @@ body {
     background: var(--kpmg-blue-dark);
     color: var(--kpmg-white);
 }
+
+body {
+    background: var(--app-bg);
+    color: var(--text-primary);
+}
+
+.page-wrapper {
+    color: var(--text-primary);
+}
+
+body.theme-dark .page-breadcrumb,
+body.theme-dark .page-breadcrumb a {
+    color: var(--link);
+}
+
+body.theme-dark .page-breadcrumb .separator {
+    color: var(--muted);
+}
+
+body.theme-dark .notif-card,
+body.theme-dark .notif-body,
+body.theme-dark .notif-actions {
+    background: var(--surface-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+body.theme-dark .notif-card {
+    border-color: var(--border) !important;
+}
+
+body.theme-dark .notif-badge-row,
+body.theme-dark .notif-meta,
+body.theme-dark .notif-actions {
+    border-color: var(--divider) !important;
+}
+
+body.theme-dark .notif-meta,
+body.theme-dark .notif-actions,
+body.theme-dark .attachment-item,
+body.theme-dark .att-icon {
+    background: var(--surface-bg-2) !important;
+}
+
+body.theme-dark .notif-title,
+body.theme-dark .meta-value,
+body.theme-dark .notif-text {
+    color: var(--text-primary) !important;
+}
+
+body.theme-dark .notif-date,
+body.theme-dark .meta-label {
+    color: var(--text-secondary) !important;
+}
+
+body.theme-dark .attachment-item {
+    border-color: var(--border) !important;
+}
+
+body.theme-dark .att-icon svg {
+    color: var(--text-secondary) !important;
+}
+
+body.theme-dark .type-activated {
+    background: #1565c0;
+    color: #ffffff;
+    border-color: #1565c0;
+}
+
+body.theme-dark .type-reminder {
+    background: #f59f00;
+    color: #ffffff;
+    border-color: #f59f00;
+}
+
+body.theme-dark .type-overdue {
+    background: var(--kpmg-red);
+    color: #ffffff;
+    border-color: var(--kpmg-red);
+}
+
+body.theme-dark .type-completed {
+    background: #2e7d32;
+    color: #ffffff;
+    border-color: #2e7d32;
+}
+
+body.theme-dark .type-auto-created {
+    background: #7b1fa2;
+    color: #ffffff;
+    border-color: #7b1fa2;
+}
+
+body.theme-dark .type-default {
+    background: var(--surface-bg-2);
+    color: var(--text-secondary);
+    border-color: var(--border);
+}
+
+body.theme-dark .btn-notif-secondary {
+    background: var(--surface-bg-2);
+    color: var(--text-primary);
+    border-color: var(--border);
+}
+
+body.theme-dark .btn-notif-secondary:hover {
+    background: var(--hover-bg);
+    color: var(--link);
+    border-color: var(--link);
+}
     </style>
 </head>
 <body>
+<script>
+(function() {
+    try {
+        var savedTheme = localStorage.getItem('qtrackerTheme');
+        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+    } catch (error) {
+        document.body.classList.add('theme-light');
+    }
+})();
+</script>
 <div class="page-wrapper">
 
     <!-- Breadcrumb -->

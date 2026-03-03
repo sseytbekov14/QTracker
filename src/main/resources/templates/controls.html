@@ -348,9 +348,107 @@ body { background: var(--kpmg-gray-50); }
 
 .empty-state i { font-size: 2.5rem; display: block; margin-bottom: 8px; }
 .empty-state p { font-size: 0.85rem; margin: 0; }
+
+body.theme-dark {
+    background: var(--app-bg);
+    color: var(--text-primary);
+}
+
+body.theme-dark .page-header,
+body.theme-dark .stats-bar,
+body.theme-dark .controls-toolbar,
+body.theme-dark .table-wrapper {
+    border-color: var(--border) !important;
+}
+
+body.theme-dark .stats-bar,
+body.theme-dark .controls-toolbar,
+body.theme-dark .table-wrapper,
+body.theme-dark .clickable-row.editable-row {
+    background: var(--surface-bg) !important;
+}
+
+body.theme-dark .clickable-row.view-only-row,
+body.theme-dark .control-table thead th {
+    background: var(--surface-bg-2) !important;
+}
+
+body.theme-dark .stats-bar .stat-item,
+body.theme-dark .controls-toolbar,
+body.theme-dark .control-table thead th,
+body.theme-dark .control-table tbody td {
+    border-color: var(--divider) !important;
+}
+
+body.theme-dark .stats-bar .stat-item,
+body.theme-dark .controls-toolbar .form-select,
+body.theme-dark .controls-toolbar .form-control,
+body.theme-dark .kpmg-dropdown-toggle,
+body.theme-dark .kpmg-dropdown-menu,
+body.theme-dark .table-wrapper,
+body.theme-dark .control-table tbody td,
+body.theme-dark .empty-state {
+    color: var(--text-primary) !important;
+}
+
+body.theme-dark .stats-bar .stat-item,
+body.theme-dark .kpmg-dropdown-arrow,
+body.theme-dark .empty-state,
+body.theme-dark .controls-toolbar .form-select::placeholder,
+body.theme-dark .controls-toolbar .form-control::placeholder {
+    color: var(--text-secondary) !important;
+}
+
+body.theme-dark .controls-toolbar .form-select,
+body.theme-dark .controls-toolbar .form-control,
+body.theme-dark .kpmg-dropdown-toggle,
+body.theme-dark .kpmg-dropdown-menu {
+    background: var(--surface-bg-2) !important;
+    border-color: var(--border) !important;
+}
+
+body.theme-dark .kpmg-dropdown-item {
+    color: var(--text-secondary);
+}
+
+body.theme-dark .kpmg-dropdown-item:hover,
+body.theme-dark .clickable-row:hover,
+body.theme-dark .clickable-row.editable-row:hover,
+body.theme-dark .clickable-row.view-only-row:hover {
+    background: var(--hover-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+body.theme-dark .control-table thead th {
+    color: var(--text-secondary) !important;
+}
+
+body.theme-dark .control-table tbody tr,
+body.theme-dark .clickable-row {
+    background: var(--surface-bg) !important;
+}
+
+body.theme-dark .control-id-text {
+    color: var(--link) !important;
+}
+
+body.theme-dark .status-draft {
+    background: var(--surface-bg-2);
+    color: var(--text-secondary);
+}
 </style>
 </head>
 <body>
+<script>
+(function() {
+    try {
+        var savedTheme = localStorage.getItem('qtrackerTheme');
+        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+    } catch (error) {
+        document.body.classList.add('theme-light');
+    }
+})();
+</script>
 <div class="container-fluid">
     <div class="row">
         <!-- Sidebar -->

@@ -25,7 +25,55 @@
     --kpmg-amber: #d4a843;
 }
 
-body { background: var(--kpmg-gray-50); }
+body {
+    --text-color: var(--kpmg-gray-800);
+    --muted-text: var(--kpmg-gray-600);
+    --link-color: var(--kpmg-blue);
+    --card-title: var(--kpmg-gray-800);
+    --border-color: var(--kpmg-gray-200);
+    --gridline: rgba(216, 220, 229, 0.45);
+    --dashboard-bg: var(--kpmg-gray-50);
+    --dashboard-card-bg: var(--kpmg-white);
+    --dashboard-text: var(--text-color);
+    --dashboard-muted-text: var(--muted-text);
+    --dashboard-border: var(--border-color);
+    --dashboard-chart-grid: var(--gridline);
+    --dashboard-hover-bg: #f0f4fa;
+    background: var(--dashboard-bg);
+    color: var(--dashboard-text);
+}
+
+body.theme-light {
+    --text-color: var(--kpmg-gray-800);
+    --muted-text: var(--kpmg-gray-600);
+    --link-color: var(--kpmg-blue);
+    --card-title: var(--kpmg-gray-800);
+    --border-color: var(--kpmg-gray-200);
+    --gridline: rgba(216, 220, 229, 0.45);
+    --dashboard-bg: var(--kpmg-gray-50);
+    --dashboard-card-bg: var(--kpmg-white);
+    --dashboard-text: var(--text-color);
+    --dashboard-muted-text: var(--muted-text);
+    --dashboard-border: var(--border-color);
+    --dashboard-chart-grid: var(--gridline);
+    --dashboard-hover-bg: #f0f4fa;
+}
+
+body.theme-dark {
+    --text-color: #e9eef8;
+    --muted-text: #b8c3d8;
+    --link-color: #7fb0ff;
+    --card-title: #f3f7ff;
+    --border-color: #3a4e6a;
+    --gridline: rgba(132, 150, 178, 0.28);
+    --dashboard-bg: #101722;
+    --dashboard-card-bg: #182332;
+    --dashboard-text: var(--text-color);
+    --dashboard-muted-text: var(--muted-text);
+    --dashboard-border: var(--border-color);
+    --dashboard-chart-grid: var(--gridline);
+    --dashboard-hover-bg: #223149;
+}
 
 /* Page header */
 .page-header {
@@ -36,6 +84,34 @@ body { background: var(--kpmg-gray-50); }
 }
 .page-header h1 { font-size: 1.35rem; font-weight: 600; margin: 0; }
 .page-header .subtitle { font-size: 0.78rem; color: rgba(255,255,255,0.65); margin: 2px 0 0 0; }
+.dashboard-header-panel {
+    position: relative;
+    padding-right: 74px;
+}
+.dashboard-theme-toggle {
+    position: absolute;
+    top: 20px;
+    right: 28px;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--kpmg-white);
+    font-size: 0.95rem;
+    line-height: 1;
+}
+.dashboard-theme-toggle:hover,
+.dashboard-theme-toggle:focus {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--kpmg-white);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: none;
+}
 
 /* Stats strip */
 .stats-strip {
@@ -60,6 +136,20 @@ body { background: var(--kpmg-gray-50); }
 .stats-strip .stat-block.active .stat-num { color: var(--kpmg-amber); }
 .stats-strip .stat-block.completed .stat-num { color: var(--kpmg-green); }
 .stats-strip .stat-block.overdue .stat-num { color: var(--kpmg-red); }
+
+#pane-dashboard {
+    color: var(--dashboard-text);
+}
+#pane-dashboard .stats-strip {
+    background: var(--dashboard-card-bg);
+    border-color: var(--dashboard-border);
+}
+#pane-dashboard .stats-strip .stat-block {
+    border-right-color: var(--dashboard-border);
+}
+#pane-dashboard .stats-strip .stat-label {
+    color: var(--muted-text);
+}
 
 /* Quick actions */
 .quick-actions {
@@ -89,6 +179,15 @@ body { background: var(--kpmg-gray-50); }
 .quick-action-btn i {
     font-size: 1rem;
     color: var(--kpmg-blue);
+}
+#pane-dashboard .quick-action-btn {
+    background: var(--dashboard-card-bg);
+    border-color: var(--dashboard-border);
+    color: var(--text-color);
+}
+#pane-dashboard .quick-action-btn:hover {
+    background: var(--dashboard-hover-bg);
+    color: var(--link-color);
 }
 
 /* Component grid */
@@ -122,6 +221,26 @@ body { background: var(--kpmg-gray-50); }
     color: var(--kpmg-blue);
     font-weight: 700;
 }
+body.theme-dark #pane-action .component-grid {
+    background: var(--surface-bg);
+    border-color: var(--surface-bg);
+}
+body.theme-dark #pane-action .comp-card {
+    background: var(--surface-bg);
+    color: var(--text-primary);
+}
+body.theme-dark #pane-action .comp-card:hover {
+    background: var(--hover-bg);
+}
+body.theme-dark #pane-action .comp-card h6 {
+    color: var(--text-primary);
+}
+body.theme-dark #pane-action .comp-card .comp-count {
+    color: var(--text-secondary);
+}
+body.theme-dark #pane-action .comp-card .comp-count strong {
+    color: var(--link);
+}
 
 /* Section title */
 .section-title {
@@ -134,6 +253,23 @@ body { background: var(--kpmg-gray-50); }
     padding-bottom: 6px;
     border-bottom: 2px solid var(--kpmg-blue);
     display: inline-block;
+}
+#pane-dashboard .section-title {
+    color: var(--card-title);
+}
+
+#pane-dashboard .dashboard-surface-card {
+    background: var(--dashboard-card-bg) !important;
+    border: 1px solid var(--dashboard-border) !important;
+    color: var(--text-color);
+}
+#pane-dashboard .dashboard-surface-card canvas {
+    color: var(--text-color);
+}
+#pane-dashboard .dashboard-surface-card .small,
+#pane-dashboard .dashboard-surface-card small,
+#pane-dashboard .dashboard-surface-card .text-muted {
+    color: var(--muted-text) !important;
 }
 
 /* Notification items */
@@ -174,6 +310,32 @@ body { background: var(--kpmg-gray-50); }
 .notif-date-header { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--kpmg-gray-400); font-weight: 600; padding: 8px 0 4px 0; }
 .notif-empty { text-align: center; padding: 40px; color: var(--kpmg-gray-400); font-size: 0.85rem; background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); }
 
+body.theme-dark #pane-notifications .notif-item {
+    background: var(--surface-bg);
+    color: var(--text-primary);
+    border-color: var(--border);
+}
+body.theme-dark #pane-notifications .notif-item:hover {
+    background: var(--hover-bg);
+}
+body.theme-dark #pane-notifications .notif-item.unread {
+    background: rgba(0, 94, 184, 0.14);
+}
+body.theme-dark #pane-notifications .notif-msg {
+    color: var(--text-primary);
+}
+body.theme-dark #pane-notifications .notif-meta,
+body.theme-dark #pane-notifications .notif-time,
+body.theme-dark #pane-notifications .notif-date-header,
+body.theme-dark #pane-notifications .notif-item .text-muted,
+body.theme-dark #pane-notifications .notif-empty {
+    color: var(--text-secondary) !important;
+}
+body.theme-dark #pane-notifications .notif-empty {
+    background: var(--surface-bg);
+    border-color: var(--border);
+}
+
 /* Mark all read btn */
 .btn-mark-read {
     background: var(--kpmg-white);
@@ -210,12 +372,12 @@ body { background: var(--kpmg-gray-50); }
 .deadlines-block .deadlines-list {
     height: var(--deadlines-height);
     overflow-y: auto;
-    border: 1px solid var(--kpmg-gray-200);
-    background: var(--kpmg-white);
+    border: 1px solid var(--dashboard-border);
+    background: var(--dashboard-card-bg);
 }
 .deadlines-block .deadline-item {
     padding: 8px 10px;
-    border-bottom: 1px solid var(--kpmg-gray-200);
+    border-bottom: 1px solid var(--dashboard-border);
     line-height: 1.25;
 }
 .deadlines-block .deadline-item:last-child {
@@ -224,12 +386,12 @@ body { background: var(--kpmg-gray-50); }
 .deadlines-block .deadline-link {
     font-size: 0.76rem;
     font-weight: 700;
-    color: var(--kpmg-blue);
+    color: var(--link-color);
     text-decoration: none;
 }
 .deadlines-block .deadline-name {
     font-size: 0.7rem;
-    color: var(--kpmg-gray-600);
+    color: var(--muted-text);
     margin-top: 2px;
     white-space: nowrap;
     overflow: hidden;
@@ -238,13 +400,13 @@ body { background: var(--kpmg-gray-50); }
 }
 .deadlines-block .deadline-date {
     font-size: 0.66rem;
-    color: var(--kpmg-gray-400);
+    color: var(--muted-text);
     margin-top: 3px;
 }
 .deadlines-block .deadline-remaining {
     font-size: 0.72rem;
     font-weight: 700;
-    color: var(--kpmg-gray-800);
+    color: var(--dashboard-text);
 }
 .deadlines-block .deadline-remaining.is-overdue {
     color: var(--kpmg-red);
@@ -262,8 +424,8 @@ body { background: var(--kpmg-gray-50); }
 }
 .deadlines-block #deadlineCalendarWrapper {
     height: var(--deadlines-height);
-    border: 1px solid var(--kpmg-gray-200);
-    background: var(--kpmg-white);
+    border: 1px solid var(--dashboard-border);
+    background: var(--dashboard-card-bg);
     padding: 3px;
     overflow: hidden;
 }
@@ -273,6 +435,7 @@ body { background: var(--kpmg-gray-50); }
 .deadlines-block #deadlineCalendarWrapper .fc {
     height: 100%;
     font-size: 12px;
+    color: var(--dashboard-text);
 }
 .deadlines-block #deadlineCalendarWrapper .fc-toolbar {
     padding: 4px;
@@ -284,27 +447,39 @@ body { background: var(--kpmg-gray-50); }
 .deadlines-block #deadlineCalendarWrapper .fc-toolbar-title {
     font-size: 0.76rem;
     font-weight: 600;
-    color: var(--kpmg-gray-800);
+    color: var(--card-title);
 }
 .deadlines-block #deadlineCalendarWrapper .fc-button {
     padding: 0.14rem 0.32rem;
     font-size: 0.6rem;
     line-height: 1.2;
 }
-.deadlines-block #deadlineCalendarWrapper .fc-col-header-cell-cushion,
+.deadlines-block #deadlineCalendarWrapper .fc-col-header-cell-cushion {
+    font-size: 0.6rem;
+    padding: 1px 2px;
+    color: var(--muted-text);
+}
 .deadlines-block #deadlineCalendarWrapper .fc-daygrid-day-number {
     font-size: 0.6rem;
     padding: 1px 2px;
+    color: var(--text-color);
 }
 .deadlines-block #deadlineCalendarWrapper .fc-col-header-cell {
     padding: 2px;
 }
 .deadlines-block #deadlineCalendarWrapper .fc-scrollgrid {
-    border-color: var(--kpmg-gray-200);
+    border-color: var(--dashboard-border);
 }
 .deadlines-block #deadlineCalendarWrapper .fc-daygrid-day-frame {
     min-height: 40px;
     padding: 1px 0;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-theme-standard td,
+.deadlines-block #deadlineCalendarWrapper .fc-theme-standard th {
+    border-color: var(--dashboard-border);
+}
+.deadlines-block #deadlineCalendarWrapper .fc-daygrid-day.fc-day-today {
+    background: rgba(0, 94, 184, 0.08);
 }
 .deadlines-block #deadlineCalendarWrapper .fc-daygrid-day-events {
     margin-top: 1px;
@@ -334,6 +509,33 @@ body { background: var(--kpmg-gray-50); }
 }
 .deadlines-block #deadlineCalendarWrapper .fc-daygrid-more-link {
     font-size: 0.58rem;
+    color: var(--link-color);
+}
+.deadlines-block #deadlineCalendarWrapper .fc-button-primary {
+    background: rgba(0, 94, 184, 0.12);
+    border-color: var(--dashboard-border);
+    color: var(--text-color);
+}
+.deadlines-block #deadlineCalendarWrapper .fc-button-primary:hover,
+.deadlines-block #deadlineCalendarWrapper .fc-button-primary:focus,
+.deadlines-block #deadlineCalendarWrapper .fc-button-primary:not(:disabled).fc-button-active,
+.deadlines-block #deadlineCalendarWrapper .fc-button-primary:not(:disabled):active {
+    background: rgba(0, 94, 184, 0.22);
+    border-color: var(--link-color);
+    color: var(--text-color);
+    box-shadow: none;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-button-primary:disabled {
+    background: rgba(0, 94, 184, 0.08);
+    border-color: var(--dashboard-border);
+    color: var(--muted-text);
+}
+.deadlines-block #deadlineCalendarWrapper .fc-icon {
+    color: inherit;
+}
+.deadlines-block #deadlineCalendarWrapper .fc-list-event:hover td,
+.deadlines-block #deadlineCalendarWrapper .fc-daygrid-day:hover {
+    background: transparent;
 }
 @media (max-width: 1199.98px) {
     .deadlines-block .deadlines-panel,
@@ -353,6 +555,16 @@ body { background: var(--kpmg-gray-50); }
 </style>
 </head>
 <body>
+<script>
+(function() {
+    try {
+        var savedTheme = localStorage.getItem('qtrackerTheme');
+        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+    } catch (error) {
+        document.body.classList.add('theme-light');
+    }
+})();
+</script>
 <div class="container-fluid">
     <div class="row">
         <!-- Sidebar -->
@@ -421,9 +633,14 @@ body { background: var(--kpmg-gray-50); }
                     <div class="tab-pane fade show active" id="pane-dashboard" role="tabpanel">
 
                         <!-- Header -->
-                        <div class="page-header">
+                        <div class="page-header dashboard-header-panel">
                             <h1 th:text="'Welcome back, ' + ${userName}">Welcome back</h1>
                             <p class="subtitle" th:text="'Today you have ' + (${totalControls} ?: 0) + ' controls to manage'"></p>
+                            <button type="button"
+                                    id="dashboardThemeToggle"
+                                    class="btn dashboard-theme-toggle"
+                                    title="Switch theme"
+                                    aria-label="Switch theme">🌙</button>
                         </div>
 
                         <!-- Stats -->
@@ -465,7 +682,7 @@ body { background: var(--kpmg-gray-50); }
                              style="padding-top: 4px;">
                             <div class="row g-3">
                                 <div class="col-12 col-lg-6">
-                                    <div style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
+                                    <div class="dashboard-surface-card" style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
                                         <div class="section-title" style="margin-bottom: 14px;"
                                              th:text="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_LEAD')} ? 'CONTROLS BY FREQUENCY' : 'MY CONTROLS BY FREQUENCY'">
                                             CONTROLS BY FREQUENCY
@@ -476,7 +693,7 @@ body { background: var(--kpmg-gray-50); }
                                     </div>
                                 </div>
                                 <div class="col-12 col-lg-6">
-                                    <div style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
+                                    <div class="dashboard-surface-card" style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
                                         <div class="section-title" style="margin-bottom: 14px;"
                                              th:text="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_LEAD')} ? 'CONTROLS BY COMPONENT' : 'MY CONTROLS BY COMPONENT'">
                                             CONTROLS BY COMPONENT
@@ -487,10 +704,10 @@ body { background: var(--kpmg-gray-50); }
                                     </div>
                                 </div>
                                 <div class="col-12">
-                                    <div style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
+                                    <div class="dashboard-surface-card" style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
                                         <div class="row g-3 deadlines-block">
                                             <div class="col-12 col-xl-4">
-                                                <div class="section-title" style="margin-bottom: 14px;">DEADLINE COUNTDOWN (FROM LAST 3 DAYS)</div>
+                                                <div class="section-title" style="margin-bottom: 14px;">DEADLINE COUNTDOWN (FROM LAST 4 DAYS)</div>
                                                 <div id="deadlineCountdownList"
                                                      class="deadlines-list deadlines-panel">
                                                 </div>
@@ -665,12 +882,19 @@ let overdueTrendChartInstance;
 let deadlineCalendarInstance;
 let deadlineCountdownRefreshHandle;
 let deadlineCountdownTickHandle;
+let dashboardLeftChartData;
+let dashboardRightChartData;
+
+const DASHBOARD_THEME_STORAGE_KEY = 'qtrackerTheme';
 
 if (window.Chart && window.ChartDataLabels) {
     Chart.register(ChartDataLabels);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    applyDashboardTheme(getStoredDashboardTheme());
+    initializeDashboardThemeToggle();
+
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('success') === 'true') {
         showSuccessAlert('Control created successfully!');
@@ -723,6 +947,67 @@ function hideSuccessAlert() {
     if (a) a.style.display = 'none';
 }
 
+function getStoredDashboardTheme() {
+    try {
+        const storedTheme = localStorage.getItem(DASHBOARD_THEME_STORAGE_KEY);
+        return storedTheme === 'dark' ? 'dark' : 'light';
+    } catch (error) {
+        return 'light';
+    }
+}
+
+function initializeDashboardThemeToggle() {
+    const toggleButton = document.getElementById('dashboardThemeToggle');
+    if (!toggleButton) {
+        return;
+    }
+
+    updateDashboardThemeToggleIcon();
+    toggleButton.addEventListener('click', function() {
+        const nextTheme = document.body.classList.contains('theme-dark') ? 'light' : 'dark';
+        applyDashboardTheme(nextTheme);
+        rerenderDashboardCharts();
+    });
+}
+
+function applyDashboardTheme(theme) {
+    const normalizedTheme = theme === 'dark' ? 'dark' : 'light';
+    document.body.classList.remove('theme-light', 'theme-dark');
+    document.body.classList.add('theme-' + normalizedTheme);
+
+    try {
+        localStorage.setItem(DASHBOARD_THEME_STORAGE_KEY, normalizedTheme);
+    } catch (error) {
+        // Ignore localStorage failures and keep the current in-memory theme.
+    }
+
+    updateDashboardThemeToggleIcon();
+}
+
+function updateDashboardThemeToggleIcon() {
+    const toggleButton = document.getElementById('dashboardThemeToggle');
+    if (!toggleButton) {
+        return;
+    }
+
+    const isDarkMode = document.body.classList.contains('theme-dark');
+    toggleButton.textContent = isDarkMode ? '☀️' : '🌙';
+}
+
+function rerenderDashboardCharts() {
+    const dashboardCharts = document.getElementById('dashboardCharts');
+    if (!dashboardCharts || !window.Chart || !dashboardLeftChartData || !dashboardRightChartData) {
+        return;
+    }
+
+    renderStatusBreakdownChart(dashboardLeftChartData);
+    renderFrequencyChart(dashboardRightChartData);
+
+    if (deadlineCalendarInstance) {
+        deadlineCalendarInstance.updateSize();
+    }
+}
+
 async function initializeAdminDashboardCharts() {
     try {
         const dashboardCharts = document.getElementById('dashboardCharts');
@@ -741,6 +1026,8 @@ async function initializeAdminDashboardCharts() {
             fetchDashboardChartData(rightChartEndpoint)
         ]);
 
+        dashboardLeftChartData = statusData;
+        dashboardRightChartData = frequencyData;
         renderStatusBreakdownChart(statusData);
         renderFrequencyChart(frequencyData);
         initializeDeadlineSection();
@@ -765,17 +1052,21 @@ async function fetchDashboardChartData(url) {
 }
 
 function getDashboardChartPalette() {
-    const styles = getComputedStyle(document.documentElement);
+    const rootStyles = getComputedStyle(document.documentElement);
+    const themeStyles = getComputedStyle(document.body);
     return {
-        blue: styles.getPropertyValue('--kpmg-blue').trim(),
-        blueLight: styles.getPropertyValue('--kpmg-blue-light').trim(),
-        blueDark: styles.getPropertyValue('--kpmg-blue-dark').trim(),
-        gray200: styles.getPropertyValue('--kpmg-gray-200').trim(),
-        gray400: styles.getPropertyValue('--kpmg-gray-400').trim(),
-        gray600: styles.getPropertyValue('--kpmg-gray-600').trim(),
-        green: styles.getPropertyValue('--kpmg-green').trim(),
-        red: styles.getPropertyValue('--kpmg-red').trim(),
-        amber: styles.getPropertyValue('--kpmg-amber').trim()
+        blue: rootStyles.getPropertyValue('--kpmg-blue').trim(),
+        blueLight: rootStyles.getPropertyValue('--kpmg-blue-light').trim(),
+        blueDark: rootStyles.getPropertyValue('--kpmg-blue-dark').trim(),
+        gray200: rootStyles.getPropertyValue('--kpmg-gray-200').trim(),
+        gray400: rootStyles.getPropertyValue('--kpmg-gray-400').trim(),
+        gray600: rootStyles.getPropertyValue('--kpmg-gray-600').trim(),
+        green: rootStyles.getPropertyValue('--kpmg-green').trim(),
+        red: rootStyles.getPropertyValue('--kpmg-red').trim(),
+        amber: rootStyles.getPropertyValue('--kpmg-amber').trim(),
+        text: themeStyles.getPropertyValue('--text-color').trim() || themeStyles.getPropertyValue('--dashboard-text').trim() || rootStyles.getPropertyValue('--kpmg-gray-800').trim(),
+        mutedText: themeStyles.getPropertyValue('--muted-text').trim() || themeStyles.getPropertyValue('--dashboard-muted-text').trim() || rootStyles.getPropertyValue('--kpmg-gray-600').trim(),
+        chartGrid: themeStyles.getPropertyValue('--gridline').trim() || themeStyles.getPropertyValue('--dashboard-chart-grid').trim() || 'rgba(216, 220, 229, 0.45)'
     };
 }
 
@@ -812,7 +1103,7 @@ function buildCartesianOptions(palette) {
                         : 0;
                     return value > 0;
                 },
-                color: palette.blueDark,
+                color: palette.text,
                 anchor: 'end',
                 align: 'top',
                 offset: 4,
@@ -830,11 +1121,11 @@ function buildCartesianOptions(palette) {
         scales: {
             x: {
                 grid: {
-                    color: 'rgba(216, 220, 229, 0.4)',
+                    color: palette.chartGrid,
                     drawBorder: false
                 },
                 ticks: {
-                    color: palette.gray600,
+                    color: palette.mutedText,
                     font: {
                         size: 11
                     }
@@ -844,11 +1135,11 @@ function buildCartesianOptions(palette) {
                 beginAtZero: true,
                 grace: '12%',
                 grid: {
-                    color: 'rgba(216, 220, 229, 0.5)',
+                    color: palette.chartGrid,
                     drawBorder: false
                 },
                 ticks: {
-                    color: palette.gray600,
+                    color: palette.mutedText,
                     precision: 0,
                     font: {
                         size: 11
@@ -893,7 +1184,7 @@ function renderStatusBreakdownChart(data) {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        color: palette.gray600,
+                        color: palette.mutedText,
                         boxWidth: 12,
                         boxHeight: 12,
                         padding: 14,
@@ -989,12 +1280,12 @@ function formatChartTooltipValue(label, value, values) {
 
 function getChartDataLabelColor(backgroundColor, palette) {
     if (!backgroundColor || typeof backgroundColor !== 'string') {
-        return palette.blueDark;
+        return palette.text;
     }
 
     const hex = backgroundColor.replace('#', '').trim();
     if (hex.length !== 6) {
-        return palette.blueDark;
+        return palette.text;
     }
 
     const red = parseInt(hex.substring(0, 2), 16);
@@ -1002,7 +1293,7 @@ function getChartDataLabelColor(backgroundColor, palette) {
     const blue = parseInt(hex.substring(4, 6), 16);
     const luminance = ((0.299 * red) + (0.587 * green) + (0.114 * blue)) / 255;
 
-    return luminance > 0.64 ? palette.blueDark : '#ffffff';
+    return luminance > 0.64 ? palette.text : '#ffffff';
 }
 
 function renderFrequencyChart(data) {

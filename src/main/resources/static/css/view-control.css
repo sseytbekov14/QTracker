@@ -564,3 +564,145 @@
     color: var(--kpmg-blue) !important;
     background: var(--kpmg-gray-50) !important;
 }
+
+body.theme-dark .view-control-container,
+body.theme-dark .tab-content {
+    color: var(--text-primary);
+}
+
+body.theme-dark .nav-tabs {
+    background: var(--surface-bg);
+    border-bottom-color: var(--border);
+}
+
+body.theme-dark .nav-tabs .nav-link {
+    color: var(--text-secondary);
+}
+
+body.theme-dark .nav-tabs .nav-link.active,
+body.theme-dark .nav-tabs .nav-link:hover {
+    color: var(--link);
+}
+
+body.theme-dark .form-section,
+body.theme-dark .action-buttons,
+body.theme-dark .facilitator-dropdown,
+body.theme-dark .selected-users-container,
+body.theme-dark .multiple-selection .selected-users-container,
+body.theme-dark .edit-nav-panel {
+    background: var(--surface-bg) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+}
+
+body.theme-dark .form-section h5 {
+    color: var(--card-title, var(--text-primary));
+}
+
+body.theme-dark .form-label,
+body.theme-dark .user-list-item .user-email,
+body.theme-dark .multiple-selection .placeholder-text,
+body.theme-dark .no-users-found {
+    color: var(--text-secondary) !important;
+}
+
+body.theme-dark .readonly-field,
+body.theme-dark .readonly-select {
+    background-color: var(--surface-bg-2) !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+}
+
+body.theme-dark .selected-user-display input {
+    background: var(--surface-bg-2) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23cfd7e6' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") right 0.75rem center/16px 12px no-repeat !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+}
+
+body.theme-dark .dropdown-users,
+body.theme-dark .multiple-selection .dropdown-users {
+    background: var(--surface-bg) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.theme-dark .dropdown-search {
+    background: var(--surface-bg-2) !important;
+    border-bottom-color: var(--border) !important;
+}
+
+body.theme-dark .dropdown-search .form-control {
+    background: var(--surface-bg-2) !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+}
+
+body.theme-dark .dropdown-search .form-control::placeholder {
+    color: var(--text-secondary) !important;
+}
+
+body.theme-dark .editable-field,
+body.theme-dark .editable-select {
+    background-color: var(--input-bg) !important;
+    border-color: var(--border) !important;
+    color: var(--input-text) !important;
+}
+
+body.theme-dark .editable-field:focus,
+body.theme-dark .editable-select:focus {
+    border-color: var(--link) !important;
+    box-shadow: 0 0 0 2px rgba(127, 176, 255, 0.15);
+}
+
+body.theme-dark .action-buttons .btn-outline-secondary,
+body.theme-dark .edit-nav-panel .btn-outline-secondary {
+    background: var(--surface-bg-2);
+    border-color: var(--border);
+    color: var(--text-primary);
+}
+
+body.theme-dark .action-buttons .btn-outline-secondary:hover,
+body.theme-dark .edit-nav-panel .btn-outline-secondary:hover {
+    background: var(--hover-bg) !important;
+    border-color: var(--link) !important;
+    color: var(--link) !important;
+}
+
+body.theme-dark .user-list-item {
+    border-bottom-color: var(--divider);
+}
+
+body.theme-dark .user-list-item:hover {
+    background-color: var(--hover-bg);
+}
+
+body.theme-dark .user-list-item.selected,
+body.theme-dark .selected-user-badge,
+body.theme-dark .multiple-selection .selected-user-badge {
+    background: rgba(0, 94, 184, 0.14);
+}
+
+body.theme-dark .user-list-item .user-name {
+    color: var(--text-primary);
+}
+
+body.theme-dark .compact-user-item {
+    background: var(--surface-bg) !important;
+    border-bottom-color: var(--divider) !important;
+}
+
+body.theme-dark .compact-user-item:hover {
+    background-color: var(--hover-bg) !important;
+}
+
+body.theme-dark .compact-user-item.selected {
+    background-color: rgba(0, 94, 184, 0.14) !important;
+}
+
+body.theme-dark .compact-user-item .user-name {
+    color: var(--text-primary) !important;
+}
+
+body.theme-dark .compact-user-item .user-email {
+    color: var(--text-secondary) !important;
+}

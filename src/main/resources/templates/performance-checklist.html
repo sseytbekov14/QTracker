@@ -519,9 +519,139 @@ body {
 }
 
 .calendar-header { margin-bottom: 12px; }
+
+body.theme-dark {
+    background: var(--app-bg);
+    color: var(--text-primary);
+}
+
+body.theme-dark .page-wrapper {
+    color: var(--text-primary);
+}
+
+body.theme-dark .page-breadcrumb,
+body.theme-dark .checklist-card,
+body.theme-dark .status-bar,
+body.theme-dark .action-bar,
+body.theme-dark .calendar-modal {
+    background: var(--surface-bg) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+}
+
+body.theme-dark .page-breadcrumb {
+    background: var(--surface-bg-2) !important;
+    color: var(--text-secondary) !important;
+}
+
+body.theme-dark .page-breadcrumb a {
+    color: var(--link) !important;
+}
+
+body.theme-dark .page-breadcrumb .sep,
+body.theme-dark .checklist-table .empty-field,
+body.theme-dark #currentYear,
+body.theme-dark .weekdays,
+body.theme-dark .current-date-display {
+    color: var(--text-secondary) !important;
+}
+
+body.theme-dark .required-banner {
+    background: rgba(200, 16, 46, 0.08) !important;
+    border-color: var(--border) !important;
+    border-left-color: var(--kpmg-red) !important;
+    color: #ff9cab !important;
+}
+
+body.theme-dark .checklist-table tr,
+body.theme-dark .status-bar,
+body.theme-dark .action-bar,
+body.theme-dark .calendar-navigation,
+body.theme-dark .calendar-footer,
+body.theme-dark .weekdays {
+    border-color: var(--divider) !important;
+}
+
+body.theme-dark .checklist-table td:nth-child(2),
+body.theme-dark .status-bar strong,
+body.theme-dark .month-year-span,
+body.theme-dark #currentDay,
+body.theme-dark #currentDate,
+body.theme-dark .day-cell {
+    color: var(--text-primary) !important;
+}
+
+body.theme-dark .checklist-table .form-control,
+body.theme-dark .checklist-table .form-select,
+body.theme-dark .date-input,
+body.theme-dark .calendar-navigation button,
+body.theme-dark .calendar-footer .btn-cal-cancel {
+    background: var(--input-bg) !important;
+    color: var(--input-text) !important;
+    border-color: var(--border) !important;
+}
+
+body.theme-dark .checklist-table .form-control:focus,
+body.theme-dark .checklist-table .form-select:focus,
+body.theme-dark .date-input:focus {
+    border-color: var(--link) !important;
+    box-shadow: 0 0 0 2px rgba(127, 176, 255, 0.15);
+}
+
+body.theme-dark .calendar-navigation {
+    background: var(--surface-bg-2) !important;
+}
+
+body.theme-dark .calendar-navigation button:hover,
+body.theme-dark .calendar-footer .btn-cal-cancel:hover,
+body.theme-dark .calendar-btn:hover,
+body.theme-dark .day-cell:hover {
+    background: var(--hover-bg) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--link) !important;
+}
+
+body.theme-dark .checklist-table .readonly-field {
+    background: var(--surface-bg-2) !important;
+    color: var(--text-secondary) !important;
+    border-color: var(--border) !important;
+}
+
+body.theme-dark .status-draft {
+    background: var(--surface-bg-2) !important;
+    color: var(--text-secondary) !important;
+    border-color: var(--border) !important;
+}
+
+body.theme-dark .btn-kpmg-outline {
+    background: var(--surface-bg-2) !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+}
+
+body.theme-dark .btn-kpmg-outline:hover {
+    background: var(--hover-bg) !important;
+    border-color: var(--link) !important;
+    color: var(--link) !important;
+}
+
+body.theme-dark .btn-kpmg-primary:disabled {
+    background: var(--surface-bg-2) !important;
+    color: var(--text-secondary) !important;
+}
     </style>
 </head>
 <body>
+<script>
+(function() {
+    try {
+        var savedTheme = localStorage.getItem('qtrackerTheme');
+        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+    } catch (error) {
+        document.body.classList.add('theme-light');
+    }
+})();
+</script>
 
 <div class="page-wrapper">
 

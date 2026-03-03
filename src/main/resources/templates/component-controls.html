@@ -30,7 +30,8 @@
 }
 
 body {
-    background: var(--kpmg-gray-50);
+    background: var(--app-bg);
+    color: var(--text-primary);
     margin: 0;
     padding: 0;
 }
@@ -442,9 +443,96 @@ body {
 .compact-alert .btn-close {
     filter: invert(1);
 }
+
+body.theme-dark .page-breadcrumb,
+body.theme-dark .stats-bar,
+body.theme-dark .toolbar,
+body.theme-dark .table-wrapper {
+    background: var(--surface-bg) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+}
+
+body.theme-dark .page-breadcrumb {
+    background: var(--surface-bg-2) !important;
+    color: var(--text-secondary) !important;
+}
+
+body.theme-dark .page-breadcrumb a,
+body.theme-dark .control-id-text {
+    color: var(--link) !important;
+}
+
+body.theme-dark .page-breadcrumb .separator,
+body.theme-dark .stat-label,
+body.theme-dark .result-count,
+body.theme-dark .user-placeholder,
+body.theme-dark .empty-state,
+body.theme-dark .empty-state-icon {
+    color: var(--text-secondary) !important;
+}
+
+body.theme-dark .stats-bar .stat-item,
+body.theme-dark .toolbar,
+body.theme-dark .controls-table thead th,
+body.theme-dark .controls-table tbody td {
+    border-color: var(--divider) !important;
+}
+
+body.theme-dark .stat-value,
+body.theme-dark .controls-table tbody td,
+body.theme-dark .user-badge {
+    color: var(--text-primary) !important;
+}
+
+body.theme-dark .controls-table thead th {
+    background: var(--surface-bg-2) !important;
+    color: var(--text-secondary) !important;
+}
+
+body.theme-dark .controls-table tbody tr {
+    background: var(--surface-bg) !important;
+}
+
+body.theme-dark .controls-table tbody tr:hover {
+    background: var(--hover-bg) !important;
+}
+
+body.theme-dark .search-input {
+    background: var(--input-bg);
+    color: var(--input-text);
+    border-color: var(--border);
+}
+
+body.theme-dark .search-input::placeholder,
+body.theme-dark .search-input-wrapper svg {
+    color: var(--text-secondary);
+}
+
+body.theme-dark .search-input:focus {
+    border-color: var(--link);
+    box-shadow: 0 0 0 2px rgba(127, 176, 255, 0.15);
+}
+
+body.theme-dark .status-draft,
+body.theme-dark .cat-default {
+    background: var(--surface-bg-2);
+    color: var(--text-secondary);
+    border-color: var(--border);
+}
     </style>
 </head>
 <body>
+<script>
+(function() {
+    try {
+        var savedTheme = localStorage.getItem('qtrackerTheme');
+        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+    } catch (error) {
+        document.body.classList.add('theme-light');
+    }
+})();
+</script>
 
 <!-- Success Alert -->
 <div class="compact-alert alert-dismissible fade show"
