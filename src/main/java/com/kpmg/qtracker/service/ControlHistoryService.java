@@ -196,14 +196,59 @@ public class ControlHistoryService {
         if (field == null) return "";
         switch (field) {
             case "References to Control":
+            case "references_to_control":
                 return "References to this Control";
             case "Non-Audit Services Applicability":
+            case "non_audit_services_applicability":
                 return "Non-Audit Services Control Applicability";
             case "SoQM Lead":
+            case "soqm_lead":
                 return "SoQM Head/Lead";
+            case "control_id":
+                return "Control ID";
+            case "prp":
+                return "PRP";
+            case "soqm_head_comments":
+                return "SoQM Head/Team Comments";
+            case "process_owner_comments":
+                return "Process Owner Comments";
             default:
-                return field;
+                return humanizeFieldLabel(field);
         }
+    }
+
+    private String humanizeFieldLabel(String field) {
+        if (field == null || field.isBlank()) {
+            return "";
+        }
+        String normalized = field.replaceAll("([a-z])([A-Z])", "$1 $2")
+                .replace('_', ' ')
+                .replaceAll("\\s+", " ")
+                .trim();
+        if (normalized.isEmpty()) {
+            return "";
+        }
+
+        String[] parts = normalized.split(" ");
+        List<String> result = new ArrayList<>(parts.length);
+        for (String part : parts) {
+            String lower = part.toLowerCase(Locale.ROOT);
+            switch (lower) {
+                case "id":
+                    result.add("ID");
+                    break;
+                case "prp":
+                    result.add("PRP");
+                    break;
+                case "soqm":
+                    result.add("SoQM");
+                    break;
+                default:
+                    result.add(Character.toUpperCase(lower.charAt(0)) + lower.substring(1));
+                    break;
+            }
+        }
+        return String.join(" ", result);
     }
 
     private String mapAuditActionName(AdminAuditLog log) {

@@ -12,6 +12,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.ControlAuditChangeService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
 import com.kpmg.qtracker.service.ControlDocumentsService;
@@ -56,6 +57,7 @@ public class ControlController {
     private final IPerformanceService performanceService; // ДОБАВЛЕНО: поле для performanceService
     private final AdminAuditService adminAuditService;
     private final ControlHistoryService controlHistoryService;
+    private final ControlAuditChangeService controlAuditChangeService;
     private final ControlPermissionService controlPermissionService;
     private final StatusDisplayMapper statusDisplayMapper;
     private final com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;
@@ -478,6 +480,7 @@ public class ControlController {
             String previousFrequency = existingControl.getControlFrequency();
             String requestedFrequency = controlDTO.getControlFrequency();
             String canonicalFrequency = null;
+            Control originalSnapshot = controlAuditChangeService.snapshot(existingControl);
             if (requestedFrequency != null) {
                 canonicalFrequency = canonicalizeFrequency(requestedFrequency);
                 if (canonicalFrequency == null) {
@@ -522,65 +525,6 @@ public class ControlController {
             }
             
             // ADMIN can modify everything
-            
-            Map<String, String> previousValues = new LinkedHashMap<>();
-            Map<String, String> newValues = new LinkedHashMap<>();
-            List<String> changedFields = new ArrayList<>();
-
-            if (canonicalFrequency != null) {
-                collectChange(changedFields, previousValues, newValues, "Control Frequency",
-                        existingControl.getControlFrequency(), canonicalFrequency);
-            }
-            if (controlDTO.getControlCategory() != null) {
-                collectChange(changedFields, previousValues, newValues, "Control Category",
-                        existingControl.getControlCategory(), controlDTO.getControlCategory());
-            }
-            if (controlDTO.getControlType() != null) {
-                collectChange(changedFields, previousValues, newValues, "Control Type",
-                        existingControl.getControlType(), controlDTO.getControlType());
-            }
-            if (controlDTO.getComponent() != null) {
-                collectChange(changedFields, previousValues, newValues, "Component",
-                        existingControl.getComponent(), controlDTO.getComponent());
-            }
-            if (controlDTO.getOperatedBy() != null) {
-                collectChange(changedFields, previousValues, newValues, "Operated By",
-                        existingControl.getOperatedBy(), controlDTO.getOperatedBy());
-            }
-            if (controlDTO.getReferencesToControl() != null) {
-                collectChange(changedFields, previousValues, newValues, "References to Control",
-                        existingControl.getReferencesToControl(), controlDTO.getReferencesToControl());
-            }
-            if (controlDTO.getPriority() != null) {
-                collectChange(changedFields, previousValues, newValues, "Priority",
-                        existingControl.getPriority(), controlDTO.getPriority());
-            }
-            if (controlDTO.getNonAuditServicesApplicability() != null) {
-                collectChange(changedFields, previousValues, newValues, "Non-Audit Services Applicability",
-                        existingControl.getNonAuditServicesApplicability(), controlDTO.getNonAuditServicesApplicability());
-            }
-            if (controlDTO.getHomogeneity() != null) {
-                collectChange(changedFields, previousValues, newValues, "Homogeneity",
-                        existingControl.getHomogeneity(), controlDTO.getHomogeneity());
-            }
-            if (controlDTO.getControlDescription() != null) {
-                collectChange(changedFields, previousValues, newValues, "Control Description",
-                        existingControl.getControlDescription(), controlDTO.getControlDescription());
-            }
-            if (controlDTO.getPrp() != null) {
-                collectChange(changedFields, previousValues, newValues, "PRP",
-                        existingControl.getPrp(), controlDTO.getPrp());
-            }
-            if (controlDTO.getSoqmHeadComments() != null
-                    && ("SOQM_LEAD".equals(userRole) || "ADMIN".equals(userRole))) {
-                collectChange(changedFields, previousValues, newValues, "SoQM Head/Team Comments",
-                        existingControl.getSoqmHeadComments(), controlDTO.getSoqmHeadComments());
-            }
-            if (controlDTO.getProcessOwnerComments() != null
-                    && ("PROCESS_OWNER".equals(userRole) || "ADMIN".equals(userRole))) {
-                collectChange(changedFields, previousValues, newValues, "Process Owner Comments",
-                        existingControl.getProcessOwnerComments(), controlDTO.getProcessOwnerComments());
-            }
 
             // ============================================
             // UPDATE ALLOWED FIELDS
@@ -639,7 +583,9 @@ public class ControlController {
                     && !Objects.equals(normalizeValue(previousFrequency), normalizeValue(canonicalFrequency))) {
                 controlAssignmentService.recalculateSchedule(updatedControl.getId());
             }
-            if (!changedFields.isEmpty()) {
+            ControlAuditChangeService.ControlAuditChangeSet auditChangeSet =
+                    controlAuditChangeService.diff(originalSnapshot, updatedControl);
+            if (auditChangeSet.hasChanges()) {
                 try {
                     ObjectMapper mapper = new ObjectMapper();
                     adminAuditService.logActionWithChanges(
@@ -648,9 +594,9 @@ public class ControlController {
                             "EDIT",
                             updatedControl,
                             "Edit Control",
-                            mapper.writeValueAsString(changedFields),
-                            mapper.writeValueAsString(previousValues),
-                            mapper.writeValueAsString(newValues)
+                            mapper.writeValueAsString(auditChangeSet.getChangedFields()),
+                            mapper.writeValueAsString(auditChangeSet.getPreviousValues()),
+                            mapper.writeValueAsString(auditChangeSet.getNewValues())
                     );
                 } catch (Exception e) {
                     logger.warn("Failed to log control changes: {}", e.getMessage());

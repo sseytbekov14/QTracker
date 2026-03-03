@@ -4,6 +4,7 @@ import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.ControlAuditChangeService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
 import com.kpmg.qtracker.service.ControlDocumentsService;
@@ -62,6 +63,9 @@ class ControlControllerExportExcelTest {
 
     @MockBean
     private ControlHistoryService controlHistoryService;
+
+    @MockBean
+    private ControlAuditChangeService controlAuditChangeService;
 
     @MockBean
     private ControlPermissionService controlPermissionService;
