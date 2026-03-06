@@ -1641,7 +1641,7 @@ function saveControlData(controlId) {
         controlType: getControlValue('[name="controlType"]'),
         component: getControlValue('[name="component"]'),
         operatedBy: getControlValue('[name="operatedBy"]'),
-        controlStatus: getControlValue('[name="controlStatus"]'),
+        controlStatus: isBlankValue(getControlValue('[name="controlStatus"]')) ? null : getControlValue('[name="controlStatus"]'),
         priority: getControlValue('[name="priority"]'),
         nonAuditServicesApplicability: getControlValue('[name="nonAuditServicesApplicability"]'),
         controlDescription: getControlValue('[name="controlDescription"]'),
@@ -2021,7 +2021,6 @@ function showRequiredFieldMessage(message, field) {
             { label: 'Control Type', field: controlForm?.querySelector('[name="controlType"]') },
             { label: 'Component', field: controlForm?.querySelector('[name="component"]') },
             { label: 'Operated By', field: controlForm?.querySelector('[name="operatedBy"]') },
-            { label: 'Control Status', field: controlForm?.querySelector('[name="controlStatus"]') },
             { label: 'Priority', field: controlForm?.querySelector('[name="priority"]') },
             {
                 label: 'Non-Audit Services Control Applicability',

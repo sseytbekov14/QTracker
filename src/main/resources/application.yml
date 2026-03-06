@@ -14,8 +14,10 @@ spring:
     resources:
       static-locations: classpath:/static/
   mail:
-    host: ${SPRING_MAIL_HOST:smtp.office365.com}
+    host: ${SPRING_MAIL_HOST:smtp-mail.outlook.com}
     port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -23,9 +25,9 @@ spring:
           starttls:
             enable: true
             required: true
-          connectiontimeout: 5000
-          timeout: 5000
-          writetimeout: 5000
+          connectiontimeout: 30000
+          timeout: 30000
+          writetimeout: 30000
 
 app:
   base-url: ${APP_BASE_URL:}

@@ -557,8 +557,8 @@ public class ControlController {
                 existingControl.setHomogeneity(controlDTO.getHomogeneity());
             }
             // NOTE: DO NOT update performanceStatus here - it should only change via workflow transitions (Submit buttons)
-            if (controlDTO.getControlStatus() != null) {
-                existingControl.setControlStatus(controlDTO.getControlStatus());
+            if (controlDTO.getControlStatus() != null && !controlDTO.getControlStatus().isBlank()) {
+                existingControl.setControlStatus(controlDTO.getControlStatus().trim());
             }
             if (controlDTO.getControlDescription() != null) {
                 existingControl.setControlDescription(controlDTO.getControlDescription());
