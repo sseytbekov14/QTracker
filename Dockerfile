@@ -27,4 +27,4 @@ USER app
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-Dserver.port=${PORT:8080}", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-Xmx384m", "-Xms384m", "-Dserver.port=${PORT:8080}", "-jar", "/app/app.jar"]
