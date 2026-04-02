@@ -29,6 +29,41 @@ services:
       - qtracker_uploads:${FILE_UPLOAD_DIR:-/app/uploads}
     restart: unless-stopped
 
+  db-backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DB_HOST: ${DB_HOST:-db}
+      TZ: Asia/Almaty
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backups:/backups
+    tmpfs:
+      - /var/lib/postgresql/data
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        cat <<'EOF' >/run-backup.sh
+        #!/bin/sh
+        set -eu
+        export PGPASSWORD="$${POSTGRES_PASSWORD}"
+        HOST="$${DB_HOST:-db}"
+        if ! pg_isready -h "$$HOST" -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" >/dev/null 2>&1; then
+          HOST="postgres"
+        fi
+        pg_dump -h "$$HOST" -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" | gzip -9 > "/backups/qtracker-backup-$$(date +%F).sql.gz"
+        find /backups -type f -name 'qtracker-backup-*.sql.gz' -mtime +30 -delete
+        EOF
+        chmod +x /run-backup.sh
+        echo 'CRON_TZ=Asia/Almaty' >/etc/crontabs/root
+        echo '0 3 * * * /run-backup.sh >> /var/log/db-backup.log 2>&1' >>/etc/crontabs/root
+        exec crond -f -l 8
+
 volumes:
   qtracker_pgdata:
   qtracker_uploads:

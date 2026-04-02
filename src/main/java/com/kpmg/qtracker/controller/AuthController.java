@@ -4,6 +4,8 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.UserService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -21,7 +23,16 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/login")
-    public String loginPage() {
+    public String loginPage(HttpSession session, Model model, @RequestParam(required = false) String error) {
+        if (error != null) {
+            AuthenticationException exception = (AuthenticationException) session.getAttribute("SPRING_SECURITY_LAST_EXCEPTION");
+            if (exception != null) {
+                model.addAttribute("error", exception.getMessage());
+            } else {
+                model.addAttribute("error", "Invalid username or password");
+            }
+            session.removeAttribute("SPRING_SECURITY_LAST_EXCEPTION");
+        }
         return "login";
     }
 

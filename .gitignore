@@ -49,4 +49,15 @@ out/
 migration/
 !src/main/resources/db/migration/
 !src/main/resources/db/migration/*.sql
-qtracker.backup 
+
+### Local backup/session artifacts ###
+qtracker.backup
+cookies.txt
+backups/
+qtracker-backup-*.sql
+qtracker-backup-*.sql.gz
+qtracker-backup-*.sql/
+
+### Generated Java upgrade workspace artifacts ###
+.github/java-upgrade/
+.github/
