@@ -45,7 +45,7 @@ Mapped to real modules and classes:
 ## Technology Stack
 Current repository versions/configuration:
 
-- Java 25 (`pom.xml`)
+- Java 21 (`pom.xml`)
 - Spring Boot 3.5.7
   - `spring-boot-starter-web`
   - `spring-boot-starter-thymeleaf`
