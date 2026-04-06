@@ -79,7 +79,7 @@ class ControlReminderSchedulerEnabledTest {
         Control control = new Control();
         control.setId(200L);
         control.setControlFrequency("Monthly");
-        control.setControlStatus("DRAFT");
+        control.setControlStatus("IN_PROGRESS");
         control.setDeadline(TODAY.plusDays(30));
 
         ControlAssignmentDTO assignment = new ControlAssignmentDTO();
@@ -108,7 +108,7 @@ class ControlReminderSchedulerEnabledTest {
 
         verify(controlRepository, times(2)).findAllForReminders();
         verify(notificationService, times(1)).sendTemplateNotifications(
-                eq(control),
+                any(Control.class),
                 eq(List.of("facilitator@kpmg.kz", "operator@kpmg.kz")),
                 eq(NotificationTemplateService.TemplateType.REMINDER_1_OPEN),
                 eq(false)

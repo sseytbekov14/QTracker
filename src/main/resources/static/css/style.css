@@ -149,6 +149,45 @@ body.theme-dark .sidebar * {
     color: var(--text-primary);
 }
 
+.app-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    line-height: 1.4;
+}
+
+.app-breadcrumb-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.app-breadcrumb-link:hover {
+    color: var(--link);
+}
+
+.app-breadcrumb-home-icon {
+    width: 0.95rem;
+    height: 0.95rem;
+    flex-shrink: 0;
+}
+
+.app-breadcrumb-separator {
+    color: var(--muted);
+}
+
+.app-breadcrumb-current {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
 /* ✨ Универсальная кнопка Back */
 .btn-back {
     display: inline-flex;

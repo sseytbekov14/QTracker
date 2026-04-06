@@ -25,6 +25,7 @@ class NotificationTemplateServiceTest {
         control.setId(42L);
         control.setControlId("CTRL-42");
         control.setControlDescription("Test control");
+        control.setControlFrequency("Monthly");
     }
 
     @Test
@@ -87,9 +88,9 @@ class NotificationTemplateServiceTest {
                         "Test User",
                         "Control Operator");
         String body = template.getBody();
-        assertTrue(body.contains("We kindly remind you to complete the control CTRL-42, Test control."));
-        assertTrue(body.contains("http://example.test/view-control/42"));
-        assertTrue(body.contains("The deadline of the control is on 04.02.2026"));
+        assertTrue(body.contains("Reminder Type: DAY 3"));
+        assertTrue(body.contains("Control ID: CTRL-42"));
+        assertTrue(body.contains("Control Link: http://example.test/view-control/42"));
         assertFalse(body.contains("null"));
     }
 
@@ -104,9 +105,9 @@ class NotificationTemplateServiceTest {
                         "Test User",
                         "Control Operator");
         String body = template.getBody();
-        assertTrue(body.contains("Control CTRL-42, Test control deadline is approaching."));
-        assertTrue(body.contains("http://example.test/view-control/42"));
-        assertTrue(body.contains("The deadline of the control is on 04.02.2026"));
+        assertTrue(body.contains("Reminder Type: DAY 6"));
+        assertTrue(body.contains("Control ID: CTRL-42"));
+        assertTrue(body.contains("Control Link: http://example.test/view-control/42"));
         assertFalse(body.contains("null"));
     }
 
@@ -155,7 +156,7 @@ class NotificationTemplateServiceTest {
                         "Test User",
                         "Control Operator");
         String body = template.getBody();
-        assertTrue(body.contains("control CTRL-42."));
+        assertTrue(body.contains("Control ID: CTRL-42"));
         assertFalse(body.contains("CTRL-42, "));
         assertFalse(body.contains("CTRL-42 /"));
         assertFalse(body.contains("null"));

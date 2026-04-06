@@ -106,7 +106,7 @@ class AnnualSemiOverdueServiceTest {
         ReminderControlProjection row = projectionFor(
                 112L,
                 "CTRL-112",
-                "Semi Annual",
+                "Annual",
                 "REVIEW",
                 deadlineDate,
                 null,

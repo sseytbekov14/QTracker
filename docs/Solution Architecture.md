@@ -233,7 +233,8 @@ Admin and personal dashboards, deadline countdown/calendar, performance cycle AP
 - `db`: PostgreSQL 17 container.
 - `app`: QTracker service container.
 - Health checks use `/actuator/health`.
-- Runtime hardening includes non-root user, read-only filesystem, dropped capabilities, and tmpfs.
+- The application image runs as a dedicated non-root `app` user (created via `groupadd`/`useradd` in the Dockerfile) and uses a multi-stage build to keep the runtime image minimal.
+- Note: read-only root filesystem, dropped capabilities, and `no-new-privileges` are not currently configured in `docker-compose.yml`; these are identified as open hardening items in `docs/Security Compliance Summary.md`.
 
 ### 11.4 External Dependencies
 - PostgreSQL instance

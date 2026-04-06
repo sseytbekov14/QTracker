@@ -5,6 +5,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -14,7 +15,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -44,11 +48,44 @@ class ControlAutoCreationServiceTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private ControlIdGeneratorService controlIdGeneratorService;
+
     @Spy
     private ControlScheduleCalculator scheduleCalculator = new ControlScheduleCalculator();
 
     @InjectMocks
     private ControlAutoCreationService autoCreationService;
+
+    @BeforeEach
+    void configureControlIdGenerator() {
+        lenient().when(controlIdGeneratorService.extractBaseId(anyString()))
+                .thenAnswer(invocation -> {
+                    String controlId = invocation.getArgument(0);
+                    if (controlId == null) {
+                        return null;
+                    }
+                    int slash = controlId.indexOf('/');
+                    return slash > 0 ? controlId.substring(0, slash) : controlId;
+                });
+
+        lenient().when(controlIdGeneratorService.generateNextPeriodControlId(anyString(), anyString(), any(LocalDate.class)))
+                .thenAnswer(invocation -> {
+                    String baseId = invocation.getArgument(0);
+                    LocalDate operationDate = invocation.getArgument(2);
+                    String candidate = baseId + "_" + operationDate.format(DateTimeFormatter.ofPattern("MMM-yyyy", Locale.ENGLISH));
+                    if (!controlRepository.existsByControlId(candidate)) {
+                        return candidate;
+                    }
+                    for (int i = 1; i <= 100; i++) {
+                        String withSuffix = candidate + " (" + i + ")";
+                        if (!controlRepository.existsByControlId(withSuffix)) {
+                            return withSuffix;
+                        }
+                    }
+                    return candidate + " (overflow)";
+                });
+    }
 
     @Test
     void shouldCreateNextOccurrence_whenDueToday_monthly() {

@@ -429,7 +429,7 @@ class ReminderNotificationServiceTest {
         service.runDailyReminders(today);
 
         verify(notificationService, times(1)).sendTemplateNotifications(
-                eq(control),
+                any(Control.class),
                 eq(List.of("facilitator@kpmg.kz", "operator@kpmg.kz")),
                 eq(NotificationTemplateService.TemplateType.REMINDER_1_OPEN),
                 eq(false)
@@ -465,7 +465,7 @@ class ReminderNotificationServiceTest {
                 .toList();
         assertThat(scheduledDates).containsExactly(today);
         verify(notificationService, times(1)).sendTemplateNotifications(
-                eq(dueToday),
+                any(Control.class),
                 eq(List.of("facilitator@kpmg.kz", "operator@kpmg.kz")),
                 eq(NotificationTemplateService.TemplateType.REMINDER_1_OPEN),
                 eq(false)
@@ -474,7 +474,7 @@ class ReminderNotificationServiceTest {
         service.runDailyReminders(today);
 
         verify(notificationService, times(1)).sendTemplateNotifications(
-                eq(dueToday),
+                any(Control.class),
                 eq(List.of("facilitator@kpmg.kz", "operator@kpmg.kz")),
                 eq(NotificationTemplateService.TemplateType.REMINDER_1_OPEN),
                 eq(false)

@@ -47,3 +47,4 @@ notifications:
 controls:
   auto-create:
     enabled: ${CONTROLS_AUTO_CREATE_ENABLED:true}
+    

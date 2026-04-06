@@ -5,7 +5,7 @@
     <title>Controls - QTracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=6" rel="stylesheet">
+    <link href="/css/style.css?v=8" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
 
     <style>
@@ -472,9 +472,9 @@ body.theme-dark .status-draft {
             </div>
             <div class="sidebar-footer">
                 <hr class="my-2">
-                <small class="text-muted">Register on</small><br>
+                <small class="text-muted">Registered to</small><br>
                 <small><strong>KPMG Kazakhstan</strong></small><br>
-                <small><strong>QTracker Version 2025</strong></small>
+                <small><strong>QTracker | Version 2026</strong></small>
             </div>
         </div>
 
@@ -490,6 +490,18 @@ body.theme-dark .status-draft {
                     </svg>
                     <span th:text="${accessDeniedMessage}"></span>
                 </div>
+
+                <nav class="app-breadcrumb" aria-label="breadcrumb">
+                    <a href="/" class="app-breadcrumb-link">
+                        <svg class="app-breadcrumb-home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 10.5 12 3l9 7.5"></path>
+                            <path d="M5 9.5V21h14V9.5"></path>
+                        </svg>
+                        <span>Home</span>
+                    </a>
+                    <span class="app-breadcrumb-separator">/</span>
+                    <span class="app-breadcrumb-current">Controls</span>
+                </nav>
 
                 <!-- Page Header -->
                 <div class="page-header d-flex justify-content-between align-items-center">

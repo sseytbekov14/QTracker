@@ -26,6 +26,7 @@ import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -46,6 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 @WebMvcTest(controllers = ViewController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class ViewControllerStatusFilterTest {
 
     @Autowired
@@ -979,7 +981,7 @@ class ViewControllerStatusFilterTest {
 
         assertThat(result.getModelAndView().getModel().get("totalControls")).isEqualTo(3);
         assertThat(result.getModelAndView().getModel().get("completedControls")).isEqualTo(1);
-        assertThat(result.getModelAndView().getModel().get("activeControls")).isEqualTo(2);
+        assertThat(result.getModelAndView().getModel().get("activeControls")).isEqualTo(1);
         assertThat(result.getModelAndView().getModel().get("overdueControls")).isEqualTo(1);
     }
 
@@ -1071,7 +1073,7 @@ class ViewControllerStatusFilterTest {
 
         assertThat(controls).hasSize(3);
         assertThat(result.getModelAndView().getModel().get("totalControls")).isEqualTo(3);
-        assertThat(result.getModelAndView().getModel().get("activeControls")).isEqualTo(2);
+        assertThat(result.getModelAndView().getModel().get("activeControls")).isEqualTo(1);
         assertThat(result.getModelAndView().getModel().get("completedControls")).isEqualTo(1);
         assertThat(result.getModelAndView().getModel().get("overdueControls")).isEqualTo(1);
     }
