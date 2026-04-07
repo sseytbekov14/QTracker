@@ -14,7 +14,7 @@ public class EmailNotificationService {
     private final String fromAddress;
 
     public EmailNotificationService(JavaMailSender mailSender,
-                                    @Value("${spring.mail.username:}") String fromAddress) {
+                                    @Value("${notifications.email.from:}") String fromAddress) {
         this.mailSender = mailSender;
         this.fromAddress = fromAddress;
     }

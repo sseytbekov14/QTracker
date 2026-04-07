@@ -2,7 +2,7 @@ services:
   db:
     image: postgres:17
     env_file:
-      - .env
+      - ${QTRACKER_ENV_FILE}
     volumes:
       - qtracker_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +19,7 @@ services:
       context: .
       dockerfile: Dockerfile
     env_file:
-      - .env
+      - ${QTRACKER_ENV_FILE}
     depends_on:
       db:
         condition: service_healthy
@@ -33,7 +33,7 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     env_file:
-      - .env
+      - ${QTRACKER_ENV_FILE}
     environment:
       DB_HOST: ${DB_HOST:-db}
       TZ: Asia/Almaty

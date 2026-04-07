@@ -24,7 +24,7 @@ public class EmailNotificationChannel {
     private final Set<String> whitelist;
 
     public EmailNotificationChannel(JavaMailSender mailSender,
-                                    @Value("${spring.mail.username:}") String fromAddress,
+                                    @Value("${notifications.email.from:}") String fromAddress,
                                     @Value("${notifications.email.whitelist:}") String whitelist,
                                     @Value("${notifications.email.whitelist-enforced:false}") boolean whitelistEnforced) {
         this.mailSender = mailSender;
