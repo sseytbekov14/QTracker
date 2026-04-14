@@ -1,23 +1,21 @@
-# 1. Используем тот же образ, что и в твоем Dockerfile
 image: eclipse-temurin:21-jdk
 
-# 2. Этапы: Сборка и Тестирование
 stages:
   - build
   - test
 
-# Кэшируем зависимости, чтобы не качать пол-интернета при каждом пуше
 cache:
   paths:
     - .m2/repository
 
-# Переменные окружения для Maven
 variables:
   MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
 
 # --- ЭТАП СБОРКИ ---
 build_job:
   stage: build
+  tags:
+    - gitlab-runner-kubernetes  # ДОБАВЬ ЭТОТ ТЕГ
   script:
     - chmod +x mvnw
     - ./mvnw clean compile
@@ -29,6 +27,8 @@ build_job:
 # --- ЭТАП ТЕСТОВ ---
 test_job:
   stage: test
+  tags:
+    - gitlab-runner-kubernetes  # И СЮДА ТОЖЕ
   script:
     - chmod +x mvnw
     - ./mvnw test
@@ -38,5 +38,5 @@ test_job:
       junit:
         - target/surefire-reports/TEST-*.xml
     paths:
-      - target/site/jacoco/ # Здесь будет твой отчет по покрытию кода (Jacoco)
+      - target/site/jacoco/
     expire_in: 1 week
