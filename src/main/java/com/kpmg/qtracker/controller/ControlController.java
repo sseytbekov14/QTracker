@@ -142,9 +142,9 @@ public class ControlController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("success", false, "message", "User not authenticated"));
             }
-            if (!"SOQM_LEAD".equals(currentUser.getRole())) {
+            if (!"SOQM_TEAM".equals(currentUser.getRole())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("success", false, "message", "Only SOQM_LEAD can create controls"));
+                        .body(Map.of("success", false, "message", "Only SOQM_TEAM can create controls"));
             }
 
             // Проверяем, не пустой ли Control ID
@@ -263,7 +263,7 @@ public class ControlController {
                 response.getWriter().write("User not authenticated");
                 return;
             }
-            if (!"SOQM_LEAD".equals(currentUser.getRole())) {
+            if (!"SOQM_TEAM".equals(currentUser.getRole())) {
                 response.setStatus(HttpStatus.FORBIDDEN.value());
                 response.setContentType("text/plain");
                 response.getWriter().write("Forbidden");
@@ -464,6 +464,7 @@ public class ControlController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
             }
             String userRole = currentUser.getRole();
+            boolean userIsAdmin = Boolean.TRUE.equals(currentUser.getAdminAccess());
             
             Control existingControl = controlService.getControlById(id)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
@@ -506,12 +507,12 @@ public class ControlController {
                 }
             }
             
-            // SoQM Lead CAN modify soqmHeadComments but NOT processOwnerComments
-            if ("SOQM_LEAD".equals(userRole)) {
+            // SoQM Team CAN modify soqmHeadComments but NOT processOwnerComments
+            if ("SOQM_TEAM".equals(userRole)) {
                 if (controlDTO.getProcessOwnerComments() != null && 
                     !controlDTO.getProcessOwnerComments().equals(existingControl.getProcessOwnerComments())) {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: SoQM Lead cannot modify Process Owner Comments");
+                            .body("VALIDATION_ERROR: SoQM Team cannot modify Process Owner Comments");
                 }
             }
             
@@ -568,11 +569,11 @@ public class ControlController {
             }
             // Set role-specific comments
             if (controlDTO.getSoqmHeadComments() != null
-                    && ("SOQM_LEAD".equals(userRole) || "ADMIN".equals(userRole))) {
+                    && ("SOQM_TEAM".equals(userRole) || userIsAdmin)) {
                 existingControl.setSoqmHeadComments(controlDTO.getSoqmHeadComments());
             }
             if (controlDTO.getProcessOwnerComments() != null
-                    && ("PROCESS_OWNER".equals(userRole) || "ADMIN".equals(userRole))) {
+                    && ("PROCESS_OWNER".equals(userRole) || userIsAdmin)) {
                 existingControl.setProcessOwnerComments(controlDTO.getProcessOwnerComments());
             }
             
@@ -621,8 +622,8 @@ public class ControlController {
             Control control = controlService.getControlById(id)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
 
-            // Allow SOQM_LEAD or users the control is shared with
-            boolean isSoqmLead = "SOQM_LEAD".equals(currentUser.getRole());
+            // Allow SOQM_TEAM or users the control is shared with
+            boolean isSoqmLead = "SOQM_TEAM".equals(currentUser.getRole());
             ControlAssignmentDTO assignmentCheck = controlAssignmentService.getAssignmentByControlId(id);
             boolean isSharedWith = assignmentCheck != null
                     && assignmentCheck.getControlSharedWith() != null
@@ -693,7 +694,7 @@ public class ControlController {
             if (assignment != null) {
                 rowNum = addRow(sheet, rowNum, "Facilitator(s)", joinList(assignment.getFacilitator()));
                 rowNum = addRow(sheet, rowNum, "Control Operator(s)", joinList(assignment.getControlOperator()));
-                rowNum = addRow(sheet, rowNum, "SoQM Lead/Delegate(s)", joinList(assignment.getSoqmLead()));
+                rowNum = addRow(sheet, rowNum, "SoQM Team/Delegate(s)", joinList(assignment.getSoqmLead()));
                 rowNum = addRow(sheet, rowNum, "Process Owner(s)", joinList(assignment.getProcessOwner()));
                 rowNum = addRow(sheet, rowNum, "Shared With", joinList(assignment.getControlSharedWith()));
                 rowNum = addRow(sheet, rowNum, "Control Operation Date", formatDate(assignment.getControlOperationDate()));

@@ -511,7 +511,7 @@ public class MonthlyNotificationService {
         return switch (normalized) {
             case STATUS_IN_PROGRESS -> Role.FACILITATOR;
             case STATUS_REVIEW -> Role.CONTROL_OPERATOR;
-            case "SOQM_HEAD_REVIEW" -> Role.SOQM_LEAD;
+            case "SOQM_HEAD_REVIEW" -> Role.SOQM_TEAM;
             case "PROCESS_OWNER_REVIEW" -> Role.PROCESS_OWNER;
             default -> null;
         };
@@ -529,7 +529,7 @@ public class MonthlyNotificationService {
         switch (role) {
             case FACILITATOR -> addRecipients(recipients, splitEmails(row.getFacilitator()));
             case CONTROL_OPERATOR -> addRecipients(recipients, splitEmails(row.getControlOperator()));
-            case SOQM_LEAD -> addRecipients(recipients, splitEmails(row.getSoqmLead()));
+            case SOQM_TEAM -> addRecipients(recipients, splitEmails(row.getSoqmLead()));
             case PROCESS_OWNER -> addRecipients(recipients, splitEmails(row.getProcessOwner()));
         }
         return new ArrayList<>(recipients);
@@ -572,7 +572,7 @@ public class MonthlyNotificationService {
     enum Role {
         FACILITATOR,
         CONTROL_OPERATOR,
-        SOQM_LEAD,
+        SOQM_TEAM,
         PROCESS_OWNER
     }
 

@@ -26,7 +26,7 @@ public class RoleController {
 
     @GetMapping("/soqm-leads")
     public ResponseEntity<List<UserDTO>> getSoqmLeads() {
-        List<User> users = controlAssignmentService.getUsersByRole("SOQM_LEAD");
+        List<User> users = controlAssignmentService.getUsersByRole("SOQM_TEAM");
         List<UserDTO> dtos = convertUsersToDTO(users);
         return ResponseEntity.ok(dtos);
     }
@@ -52,7 +52,7 @@ public class RoleController {
                     dto.setId(user.getId());
                     dto.setDisplayName(user.getDisplayName());
                     dto.setMail(user.getMail());
-                    dto.setTitle(user.getTitle());
+                    dto.setTitle(user.getRole());
                     dto.setRole(user.getRole());
                     return dto;
                 })

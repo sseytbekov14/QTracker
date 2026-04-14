@@ -293,7 +293,7 @@ public class NotificationService {
                 return "Facilitator";
             case "CONTROL_OPERATOR":
                 return "Control Operator";
-            case "SOQM_LEAD":
+            case "SOQM_TEAM":
                 return "SoQM Head/Delegate";
             case "PROCESS_OWNER":
                 return "Process Owner";

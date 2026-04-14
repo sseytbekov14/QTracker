@@ -6,10 +6,12 @@ import com.kpmg.qtracker.security.LoginAttemptService;
 import com.kpmg.qtracker.security.RateLimitingFilter;
 import com.kpmg.qtracker.security.UserPrincipal;
 import com.kpmg.qtracker.security.UserPrincipalService;
+import com.kpmg.qtracker.security.UserEnabledGuardFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,11 +27,14 @@ public class SecurityConfig {
 
     private final CorrelationIdFilter correlationIdFilter;
     private final RateLimitingFilter rateLimitingFilter;
+    private final UserEnabledGuardFilter userEnabledGuardFilter;
 
     public SecurityConfig(CorrelationIdFilter correlationIdFilter,
-                          RateLimitingFilter rateLimitingFilter) {
+                          RateLimitingFilter rateLimitingFilter,
+                          UserEnabledGuardFilter userEnabledGuardFilter) {
         this.correlationIdFilter = correlationIdFilter;
         this.rateLimitingFilter = rateLimitingFilter;
+        this.userEnabledGuardFilter = userEnabledGuardFilter;
     }
 
     @Bean
@@ -66,6 +71,7 @@ public class SecurityConfig {
                         .sessionFixation(fixation -> fixation.migrateSession()))
                 .oauth2Login(Customizer.withDefaults())
                 .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(userEnabledGuardFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -119,10 +125,16 @@ public class SecurityConfig {
                             response.sendRedirect("/");
                         })
                         .failureHandler((request, response, exception) -> {
+                            if (exception instanceof DisabledException) {
+                                request.getSession(true).setAttribute("SPRING_SECURITY_LAST_EXCEPTION", exception);
+                                response.sendRedirect("/login?error");
+                                return;
+                            }
                             request.getSession(true).setAttribute("SPRING_SECURITY_LAST_EXCEPTION", exception);
                             response.sendRedirect("/login?error");
                         }))
                     .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(userEnabledGuardFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -132,7 +144,8 @@ public class SecurityConfig {
     @Profile("dev")
     public AuthenticationProvider devAuthenticationProvider(UserPrincipalService userPrincipalService,
                                                             PasswordEncoder passwordEncoder,
-                                                            LoginAttemptService loginAttemptService) {
-        return new DevAuthenticationProvider(userPrincipalService, passwordEncoder, loginAttemptService);
+                                                            LoginAttemptService loginAttemptService,
+                                                            UserRepository userRepository) {
+        return new DevAuthenticationProvider(userPrincipalService, passwordEncoder, loginAttemptService, userRepository);
     }
 }

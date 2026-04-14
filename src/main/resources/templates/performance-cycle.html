@@ -417,7 +417,7 @@
                         <h1>Performance Cycle</h1>
                         <p>Performance management and tracking</p>
                     </div>
-                    <a th:if="${(userRole == 'SOQM_LEAD' or isShared == true) and (#strings.equals(performanceStatus, 'COMPLETED') or #strings.equals(control.performanceStatus, 'COMPLETED'))}"
+                    <a th:if="${(userRole == 'SOQM_TEAM' or isShared == true) and (#strings.equals(performanceStatus, 'COMPLETED') or #strings.equals(control.performanceStatus, 'COMPLETED'))}"
                        th:href="@{/api/controls/{id}/export/completed(id=${control.id})}"
                        class="btn-download">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -615,4 +615,5 @@
 </script>
 </body>
 </html>
+
 

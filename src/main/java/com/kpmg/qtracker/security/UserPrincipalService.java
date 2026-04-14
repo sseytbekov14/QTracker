@@ -24,7 +24,6 @@ public class UserPrincipalService {
 
         String login = email.trim();
         return userRepository.findByMail(login)
-                .or(() -> userRepository.findByUsername(login))
                 .filter(user -> isBcryptHash(user.getPassword()))
                 .map(this::toUserRecord);
     }
@@ -35,25 +34,29 @@ public class UserPrincipalService {
     }
 
     private UserRecord toUserRecord(User user) {
+        Set<String> roles = mapRoles(user.getRole(), user.getSecondaryRole());
+        if (Boolean.TRUE.equals(user.getAdminAccess())) {
+            roles.add("ADMIN");
+        }
+
         return new UserRecord(
                 user.getId(),
                 user.getMail(),
                 user.getPassword(),
-                mapRoles(user.getRole())
+                Boolean.TRUE.equals(user.getEnabled()),
+                roles
         );
     }
 
-    private Set<String> mapRoles(String roleField) {
-        if (roleField == null || roleField.isBlank()) {
-            return Set.of();
-        }
-
+    private Set<String> mapRoles(String... roleFields) {
         Set<String> roles = new LinkedHashSet<>();
-        Arrays.stream(roleField.split("[,;]"))
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .map(this::normalizeRole)
-                .forEach(roles::add);
+        Arrays.stream(roleFields)
+                .filter(value -> value != null && !value.isBlank())
+                .forEach(value -> Arrays.stream(value.split("[,;]"))
+                        .map(String::trim)
+                        .filter(v -> !v.isEmpty())
+                        .map(this::normalizeRole)
+                        .forEach(roles::add));
         return roles;
     }
 
@@ -72,6 +75,6 @@ public class UserPrincipalService {
                 || value.startsWith("$2y$");
     }
 
-    public record UserRecord(Long id, String email, String password, Set<String> roles) {
+    public record UserRecord(Long id, String email, String password, boolean enabled, Set<String> roles) {
     }
 }

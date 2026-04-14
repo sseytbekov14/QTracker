@@ -94,7 +94,7 @@ public class ViewController {
                 .collect(Collectors.toList());
 
         model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getTitle());
+        model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", currentUser.getMail());
         model.addAttribute("pendingApprovals", pendingApprovals);
 
@@ -109,42 +109,60 @@ public class ViewController {
 
         User currentUser = getCurrentUser(session);
 
-        Control control = controlService.getControlById(controlId)
-                .orElseThrow(() -> new RuntimeException("Control not found with id: " + controlId));
+        Optional<Control> controlOptional = controlService.getControlById(controlId);
+        if (controlOptional.isEmpty()) {
+            redirectAttributes.addFlashAttribute("accessDeniedMessage",
+                    "Control not found.");
+            return "redirect:/controls";
+        }
+
+        Control control = controlOptional.get();
 
         if (!canViewControl(controlId, control, currentUser)) {
             redirectAttributes.addFlashAttribute("accessDeniedMessage",
                     "Access revoked — you no longer have permission to view this control.");
             return "redirect:/controls";
         }
-        String performanceStatus = control.getPerformanceStatus();
-        if (performanceStatus == null || performanceStatus.isBlank()) {
-            performanceStatus = "DRAFT";
+
+        try {
+            String performanceStatus = control.getPerformanceStatus();
+            if (performanceStatus == null || performanceStatus.isBlank()) {
+                performanceStatus = "DRAFT";
+            }
+
+            // Получаем данные из Assignment
+            ControlAssignmentDTO assignmentDTO = controlAssignmentService.getAssignmentByControlId(controlId);
+
+            // Получаем данные Performance (built from Control + Assignment, no separate table)
+            PerformanceDTO performanceDTO = performanceService.buildPerformanceDTO(control);
+
+            // Если Assigned To все еще пустое или "Not assigned", устанавливаем дефолтное значение
+            if (performanceDTO.getAssignedTo() == null || performanceDTO.getAssignedTo().isEmpty() ||
+                    performanceDTO.getAssignedTo().equals("0")) {
+                performanceDTO.setAssignedTo("Not assigned");
+            }
+
+            performanceDTO.setControlId(controlId);
+
+            model.addAttribute("userName", currentUser.getDisplayName());
+            model.addAttribute("userTitle", currentUser.getRole());
+            model.addAttribute("userEmail", currentUser.getMail());
+            model.addAttribute("control", control);
+            model.addAttribute("performance", performanceDTO);
+            model.addAttribute("assignment", assignmentDTO); // Добавляем assignment в модель
+            model.addAttribute("performanceStatus", performanceStatus);
+
+            return "performance-checklist";
+        } catch (Exception ex) {
+            return "redirect:/performance-cycle/" + controlId;
         }
+    }
 
-        // Получаем данные из Assignment
-        ControlAssignmentDTO assignmentDTO = controlAssignmentService.getAssignmentByControlId(controlId);
-
-        // Получаем данные Performance (built from Control + Assignment, no separate table)
-        PerformanceDTO performanceDTO = performanceService.buildPerformanceDTO(control);
-
-        // Если Assigned To все еще пустое или "Not assigned", устанавливаем дефолтное значение
-        if (performanceDTO.getAssignedTo() == null || performanceDTO.getAssignedTo().isEmpty() ||
-                performanceDTO.getAssignedTo().equals("0")) {
-            performanceDTO.setAssignedTo("Not assigned");
-        }
-
-        performanceDTO.setControlId(controlId);
-
-        model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getTitle());
-        model.addAttribute("userEmail", currentUser.getMail());
-        model.addAttribute("control", control);
-        model.addAttribute("performance", performanceDTO);
-        model.addAttribute("assignment", assignmentDTO); // Добавляем assignment в модель
-        model.addAttribute("performanceStatus", performanceStatus);
-
-        return "performance-checklist";
+    @GetMapping({"/performance", "/performance/"})
+    public String performanceWithoutId(HttpSession session) {
+        String redirect = checkAuthAndRedirect(session);
+        if (redirect != null) return redirect;
+        return "redirect:/controls";
     }
 
     @GetMapping("/")
@@ -155,11 +173,13 @@ public class ViewController {
         User currentUser = getCurrentUser(session);
         String userEmail = currentUser.getMail();
         String userRole = currentUser.getRole();
+        boolean userIsAdmin = Boolean.TRUE.equals(currentUser.getAdminAccess());
 
         model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getTitle());
+        model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", userEmail);
         model.addAttribute("userRole", userRole);
+        model.addAttribute("userIsAdmin", userIsAdmin);
 
         // Unread notifications badge
         model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
@@ -170,13 +190,13 @@ public class ViewController {
         for (ControlResponseDTO control : allControls) {
             control.setOverdue(isOverdue(control, todayAlmaty, completionTimeByControlId));
         }
-        boolean hideDraftControls = !isGlobalVisibilityRole(userRole);
+        boolean hideDraftControls = !isGlobalVisibilityRole(userRole, userIsAdmin);
         ControlCounters dashboardCounters = countControlsVisibleToUser(
                 allControls,
                 hideDraftControls,
                 completionTimeByControlId
         );
-        if (isGlobalVisibilityRole(userRole)) {
+        if (isGlobalVisibilityRole(userRole, userIsAdmin)) {
             DashboardService.DashboardKpiCounts serviceCounts = dashboardService.getKpiCounts();
             dashboardCounters = new ControlCounters(
                     Math.toIntExact(serviceCounts.total()),
@@ -256,6 +276,7 @@ public class ViewController {
         User currentUser = getCurrentUser(session);
         String userRole = currentUser.getRole();
         String userEmail = currentUser.getMail();
+        boolean userIsAdmin = Boolean.TRUE.equals(currentUser.getAdminAccess());
         String normalizedScope = scope == null ? "" : scope.trim().toLowerCase(Locale.ROOT);
         String normalizedStatus = status == null ? "" : status.trim();
         String normalizedFilter = filter == null ? "" : filter.trim();
@@ -278,12 +299,12 @@ public class ViewController {
             } else if (isSoqmRole(userRole)) {
                 effectiveScope = "all";
             } else {
-                effectiveScope = "ADMIN".equals(userRole) ? "active" : "mine";
+                effectiveScope = userIsAdmin ? "active" : "mine";
             }
         } else {
             effectiveScope = normalizedScope;
         }
-        if (!isSoqmRole(userRole)) {
+        if (!isSoqmRole(userRole) && !userIsAdmin) {
             if (!"active".equals(effectiveScope) && !"all".equals(effectiveScope)) {
                 effectiveScope = "active";
             }
@@ -292,11 +313,11 @@ public class ViewController {
                 effectiveScope = "all";
             }
         }
-        if (completedFilter && !isSoqmRole(userRole)) {
+        if (completedFilter && !isSoqmRole(userRole) && !userIsAdmin) {
             effectiveScope = "all";
         }
         
-        // Apply status filter for all users (not just SOQM_LEAD)
+        // Apply status filter for all users (not just SOQM_TEAM)
         if (!normalizedStatus.isBlank()) {
             String upperStatus = normalizedStatus.toUpperCase(Locale.ROOT);
             Set<String> allowedStatuses = Set.of(
@@ -338,7 +359,7 @@ public class ViewController {
                 int beforeCount = userControlsList.size();
                 // Only apply active queue filter if NO status filter is specified
                 if (statusFilter.isBlank()) {
-                    if (isGlobalVisibilityRole(userRole)) {
+                        if (isGlobalVisibilityRole(userRole, userIsAdmin)) {
                         userControlsList = userControlsList.stream()
                                 .filter(control -> control.getPerformanceStatus() == null
                                         || !"COMPLETED".equalsIgnoreCase(control.getPerformanceStatus()))
@@ -384,7 +405,7 @@ public class ViewController {
         }
         
         // For non-admin/non-SOQM users, hide DRAFT controls in the controls list.
-        if (!isGlobalVisibilityRole(userRole)) {
+        if (!isGlobalVisibilityRole(userRole, userIsAdmin)) {
             userControlsList = userControlsList.stream()
                     .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
                     .collect(Collectors.toList());
@@ -397,10 +418,10 @@ public class ViewController {
         ControlCounters counters = countControlsVisibleToUser(userControlsList, false, completionTimeByControlId);
 
         model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getTitle());
+        model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", userEmail);
         model.addAttribute("userRole", userRole);
-        model.addAttribute("userIsAdmin", isAdminRole(userRole));
+        model.addAttribute("userIsAdmin", userIsAdmin);
         model.addAttribute("userIsSoqm", isSoqmRole(userRole));
         String resolvedControlsFilter = effectiveScope;
         if (overdueFilter && !isSoqmRole(userRole)) {
@@ -432,6 +453,7 @@ public class ViewController {
         }
         String userRole = currentUser.getRole();
         String userEmail = currentUser.getMail();
+        boolean userIsAdmin = Boolean.TRUE.equals(currentUser.getAdminAccess());
         List<Control> visibleControls = controlService.findVisibleControlsForUser(userEmail, userRole);
         Map<Long, ControlResponseDTO> controlMap = new LinkedHashMap<>();
         for (Control control : visibleControls) {
@@ -439,7 +461,7 @@ public class ViewController {
                 continue;
             }
             ControlResponseDTO dto = controlService.convertToResponseDTO(control);
-            boolean sharedOnly = !isGlobalVisibilityRole(userRole)
+                boolean sharedOnly = !isGlobalVisibilityRole(userRole, userIsAdmin)
                     && isSharedWithUser(control.getId(), userEmail)
                     && !isDirectlyAssignedToUser(dto, userEmail);
             dto.setSharedViewOnly(sharedOnly);
@@ -490,6 +512,10 @@ public class ViewController {
 
     private boolean isGlobalVisibilityRole(String userRole) {
         return isAdminRole(userRole) || isSoqmRole(userRole);
+    }
+
+    private boolean isGlobalVisibilityRole(String userRole, boolean userIsAdmin) {
+        return userIsAdmin || isSoqmRole(userRole);
     }
 
     private record ControlCounters(int total, int active, int completed, int overdue) {
@@ -677,36 +703,11 @@ public class ViewController {
     }
 
     @GetMapping("/notifications")
-    public String notifications(Model model, HttpSession session) {
+    public String notifications(HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
 
-        User currentUser = getCurrentUser(session);
-
-        model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getTitle());
-        model.addAttribute("userEmail", currentUser.getMail());
-
-        // Get notifications from database
-        List<com.kpmg.qtracker.entity.Notification> dbNotifications =
-                notificationService.getUserNotifications(currentUser.getId());
-
-        // Convert to DTO
-        List<NotificationItemDTO> notifications = dbNotifications.stream()
-                .filter(notif -> !notificationTypeDisplayMapper.isHiddenType(notif.getType()))
-                .map(this::convertNotificationToDTO)
-                .collect(Collectors.toList());
-        
-        // Cache notifications in session so detail view can retrieve by ID
-        session.setAttribute("cachedNotifications", notifications);
-
-        model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
-
-        // Group notifications by date
-        List<NotificationGroupDTO> groupedNotifications = groupNotificationsByDate(notifications);
-        model.addAttribute("notificationGroups", groupedNotifications);
-
-        return "notifications";
+        return "redirect:/#notifications";
     }
 
     @GetMapping("/notification/{notificationId}")
@@ -717,7 +718,7 @@ public class ViewController {
         User currentUser = getCurrentUser(session);
 
         model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getTitle());
+        model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", currentUser.getMail());
 
         try {
@@ -808,6 +809,7 @@ public class ViewController {
 
         User currentUser = getCurrentUser(session);
         String userRole = currentUser.getRole();
+        boolean userIsAdmin = Boolean.TRUE.equals(currentUser.getAdminAccess());
         List<ControlResponseDTO> visibleControls = findControlsVisibleToUser(currentUser);
         List<ControlResponseDTO> controlDTOs = visibleControls.stream()
                 .filter(control -> "All".equalsIgnoreCase(componentName)
@@ -816,7 +818,7 @@ public class ViewController {
                 .collect(Collectors.toList());
         Map<Long, LocalDateTime> completionTimeByControlId = resolveCompletionTimes(controlDTOs);
 
-        boolean hideDraftControls = !isGlobalVisibilityRole(userRole);
+        boolean hideDraftControls = !isGlobalVisibilityRole(userRole, userIsAdmin);
         ControlCounters counters = countControlsVisibleToUser(controlDTOs, hideDraftControls, completionTimeByControlId);
         if (hideDraftControls) {
             controlDTOs = controlDTOs.stream()
@@ -829,7 +831,7 @@ public class ViewController {
         }
 
         model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getTitle());
+        model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", currentUser.getMail());
         model.addAttribute("controls", controlDTOs);
         model.addAttribute("currentComponent", componentName);
@@ -874,7 +876,7 @@ public class ViewController {
         boolean readOnly = !permission.canEdit();
 
         model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getTitle());
+        model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", userEmail);
         model.addAttribute("userRole", currentUser.getRole());
         model.addAttribute("control", control);
@@ -942,7 +944,7 @@ public class ViewController {
         }
 
         model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getTitle());
+        model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", currentUser.getMail());
         model.addAttribute("readOnly", !permission.canEdit());
         model.addAttribute("canUseWorkflowActions", permission.canUseWorkflowActions());
@@ -960,7 +962,7 @@ public class ViewController {
         User currentUser = getCurrentUser(session);
 
         model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getTitle());
+        model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", currentUser.getMail());
 
         return "new-control";
@@ -971,107 +973,7 @@ public class ViewController {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
 
-        User currentUser = getCurrentUser(session);
-        String userRole = currentUser.getRole();
-        String userEmail = currentUser.getMail();
-
-        List<Control> controlsToShow = new ArrayList<>();
-
-        // Show controls based on user role and assignments
-        List<Control> allControls = controlService.getAllControls();
-        
-        for (Control control : allControls) {
-            boolean shouldShow = false;
-            String performanceStatus = control.getPerformanceStatus();
-            if (performanceStatus == null || performanceStatus.isEmpty()) {
-                performanceStatus = "DRAFT";
-            }
-
-            boolean isCreator = control.getCreatedBy() != null && userEmail.equals(control.getCreatedBy().getMail());
-
-            if (isSoqmRole(userRole)) {
-                shouldShow = true;
-            } else {
-                // For all other roles, check assignment-based access
-                try {
-                    ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
-                    if (assignment != null) {
-                        if (assignment.getFacilitator() != null && assignment.getFacilitator().contains(userEmail)) shouldShow = true;
-                        if (assignment.getControlOperator() != null && assignment.getControlOperator().contains(userEmail)) shouldShow = true;
-                        if (assignment.getProcessOwner() != null && assignment.getProcessOwner().contains(userEmail)) shouldShow = true;
-                        if (assignment.getSoqmLead() != null && assignment.getSoqmLead().contains(userEmail)) shouldShow = true;
-                    }
-                } catch (Exception e) {
-                    // Assignment not found
-                }
-                shouldShow = shouldShow || isCreator;
-            }
-
-            if (shouldShow) {
-                controlsToShow.add(control);
-            }
-        }
-
-        // ★ ИНИЦИАЛИЗИРУЕМ ВСЕ КОМПОНЕНТЫ С 0
-        Map<String, Long> componentStats = new HashMap<>();
-
-        // Все возможные компоненты
-        String[] allComponents = {
-                "HR", "INTR", "M&R", "RAP",
-                "A&C", "I&C", "GOV",
-                "EP", "RER", "TECHR"
-        };
-
-        // Устанавливаем 0 для всех компонентов
-        for (String component : allComponents) {
-            componentStats.put(component, 0L);
-        }
-
-        if (isSoqmRole(userRole)) {
-            for (Control control : controlsToShow) {
-                String component = control.getComponent();
-                if (component != null && !component.trim().isEmpty()) {
-                    if (componentStats.containsKey(component)) {
-                        componentStats.put(component, componentStats.get(component) + 1);
-                    } else {
-                        componentStats.put(component, 1L);
-                    }
-                }
-            }
-            componentStats.put("All", (long) controlsToShow.size());
-        } else {
-            long nonDraftCount = 0L;
-            for (Control control : controlsToShow) {
-                String status = normalizeStatus(control.getPerformanceStatus());
-                if ("DRAFT".equals(status)) {
-                    continue;
-                }
-                nonDraftCount++;
-                String component = control.getComponent();
-                if (component != null && !component.trim().isEmpty()) {
-                    if (componentStats.containsKey(component)) {
-                        componentStats.put(component, componentStats.get(component) + 1);
-                    } else {
-                        componentStats.put(component, 1L);
-                    }
-                }
-            }
-
-            componentStats.put("All", nonDraftCount);
-        }
-
-        model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getTitle());
-        model.addAttribute("userEmail", userEmail);
-        model.addAttribute("userRole", userRole);
-        model.addAttribute("componentStats", componentStats);
-        model.addAttribute("controls", controlsToShow);
-        model.addAttribute("controlsCount", controlsToShow.size());
-
-        // Add unread notifications count
-        model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
-
-        return "action-centre";
+        return "redirect:/#action-centre";
     }
 
     @GetMapping("/performance-cycle/{controlId}")
@@ -1129,7 +1031,7 @@ public class ViewController {
 
             // 7. Добавляем данные в модель
             model.addAttribute("userName", currentUser.getDisplayName());
-            model.addAttribute("userTitle", currentUser.getTitle());
+            model.addAttribute("userTitle", currentUser.getRole());
             model.addAttribute("userEmail", currentUser.getMail());
             model.addAttribute("userRole", currentUser.getRole());
             model.addAttribute("controlId", control.getControlId());

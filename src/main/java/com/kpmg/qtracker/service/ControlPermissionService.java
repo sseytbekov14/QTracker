@@ -45,7 +45,28 @@ public class ControlPermissionService {
         }
 
         String normalizedRole = normalizeRole(user.getRole());
-        boolean isAdmin = "ADMIN".equals(normalizedRole);
+        String normalizedSecondaryRole = normalizeRole(user.getSecondaryRole());
+        boolean isKdnRole = "KDN".equals(normalizedRole) || "KDN".equals(normalizedSecondaryRole);
+        boolean isKdnControl = isKdnControl(control);
+
+        if (isKdnRole) {
+            boolean canViewKdn = isKdnControl;
+            return new ControlPermission(
+                canViewKdn,
+                false,
+                Set.of(),
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            );
+        }
+
+        boolean isAdmin = Boolean.TRUE.equals(user.getAdminAccess());
         boolean isSoqmRole = normalizedRole != null && normalizedRole.startsWith("SOQM");
         boolean isFacilitatorRole = "FACILITATOR".equals(normalizedRole);
         boolean isControlOperatorRole = "CONTROL_OPERATOR".equals(normalizedRole);
@@ -158,5 +179,12 @@ public class ControlPermissionService {
                 .replace('-', '_')
                 .replace(' ', '_')
                 .toUpperCase(Locale.ROOT);
+    }
+
+    private boolean isKdnControl(Control control) {
+        if (control == null || control.getControlId() == null) {
+            return false;
+        }
+        return control.getControlId().trim().toUpperCase(Locale.ROOT).startsWith("KDN");
     }
 }

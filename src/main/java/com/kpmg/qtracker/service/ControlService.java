@@ -68,7 +68,7 @@ public class ControlService implements IControlService {
     }
 
     public List<Control> getControlsForSoqmLead() {
-        // SOQM Lead sees controls in status "SOQM_HEAD_REVIEW"
+        // SOQM Team sees controls in status "SOQM_HEAD_REVIEW"
         return getAllControls().stream()
                 .filter(control -> "SOQM_HEAD_REVIEW".equals(control.getPerformanceStatus()))
                 .collect(Collectors.toList());
@@ -100,6 +100,19 @@ public class ControlService implements IControlService {
         if (userEmail == null || userEmail.isBlank()) {
             return Collections.emptyList();
         }
+        Optional<User> userOpt = userRepository.findByMail(userEmail);
+        boolean isKdnRole = hasRole(userRole, "KDN")
+                || userOpt.map(user -> hasRole(user.getRole(), "KDN") || hasRole(user.getSecondaryRole(), "KDN")).orElse(false);
+
+        if (isKdnRole) {
+            return getAllControls().stream()
+                    .filter(this::isKdnControl)
+                    .collect(Collectors.toList());
+        }
+
+        if (userOpt.isPresent() && Boolean.TRUE.equals(userOpt.get().getAdminAccess())) {
+            return getAllControls();
+        }
         if (isAdminRole(userRole)) {
             return getAllControls();
         }
@@ -118,6 +131,27 @@ public class ControlService implements IControlService {
         List<Control> visibleControls = controlRepository.findAllById(visibleControlIds);
         visibleControls.sort(Comparator.comparing(Control::getId, Comparator.nullsLast(Long::compareTo)).reversed());
         return visibleControls;
+    }
+
+    private boolean hasRole(String role, String expectedRole) {
+        if (role == null || role.isBlank()) {
+            return false;
+        }
+        return normalizeRole(role).equals(normalizeRole(expectedRole));
+    }
+
+    private String normalizeRole(String role) {
+        return role.trim()
+                .replace('-', '_')
+                .replace(' ', '_')
+                .toUpperCase(Locale.ROOT);
+    }
+
+    private boolean isKdnControl(Control control) {
+        if (control == null || control.getControlId() == null) {
+            return false;
+        }
+        return control.getControlId().trim().toUpperCase(Locale.ROOT).startsWith("KDN");
     }
 
     @Override
@@ -517,7 +551,7 @@ public class ControlService implements IControlService {
         dto.setId(user.getId());
         dto.setDisplayName(user.getDisplayName());
         dto.setMail(user.getMail());
-        dto.setTitle(user.getTitle());
+        dto.setTitle(user.getRole());
         return dto;
     }
 
@@ -750,16 +784,16 @@ public class ControlService implements IControlService {
     }
 
     /**
-     * Получить контролы где юзер является SoQM Lead (по control_assignments)
+     * Получить контролы где юзер является SoQM Team (по control_assignments)
      */
     public List<Control> getSoqmLeadControls(String userEmail) {
-        logger.info("=== GET SOQM LEAD CONTROLS ===");
-        logger.info("SoQM Lead email: {}", userEmail);
+        logger.info("=== GET SOQM TEAM CONTROLS ===");
+        logger.info("SoQM Team email: {}", userEmail);
 
         List<Long> controlIds = controlAssignmentRepository.findControlIdsBySoqmLead(userEmail);
         List<Control> result = controlRepository.findAllById(controlIds);
 
-        logger.info("Found {} controls for soqm lead: {}", result.size(), userEmail);
+        logger.info("Found {} controls for soqm team: {}", result.size(), userEmail);
         return result;
     }
 
@@ -802,7 +836,7 @@ public class ControlService implements IControlService {
     /**
      * Check if control has reached user's workflow stage
      * @param controlId Control ID
-     * @param userRole User role (FACILITATOR, CONTROL_OPERATOR, SOQM_LEAD, PROCESS_OWNER)
+     * @param userRole User role (FACILITATOR, CONTROL_OPERATOR, SOQM_TEAM, PROCESS_OWNER)
      * @return true if control reached that workflow stage
      */
     public boolean hasReachedUserStage(Long controlId, String userRole) {
@@ -823,7 +857,7 @@ public class ControlService implements IControlService {
                 return "IN_PROGRESS";
             case "CONTROL_OPERATOR":
                 return "REVIEW";
-            case "SOQM_LEAD":
+            case "SOQM_TEAM":
                 return "SOQM_HEAD_REVIEW";
             case "PROCESS_OWNER":
                 return "PROCESS_OWNER_REVIEW";

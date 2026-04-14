@@ -203,29 +203,29 @@ public class WorkflowTransitionController {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "message", missingField.get()));
             }
 
-            // Verify SoQM Lead is assigned
+            // Verify SoQM Team is assigned
             if (assignment.getSoqmLead() == null || assignment.getSoqmLead().isEmpty()) {
-                return ResponseEntity.status(400).body(Map.of("success", false, "message", "SoQM Lead not assigned. Please assign a SoQM Lead first."));
+                return ResponseEntity.status(400).body(Map.of("success", false, "message", "SoQM Team not assigned. Please assign a SoQM Team first."));
             }
 
             String previousStatus = control.getPerformanceStatus();
 
-            // Update workflow status to indicate it's under SoQM Lead review
+            // Update workflow status to indicate it's under SoQM Team review
             control.setPerformanceStatus("SOQM_HEAD_REVIEW");
             controlService.save(control);
 
             // Add workflow history record
             WorkflowHistory history = new WorkflowHistory();
             history.setControlId(controlId);
-            history.setActionType(WorkflowActionType.SUBMIT_TO_SOQM_LEAD);
+            history.setActionType(WorkflowActionType.SUBMIT_TO_SOQM_TEAM);
             history.setPerformedByEmail(currentUser.getMail());
             history.setPerformedByName(currentUser.getDisplayName());
             history.setFromStep(previousStatus != null ? previousStatus : "REVIEW");
             history.setToStep("SOQM_HEAD_REVIEW");
-            history.setComments("Control submitted to SoQM Lead for review");
+            history.setComments("Control submitted to SoQM Team for review");
             workflowHistoryRepository.save(history);
 
-            // Notify SoQM Lead/Delegate only
+            // Notify SoQM Team/Delegate only
             boolean resubmitted = false;
             sendNotificationToRole(control, assignment.getSoqmLead(),
                     NotificationTemplateService.TemplateType.OPERATOR_TO_SOQM,
@@ -233,7 +233,7 @@ public class WorkflowTransitionController {
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Control submitted to SoQM Lead");
+            response.put("message", "Control submitted to SoQM Team");
             response.put("controlStatus", control.getPerformanceStatus());
 
             return ResponseEntity.ok(response);
@@ -291,10 +291,10 @@ public class WorkflowTransitionController {
             // Only shared viewers who are assigned as FACILITATOR, CONTROL_OPERATOR, or PROCESS_OWNER can submit
             // (role check is already handled by the shared viewer check above)
 
-            // Verify SoQM Lead is assigned
+            // Verify SoQM Team is assigned
             if (assignment.getSoqmLead() == null || assignment.getSoqmLead().isEmpty()) {
                 return ResponseEntity.status(400).body(Map.of("success", false,
-                        "message", "SoQM Lead not assigned"));
+                        "message", "SoQM Team not assigned"));
             }
 
             String previousStatus = control.getPerformanceStatus();
@@ -306,21 +306,21 @@ public class WorkflowTransitionController {
             // Workflow history
             WorkflowHistory history = new WorkflowHistory();
             history.setControlId(controlId);
-            history.setActionType(WorkflowActionType.SUBMIT_TO_SOQM_LEAD);
+            history.setActionType(WorkflowActionType.SUBMIT_TO_SOQM_TEAM);
             history.setPerformedByEmail(userEmail);
             history.setPerformedByName(currentUser.getDisplayName());
             history.setFromStep(previousStatus);
             history.setToStep("SOQM_HEAD_REVIEW");
-            history.setComments("Shared viewer (" + currentUser.getRole() + ") submitted completed control to SoQM Lead for review");
+            history.setComments("Shared viewer (" + currentUser.getRole() + ") submitted completed control to SoQM Team for review");
             workflowHistoryRepository.save(history);
 
-            // Notify SoQM Lead
+            // Notify SoQM Team
             sendNotificationToRole(control, assignment.getSoqmLead(),
                     NotificationTemplateService.TemplateType.OPERATOR_TO_SOQM, false);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Control submitted to SoQM Lead for review");
+            response.put("message", "Control submitted to SoQM Team for review");
             response.put("controlStatus", control.getPerformanceStatus());
 
             return ResponseEntity.ok(response);

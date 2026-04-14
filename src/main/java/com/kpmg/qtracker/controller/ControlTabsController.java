@@ -99,7 +99,7 @@ public class ControlTabsController {
         System.out.println("Control ID: " + assignmentDTO.getControlId());
         System.out.println("Facilitator: " + assignmentDTO.getFacilitator());
         System.out.println("Control Operator: " + assignmentDTO.getControlOperator());
-        System.out.println("SOQM Lead: " + assignmentDTO.getSoqmLead());
+        System.out.println("SOQM Team: " + assignmentDTO.getSoqmLead());
         System.out.println("Process Owner: " + assignmentDTO.getProcessOwner());
         System.out.println("Control Shared With: " + assignmentDTO.getControlSharedWith());
         System.out.println("Operation Date: " + assignmentDTO.getControlOperationDate());
@@ -130,7 +130,7 @@ public class ControlTabsController {
                     existingAssignment.getFacilitator(), mergedAssignment.getFacilitator());
             collectChange(changedFields, previousValues, newValues, "Control Operator",
                     existingAssignment.getControlOperator(), mergedAssignment.getControlOperator());
-            collectChange(changedFields, previousValues, newValues, "SoQM Lead",
+            collectChange(changedFields, previousValues, newValues, "SoQM Team",
                     existingAssignment.getSoqmLead(), mergedAssignment.getSoqmLead());
             collectChange(changedFields, previousValues, newValues, "Process Owner",
                     existingAssignment.getProcessOwner(), mergedAssignment.getProcessOwner());
@@ -260,9 +260,8 @@ public class ControlTabsController {
         dto.setId(user.getId());
         dto.setDisplayName(user.getDisplayName());
         dto.setMail(user.getMail());
-        dto.setTitle(user.getTitle());
+        dto.setTitle(user.getRole());
         dto.setRole(user.getRole());
-        dto.setUsername(user.getUsername());
         return dto;
     }
 

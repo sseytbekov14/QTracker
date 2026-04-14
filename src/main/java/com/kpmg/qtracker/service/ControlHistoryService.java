@@ -112,8 +112,8 @@ public class ControlHistoryService {
                 return "Control Performance - Initiated" + formatOperationDate(assignment);
             case SUBMIT_TO_OPERATOR:
                 return "Control Performance - Submitted for Review";
-            case SUBMIT_TO_SOQM_LEAD:
-                return "Control Performance - Submitted for SoQM Lead / Delegate's Review";
+            case SUBMIT_TO_SOQM_TEAM:
+                return "Control Performance - Submitted for SoQM Team / Delegate's Review";
             case SUBMIT_TO_PROCESS_OWNER:
                 return "Control Performance - Submitted to Process Owner";
             case APPROVE:
@@ -201,8 +201,9 @@ public class ControlHistoryService {
             case "Non-Audit Services Applicability":
             case "non_audit_services_applicability":
                 return "Non-Audit Services Control Applicability";
-            case "SoQM Lead":
+            case "SoQM Team":
             case "soqm_lead":
+            case "soqm_team":
                 return "SoQM Head/Lead";
             case "control_id":
                 return "Control ID";

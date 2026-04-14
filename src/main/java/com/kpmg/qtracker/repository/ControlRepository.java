@@ -53,7 +53,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE c.performance_status NOT IN ('COMPLETED')
@@ -70,7 +70,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(TRIM(c.control_frequency)) = 'monthly'
@@ -89,7 +89,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(c.control_frequency) = 'monthly'
@@ -107,7 +107,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(c.control_frequency) = 'monthly'
@@ -125,7 +125,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(TRIM(c.control_frequency)) = 'quarterly'
@@ -144,7 +144,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(c.control_frequency) = 'quarterly'
@@ -162,7 +162,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(c.control_frequency) = 'quarterly'
@@ -180,7 +180,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(TRIM(c.control_frequency)) = 'recurring'
@@ -199,7 +199,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(c.control_frequency) = 'recurring'
@@ -217,7 +217,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(c.control_frequency) = 'recurring'
@@ -235,7 +235,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(TRIM(c.control_frequency)) IN ('ad-hoc', 'ad hoc')
@@ -254,7 +254,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(c.control_frequency) = 'ad-hoc'
@@ -272,7 +272,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(c.control_frequency) = 'ad-hoc'
@@ -290,7 +290,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(TRIM(c.control_frequency)) IN (
@@ -317,7 +317,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(c.control_frequency) IN ('annual', 'semi annual')
@@ -335,7 +335,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.control_operation_deadline AS "deadlineDate",
                    c.facilitator                AS "facilitator",
                    c.control_operator           AS "controlOperator",
-                   c.soqm_lead                  AS "soqmLead",
+                   c.soqm_team                  AS "soqmLead",
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE LOWER(c.control_frequency) IN ('annual', 'semi annual')
@@ -343,4 +343,5 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
             """, nativeQuery = true)
     List<ReminderControlProjection> findAnnualSemiOverdueCandidates();
 }
+
 

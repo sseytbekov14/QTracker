@@ -41,7 +41,7 @@ class WorkflowServiceImplPermissionsTest {
         String userEmail = "soqm.lead@kpmg.com";
 
         User user = new User();
-        user.setRole("SOQM_LEAD");
+        user.setRole("SOQM_TEAM");
         user.setMail(userEmail);
 
         when(controlAssignmentService.getUserRolesForControl(controlId, userEmail))

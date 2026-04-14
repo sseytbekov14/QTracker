@@ -1,4 +1,4 @@
-console.log('🔥 VIEW-CONTROL.JS v2.3 ЗАГРУЖЕН - ОЧИЩЕН ОТ НЕИСПОЛЬЗУЕМОГО КОДА');
+﻿console.log('рџ”Ґ VIEW-CONTROL.JS v2.3 Р—РђР“Р РЈР–Р•Рќ - РћР§РР©Р•Рќ РћРў РќР•РРЎРџРћР›Р¬Р—РЈР•РњРћР“Рћ РљРћР”Рђ');
 
 let changelogEntries = [];
 let changelogFilter = 'all';
@@ -36,7 +36,7 @@ const viewControl = (function() {
 
     function isSoqmLeadRole() {
         const role = document.getElementById('currentUserRole')?.value || '';
-        return role === 'SOQM_LEAD';
+        return role === 'SOQM_TEAM';
     }
 
     async function loadPermissions(controlId) {
@@ -223,10 +223,10 @@ const viewControl = (function() {
         try {
             const response = await fetch('/api/users/all');
             allUsers = await response.json();
-            console.log('✅ Загружено пользователей:', allUsers.length);
+            console.log('вњ… Р—Р°РіСЂСѓР¶РµРЅРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№:', allUsers.length);
             return allUsers;
         } catch (error) {
-            console.error('❌ Error loading users:', error);
+            console.error('вќЊ Error loading users:', error);
             return [];
         }
     }
@@ -235,10 +235,10 @@ const viewControl = (function() {
         try {
             const response = await fetch(`/api/users/role/${role}`);
             const users = await response.json();
-            console.log(`✅ Загружено пользователей с ролью ${role}:`, users.length);
+            console.log(`вњ… Р—Р°РіСЂСѓР¶РµРЅРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ СЃ СЂРѕР»СЊСЋ ${role}:`, users.length);
             return users;
         } catch (error) {
-            console.error(`❌ Error loading users with role ${role}:`, error);
+            console.error(`вќЊ Error loading users with role ${role}:`, error);
             return [];
         }
     }
@@ -253,24 +253,26 @@ window.showWorkflowButtonsByStatusAndRole = function(status, userRole) {
         hideWorkflowActionsUi();
         return;
     }
-    console.log('🔘 ГЛОБАЛЬНАЯ ФУНКЦИЯ: ПОКАЗ КНОПОК');
-    console.log('   Статус:', status);
-    console.log('   Роль:', userRole);
+    console.log('рџ” Р“Р›РћР‘РђР›Р¬РќРђРЇ Р¤РЈРќРљР¦РРЇ: РџРћРљРђР— РљРќРћРџРћРљ');
+    console.log('   РЎС‚Р°С‚СѓСЃ:', status);
+    console.log('   Р РѕР»СЊ:', userRole);
 
     const container = document.getElementById('workflow-buttons-container');
     if (!container) {
-        console.error('❌ Контейнер не найден');
+        console.error('вќЊ РљРѕРЅС‚РµР№РЅРµСЂ РЅРµ РЅР°Р№РґРµРЅ');
         return;
     }
 
     const buttons = container.querySelectorAll('.workflow-btn');
-    console.log(`   Найдено кнопок: ${buttons.length}`);
+    console.log(`   РќР°Р№РґРµРЅРѕ РєРЅРѕРїРѕРє: ${buttons.length}`);
 
-    // Показываем все кнопки для указанной роли
+    // РџРѕРєР°Р·С‹РІР°РµРј РІСЃРµ РєРЅРѕРїРєРё РґР»СЏ СѓРєР°Р·Р°РЅРЅРѕР№ СЂРѕР»Рё
     buttons.forEach(btn => {
         if (btn.dataset.role === userRole) {
             btn.style.display = 'inline-block';
-            console.log(`   ✅ Показываем: "${btn.textContent.trim()}"`);
+            btn.disabled = false;
+            btn.removeAttribute('disabled');
+            console.log(`   вњ… РџРѕРєР°Р·С‹РІР°РµРј: "${btn.textContent.trim()}"`);
         } else {
             btn.style.display = 'none';
         }
@@ -278,51 +280,53 @@ window.showWorkflowButtonsByStatusAndRole = function(status, userRole) {
 
     container.style.display = 'inline-flex';
 
-    console.log('✅ Кнопки должны быть видны!');
+    console.log('вњ… РљРЅРѕРїРєРё РґРѕР»Р¶РЅС‹ Р±С‹С‚СЊ РІРёРґРЅС‹!');
 };
 
-// Создадим простую глобальную функцию
+// РЎРѕР·РґР°РґРёРј РїСЂРѕСЃС‚СѓСЋ РіР»РѕР±Р°Р»СЊРЅСѓСЋ С„СѓРЅРєС†РёСЋ
 window.showAllWorkflowButtons = function() {
     if (!areWorkflowActionsAllowed()) {
         hideWorkflowActionsUi();
         return;
     }
-    console.log('=== ПОКАЗ ВСЕХ КНОПОК ===');
+    console.log('=== РџРћРљРђР— Р’РЎР•РҐ РљРќРћРџРћРљ ===');
 
-    // Получаем данные
+    // РџРѕР»СѓС‡Р°РµРј РґР°РЅРЅС‹Рµ
     const userRole = document.getElementById('currentUserRole').value;
     const status = document.getElementById('currentPerformanceStatus').value;
 
-    console.log('Ваша роль:', userRole);
-    console.log('Статус:', status);
+    console.log('Р’Р°С€Р° СЂРѕР»СЊ:', userRole);
+    console.log('РЎС‚Р°С‚СѓСЃ:', status);
 
-    // Находим все кнопки
+    // РќР°С…РѕРґРёРј РІСЃРµ РєРЅРѕРїРєРё
     const buttons = document.querySelectorAll('.workflow-btn');
-    console.log(`Найдено кнопок: ${buttons.length}`);
+    console.log(`РќР°Р№РґРµРЅРѕ РєРЅРѕРїРѕРє: ${buttons.length}`);
 
-    // Показываем все кнопки для вашей роли
+    // РџРѕРєР°Р·С‹РІР°РµРј РІСЃРµ РєРЅРѕРїРєРё РґР»СЏ РІР°С€РµР№ СЂРѕР»Рё
     let visibleCount = 0;
     buttons.forEach(btn => {
         if (btn.dataset.role === userRole) {
             btn.style.display = 'inline-block';
+            btn.disabled = false;
+            btn.removeAttribute('disabled');
             visibleCount++;
-            console.log(`✅ "${btn.textContent.trim()}" - ПОКАЗАНО`);
+            console.log(`вњ… "${btn.textContent.trim()}" - РџРћРљРђР—РђРќРћ`);
         } else {
             btn.style.display = 'none';
         }
     });
 
-    // Показываем контейнер без рамки
+    // РџРѕРєР°Р·С‹РІР°РµРј РєРѕРЅС‚РµР№РЅРµСЂ Р±РµР· СЂР°РјРєРё
     const container = document.getElementById('workflow-buttons-container');
     if (container && areWorkflowActionsAllowed()) {
         container.style.display = 'inline-flex';
     }
 
-    console.log(`🎉 Показано ${visibleCount} кнопок для ${userRole}`);
-    console.log('=== КОНЕЦ ===');
+    console.log(`рџЋ‰ РџРѕРєР°Р·Р°РЅРѕ ${visibleCount} РєРЅРѕРїРѕРє РґР»СЏ ${userRole}`);
+    console.log('=== РљРћРќР•Р¦ ===');
 };
 
-    // Инициализация workflow кнопок (добавить в init метод)
+    // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ workflow РєРЅРѕРїРѕРє (РґРѕР±Р°РІРёС‚СЊ РІ init РјРµС‚РѕРґ)
 function handleWorkflowButtonClick(event) {
     const button = event.currentTarget;
     const action = button.dataset.action;
@@ -333,22 +337,22 @@ function handleWorkflowButtonClick(event) {
 
     currentWorkflowButton = button;
 
-    // Настроить модальное окно
+    // РќР°СЃС‚СЂРѕРёС‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ
     const modal = document.getElementById('workflowActionModal');
     const message = modal.querySelector('#workflowActionMessage');
     const approvalSection = modal.querySelector('#workflowApprovalSection');
     const commentSection = modal.querySelector('#workflowCommentSection');
     const commentLabelElement = modal.querySelector('#commentLabel');
 
-    // Установить сообщение
+    // РЈСЃС‚Р°РЅРѕРІРёС‚СЊ СЃРѕРѕР±С‰РµРЅРёРµ
     const confirmationText = getConfirmationText(action, label);
     message.textContent = confirmationText;
 
-    // Показать/скрыть секцию Yes/No (только для SoQM Lead)
+    // РџРѕРєР°Р·Р°С‚СЊ/СЃРєСЂС‹С‚СЊ СЃРµРєС†РёСЋ Yes/No (С‚РѕР»СЊРєРѕ РґР»СЏ SoQM Team)
     const isSoqmAction = action === 'SEND_TO_PROCESS_OWNER' || action === 'SOQM_COMMENT';
     approvalSection.style.display = (needsApproval && isSoqmAction) ? 'block' : 'none';
 
-    // Показать/скрыть секцию комментария
+    // РџРѕРєР°Р·Р°С‚СЊ/СЃРєСЂС‹С‚СЊ СЃРµРєС†РёСЋ РєРѕРјРјРµРЅС‚Р°СЂРёСЏ
     commentSection.style.display = requiresComment ? 'block' : 'none';
 
     if (requiresComment) {
@@ -356,12 +360,12 @@ function handleWorkflowButtonClick(event) {
         modal.querySelector('#workflowComment').value = '';
     }
 
-    // Сбросить радиокнопки
+    // РЎР±СЂРѕСЃРёС‚СЊ СЂР°РґРёРѕРєРЅРѕРїРєРё
     if (needsApproval) {
         modal.querySelector('#soqmApprovalNo').checked = true;
     }
 
-    // Показать модальное окно
+    // РџРѕРєР°Р·Р°С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ
     const bsModal = new bootstrap.Modal(modal);
     bsModal.show();
 }
@@ -370,7 +374,7 @@ function getConfirmationText(action, label) {
     const messages = {
         'INITIATE': 'Initiate this control? Status will change from "Draft" to "In Progress".',
         'SUBMIT_FOR_REVIEW': 'Submit this control for review? Status will change to "Review" and Control Operator will be notified.',
-        'SUBMIT_FOR_SOQM': 'Submit this control to SOQM Lead? Status will change to "SoQM Head Review".',
+        'SUBMIT_FOR_SOQM': 'Submit this control to SoQM Team? Status will change to "SoQM Head Review".',
         'RETURN_TO_FACILITATOR': 'Return this control to Facilitator for revision?',
         'SEND_TO_PROCESS_OWNER': 'Send this control to Process Owner? Status will change to "Process Owner Review".',
         'SEND_BACK_TO_OPERATOR': 'Send this control back to Control Operator?',
@@ -390,7 +394,7 @@ function confirmWorkflowAction() {
     const requiresComment = currentWorkflowButton?.dataset.requiresComment === 'true';
     const action = currentWorkflowButton?.dataset.action;
 
-    // Проверка для SoQM approval
+    // РџСЂРѕРІРµСЂРєР° РґР»СЏ SoQM approval
     if (needsApproval && (action === 'SEND_TO_PROCESS_OWNER' || action === 'SOQM_COMMENT')) {
         const selectedApproval = modal.querySelector('input[name="soqmApproval"]:checked');
         if (!selectedApproval) {
@@ -398,58 +402,58 @@ function confirmWorkflowAction() {
             return;
         }
 
-        // Добавляем информацию об approval в комментарий
+        // Р”РѕР±Р°РІР»СЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ РѕР± approval РІ РєРѕРјРјРµРЅС‚Р°СЂРёР№
         const approvalComment = selectedApproval.value === 'YES'
             ? '[SOQM APPROVED: YES] '
             : '[SOQM APPROVED: NO] ';
 
         const finalComment = approvalComment + (comment || '');
 
-        // Закрыть модальное окно
+        // Р—Р°РєСЂС‹С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ
         const bsModal = bootstrap.Modal.getInstance(modal);
         bsModal.hide();
 
-        // Отправить действие на сервер
+        // РћС‚РїСЂР°РІРёС‚СЊ РґРµР№СЃС‚РІРёРµ РЅР° СЃРµСЂРІРµСЂ
         performWorkflowAction(action, finalComment);
         return;
     }
 
-    // Обычная валидация
+    // РћР±С‹С‡РЅР°СЏ РІР°Р»РёРґР°С†РёСЏ
     if (requiresComment && (!comment || comment === '')) {
         showErrorMessage('Please enter a comment');
         return;
     }
 
-    // Закрыть модальное окно
+    // Р—Р°РєСЂС‹С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ
     const bsModal = bootstrap.Modal.getInstance(modal);
     bsModal.hide();
 
-    // Отправить действие на сервер
+    // РћС‚РїСЂР°РІРёС‚СЊ РґРµР№СЃС‚РІРёРµ РЅР° СЃРµСЂРІРµСЂ
     performWorkflowAction(action, comment);
 }
 
-    // Показать модальное окно подтверждения
+    // РџРѕРєР°Р·Р°С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ
     function showWorkflowConfirmationModal(action, label, requiresComment, confirmationMessage) {
-        // Если у тебя уже есть функция showModal или подобная, используй её
-        // Иначе создай простую версию:
+        // Р•СЃР»Рё Сѓ С‚РµР±СЏ СѓР¶Рµ РµСЃС‚СЊ С„СѓРЅРєС†РёСЏ showModal РёР»Рё РїРѕРґРѕР±РЅР°СЏ, РёСЃРїРѕР»СЊР·СѓР№ РµС‘
+        // РРЅР°С‡Рµ СЃРѕР·РґР°Р№ РїСЂРѕСЃС‚СѓСЋ РІРµСЂСЃРёСЋ:
 
         const modalMessage = confirmationMessage || `Are you sure you want to perform: ${label}?`;
 
         if (requiresComment) {
-            // Показать модальное окно с полем для комментария
+            // РџРѕРєР°Р·Р°С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ СЃ РїРѕР»РµРј РґР»СЏ РєРѕРјРјРµРЅС‚Р°СЂРёСЏ
             showCommentModal(modalMessage, action);
         } else {
-            // Просто подтверждение без комментария
+            // РџСЂРѕСЃС‚Рѕ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ Р±РµР· РєРѕРјРјРµРЅС‚Р°СЂРёСЏ
             if (confirm(modalMessage)) {
                 performWorkflowAction(action, null);
             }
         }
     }
 
-    // Функция показа модального окна с комментарием
+    // Р¤СѓРЅРєС†РёСЏ РїРѕРєР°Р·Р° РјРѕРґР°Р»СЊРЅРѕРіРѕ РѕРєРЅР° СЃ РєРѕРјРјРµРЅС‚Р°СЂРёРµРј
     function showCommentModal(message, action) {
-        // Если у тебя уже есть система модальных окон, интегрируй в неё
-        // Иначе создай простое:
+        // Р•СЃР»Рё Сѓ С‚РµР±СЏ СѓР¶Рµ РµСЃС‚СЊ СЃРёСЃС‚РµРјР° РјРѕРґР°Р»СЊРЅС‹С… РѕРєРѕРЅ, РёРЅС‚РµРіСЂРёСЂСѓР№ РІ РЅРµС‘
+        // РРЅР°С‡Рµ СЃРѕР·РґР°Р№ РїСЂРѕСЃС‚РѕРµ:
 
         const modalHTML = `
             <div class="modal fade" id="workflowCommentModal" tabindex="-1">
@@ -476,28 +480,28 @@ function confirmWorkflowAction() {
             </div>
         `;
 
-        // Удалить старую модалку если есть
+        // РЈРґР°Р»РёС‚СЊ СЃС‚Р°СЂСѓСЋ РјРѕРґР°Р»РєСѓ РµСЃР»Рё РµСЃС‚СЊ
         const oldModal = document.getElementById('workflowCommentModal');
         if (oldModal) oldModal.remove();
 
-        // Добавить новую
+        // Р”РѕР±Р°РІРёС‚СЊ РЅРѕРІСѓСЋ
         document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-        // Показать
+        // РџРѕРєР°Р·Р°С‚СЊ
         const modal = new bootstrap.Modal(document.getElementById('workflowCommentModal'));
         modal.show();
     }
 
     function getCurrentControlId() {
-        // Пример: из URL /view-control/123 возвращает 123
+        // РџСЂРёРјРµСЂ: РёР· URL /view-control/123 РІРѕР·РІСЂР°С‰Р°РµС‚ 123
         const path = window.location.pathname;
         const match = path.match(/\/view-control\/(\d+)/);
         return match ? match[1] : null;
     }
 
-    // Отправить workflow действие
+    // РћС‚РїСЂР°РІРёС‚СЊ workflow РґРµР№СЃС‚РІРёРµ
     async function performWorkflowAction(action, comment) {
-        const controlId = getCurrentControlId(); // Используй свою функцию
+        const controlId = getCurrentControlId(); // РСЃРїРѕР»СЊР·СѓР№ СЃРІРѕСЋ С„СѓРЅРєС†РёСЋ
 
         try {
             const ready = await ensureWorkflowRoleReady();
@@ -540,15 +544,15 @@ function confirmWorkflowAction() {
     }
 
     function showSuccessMessage(message) {
-        // Используй свою систему уведомлений
-        alert(message); // или toast, или что-то другое
+        // РСЃРїРѕР»СЊР·СѓР№ СЃРІРѕСЋ СЃРёСЃС‚РµРјСѓ СѓРІРµРґРѕРјР»РµРЅРёР№
+        alert(message); // РёР»Рё toast, РёР»Рё С‡С‚Рѕ-С‚Рѕ РґСЂСѓРіРѕРµ
     }
 
     function showErrorMessage(message) {
         alert('Error: ' + message);
     }
 
-    // Функция для отправки (вызывается из модального окна)
+    // Р¤СѓРЅРєС†РёСЏ РґР»СЏ РѕС‚РїСЂР°РІРєРё (РІС‹Р·С‹РІР°РµС‚СЃСЏ РёР· РјРѕРґР°Р»СЊРЅРѕРіРѕ РѕРєРЅР°)
     function submitWorkflowAction() {
         const commentInput = document.getElementById('workflowComment');
         const comment = commentInput ? commentInput.value.trim() : '';
@@ -558,14 +562,14 @@ function confirmWorkflowAction() {
             return;
         }
 
-        // Закрыть модальное окно
+        // Р—Р°РєСЂС‹С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ
         const modal = bootstrap.Modal.getInstance(document.getElementById('workflowCommentModal'));
         if (modal) modal.hide();
 
         performWorkflowAction(currentWorkflowAction, comment);
     }
 
-    // Скрыть workflow кнопки
+    // РЎРєСЂС‹С‚СЊ workflow РєРЅРѕРїРєРё
     function hideWorkflowButtons() {
         const container = document.getElementById('workflow-buttons-container');
         if (container) {
@@ -611,19 +615,8 @@ function confirmWorkflowAction() {
             if (searchInput) searchInput.value = '';
 
             if (facilitatorUsers.length === 0) {
-                // Facilitator and Control Operator are interchangeable
-                Promise.all([
-                    loadUsersByRole('FACILITATOR'),
-                    loadUsersByRole('CONTROL_OPERATOR')
-                ]).then(([facilitators, operators]) => {
-                    const seen = new Set();
-                    facilitatorUsers = [];
-                    [...facilitators, ...operators].forEach(u => {
-                        if (!seen.has(u.mail || u.email)) {
-                            seen.add(u.mail || u.email);
-                            facilitatorUsers.push(u);
-                        }
-                    });
+                loadUsersByRole('FACILITATOR').then((users) => {
+                    facilitatorUsers = users;
                     displayUserDropdownList(facilitatorUsers);
                 });
             } else {
@@ -677,8 +670,8 @@ function confirmWorkflowAction() {
         if (!searchInput) return;
 
         const query = searchInput.value.trim().toLowerCase();
-        console.log('🔍 Facilitator search query:', query);
-        console.log('📋 Available facilitators:', facilitatorUsers);
+        console.log('рџ”Ќ Facilitator search query:', query);
+        console.log('рџ“‹ Available facilitators:', facilitatorUsers);
 
         if (query === '') {
             displayUserDropdownList(facilitatorUsers);
@@ -695,13 +688,13 @@ function confirmWorkflowAction() {
             const matches = displayNameMatch || usernameMatch || mailMatch;
             
             if (matches) {
-                console.log('✅ Match found:', user.displayName, user.username, user.mail);
+                console.log('вњ… Match found:', user.displayName, user.username, user.mail);
             }
             
             return matches;
         });
 
-        console.log('🎯 Filtered users count:', filteredUsers.length);
+        console.log('рџЋЇ Filtered users count:', filteredUsers.length);
         displayUserDropdownList(filteredUsers);
     }
 
@@ -740,19 +733,8 @@ function confirmWorkflowAction() {
             if (searchInput) searchInput.value = '';
 
             if (controlOperatorUsers.length === 0) {
-                // Facilitator and Control Operator are interchangeable
-                Promise.all([
-                    loadUsersByRole('CONTROL_OPERATOR'),
-                    loadUsersByRole('FACILITATOR')
-                ]).then(([operators, facilitators]) => {
-                    const seen = new Set();
-                    controlOperatorUsers = [];
-                    [...operators, ...facilitators].forEach(u => {
-                        if (!seen.has(u.mail || u.email)) {
-                            seen.add(u.mail || u.email);
-                            controlOperatorUsers.push(u);
-                        }
-                    });
+                loadUsersByRole('CONTROL_OPERATOR').then((users) => {
+                    controlOperatorUsers = users;
                     displayControlOperatorList(controlOperatorUsers);
                 });
             } else {
@@ -835,7 +817,7 @@ function confirmWorkflowAction() {
         closeControlOperatorDropdown();
     }
 
-    // ========== SOQM LEAD FUNCTIONS ==========
+    // ========== SoQM Team FUNCTIONS ==========
     function toggleSoqmLeadDropdown() {
         if (!isAssignmentDropdownEditable('soqmLeadInput')) {
             return;
@@ -849,7 +831,7 @@ function confirmWorkflowAction() {
             if (searchInput) searchInput.value = '';
 
             if (soqmLeadUsers.length === 0) {
-                loadUsersByRole('SOQM_LEAD').then((users) => {
+                loadUsersByRole('SOQM_TEAM').then((users) => {
                     soqmLeadUsers = users;
                     displaySoqmLeadList(soqmLeadUsers);
                 });
@@ -1224,7 +1206,7 @@ function confirmWorkflowAction() {
                 const assignmentData = await response.json();
 
                 if (assignmentData && assignmentData.controlId) {
-                    // Загружаем пользователей если еще не загружены
+                    // Р—Р°РіСЂСѓР¶Р°РµРј РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ РµСЃР»Рё РµС‰Рµ РЅРµ Р·Р°РіСЂСѓР¶РµРЅС‹
                     if (allUsers.length === 0) {
                         await loadAllUsers();
                     }
@@ -1245,7 +1227,7 @@ function confirmWorkflowAction() {
                         }
                     }
 
-                    // SoQM Lead
+                    // SoQM Team
                     if (assignmentData.soqmLead && Array.isArray(assignmentData.soqmLead) && assignmentData.soqmLead.length > 0) {
                         const user = allUsers.find(u => u.mail === assignmentData.soqmLead[0]);
                         if (user) {
@@ -1274,7 +1256,7 @@ function confirmWorkflowAction() {
                         updateSharedWithHidden();
                     }
 
-                    // Даты
+                    // Р”Р°С‚С‹
                     const form = document.getElementById('assignmentForm');
                     if (form) {
                         if (assignmentData.controlOperationDate) {
@@ -1467,14 +1449,14 @@ function makeAllFormsEditable() {
     makeAllFormsReadOnly();
 
     if (stepsPerformedEditOnly) {
-        console.log('✅ Field-level edit mode: enabling controlStepsPerformed only');
+        console.log('вњ… Field-level edit mode: enabling controlStepsPerformed only');
         enableControlStepsPerformedField();
         normalizeAssignmentDateFieldsForDisplay();
         return;
     }
 
     if (processOwnerCommentsEditOnly) {
-        console.log('✅ Process Owner edit mode: enabling processOwnerComments only');
+        console.log('вњ… Process Owner edit mode: enabling processOwnerComments only');
         enableProcessOwnerCommentsField();
         normalizeAssignmentDateFieldsForDisplay();
         return;
@@ -1485,39 +1467,39 @@ function makeAllFormsEditable() {
     }
 
 
-    // 1. CONTROL TAB - делаем редактируемой
-    console.log('🔄 Processing Control tab fields...');
+    // 1. CONTROL TAB - РґРµР»Р°РµРј СЂРµРґР°РєС‚РёСЂСѓРµРјРѕР№
+    console.log('рџ”„ Processing Control tab fields...');
     const controlFields = document.querySelectorAll('#controlForm input, #controlForm select, #controlForm textarea');
     controlFields.forEach(field => {
-        // Пропускаем Control ID поле (оно всегда readonly)
+        // РџСЂРѕРїСѓСЃРєР°РµРј Control ID РїРѕР»Рµ (РѕРЅРѕ РІСЃРµРіРґР° readonly)
         if (field.name === 'controlId' || field.id === 'controlId') {
-            console.log(`  ⏭️ Skipping controlId field: ${field.name}`);
+            console.log(`  вЏ­пёЏ Skipping controlId field: ${field.name}`);
             return;
         }
 
-        console.log(`  📝 Processing field: ${field.name || field.id}`);
+        console.log(`  рџ“ќ Processing field: ${field.name || field.id}`);
         console.log(`    Before - readonly: ${field.readOnly}, disabled: ${field.disabled}, classes: ${field.className}`);
 
-        // Удаляем readonly классы
+        // РЈРґР°Р»СЏРµРј readonly РєР»Р°СЃСЃС‹
         field.classList.remove('readonly-field', 'readonly-select');
 
-        // Добавляем editable классы
+        // Р”РѕР±Р°РІР»СЏРµРј editable РєР»Р°СЃСЃС‹
         field.classList.add('editable-field', 'editable-select');
 
-        // Убираем атрибуты readonly и disabled
+        // РЈР±РёСЂР°РµРј Р°С‚СЂРёР±СѓС‚С‹ readonly Рё disabled
         field.removeAttribute('readonly');
         field.readOnly = false;
         field.disabled = false;
 
-        // Включаем взаимодействие
+        // Р’РєР»СЋС‡Р°РµРј РІР·Р°РёРјРѕРґРµР№СЃС‚РІРёРµ
         field.style.pointerEvents = 'auto';
-        field.style.backgroundColor = ''; // Сбрасываем фон
+        field.style.backgroundColor = ''; // РЎР±СЂР°СЃС‹РІР°РµРј С„РѕРЅ
 
         console.log(`    After - readonly: ${field.readOnly}, disabled: ${field.disabled}, classes: ${field.className}`);
     });
 
     // 2. DETAILS TAB
-    console.log('🔄 Processing Details tab fields...');
+    console.log('рџ”„ Processing Details tab fields...');
     const detailsFields = document.querySelectorAll('#detailsForm input, #detailsForm textarea, #detailsForm select');
     detailsFields.forEach(field => {
         field.classList.remove('readonly-field', 'readonly-select');
@@ -1535,14 +1517,14 @@ function makeAllFormsEditable() {
     });
 
     // 3. ASSIGNMENT TAB
-    console.log('🔄 Processing Assignment tab fields...');
+    console.log('рџ”„ Processing Assignment tab fields...');
     const assignmentFields = document.querySelectorAll('#assignmentForm input, #assignmentForm select');
     const alwaysReadonlyFields = [];
     const canEditAssignment = true;
 
     assignmentFields.forEach(field => {
         if (!canEditAssignment || alwaysReadonlyFields.includes(field.name)) {
-            console.log(`  ⏭️ Skipping always readonly field: ${field.name}`);
+            console.log(`  вЏ­пёЏ Skipping always readonly field: ${field.name}`);
             field.classList.add('readonly-field');
             field.readOnly = true;
             field.disabled = true;
@@ -1560,7 +1542,7 @@ function makeAllFormsEditable() {
     });
 
     // 4. DOCUMENTS TAB
-    console.log('🔄 Processing Documents tab fields...');
+    console.log('рџ”„ Processing Documents tab fields...');
     const documentsFields = document.querySelectorAll('#documentsForm input, #documentsForm select');
     documentsFields.forEach(field => {
         field.classList.remove('readonly-field', 'readonly-select');
@@ -1577,7 +1559,7 @@ function makeAllFormsEditable() {
         }
     });
 
-    console.log('🔄 Processing dropdown inputs...');
+    console.log('рџ”„ Processing dropdown inputs...');
     const dropdownInputs = [
         'facilitatorInput',
         'controlOperatorInput',
@@ -1589,7 +1571,7 @@ function makeAllFormsEditable() {
     dropdownInputs.forEach(id => {
         const input = document.getElementById(id);
         if (input) {
-            console.log(`  📝 Processing dropdown: ${id}`);
+            console.log(`  рџ“ќ Processing dropdown: ${id}`);
             if (canEditAssignment) {
                 input.classList.remove('readonly-field');
                 input.readOnly = false;
@@ -1605,11 +1587,11 @@ function makeAllFormsEditable() {
         }
     });
 
-    console.log('✅ All forms are now editable');
+    console.log('вњ… All forms are now editable');
     normalizeAssignmentDateFieldsForDisplay();
     updateCalculatedDates();
 
-    // 6. Проверка результата
+    // 6. РџСЂРѕРІРµСЂРєР° СЂРµР·СѓР»СЊС‚Р°С‚Р°
     console.log('=== FINAL CHECK ===');
     console.log('Control Frequency field:');
     const controlFreq = document.querySelector('[name="controlFrequency"]');
@@ -1659,7 +1641,7 @@ function saveControlData(controlId) {
         body: JSON.stringify(controlData)
     })
     .then(async response => {
-        console.log('📥 Control save response status:', response.status);
+        console.log('рџ“Ґ Control save response status:', response.status);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -1667,7 +1649,7 @@ function saveControlData(controlId) {
         }
 
         const responseText = await response.text();
-        console.log('📥 Control save response:', responseText);
+        console.log('рџ“Ґ Control save response:', responseText);
 
         if (!responseText || responseText.trim() === '') {
             return { success: true };
@@ -1680,9 +1662,9 @@ function saveControlData(controlId) {
         }
     })
 .then(data => {
-    console.log('✅ Control saved successfully:', data);
+    console.log('вњ… Control saved successfully:', data);
 
-    // Показываем алерт
+    // РџРѕРєР°Р·С‹РІР°РµРј Р°Р»РµСЂС‚
     showAppModal({
         variant: 'success',
         title: 'Saved Successfully',
@@ -1692,7 +1674,7 @@ function saveControlData(controlId) {
     return data;
 })
     .catch(error => {
-        console.error('❌ Error saving control:', error);
+        console.error('вќЊ Error saving control:', error);
         alert('Error saving control: ' + error.message);
         throw error;
     });
@@ -2037,7 +2019,7 @@ function showRequiredFieldMessage(message, field) {
                 valueField: assignmentForm?.querySelector('#controlOperatorHidden')
             },
             {
-                label: 'SoQM Lead / Delegate',
+                label: 'SoQM Team / Delegate',
                 field: document.getElementById('soqmLeadInput'),
                 valueField: assignmentForm?.querySelector('#soqmLeadHidden')
             },
@@ -2151,7 +2133,7 @@ function saveControlChanges() {
 function saveAssignmentData(controlId) {
     console.log('=== SAVE ASSIGNMENT DATA ===');
 
-    // Получаем email значения
+    // РџРѕР»СѓС‡Р°РµРј email Р·РЅР°С‡РµРЅРёСЏ
     const getEmailValue = (id) => {
         const element = document.getElementById(id);
         const value = element ? element.value.trim() : '';
@@ -2175,7 +2157,7 @@ function saveAssignmentData(controlId) {
         }
     }
 
-    // Получаем даты
+    // РџРѕР»СѓС‡Р°РµРј РґР°С‚С‹
     const getDateValue = (name) => {
         const element = document.querySelector(`input[name="${name}"]`);
         const value = element ? element.value : null;
@@ -2186,13 +2168,13 @@ function saveAssignmentData(controlId) {
     const controlOperationDeadline = getDateValue('controlOperationDeadline');
     const nextControlOperationDate = getDateValue('nextControlOperationDate');
 
-    // Проверяем controlId
+    // РџСЂРѕРІРµСЂСЏРµРј controlId
     const numericControlId = parseInt(controlId, 10);
     if (isNaN(numericControlId)) {
         return Promise.reject('Invalid Control ID');
     }
 
-    // Подготавливаем данные
+    // РџРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РґР°РЅРЅС‹Рµ
     const assignmentData = {
         controlId: numericControlId,
         facilitator: facilitator,
@@ -2205,9 +2187,9 @@ function saveAssignmentData(controlId) {
         nextControlOperationDate: nextControlOperationDate
     };
 
-    console.log('📤 Sending assignment data:', assignmentData);
+    console.log('рџ“¤ Sending assignment data:', assignmentData);
 
-    // Отправляем запрос
+    // РћС‚РїСЂР°РІР»СЏРµРј Р·Р°РїСЂРѕСЃ
     return fetch('/api/control-assignment', {
         method: 'POST',
         headers: {
@@ -2217,12 +2199,12 @@ function saveAssignmentData(controlId) {
         body: JSON.stringify(assignmentData)
     })
     .then(async response => {
-        console.log('📥 Response status:', response.status);
-        console.log('📥 Response headers:', Array.from(response.headers.entries()));
+        console.log('рџ“Ґ Response status:', response.status);
+        console.log('рџ“Ґ Response headers:', Array.from(response.headers.entries()));
 
         const responseText = await response.text();
-        console.log('📥 Response body length:', responseText.length);
-        console.log('📥 Response body (first 500 chars):', responseText.substring(0, 500));
+        console.log('рџ“Ґ Response body length:', responseText.length);
+        console.log('рџ“Ґ Response body (first 500 chars):', responseText.substring(0, 500));
 
         if (!response.ok) {
             let errorMessage = `Server error (${response.status})`;
@@ -2237,49 +2219,49 @@ function saveAssignmentData(controlId) {
                 errorMessage = responseText || `Server error (${response.status})`;
             }
 
-            console.error('❌ Server error:', errorMessage);
+            console.error('вќЊ Server error:', errorMessage);
             throw new Error(errorMessage);
         }
 
-        // Если ответ пустой или не JSON - возвращаем success
+        // Р•СЃР»Рё РѕС‚РІРµС‚ РїСѓСЃС‚РѕР№ РёР»Рё РЅРµ JSON - РІРѕР·РІСЂР°С‰Р°РµРј success
         if (!responseText || responseText.trim() === '') {
-            console.log('📥 Empty response, returning success');
+            console.log('рџ“Ґ Empty response, returning success');
             return { success: true };
         }
 
-        // Пробуем распарсить JSON
+        // РџСЂРѕР±СѓРµРј СЂР°СЃРїР°СЂСЃРёС‚СЊ JSON
         try {
             const data = JSON.parse(responseText);
-            console.log('📥 Parsed JSON response:', data);
+            console.log('рџ“Ґ Parsed JSON response:', data);
             return data;
         } catch (e) {
-            console.warn('⚠️ Response is not valid JSON, treating as success');
+            console.warn('вљ пёЏ Response is not valid JSON, treating as success');
             return { success: true, message: responseText };
         }
     })
     .then(data => {
-        console.log('✅ Assignment saved successfully, response data:', data);
+        console.log('вњ… Assignment saved successfully, response data:', data);
 
         // Upload file attachments if any
         if (window.uploadAttachments) {
-            console.log('📤 Uploading file attachments...');
+            console.log('рџ“¤ Uploading file attachments...');
             window.uploadAttachments();
         }
 
-        // Показываем алерт
+        // РџРѕРєР°Р·С‹РІР°РµРј Р°Р»РµСЂС‚
         showAppModal({
             variant: 'success',
             title: 'Saved Successfully',
             message: 'Assignment data has been saved'
         });
 
-        // Редирект через 2 секунды (после закрытия алерта)
+        // Р РµРґРёСЂРµРєС‚ С‡РµСЂРµР· 2 СЃРµРєСѓРЅРґС‹ (РїРѕСЃР»Рµ Р·Р°РєСЂС‹С‚РёСЏ Р°Р»РµСЂС‚Р°)
 
         updateCalculatedDates();
         return data;
     })
     .catch(error => {
-        console.error('❌ Save error:', error);
+        console.error('вќЊ Save error:', error);
 
         let userMessage = 'Error saving assignment data. ';
 
@@ -2314,7 +2296,7 @@ function saveDetailsData(controlId) {
         body: JSON.stringify(detailsData)
     })
     .then(async response => {
-        console.log('📥 Details response status:', response.status);
+        console.log('рџ“Ґ Details response status:', response.status);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -2322,7 +2304,7 @@ function saveDetailsData(controlId) {
         }
 
         const responseText = await response.text();
-        console.log('📥 Details response length:', responseText.length);
+        console.log('рџ“Ґ Details response length:', responseText.length);
 
         if (!responseText || responseText.trim() === '') {
             return { success: true };
@@ -2335,12 +2317,12 @@ function saveDetailsData(controlId) {
         }
     })
     .then(data => {
-        console.log('✅ Details saved successfully');
+        console.log('вњ… Details saved successfully');
         detailsDataCache = { ...(detailsDataCache || {}), ...detailsData };
 
         // Upload file attachments if any
         if (window.uploadAttachments) {
-            console.log('📤 Uploading file attachments...');
+            console.log('рџ“¤ Uploading file attachments...');
             window.uploadAttachments();
         }
 
@@ -2350,12 +2332,12 @@ function saveDetailsData(controlId) {
             message: 'Details have been saved'
         });
 
-        // Редирект через 2.1 секунды
+        // Р РµРґРёСЂРµРєС‚ С‡РµСЂРµР· 2.1 СЃРµРєСѓРЅРґС‹
 
         return data;
     })
     .catch(error => {
-        console.error('❌ Error saving details:', error);
+        console.error('вќЊ Error saving details:', error);
 
         showAppModal({
             variant: 'error',
@@ -2373,7 +2355,7 @@ function saveDocumentsData(controlId) {
 
     const documentsForm = document.getElementById('documentsForm');
     if (!documentsForm) {
-        console.log('⚠️ Documents form not found, skipping');
+        console.log('вљ пёЏ Documents form not found, skipping');
         return Promise.resolve({ success: true, skipped: true });
     }
 
@@ -2395,11 +2377,11 @@ function saveDocumentsData(controlId) {
         body: JSON.stringify(documentsData)
     })
     .then(async response => {
-        console.log('📥 Documents response status:', response.status);
+        console.log('рџ“Ґ Documents response status:', response.status);
 
         if (!response.ok) {
             const errorText = await response.text().catch(() => 'Unknown error');
-            console.error('❌ Documents save failed:', errorText);
+            console.error('вќЊ Documents save failed:', errorText);
             throw new Error(`Documents save failed: ${errorText}`);
         }
 
@@ -2407,32 +2389,32 @@ function saveDocumentsData(controlId) {
         try {
             responseText = await response.text();
         } catch (e) {
-            console.log('⚠️ Could not read response text:', e.message);
+            console.log('вљ пёЏ Could not read response text:', e.message);
             responseText = '';
         }
 
-        console.log('📥 Documents response length:', responseText.length);
+        console.log('рџ“Ґ Documents response length:', responseText.length);
 
         if (!responseText || responseText.trim() === '') {
-            console.log('📥 Empty documents response, returning success');
+            console.log('рџ“Ґ Empty documents response, returning success');
             return { success: true };
         }
 
         try {
             const parsed = JSON.parse(responseText);
-            console.log('📥 Parsed documents response:', parsed);
+            console.log('рџ“Ґ Parsed documents response:', parsed);
             return parsed;
         } catch (e) {
-            console.warn('⚠️ Documents response is not JSON, returning success');
+            console.warn('вљ пёЏ Documents response is not JSON, returning success');
             return { success: true, rawResponse: responseText };
         }
     })
 .then(data => {
-    console.log('✅ Documents saved successfully, response:', data);
+    console.log('вњ… Documents saved successfully, response:', data);
 
     // Upload file attachments if any
     if (window.uploadAttachments) {
-        console.log('📤 Uploading file attachments...');
+        console.log('рџ“¤ Uploading file attachments...');
         window.uploadAttachments();
     }
 
@@ -2442,12 +2424,12 @@ function saveDocumentsData(controlId) {
         message: 'Documents have been saved'
     });
 
-    // Редирект через 2.1 секунды
+    // Р РµРґРёСЂРµРєС‚ С‡РµСЂРµР· 2.1 СЃРµРєСѓРЅРґС‹
 
     return data;
 })
     .catch(error => {
-        console.error('❌ Unexpected error in saveDocumentsData:', error);
+        console.error('вќЊ Unexpected error in saveDocumentsData:', error);
 
         showAppModal({
             variant: 'error',
@@ -2456,7 +2438,7 @@ function saveDocumentsData(controlId) {
             autoCloseMs: 0
         });
 
-        // Не бросаем ошибку дальше
+        // РќРµ Р±СЂРѕСЃР°РµРј РѕС€РёР±РєСѓ РґР°Р»СЊС€Рµ
         return { success: false, caughtError: error.message };
     });
 }
@@ -2608,7 +2590,7 @@ function saveDocumentsData(controlId) {
         }
     }
 
-    // ========== ПУБЛИЧНЫЙ ИНТЕРФЕЙС ==========
+    // ========== РџРЈР‘Р›РР§РќР«Р™ РРќРўР•Р Р¤Р•Р™РЎ ==========
     return {
         toggleUserDropdown: toggleUserDropdown,
         filterUserList: filterUserList,
@@ -2715,13 +2697,13 @@ function saveDocumentsData(controlId) {
 
                     try {
                         const result = await saveControlChanges();
-                        console.log('✅ Save successful:', result);
+                        console.log('вњ… Save successful:', result);
 
                         saveEditBtn.disabled = false;
                         saveEditBtn.textContent = originalText;
 
                     } catch (error) {
-                        console.error('❌ Save error in button handler:', error);
+                        console.error('вќЊ Save error in button handler:', error);
 
                         saveEditBtn.disabled = false;
                         saveEditBtn.textContent = originalText;
@@ -2781,7 +2763,7 @@ function saveDocumentsData(controlId) {
 
             if (renameIdBtn) {
                 renameIdBtn.addEventListener('click', function() {
-                console.log('📝 Opening Rename ID modal');
+                console.log('рџ“ќ Opening Rename ID modal');
 
                 const modalElement = document.getElementById('renameIdModal');
                 const newControlIdInput = document.getElementById('newControlId');
@@ -2947,7 +2929,7 @@ function saveDocumentsData(controlId) {
             // ========== WORKFLOW INITIALIZATION ==========
             console.log('=== WORKFLOW INITIALIZATION ===');
 
-            // Получаем значения из скрытых полей
+            // РџРѕР»СѓС‡Р°РµРј Р·РЅР°С‡РµРЅРёСЏ РёР· СЃРєСЂС‹С‚С‹С… РїРѕР»РµР№
             const userRoleElement = document.getElementById('currentUserRole');
             const statusElement = document.getElementById('currentPerformanceStatus');
             const controlIdElement = document.querySelector('input[name="id"]');
@@ -2956,7 +2938,7 @@ function saveDocumentsData(controlId) {
             console.log('Status value:', statusElement?.value);
             console.log('Control ID value:', controlIdElement?.value);
 
-            // Проверяем workflow контейнер
+            // РџСЂРѕРІРµСЂСЏРµРј workflow РєРѕРЅС‚РµР№РЅРµСЂ
             const workflowContainer = document.getElementById('workflow-buttons-container');
             console.log('Workflow container exists:', !!workflowContainer);
 
@@ -2965,7 +2947,7 @@ function saveDocumentsData(controlId) {
                 console.log(`Found ${buttons.length} workflow buttons`);
             }
 
-            // Инициализируем workflow кнопки если есть данные
+            // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј workflow РєРЅРѕРїРєРё РµСЃР»Рё РµСЃС‚СЊ РґР°РЅРЅС‹Рµ
             const userRole = userRoleElement?.value;
             const performanceStatus = statusElement?.value;
             const controlIdValue = controlIdElement?.value;
@@ -2973,46 +2955,46 @@ function saveDocumentsData(controlId) {
             if (!areWorkflowActionsAllowed()) {
                 hideWorkflowActionsUi();
             } else if (userRole && performanceStatus && controlIdValue) {
-                console.log('🔄 Initializing workflow buttons...');
+                console.log('рџ”„ Initializing workflow buttons...');
                 console.log(`   User Role: "${userRole}"`);
                 console.log(`   Status: "${performanceStatus}"`);
                 console.log(`   Control ID: "${controlIdValue}"`);
 
-                // ★★★★ ВЫЗОВ ФУНКЦИИ ПОКАЗА КНОПОК ★★★★
+                // в…в…в…в… Р’Р«Р—РћР’ Р¤РЈРќРљР¦РР РџРћРљРђР—Рђ РљРќРћРџРћРљ в…в…в…в…
                 showWorkflowButtonsByStatusAndRole(performanceStatus, userRole);
 
-                // Добавляем обработчики кликов
+                // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё РєР»РёРєРѕРІ
                 document.querySelectorAll('.workflow-btn').forEach(btn => {
                     btn.addEventListener('click', handleWorkflowButtonClick);
                 });
 
-                console.log('✅ Workflow buttons initialized');
+                console.log('вњ… Workflow buttons initialized');
             } else {
-                console.warn('⚠️ Cannot init workflow buttons: missing data');
+                console.warn('вљ пёЏ Cannot init workflow buttons: missing data');
             }
 
-            // Добавляем обработчик для кнопки Confirm в модалке workflow
+            // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРє РґР»СЏ РєРЅРѕРїРєРё Confirm РІ РјРѕРґР°Р»РєРµ workflow
             const confirmWorkflowBtn = document.getElementById('confirmWorkflowAction');
             if (confirmWorkflowBtn) {
                 confirmWorkflowBtn.addEventListener('click', confirmWorkflowAction);
-                console.log('✅ Confirm workflow button handler added');
+                console.log('вњ… Confirm workflow button handler added');
             } else {
-                console.warn('⚠️ Confirm workflow button not found');
+                console.warn('вљ пёЏ Confirm workflow button not found');
             }
 
-            // Добавляем обработчик для подтверждения Submit to Control Operator
+            // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРє РґР»СЏ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ Submit to Control Operator
             const confirmSubmitBtn = document.getElementById('confirmSubmitBtn');
             if (confirmSubmitBtn) {
                 confirmSubmitBtn.addEventListener('click', confirmSubmitWorkflowAction);
-                console.log('✅ Confirm submit button handler added');
+                console.log('вњ… Confirm submit button handler added');
             } else {
-                console.warn('⚠️ Confirm submit button not found');
+                console.warn('вљ пёЏ Confirm submit button not found');
             }
 
-            // ========== АВТОМАТИЧЕСКИЙ ПОКАЗ КНОПОК С ЦВЕТНЫМИ РАМКАМИ ==========
+            // ========== РђР’РўРћРњРђРўРР§Р•РЎРљРР™ РџРћРљРђР— РљРќРћРџРћРљ РЎ Р¦Р’Р•РўРќР«РњР Р РђРњРљРђРњР ==========
             console.log('=== AUTOMATIC BUTTON VISIBILITY ===');
 
-            // Даем время загрузиться всему контенту
+            // Р”Р°РµРј РІСЂРµРјСЏ Р·Р°РіСЂСѓР·РёС‚СЊСЃСЏ РІСЃРµРјСѓ РєРѕРЅС‚РµРЅС‚Сѓ
             setTimeout(() => {
                 if (!areWorkflowActionsAllowed()) {
                     hideWorkflowActionsUi();
@@ -3030,11 +3012,11 @@ function saveDocumentsData(controlId) {
                 console.log('Final check - Role:', currentUserRole, 'Performance Status:', currentStatus, 'Workflow Status:', workflowStatus);
                 console.log('Is Facilitator for this control:', isFacilitatorFlag);
                 console.log('Is Control Operator for this control:', isControlOperatorFlag);
-                console.log('Is SoQM Lead for this control:', isSoqmLeadFlag);
+                console.log('Is SoQM Team for this control:', isSoqmLeadFlag);
                 console.log('Is Process Owner for this control:', isProcessOwnerFlag);
 
-                if (currentUserRole === 'SOQM_LEAD') {
-                    console.log('✅ SoQM Lead role override - editing enabled for all statuses');
+                if (currentUserRole === 'SOQM_TEAM') {
+                    console.log('вњ… SoQM Team role override - editing enabled for all statuses');
                     return;
                 }
 
@@ -3047,78 +3029,89 @@ function saveDocumentsData(controlId) {
                             const submitToOperatorBtn = document.getElementById('submitForReviewBtn');
                             if (submitToOperatorBtn) {
                                 submitToOperatorBtn.style.display = 'inline-block';
-                                console.log('✅ Button "Submit to Control Operator" shown for assigned Facilitator!');
+                                submitToOperatorBtn.disabled = false;
+                                submitToOperatorBtn.removeAttribute('disabled');
+                                console.log('вњ… Button "Submit to Control Operator" shown for assigned Facilitator!');
                             }
                             // Facilitator can edit during IN_PROGRESS
-                            console.log('✅ Assigned Facilitator can edit control in IN_PROGRESS');
+                            console.log('вњ… Assigned Facilitator can edit control in IN_PROGRESS');
                         } else {
                             // For non-Facilitators, lock the control
-                            console.log('🔒 Control in IN_PROGRESS - locking for non-Facilitator');
+                            console.log('рџ”’ Control in IN_PROGRESS - locking for non-Facilitator');
                             lockControlForm();
                         }
                     } else if (workflowStatus === 'REVIEW') {
                         // Control is in REVIEW
                         if (isControlOperatorFlag) {
                             // Control Operator can edit during REVIEW
-                            console.log('✅ Assigned Control Operator can edit control in REVIEW');
+                            console.log('вњ… Assigned Control Operator can edit control in REVIEW');
                         } else {
                             // For non-Control Operators, lock the control
-                            console.log('🔒 Control in REVIEW - locking for non-Control Operator');
+                            console.log('рџ”’ Control in REVIEW - locking for non-Control Operator');
                             lockControlForm();
                         }
                     } else if (workflowStatus === 'SOQM_HEAD_REVIEW') {
                         // Control is in SOQM_HEAD_REVIEW
                         if (isSoqmLeadFlag) {
-                            // SoQM Lead can edit during SOQM_HEAD_REVIEW
-                            console.log('✅ Assigned SoQM Lead can edit control in SOQM_HEAD_REVIEW');
+                            // SoQM Team can edit during SOQM_HEAD_REVIEW
+                            console.log('вњ… Assigned SoQM Team can edit control in SOQM_HEAD_REVIEW');
                         } else {
-                            // For non-SoQM Leads, lock the control
-                            console.log('🔒 Control in SOQM_HEAD_REVIEW - locking for non-SoQM Lead');
+                            // For non-SoQM Teams, lock the control
+                            console.log('рџ”’ Control in SOQM_HEAD_REVIEW - locking for non-SoQM Team');
                             lockControlForm();
                         }
                     } else if (workflowStatus === 'PROCESS_OWNER_REVIEW') {
                         // Control is in PROCESS_OWNER_REVIEW
                         if (isProcessOwnerFlag) {
                             // Process Owner can edit during PROCESS_OWNER_REVIEW
-                            console.log('✅ Assigned Process Owner can edit control in PROCESS_OWNER_REVIEW');
+                            console.log('вњ… Assigned Process Owner can edit control in PROCESS_OWNER_REVIEW');
                         } else {
                             // For non-Process Owners, lock the control
-                            console.log('🔒 Control in PROCESS_OWNER_REVIEW - locking for non-Process Owner');
+                            console.log('рџ”’ Control in PROCESS_OWNER_REVIEW - locking for non-Process Owner');
                             lockControlForm();
                         }
                     } else if (workflowStatus === 'COMPLETED') {
-                        // Check if user is shared viewer — allow field-level edit
+                        // Check if user is shared viewer and allow field-level edit
                         const isSharedViewerFlag = document.getElementById('isSharedViewer')?.value === 'true';
                         if (isSharedViewerFlag) {
-                            console.log('✅ Shared viewer on COMPLETED control - field-level edit via permissions');
-                            // Don't lock — Edit button stays visible, permissions will restrict to specific fields
+                            console.log('вњ… Shared viewer on COMPLETED control - field-level edit via permissions');
+                            // Keep the Edit button visible; permissions still restrict editable fields.
                         } else {
-                            console.log('🔒 Control COMPLETED - locking form');
+                            console.log('рџ”’ Control COMPLETED - locking form');
                             lockControlForm();
                         }
                     } else {
                         // Control is in other workflow status - lock it
-                        console.log('🔒 Control in workflow - locking form');
+                        console.log('рџ”’ Control in workflow - locking form');
                         lockControlForm();
                     }
                 } else {
                     // Control not in workflow - Edit button should be visible
-                    console.log('✅ Control not in workflow - Edit button available');
+                    console.log('вњ… Control not in workflow - Edit button available');
                 }
 
                 // Show workflow container if needed
                 const container = document.getElementById('workflow-buttons-container');
                 if (container && areWorkflowActionsAllowed()) {
                     container.style.display = 'inline-flex';
-                    console.log('✅ Контейнер показан!');
+                    console.log('вњ… РљРѕРЅС‚РµР№РЅРµСЂ РїРѕРєР°Р·Р°РЅ!');
                 }
-            }, 1500); // Ждем 1.5 секунды чтобы все загрузилось
+            }, 1500); // Р–РґРµРј 1.5 СЃРµРєСѓРЅРґС‹ С‡С‚РѕР±С‹ РІСЃРµ Р·Р°РіСЂСѓР·РёР»РѕСЃСЊ
 
             console.log('=== INIT COMPLETE ===');
         }
 
     };
 })();
+
+// Global access helper for workflow checks used outside the IIFE scope.
+function areWorkflowActionsAllowed() {
+    if (window.qtrackerPermissions
+        && Object.prototype.hasOwnProperty.call(window.qtrackerPermissions, 'canUseWorkflowActions')) {
+        return Boolean(window.qtrackerPermissions.canUseWorkflowActions);
+    }
+    return document.getElementById('canUseWorkflowActions')?.value !== 'false';
+}
 
 function buildDetailsPayload(controlId) {
     const detailsForm = document.getElementById('detailsForm');
@@ -3178,7 +3171,7 @@ function applyDetailsPermissions(payload) {
 }
 
 function lockControlForm() {
-    console.log('🔒 Locking control form...');
+    console.log('рџ”’ Locking control form...');
 
     // Disable all form inputs in Assignment tab
     const assignmentInputs = document.querySelectorAll('[id^="facilitator"], [id^="controlOperator"], [id^="soqmLead"], [id^="processOwner"]');
@@ -3199,7 +3192,7 @@ function lockControlForm() {
         btn.style.opacity = '0.5';
     });
 
-    console.log('✅ Form locked');
+    console.log('вњ… Form locked');
 }
 
 // ========== SUBMIT TO CONTROL OPERATOR ==========
@@ -3415,7 +3408,7 @@ function submitWorkflowActionWithModal(options) {
         return data;
     })
     .catch(error => {
-        console.error('❌ Error submitting control:', error);
+        console.error('вќЊ Error submitting control:', error);
 
         showAppModal({
             variant: 'error',
@@ -3537,7 +3530,7 @@ document.addEventListener('click', async (event) => {
     }
 
     if (returnToSoqmLeadBtn) {
-        console.log('Return to SoQM Lead clicked');
+        console.log('Return to SoQM Team clicked');
         if (!await ensureWorkflowRoleReady()) {
             return;
         }
@@ -3623,7 +3616,7 @@ async function confirmSubmitWorkflowAction() {
 // ========== WORKFLOW BUTTON HANDLERS ==========
 
 async function confirmSubmitToSoqmLead() {
-    console.log('🔘 Confirm Submit to SoQM Lead');
+    console.log('рџ” Confirm Submit to SoQM Team');
 
     if (!await ensureWorkflowRoleReady()) {
         return;
@@ -3647,9 +3640,9 @@ async function confirmSubmitToSoqmLead() {
     });
 }
 
-// ========== SHARED SUBMIT TO SOQM LEAD (Shared viewer → SoQM Lead from COMPLETED) ==========
+// ========== SHARED SUBMIT TO SoQM Team (Shared viewer в†’ SoQM Team from COMPLETED) ==========
 async function confirmSharedSubmitToSoqmLead() {
-    console.log('🔘 Confirm Shared Submit to SoQM Lead');
+    console.log('рџ” Confirm Shared Submit to SoQM Team');
 
     if (!await ensureWorkflowRoleReady()) {
         return;
@@ -3673,9 +3666,9 @@ async function confirmSharedSubmitToSoqmLead() {
     });
 }
 
-// ========== RETURN TO FACILITATOR HANDLERS (Control Operator → Facilitator) ==========
+// ========== RETURN TO FACILITATOR HANDLERS (Control Operator в†’ Facilitator) ==========
 async function confirmReturnToFacilitator() {
-    console.log('🔘 Confirm Return to Facilitator');
+    console.log('рџ” Confirm Return to Facilitator');
 
     if (!await ensureWorkflowRoleReady()) {
         return;
@@ -4271,7 +4264,7 @@ async function performWorkflowAction(action, comment) {
         }
 
         const data = await response.json();
-        console.log('✅ Workflow action completed:', data);
+        console.log('вњ… Workflow action completed:', data);
 
         showAppModal({
             variant: 'success',
@@ -4281,7 +4274,7 @@ async function performWorkflowAction(action, comment) {
         });
 
     } catch (error) {
-        console.error('❌ Error performing workflow action:', error);
+        console.error('вќЊ Error performing workflow action:', error);
         
         showAppModal({
             variant: 'error',
@@ -4292,14 +4285,14 @@ async function performWorkflowAction(action, comment) {
     }
 }
 
-// Инициализация при загрузке DOM
+// РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїСЂРё Р·Р°РіСЂСѓР·РєРµ DOM
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('🚀 DOM загружен, запускаем инициализацию...');
+    console.log('рџљЂ DOM Р·Р°РіСЂСѓР¶РµРЅ, Р·Р°РїСѓСЃРєР°РµРј РёРЅРёС†РёР°Р»РёР·Р°С†РёСЋ...');
     
-    // Инициализируем viewControl (включает обработчики для Edit, Changelog, Rename ID)
+    // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј viewControl (РІРєР»СЋС‡Р°РµС‚ РѕР±СЂР°Р±РѕС‚С‡РёРєРё РґР»СЏ Edit, Changelog, Rename ID)
     await viewControl.init();
     
-    // Показываем workflow кнопки с задержкой, если функция существует
+    // РџРѕРєР°Р·С‹РІР°РµРј workflow РєРЅРѕРїРєРё СЃ Р·Р°РґРµСЂР¶РєРѕР№, РµСЃР»Рё С„СѓРЅРєС†РёСЏ СЃСѓС‰РµСЃС‚РІСѓРµС‚
     if (typeof window.showAllWorkflowButtons === 'function') {
         setTimeout(function() {
             window.showAllWorkflowButtons();
@@ -4309,50 +4302,50 @@ document.addEventListener('DOMContentLoaded', async function() {
     const confirmSubmitSoqmLeadBtn = document.getElementById('confirmSubmitSoqmLeadBtn');
     if (confirmSubmitSoqmLeadBtn) {
         confirmSubmitSoqmLeadBtn.addEventListener('click', confirmSubmitToSoqmLead);
-        console.log('✅ Confirm Submit to SoQM Lead handler added');
+        console.log('вњ… Confirm Submit to SoQM Team handler added');
     }
 
     const confirmSharedSubmitSoqmBtn = document.getElementById('confirmSharedSubmitSoqmBtn');
     if (confirmSharedSubmitSoqmBtn) {
         confirmSharedSubmitSoqmBtn.addEventListener('click', confirmSharedSubmitToSoqmLead);
-        console.log('✅ Confirm Shared Submit to SoQM Lead handler added');
+        console.log('вњ… Confirm Shared Submit to SoQM Team handler added');
     }
 
     const confirmReturnFacilitatorBtn = document.getElementById('confirmReturnFacilitatorBtn');
     if (confirmReturnFacilitatorBtn) {
         confirmReturnFacilitatorBtn.addEventListener('click', confirmReturnToFacilitator);
-        console.log('✅ Confirm Return to Facilitator handler added');
+        console.log('вњ… Confirm Return to Facilitator handler added');
     }
 
-    // Bind SoQM Lead workflow buttons
+    // Bind SoQM Team workflow buttons
     const confirmReturnOperatorBtn = document.getElementById('confirmReturnOperatorBtn');
     if (confirmReturnOperatorBtn) {
         confirmReturnOperatorBtn.addEventListener('click', confirmReturnToOperator);
-        console.log('✅ Confirm Return to Operator handler added');
+        console.log('вњ… Confirm Return to Operator handler added');
     }
 
     // Bind Process Owner workflow buttons
     const completeControlBtn = document.getElementById('completeControlBtn');
     if (completeControlBtn) {
         completeControlBtn.addEventListener('click', handleCompleteControl);
-        console.log('✅ Complete Control button handler added');
+        console.log('вњ… Complete Control button handler added');
     }
 
     const confirmCompleteControlBtn = document.getElementById('confirmCompleteControlBtn');
     if (confirmCompleteControlBtn) {
         confirmCompleteControlBtn.addEventListener('click', confirmCompleteControl);
-        console.log('✅ Confirm Complete Control handler added');
+        console.log('вњ… Confirm Complete Control handler added');
     }
 
     const confirmReturnSoqmLeadBtn = document.getElementById('confirmReturnSoqmLeadBtn');
     if (confirmReturnSoqmLeadBtn) {
         confirmReturnSoqmLeadBtn.addEventListener('click', confirmReturnToSoqmLead);
-        console.log('✅ Confirm Return to SoQM Lead handler added');
+        console.log('вњ… Confirm Return to SoQM Team handler added');
     }
 });
 
 async function confirmReturnToOperator() {
-    console.log('🔘 Confirm Return to Operator');
+    console.log('рџ” Confirm Return to Operator');
 
     if (!await ensureWorkflowRoleReady()) {
         return;
@@ -4388,7 +4381,7 @@ async function confirmReturnToOperator() {
 
 // ========== PROCESS OWNER WORKFLOW HANDLERS ==========
 async function handleCompleteControl(event) {
-    console.log('🔘 Complete Control button clicked');
+    console.log('рџ” Complete Control button clicked');
     event.preventDefault();
     if (!await ensureWorkflowRoleReady()) {
         event.stopPropagation();
@@ -4398,7 +4391,7 @@ async function handleCompleteControl(event) {
 }
 
 async function confirmCompleteControl() {
-    console.log('🔘 Confirm Complete Control');
+    console.log('рџ” Confirm Complete Control');
 
     if (!await ensureWorkflowRoleReady()) {
         return;
@@ -4431,7 +4424,7 @@ async function confirmCompleteControl() {
         return response.text();
     })
     .then(result => {
-        console.log('✅ Control completed successfully');
+        console.log('вњ… Control completed successfully');
         
         const modal = bootstrap.Modal.getInstance(document.getElementById('completeControlModal'));
         if (modal) {
@@ -4446,7 +4439,7 @@ async function confirmCompleteControl() {
         });
     })
     .catch(error => {
-        console.error('❌ Error completing control:', error);
+        console.error('вќЊ Error completing control:', error);
         
         showAppModal({
             variant: 'error',
@@ -4462,7 +4455,7 @@ async function confirmCompleteControl() {
 }
 
 async function confirmReturnToSoqmLead() {
-    console.log('🔘 Confirm Return to SoQM Lead');
+    console.log('рџ” Confirm Return to SoQM Team');
 
     if (!await ensureWorkflowRoleReady()) {
         return;
@@ -4491,12 +4484,13 @@ async function confirmReturnToSoqmLead() {
         confirmBtnId: 'confirmReturnSoqmLeadBtn',
         confirmModalId: 'returnSoqmLeadModal',
         successRedirectUrl: '/controls',
-        successLogMessage: 'Return to SoQM Lead success -> showing popup',
+        successLogMessage: 'Return to SoQM Team success -> showing popup',
         successTimerMs: 2500
     });
 }
 
 window.viewControl = viewControl;
+
 
 
 

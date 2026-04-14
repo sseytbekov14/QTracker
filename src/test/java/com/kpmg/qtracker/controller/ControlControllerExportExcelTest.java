@@ -81,7 +81,7 @@ class ControlControllerExportExcelTest {
     @Test
     void exportExcel_includesExpectedHeadersAndOrder() throws Exception {
         User currentUser = user("SoQM User");
-        currentUser.setRole("SOQM_LEAD");
+        currentUser.setRole("SOQM_TEAM");
         currentUser.setMail("soqm@kpmg.kz");
 
         Control control = new Control();

@@ -474,7 +474,7 @@ body.theme-dark .status-draft {
                 <hr class="my-2">
                 <small class="text-muted">Registered to</small><br>
                 <small><strong>KPMG Kazakhstan</strong></small><br>
-                <small><strong>QTracker | Version 2026</strong></small>
+                <small><strong>QTracker | FY26</strong></small>
             </div>
         </div>
 
@@ -510,7 +510,7 @@ body.theme-dark .status-draft {
                         <p class="subtitle">View and manage your assigned controls</p>
                     </div>
                     <button onclick="exportToExcel()" class="btn-export"
-                            th:if="${userRole == 'SOQM_LEAD'}"
+                            th:if="${userRole == 'SOQM_TEAM'}"
                             th:attr="data-user-email=${userEmail}" id="exportBtn">
                         <i class="bi bi-download me-1"></i>Export to Excel
                     </button>
@@ -567,7 +567,7 @@ body.theme-dark .status-draft {
                     <table class="table control-table">
                         <thead>
                             <tr>
-                                <th style="width: 40px;">№</th>
+                                <th style="width: 40px;">&numero;</th>
                                 <th style="min-width: 200px;">Control ID</th>
                                 <th>Component</th>
                                 <th>Type</th>
@@ -584,7 +584,7 @@ body.theme-dark .status-draft {
                             <tr th:each="control, stat : ${controls}"
                                 class="clickable-row"
                                 th:classappend="${userIsAdmin ? ' view-only-row' : (userIsSoqm ? ' editable-row' : (((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (control.facilitators != null and #lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (control.controlOperators != null and #lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (control.soqmLeads != null and #lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (control.processOwners != null and #lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW'))) ? ' editable-row' : ' view-only-row'))} + (${#strings.equals(control.performanceStatus, 'COMPLETED')} ? ' completed-row' : '') + (${control.overdue} ? ' overdue-row' : '')"
-                                th:attr="data-id=${control.id}, data-go-cycle=${control.goToPerformanceCycle}, data-editable=${!control.sharedViewOnly and (userIsAdmin ? false : (userIsSoqm ? true : ((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (control.facilitators != null and #lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (control.controlOperators != null and #lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (control.soqmLeads != null and #lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (control.processOwners != null and #lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW')))))}, data-shared=${control.sharedViewOnly}">
+                                th:attr="data-id=${control.id}, data-status=${control.performanceStatus}, data-go-cycle=${control.goToPerformanceCycle}, data-editable=${!control.sharedViewOnly and (userIsAdmin ? false : (userIsSoqm ? true : ((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (control.facilitators != null and #lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (control.controlOperators != null and #lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (control.soqmLeads != null and #lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (control.processOwners != null and #lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW')))))}, data-shared=${control.sharedViewOnly}">
 
                                 <td th:text="${stat.count}">1</td>
                                 <td>
@@ -597,14 +597,14 @@ body.theme-dark .status-draft {
                                 <td>
                                     <span th:if="${control.controlOperationDate != null}"
                                           th:text="${#temporals.format(control.controlOperationDate, 'dd.MM.yyyy')}">-</span>
-                                    <span th:if="${control.controlOperationDate == null}" class="text-muted">—</span>
+                                    <span th:if="${control.controlOperationDate == null}" class="text-muted">&mdash;</span>
                                 </td>
-                                <td th:text="${(control.controlOperatorUsers != null and !#lists.isEmpty(control.controlOperatorUsers)) ? #strings.listJoin(control.controlOperatorUsers.![displayName], ', ') : (control.controlOperators != null ? #strings.listJoin(control.controlOperators, ', ') : '')}">—</td>
-                                <td th:text="${(control.processOwnerUsers != null and !#lists.isEmpty(control.processOwnerUsers)) ? #strings.listJoin(control.processOwnerUsers.![displayName], ', ') : (control.processOwners != null ? #strings.listJoin(control.processOwners, ', ') : '')}">—</td>
-                                <td th:text="${(control.soqmLeadUsers != null and !#lists.isEmpty(control.soqmLeadUsers)) ? #strings.listJoin(control.soqmLeadUsers.![displayName], ', ') : (control.soqmLeads != null ? #strings.listJoin(control.soqmLeads, ', ') : '')}">—</td>
+                                <td th:text="${(control.controlOperatorUsers != null and !#lists.isEmpty(control.controlOperatorUsers)) ? #strings.listJoin(control.controlOperatorUsers.![displayName], ', ') : (control.controlOperators != null ? #strings.listJoin(control.controlOperators, ', ') : '')}">&mdash;</td>
+                                <td th:text="${(control.processOwnerUsers != null and !#lists.isEmpty(control.processOwnerUsers)) ? #strings.listJoin(control.processOwnerUsers.![displayName], ', ') : (control.processOwners != null ? #strings.listJoin(control.processOwners, ', ') : '')}">&mdash;</td>
+                                <td th:text="${(control.soqmLeadUsers != null and !#lists.isEmpty(control.soqmLeadUsers)) ? #strings.listJoin(control.soqmLeadUsers.![displayName], ', ') : (control.soqmLeads != null ? #strings.listJoin(control.soqmLeads, ', ') : '')}">&mdash;</td>
                                 <td>
                                     <span th:if="${control.deadline != null}" th:text="${#temporals.format(control.deadline, 'dd.MM.yyyy')}">-</span>
-                                    <span th:if="${control.deadline == null}" class="text-muted">—</span>
+                                    <span th:if="${control.deadline == null}" class="text-muted">&mdash;</span>
                                 </td>
                                 <td>
                                     <span th:switch="${control.performanceStatus}">
@@ -642,15 +642,25 @@ body.theme-dark .status-draft {
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.clickable-row').forEach(row => {
         const isEditable = String(row.getAttribute('data-editable')) === 'true';
-        const isShared = String(row.getAttribute('data-shared')) === 'true';
-        const id = row.getAttribute('data-id');
+        const rawId = row.getAttribute('data-id');
+        const id = rawId && /^\d+$/.test(rawId) ? rawId : null;
+        const rowStatus = String(row.getAttribute('data-status') || '').trim().toUpperCase();
+        const normalizedStatus = rowStatus || 'DRAFT';
         if (isEditable) { row.classList.add('editable-row'); row.classList.remove('view-only-row'); }
         else { row.classList.add('view-only-row'); row.classList.remove('editable-row'); }
 
         row.addEventListener('click', function() {
-            if (isShared || !isEditable) { window.location.href = `/performance-cycle/${id}`; return; }
-            const goCycle = String(this.getAttribute('data-go-cycle')) === 'true';
-            window.location.href = goCycle ? `/performance-cycle/${id}` : `/performance/${id}`;
+            if (!id) {
+                showToast('Control id is missing for this row.', 'warning', 2200);
+                return;
+            }
+            // Deterministic routing by status:
+            // DRAFT -> checklist page, other statuses -> performance cycle page.
+            if (normalizedStatus === 'DRAFT') {
+                window.location.href = `/performance/${id}`;
+            } else {
+                window.location.href = `/performance-cycle/${id}`;
+            }
         });
     });
 });
@@ -709,7 +719,7 @@ function exportToExcel() {
             const rd = [];
             row.querySelectorAll('td').forEach(cell => {
                 const b = cell.querySelector('.badge');
-                rd.push((b ? b.textContent.trim() : cell.textContent.trim()) || '—');
+                rd.push((b ? b.textContent.trim() : cell.textContent.trim()) || '�');
             });
             data.push(rd);
         });
@@ -723,7 +733,7 @@ function exportToExcel() {
       .finally(() => { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-download me-1"></i>Export to Excel'; }});
 }
 
-// Status filter — custom dropdown
+// Status filter - custom dropdown
 document.addEventListener('DOMContentLoaded', function() {
     const dropdown = document.getElementById('statusDropdown');
     const toggle = document.getElementById('statusDropdownToggle');
@@ -773,3 +783,4 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 </body>
 </html>
+

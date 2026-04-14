@@ -30,10 +30,10 @@ class ControlStatusMigrationTest {
                     "('In Progress')," +
                     "('Facilitator Review')," +
                     "('Control Operator Review')," +
-                    "('SoQM Lead Review')," +
+                    "('SoQM Team Review')," +
                     "('Process Owner Review')," +
                     "('Returned by Control Operator')," +
-                    "('Returned by SoQM Lead')," +
+                    "('Returned by SoQM Team')," +
                     "('Returned by Process Owner')," +
                     "('Completed')," +
                     "('Reject')," +
@@ -43,14 +43,14 @@ class ControlStatusMigrationTest {
                     "('NOT_STARTED')," +
                     "('FACILITATOR_REVIEW')," +
                     "('CONTROL_OPERATOR_REVIEW')," +
-                    "('SOQM_LEAD_REVIEW')," +
+                    "('SOQM_TEAM_REVIEW')," +
                     "('PROCESS_OWNER_REVIEW')," +
                     "('RETURNED')," +
                     "('REJECTED')," +
                     "('COMPLETED')");
 
             statement.execute("INSERT INTO workflow_history(from_step, to_step) VALUES " +
-                    "('Control Operator Review', 'SoQM Lead Review')," +
+                    "('Control Operator Review', 'SoQM Team Review')," +
                     "('Returned by Control Operator', 'Facilitator Review')," +
                     "('Process Owner Review', 'Completed')");
 

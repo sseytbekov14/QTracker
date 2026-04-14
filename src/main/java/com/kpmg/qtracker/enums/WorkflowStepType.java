@@ -3,7 +3,7 @@ package com.kpmg.qtracker.enums;
 public enum WorkflowStepType {
     FACILITATOR("Facilitator"),
     CONTROL_OPERATOR("Control Operator"),
-    SOQM_LEAD("SOQM Lead"),
+    SOQM_TEAM("SOQM Team"),
     PROCESS_OWNER("Process Owner");
 
     private final String displayName;

@@ -722,7 +722,7 @@ body.theme-dark .btn-kpmg-primary:disabled {
                     </td>
                 </tr>
 
-                <!-- SoQM Lead / Delegate -->
+                <!-- SoQM Team / Delegate -->
                 <tr>
                     <td>
                         <div class="check-icon"
@@ -731,7 +731,7 @@ body.theme-dark .btn-kpmg-primary:disabled {
                             <svg th:unless="${assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead)}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
                         </div>
                     </td>
-                    <td>SoQM Lead / Delegate</td>
+                    <td>SoQM Team / Delegate</td>
                     <td>
                         <input type="text" class="form-control form-control-sm readonly-field" readonly
                                th:value="${assignment != null and assignment.soqmLead != null and !#lists.isEmpty(assignment.soqmLead) ? assignment.soqmLead[0] : '()'}"
@@ -1304,6 +1304,7 @@ body.theme-dark .btn-kpmg-primary:disabled {
 </script>
 </body>
 </html>
+
 
 
 

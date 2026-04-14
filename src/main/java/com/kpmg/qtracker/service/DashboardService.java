@@ -606,7 +606,7 @@ public class DashboardService {
                 .replace('-', '_')
                 .replace(' ', '_')
                 .toUpperCase(Locale.ROOT);
-        return "SOQM_LEAD".equals(normalized);
+        return "SOQM_TEAM".equals(normalized);
     }
 
     private String normalizeFrequency(String frequency) {

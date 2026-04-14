@@ -539,7 +539,7 @@ body.theme-dark .cat-default {
      id="successAlert" style="display: none;">
     <div class="d-flex align-items-center">
         <div class="flex-grow-1">
-            <strong>✓</strong>
+            <strong>&check;</strong>
             <span id="alertMessage">Success!</span>
         </div>
         <button type="button" class="btn-close ms-2" onclick="hideSuccessAlert()"></button>
@@ -549,11 +549,11 @@ body.theme-dark .cat-default {
 <!-- ═══════ PAGE HEADER ═══════ -->
 <div class="page-header">
     <div>
-        <h1 th:text="'Controls — ' + ${currentComponent}">Controls — All</h1>
+        <h1 th:text="'Controls | ' + ${currentComponent}">Controls | All</h1>
         <div class="subtitle">Component Controls Overview</div>
     </div>
     <div class="header-actions">
-        <button type="button" class="btn-header btn-header-outline" onclick="history.back()">← Back</button>
+        <button type="button" class="btn-header btn-header-outline" onclick="history.back()">&larr; Back</button>
         <a href="/" class="btn-header btn-header-solid">Home</a>
     </div>
 </div>
@@ -568,19 +568,19 @@ body.theme-dark .cat-default {
 <!-- ═══════ STATS BAR ═══════ -->
 <div class="stats-bar" id="statsBar">
     <div class="stat-item">
-        <div class="stat-value" id="totalCount" th:text="${totalControls}">—</div>
+        <div class="stat-value" id="totalCount" th:text="${totalControls}">&mdash;</div>
         <div class="stat-label">Total</div>
     </div>
     <div class="stat-item">
-        <div class="stat-value blue" id="activeCount" th:text="${activeControls}">—</div>
+        <div class="stat-value blue" id="activeCount" th:text="${activeControls}">&mdash;</div>
         <div class="stat-label">Active</div>
     </div>
     <div class="stat-item">
-        <div class="stat-value green" id="completedCount" th:text="${completedControls}">—</div>
+        <div class="stat-value green" id="completedCount" th:text="${completedControls}">&mdash;</div>
         <div class="stat-label">Completed</div>
     </div>
     <div class="stat-item">
-        <div class="stat-value red" id="overdueCount" th:text="${overdueControls}">—</div>
+        <div class="stat-value red" id="overdueCount" th:text="${overdueControls}">&mdash;</div>
         <div class="stat-label">Overdue</div>
     </div>
 </div>
@@ -605,9 +605,9 @@ body.theme-dark .cat-default {
                 <th>Control ID</th>
                 <th>Control Type</th>
                 <th>Frequency</th>
-                <th>Facilitator / Preparer(s)</th>
+                <th>Facilitator</th>
                 <th>Control Operator</th>
-                <th>SoQM Lead / Delegate</th>
+                <th>SoQM Team</th>
                 <th>Process Owner</th>
                 <th>Category</th>
                 <th>Operation Date</th>
@@ -640,7 +640,7 @@ body.theme-dark .cat-default {
                     <span class="user-placeholder control-operator-display" th:data-control-id="${control.id}">-</span>
                 </td>
 
-                <!-- SoQM Lead / Delegate -->
+                <!-- SoQM Team / Delegate -->
                 <td>
                     <span class="user-placeholder soqm-lead-display" th:data-control-id="${control.id}">-</span>
                 </td>
@@ -656,14 +656,14 @@ body.theme-dark .cat-default {
                         <span th:case="'New'" class="cat-badge cat-new" th:text="${control.controlCategory}">New</span>
                         <span th:case="'Enhanced'" class="cat-badge cat-enhanced" th:text="${control.controlCategory}">Enhanced</span>
                         <span th:case="'Existing'" class="cat-badge cat-existing" th:text="${control.controlCategory}">Existing</span>
-                        <span th:case="*" class="cat-badge cat-default" th:text="${control.controlCategory}">—</span>
+                        <span th:case="*" class="cat-badge cat-default" th:text="${control.controlCategory}">&mdash;</span>
                     </th:block>
                 </td>
 
                 <!-- Operation Date -->
                 <td>
                     <span th:if="${control.deadline != null}" th:text="${#temporals.format(control.deadline, 'dd.MM.yyyy')}">25.12.2025</span>
-                    <span th:if="${control.deadline == null}" th:text="${control.controlOperationDate != null} ? ${#temporals.format(control.controlOperationDate, 'dd.MM.yyyy')} : '—'">—</span>
+                    <span th:if="${control.deadline == null}" th:text="${control.controlOperationDate != null} ? ${#temporals.format(control.controlOperationDate, 'dd.MM.yyyy')} : '-'">&mdash;</span>
                 </td>
 
                 <!-- Performance Status -->
@@ -849,4 +849,5 @@ body.theme-dark .cat-default {
 
 </body>
 </html>
+
 

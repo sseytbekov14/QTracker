@@ -160,7 +160,7 @@ class WorkflowControllerCompletedRecipientsTest {
         currentUser.setId(2L);
         currentUser.setMail("soqm.current@kpmg.kz");
         currentUser.setDisplayName("SoQM Reviewer");
-        currentUser.setRole("SOQM_LEAD");
+        currentUser.setRole("SOQM_TEAM");
 
         when(session.getAttribute("currentUser")).thenReturn(currentUser);
         when(controlService.getControlById(controlId)).thenReturn(Optional.of(control));
@@ -182,7 +182,7 @@ class WorkflowControllerCompletedRecipientsTest {
         verify(notificationService).sendReturnNotifications(
                 eq(control),
                 eq(List.of("operator@kpmg.kz")),
-                eq("SOQM_LEAD"),
+                eq("SOQM_TEAM"),
                 eq("SoQM Reviewer"),
                 eq("Control Operator"),
                 eq(comment),
@@ -236,7 +236,7 @@ class WorkflowControllerCompletedRecipientsTest {
                 eq("Process Owner"),
                 eq("SoQM Team"),
                 eq(comment),
-                eq("RETURN_TO_SOQM_LEAD")
+                eq("RETURN_TO_SOQM_TEAM")
         );
     }
 

@@ -58,8 +58,8 @@ class AuthorizationPolicyTest {
 
     @Test
     void soqmLeadCanReadControl() {
-        UserPrincipal principal = principal(10L, "soqm@kpmg.kz", "SOQM_LEAD");
-        User user = user("soqm@kpmg.kz", "SOQM_LEAD");
+        UserPrincipal principal = principal(10L, "soqm@kpmg.kz", "SOQM_TEAM");
+        User user = user("soqm@kpmg.kz", "SOQM_TEAM");
         when(userService.getUserByEmail("soqm@kpmg.kz")).thenReturn(Optional.of(user));
         when(controlPermissionService.resolve(101L, user)).thenReturn(permission(true, false, Set.of(), true));
 

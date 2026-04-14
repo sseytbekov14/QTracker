@@ -99,7 +99,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                         "Submit for SoQM",
                         "btn-success",
                         false,
-                        "Submit this control to SOQM Lead?"
+                        "Submit this control to SOQM Team?"
                 ));
 
                 buttons.add(new WorkflowButtonDTO(
@@ -111,8 +111,8 @@ public class WorkflowServiceImpl implements WorkflowService {
                 ));
             }
 
-            // ★ Buttons for SOQM_LEAD (check assignment or global role)
-            boolean actAsSoqmLead = userRolesForControl.contains("SOQM_LEAD");
+            // ★ Buttons for SOQM_TEAM (check assignment or global role)
+            boolean actAsSoqmLead = userRolesForControl.contains("SOQM_TEAM");
             if (actAsSoqmLead && WorkflowStatus.SOQM_HEAD_REVIEW.name().equals(performanceStatus)) {
                 buttons.add(new WorkflowButtonDTO(
                         "SEND_TO_PROCESS_OWNER",
@@ -224,8 +224,8 @@ public class WorkflowServiceImpl implements WorkflowService {
                 assignment.getControlOperator() != null && !assignment.getControlOperator().isEmpty()
                         ? assignment.getControlOperator().get(0) : null));
 
-        // РЁР°Рі 3: SOQM Lead
-        steps.add(createStep(controlId, WorkflowStepType.SOQM_LEAD, 3,
+        // РЁР°Рі 3: SOQM Team
+        steps.add(createStep(controlId, WorkflowStepType.SOQM_TEAM, 3,
                 assignment.getSoqmLead() != null && !assignment.getSoqmLead().isEmpty()
                         ? assignment.getSoqmLead().get(0) : null));
 
@@ -397,7 +397,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                                                           Long controlId) {
         // в… РўРђР‘Р›РР¦Рђ РџР РђР’:
         // Control Operator в†’ С‚РѕР»СЊРєРѕ Facilitator
-        // SOQM Lead в†’ CO РёР»Рё Facilitator
+        // SOQM Team в†’ CO РёР»Рё Facilitator
         // Process Owner в†’ Р»СЋР±РѕР№ РїСЂРµРґС‹РґСѓС‰РёР№
 
         switch (currentStepType) {
@@ -405,7 +405,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                 // РњРѕР¶РµС‚ РІРµСЂРЅСѓС‚СЊ С‚РѕР»СЊРєРѕ Facilitator
                 return "FACILITATOR";
 
-            case SOQM_LEAD:
+            case SOQM_TEAM:
                 // РњРѕР¶РµС‚ РІРµСЂРЅСѓС‚СЊ Control Operator РёР»Рё Facilitator
                 if (requestedReturnTo != null &&
                         ("CONTROL_OPERATOR".equals(requestedReturnTo) ||
@@ -418,13 +418,13 @@ public class WorkflowServiceImpl implements WorkflowService {
             case PROCESS_OWNER:
                 // РњРѕР¶РµС‚ РІРµСЂРЅСѓС‚СЊ Р»СЋР±РѕРіРѕ РїСЂРµРґС‹РґСѓС‰РµРіРѕ
                 if (requestedReturnTo != null &&
-                        ("SOQM_LEAD".equals(requestedReturnTo) ||
+                        ("SOQM_TEAM".equals(requestedReturnTo) ||
                                 "CONTROL_OPERATOR".equals(requestedReturnTo) ||
                                 "FACILITATOR".equals(requestedReturnTo))) {
                     return requestedReturnTo;
                 }
-                // РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РІРѕР·РІСЂР°С‰Р°РµРј SOQM Lead
-                return "SOQM_LEAD";
+                // РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РІРѕР·РІСЂР°С‰Р°РµРј SOQM Team
+                return "SOQM_TEAM";
 
             default:
                 throw new RuntimeException("Cannot return from step: " + currentStepType);
@@ -467,10 +467,10 @@ public class WorkflowServiceImpl implements WorkflowService {
             // 2. РџСЂРѕРІРµСЂСЏРµРј СЂРѕР»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РґР»СЏ СЌС‚РѕРіРѕ РєРѕРЅС‚СЂРѕР»СЏ
             boolean isFacilitator = userRoles.contains("FACILITATOR");
             boolean isControlOperator = userRoles.contains("CONTROL_OPERATOR");
-            boolean isSoqmLead = userRoles.contains("SOQM_LEAD");
+            boolean isSoqmLead = userRoles.contains("SOQM_TEAM");
             boolean isProcessOwner = userRoles.contains("PROCESS_OWNER");
             boolean isSoqmRole = userService.getUserByEmail(userEmail)
-                    .map(user -> "SOQM_LEAD".equals(user.getRole()))
+                    .map(user -> "SOQM_TEAM".equals(user.getRole()))
                     .orElse(false);
 
             // 3. РџСЂРѕРІРµСЂСЏРµРј РЅР°Р·РЅР°С‡РµРЅ Р»Рё РЅР° С‚РµРєСѓС‰РёР№ С€Р°Рі
@@ -555,8 +555,8 @@ public class WorkflowServiceImpl implements WorkflowService {
                 // Control Operator РјРѕР¶РµС‚ РІРѕР·РІСЂР°С‰Р°С‚СЊ С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕРЅ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ Control Operator
                 return controlAssignmentService.isUserControlOperator(controlId, userEmail);
 
-            case SOQM_LEAD:
-                // SOQM Lead РјРѕР¶РµС‚ РІРѕР·РІСЂР°С‰Р°С‚СЊ С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕРЅ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ SOQM Lead
+            case SOQM_TEAM:
+                // SOQM Team РјРѕР¶РµС‚ РІРѕР·РІСЂР°С‰Р°С‚СЊ С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕРЅ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ SOQM Team
                 return controlAssignmentService.isUserSoqmLead(controlId, userEmail);
 
             case PROCESS_OWNER:
@@ -581,7 +581,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     public boolean canUserEditControl(Long controlId, String userEmail) {
 
         boolean isSoqmRole = userService.getUserByEmail(userEmail)
-                .map(user -> "SOQM_LEAD".equals(user.getRole()))
+                .map(user -> "SOQM_TEAM".equals(user.getRole()))
                 .orElse(false);
         if (isSoqmRole) {
             return true;
@@ -630,7 +630,7 @@ public class WorkflowServiceImpl implements WorkflowService {
         return switch (stepType) {
             case FACILITATOR -> WorkflowStatus.IN_PROGRESS;
             case CONTROL_OPERATOR -> WorkflowStatus.REVIEW;
-            case SOQM_LEAD -> WorkflowStatus.SOQM_HEAD_REVIEW;
+            case SOQM_TEAM -> WorkflowStatus.SOQM_HEAD_REVIEW;
             case PROCESS_OWNER -> WorkflowStatus.PROCESS_OWNER_REVIEW;
         };
     }

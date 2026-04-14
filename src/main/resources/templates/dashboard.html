@@ -3,6 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <title>Dashboard - QTracker</title>
+    <script>
+        (function() {
+            var hash = window.location.hash;
+            // Determine which tab is active from URL hash
+            var activeTab = 'dashboard';
+            if (hash === '#action-centre') { activeTab = 'action'; document.title = 'Action Centre - QTracker'; }
+            else if (hash === '#notifications') { activeTab = 'notifications'; document.title = 'Notifications - QTracker'; }
+            else { document.title = 'Dashboard - QTracker'; }
+            // Store for use during DOM init
+            window.__qtActiveTab = activeTab;
+            document.documentElement.setAttribute('data-active-tab', activeTab);
+            document.documentElement.classList.add('tab-init-pending');
+        })();
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.css" rel="stylesheet">
@@ -73,6 +87,11 @@ body.theme-dark {
     --dashboard-border: var(--border-color);
     --dashboard-chart-grid: var(--gridline);
     --dashboard-hover-bg: #223149;
+}
+
+/* Hide tab panes until hash-based tab restore is applied to avoid initial flicker */
+html.tab-init-pending #mainTabContent {
+    visibility: hidden;
 }
 
 /* Page header */
@@ -581,7 +600,7 @@ body.theme-dark #pane-notifications .notif-empty {
                 <hr>
                 <ul class="nav flex-column">
                     <li class="nav-item">
-                        <a class="nav-link active" href="#" id="sidebarDashboard">Dashboard</a>
+                        <a class="nav-link" href="#" id="sidebarDashboard">Dashboard</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#" id="sidebarActionCentre">Action Centre</a>
@@ -594,6 +613,9 @@ body.theme-dark #pane-notifications .notif-empty {
                                   th:text="${unreadNotifications}">0</span>
                         </a>
                     </li>
+                    <li class="nav-item" th:if="${userIsAdmin}">
+                        <a class="nav-link" href="/admin/users">Admin Panel</a>
+                    </li>
                 </ul>
             </div>
             <div class="mt-2">
@@ -603,7 +625,7 @@ body.theme-dark #pane-notifications .notif-empty {
                 <hr class="my-2">
                 <small class="text-muted">Registered to</small><br>
                 <small><strong>KPMG Kazakhstan</strong></small><br>
-                <small><strong>QTracker | Version 2026</strong></small>
+                <small><strong>QTracker | FY26</strong></small>
             </div>
         </div>
 
@@ -614,7 +636,7 @@ body.theme-dark #pane-notifications .notif-empty {
                 <!-- Hidden tab nav -->
                 <ul class="nav d-none" id="mainTabs" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="tab-dashboard" data-bs-toggle="tab"
+                        <button class="nav-link" id="tab-dashboard" data-bs-toggle="tab"
                                 data-bs-target="#pane-dashboard" type="button" role="tab"></button>
                     </li>
                     <li class="nav-item" role="presentation">
@@ -630,7 +652,7 @@ body.theme-dark #pane-notifications .notif-empty {
                 <div class="tab-content" id="mainTabContent">
 
                     <!-- ========== DASHBOARD ========== -->
-                    <div class="tab-pane fade show active" id="pane-dashboard" role="tabpanel">
+                    <div class="tab-pane fade" id="pane-dashboard" role="tabpanel">
 
                         <!-- Header -->
                         <div class="page-header dashboard-header-panel">
@@ -640,7 +662,7 @@ body.theme-dark #pane-notifications .notif-empty {
                                     id="dashboardThemeToggle"
                                     class="btn dashboard-theme-toggle"
                                     title="Switch theme"
-                                    aria-label="Switch theme">🌙</button>
+                                    aria-label="Switch theme"><i class="bi bi-moon-fill"></i></button>
                         </div>
 
                         <!-- Stats -->
@@ -670,7 +692,7 @@ body.theme-dark #pane-notifications .notif-empty {
                                 My Items
                             </a>
                             <a href="/new-control" class="quick-action-btn"
-                               th:if="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_LEAD')}">
+                               th:if="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_TEAM')}">
                                 <i class="bi bi-plus-lg"></i>
                                 New Control
                             </a>
@@ -684,7 +706,7 @@ body.theme-dark #pane-notifications .notif-empty {
                                 <div class="col-12 col-lg-6">
                                     <div class="dashboard-surface-card" style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
                                         <div class="section-title" style="margin-bottom: 14px;"
-                                             th:text="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_LEAD')} ? 'CONTROLS BY FREQUENCY' : 'CONTROLS BY FREQUENCY'">
+                                             th:text="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_TEAM')} ? 'CONTROLS BY FREQUENCY' : 'CONTROLS BY FREQUENCY'">
                                             CONTROLS BY FREQUENCY
                                         </div>
                                         <div style="position: relative; height: 200px;">
@@ -695,7 +717,7 @@ body.theme-dark #pane-notifications .notif-empty {
                                 <div class="col-12 col-lg-6">
                                     <div class="dashboard-surface-card" style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
                                         <div class="section-title" style="margin-bottom: 14px;"
-                                             th:text="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_LEAD')} ? 'CONTROLS BY COMPONENT' : 'CONTROLS BY COMPONENT'">
+                                             th:text="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_TEAM')} ? 'CONTROLS BY COMPONENT' : 'CONTROLS BY COMPONENT'">
                                             CONTROLS BY COMPONENT
                                         </div>
                                         <div style="position: relative; height: 200px;">
@@ -805,7 +827,7 @@ body.theme-dark #pane-notifications .notif-empty {
                         <div style="padding-top: 16px;">
                             <div th:if="${notificationGroups == null or #lists.isEmpty(notificationGroups)}"
                                  class="notif-empty">
-                                <div style="font-size: 1.5rem; margin-bottom: 8px;">🔔</div>
+                                <div style="font-size: 1.5rem; margin-bottom: 8px;">??</div>
                                 <div class="fw-semibold">No notifications yet</div>
                                 <div class="small mt-1">You're all caught up!</div>
                             </div>
@@ -838,7 +860,7 @@ body.theme-dark #pane-notifications .notif-empty {
                                                 </div>
                                                 <div class="notif-meta">
                                                     <span class="fw-semibold" th:text="${n.controlIdNumber}">CTRL-000</span>
-                                                    <span class="mx-1">·</span>
+                                                    <span class="mx-1">&middot;</span>
                                                     <span th:text="${n.by}">User</span>
                                                 </div>
                                             </div>
@@ -860,7 +882,7 @@ body.theme-dark #pane-notifications .notif-empty {
                      id="successAlert" style="display: none;">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
-                            <strong>✓</strong>
+                            <strong>&check;</strong>
                             <span id="alertMessage">Success!</span>
                         </div>
                         <button type="button" class="btn-close ms-2" onclick="hideSuccessAlert()"></button>
@@ -872,6 +894,24 @@ body.theme-dark #pane-notifications .notif-empty {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Run synchronously right after Bootstrap is available � before any paint.
+(function() {
+    var activeTab = window.__qtActiveTab || 'dashboard';
+    var tabIdMap = { 'dashboard': 'tab-dashboard', 'action': 'tab-action', 'notifications': 'tab-notifications' };
+    var sidebarIdMap = { 'dashboard': 'sidebarDashboard', 'action': 'sidebarActionCentre', 'notifications': 'sidebarNotifications' };
+    var tabEl = document.getElementById(tabIdMap[activeTab]);
+    var sidebarEl = document.getElementById(sidebarIdMap[activeTab]);
+    if (tabEl) {
+        tabEl.classList.add('active');
+        var paneId = tabEl.getAttribute('data-bs-target');
+        var paneEl = paneId ? document.querySelector(paneId) : null;
+        if (paneEl) { paneEl.classList.add('show', 'active'); }
+    }
+    if (sidebarEl) { sidebarEl.classList.add('active'); }
+    document.documentElement.classList.remove('tab-init-pending');
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.js"></script>
@@ -901,10 +941,11 @@ document.addEventListener('DOMContentLoaded', function() {
         window.history.replaceState({}, '', window.location.pathname);
     }
 
-    // Restore tab from hash
-    const hash = window.location.hash;
-    if (hash === '#action-centre') new bootstrap.Tab(document.getElementById('tab-action')).show();
-    else if (hash === '#notifications') new bootstrap.Tab(document.getElementById('tab-notifications')).show();
+    // Tab is already visually active (set synchronously above).
+    // Still call Bootstrap Tab API so its internal state is consistent.
+    const activeTab = window.__qtActiveTab || 'dashboard';
+    const tabIdMap = { 'dashboard': 'tab-dashboard', 'action': 'tab-action', 'notifications': 'tab-notifications' };
+    new bootstrap.Tab(document.getElementById(tabIdMap[activeTab])).show();
 
     // Sync sidebar with tabs
     document.querySelectorAll('#mainTabs button[data-bs-toggle="tab"]').forEach(function(tabEl) {
@@ -914,6 +955,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (id === 'tab-dashboard') { document.getElementById('sidebarDashboard').classList.add('active'); window.history.replaceState({}, '', '/'); }
             else if (id === 'tab-action') { document.getElementById('sidebarActionCentre').classList.add('active'); window.history.replaceState({}, '', '/#action-centre'); }
             else if (id === 'tab-notifications') { document.getElementById('sidebarNotifications').classList.add('active'); window.history.replaceState({}, '', '/#notifications'); }
+            setPageTitleByHashOrTab(null, id);
         });
     });
 
@@ -935,6 +977,18 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeAdminDashboardCharts();
     }
 });
+
+function setPageTitleByHashOrTab(hash, tabId) {
+    if (tabId === 'tab-action' || hash === '#action-centre') {
+        document.title = 'Action Centre - QTracker';
+        return;
+    }
+    if (tabId === 'tab-notifications' || hash === '#notifications') {
+        document.title = 'Notifications - QTracker';
+        return;
+    }
+    document.title = 'Dashboard - QTracker';
+}
 
 function showSuccessAlert(message) {
     const alert = document.getElementById('successAlert');
@@ -991,7 +1045,9 @@ function updateDashboardThemeToggleIcon() {
     }
 
     const isDarkMode = document.body.classList.contains('theme-dark');
-    toggleButton.textContent = isDarkMode ? '☀️' : '🌙';
+    toggleButton.innerHTML = isDarkMode
+        ? '<i class="bi bi-brightness-high-fill"></i>'
+        : '<i class="bi bi-moon-fill"></i>';
 }
 
 function rerenderDashboardCharts() {
@@ -1013,7 +1069,7 @@ async function initializeAdminDashboardCharts() {
         const dashboardCharts = document.getElementById('dashboardCharts');
         const userRole = dashboardCharts && dashboardCharts.dataset ? (dashboardCharts.dataset.userRole || '') : '';
         const normalizedRole = userRole.trim().toUpperCase().replace(/[- ]/g, '_');
-        const isSoqmLead = normalizedRole === 'SOQM_LEAD';
+        const isSoqmLead = normalizedRole === 'SOQM_TEAM';
         const leftChartEndpoint = isSoqmLead
             ? '/api/dashboard/admin/frequency'
             : '/api/dashboard/my/frequency';
@@ -1606,4 +1662,5 @@ function normalizeChartData(data, fallbackLabel) {
 </script>
 </body>
 </html>
+
 

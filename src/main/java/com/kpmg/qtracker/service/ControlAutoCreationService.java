@@ -281,7 +281,7 @@ public class ControlAutoCreationService {
         if (recipientEmail == null && control.getCreatedBy() != null) {
             String creatorRole = control.getCreatedBy().getRole();
             String creatorEmail = control.getCreatedBy().getMail();
-            if ("SOQM_LEAD".equals(creatorRole) && creatorEmail != null && !creatorEmail.isBlank()) {
+            if ("SOQM_TEAM".equals(creatorRole) && creatorEmail != null && !creatorEmail.isBlank()) {
                 recipientEmail = creatorEmail.trim();
             }
         }
