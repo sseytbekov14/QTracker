@@ -198,12 +198,16 @@ public class ViewController {
         );
         if (isGlobalVisibilityRole(userRole, userIsAdmin)) {
             DashboardService.DashboardKpiCounts serviceCounts = dashboardService.getKpiCounts();
-            dashboardCounters = new ControlCounters(
-                    Math.toIntExact(serviceCounts.total()),
-                    Math.toIntExact(serviceCounts.active()),
-                    Math.toIntExact(serviceCounts.completed()),
-                    Math.toIntExact(serviceCounts.overdue())
-            );
+            if (serviceCounts != null) {
+                dashboardCounters = new ControlCounters(
+                        Math.toIntExact(serviceCounts.total()),
+                        Math.toIntExact(serviceCounts.active()),
+                        Math.toIntExact(serviceCounts.completed()),
+                        Math.toIntExact(serviceCounts.overdue())
+                );
+            } else {
+                dashboardCounters = new ControlCounters(0, 0, 0, 0);
+            }
         }
 
         model.addAttribute("totalControls", dashboardCounters.total());
@@ -515,7 +519,16 @@ public class ViewController {
     }
 
     private boolean isGlobalVisibilityRole(String userRole, boolean userIsAdmin) {
-        return userIsAdmin || isSoqmRole(userRole);
+        return userIsAdmin || isAdminRole(userRole) || isSoqmRole(userRole);
+    }
+
+    private Map<String, Long> initializeComponentStats() {
+        Map<String, Long> componentStats = new HashMap<>();
+        String[] allComponentNames = {"HR", "INTR", "M&R", "RAP", "A&C", "I&C", "GOV", "EP", "RER", "TECHR", "All"};
+        for (String component : allComponentNames) {
+            componentStats.put(component, 0L);
+        }
+        return componentStats;
     }
 
     private record ControlCounters(int total, int active, int completed, int overdue) {
@@ -973,7 +986,39 @@ public class ViewController {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
 
-        return "redirect:/#action-centre";
+        User currentUser = getCurrentUser(session);
+        model.addAttribute("userName", currentUser.getDisplayName());
+        model.addAttribute("userTitle", currentUser.getRole());
+        model.addAttribute("userEmail", currentUser.getMail());
+        model.addAttribute("userRole", currentUser.getRole());
+        model.addAttribute("userIsAdmin", Boolean.TRUE.equals(currentUser.getAdminAccess()));
+        model.addAttribute("userIsSoqm", isSoqmRole(currentUser.getRole()));
+        model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
+
+        Map<String, Long> componentStats = initializeComponentStats();
+        List<Control> allControls = controlService.getAllControls();
+        boolean includeDraft = isGlobalVisibilityRole(currentUser.getRole(), Boolean.TRUE.equals(currentUser.getAdminAccess()));
+        long total = 0;
+        if (allControls != null) {
+            for (Control control : allControls) {
+                if (control == null) {
+                    continue;
+                }
+                String status = normalizeStatus(control.getControlStatus());
+                if (!includeDraft && "DRAFT".equals(status)) {
+                    continue;
+                }
+                total++;
+                String component = control.getComponent();
+                if (component != null && componentStats.containsKey(component)) {
+                    componentStats.put(component, componentStats.get(component) + 1);
+                }
+            }
+        }
+        componentStats.put("All", total);
+        model.addAttribute("componentStats", componentStats);
+
+        return "dashboard";
     }
 
     @GetMapping("/performance-cycle/{controlId}")

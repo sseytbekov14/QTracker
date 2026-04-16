@@ -7,7 +7,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.Authentication;
@@ -20,12 +20,15 @@ import java.io.IOException;
 import java.util.Optional;
 
 @Component
-@RequiredArgsConstructor
 public class UserEnabledGuardFilter extends OncePerRequestFilter {
 
     private static final String DISABLED_MESSAGE = "Your account is disabled. Please contact the system administrator.";
 
     private final UserRepository userRepository;
+
+    public UserEnabledGuardFilter(@Autowired(required = false) UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -38,6 +41,7 @@ public class UserEnabledGuardFilter extends OncePerRequestFilter {
                 || path.startsWith("/js/")
                 || path.startsWith("/webjars/")
                 || path.equals("/favicon.ico")
+                || path.equals("/favicon.svg")
                 || path.equals("/actuator/health");
     }
 
@@ -46,7 +50,7 @@ public class UserEnabledGuardFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String email = resolveCurrentUserEmail(request);
-        if (email == null || email.isBlank()) {
+        if (email == null || email.isBlank() || userRepository == null) {
             filterChain.doFilter(request, response);
             return;
         }

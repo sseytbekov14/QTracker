@@ -48,7 +48,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/login").permitAll()
-                        .requestMatchers("/images/**", "/css/**", "/js/**", "/webjars/**", "/favicon.ico").permitAll()
+                        .requestMatchers("/images/**", "/css/**", "/js/**", "/webjars/**", "/favicon.ico", "/favicon.svg").permitAll()
                         .requestMatchers("/api/**").authenticated()
                     .anyRequest().authenticated()
                 )
@@ -90,7 +90,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/login").permitAll()
-                        .requestMatchers("/images/**", "/css/**", "/js/**", "/webjars/**", "/favicon.ico").permitAll()
+                        .requestMatchers("/images/**", "/css/**", "/js/**", "/webjars/**", "/favicon.ico", "/favicon.svg").permitAll()
                         .requestMatchers("/api/**").authenticated()
                     .anyRequest().authenticated()
                 )

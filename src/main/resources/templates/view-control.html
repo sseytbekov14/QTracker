@@ -6,7 +6,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/style.css?v=8" rel="stylesheet">
     <link href="/css/view-control.css?v=7" rel="stylesheet">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2300338D' rx='15'/><text x='50' y='72' font-family='Arial, sans-serif' font-size='70' text-anchor='middle' fill='white' font-weight='bold'>Q</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator Program validation styling */
         .co-action-btn:disabled {
@@ -943,16 +943,16 @@
 
                 <div class="action-buttons">
                     <div class="d-flex justify-content-between align-items-center">
-                        <!-- Левая сторона: Home, Changelog, Rename ID -->
+                        <!-- пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ: Home, Changelog, Rename ID -->
                         <div class="d-flex align-items-center gap-2">
                             <a href="/" class="btn btn-outline-secondary">Home</a>
                             <button class="btn btn-outline-secondary" id="changelogBtn">Changelog</button>
                             <button class="btn btn-outline-secondary" id="renameIdBtn" th:if="${userRole == 'SOQM_TEAM'}">Rename ID</button>
                         </div>
 
-                        <!-- Правая сторона: Workflow кнопки + Back + Edit -->
+                        <!-- пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ: Workflow пїЅпїЅпїЅпїЅпїЅпїЅ + Back + Edit -->
                         <div class="d-flex align-items-center gap-2">
-                            <!-- Workflow кнопки (будут показываться динамически) -->
+                            <!-- Workflow пїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) -->
                             <div id="workflow-buttons-container" class="d-inline-flex align-items-center gap-2">
                                 <!-- 1. Submit to Control Operator button for FACILITATOR -->
                                 <button type="button"
@@ -1091,7 +1091,7 @@
                     </div>
                 </div>
 
-                <!-- Добавьте после renameIdModal -->
+                <!-- пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ renameIdModal -->
                 <div class="modal fade" id="workflowActionModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
@@ -1100,12 +1100,12 @@
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
-                                <!-- Сообщение подтверждения -->
+                                <!-- пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ -->
                                 <div id="workflowActionMessage" class="mb-3">
                                     Are you sure you want to perform this action?
                                 </div>
 
-                                <!-- Радиокнопки Yes/No (только для SoQM Team) -->
+                                <!-- пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ Yes/No (пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ SoQM Team) -->
                                 <div id="workflowApprovalSection" class="mb-3" style="display: none;">
                                     <label class="form-label fw-bold">SoQM Head/Team Comments</label>
                                     <div class="d-flex gap-4 mb-3">
@@ -1126,7 +1126,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Поле для комментария -->
+                                <!-- пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ -->
                                 <div id="workflowCommentSection" class="mb-3" style="display: none;">
                                     <label for="workflowComment" class="form-label fw-bold" id="commentLabel">
                                         Comment
