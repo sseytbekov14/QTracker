@@ -59,7 +59,7 @@ public class DashboardController {
                 .replace('-', '_')
                 .replace(' ', '_')
                 .toUpperCase(Locale.ROOT);
-        return "SOQM_LEAD".equals(normalizedRole);
+        return "SOQM_TEAM".equals(normalizedRole);
     }
 
     private ResponseEntity<DashboardChartDataDTO> unauthorizedOrForbidden(HttpSession session) {

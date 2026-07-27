@@ -1,0 +1,62 @@
+stateDiagram-v2
+    [*] --> DRAFT : Control created\nActor: SOQM_TEAM
+
+    DRAFT --> IN_PROGRESS : SUBMIT_FOR_REVIEW / INITIATE\nActor: SOQM_TEAM or FACILITATOR
+
+    IN_PROGRESS --> REVIEW : SUBMIT_TO_CONTROL_OPERATOR\nActor: FACILITATOR
+
+    REVIEW --> SOQM_HEAD_REVIEW : SUBMIT_FOR_SOQM\nActor: CONTROL_OPERATOR (assigned only)
+
+    REVIEW --> IN_PROGRESS : RETURN_TO_FACILITATOR\nActor: CONTROL_OPERATOR
+
+    SOQM_HEAD_REVIEW --> PROCESS_OWNER_REVIEW : SEND_TO_PROCESS_OWNER\nActor: SOQM_TEAM
+
+    SOQM_HEAD_REVIEW --> REVIEW : SEND_BACK_TO_OPERATOR\nActor: SOQM_TEAM
+
+    PROCESS_OWNER_REVIEW --> COMPLETED : COMPLETE\nActor: PROCESS_OWNER (assigned only)
+
+    PROCESS_OWNER_REVIEW --> REVIEW : SEND_FOR_REVISION\nActor: PROCESS_OWNER
+
+    PROCESS_OWNER_REVIEW --> IN_PROGRESS : RETURN_TO_FACILITATOR or REJECT\nActor: PROCESS_OWNER
+
+    COMPLETED --> [*] : Terminal state\nRead-only export available to\nSOQM_TEAM and SharedWith users
+
+    note right of DRAFT
+        Permitted roles at DRAFT:
+        SOQM_TEAM — create, edit all fields
+        FACILITATOR — initiate and submit
+        Fields: all writable by SOQM_TEAM
+    end note
+
+    note right of REVIEW
+        Permitted roles at REVIEW:
+        CONTROL_OPERATOR — edit limited fields
+        Writable: steps_performed
+        Restricted: soqmHeadComments (read denied)
+        Restricted: processOwnerComments (read denied)
+    end note
+
+    note right of SOQM_HEAD_REVIEW
+        Permitted roles at SOQM_HEAD_REVIEW:
+        SOQM_TEAM — edit all fields
+        Writable: soqmHeadComments
+        Can advance to PROCESS_OWNER_REVIEW
+        or return to REVIEW
+    end note
+
+    note right of PROCESS_OWNER_REVIEW
+        Permitted roles at PROCESS_OWNER_REVIEW:
+        PROCESS_OWNER — edit processOwnerComments
+        Cannot write: soqmHeadComments
+        Transitions: COMPLETE, SEND_FOR_REVISION,
+        REJECT, RETURN_TO_FACILITATOR
+    end note
+
+    note right of COMPLETED
+        Access at COMPLETED state:
+        All fields — read-only
+        Export XLSX available to:
+        SOQM_TEAM (global access)
+        SharedWith users (per-control assignment)
+        Admin flag — full read access
+    end note

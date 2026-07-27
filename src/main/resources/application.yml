@@ -7,6 +7,8 @@ logging:
     com.kpmg.qtracker: INFO
 
 spring:
+  profiles:
+    active: dev
   flyway:
     baseline-on-migrate: true
     baseline-version: 0
@@ -14,14 +16,14 @@ spring:
     resources:
       static-locations: classpath:/static/
   mail:
-    host: ${SPRING_MAIL_HOST:smtp-mail.outlook.com}
-    port: ${SPRING_MAIL_PORT:587}
+    host: ${SPRING_MAIL_HOST:}
+    port: ${SPRING_MAIL_PORT:25}
     username: ${SPRING_MAIL_USERNAME:}
     password: ${SPRING_MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
-          auth: true
+          auth: false
           starttls:
             enable: true
             required: true
@@ -41,6 +43,7 @@ overdue:
 notifications:
   email:
     enabled: ${NOTIFICATIONS_EMAIL_ENABLED:false}
+    from: ${NOTIFICATIONS_EMAIL_FROM:}
     whitelist-enforced: ${NOTIFICATIONS_EMAIL_WHITELIST_ENFORCED:false}
     whitelist: ${NOTIFICATIONS_EMAIL_WHITELIST:}
 

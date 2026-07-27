@@ -1,86 +1,49 @@
 package com.kpmg.qtracker.controller;
 
-import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.service.UserService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-
-import java.util.Optional;
 
 @Controller
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final UserService userService;
-    private final PasswordEncoder passwordEncoder;
+    private static final String MSG_BAD_CREDENTIALS = "Invalid username or password";
+    private static final String MSG_DISABLED = "Your account is disabled. Please contact the system administrator.";
+    private static final String MSG_LOCKED = "Too many failed login attempts. Try again later.";
 
     @GetMapping("/login")
     public String loginPage(HttpSession session, Model model, @RequestParam(required = false) String error) {
         if (error != null) {
             AuthenticationException exception = (AuthenticationException) session.getAttribute("SPRING_SECURITY_LAST_EXCEPTION");
             if (exception != null) {
-                model.addAttribute("error", exception.getMessage());
+                model.addAttribute("error", toUserMessage(exception));
             } else {
-                model.addAttribute("error", "Invalid username or password");
+                model.addAttribute("error", MSG_BAD_CREDENTIALS);
             }
             session.removeAttribute("SPRING_SECURITY_LAST_EXCEPTION");
         }
         return "login";
     }
 
-    @PostMapping("/login")
-    public String login(@RequestParam String username,
-                        @RequestParam String password,
-                        HttpSession session,
-                        Model model) {
-
-        Optional<User> userOpt = userService.getUserByUsername(username);
-        if (userOpt.isEmpty()) {
-            userOpt = userService.getUserByEmail(username);
+    private String toUserMessage(AuthenticationException exception) {
+        if (exception instanceof DisabledException) {
+            return MSG_DISABLED;
         }
-
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-
-            boolean passwordMatches = false;
-            String storedPassword = user.getPassword();
-            if (storedPassword != null) {
-                if (isBcryptHash(storedPassword)) {
-                    passwordMatches = passwordEncoder.matches(password, storedPassword);
-                } else {
-                    passwordMatches = storedPassword.equals(password);
-                }
-            }
-
-            if (passwordMatches && Boolean.TRUE.equals(user.getEnabled())) {
-                session.setAttribute("currentUser", user);
-                session.setAttribute("userRole", user.getRole());
-
-                System.out.println("LOGIN SUCCESS: User " + user.getMail() +
-                        " with role: " + user.getRole());
-
-                return "redirect:/";
-            }
+        if (exception instanceof LockedException) {
+            return MSG_LOCKED;
         }
-        model.addAttribute("error", "Invalid username or password");
-        return "login";
-    }
-
-    private boolean isBcryptHash(String value) {
-        if (value == null) {
-            return false;
+        if (exception instanceof BadCredentialsException) {
+            return MSG_BAD_CREDENTIALS;
         }
-        return value.startsWith("$2a$")
-                || value.startsWith("$2b$")
-                || value.startsWith("$2y$");
+        return MSG_BAD_CREDENTIALS;
     }
 
     @GetMapping("/logout")

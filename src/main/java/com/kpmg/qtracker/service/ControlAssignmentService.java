@@ -53,8 +53,8 @@ public class ControlAssignmentService {
         // Обновляем валидацию
         validateUsersHaveRole(assignmentDTO.getControlOperator(), "CONTROL_OPERATOR",
                 "User must have CONTROL_OPERATOR role to be assigned as Control Operator");
-        validateUsersHaveRole(assignmentDTO.getSoqmLead(), "SOQM_LEAD",
-                "User must have SOQM_LEAD role to be assigned as SOQM Lead");
+        validateUsersHaveRole(assignmentDTO.getSoqmLead(), "SOQM_TEAM",
+                "User must have SOQM_TEAM role to be assigned as SOQM Team");
         validateUsersHaveRole(assignmentDTO.getProcessOwner(), "PROCESS_OWNER",
                 "User must have PROCESS_OWNER role to be assigned as Process Owner");
 
@@ -148,22 +148,22 @@ public class ControlAssignmentService {
     // Методы проверки ролей — Facilitator and Control Operator are interchangeable
     public boolean isUserFacilitator(Long controlId, String userEmail) {
         Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && ("FACILITATOR".equals(user.get().getRole()) || "CONTROL_OPERATOR".equals(user.get().getRole()));
+        return user.isPresent() && hasAnyRole(user.get(), Set.of("FACILITATOR", "CONTROL_OPERATOR"));
     }
 
     public boolean isUserControlOperator(Long controlId, String userEmail) {
         Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && ("CONTROL_OPERATOR".equals(user.get().getRole()) || "FACILITATOR".equals(user.get().getRole()));
+        return user.isPresent() && hasAnyRole(user.get(), Set.of("CONTROL_OPERATOR", "FACILITATOR"));
     }
 
     public boolean isUserSoqmLead(Long controlId, String userEmail) {
         Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && "SOQM_LEAD".equals(user.get().getRole());
+        return user.isPresent() && hasAnyRole(user.get(), Set.of("SOQM_TEAM"));
     }
 
     public boolean isUserProcessOwner(Long controlId, String userEmail) {
         Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && "PROCESS_OWNER".equals(user.get().getRole());
+        return user.isPresent() && hasAnyRole(user.get(), Set.of("PROCESS_OWNER"));
     }
 
     public List<String> getUserRolesForControl(Long controlId, String userEmail) {
@@ -171,13 +171,12 @@ public class ControlAssignmentService {
         Optional<User> user = userRepository.findByMail(userEmail);
 
         if (user.isPresent()) {
-            String globalRole = user.get().getRole();
-            if ("ADMIN".equals(globalRole)) {
+            if (Boolean.TRUE.equals(user.get().getAdminAccess())) {
                 roles.add("ADMIN");
                 return roles;
             }
-            if ("SOQM_LEAD".equals(globalRole)) {
-                roles.add("SOQM_LEAD");
+            if (hasAnyRole(user.get(), Set.of("SOQM_TEAM"))) {
+                roles.add("SOQM_TEAM");
                 return roles;
             }
         }
@@ -197,16 +196,13 @@ public class ControlAssignmentService {
                 roles.add("PROCESS_OWNER");
             }
             if (containsEmail(assignment.getSoqmLead(), userEmail)) {
-                roles.add("SOQM_LEAD");
+                roles.add("SOQM_TEAM");
             }
         }
 
         // Fallback: if no assignment-based roles found, use global role
         if (roles.isEmpty() && user.isPresent()) {
-            String role = user.get().getRole();
-            if (role != null) {
-                roles.add(role);
-            }
+            addUserRoles(roles, user.get());
         }
 
         return roles;
@@ -223,7 +219,7 @@ public class ControlAssignmentService {
 
     // ★ ДОБАВИТЬ метод для получения пользователей по роли
     public List<User> getUsersByRole(String role) {
-        return userRepository.findByRole(role);
+        return userRepository.findByRoleIgnoreCaseOrSecondaryRoleIgnoreCase(role, role);
     }
 
     // Обновленная валидация
@@ -242,7 +238,7 @@ public class ControlAssignmentService {
 
         for (String email : userEmails) {
             Optional<User> user = userRepository.findByMail(email);
-            boolean hasRole = user.isPresent() && allowedRoles.contains(user.get().getRole());
+            boolean hasRole = user.isPresent() && hasAnyRole(user.get(), allowedRoles);
 
             if (!hasRole) {
                 throw new RuntimeException(errorMessage + ": " + email);
@@ -255,6 +251,35 @@ public class ControlAssignmentService {
             return "";
         }
         return String.join(",", list);
+    }
+
+    private boolean hasAnyRole(User user, Set<String> expectedRoles) {
+        if (user == null || expectedRoles == null || expectedRoles.isEmpty()) {
+            return false;
+        }
+        return getUserRoles(user).stream().anyMatch(expectedRoles::contains);
+    }
+
+    private Set<String> getUserRoles(User user) {
+        Set<String> roles = new LinkedHashSet<>();
+        if (user.getRole() != null && !user.getRole().isBlank()) {
+            roles.add(user.getRole().trim().toUpperCase());
+        }
+        if (user.getSecondaryRole() != null && !user.getSecondaryRole().isBlank()) {
+            roles.add(user.getSecondaryRole().trim().toUpperCase());
+        }
+        return roles;
+    }
+
+    private void addUserRoles(List<String> target, User user) {
+        if (user == null) {
+            return;
+        }
+        for (String role : getUserRoles(user)) {
+            if (!target.contains(role)) {
+                target.add(role);
+            }
+        }
     }
 
     private List<String> convertStringToList(String str) {

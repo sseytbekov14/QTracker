@@ -108,7 +108,7 @@ class ViewControllerStatusFilterTest {
     void controls_withStatusFilter_returnsOnlyMatchingStatus() throws Exception {
         User currentUser = new User();
         currentUser.setId(1L);
-        currentUser.setRole("SOQM_LEAD");
+        currentUser.setRole("SOQM_TEAM");
         currentUser.setMail("soqm@kpmg.kz");
         currentUser.setDisplayName("SoQM User");
 
@@ -598,7 +598,7 @@ class ViewControllerStatusFilterTest {
     void actionCentre_soqm_countsAllControls() throws Exception {
         User currentUser = new User();
         currentUser.setId(8L);
-        currentUser.setRole("SOQM_LEAD");
+        currentUser.setRole("SOQM_TEAM");
         currentUser.setMail("soqm@kpmg.kz");
         currentUser.setDisplayName("SoQM User");
 
@@ -663,7 +663,7 @@ class ViewControllerStatusFilterTest {
     void viewControl_draft_visibleToSoqm() throws Exception {
         User currentUser = new User();
         currentUser.setId(5L);
-        currentUser.setRole("SOQM_LEAD");
+        currentUser.setRole("SOQM_TEAM");
         currentUser.setMail("soqm@kpmg.kz");
         currentUser.setDisplayName("SoQM User");
 

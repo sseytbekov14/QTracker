@@ -11,12 +11,12 @@ import java.time.ZoneId;
 @SpringBootApplication
 @EnableScheduling
 public class QtrackerApplication {
-        public static void main(String[] args) {
-            SpringApplication.run(QtrackerApplication.class, args);
-        }
-        
-        @Bean
-        public Clock clock() {
-            return Clock.system(ZoneId.of("Asia/Almaty"));
-        }
+    public static void main(String[] args) {
+        SpringApplication.run(QtrackerApplication.class, args);
+    }
+
+    @Bean
+    public Clock clock() {
+        return Clock.system(ZoneId.of("Asia/Almaty"));
+    }
 }

@@ -40,10 +40,9 @@ public class NotificationTemplateService {
                         "Control Initiated",
                         greeting + "\n" +
                                 "\n" +
-                                "The scheduled control " + controlIdAndNameSlash + " has been activated today. Kindly complete and submit the control as required before the deadline " + deadlineText + "\n" +
+                                "The scheduled control " + controlIdAndNameSlash + " has been activated today. Kindly complete and submit the control as required before the deadline " + deadlineText + ".\n" +
                                 "\n" +
-                                "Access the control using the link:\n" +
-                                link + "\n" +
+                                "Please click the \"Go to Control\" button below to access the control.\n" +
                                 "\n" +
                                 "Thank you,\n" +
                                 "\n" +
@@ -56,8 +55,7 @@ public class NotificationTemplateService {
                         "Control sent to Control Operator",
                         greeting + "\n" +
                                 "\n" +
-                                "The control has been completed by the Facilitator. Please revise and review the control by accessing the control using the link:\n" +
-                                link + "\n" +
+                                "The control has been completed by the Facilitator. Please review the details by clicking the \"Go to Control\" button below.\n" +
                                 "\n" +
                                 "Thank you,\n" +
                                 "\n" +
@@ -71,8 +69,7 @@ public class NotificationTemplateService {
                             "Control sent to SoQM Head/Delegate",
                             greeting + "\n" +
                                     "\n" +
-                                    "The control has been adjusted by the Control Operator. Please click the link below to view the control\n" +
-                                    link + "\n" +
+                                    "The control has been adjusted by the Control Operator. Please click the \"Go to Control\" button to view the control.\n" +
                                     "\n" +
                                     "Thank you,\n" +
                                     "\n" +
@@ -85,8 +82,7 @@ public class NotificationTemplateService {
                         "Control ready for review by Control Operator",
                         greeting + "\n" +
                                     "\n" +
-                                    "The control has been completed by the Control Operator. Please revise and review the control by accessing the control using the link:\n" +
-                                    link + "\n" +
+                                    "The control has been completed by the Control Operator. Please review the details by clicking the \"Go to Control\" button below.\n" +
                                     "\n" +
                                     "Thank you,\n" +
                                     "\n" +
@@ -99,9 +95,8 @@ public class NotificationTemplateService {
                         "Control sent back to Control Operator",
                         greeting + "\n" +
                                 "\n" +
-                                "The control has been reviewed by the SoQM Team and requires some adjustments\n" +
-                                "Please click the link below to view the comments and feedback for this control:\n" +
-                                link + "\n" +
+                                "The control has been reviewed by the SoQM Team and requires some adjustments.\n" +
+                                "Please click the \"Go to Control\" button to view the comments and feedback for this control.\n" +
                                 "\n" +
                                 "Thank you.\n" +
                                 "\n" +
@@ -114,8 +109,7 @@ public class NotificationTemplateService {
                         "Control sent to Process Owner",
                         greeting + "\n" +
                                 "\n" +
-                                "The control has been reviewed by the SoQM Head/Delegate. Please revise and review the control by accessing the control using the link: \n" +
-                                link + "\n" +
+                                "The control has been reviewed by the SoQM Head/Delegate. Please review the control by clicking the \"Go to Control\" button below.\n" +
                                 "\n" +
                                 "Thank you.\n" +
                                 "\n" +
@@ -154,8 +148,7 @@ public class NotificationTemplateService {
                                 "Our records indicate that the control deadline has passed.\n" +
                                 "The following control remains incomplete: " + controlIdAndNameComma + "\n" +
                                 "\n" +
-                                "Please ensure this control is completed by the end of the day. You can access and complete the control using the link below:\n" +
-                                link + "\n" +
+                                "Please ensure this control is completed by the end of the day. Click the \"Go to Control\" button below to access and complete the control.\n" +
                                 "\n" +
                                 "If you have any questions or require assistance, please let us know.\n" +
                                 "\n" +

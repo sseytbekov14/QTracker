@@ -14,6 +14,7 @@ public class ControlAssignment {
 
     private String facilitator; // JSON array of user emails
     private String controlOperator; // JSON array of user emails
+    @Column(name = "soqm_team")
     private String soqmLead; // JSON array of user emails
     private String processOwner; // JSON array of user emails
     private String controlSharedWith; // JSON array of user emails

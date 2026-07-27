@@ -92,7 +92,7 @@ public class WorkflowController {
                     control.setReturnToFacilitatorComment(comment);
                 } else if ("SEND_BACK_TO_OPERATOR".equals(normalizedAction)) {
                     control.setReturnToOperatorComment(comment);
-                } else if ("RETURN_TO_SOQM_LEAD".equals(normalizedAction)) {
+                } else if ("RETURN_TO_SOQM_TEAM".equals(normalizedAction)) {
                     control.setReturnToSoqmTeamComment(comment);
                 }
             }
@@ -170,7 +170,7 @@ public class WorkflowController {
             case "DRAFT": return "FACILITATOR";
             case "IN_PROGRESS": return "FACILITATOR";
             case "REVIEW": return "CONTROL_OPERATOR";
-            case "SOQM_HEAD_REVIEW": return "SOQM_LEAD";
+            case "SOQM_HEAD_REVIEW": return "SOQM_TEAM";
             case "PROCESS_OWNER_REVIEW": return "PROCESS_OWNER";
             case "COMPLETED": return "COMPLETED";
             default: return "UNKNOWN";
@@ -314,7 +314,7 @@ public class WorkflowController {
         return dto;
     }
 
-    // ========== SOQM LEAD WORKFLOW ENDPOINTS ==========
+    // ========== SOQM TEAM WORKFLOW ENDPOINTS ==========
     
     @PostMapping("/submit-to-process-owner")
     @Transactional
@@ -325,7 +325,7 @@ public class WorkflowController {
                 return ResponseEntity.status(401).body("User not authenticated");
             }
 
-            log.info("SoQM Lead {} submitting control {} to Process Owner", currentUser.getMail(), controlId);
+            log.info("SoQM Team {} submitting control {} to Process Owner", currentUser.getMail(), controlId);
 
             // Get control
             Optional<Control> controlOpt = controlService.getControlById(controlId);
@@ -387,7 +387,7 @@ public class WorkflowController {
                 return ResponseEntity.status(401).body("User not authenticated");
             }
 
-            log.info("SoQM Lead {} returning control {} to Control Operator", currentUser.getMail(), controlId);
+            log.info("SoQM Team {} returning control {} to Control Operator", currentUser.getMail(), controlId);
 
             // Get control
             Optional<Control> controlOpt = controlService.getControlById(controlId);
@@ -513,7 +513,7 @@ public class WorkflowController {
                 return ResponseEntity.status(401).body("User not authenticated");
             }
 
-            log.info("Process Owner {} returning control {} to SoQM Lead", currentUser.getMail(), controlId);
+            log.info("Process Owner {} returning control {} to SoQM Team", currentUser.getMail(), controlId);
 
             // Get control
             Optional<Control> controlOpt = controlService.getControlById(controlId);
@@ -543,7 +543,7 @@ public class WorkflowController {
             history.setPerformedByName(currentUser.getDisplayName());
             history.setComments(comments != null && !comments.isEmpty() 
                 ? comments 
-                : "Control returned to SoQM Lead for revision");
+                : "Control returned to SoQM Team for revision");
             history.setCreatedAt(LocalDateTime.now());
             workflowHistoryRepository.save(history);
 
@@ -563,14 +563,14 @@ public class WorkflowController {
                     currentUser.getDisplayName(),
                     "SoQM Team",
                     comments,
-                    "RETURN_TO_SOQM_LEAD"
+                    "RETURN_TO_SOQM_TEAM"
             );
 
-            log.info("✅ Control {} returned to SoQM Lead successfully", controlId);
-            return ResponseEntity.ok("Control returned to SoQM Lead");
+            log.info("✅ Control {} returned to SoQM Team successfully", controlId);
+            return ResponseEntity.ok("Control returned to SoQM Team");
 
         } catch (Exception e) {
-            log.error("❌ Error returning control to SoQM Lead: {}", e.getMessage(), e);
+            log.error("❌ Error returning control to SoQM Team: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -611,7 +611,7 @@ public class WorkflowController {
             boolean resubmitted = false;
             notificationService.sendTemplateNotifications(
                     control,
-                    assignmentEmails(control.getId(), "SOQM_LEAD"),
+                    assignmentEmails(control.getId(), "SOQM_TEAM"),
                     NotificationTemplateService.TemplateType.OPERATOR_TO_SOQM,
                     resubmitted
             );
@@ -646,16 +646,16 @@ public class WorkflowController {
             return;
         }
 
-        if ("RETURN_TO_SOQM_LEAD".equals(normalizedAction)) {
+        if ("RETURN_TO_SOQM_TEAM".equals(normalizedAction)) {
             notificationService.sendReturnNotifications(
                     control,
-                    recipientsWithoutActor(assignmentEmails(control.getId(), "SOQM_LEAD"),
+                    recipientsWithoutActor(assignmentEmails(control.getId(), "SOQM_TEAM"),
                             currentUser != null ? currentUser.getMail() : null),
                     currentUser != null ? currentUser.getRole() : null,
                     currentUser != null ? currentUser.getDisplayName() : null,
                     "SoQM Team",
                     firstNonBlank(comment, control.getReturnToSoqmTeamComment()),
-                    "RETURN_TO_SOQM_LEAD"
+                    "RETURN_TO_SOQM_TEAM"
             );
             return;
         }
@@ -712,7 +712,7 @@ public class WorkflowController {
             case "CONTROL_OPERATOR":
                 addAll(recipients, assignment.getControlOperator());
                 break;
-            case "SOQM_LEAD":
+            case "SOQM_TEAM":
                 addAll(recipients, assignment.getSoqmLead());
                 break;
             case "PROCESS_OWNER":

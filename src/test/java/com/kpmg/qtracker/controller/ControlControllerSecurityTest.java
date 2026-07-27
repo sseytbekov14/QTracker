@@ -102,8 +102,8 @@ class ControlControllerSecurityTest {
 
     @Test
     void createControl_whenRoleIsSoqmLead_returns2xx() throws Exception {
-        User sessionUser = userWithRole("SOQM_LEAD");
-        User dbUser = userWithRole("SOQM_LEAD");
+        User sessionUser = userWithRole("SOQM_TEAM");
+        User dbUser = userWithRole("SOQM_TEAM");
 
         Control created = new Control();
         created.setId(100L);
@@ -125,8 +125,8 @@ class ControlControllerSecurityTest {
 
     @Test
     void createControl_whenAnnualFrequency_persistsAnnual() throws Exception {
-        User sessionUser = userWithRole("SOQM_LEAD");
-        User dbUser = userWithRole("SOQM_LEAD");
+        User sessionUser = userWithRole("SOQM_TEAM");
+        User dbUser = userWithRole("SOQM_TEAM");
 
         Control created = new Control();
         created.setId(101L);
@@ -152,8 +152,8 @@ class ControlControllerSecurityTest {
 
     @Test
     void createControl_whenSemiAnnualFrequency_persistsSemiAnnual() throws Exception {
-        User sessionUser = userWithRole("SOQM_LEAD");
-        User dbUser = userWithRole("SOQM_LEAD");
+        User sessionUser = userWithRole("SOQM_TEAM");
+        User dbUser = userWithRole("SOQM_TEAM");
 
         Control created = new Control();
         created.setId(102L);
@@ -228,7 +228,7 @@ class ControlControllerSecurityTest {
 
     @Test
     void updateControl_whenSoqmLeadAndCompleted_returns200() throws Exception {
-        User sessionUser = userWithRole("SOQM_LEAD");
+        User sessionUser = userWithRole("SOQM_TEAM");
         Control existing = new Control();
         existing.setId(200L);
         existing.setControlId("CTRL-200");
@@ -263,7 +263,7 @@ class ControlControllerSecurityTest {
 
     @Test
     void updateControl_whenControlStatusChanges_logsControlStatusDiff() throws Exception {
-        User sessionUser = userWithRole("SOQM_LEAD");
+        User sessionUser = userWithRole("SOQM_TEAM");
 
         Control existing = new Control();
         existing.setId(210L);
@@ -330,7 +330,7 @@ class ControlControllerSecurityTest {
 
     @Test
     void updateControl_whenNormalFieldChanges_logsEntitySnapshotDiff() throws Exception {
-        User sessionUser = userWithRole("SOQM_LEAD");
+        User sessionUser = userWithRole("SOQM_TEAM");
 
         Control existing = new Control();
         existing.setId(211L);

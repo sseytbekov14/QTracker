@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  db:
+    # Map database port for external access in DEV
+    ports:
+      - "5432:5432"
+    # DEV volumes for easier debugging
+    volumes:
+      - qtracker_pgdata_dev:/var/lib/postgresql/data
+      - ./backups:/backups
+
+  app:
+    # Rebuild on each start if source changes
+    build:
+      context: .
+      dockerfile: Dockerfile
+      cache_from:
+        - qtracker-app:dev
+    image: qtracker-app:dev
+    # Mount source code for hot reload (optional, requires Spring Boot DevTools)
+    volumes:
+      - qtracker_uploads_dev:${FILE_UPLOAD_DIR:-/app/uploads}
+      - ./src:/workspace/src:ro
+    environment:
+      # Enable more verbose logging
+      JAVA_TOOL_OPTIONS: "-XX:+UseG1GC -XX:MaxRAMPercentage=75"
+    # Faster startup with smaller initial memory
+    restart: unless-stopped
+
+volumes:
+  qtracker_pgdata_dev:
+    driver: local
+  qtracker_uploads_dev:
+    driver: local

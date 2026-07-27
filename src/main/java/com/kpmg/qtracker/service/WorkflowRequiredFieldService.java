@@ -28,7 +28,7 @@ public class WorkflowRequiredFieldService {
 
         boolean requiresSteps = (("FACILITATOR".equals(role) || "CONTROL_OPERATOR".equals(role)) && "IN_PROGRESS".equals(status))
                 || (("CONTROL_OPERATOR".equals(role) || "FACILITATOR".equals(role)) && "REVIEW".equals(status))
-                || ("SOQM_LEAD".equals(role) && "SOQM_HEAD_REVIEW".equals(status));
+                || ("SOQM_TEAM".equals(role) && "SOQM_HEAD_REVIEW".equals(status));
 
         if (!requiresSteps) {
             return Optional.empty();

@@ -30,7 +30,7 @@ public class AuthorizationPolicy {
     private static final Set<String> PROCESS_OWNER_WORKFLOW_TRANSITIONS = Set.of(
             "COMPLETE",
             "COMPLETE_CONTROL",
-            "RETURN_TO_SOQM_LEAD",
+            "RETURN_TO_SOQM_TEAM",
             "SEND_FOR_REVISION",
             "REJECT"
     );
@@ -41,7 +41,7 @@ public class AuthorizationPolicy {
         ControlPermission permission = controlPermissionService.resolve(controlId, user);
 
         boolean allowed;
-        if (hasRole(userPrincipal, "SOQM_LEAD")) {
+        if (hasRole(userPrincipal, "SOQM_TEAM")) {
             allowed = true;
         } else if (hasRole(userPrincipal, "PROCESS_OWNER")) {
             allowed = isOwnerOfControl(controlId, userPrincipal);
@@ -85,7 +85,7 @@ public class AuthorizationPolicy {
         Control control = relatedControl.get();
         ControlPermission permission = controlPermissionService.resolve(control, user);
         boolean allowed;
-        if (hasRole(userPrincipal, "SOQM_LEAD")) {
+        if (hasRole(userPrincipal, "SOQM_TEAM")) {
             allowed = true;
         } else if (hasRole(userPrincipal, "PROCESS_OWNER")) {
             allowed = isOwnerOfControl(control.getId(), userPrincipal);
@@ -104,7 +104,7 @@ public class AuthorizationPolicy {
         ControlPermission permission = controlPermissionService.resolve(controlId, user);
 
         boolean allowed;
-        if (hasRole(userPrincipal, "SOQM_LEAD")) {
+        if (hasRole(userPrincipal, "SOQM_TEAM")) {
             allowed = true;
         } else if (hasRole(userPrincipal, "PROCESS_OWNER")) {
             String normalizedTransition = normalizeTransition(transition);
@@ -188,7 +188,7 @@ public class AuthorizationPolicy {
             return dto;
         }
 
-        if (hasRole(principal, "SOQM_LEAD") || hasRole(principal, "PROCESS_OWNER")) {
+        if (hasRole(principal, "SOQM_TEAM") || hasRole(principal, "PROCESS_OWNER")) {
             return dto;
         }
 
@@ -217,7 +217,7 @@ public class AuthorizationPolicy {
             return;
         }
 
-        if (hasRole(principal, "SOQM_LEAD") || hasRole(principal, "PROCESS_OWNER")) {
+        if (hasRole(principal, "SOQM_TEAM") || hasRole(principal, "PROCESS_OWNER")) {
             return;
         }
 

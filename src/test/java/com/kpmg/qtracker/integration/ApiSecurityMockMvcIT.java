@@ -97,7 +97,7 @@ class ApiSecurityMockMvcIT {
 
     @Test
     void soqmLead_read_modify_workflow_are200() throws Exception {
-        User soqmLead = saveUser("soqm-" + suffix(), "soqm-" + suffix() + "@example.test", "SOQM_LEAD", "Test#123");
+        User soqmLead = saveUser("soqm-" + suffix(), "soqm-" + suffix() + "@example.test", "SOQM_TEAM", "Test#123");
         Control control = createControl("CTRL-SOQM-" + suffix(), soqmLead, "SOQM_HEAD_REVIEW");
 
         MockHttpSession session = loginAndAttachCurrentUser(soqmLead.getMail(), "Test#123", soqmLead);
@@ -119,7 +119,6 @@ class ApiSecurityMockMvcIT {
 
     private User saveUser(String username, String mail, String role, String rawPassword) {
         User user = new User();
-        user.setUsername(username);
         user.setMail(mail);
         user.setRole(role);
         user.setDisplayName(username);

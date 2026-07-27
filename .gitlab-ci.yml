@@ -1,0 +1,42 @@
+image: eclipse-temurin:21-jdk
+
+stages:
+  - build
+  - test
+
+cache:
+  paths:
+    - .m2/repository
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+
+# --- ЭТАП СБОРКИ ---
+build_job:
+  stage: build
+  tags:
+    - gitlab-runner-kubernetes  # ДОБАВЬ ЭТОТ ТЕГ
+  script:
+    - chmod +x mvnw
+    - ./mvnw clean compile
+  artifacts:
+    paths:
+      - target/
+    expire_in: 1 hour
+
+# --- ЭТАП ТЕСТОВ ---
+test_job:
+  stage: test
+  tags:
+    - gitlab-runner-kubernetes  # И СЮДА ТОЖЕ
+  script:
+    - chmod +x mvnw
+    - ./mvnw test
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
+    paths:
+      - target/site/jacoco/
+    expire_in: 1 week

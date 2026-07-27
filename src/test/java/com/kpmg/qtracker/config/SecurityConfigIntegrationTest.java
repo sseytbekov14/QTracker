@@ -5,7 +5,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.repository.UserRepository;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -43,6 +46,12 @@ class SecurityConfigIntegrationTest {
     @Autowired
     private FilterChainProxy springSecurityFilterChain;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @Test
         void apiRequestWithoutAuthenticationRedirectsToLogin() throws Exception {
         mockMvc.perform(get("/api/users"))
@@ -65,7 +74,7 @@ class SecurityConfigIntegrationTest {
     @Test
     void loginPostWithoutCsrfIsForbidden() throws Exception {
         mockMvc.perform(post("/login")
-                        .param("username", "soqm1")
+                        .param("username", "soqm1@qtracker.local")
                         .param("password", "aaa"))
                 .andExpect(status().isForbidden());
     }
@@ -74,7 +83,7 @@ class SecurityConfigIntegrationTest {
     void loginSuccessWithCsrfRedirectsToHomeAndPopulatesSession() throws Exception {
         MvcResult result = mockMvc.perform(post("/login")
                         .with(csrf())
-                        .param("username", "soqm1")
+                        .param("username", "soqm1@qtracker.local")
                         .param("password", "aaa"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/"))
@@ -83,14 +92,14 @@ class SecurityConfigIntegrationTest {
         MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
         assertThat(session).isNotNull();
         assertThat(session.getAttribute("currentUser")).isNotNull();
-        assertThat(session.getAttribute("userRole")).isEqualTo("SOQM_LEAD");
+        assertThat(session.getAttribute("userRole")).isEqualTo("SOQM_TEAM");
     }
 
     @Test
     void loginFailureWithCsrfRedirectsToLoginError() throws Exception {
         MvcResult result = mockMvc.perform(post("/login")
                         .with(csrf())
-                        .param("username", "soqm1")
+                        .param("username", "soqm1@qtracker.local")
                         .param("password", "wrong-password"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/login?error"))
@@ -103,7 +112,7 @@ class SecurityConfigIntegrationTest {
 
     @Test
     void apiPostBypassesCsrfProtectionButStillHitsControllerWhenAuthenticated() throws Exception {
-        MockHttpSession session = login("soqm1", "aaa");
+        MockHttpSession session = login("soqm1@qtracker.local", "aaa");
 
         mockMvc.perform(post("/api/controls/999/rename-id")
                         .session(session)
@@ -127,6 +136,45 @@ class SecurityConfigIntegrationTest {
                                 .andExpect(redirectedUrlPattern("**/login"))
                 .andExpect(header().exists("X-Correlation-Id"));
     }
+
+    @Test
+    void disabledUserLoginReturns403() throws Exception {
+        User disabledUser = new User();
+        disabledUser.setMail("disabled.user@qtracker.local");
+        disabledUser.setDisplayName("Disabled User");
+        disabledUser.setRole("SOQM_TEAM");
+        disabledUser.setEnabled(false);
+        disabledUser.setPassword(passwordEncoder.encode("aaa"));
+        userRepository.save(disabledUser);
+
+        mockMvc.perform(post("/login")
+                        .with(csrf())
+                .param("username", "disabled.user@qtracker.local")
+                        .param("password", "aaa"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login?error"));
+    }
+
+        @Test
+        void disabledUserAfterLoginIsForbiddenOnEveryRequest() throws Exception {
+                User user = new User();
+                user.setMail("disable.after.login@qtracker.local");
+                user.setDisplayName("Disable After Login");
+                user.setRole("SOQM_TEAM");
+                user.setEnabled(true);
+                user.setPassword(passwordEncoder.encode("aaa"));
+                userRepository.save(user);
+
+                MockHttpSession session = login("disable.after.login@qtracker.local", "aaa");
+
+                user = userRepository.findByMail("disable.after.login@qtracker.local").orElseThrow();
+                user.setEnabled(false);
+                userRepository.save(user);
+
+                mockMvc.perform(get("/api/users")
+                                                .session(session))
+                                .andExpect(status().isForbidden());
+        }
 
     private MockHttpSession login(String username, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/login")

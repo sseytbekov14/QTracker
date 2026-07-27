@@ -57,7 +57,7 @@ class WorkflowTransitionControllerTest {
     void initiateControl_doesNotSendImmediateNotifications() throws Exception {
         User currentUser = new User();
         currentUser.setId(1L);
-        currentUser.setRole("SOQM_LEAD");
+        currentUser.setRole("SOQM_TEAM");
         currentUser.setMail("soqm@kpmg.kz");
 
         Control control = new Control();

@@ -46,9 +46,6 @@ logs/
 ### Misc build outputs ###
 out/
 .gradle/
-migration/
-!src/main/resources/db/migration/
-!src/main/resources/db/migration/*.sql
 
 ### Local backup/session artifacts ###
 qtracker.backup

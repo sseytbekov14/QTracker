@@ -1,0 +1,32 @@
+flowchart TB
+    classDef actor     fill:#1e3a5f,stroke:#0d2247,color:#ffffff,font-weight:bold
+    classDef container fill:#1a3a2a,stroke:#0d2218,color:#e6f4ea,font-weight:bold
+    classDef storage   fill:#3a2a10,stroke:#221808,color:#fef3c7
+    classDef pending   fill:#2a1a3a,stroke:#6b21a8,color:#ede9fe,stroke-dasharray:6 4
+
+    subgraph EXTERNAL["External Actors"]
+        USER["Corporate User\nBrowser — internal network only"]:::actor
+        SMTP["Corporate SMTP Relay\nPort 25 — internal network"]:::actor
+        ENTRA["Microsoft Entra ID\nOIDC / OAuth2 IdP\nSSO — Pending: INFRA-10482"]:::pending
+    end
+
+    subgraph STAGE["STAGE Server — Closed Corporate Intranet (single host, Docker Compose)"]
+        direction TB
+
+        APP["Spring Boot Application\nInternal: :8080\nHost-exposed: :8081 HTTP\nHTTPS pending: INFRA-10482"]:::container
+
+        subgraph INTERNAL["Docker Internal Bridge Network"]
+            DB[("PostgreSQL 17\nPort 5432 — NOT exposed on host\nVolume: qtracker_pgdata")]:::storage
+        end
+
+        FS["File Storage\n/app/uploads\nVolume: qtracker_uploads"]:::storage
+
+        APP -- "JDBC — Docker bridge\nloopback-equivalent" --> DB
+        APP -- "Local File I/O" --> FS
+    end
+
+    USER -- "HTTP — intranet only\nPort 8081\nHTTPS pending: INFRA-10482" --> APP
+    APP -- "SMTP outbound\nPort 25 — no authentication" --> SMTP
+    SMTP -- "Email notifications" --> USER
+    APP -. "OIDC / OAuth2 HTTPS\nPending: INFRA-10482" .-> ENTRA
+    ENTRA -. "ID Token + JWKS validation\nfuture — Production only" .-> APP

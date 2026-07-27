@@ -1,12 +1,15 @@
 CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL,
-    username VARCHAR(255) NOT NULL,
     mail VARCHAR(255) NOT NULL,
     displayname VARCHAR(255),
     role VARCHAR(255) NOT NULL,
+    secondary_role VARCHAR(255),
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    title VARCHAR(255),
-    password VARCHAR(255)
+    admin_access BOOLEAN NOT NULL DEFAULT FALSE,
+    password VARCHAR(255),
+    entra_oid VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS controls (
@@ -39,7 +42,7 @@ CREATE TABLE IF NOT EXISTS controls (
     control_steps_performed VARCHAR(2000),
     facilitator VARCHAR(255),
     control_operator VARCHAR(255),
-    soqm_lead VARCHAR(255),
+    soqm_team VARCHAR(255),
     process_owner VARCHAR(255),
     control_shared_with VARCHAR(255),
     control_operation_date DATE,
@@ -134,9 +137,9 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint c
         JOIN pg_class t ON t.oid = c.conrelid
-        WHERE c.conname = 'users_username_key' AND t.relname = 'users'
+        WHERE c.conname = 'users_mail_key' AND t.relname = 'users'
     ) THEN
-        ALTER TABLE users ADD CONSTRAINT users_username_key UNIQUE (username);
+        ALTER TABLE users ADD CONSTRAINT users_mail_key UNIQUE (mail);
     END IF;
 END $$;
 
@@ -145,9 +148,9 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint c
         JOIN pg_class t ON t.oid = c.conrelid
-        WHERE c.conname = 'users_mail_key' AND t.relname = 'users'
+        WHERE c.conname = 'users_entra_oid_key' AND t.relname = 'users'
     ) THEN
-        ALTER TABLE users ADD CONSTRAINT users_mail_key UNIQUE (mail);
+        ALTER TABLE users ADD CONSTRAINT users_entra_oid_key UNIQUE (entra_oid);
     END IF;
 END $$;
 
@@ -236,7 +239,7 @@ BEGIN
     ) THEN
         ALTER TABLE workflow_steps
             ADD CONSTRAINT workflow_steps_step_type_check
-            CHECK (step_type IN ('FACILITATOR', 'CONTROL_OPERATOR', 'SOQM_LEAD', 'PROCESS_OWNER'));
+            CHECK (step_type IN ('FACILITATOR', 'CONTROL_OPERATOR', 'SOQM_TEAM', 'PROCESS_OWNER'));
     END IF;
 END $$;
 
@@ -277,7 +280,7 @@ BEGIN
                 action_type IN (
                     'INITIATE',
                     'SUBMIT_TO_OPERATOR',
-                    'SUBMIT_TO_SOQM_LEAD',
+                    'SUBMIT_TO_SOQM_TEAM',
                     'RETURN_TO_FACILITATOR',
                     'SUBMIT_TO_PROCESS_OWNER',
                     'RETURN_TO_OPERATOR',

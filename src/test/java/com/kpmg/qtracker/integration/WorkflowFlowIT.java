@@ -66,7 +66,7 @@ class WorkflowFlowIT {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
         facilitator = saveUser("FACILITATOR", "facilitator-" + suffix + "@example.test", "Facilitator " + suffix);
         operator = saveUser("CONTROL_OPERATOR", "operator-" + suffix + "@example.test", "Operator " + suffix);
-        soqmLead = saveUser("SOQM_LEAD", "soqm-" + suffix + "@example.test", "SoQM " + suffix);
+        soqmLead = saveUser("SOQM_TEAM", "soqm-" + suffix + "@example.test", "SoQM " + suffix);
         processOwner = saveUser("PROCESS_OWNER", "owner-" + suffix + "@example.test", "Owner " + suffix);
 
         control = new Control();
@@ -232,7 +232,6 @@ class WorkflowFlowIT {
         user.setRole(role);
         user.setMail(mail);
         user.setDisplayName(displayName);
-        user.setUsername(mail);
         user.setEnabled(true);
         return userRepository.save(user);
     }

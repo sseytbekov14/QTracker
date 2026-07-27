@@ -32,7 +32,7 @@ public interface WorkflowHistoryRepository extends JpaRepository<WorkflowHistory
            "FROM WorkflowHistory h WHERE h.controlId = :controlId " +
            "AND h.performedByEmail = :email " +
            "AND h.fromStep = 'COMPLETED' " +
-           "AND h.actionType = com.kpmg.qtracker.enums.WorkflowActionType.SUBMIT_TO_SOQM_LEAD")
+           "AND h.actionType = com.kpmg.qtracker.enums.WorkflowActionType.SUBMIT_TO_SOQM_TEAM")
     boolean hasSharedSubmitted(@Param("controlId") Long controlId, @Param("email") String email);
 
     @Query("SELECT h.controlId, MAX(h.createdAt) " +
