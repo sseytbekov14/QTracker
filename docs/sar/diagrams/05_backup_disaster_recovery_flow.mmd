@@ -1,0 +1,52 @@
+flowchart TD
+    classDef trigger fill:#1e3a5f,stroke:#0d2247,color:#ffffff,font-weight:bold
+    classDef proc    fill:#1a3a2a,stroke:#0d2218,color:#e6f4ea,font-weight:bold
+    classDef store   fill:#3a2a10,stroke:#221808,color:#fef3c7,font-weight:bold
+    classDef gate    fill:#5c1a3a,stroke:#3a0d22,color:#fce7f3,font-weight:bold
+    classDef ok      fill:#1a3a2a,stroke:#0d2218,color:#e6f4ea,font-weight:bold
+    classDef fail    fill:#3a1010,stroke:#220808,color:#fee2e2,font-weight:bold
+    classDef dr      fill:#3b1f6e,stroke:#2a1050,color:#ede9fe,font-weight:bold
+
+    subgraph BACKUP["Process A — Daily Automated Backup"]
+        direction TD
+        CRON["Cron Scheduler\nDaily at 02:00 server local time\ncrontab entry: 0 2 * * *"]:::trigger
+
+        PGDUMP["pg_dump\ndocker exec qtracker_db_1\npg_dump -U POSTGRES_USER -d QTracker"]:::proc
+
+        GZIP["gzip Compression\nOutput: /backups/qtracker_YYYYMMDD.sql.gz"]:::proc
+
+        BSTORE["/backups/ directory\nHost-local volume\nRetention: 7 daily dump files"]:::store
+
+        PRUNE["Retention Enforcement\nfind /backups -mtime +7 -delete\nFiles older than 7 days are removed"]:::proc
+
+        CRON --> PGDUMP --> GZIP --> BSTORE --> PRUNE
+    end
+
+    subgraph DR["Process B — Disaster Recovery Procedure  (RTO less than 4h / RPO less than 24h)"]
+        direction TD
+        INC["Incident Declared\nServer failure or data integrity event"]:::trigger
+
+        S1["Step 1 — Provision Replacement Server\nInstall Docker and Docker Compose"]:::dr
+
+        S2["Step 2 — Clone Repository\ngit clone from internal GitLab"]:::dr
+
+        S3["Step 3 — Restore Environment Configuration\nCopy .env file from secure storage\nDB credentials and application settings"]:::dr
+
+        S4["Step 4 — Start Database Container\ndocker compose up -d db"]:::dr
+
+        S5["Step 5 — Restore Database from Backup\ngunzip qtracker_YYYYMMDD.sql.gz | psql\nMost recent file from /backups/"]:::dr
+
+        S6["Step 6 — Start Application Container\ndocker compose up -d app\nFlyway migrations execute automatically"]:::dr
+
+        S7["Step 7 — Restore Uploaded Files\nRestore qtracker_uploads Docker volume\nfrom backup media"]:::dr
+
+        HCHK{"Step 8 — Health Verification\ncurl /actuator/health\nHTTP 200 status UP?"}:::gate
+
+        DRFAIL["DR FAILED\nEscalate to CERT / SOC\nReview application and database logs"]:::fail
+
+        DROK["Disaster Recovery Complete\nEnvironment restored and verified\nRTO target met: less than 4 hours\nRPO target met: less than 24 hours"]:::ok
+
+        INC --> S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> HCHK
+        HCHK -- "Healthy" --> DROK
+        HCHK -- "Not healthy" --> DRFAIL
+    end

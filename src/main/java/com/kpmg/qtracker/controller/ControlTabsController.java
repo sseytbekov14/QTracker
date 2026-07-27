@@ -262,6 +262,7 @@ public class ControlTabsController {
         dto.setMail(user.getMail());
         dto.setTitle(user.getRole());
         dto.setRole(user.getRole());
+        dto.setEnabled(Boolean.TRUE.equals(user.getEnabled()));
         return dto;
     }
 

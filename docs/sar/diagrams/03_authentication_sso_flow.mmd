@@ -1,0 +1,65 @@
+sequenceDiagram
+    autonumber
+
+    participant B   as Browser
+    participant RLF as RateLimitingFilter
+    participant LAS as LoginAttemptService
+    participant SEC as Spring Security
+    participant DAP as DevAuthenticationProvider
+    participant DB  as PostgreSQL
+    participant SES as Spring Session (Tomcat)
+
+    Note over B,SES: BRANCH A — STAGE Profile: Local Form-Based Authentication (BCrypt)
+
+    B   ->> RLF : POST /login {username, password}
+    RLF ->> RLF : Evaluate rate limit — max 20 POST/min per source IP
+    alt Rate limit exceeded
+        RLF -->> B : HTTP 429 Too Many Requests
+    end
+    RLF ->> LAS : isLocked(username)?
+    alt Account locked — 5 or more consecutive failures
+        LAS -->> B : HTTP 302 /login?error (generic message — no lock state disclosed)
+    end
+    RLF ->> SEC : Forward to authentication filter chain
+    SEC ->> DAP : authenticate(UsernamePasswordAuthenticationToken)
+    DAP ->> DB  : SELECT * FROM users WHERE mail = :username
+    alt User record not found
+        DAP ->> LAS : recordFailure(username)
+        DAP -->> B  : BadCredentialsException → HTTP 302 /login?error
+    end
+    DAP ->> DAP : BCrypt.matches(rawPassword, storedHash)
+    alt Password does not match
+        DAP ->> LAS : recordFailure(username)
+        DAP -->> B  : BadCredentialsException → HTTP 302 /login?error
+    end
+    DAP ->> LAS : recordSuccess(username)
+    DAP ->> DB  : UPDATE users SET last_login_at = NOW() WHERE mail = :username
+    DAP -->> SEC : UsernamePasswordAuthenticationToken (principal, granted roles)
+    SEC ->> SES : sessionFixation().migrateSession() — new session ID issued, prior session invalidated
+    SEC ->> SES : session.setAttribute("currentUser", principal)
+    SES -->> B  : HTTP 302 / — Set-Cookie: JSESSIONID=new-id; HttpOnly
+
+    participant EB   as Browser
+    participant QTA  as QTracker App
+    participant AZR  as Microsoft Entra ID
+    participant JWK  as Entra JWKS Endpoint
+    participant DB2  as PostgreSQL
+    participant SES2 as Spring Session (Tomcat)
+
+    Note over EB,SES2: BRANCH B — Production / ssodev Profile: OAuth2 / OIDC via Entra ID (Pending: INFRA-10482)
+
+    EB  ->> QTA  : GET /api/controls (unauthenticated)
+    QTA -->> EB  : HTTP 302 → /oauth2/authorization/azure
+    EB  ->> AZR  : OIDC Authorization Request (client_id, scope: openid profile email)
+    Note over AZR  : Corporate user authenticates against Entra ID<br/>No password is stored in or transmitted to QTracker
+    AZR -->> EB  : Authorization Code + redirect to redirect_uri
+    EB  ->> QTA  : GET /login/oauth2/code/azure?code=auth_code
+    QTA ->> AZR  : Token Exchange — POST /token {code, client_id, client_secret}
+    AZR -->> QTA : ID Token (signed JWT) + Access Token
+    QTA ->> JWK  : Validate ID Token signature via JWKS endpoint
+    JWK -->> QTA : Public key confirmed — token valid and not expired
+    QTA ->> DB2  : SELECT * FROM users WHERE entra_oid = :oid_claim
+    Note over DB2  : users.password column NOT used in SSO mode<br/>Identity matched via entra_oid (non-secret Entra Object ID)
+    DB2 -->> QTA : User record + assigned roles
+    QTA ->> SES2 : Create server-side session — migrateSession()
+    SES2 -->> EB : HTTP 302 / — Set-Cookie: JSESSIONID=new-id; HttpOnly; Secure

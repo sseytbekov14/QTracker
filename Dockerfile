@@ -2,10 +2,8 @@ FROM eclipse-temurin:21-jdk AS build
 
 WORKDIR /workspace
 
-# Cache dependencies separately from sources for faster rebuilds
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl unzip \
-    && rm -rf /var/lib/apt/lists/*
+# Skip apt-get update in offline environment - assume base image has required tools
+# If curl/unzip needed, they should be pre-installed in base image
 
 COPY .mvn/ .mvn/
 COPY mvnw ./

@@ -142,6 +142,22 @@
     border-radius: 4px;
 }
 
+textarea.readonly-field {
+    pointer-events: auto;
+    user-select: text;
+    overflow-y: auto !important;
+    resize: vertical;
+}
+
+textarea.readonly-field::-webkit-resizer {
+    background-color: var(--kpmg-gray-100);
+    border-top-left-radius: 4px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b90a0' viewBox='0 0 16 16'%3e%3Cpath d='M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 13.5 1h-11A1.5 1.5 0 0 0 1 2.5v11zM11.5 11a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2a.5.5 0 0 1 .5-.5zm-3 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2a.5.5 0 0 1 .5-.5zm-3 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2a.5.5 0 0 1 .5-.5'/%3e%3C/svg%3e");
+    background-repeat: no-repeat;
+    background-position: center;
+    box-shadow: inset 1px 1px 0 var(--kpmg-gray-200);
+}
+
 .readonly-select {
     background-color: var(--kpmg-gray-50) !important;
     border: 1px solid var(--kpmg-gray-200);
@@ -611,6 +627,11 @@ body.theme-dark .readonly-select {
     background-color: var(--surface-bg-2) !important;
     border-color: var(--border) !important;
     color: var(--text-primary) !important;
+}
+
+body.theme-dark textarea.readonly-field::-webkit-resizer {
+    background-color: var(--surface-bg-2);
+    box-shadow: inset 1px 1px 0 var(--border);
 }
 
 body.theme-dark .selected-user-display input {

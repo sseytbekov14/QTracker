@@ -49,6 +49,8 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/login").permitAll()
                         .requestMatchers("/images/**", "/css/**", "/js/**", "/webjars/**", "/favicon.ico", "/favicon.svg").permitAll()
+                        .requestMatchers("/error").permitAll()
+                        .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/**").authenticated()
                     .anyRequest().authenticated()
                 )
@@ -78,7 +80,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Profile("dev")
+    @Profile({"dev", "stage"})
     public SecurityFilterChain securityFilterChainDev(HttpSecurity http,
                                                       AuthenticationProvider devAuthenticationProvider,
                                                       UserRepository userRepository) throws Exception {
@@ -91,6 +93,8 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/login").permitAll()
                         .requestMatchers("/images/**", "/css/**", "/js/**", "/webjars/**", "/favicon.ico", "/favicon.svg").permitAll()
+                        .requestMatchers("/error").permitAll()
+                        .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/**").authenticated()
                     .anyRequest().authenticated()
                 )
@@ -141,7 +145,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Profile("dev")
+    @Profile({"dev", "stage"})
     public AuthenticationProvider devAuthenticationProvider(UserPrincipalService userPrincipalService,
                                                             PasswordEncoder passwordEncoder,
                                                             LoginAttemptService loginAttemptService,

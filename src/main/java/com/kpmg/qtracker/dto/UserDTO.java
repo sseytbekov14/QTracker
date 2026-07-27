@@ -10,4 +10,5 @@ public class UserDTO {
     private String title;
     private String role;
     private String username;
+    private Boolean enabled;
 }

@@ -243,6 +243,13 @@ const viewControl = (function() {
         }
     }
 
+    function onlyActiveUsers(users) {
+        if (!Array.isArray(users)) {
+            return [];
+        }
+        return users.filter(user => user && user.enabled !== false);
+    }
+
     // Workflow variables
     let currentWorkflowAction = null;
     let currentWorkflowRequiresComment = false;
@@ -616,7 +623,7 @@ function confirmWorkflowAction() {
 
             if (facilitatorUsers.length === 0) {
                 loadUsersByRole('FACILITATOR').then((users) => {
-                    facilitatorUsers = users;
+                    facilitatorUsers = onlyActiveUsers(users);
                     displayUserDropdownList(facilitatorUsers);
                 });
             } else {
@@ -734,7 +741,7 @@ function confirmWorkflowAction() {
 
             if (controlOperatorUsers.length === 0) {
                 loadUsersByRole('CONTROL_OPERATOR').then((users) => {
-                    controlOperatorUsers = users;
+                    controlOperatorUsers = onlyActiveUsers(users);
                     displayControlOperatorList(controlOperatorUsers);
                 });
             } else {
@@ -832,7 +839,7 @@ function confirmWorkflowAction() {
 
             if (soqmLeadUsers.length === 0) {
                 loadUsersByRole('SOQM_TEAM').then((users) => {
-                    soqmLeadUsers = users;
+                    soqmLeadUsers = onlyActiveUsers(users);
                     displaySoqmLeadList(soqmLeadUsers);
                 });
             } else {
@@ -930,7 +937,7 @@ function confirmWorkflowAction() {
 
             if (processOwnerUsers.length === 0) {
                 loadUsersByRole('PROCESS_OWNER').then((users) => {
-                    processOwnerUsers = users;
+                    processOwnerUsers = onlyActiveUsers(users);
                     displayProcessOwnerList(processOwnerUsers);
                 });
             } else {
@@ -1028,7 +1035,7 @@ function confirmWorkflowAction() {
 
             if (sharedWithUsers.length === 0) {
                 loadAllUsers().then((users) => {
-                    sharedWithUsers = users;
+                    sharedWithUsers = onlyActiveUsers(users);
                     displaySharedWithList(sharedWithUsers);
                 });
             } else {
