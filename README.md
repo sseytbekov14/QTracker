@@ -17,6 +17,13 @@ Core implementation areas:
 - Security: `src/main/java/com/kpmg/qtracker/config` and `src/main/java/com/kpmg/qtracker/security`
 - Schedulers: `src/main/java/com/kpmg/qtracker/scheduler`
 
+## Documentation
+Detailed system architecture and documentation are located in the `docs/sar/` (Solution Architecture Reference) directory:
+- `01_ARCHITECTURE_AND_API.md`: Architecture overview and API endpoints.
+- `02_INFRA_LOGGING_ENCRYPTION.md`: Infrastructure, logging, and security.
+- `03_EVIDENCE_AND_QUESTIONNAIRE.md`: Evidence collection and questionnaire handling.
+- `diagrams/`: Mermaid diagrams and image exports for system architecture, CI/CD, and workflows.
+
 ## Features
 Mapped to real modules and classes:
 
@@ -78,7 +85,7 @@ Top-level structure:
   - `static`: CSS/JS/images
   - `db/migration`: Flyway SQL migrations
   - `application.yml`, `application-dev.yml`, `application-stage.yml`, `application-prod.yml`
-- `scripts/start-dev.ps1`: local Windows helper for startup/port conflict handling
+- `docs/sar/`: Solution Architecture documentation and diagrams
 - `docker-compose.yml`, `Dockerfile`
 - `.env`, `.env.local`, `.env.example`
 
@@ -91,12 +98,6 @@ Top-level structure:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
-```
-
-Windows helper script (sets env, frees port, then runs app):
-
-```powershell
-.\scripts\start-dev.ps1 -Port 8081
 ```
 
 ### Option B: Docker Compose run
@@ -196,10 +197,7 @@ Schedulers under `src/main/java/com/kpmg/qtracker/scheduler`:
 - `ControlAutoCreationScheduler`
   - Daily auto-creation run
   - `@ConditionalOnProperty(controls.auto-create.enabled=true)`
-- `MonthlyNotificationScheduler`
-- `QuarterlyNotificationScheduler`
-- `SemiAnnualNotificationScheduler`
-- `AnnualNotificationScheduler`
+- Periodic schedulers (Monthly, Quarterly, SemiAnnual, Annual)
 - `RecurringNotificationScheduler`
 - `AdhocNotificationScheduler`
 
@@ -287,13 +285,6 @@ Checks:
 - Verify `NOTIFICATIONS_EMAIL_ENABLED=true` when email is required.
 - Validate `SPRING_MAIL_*` values and SMTP connectivity.
 - If whitelist enforcement is enabled, confirm recipients are in `NOTIFICATIONS_EMAIL_WHITELIST`.
-
-### 4) Port already in use (Windows)
-Use helper script to stop conflicting Java process and start app:
-
-```powershell
-.\scripts\start-dev.ps1 -Port 8081
-```
 
 ## License / Contact
 No project license metadata is defined in `pom.xml`.
