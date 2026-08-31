@@ -402,8 +402,13 @@ public class WorkflowTransitionController {
                 return ResponseEntity.status(403).body(Map.of("success", false, "message", "You are not assigned as Control Operator for this control"));
             }
 
-            String previousStatus = control.getPerformanceStatus();
+            // Validate comment length
+            if (comments != null && comments.length() > 2000) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Comment is too long. Maximum 2000 characters allowed."));
+            }
 
+            String previousStatus = control.getPerformanceStatus();
+            
             // Update workflow status back to In Progress
             control.setPerformanceStatus("IN_PROGRESS");
             if (comments != null && !comments.isEmpty()) {

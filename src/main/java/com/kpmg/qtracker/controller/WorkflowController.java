@@ -7,6 +7,8 @@ import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.*;
 import com.kpmg.qtracker.service.NotificationTemplateService;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +38,7 @@ public class WorkflowController {
 
     @PostMapping("/perform-action")
     @Transactional
-    public ResponseEntity<?> performWorkflowAction(@RequestBody WorkflowActionRequest request,
+    public ResponseEntity<?> performWorkflowAction(@Valid @RequestBody WorkflowActionRequest request,
                                                    HttpSession session) {
         try {
             User currentUser = (User) session.getAttribute("currentUser");
@@ -235,7 +237,7 @@ public class WorkflowController {
     }
 
     @PostMapping("/approve")
-    public ResponseEntity<?> approveStep(@RequestBody WorkflowActionDTO actionDTO,
+    public ResponseEntity<?> approveStep(@Valid @RequestBody WorkflowActionDTO actionDTO,
                                          HttpSession session) {
         try {
             User currentUser = (User) session.getAttribute("currentUser");
@@ -259,7 +261,7 @@ public class WorkflowController {
     }
 
     @PostMapping("/return")
-    public ResponseEntity<?> returnStep(@RequestBody WorkflowActionDTO actionDTO,
+    public ResponseEntity<?> returnStep(@Valid @RequestBody WorkflowActionDTO actionDTO,
                                         HttpSession session) {
         try {
             User currentUser = (User) session.getAttribute("currentUser");
@@ -400,6 +402,11 @@ public class WorkflowController {
                 return restrictedResponse;
             }
 
+            // Validate comment length
+            if (comments != null && comments.length() > 2000) {
+                return ResponseEntity.badRequest().body("Comment is too long. Maximum 2000 characters allowed.");
+            }
+
             // Update control status
             control.setPerformanceStatus("REVIEW");
             if (comments != null && !comments.isEmpty()) {
@@ -526,6 +533,11 @@ public class WorkflowController {
                 return restrictedResponse;
             }
 
+            // Validate comment length
+            if (comments != null && comments.length() > 2000) {
+                return ResponseEntity.badRequest().body("Comment is too long. Maximum 2000 characters allowed.");
+            }
+
             // Update control status
             control.setPerformanceStatus("SOQM_HEAD_REVIEW");
             if (comments != null && !comments.isEmpty()) {
@@ -579,6 +591,7 @@ public class WorkflowController {
     private static class WorkflowActionRequest {
         private Long controlId;
         private String action;
+        @Size(max = 2000, message = "Comment must be at most 2000 characters")
         private String comment;
     }
 

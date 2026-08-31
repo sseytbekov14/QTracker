@@ -5,12 +5,15 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlService;
+import com.kpmg.qtracker.service.ControlPermission;
+import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.FileStorageService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,6 +32,7 @@ public class FileAttachmentController {
 
     private final FileStorageService fileStorageService;
     private final ControlService controlService;
+    private final ControlPermissionService controlPermissionService;
     private final AdminAuditService adminAuditService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -50,8 +54,21 @@ public class FileAttachmentController {
             
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found: " + controlId));
-            String controlFolder = resolveControlFolder(control);
             User currentUser = getCurrentUser(session);
+            if (currentUser == null) {
+                response.put("success", false);
+                response.put("message", "User not authenticated");
+                return ResponseEntity.status(401).body(response);
+            }
+            
+            ControlPermission permission = controlPermissionService.resolve(control, currentUser);
+            if (!permission.canEdit()) {
+                response.put("success", false);
+                response.put("message", "You do not have permission to attach files to this control");
+                return ResponseEntity.status(403).body(response);
+            }
+            
+            String controlFolder = resolveControlFolder(control);
             List<String> addedDetails = new ArrayList<>();
             List<String> addedDocuments = new ArrayList<>();
 
@@ -147,8 +164,22 @@ public class FileAttachmentController {
      */
     @GetMapping("/download/{filename:.+}")
     public ResponseEntity<byte[]> downloadFile(@PathVariable String filename,
-                                               @RequestParam(value = "controlId", required = false) Long controlId) {
+                                               @RequestParam(value = "controlId", required = false) Long controlId,
+                                               HttpSession session) {
         try {
+            if (controlId == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+            User currentUser = (User) session.getAttribute("currentUser");
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            Control control = controlService.findById(controlId)
+                    .orElseThrow(() -> new RuntimeException("Control not found"));
+            if (!controlPermissionService.resolve(control, currentUser).canView()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            
             String decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8);
             String controlFolder = resolveControlFolder(controlId);
             byte[] fileContent = controlFolder == null
@@ -173,8 +204,22 @@ public class FileAttachmentController {
      */
     @GetMapping("/view/{filename:.+}")
     public ResponseEntity<byte[]> viewFile(@PathVariable String filename,
-                                           @RequestParam(value = "controlId", required = false) Long controlId) {
+                                           @RequestParam(value = "controlId", required = false) Long controlId,
+                                           HttpSession session) {
         try {
+            if (controlId == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+            User currentUser = (User) session.getAttribute("currentUser");
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            Control control = controlService.findById(controlId)
+                    .orElseThrow(() -> new RuntimeException("Control not found"));
+            if (!controlPermissionService.resolve(control, currentUser).canView()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            
             String decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8);
             String controlFolder = resolveControlFolder(controlId);
             byte[] fileContent = controlFolder == null
@@ -232,6 +277,19 @@ public class FileAttachmentController {
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found: " + controlId));
             User currentUser = getCurrentUser(session);
+            if (currentUser == null) {
+                response.put("success", false);
+                response.put("message", "User not authenticated");
+                return ResponseEntity.status(401).body(response);
+            }
+            
+            ControlPermission permission = controlPermissionService.resolve(control, currentUser);
+            if (!permission.canEdit()) {
+                response.put("success", false);
+                response.put("message", "You do not have permission to delete files from this control");
+                return ResponseEntity.status(403).body(response);
+            }
+            
             boolean removed = false;
             String tabLabel = "details".equalsIgnoreCase(type) ? "DETAILS" : "DOCUMENTS";
 

@@ -25,6 +25,7 @@ import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -64,10 +65,15 @@ public class ControlController {
     private static final Logger logger = LoggerFactory.getLogger(ControlController.class);
 
     @GetMapping
-    public List<ControlResponseDTO> getAllControls() {
-        return controlService.getAllControls().stream()
+    public ResponseEntity<?> getAllControls(HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        List<ControlResponseDTO> controls = controlService.findVisibleControlsForUser(currentUser.getMail(), currentUser.getRole()).stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
+        return ResponseEntity.ok(controls);
     }
 
     /**
@@ -98,8 +104,18 @@ public class ControlController {
 
     @PostMapping("/{id}/rename-id")
     public ResponseEntity<?> renameControlId(@PathVariable Long id,
-                                             @RequestBody Map<String, String> request) {
+                                             @RequestBody Map<String, String> request,
+                                             HttpSession session) {
         try {
+            User currentUser = (User) session.getAttribute("currentUser");
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            Control control = controlService.findById(id).orElseThrow(() -> new RuntimeException("Control not found"));
+            if (!controlPermissionService.resolve(control, currentUser).canEditAll()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not authorized to rename controls");
+            }
+            
             String newControlId = request.get("newControlId");
             if (newControlId == null || newControlId.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body("Control ID cannot be empty");
@@ -114,26 +130,51 @@ public class ControlController {
     }
 
     @GetMapping("/user/{email}")
-    public List<ControlResponseDTO> getUserControls(@PathVariable String email) {
-        return controlService.getUserControls(email).stream()
+    public ResponseEntity<?> getUserControls(@PathVariable String email, HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!currentUser.getMail().equalsIgnoreCase(email) && !Boolean.TRUE.equals(currentUser.getAdminAccess())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        List<ControlResponseDTO> controls = controlService.getUserControls(email).stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
+        return ResponseEntity.ok(controls);
     }
 
     @GetMapping("/component/{component}")
-    public List<ControlResponseDTO> getControlsByComponent(@PathVariable String component) {
-        return controlService.getControlsByComponent(component).stream()
+    public ResponseEntity<?> getControlsByComponent(@PathVariable String component, HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        List<ControlResponseDTO> controls = controlService.getControlsByComponent(component).stream()
+                .filter(c -> controlPermissionService.resolve(controlService.findById(c.getId()).get(), currentUser).canView())
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
+        return ResponseEntity.ok(controls);
     }
 
     @GetMapping("/{id}/changelog")
-    public ResponseEntity<List<ControlHistoryEntryDTO>> getControlChangelog(@PathVariable Long id) {
+    public ResponseEntity<?> getControlChangelog(@PathVariable Long id, HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        java.util.Optional<Control> controlOpt = controlService.findById(id);
+        if (controlOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!controlPermissionService.resolve(controlOpt.get(), currentUser).canView()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(controlHistoryService.getControlHistory(id));
     }
 
     @PostMapping
-    public ResponseEntity<?> createControl(@RequestBody ControlDTO controlDTO, HttpSession session) {
+    public ResponseEntity<?> createControl(@Valid @RequestBody ControlDTO controlDTO, HttpSession session) {
         try {
             logger.info("Creating control with ID: {}", controlDTO.getControlId());
 
@@ -456,7 +497,7 @@ public class ControlController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateControl(@PathVariable Long id, @RequestBody ControlDTO controlDTO, HttpSession session) {
+    public ResponseEntity<?> updateControl(@PathVariable Long id, @Valid @RequestBody ControlDTO controlDTO, HttpSession session) {
         try {
             // Get current user from session
             User currentUser = (User) session.getAttribute("currentUser");

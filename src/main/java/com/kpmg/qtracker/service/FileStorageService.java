@@ -81,12 +81,21 @@ public class FileStorageService {
 
     public byte[] downloadFile(String filename, String controlFolder) throws IOException {
         String safeFolder = sanitizeFolderName(controlFolder);
-        Path basePath = Paths.get(uploadDir);
+        Path basePath = Paths.get(uploadDir).toAbsolutePath().normalize();
         Path filePath = safeFolder == null || safeFolder.isBlank()
-                ? basePath.resolve(filename)
-                : basePath.resolve(safeFolder).resolve(filename);
+                ? basePath.resolve(filename).normalize()
+                : basePath.resolve(safeFolder).resolve(filename).normalize();
+                
+        if (!filePath.startsWith(basePath)) {
+            throw new SecurityException("Path traversal attempt detected!");
+        }
+        
         if (!Files.exists(filePath) && safeFolder != null && !safeFolder.isBlank()) {
-            filePath = basePath.resolve(filename);
+            Path fallbackPath = basePath.resolve(filename).normalize();
+            if (!fallbackPath.startsWith(basePath)) {
+                throw new SecurityException("Path traversal attempt detected!");
+            }
+            filePath = fallbackPath;
         }
         if (!Files.exists(filePath)) {
             throw new IOException("File not found: " + filename);
@@ -109,9 +118,15 @@ public class FileStorageService {
             return;
         }
         String safeFolder = sanitizeFolderName(controlFolder);
+        Path basePath = Paths.get(uploadDir).toAbsolutePath().normalize();
         Path filePath = (safeFolder == null || safeFolder.isBlank())
-                ? Paths.get(uploadDir).resolve(filename)
-                : Paths.get(uploadDir, safeFolder).resolve(filename);
+                ? basePath.resolve(filename).normalize()
+                : basePath.resolve(safeFolder).resolve(filename).normalize();
+                
+        if (!filePath.startsWith(basePath)) {
+            throw new SecurityException("Path traversal attempt detected!");
+        }
+        
         Files.deleteIfExists(filePath);
         System.out.println("🗑️ File deleted: " + filePath);
     }

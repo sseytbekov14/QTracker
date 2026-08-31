@@ -1,4 +1,4 @@
-﻿console.log('рџ”Ґ VIEW-CONTROL.JS v2.3 Р—РђР“Р РЈР–Р•Рќ - РћР§РР©Р•Рќ РћРў РќР•РРЎРџРћР›Р¬Р—РЈР•РњРћР“Рћ РљРћР”Рђ');
+console.log('рџ”Ґ VIEW-CONTROL.JS v2.3 Р—РђР“Р РЈР–Р•Рќ - РћР§РР©Р•Рќ РћРў РќР•РРЎРџРћР›Р¬Р—РЈР•РњРћР“Рћ РљРћР”Рђ');
 
 let changelogEntries = [];
 let changelogFilter = 'all';
@@ -1450,21 +1450,52 @@ function confirmWorkflowAction() {
         commentsField.style.backgroundColor = '';
     }
 
+function enableFileInputs() {
+    const detailsZone = document.getElementById('detailsUploadZone');
+    const documentsZone = document.getElementById('documentsUploadZone');
+    const detailsInput = document.getElementById('attachmentDetailsInput');
+    const documentsInput = document.getElementById('attachmentDocumentsInput');
+    
+    if (detailsZone) detailsZone.removeAttribute('data-disabled');
+    if (documentsZone) documentsZone.removeAttribute('data-disabled');
+    if (detailsInput) {
+        detailsInput.disabled = false;
+        detailsInput.removeAttribute('disabled');
+        detailsInput.readOnly = false;
+        detailsInput.removeAttribute('readonly');
+        detailsInput.classList.remove('readonly-field');
+        detailsInput.style.pointerEvents = '';
+        detailsInput.style.cursor = '';
+    }
+    if (documentsInput) {
+        documentsInput.disabled = false;
+        documentsInput.removeAttribute('disabled');
+        documentsInput.readOnly = false;
+        documentsInput.removeAttribute('readonly');
+        documentsInput.classList.remove('readonly-field');
+        documentsInput.style.pointerEvents = '';
+        documentsInput.style.cursor = '';
+    }
+    console.log('✅ File inputs enabled');
+}
+
 function makeAllFormsEditable() {
     console.log('=== MAKE ALL FORMS EDITABLE ===');
 
     makeAllFormsReadOnly();
 
     if (stepsPerformedEditOnly) {
-        console.log('вњ… Field-level edit mode: enabling controlStepsPerformed only');
+        console.log('✅ Field-level edit mode: enabling controlStepsPerformed only');
         enableControlStepsPerformedField();
+        enableFileInputs();
         normalizeAssignmentDateFieldsForDisplay();
         return;
     }
 
     if (processOwnerCommentsEditOnly) {
-        console.log('вњ… Process Owner edit mode: enabling processOwnerComments only');
+        console.log('✅ Process Owner edit mode: enabling processOwnerComments only');
         enableProcessOwnerCommentsField();
+        enableFileInputs();
         normalizeAssignmentDateFieldsForDisplay();
         return;
     }
@@ -1594,7 +1625,8 @@ function makeAllFormsEditable() {
         }
     });
 
-    console.log('вњ… All forms are now editable');
+    console.log('✅ All forms are now editable');
+    enableFileInputs();
     normalizeAssignmentDateFieldsForDisplay();
     updateCalculatedDates();
 
@@ -1610,6 +1642,49 @@ function makeAllFormsEditable() {
         console.log('  Style pointerEvents:', controlFreq.style.pointerEvents);
     }
 }
+function validateFieldLengths(formElement) {
+    if (!formElement) return true;
+    let isValid = true;
+    const elements = formElement.querySelectorAll('input[maxlength], textarea[maxlength]');
+    elements.forEach(el => {
+        const maxLength = parseInt(el.getAttribute('maxlength'), 10);
+        if (el.value && el.value.length > maxLength) {
+            isValid = false;
+            el.classList.add('is-invalid');
+            console.error(`Field ${el.name || el.id} exceeds max length of ${maxLength}`);
+        } else {
+            el.classList.remove('is-invalid');
+        }
+    });
+    
+    if (!isValid && typeof showAppModal === 'function') {
+        showAppModal({
+            variant: 'danger',
+            title: 'Validation Error',
+            message: 'Some fields exceed their maximum allowed length. Please check the highlighted fields.'
+        });
+    }
+    
+    return isValid;
+}
+
+function initCharCounters() {
+    const elements = document.querySelectorAll('input[maxlength], textarea[maxlength]');
+    elements.forEach(el => {
+        el.addEventListener('input', function() {
+            const maxLength = parseInt(this.getAttribute('maxlength'), 10);
+            if (this.value.length > maxLength) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initCharCounters();
+});
 
 function saveControlData(controlId) {
     console.log('=== SAVE CONTROL DATA ===');
@@ -1617,6 +1692,10 @@ function saveControlData(controlId) {
     const controlForm = document.getElementById('controlForm');
     if (!controlForm) {
         return Promise.reject('Control form not found');
+    }
+
+    if (!validateFieldLengths(controlForm)) {
+        return Promise.reject('Validation failed');
     }
 
     const getControlValue = (selector) => {
@@ -1698,28 +1777,14 @@ function saveControlData(controlId) {
                 field.classList.add('readonly-field');
                 field.readOnly = true;
                 
-                // Disable file inputs completely and clear selection
+                // Disable file inputs completely
                 if (field.type === 'file') {
                     field.disabled = true;
-                    field.value = ''; // Clear file selection
                     
                     // Disable upload zone
                     const zone = field.closest('.kpmg-upload-zone');
                     if (zone) {
                         zone.setAttribute('data-disabled', 'true');
-                    }
-                    
-                    // Clear "Selected X file(s)" display, but keep existing uploaded files
-                    if (field.id === 'attachmentDetailsInput') {
-                        const infoElement = document.getElementById('detailsFileInfo');
-                        if (infoElement && infoElement.textContent.includes('Selected')) {
-                            infoElement.textContent = ''; // Clear selection display
-                        }
-                    } else if (field.id === 'attachmentDocumentsInput') {
-                        const infoElement = document.getElementById('documentsFileInfo');
-                        if (infoElement && infoElement.textContent.includes('Selected')) {
-                            infoElement.textContent = ''; // Clear selection display
-                        }
                     }
                 }
             }
@@ -2140,6 +2205,11 @@ function saveControlChanges() {
 function saveAssignmentData(controlId) {
     console.log('=== SAVE ASSIGNMENT DATA ===');
 
+    const assignmentForm = document.getElementById('assignmentForm');
+    if (assignmentForm && !validateFieldLengths(assignmentForm)) {
+        return Promise.reject('Validation failed');
+    }
+
     // РџРѕР»СѓС‡Р°РµРј email Р·РЅР°С‡РµРЅРёСЏ
     const getEmailValue = (id) => {
         const element = document.getElementById(id);
@@ -2289,6 +2359,11 @@ function saveAssignmentData(controlId) {
 
 function saveDetailsData(controlId) {
     console.log('=== SAVE DETAILS DATA ===');
+
+    const detailsForm = document.getElementById('detailsForm');
+    if (detailsForm && !validateFieldLengths(detailsForm)) {
+        return Promise.reject('Validation failed');
+    }
 
     const detailsData = buildDetailsPayload(controlId);
     if (!detailsData) {

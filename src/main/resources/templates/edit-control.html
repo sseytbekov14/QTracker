@@ -192,13 +192,13 @@
                             <div class="col-md-6 mb-3">
                                 <label for="controlDescription" class="form-label">Control Description</label>
                                 <textarea class="form-control" id="controlDescription" name="controlDescription"
-                                          rows="5" placeholder="Enter detailed control description"
+                                          rows="5" maxlength="1000" placeholder="Enter detailed control description"
                                           th:text="${control.controlDescription}"></textarea>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="prp" class="form-label">PRP</label>
                                 <textarea class="form-control" id="prp" name="prp"
-                                          rows="5" placeholder="Enter PRP details"
+                                          rows="5" maxlength="1000" placeholder="Enter PRP details"
                                           th:text="${control.prp}"></textarea>
                             </div>
                         </div>
