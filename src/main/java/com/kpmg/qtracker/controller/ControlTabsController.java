@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import java.util.*;
 
 @Controller
@@ -32,7 +33,7 @@ public class ControlTabsController {
     private final ControlPermissionService controlPermissionService;
 
     @PostMapping("/api/control-details")
-    public ResponseEntity<?> saveControlDetails(@RequestBody ControlDetailsDTO detailsDTO, HttpSession session) {
+    public ResponseEntity<?> saveControlDetails(@Valid @RequestBody ControlDetailsDTO detailsDTO, HttpSession session) {
         System.out.println("🎯 CONTROL DETAILS SAVE REQUEST:");
         System.out.println("Control ID: " + detailsDTO.getControlId());
         System.out.println("Process Name: " + detailsDTO.getProcessName());

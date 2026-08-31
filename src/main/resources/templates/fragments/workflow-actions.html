@@ -13,7 +13,7 @@
     <div class="mb-3">
         <label for="approvalComments" class="form-label small">Approval Comments (optional):</label>
         <textarea id="approvalComments" class="form-control form-control-sm"
-                  rows="2" placeholder="Add comments..."></textarea>
+                  rows="2" maxlength="2000" placeholder="Add comments..."></textarea>
         <button onclick="approveControl()" class="btn btn-success btn-sm mt-2">
             <i class="bi bi-check-circle"></i> Approve & Forward
         </button>
@@ -25,7 +25,7 @@
     <div>
         <label for="returnReason" class="form-label small">Return Reason (required):</label>
         <textarea id="returnReason" class="form-control form-control-sm"
-                  rows="2" placeholder="Explain what needs correction..." required></textarea>
+                  rows="2" maxlength="2000" placeholder="Explain what needs correction..." required></textarea>
 
         <!-- Return To Select (для SoQM Team и Process Owner) -->
         <div id="returnToContainer" class="mt-2" style="display: none;">

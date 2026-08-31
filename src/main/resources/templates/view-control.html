@@ -411,6 +411,32 @@
             border-color: var(--border) !important;
             color: var(--text-secondary) !important;
         }
+
+        /* Character counter for textareas with maxlength */
+        .char-counter {
+            font-size: 0.75rem;
+            color: #6c757d;
+            text-align: right;
+            margin-top: 2px;
+            transition: color 0.2s;
+        }
+        .char-counter.warning {
+            color: #e67e22;
+            font-weight: 600;
+        }
+        .char-counter.danger {
+            color: #dc3545;
+            font-weight: 700;
+        }
+        body.theme-dark .char-counter {
+            color: var(--text-secondary);
+        }
+        body.theme-dark .char-counter.warning {
+            color: #f0ad4e;
+        }
+        body.theme-dark .char-counter.danger {
+            color: #e74c3c;
+        }
     </style>
 </head>
 <body>
@@ -590,12 +616,12 @@
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Control Description</label>
-                                        <textarea class="form-control readonly-field" name="controlDescription" rows="8" readonly
+                                        <textarea class="form-control readonly-field" name="controlDescription" rows="8" maxlength="1000" readonly
                                                   th:text="${control.controlDescription}"></textarea>
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">PRP</label>
-                                        <textarea class="form-control readonly-field" name="prp" rows="8" readonly
+                                        <textarea class="form-control readonly-field" name="prp" rows="8" maxlength="1000" readonly
                                                   th:text="${control.prp}"></textarea>
                                     </div>
                                 </div>
@@ -641,7 +667,7 @@
                                 <div class="row">
                                     <div class="col-12 mb-3">
                                         <label class="form-label">Process Activities</label>
-                                        <textarea class="form-control" name="processActivities" rows="4"
+                                        <textarea class="form-control" name="processActivities" rows="4" maxlength="2000"
                                                   placeholder="Describe process activities"></textarea>
                                     </div>
                                 </div>
@@ -662,7 +688,7 @@
                                 <div class="row">
                                     <div class="col-12 mb-3">
                                         <label class="form-label">Control steps performed and results</label>
-                                        <textarea class="form-control" name="controlStepsPerformed" rows="8"
+                                        <textarea class="form-control" name="controlStepsPerformed" rows="8" maxlength="2000"
                                                   placeholder="Describe control steps and results"></textarea>
                                         <div class="required-hint d-none" id="controlStepsSubmitHint">
                                             This field is required before submission.
@@ -677,6 +703,7 @@
                                                   id="soqmHeadComments"
                                                   name="soqmHeadComments" 
                                                   rows="8"
+                                                  maxlength="2000"
                                                   data-allowed-roles="SOQM_TEAM,ADMIN"
                                                   placeholder="Enter SoQM head/team comments"></textarea>
                                     </div>
@@ -689,6 +716,7 @@
                                                   id="processOwnerComments"
                                                   name="processOwnerComments" 
                                                   rows="8"
+                                                  maxlength="2000"
                                                   data-allowed-roles="PROCESS_OWNER,ADMIN"
                                                   placeholder="Enter process owner comments"></textarea>
                                     </div>
@@ -1131,7 +1159,7 @@
                                     <label for="workflowComment" class="form-label fw-bold" id="commentLabel">
                                         Comment
                                     </label>
-                                    <textarea class="form-control" id="workflowComment" rows="4"
+                                    <textarea class="form-control" id="workflowComment" rows="4" maxlength="2000"
                                               placeholder="Enter your comment..."></textarea>
                                 </div>
                             </div>
@@ -1211,7 +1239,7 @@
                                 </p>
                                 <div class="mb-3">
                                     <label for="returnComments" class="form-label">Comments (optional)</label>
-                                    <textarea class="form-control" id="returnComments" rows="3"
+                                    <textarea class="form-control" id="returnComments" rows="3" maxlength="2000"
                                               placeholder="Provide feedback for the Facilitator..."></textarea>
                                 </div>
                             </div>
@@ -1266,7 +1294,7 @@
                                 </p>
                                 <div class="mb-3">
                                     <label for="returnOperatorComments" class="form-label">Comments (optional)</label>
-                                    <textarea class="form-control" id="returnOperatorComments" rows="3" 
+                                    <textarea class="form-control" id="returnOperatorComments" rows="3" maxlength="2000"
                                               placeholder="Provide feedback for the Control Operator..."></textarea>
                                 </div>
                             </div>
@@ -1321,7 +1349,7 @@
                                 </p>
                                 <div class="mb-3">
                                     <label for="returnSoqmLeadComments" class="form-label">Comments (optional)</label>
-                                    <textarea class="form-control" id="returnSoqmLeadComments" rows="3" 
+                                    <textarea class="form-control" id="returnSoqmLeadComments" rows="3" maxlength="2000"
                                               placeholder="Provide feedback for the SoQM Team..."></textarea>
                                 </div>
                             </div>
@@ -1344,7 +1372,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/app-modal.js?v=3"></script>
-<script src="/js/view-control.js?v=3.3"></script>
+<script src="/js/view-control.js?v=3.6"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {
@@ -1654,11 +1682,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const editBtnForRoleRestrictions = document.getElementById('editBtn');
     if (editBtnForRoleRestrictions) {
         editBtnForRoleRestrictions.addEventListener('click', () => {
+            // Apply role/status restrictions first
             setTimeout(() => {
                 console.log('?? Re-applying role restrictions after edit mode activated');
                 applyRoleBasedRestrictions();
                 applyStatusBasedRestrictions();
             }, 100);
+            // Then ensure file zones are enabled (runs after restrictions are applied)
+            setTimeout(() => {
+                console.log('?? Enabling file upload zones in edit mode');
+                const dz = document.getElementById('detailsUploadZone');
+                const docz = document.getElementById('documentsUploadZone');
+                const di = document.getElementById('attachmentDetailsInput');
+                const doi = document.getElementById('attachmentDocumentsInput');
+                if (dz) dz.removeAttribute('data-disabled');
+                if (docz) docz.removeAttribute('data-disabled');
+                if (di) { di.disabled = false; di.removeAttribute('disabled'); }
+                if (doi) { doi.disabled = false; doi.removeAttribute('disabled'); }
+            }, 200);
         });
     }
     
@@ -1695,15 +1736,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const detailsZone = document.getElementById('detailsUploadZone');
     const documentsZone = document.getElementById('documentsUploadZone');
 
-    // Initially disable file inputs (read-only mode by default)
-    if (detailsZone) {
-        detailsZone.setAttribute('data-disabled', 'true');
-        if (detailsInput) detailsInput.disabled = true;
-    }
-    if (documentsZone) {
-        documentsZone.setAttribute('data-disabled', 'true');
-        if (documentsInput) documentsInput.disabled = true;
-    }
+    // Upload zones start disabled; they are enabled when entering Edit mode via enableFileInputs()
+    if (detailsZone) detailsZone.setAttribute('data-disabled', 'true');
+    if (detailsInput) detailsInput.disabled = true;
+    if (documentsZone) documentsZone.setAttribute('data-disabled', 'true');
+    if (documentsInput) documentsInput.disabled = true;
 
     // Drag & drop visual feedback
     [detailsZone, documentsZone].forEach(zone => {
@@ -1716,13 +1753,35 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load existing attachments on page load
     loadExistingAttachments();
     
+    // Use DataTransfer objects to accumulate selected files
+    const detailsDataTransfer = new DataTransfer();
+    const documentsDataTransfer = new DataTransfer();
+
     // Show selected file name when user selects a file
     if (detailsInput) {
         detailsInput.addEventListener('change', function() {
             if (this.files.length > 0) {
+                // Append newly selected files to DataTransfer
+                Array.from(this.files).forEach(file => {
+                    let isDuplicate = false;
+                    for (let i = 0; i < detailsDataTransfer.items.length; i++) {
+                        if (detailsDataTransfer.items[i].getAsFile().name === file.name) {
+                            isDuplicate = true;
+                            break;
+                        }
+                    }
+                    if (!isDuplicate) {
+                        detailsDataTransfer.items.add(file);
+                    }
+                });
+                
+                // Update input's files list
+                this.files = detailsDataTransfer.files;
+
                 const count = this.files.length;
                 if (count > 50) {
                     alert('?? Maximum 50 files allowed. Please select fewer files.');
+                    detailsDataTransfer.items.clear();
                     this.value = '';
                     if (detailsFileInfo) detailsFileInfo.textContent = '';
                     return;
@@ -1737,16 +1796,34 @@ document.addEventListener('DOMContentLoaded', function() {
     if (documentsInput) {
         documentsInput.addEventListener('change', function() {
             if (this.files.length > 0) {
+                // Append newly selected files to DataTransfer
+                Array.from(this.files).forEach(file => {
+                    let isDuplicate = false;
+                    for (let i = 0; i < documentsDataTransfer.items.length; i++) {
+                        if (documentsDataTransfer.items[i].getAsFile().name === file.name) {
+                            isDuplicate = true;
+                            break;
+                        }
+                    }
+                    if (!isDuplicate) {
+                        documentsDataTransfer.items.add(file);
+                    }
+                });
+                
+                // Update input's files list
+                this.files = documentsDataTransfer.files;
+
                 const count = this.files.length;
                 if (count > 50) {
                     alert('?? Maximum 50 files allowed. Please select fewer files.');
+                    documentsDataTransfer.items.clear();
                     this.value = '';
                     if (documentsFileInfo) documentsFileInfo.textContent = '';
                     return;
                 }
                 const fileNames = Array.from(this.files).map(f => f.name).join(', ');
                 if (documentsFileInfo) documentsFileInfo.textContent = `?? Selected ${count} file(s): ${fileNames.substring(0, 100)}${fileNames.length > 100 ? '...' : ''}`;
-                console.log('?? Documents file selected:', this.files[0].name);
+                console.log('?? Documents files selected:', count);
             }
         });
     }
