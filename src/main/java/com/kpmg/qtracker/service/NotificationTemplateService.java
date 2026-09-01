@@ -43,6 +43,7 @@ public class NotificationTemplateService {
                                 "The scheduled control " + controlIdAndNameSlash + " has been activated today. Kindly complete and submit the control as required before the deadline " + deadlineText + ".\n" +
                                 "\n" +
                                 "Please click the \"Go to Control\" button below to access the control.\n" +
+                                link + "\n" +
                                 "\n" +
                                 "Thank you,\n" +
                                 "\n" +
@@ -149,6 +150,7 @@ public class NotificationTemplateService {
                                 "The following control remains incomplete: " + controlIdAndNameComma + "\n" +
                                 "\n" +
                                 "Please ensure this control is completed by the end of the day. Click the \"Go to Control\" button below to access and complete the control.\n" +
+                                link + "\n" +
                                 "\n" +
                                 "If you have any questions or require assistance, please let us know.\n" +
                                 "\n" +

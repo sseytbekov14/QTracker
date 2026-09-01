@@ -3,6 +3,8 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.ControlPermission;
+import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.FileStorageService;
 import org.junit.jupiter.api.Test;
@@ -39,6 +41,9 @@ class FileAttachmentControllerTest {
     private ControlService controlService;
 
     @MockBean
+    private ControlPermissionService controlPermissionService;
+
+    @MockBean
     private AdminAuditService adminAuditService;
 
     @Test
@@ -49,6 +54,12 @@ class FileAttachmentControllerTest {
         control.setAttachmentDetailsPath(buildList(50));
         when(controlService.getControlById(1L)).thenReturn(Optional.of(control));
 
+        User user = new User();
+        user.setMail("user@test.com");
+        user.setDisplayName("Test User");
+        when(controlPermissionService.resolve(any(Control.class), any(User.class)))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false, false));
+
         MockMultipartFile file = new MockMultipartFile(
                 "attachmentDetails",
                 "file.txt",
@@ -56,7 +67,8 @@ class FileAttachmentControllerTest {
                 "data".getBytes()
         );
 
-        mockMvc.perform(multipart("/api/attachments/upload/1").file(file))
+        mockMvc.perform(multipart("/api/attachments/upload/1").file(file)
+                        .sessionAttr("currentUser", user))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Maximum 50 files allowed for Details attachments."));
     }
@@ -69,6 +81,12 @@ class FileAttachmentControllerTest {
         control.setAttachmentDocumentsPath(buildList(50));
         when(controlService.getControlById(2L)).thenReturn(Optional.of(control));
 
+        User user = new User();
+        user.setMail("user@test.com");
+        user.setDisplayName("Test User");
+        when(controlPermissionService.resolve(any(Control.class), any(User.class)))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false, false));
+
         MockMultipartFile file = new MockMultipartFile(
                 "attachmentDocuments",
                 "file.txt",
@@ -76,7 +94,8 @@ class FileAttachmentControllerTest {
                 "data".getBytes()
         );
 
-        mockMvc.perform(multipart("/api/attachments/upload/2").file(file))
+        mockMvc.perform(multipart("/api/attachments/upload/2").file(file)
+                        .sessionAttr("currentUser", user))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Maximum 50 files allowed for Documents attachments."));
     }
@@ -93,6 +112,8 @@ class FileAttachmentControllerTest {
         User user = new User();
         user.setMail("user@test.com");
         user.setDisplayName("Test User");
+        when(controlPermissionService.resolve(any(Control.class), any(User.class)))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false, false));
 
         MockMultipartFile file = new MockMultipartFile(
                 "attachmentDetails",
@@ -131,6 +152,8 @@ class FileAttachmentControllerTest {
         User user = new User();
         user.setMail("user@test.com");
         user.setDisplayName("Test User");
+        when(controlPermissionService.resolve(any(Control.class), any(User.class)))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false, false));
 
         mockMvc.perform(delete("/api/attachments/delete/4")
                         .param("filename", "old.txt")
