@@ -2,8 +2,10 @@ package com.kpmg.qtracker.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.ControlAttachment;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.ControlAttachmentService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
@@ -39,6 +41,7 @@ public class FileAttachmentController {
     private final ControlService controlService;
     private final ControlPermissionService controlPermissionService;
     private final AdminAuditService adminAuditService;
+    private final ControlAttachmentService controlAttachmentService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final int MAX_FILES_PER_TAB = 50;
@@ -98,17 +101,15 @@ public class FileAttachmentController {
             try {
                 if (detailsFiles != null && detailsFiles.length > 0) {
                     saveFiles(detailsFiles, controlFolder, addedDetails);
-                    control.setAttachmentDetailsPath(appendToList(control.getAttachmentDetailsPath(), addedDetails));
                     response.put("detailsFiles", String.join(";", addedDetails));
                 }
                 if (documentsFiles != null && documentsFiles.length > 0) {
                     saveFiles(documentsFiles, controlFolder, addedDocuments);
-                    control.setAttachmentDocumentsPath(appendToList(control.getAttachmentDocumentsPath(), addedDocuments));
                     response.put("documentsFiles", String.join(";", addedDocuments));
                 }
 
-                // Update control in database
-                controlService.updateControl(control);
+                // File lists and upload records (author, stage) in one transaction
+                controlAttachmentService.recordUpload(control, addedDetails, addedDocuments, currentUser);
             } catch (Exception e) {
                 // Don't leave orphaned files on disk when the upload fails midway
                 deleteQuietly(addedDetails, controlFolder);
@@ -194,14 +195,6 @@ public class FileAttachmentController {
                 }
             }
         }
-    }
-
-    private String appendToList(String existing, List<String> added) {
-        String addedList = String.join(";", added);
-        if (existing == null || existing.isBlank()) {
-            return addedList;
-        }
-        return addedList.isEmpty() ? existing : existing + ";" + addedList;
     }
 
     private void deleteQuietly(List<String> filenames, String controlFolder) {
@@ -339,56 +332,36 @@ public class FileAttachmentController {
                 return ResponseEntity.status(401).body(response);
             }
             
+            String tabLabel = "details".equalsIgnoreCase(type) ? ControlAttachment.TAB_DETAILS : ControlAttachment.TAB_DOCUMENTS;
             ControlPermission permission = controlPermissionService.resolve(control, currentUser);
-            if (!permission.canEdit()) {
+            if (!controlAttachmentService.canDelete(control, tabLabel, decodedFilename.trim(), currentUser, permission)) {
                 response.put("success", false);
-                response.put("message", "You do not have permission to delete files from this control");
+                response.put("message", "Only the user who uploaded this file (in the same workflow stage) or SoQM Team can delete it");
                 return ResponseEntity.status(403).body(response);
             }
-            
-            boolean removed = false;
-            String tabLabel = "details".equalsIgnoreCase(type) ? "DETAILS" : "DOCUMENTS";
 
-            String currentPath;
-            if ("details".equalsIgnoreCase(type)) {
-                currentPath = control.getAttachmentDetailsPath();
-            } else {
-                currentPath = control.getAttachmentDocumentsPath();
-            }
-
+            String currentPath = ControlAttachment.TAB_DETAILS.equals(tabLabel)
+                    ? control.getAttachmentDetailsPath()
+                    : control.getAttachmentDocumentsPath();
             if (currentPath == null || currentPath.isBlank()) {
                 response.put("success", false);
                 response.put("message", "No files to delete");
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // Remove the file from the semicolon-separated list
-            String[] files = currentPath.split(";");
-            StringBuilder updated = new StringBuilder();
-            for (String f : files) {
-                if (f.trim().isEmpty()) continue;
-                if (f.trim().equals(decodedFilename.trim())) {
-                    removed = true;
-                    continue; // skip deleted
+            boolean removed = controlAttachmentService.removeFromControl(control, tabLabel, decodedFilename);
+
+            // Both tabs share the control folder; keep the file on disk while the other tab still lists it
+            String otherPath = ControlAttachment.TAB_DETAILS.equals(tabLabel)
+                    ? control.getAttachmentDocumentsPath()
+                    : control.getAttachmentDetailsPath();
+            if (removed && !hasAttachment(otherPath, decodedFilename.trim())) {
+                try {
+                    String controlFolder = resolveControlFolder(control);
+                    fileStorageService.deleteFile(decodedFilename, controlFolder);
+                } catch (Exception e) {
+                    System.out.println("⚠️ Could not delete physical file: " + e.getMessage());
                 }
-                if (updated.length() > 0) updated.append(";");
-                updated.append(f.trim());
-            }
-
-            String newPath = updated.length() > 0 ? updated.toString() : null;
-            if ("details".equalsIgnoreCase(type)) {
-                control.setAttachmentDetailsPath(newPath);
-            } else {
-                control.setAttachmentDocumentsPath(newPath);
-            }
-            controlService.updateControl(control);
-
-            // Try to delete physical file
-            try {
-                String controlFolder = resolveControlFolder(control);
-                fileStorageService.deleteFile(decodedFilename, controlFolder);
-            } catch (Exception e) {
-                System.out.println("⚠️ Could not delete physical file: " + e.getMessage());
             }
 
             if (removed) {
@@ -402,6 +375,18 @@ public class FileAttachmentController {
             response.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
+    }
+
+    private boolean hasAttachment(String storedList, String filename) {
+        if (storedList == null || storedList.isBlank()) {
+            return false;
+        }
+        for (String part : storedList.split(";")) {
+            if (part.trim().equals(filename)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int countExistingFiles(String storedList) {

@@ -3,6 +3,7 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.ControlAttachmentService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlService;
@@ -48,6 +49,9 @@ class FileAttachmentControllerTest {
 
     @MockBean
     private AdminAuditService adminAuditService;
+
+    @MockBean
+    private ControlAttachmentService controlAttachmentService;
 
     @Test
     void uploadDetails_overLimit_returnsBadRequest() throws Exception {
@@ -157,6 +161,9 @@ class FileAttachmentControllerTest {
         user.setDisplayName("Test User");
         when(controlPermissionService.resolve(any(Control.class), any(User.class)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false, false));
+        when(controlAttachmentService.canDelete(any(Control.class), eq("DETAILS"), eq("old.txt"), any(User.class), any()))
+                .thenReturn(true);
+        when(controlAttachmentService.removeFromControl(any(Control.class), eq("DETAILS"), eq("old.txt"))).thenReturn(true);
 
         mockMvc.perform(delete("/api/attachments/delete/4")
                         .param("filename", "old.txt")

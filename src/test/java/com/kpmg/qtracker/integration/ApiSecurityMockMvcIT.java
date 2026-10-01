@@ -3,10 +3,12 @@ package com.kpmg.qtracker.integration;
 import com.kpmg.qtracker.config.DevUserSeeder;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
+import com.kpmg.qtracker.entity.ControlAttachment;
 import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
+import com.kpmg.qtracker.repository.ControlAttachmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
@@ -25,6 +27,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.mock.web.MockMultipartFile;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -40,6 +43,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -60,7 +64,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.jpa.show-sql=false",
         "spring.flyway.enabled=false",
-        "reminders.enabled=false"
+        "reminders.enabled=false",
+        "file.upload.dir=target/it-uploads"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles({"test", "dev"})
@@ -92,11 +97,16 @@ class ApiSecurityMockMvcIT {
     @Autowired
     private ControlDetailsRepository detailsRepository;
 
+    @Autowired
+    private ControlAttachmentRepository attachmentRepository;
+
     @MockitoBean
     private DevUserSeeder devUserSeeder;
 
     @MockitoSpyBean
     private WorkflowHistoryRepository workflowHistoryRepository;
+
+    private static int loginCount;
 
     private final List<Long> createdControlIds = new ArrayList<>();
     private final List<Long> createdUserIds = new ArrayList<>();
@@ -492,6 +502,100 @@ class ApiSecurityMockMvcIT {
                 .isEqualTo("SOQM_HEAD_REVIEW");
     }
 
+    @Test
+    void uploader_canDeleteOwnFile_inSameStage() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-ATT-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+        MockHttpSession session = login(p.facilitator.getMail());
+
+        String stored = upload(control, session, "Отчёт о проверке.pdf");
+        assertThat(stored).isEqualTo("Отчёт_о_проверке.pdf");
+        ControlAttachment record = attachmentRepository
+                .findByControlIdAndTabAndFileName(control.getId(), ControlAttachment.TAB_DETAILS, stored).orElseThrow();
+        assertThat(record.getUploadedByEmail()).isEqualTo(p.facilitator.getMail());
+        assertThat(record.getUploadedStage()).isEqualTo("IN_PROGRESS");
+
+        deleteAttachment(control, session, stored).andExpect(status().isOk());
+
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getAttachmentDetailsPath()).isNull();
+        assertThat(attachmentRepository.findByControlIdAndTabAndFileName(
+                control.getId(), ControlAttachment.TAB_DETAILS, stored)).isEmpty();
+    }
+
+    @Test
+    void otherParticipant_cannotDeleteSomeoneElsesFile_returns403() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-ATT-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+        String stored = upload(control, login(p.facilitator.getMail()), "evidence.pdf");
+        moveTo(control, "REVIEW");
+
+        // The Control Operator may edit in REVIEW, but did not upload the file
+        deleteAttachment(control, login(p.operator.getMail()), stored)
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(containsString("Only the user who uploaded this file")));
+
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getAttachmentDetailsPath())
+                .isEqualTo(stored);
+    }
+
+    @Test
+    void uploader_cannotDeleteOwnFile_afterStageChanged_returns403() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-ATT-" + suffix(), p.soqm, "IN_PROGRESS");
+        // One person is both Facilitator and Control Operator, so they can edit in both stages
+        assign(control, new Participants(p.facilitator, p.facilitator, p.soqm, p.owner));
+        MockHttpSession session = login(p.facilitator.getMail());
+        String stored = upload(control, session, "evidence.pdf");
+        moveTo(control, "REVIEW");
+
+        deleteAttachment(control, session, stored).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void fileWithoutUploadRecord_onlySoqmCanDelete() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-ATT-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+        // Attached before V5 by the facilitator: listed on the control, no record of who uploaded it
+        Control stored = controlRepository.findById(control.getId()).orElseThrow();
+        stored.setAttachmentDetailsPath("Старый_файл.pdf");
+        controlRepository.save(stored);
+
+        deleteAttachment(control, login(p.facilitator.getMail()), "Старый_файл.pdf")
+                .andExpect(status().isForbidden());
+
+        deleteAttachment(control, login(p.soqm.getMail()), "Старый_файл.pdf")
+                .andExpect(status().isOk());
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getAttachmentDetailsPath()).isNull();
+    }
+
+    private String upload(Control control, MockHttpSession session, String originalName) throws Exception {
+        MockMultipartFile file = new MockMultipartFile("attachmentDetails", originalName, "application/pdf",
+                "%PDF-1.4 test".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String body = mockMvc.perform(multipart("/api/attachments/upload/{id}", control.getId())
+                        .file(file)
+                        .session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        return com.jayway.jsonpath.JsonPath.read(body, "$.detailsFiles");
+    }
+
+    private org.springframework.test.web.servlet.ResultActions deleteAttachment(Control control, MockHttpSession session,
+                                                                               String fileName) throws Exception {
+        return mockMvc.perform(delete("/api/attachments/delete/{id}", control.getId())
+                .param("filename", fileName)
+                .param("type", "details")
+                .session(session));
+    }
+
+    private void moveTo(Control control, String status) {
+        Control stored = controlRepository.findById(control.getId()).orElseThrow();
+        stored.setPerformanceStatus(status);
+        controlRepository.save(stored);
+    }
+
     private User saveUser(String username, String mail, String role) {
         User user = new User();
         user.setMail(mail);
@@ -555,8 +659,14 @@ class ApiSecurityMockMvcIT {
 
     /** Logs in through the form login filter; its success handler puts currentUser into the session. */
     private MockHttpSession login(String mail) throws Exception {
+        // Each login from its own address: RateLimitingFilter allows 20 logins per minute per address
+        String clientAddress = "10.0." + (loginCount / 250) + "." + (1 + loginCount++ % 250);
         MvcResult login = mockMvc.perform(post("/login")
                         .with(csrf())
+                        .with(request -> {
+                            request.setRemoteAddr(clientAddress);
+                            return request;
+                        })
                         .param("username", mail)
                         .param("password", PASSWORD))
                 .andExpect(status().is3xxRedirection())

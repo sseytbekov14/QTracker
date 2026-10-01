@@ -134,7 +134,7 @@ All endpoints below require an active authenticated session. Unauthenticated req
 | `GET` | `/api/attachments/download/{filename}` | `FileAttachmentController` | Assigned users | Download file |
 | `GET` | `/api/attachments/view/{filename}` | `FileAttachmentController` | Assigned users | Inline view (PDF, image) |
 | `GET` | `/api/attachments/info/{controlId}` | `FileAttachmentController` | Assigned users | Get attachment metadata |
-| `DELETE` | `/api/attachments/delete/{controlId}` | `FileAttachmentController` | Assigned users | Remove attachment |
+| `DELETE` | `/api/attachments/delete/{controlId}` | `FileAttachmentController` | Uploader in the same workflow stage, or `SOQM_TEAM` | Remove attachment |
 
 #### 3.2.4 Users (`/api/users`, `/api/admin`)
 
