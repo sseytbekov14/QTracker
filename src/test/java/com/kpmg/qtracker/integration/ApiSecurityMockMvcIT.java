@@ -419,6 +419,26 @@ class ApiSecurityMockMvcIT {
         assertThat(controlRepository.findById(control.getId())).isPresent();
     }
 
+    @Test
+    void legacyStepApproveAndReturn_areNotExposed() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-LEG-" + suffix(), p.soqm, "REVIEW");
+        assign(control, p);
+
+        MockHttpSession session = login(p.operator.getMail());
+
+        for (String url : List.of("/api/workflow/approve", "/api/workflow/return")) {
+            mockMvc.perform(post(url)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"controlId\":" + control.getId() + "}")
+                            .session(session))
+                    .andExpect(status().isNotFound());
+        }
+
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
+                .isEqualTo("REVIEW");
+    }
+
     private User saveUser(String username, String mail, String role) {
         User user = new User();
         user.setMail(mail);

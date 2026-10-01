@@ -120,8 +120,6 @@ All endpoints below require an active authenticated session. Unauthenticated req
 |---|---|---|---|---|
 | `POST` | `/api/workflow/perform-action` | `WorkflowController` | Assigned users | Generic workflow action dispatch |
 | `GET` | `/api/workflow/{controlId}/status` | `WorkflowController` | Assigned users | Get current workflow status |
-| `POST` | `/api/workflow/approve` | `WorkflowController` | Assigned approvers | Approve current step |
-| `POST` | `/api/workflow/return` | `WorkflowController` | Assigned approvers | Return step for revision |
 | `GET` | `/api/workflow/my-approvals` | `WorkflowController` | All authenticated | List controls pending user's approval |
 | `POST` | `/api/workflow/submit-to-process-owner` | `WorkflowController` | `SOQM_TEAM` | Move to PROCESS_OWNER_REVIEW |
 | `POST` | `/api/workflow/return-to-operator` | `WorkflowController` | `SOQM_TEAM` | Return to REVIEW (Control Operator) |

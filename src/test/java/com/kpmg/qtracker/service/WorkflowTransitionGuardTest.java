@@ -2,7 +2,6 @@ package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.enums.WorkflowStepType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -132,13 +131,6 @@ class WorkflowTransitionGuardTest {
     void unknownAction_hasNoTransitions() {
         assertThat(WorkflowTransition.forAction("DELETE_EVERYTHING")).isEmpty();
         assertThat(WorkflowTransition.forAction(null)).isEmpty();
-    }
-
-    @Test
-    void facilitatorStep_cannotBeReturned() {
-        assertThat(WorkflowTransition.forStepReturn(WorkflowStepType.FACILITATOR)).isEmpty();
-        assertThat(WorkflowTransition.forStepApproval(WorkflowStepType.PROCESS_OWNER))
-                .contains(WorkflowTransition.COMPLETE);
     }
 
     private ControlPermission permissionFor(WorkflowTransition.Actor actor) {

@@ -1,6 +1,5 @@
 package com.kpmg.qtracker.service;
 
-import com.kpmg.qtracker.dto.WorkflowActionDTO;
 import com.kpmg.qtracker.dto.WorkflowButtonDTO;
 import com.kpmg.qtracker.dto.WorkflowStepDTO;
 import com.kpmg.qtracker.entity.Control;
@@ -23,12 +22,6 @@ public interface WorkflowService {
     Map<String, Boolean> getUserPermissions(Long controlId, String userEmail);
 
     List<WorkflowStepDTO> getWorkflowSteps(Long controlId);
-
-    // Аппрув текущего шага
-    WorkflowStepDTO approveStep(WorkflowActionDTO actionDTO, String approverEmail);
-
-    // Возврат на доработку
-    WorkflowStepDTO returnStep(WorkflowActionDTO actionDTO, String approverEmail);
 
     // Получить контроли ожидающие моего апрува
     List<Control> getPendingApprovals(String userEmail);

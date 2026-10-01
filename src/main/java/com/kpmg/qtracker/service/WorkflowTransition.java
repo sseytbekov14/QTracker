@@ -1,11 +1,8 @@
 package com.kpmg.qtracker.service;
 
-import com.kpmg.qtracker.enums.WorkflowStepType;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Allowed workflow transitions: which status a transition starts from, where it leads
@@ -96,31 +93,5 @@ public enum WorkflowTransition {
             return List.of();
         }
         return ACTIONS.getOrDefault(action.trim().toUpperCase(Locale.ROOT), List.of());
-    }
-
-    /** Transition equivalent to approving the active legacy workflow step. */
-    public static Optional<WorkflowTransition> forStepApproval(WorkflowStepType stepType) {
-        if (stepType == null) {
-            return Optional.empty();
-        }
-        return Optional.of(switch (stepType) {
-            case FACILITATOR -> SUBMIT_TO_CONTROL_OPERATOR;
-            case CONTROL_OPERATOR -> SUBMIT_TO_SOQM_TEAM;
-            case SOQM_TEAM -> SUBMIT_TO_PROCESS_OWNER;
-            case PROCESS_OWNER -> COMPLETE;
-        });
-    }
-
-    /** Transition equivalent to returning the active legacy workflow step; the Facilitator step cannot be returned. */
-    public static Optional<WorkflowTransition> forStepReturn(WorkflowStepType stepType) {
-        if (stepType == null) {
-            return Optional.empty();
-        }
-        return switch (stepType) {
-            case FACILITATOR -> Optional.empty();
-            case CONTROL_OPERATOR -> Optional.of(RETURN_TO_FACILITATOR);
-            case SOQM_TEAM -> Optional.of(RETURN_TO_OPERATOR);
-            case PROCESS_OWNER -> Optional.of(RETURN_TO_SOQM_TEAM);
-        };
     }
 }

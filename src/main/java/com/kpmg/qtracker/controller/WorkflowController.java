@@ -194,54 +194,6 @@ public class WorkflowController {
         }
     }
 
-    @PostMapping("/approve")
-    public ResponseEntity<?> approveStep(@Valid @RequestBody WorkflowActionDTO actionDTO,
-                                         HttpSession session) {
-        try {
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(401).body("User not authenticated");
-            }
-
-            Control control = controlService.getControlById(actionDTO.getControlId())
-                    .orElseThrow(() -> new RuntimeException("Control not found"));
-            ResponseEntity<?> restrictedResponse = denyStepTransition(control, currentUser, true);
-            if (restrictedResponse != null) {
-                return restrictedResponse;
-            }
-            workflowService.approveStep(actionDTO, currentUser.getMail());
-            return ResponseEntity.ok().build();
-
-        } catch (Exception e) {
-            log.error("Error approving step: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    @PostMapping("/return")
-    public ResponseEntity<?> returnStep(@Valid @RequestBody WorkflowActionDTO actionDTO,
-                                        HttpSession session) {
-        try {
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(401).body("User not authenticated");
-            }
-
-            Control control = controlService.getControlById(actionDTO.getControlId())
-                    .orElseThrow(() -> new RuntimeException("Control not found"));
-            ResponseEntity<?> restrictedResponse = denyStepTransition(control, currentUser, false);
-            if (restrictedResponse != null) {
-                return restrictedResponse;
-            }
-            workflowService.returnStep(actionDTO, currentUser.getMail());
-            return ResponseEntity.ok().build();
-
-        } catch (Exception e) {
-            log.error("Error returning step: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
     @GetMapping("/my-approvals")
     public ResponseEntity<List<PendingApprovalDTO>> getMyPendingApprovals(HttpSession session) {
         try {
@@ -746,21 +698,5 @@ public class WorkflowController {
         WorkflowTransitionGuard.Decision decision = transitionGuard.check(
                 control, currentUser, controlPermissionService.resolve(control, currentUser), transition);
         return decision.allowed() ? null : ResponseEntity.status(decision.httpStatus()).body(decision.message());
-    }
-
-    // Legacy workflow_steps endpoints: the active step defines who may act and which control status it requires
-    private ResponseEntity<?> denyStepTransition(Control control, User currentUser, boolean approve) {
-        WorkflowStepDTO currentStep = workflowService.getCurrentStep(control.getId());
-        if (currentStep == null) {
-            return ResponseEntity.status(WorkflowTransitionGuard.CONFLICT).body("No active workflow step found");
-        }
-        Optional<WorkflowTransition> transition = approve
-                ? WorkflowTransition.forStepApproval(currentStep.getStepType())
-                : WorkflowTransition.forStepReturn(currentStep.getStepType());
-        if (transition.isEmpty()) {
-            return ResponseEntity.status(WorkflowTransitionGuard.CONFLICT)
-                    .body("The current workflow step cannot be returned");
-        }
-        return denyTransition(control, currentUser, transition.get());
     }
 }

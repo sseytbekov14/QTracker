@@ -1,9 +1,7 @@
 package com.kpmg.qtracker.controller;
 
-import com.kpmg.qtracker.dto.WorkflowStepDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.enums.WorkflowStepType;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlPermission;
@@ -31,7 +29,6 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -195,44 +192,6 @@ class WorkflowControllerTransitionGuardTest {
         assertThat(control.getPerformanceStatus()).isEqualTo("IN_PROGRESS");
     }
 
-    // ---------- legacy approve / return ----------
-
-    @Test
-    void approve_withoutActiveStep_isConflict() throws Exception {
-        givenStatus("REVIEW");
-        when(workflowService.getCurrentStep(CONTROL_ID)).thenReturn(null);
-
-        legacy("/api/workflow/approve").andExpect(status().isConflict());
-        verify(workflowService, never()).approveStep(any(), anyString());
-    }
-
-    @Test
-    void approve_processOwnerStepByFacilitator_isForbidden() throws Exception {
-        givenStatus("PROCESS_OWNER_REVIEW").as(Role.FACILITATOR);
-        when(workflowService.getCurrentStep(CONTROL_ID)).thenReturn(step(WorkflowStepType.PROCESS_OWNER));
-
-        legacy("/api/workflow/approve").andExpect(status().isForbidden());
-        verify(workflowService, never()).approveStep(any(), anyString());
-    }
-
-    @Test
-    void approve_whenControlStatusDoesNotMatchStep_isConflict() throws Exception {
-        givenStatus("PROCESS_OWNER_REVIEW").as(Role.CONTROL_OPERATOR);
-        when(workflowService.getCurrentStep(CONTROL_ID)).thenReturn(step(WorkflowStepType.CONTROL_OPERATOR));
-
-        legacy("/api/workflow/approve").andExpect(status().isConflict());
-        verify(workflowService, never()).approveStep(any(), anyString());
-    }
-
-    @Test
-    void return_fromFacilitatorStep_isConflict() throws Exception {
-        givenStatus("IN_PROGRESS");
-        when(workflowService.getCurrentStep(CONTROL_ID)).thenReturn(step(WorkflowStepType.FACILITATOR));
-
-        legacy("/api/workflow/return").andExpect(status().isConflict());
-        verify(workflowService, never()).returnStep(any(), anyString());
-    }
-
     // ---------- helpers ----------
 
     private enum Role { FACILITATOR, CONTROL_OPERATOR, SOQM_TEAM, PROCESS_OWNER }
@@ -265,19 +224,5 @@ class WorkflowControllerTransitionGuardTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlId\":" + CONTROL_ID + ",\"action\":\"" + action + "\",\"comment\":\"why\"}")
                 .sessionAttr("currentUser", currentUser));
-    }
-
-    private ResultActions legacy(String url) throws Exception {
-        return mockMvc.perform(MockMvcRequestBuilders.post(url)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlId\":" + CONTROL_ID + "}")
-                .sessionAttr("currentUser", currentUser));
-    }
-
-    private WorkflowStepDTO step(WorkflowStepType type) {
-        WorkflowStepDTO step = new WorkflowStepDTO();
-        step.setControlId(CONTROL_ID);
-        step.setStepType(type);
-        return step;
     }
 }
