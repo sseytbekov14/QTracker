@@ -17,6 +17,7 @@ import java.util.*;import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import com.kpmg.qtracker.util.EmailList;
 
 @Service
 @RequiredArgsConstructor
@@ -209,12 +210,7 @@ public class ControlAssignmentService {
     }
 
     private boolean containsEmail(String fieldValue, String email) {
-        if (fieldValue == null || fieldValue.isBlank() || email == null) {
-            return false;
-        }
-        return java.util.Arrays.stream(fieldValue.split("[,;]"))
-                .map(String::trim)
-                .anyMatch(e -> e.equalsIgnoreCase(email));
+        return EmailList.contains(fieldValue, email);
     }
 
     // ★ ДОБАВИТЬ метод для получения пользователей по роли
@@ -283,13 +279,7 @@ public class ControlAssignmentService {
     }
 
     private List<String> convertStringToList(String str) {
-        if (str == null || str.trim().isEmpty()) {
-            return new ArrayList<>();
-        }
-        return java.util.Arrays.stream(str.split("[,;]"))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toList();
+        return new ArrayList<>(EmailList.parse(str));
     }
 
     private ControlAssignmentDTO convertToDTO(ControlAssignment assignment) {

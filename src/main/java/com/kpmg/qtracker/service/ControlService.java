@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 import com.kpmg.qtracker.service.WorkflowService; // ✅
+import com.kpmg.qtracker.util.EmailList;
 
 @Service
 @RequiredArgsConstructor
@@ -794,13 +795,7 @@ public class ControlService implements IControlService {
     public List<String> getFacilitatorsForControl(Long controlId) {
         Optional<ControlAssignment> assignment = controlAssignmentRepository.findByControlId(controlId);
         if (assignment.isPresent()) {
-            String facilitatorStr = assignment.get().getFacilitator();
-            if (facilitatorStr != null && !facilitatorStr.trim().isEmpty()) {
-                return java.util.Arrays.stream(facilitatorStr.split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .collect(java.util.stream.Collectors.toList());
-            }
+            return new ArrayList<>(EmailList.parse(assignment.get().getFacilitator()));
         }
         return new ArrayList<>();
     }

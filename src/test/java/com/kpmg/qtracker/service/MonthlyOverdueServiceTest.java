@@ -179,6 +179,33 @@ class MonthlyOverdueServiceTest {
         verify(notificationRepository, never()).save(any(Notification.class));
     }
 
+    @Test
+    void overdue1ReachesEveryFacilitator_whenTheListUsesSemicolons() {
+        LocalDate today = LocalDate.now(clock);
+        ReminderControlProjection row = projectionFor(
+                23L,
+                "CTRL-23",
+                "Monthly",
+                "IN_PROGRESS",
+                today.minusDays(2),
+                "fac1@kpmg.kz; fac2@kpmg.kz",
+                null,
+                null,
+                null
+        );
+
+        when(controlRepository.findMonthlyOverdueCandidates()).thenReturn(List.of(row));
+        when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/23");
+        when(userRepository.findByMail("fac1@kpmg.kz")).thenReturn(Optional.of(userWithId(31L, "fac1@kpmg.kz")));
+        when(userRepository.findByMail("fac2@kpmg.kz")).thenReturn(Optional.of(userWithId(32L, "fac2@kpmg.kz")));
+
+        service.runDailyOverdues();
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository, org.mockito.Mockito.times(2)).save(captor.capture());
+        assertThat(captor.getAllValues()).extracting(Notification::getUserId).containsExactly(31L, 32L);
+    }
+
     private ReminderControlProjection projectionFor(Long id,
                                                     String name,
                                                     String frequency,

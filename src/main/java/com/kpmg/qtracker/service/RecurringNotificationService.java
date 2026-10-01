@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import com.kpmg.qtracker.util.EmailList;
 
 @Service
 public class RecurringNotificationService {
@@ -165,8 +166,8 @@ public class RecurringNotificationService {
 
             Control control = buildControl(row);
             List<String> recipients = collectRecipients(
-                    splitEmails(row.getFacilitator()),
-                    splitEmails(row.getControlOperator())
+                    EmailList.parse(row.getFacilitator()),
+                    EmailList.parse(row.getControlOperator())
             );
             if (recipients.isEmpty()) {
                 skipped++;
@@ -319,8 +320,8 @@ public class RecurringNotificationService {
                 continue;
             }
             List<String> recipients = collectRecipients(
-                    splitEmails(row.getFacilitator()),
-                    splitEmails(row.getControlOperator())
+                    EmailList.parse(row.getFacilitator()),
+                    EmailList.parse(row.getControlOperator())
             );
             if (recipients.isEmpty()) {
                 skipped++;
@@ -546,10 +547,10 @@ public class RecurringNotificationService {
     private List<String> overdueRecipientsForRole(Role role, ReminderControlProjection row) {
         Set<String> recipients = new LinkedHashSet<>();
         switch (role) {
-            case FACILITATOR -> addRecipients(recipients, splitEmails(row.getFacilitator()));
-            case CONTROL_OPERATOR -> addRecipients(recipients, splitEmails(row.getControlOperator()));
-            case SOQM_TEAM -> addRecipients(recipients, splitEmails(row.getSoqmLead()));
-            case PROCESS_OWNER -> addRecipients(recipients, splitEmails(row.getProcessOwner()));
+            case FACILITATOR -> addRecipients(recipients, EmailList.parse(row.getFacilitator()));
+            case CONTROL_OPERATOR -> addRecipients(recipients, EmailList.parse(row.getControlOperator()));
+            case SOQM_TEAM -> addRecipients(recipients, EmailList.parse(row.getSoqmLead()));
+            case PROCESS_OWNER -> addRecipients(recipients, EmailList.parse(row.getProcessOwner()));
         }
         return new ArrayList<>(recipients);
     }
@@ -566,20 +567,6 @@ public class RecurringNotificationService {
         }
     }
 
-    private List<String> splitEmails(String raw) {
-        if (raw == null || raw.trim().isEmpty()) {
-            return List.of();
-        }
-        String[] parts = raw.split(",");
-        List<String> results = new ArrayList<>();
-        for (String part : parts) {
-            String trimmed = part.trim();
-            if (!trimmed.isEmpty()) {
-                results.add(trimmed);
-            }
-        }
-        return results;
-    }
 
     private String normalizeStatus(String status) {
         return status.trim()

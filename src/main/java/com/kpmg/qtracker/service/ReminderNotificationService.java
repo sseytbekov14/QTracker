@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import com.kpmg.qtracker.util.EmailList;
 
 @Service
 @RequiredArgsConstructor
@@ -307,22 +308,13 @@ public class ReminderNotificationService {
         dto.setControlId(row.getControlId());
         dto.setControlOperationDate(row.getOperationDate());
         dto.setControlOperationDeadline(row.getDeadlineDate());
-        dto.setFacilitator(splitEmails(row.getFacilitator()));
-        dto.setControlOperator(splitEmails(row.getControlOperator()));
-        dto.setSoqmLead(splitEmails(row.getSoqmLead()));
-        dto.setProcessOwner(splitEmails(row.getProcessOwner()));
+        dto.setFacilitator(EmailList.parse(row.getFacilitator()));
+        dto.setControlOperator(EmailList.parse(row.getControlOperator()));
+        dto.setSoqmLead(EmailList.parse(row.getSoqmLead()));
+        dto.setProcessOwner(EmailList.parse(row.getProcessOwner()));
         return dto;
     }
 
-    private List<String> splitEmails(String raw) {
-        if (raw == null || raw.trim().isEmpty()) {
-            return new ArrayList<>();
-        }
-        return Arrays.stream(raw.split(","))
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .toList();
-    }
 
     @Getter
     public static class ReminderRunSummary {

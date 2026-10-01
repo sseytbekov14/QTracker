@@ -63,6 +63,7 @@ class WorkflowFlowIT {
     private User soqmLead;
     private User processOwner;
     private Control control;
+    private final List<User> extraUsers = new java.util.ArrayList<>();
 
     @BeforeEach
     void setUp() {
@@ -111,6 +112,8 @@ class WorkflowFlowIT {
         deleteUser(operator);
         deleteUser(soqmLead);
         deleteUser(processOwner);
+        extraUsers.forEach(this::deleteUser);
+        extraUsers.clear();
     }
 
     @Test
@@ -182,6 +185,23 @@ class WorkflowFlowIT {
                 .filter(notification -> "RETURN_TO_FACILITATOR".equals(notification.getType()))
                 .count();
         assertEquals(2L, returnNotices);
+    }
+
+    @Test
+    void submitToSoqm_notifiesEverySoqmLead_whenTheListUsesSemicolons() throws Exception {
+        User secondSoqm = saveUser("SOQM_TEAM", "soqm2-" + UUID.randomUUID().toString().substring(0, 8)
+                + "@example.test", "Second SoQM");
+        extraUsers.add(secondSoqm);
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setSoqmLead(soqmLead.getMail() + "; " + secondSoqm.getMail());
+        assignmentRepository.save(assignment);
+        control.setPerformanceStatus("REVIEW");
+        controlRepository.save(control);
+
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-soqm-lead", control.getId(), operator))
+                .andExpect(status().isOk());
+
+        assertNotificationCounts(control.getId(), Map.of(soqmLead.getMail(), 1, secondSoqm.getMail(), 1));
     }
 
     @Test

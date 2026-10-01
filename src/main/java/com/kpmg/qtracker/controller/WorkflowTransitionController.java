@@ -23,6 +23,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import com.kpmg.qtracker.util.EmailList;
 
 @RestController
 @RequestMapping("/api/workflow")
@@ -283,15 +284,7 @@ public class WorkflowTransitionController {
     }
 
     private List<String> splitRecipients(String raw) {
-        Set<String> emails = new LinkedHashSet<>();
-        String[] parts = raw.split(",");
-        for (String part : parts) {
-            String email = part.trim();
-            if (!email.isEmpty()) {
-                emails.add(email);
-            }
-        }
-        return new ArrayList<>(emails);
+        return new ArrayList<>(EmailList.parse(raw));
     }
 
     private String removeEmailFromList(String commaSeparated, String emailToRemove) {

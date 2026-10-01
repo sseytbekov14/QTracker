@@ -511,6 +511,29 @@ class ReminderNotificationServiceTest {
         verify(logRepository, never()).save(any());
     }
 
+    @Test
+    void overdue1ReachesEveryAssignee_whenStoredListsUseSemicolons() {
+        Control control = controlWithFrequency(60L, "Monthly");
+        LocalDate operationDate = workingDaysService.addWorkingDays(TODAY, -20);
+        LocalDate deadlineDate = workingDaysService.addWorkingDays(TODAY, -2);
+        ControlAssignmentDTO assignment = assignmentWithDates(operationDate, deadlineDate);
+        // Stored as one column value, the way older rows and auto-created copies keep it
+        assignment.setFacilitator(List.of("fac1@kpmg.kz; fac2@kpmg.kz"));
+        assignment.setControlOperator(List.of("op1@kpmg.kz;op2@kpmg.kz"));
+
+        ReminderControlProjection row = projectionFor(control, assignment);
+        when(controlRepository.findAllForReminders()).thenReturn(List.of(row));
+
+        service.runDailyReminders(TODAY);
+
+        verify(notificationService).sendTemplateNotifications(
+                any(Control.class),
+                eq(List.of("fac1@kpmg.kz", "fac2@kpmg.kz", "op1@kpmg.kz", "op2@kpmg.kz")),
+                eq(NotificationTemplateService.TemplateType.DEADLINE),
+                eq(false)
+        );
+    }
+
     private Control controlWithFrequency(Long id, String frequency) {
         Control control = new Control();
         control.setId(id);
