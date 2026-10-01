@@ -205,6 +205,20 @@ class WorkflowFlowIT {
     }
 
     @Test
+    void submitToSoqm_notifiesTheSoqmLead_whenAssignedInAnotherCase() throws Exception {
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setSoqmLead(soqmLead.getMail().toUpperCase());
+        assignmentRepository.save(assignment);
+        control.setPerformanceStatus("REVIEW");
+        controlRepository.save(control);
+
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-soqm-lead", control.getId(), operator))
+                .andExpect(status().isOk());
+
+        assertNotificationCounts(control.getId(), Map.of(soqmLead.getMail(), 1));
+    }
+
+    @Test
     void submitToControlOperator_withWrongRole_returns403() throws Exception {
         mockMvc.perform(workflowPost("/api/workflow/submit-to-control-operator", control.getId(), operator))
                 .andExpect(status().isForbidden());

@@ -16,6 +16,7 @@ import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.DeadlineOverdue;
+import com.kpmg.qtracker.service.UserService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
@@ -105,6 +107,9 @@ class ApiSecurityMockMvcIT {
 
     @Autowired
     private ControlAttachmentRepository attachmentRepository;
+
+    @Autowired
+    private UserService userService;
 
     @MockitoBean
     private DevUserSeeder devUserSeeder;
@@ -768,6 +773,41 @@ class ApiSecurityMockMvcIT {
     @SuppressWarnings("unchecked")
     private List<com.kpmg.qtracker.dto.ControlResponseDTO> controlsIn(MvcResult result) {
         return (List<com.kpmg.qtracker.dto.ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
+    }
+
+    @Test
+    void emailCase_isIgnored_forLoginUserLookupAndDuplicateCheck() throws Exception {
+        String s = suffix();
+        // Stored with capitals, as an older row might be
+        User stored = saveUser("legacy-" + s, "Legacy.User-" + s + "@Example.TEST", "FACILITATOR");
+        String lower = "legacy.user-" + s + "@example.test";
+
+        MockHttpSession lowerCaseLogin = login(lower);
+        assertThat(((User) lowerCaseLogin.getAttribute("currentUser")).getMail()).isEqualTo(stored.getMail());
+        login(lower.toUpperCase());
+
+        assertThat(userRepository.findByMail(" " + lower.toUpperCase() + " ")).map(User::getId).contains(stored.getId());
+        assertThat(userRepository.existsByMail(lower)).isTrue();
+        assertThatThrownBy(() -> userService.createUser(lower, "Copy", "FACILITATOR", false, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("already exists");
+    }
+
+    @Test
+    void controlsList_findsTheControl_whenAssignedInAnotherCase() throws Exception {
+        String s = suffix();
+        User facilitator = saveUser("case-fac-" + s, "case-fac-" + s + "@example.test", "FACILITATOR");
+        Control control = createControl("CTRL-CASE-" + s, facilitator, "IN_PROGRESS");
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setFacilitator(" " + facilitator.getMail().toUpperCase());
+        assignmentRepository.save(assignment);
+
+        MvcResult list = mockMvc.perform(get("/controls").session(login(facilitator.getMail())))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(controlsIn(list)).extracting(com.kpmg.qtracker.dto.ControlResponseDTO::getId)
+                .contains(control.getId());
     }
 
     @Test

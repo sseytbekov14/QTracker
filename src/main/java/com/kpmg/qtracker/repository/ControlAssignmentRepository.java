@@ -88,18 +88,23 @@ public interface ControlAssignmentRepository extends JpaRepository<ControlAssign
                                                   @Param("baseIdLike") String baseIdLike,
                                                   @Param("operationDate") LocalDate operationDate);
 
-    @Query("SELECT ca.controlId FROM ControlAssignment ca WHERE ca.controlOperator LIKE %:email%")
+    @Query("SELECT ca.controlId FROM ControlAssignment ca "
+            + "WHERE LOWER(ca.controlOperator) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))")
     List<Long> findControlIdsByControlOperator(@Param("email") String email);
 
-    @Query("SELECT ca.controlId FROM ControlAssignment ca WHERE ca.facilitator LIKE %:email%")
+    @Query("SELECT ca.controlId FROM ControlAssignment ca "
+            + "WHERE LOWER(ca.facilitator) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))")
     List<Long> findControlIdsByFacilitator(@Param("email") String email);
 
-    @Query("SELECT ca.controlId FROM ControlAssignment ca WHERE ca.processOwner LIKE %:email%")
+    @Query("SELECT ca.controlId FROM ControlAssignment ca "
+            + "WHERE LOWER(ca.processOwner) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))")
     List<Long> findControlIdsByProcessOwner(@Param("email") String email);
 
-    @Query("SELECT ca.controlId FROM ControlAssignment ca WHERE ca.soqmLead LIKE %:email%")
+    @Query("SELECT ca.controlId FROM ControlAssignment ca "
+            + "WHERE LOWER(ca.soqmLead) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))")
     List<Long> findControlIdsBySoqmLead(@Param("email") String email);
 
-    @Query("SELECT ca.controlId FROM ControlAssignment ca WHERE ca.controlSharedWith LIKE %:email%")
+    @Query("SELECT ca.controlId FROM ControlAssignment ca "
+            + "WHERE LOWER(ca.controlSharedWith) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))")
     List<Long> findControlIdsByControlSharedWith(@Param("email") String email);
 }
