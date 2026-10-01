@@ -315,6 +315,28 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
+    void editButtonOnDraft_isRenderedForSoqmAndAdmin_notForFacilitator() throws Exception {
+        Participants p = participants();
+        User admin = saveUser("draft-admin-" + suffix(), "draft-admin-" + suffix() + "@example.test", "ADMIN");
+        admin.setAdminAccess(true);
+        userRepository.save(admin);
+        Control control = createControl("CTRL-DRAFT-EDIT-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+
+        for (User viewer : List.of(p.soqm, admin)) {
+            mockMvc.perform(get("/view-control/{id}", control.getId()).session(login(viewer.getMail())))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string(containsString("id=\"editBtn\"")))
+                    .andExpect(content().string(containsString("id=\"canEditAll\" value=\"true\"")));
+        }
+
+        mockMvc.perform(get("/view-control/{id}", control.getId()).session(login(p.facilitator.getMail())))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("id=\"editBtn\""))))
+                .andExpect(content().string(containsString("id=\"canEditAll\" value=\"false\"")));
+    }
+
+    @Test
     void editControlUrl_redirectsToViewControl_sharedViewerGetsNoDraftMasterData() throws Exception {
         String s = suffix();
         User soqm = saveUser("ec-soqm-" + s, "ec-soqm-" + s + "@example.test", "SOQM_TEAM");

@@ -1039,6 +1039,7 @@ public class ViewController {
         model.addAttribute("control", control);
         model.addAttribute("performanceStatus", performanceStatus);
         model.addAttribute("readOnly", readOnly);
+        model.addAttribute("canEditAll", permission.canEditAll());
         model.addAttribute("isFacilitator", permission.isFacilitator());
         model.addAttribute("isControlOperator", permission.isControlOperator());
         model.addAttribute("isSoqmLead", permission.isSoqmLead());

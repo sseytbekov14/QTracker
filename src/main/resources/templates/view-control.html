@@ -619,6 +619,7 @@
 </script>
 
 <input type="hidden" id="currentUserRole" th:value="${userRole}">
+<input type="hidden" id="canEditAll" th:value="${canEditAll}">
 <input type="hidden" id="currentPerformanceStatus" name="performanceStatus" th:value="${performanceStatus}">
 <input type="hidden" id="isFacilitator" th:value="${isFacilitator}">
 <input type="hidden" id="isControlOperator" th:value="${isControlOperator}">
@@ -1364,7 +1365,7 @@
 
                             <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Back</button>
                             <button class="btn" id="editBtn"
-                                    th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or userRole == 'SOQM_TEAM')}">
+                                    th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or canEditAll)}">
                                 Edit
                             </button>
                         </div>
@@ -1684,7 +1685,7 @@
 <script src="/js/vendor/bootstrap.bundle.min.js"></script>
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/app-modal.js?v=4"></script>
-<script src="/js/view-control.js?v=3.7"></script>
+<script src="/js/view-control.js?v=3.8"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {

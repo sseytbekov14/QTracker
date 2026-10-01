@@ -34,14 +34,14 @@ const viewControl = (function() {
     let selectedSharedWithUsers = []; // Array instead of single user
     let editModeSnapshot = null;
 
-    function isSoqmLeadRole() {
-        const role = document.getElementById('currentUserRole')?.value || '';
-        return role === 'SOQM_TEAM';
+    // SoQM and admins, as the server decides it (ControlPermission.canEditAll)
+    function hasFullEditRights() {
+        return document.getElementById('canEditAll')?.value === 'true';
     }
 
     async function loadPermissions(controlId) {
         if (!controlId) {
-            fullEditEnabled = isSoqmLeadRole();
+            fullEditEnabled = hasFullEditRights();
             canEditStepsPerformed = false;
             canEditProcessOwnerComments = false;
             canUseWorkflowActions = document.getElementById('canUseWorkflowActions')?.value !== 'false';
@@ -84,7 +84,7 @@ const viewControl = (function() {
             };
         } catch (error) {
             console.warn('Permissions fetch failed, falling back to role check:', error);
-            fullEditEnabled = isSoqmLeadRole();
+            fullEditEnabled = hasFullEditRights();
             const roleValue = document.getElementById('currentUserRole')?.value || '';
             canEditStepsPerformed = roleValue === 'FACILITATOR' || roleValue === 'CONTROL_OPERATOR';
             canEditProcessOwnerComments = (document.getElementById('currentUserRole')?.value || '') === 'PROCESS_OWNER';
@@ -3099,8 +3099,8 @@ function saveDocumentsData(controlId) {
                 console.log('Is SoQM Team for this control:', isSoqmLeadFlag);
                 console.log('Is Process Owner for this control:', isProcessOwnerFlag);
 
-                if (currentUserRole === 'SOQM_TEAM') {
-                    console.log('вњ… SoQM Team role override - editing enabled for all statuses');
+                if (hasFullEditRights()) {
+                    console.log('Full edit rights (SoQM, admin) - editing enabled for all statuses');
                     return;
                 }
 
