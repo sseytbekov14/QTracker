@@ -5,12 +5,13 @@ import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.enums.WorkflowActionType;
-import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.service.NotificationTemplateService;
 import com.kpmg.qtracker.service.WorkflowRequiredFieldService;
+import com.kpmg.qtracker.service.WorkflowTransition;
+import com.kpmg.qtracker.service.WorkflowTransitionGuard;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import jakarta.servlet.http.HttpSession;
@@ -30,6 +31,7 @@ public class WorkflowTransitionController {
     private final NotificationService notificationService;
     private final WorkflowRequiredFieldService requiredFieldService;
     private final ControlPermissionService controlPermissionService;
+    private final WorkflowTransitionGuard transitionGuard;
 
     @PostMapping("/initiate")
     public ResponseEntity<?> initiateControl(
@@ -48,7 +50,7 @@ public class WorkflowTransitionController {
             }
 
             Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.INITIATE);
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
@@ -100,7 +102,7 @@ public class WorkflowTransitionController {
             }
 
             Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.SUBMIT_TO_CONTROL_OPERATOR);
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
@@ -112,10 +114,6 @@ public class WorkflowTransitionController {
             }
 
             ControlAssignment assignment = assignmentOpt.get();
-            String facilitatorField = assignment.getFacilitator();
-            if (facilitatorField == null || !facilitatorField.contains(currentUser.getMail())) {
-                return ResponseEntity.status(403).body(Map.of("success", false, "message", "You are not assigned as Facilitator for this control"));
-            }
 
             Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control, currentUser);
             if (missingField.isPresent()) {
@@ -181,7 +179,7 @@ public class WorkflowTransitionController {
             }
 
             Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.SUBMIT_TO_SOQM_TEAM);
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
@@ -193,10 +191,6 @@ public class WorkflowTransitionController {
             }
 
             ControlAssignment assignment = assignmentOpt.get();
-            String operatorField = assignment.getControlOperator();
-            if (operatorField == null || !operatorField.contains(currentUser.getMail())) {
-                return ResponseEntity.status(403).body(Map.of("success", false, "message", "You are not assigned as Control Operator for this control"));
-            }
 
             Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control, currentUser);
             if (missingField.isPresent()) {
@@ -263,33 +257,18 @@ public class WorkflowTransitionController {
             }
 
             Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.SHARED_RESUBMIT_TO_SOQM_TEAM);
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
 
-            // Only allow from COMPLETED status
-            if (!"COMPLETED".equals(control.getPerformanceStatus())) {
-                return ResponseEntity.status(400).body(Map.of("success", false,
-                        "message", "Control must be in COMPLETED status"));
-            }
-
-            // Verify user is a shared viewer
             Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(controlId);
             if (assignmentOpt.isEmpty()) {
                 return ResponseEntity.status(400).body(Map.of("success", false, "message", "Control assignment not found"));
             }
 
             ControlAssignment assignment = assignmentOpt.get();
-            String sharedField = assignment.getControlSharedWith();
             String userEmail = currentUser.getMail();
-            if (sharedField == null || !sharedField.toLowerCase().contains(userEmail.toLowerCase())) {
-                return ResponseEntity.status(403).body(Map.of("success", false,
-                        "message", "You are not a shared viewer for this control"));
-            }
-
-            // Only shared viewers who are assigned as FACILITATOR, CONTROL_OPERATOR, or PROCESS_OWNER can submit
-            // (role check is already handled by the shared viewer check above)
 
             // Verify SoQM Team is assigned
             if (assignment.getSoqmLead() == null || assignment.getSoqmLead().isEmpty()) {
@@ -385,7 +364,7 @@ public class WorkflowTransitionController {
             }
 
             Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.RETURN_TO_FACILITATOR);
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
@@ -397,10 +376,6 @@ public class WorkflowTransitionController {
             }
 
             ControlAssignment assignment = assignmentOpt.get();
-            String operatorField = assignment.getControlOperator();
-            if (operatorField == null || !operatorField.contains(currentUser.getMail())) {
-                return ResponseEntity.status(403).body(Map.of("success", false, "message", "You are not assigned as Control Operator for this control"));
-            }
 
             // Validate comment length
             if (comments != null && comments.length() > 2000) {
@@ -460,18 +435,14 @@ public class WorkflowTransitionController {
         }
     }
 
-    private ResponseEntity<?> denyWorkflowActionIfRestricted(Control control, User currentUser) {
-        ControlPermission permission = controlPermissionService.resolve(control, currentUser);
-        if (!permission.canView()) {
-            return ResponseEntity.status(403).body(Map.of("success", false, "message", "Forbidden"));
+    private ResponseEntity<?> denyTransition(Control control, User currentUser, WorkflowTransition transition) {
+        WorkflowTransitionGuard.Decision decision = transitionGuard.check(
+                control, currentUser, controlPermissionService.resolve(control, currentUser), transition);
+        if (decision.allowed()) {
+            return null;
         }
-        if (!permission.canUseWorkflowActions()) {
-            return ResponseEntity.status(403).body(Map.of(
-                    "success", false,
-                    "message", "Workflow actions are disabled for shared users on completed controls"
-            ));
-        }
-        return null;
+        return ResponseEntity.status(decision.httpStatus())
+                .body(Map.of("success", false, "message", decision.message()));
     }
 }
 

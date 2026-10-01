@@ -73,6 +73,7 @@ class WorkflowFlowIT {
         control.setControlId("CTRL-" + suffix);
         control.setControlFrequency("Monthly");
         control.setControlStatus("IN_PROGRESS");
+        control.setPerformanceStatus("IN_PROGRESS");
         control = controlRepository.save(control);
 
         ControlAssignment assignment = new ControlAssignment();

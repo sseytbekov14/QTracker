@@ -14,6 +14,7 @@ import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.service.NotificationTemplateService;
 import com.kpmg.qtracker.service.WorkflowRequiredFieldService;
 import com.kpmg.qtracker.service.WorkflowService;
+import com.kpmg.qtracker.service.WorkflowTransitionGuard;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,7 +71,8 @@ class WorkflowControllerCompletedRecipientsTest {
                 workflowHistoryRepository,
                 notificationService,
                 requiredFieldService,
-                controlPermissionService
+                controlPermissionService,
+                new WorkflowTransitionGuard()
         );
     }
 

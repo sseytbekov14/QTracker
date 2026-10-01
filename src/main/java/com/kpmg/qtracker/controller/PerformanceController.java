@@ -11,6 +11,8 @@ import com.kpmg.qtracker.service.PerformanceService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.service.WorkflowService;
+import com.kpmg.qtracker.service.WorkflowTransition;
+import com.kpmg.qtracker.service.WorkflowTransitionGuard;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +37,7 @@ public class PerformanceController {
     private final UserService userService;
     private final WorkflowService workflowService;
     private final ControlPermissionService controlPermissionService;
+    private final WorkflowTransitionGuard transitionGuard;
 
     @PostMapping("/auto-save")
     public ResponseEntity<?> autoSavePerformance(@RequestParam(required = false) String soqmYear,
@@ -138,9 +141,10 @@ public class PerformanceController {
                     .orElseThrow(() -> new RuntimeException("Control not found"));
 
             ControlPermission permission = controlPermissionService.resolve(control, currentUser);
-            if (!permission.canUseWorkflowActions()) {
-                return ResponseEntity.status(403)
-                        .body("Workflow actions are disabled for shared users on completed controls");
+            WorkflowTransitionGuard.Decision decision = transitionGuard.check(
+                    control, currentUser, permission, WorkflowTransition.INITIATE);
+            if (!decision.allowed()) {
+                return ResponseEntity.status(decision.httpStatus()).body(decision.message());
             }
 
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());

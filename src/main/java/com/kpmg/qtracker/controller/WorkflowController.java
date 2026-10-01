@@ -35,6 +35,7 @@ public class WorkflowController {
     private final NotificationService notificationService;
     private final WorkflowRequiredFieldService requiredFieldService;
     private final ControlPermissionService controlPermissionService;
+    private final WorkflowTransitionGuard transitionGuard;
 
     @PostMapping("/perform-action")
     @Transactional
@@ -53,9 +54,14 @@ public class WorkflowController {
 
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found"));
-            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
-            if (restrictedResponse != null) {
-                return restrictedResponse;
+            List<WorkflowTransition> candidates = WorkflowTransition.forAction(action);
+            if (candidates.isEmpty()) {
+                return ResponseEntity.badRequest().body("Unsupported workflow action: " + action);
+            }
+            WorkflowTransitionGuard.Decision decision = transitionGuard.check(
+                    control, currentUser, controlPermissionService.resolve(control, currentUser), candidates);
+            if (!decision.allowed()) {
+                return ResponseEntity.status(decision.httpStatus()).body(decision.message());
             }
             Optional<String> missingComment = requiredFieldService.getMissingReviewCommentMessage(control);
             if (missingComment.isPresent()) {
@@ -69,12 +75,9 @@ public class WorkflowController {
             String currentPerformanceStatus = performanceService.getPerformanceStatusByControlId(controlId);
             log.info("Current performance status: {}", currentPerformanceStatus);
 
-            // В зависимости от действия меняем статус
-            String newStatus = updatePerformanceStatusBasedOnAction(
-                    currentPerformanceStatus, action, userEmail, controlId);
+            String newStatus = decision.transition().getTargetStatus();
 
-            // Обновляем performance_status вместо performance_status
-            String normalizedAction = action != null ? action.trim().toUpperCase(Locale.ROOT) : "";
+            String normalizedAction = action.trim().toUpperCase(Locale.ROOT);
             boolean requiresSteps = Set.of(
                     "SUBMIT_FOR_REVIEW",
                     "SUBMIT_TO_CONTROL_OPERATOR",
@@ -120,55 +123,6 @@ public class WorkflowController {
             log.error("Error performing workflow action: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(e.getMessage());
         }
-    }
-
-    private String updatePerformanceStatusBasedOnAction(String currentStatus,
-                                                        String action,
-                                                        String userEmail,
-                                                        Long controlId) {
-        switch (currentStatus) {
-            case "DRAFT":
-                if ("SUBMIT_FOR_REVIEW".equals(action) || "INITIATE".equals(action)) {
-                    return "IN_PROGRESS";
-                }
-                break;
-
-            case "IN_PROGRESS":
-                if ("SUBMIT_TO_CONTROL_OPERATOR".equals(action)) {
-                    return "REVIEW";
-                }
-                break;
-
-            case "REVIEW":
-                if ("SUBMIT_FOR_SOQM".equals(action) || "SUBMIT_SOQM".equals(action)) {
-                    return "SOQM_HEAD_REVIEW";
-                } else if ("RETURN_TO_FACILITATOR".equals(action)) {
-                    return "IN_PROGRESS";
-                }
-                break;
-
-            case "SOQM_HEAD_REVIEW":
-                if ("SEND_TO_PROCESS_OWNER".equals(action) || "SOQM_COMMENT".equals(action)) {
-                    return "PROCESS_OWNER_REVIEW";
-                } else if ("SEND_BACK_TO_OPERATOR".equals(action)) {
-                    return "REVIEW";
-                }
-                break;
-
-            case "PROCESS_OWNER_REVIEW":
-                if ("COMPLETE".equals(action)) {
-                    return "COMPLETED";
-                } else if ("RETURN_TO_FACILITATOR".equals(action)) {
-                    return "IN_PROGRESS";
-                } else if ("SEND_FOR_REVISION".equals(action)) {
-                    return "REVIEW";
-                } else if ("REJECT".equals(action)) {
-                    return "IN_PROGRESS";
-                }
-                break;
-        }
-
-        return currentStatus;
     }
 
     private String getCurrentStepFromStatus(String status) {
@@ -251,7 +205,7 @@ public class WorkflowController {
 
             Control control = controlService.getControlById(actionDTO.getControlId())
                     .orElseThrow(() -> new RuntimeException("Control not found"));
-            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            ResponseEntity<?> restrictedResponse = denyStepTransition(control, currentUser, true);
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
@@ -275,7 +229,7 @@ public class WorkflowController {
 
             Control control = controlService.getControlById(actionDTO.getControlId())
                     .orElseThrow(() -> new RuntimeException("Control not found"));
-            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            ResponseEntity<?> restrictedResponse = denyStepTransition(control, currentUser, false);
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
@@ -339,7 +293,7 @@ public class WorkflowController {
                 return ResponseEntity.badRequest().body("Control not found");
             }
             Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.SUBMIT_TO_PROCESS_OWNER);
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
@@ -405,7 +359,7 @@ public class WorkflowController {
                 return ResponseEntity.badRequest().body("Control not found");
             }
             Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.RETURN_TO_OPERATOR);
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
@@ -483,7 +437,7 @@ public class WorkflowController {
                 return ResponseEntity.badRequest().body("Control not found");
             }
             Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.COMPLETE);
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
@@ -544,7 +498,7 @@ public class WorkflowController {
                 return ResponseEntity.badRequest().body("Control not found");
             }
             Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
+            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.RETURN_TO_SOQM_TEAM);
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
@@ -788,15 +742,25 @@ public class WorkflowController {
         notificationService.sendWorkflowStepNotifications(control, recipients, stepName, message);
     }
 
-    private ResponseEntity<?> denyWorkflowActionIfRestricted(Control control, User currentUser) {
-        ControlPermission permission = controlPermissionService.resolve(control, currentUser);
-        if (!permission.canView()) {
-            return ResponseEntity.status(403).body("Forbidden");
+    private ResponseEntity<?> denyTransition(Control control, User currentUser, WorkflowTransition transition) {
+        WorkflowTransitionGuard.Decision decision = transitionGuard.check(
+                control, currentUser, controlPermissionService.resolve(control, currentUser), transition);
+        return decision.allowed() ? null : ResponseEntity.status(decision.httpStatus()).body(decision.message());
+    }
+
+    // Legacy workflow_steps endpoints: the active step defines who may act and which control status it requires
+    private ResponseEntity<?> denyStepTransition(Control control, User currentUser, boolean approve) {
+        WorkflowStepDTO currentStep = workflowService.getCurrentStep(control.getId());
+        if (currentStep == null) {
+            return ResponseEntity.status(WorkflowTransitionGuard.CONFLICT).body("No active workflow step found");
         }
-        if (!permission.canUseWorkflowActions()) {
-            return ResponseEntity.status(403)
-                    .body("Workflow actions are disabled for shared users on completed controls");
+        Optional<WorkflowTransition> transition = approve
+                ? WorkflowTransition.forStepApproval(currentStep.getStepType())
+                : WorkflowTransition.forStepReturn(currentStep.getStepType());
+        if (transition.isEmpty()) {
+            return ResponseEntity.status(WorkflowTransitionGuard.CONFLICT)
+                    .body("The current workflow step cannot be returned");
         }
-        return null;
+        return denyTransition(control, currentUser, transition.get());
     }
 }
