@@ -983,7 +983,7 @@ public class ControlController {
 
     /**
      * First master field whose sent value differs from the stored one. Participants without full edit
-     * rights may resend the whole form unchanged (edit-control.html does), so values are compared, not presence.
+     * rights may send the stored values back unchanged, so values are compared, not presence.
      */
     private String findChangedRestrictedField(ControlDTO dto, Control existing, String canonicalFrequency,
                                               ControlPermission permission) {

@@ -57,6 +57,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 /**
  * API access through the real dev security chain: form login, session, CSRF rules.
@@ -311,6 +312,41 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isOk());
 
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getComponent()).isEqualTo("GOV");
+    }
+
+    @Test
+    void editControlUrl_redirectsToViewControl_sharedViewerGetsNoDraftMasterData() throws Exception {
+        String s = suffix();
+        User soqm = saveUser("ec-soqm-" + s, "ec-soqm-" + s + "@example.test", "SOQM_TEAM");
+        User shared = saveUser("ec-shared-" + s, "ec-shared-" + s + "@example.test", "FACILITATOR");
+        Control control = createControl("CTRL-EC-" + s, soqm, "DRAFT");
+        control.setControlDescription("Draft description " + s);
+        controlRepository.save(control);
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setControlSharedWith(shared.getMail());
+        assignmentRepository.save(assignment);
+        String viewUrl = "/view-control/" + control.getId() + "#control";
+
+        MockHttpSession sharedSession = login(shared.getMail());
+        mockMvc.perform(get("/edit-control/{id}", control.getId()).session(sharedSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(viewUrl))
+                .andExpect(content().string(not(containsString("Draft description"))));
+
+        // The page the redirect leads to keeps a draft away from a viewer it is only shared with
+        mockMvc.perform(get("/view-control/{id}", control.getId()).session(sharedSession))
+                .andExpect(status().isOk())
+                .andExpect(view().name("control-not-available"))
+                .andExpect(content().string(not(containsString("Draft description"))))
+                .andExpect(content().string(not(containsString("name=\"controlFrequency\""))));
+
+        MockHttpSession soqmSession = login(soqm.getMail());
+        mockMvc.perform(get("/edit-control/{id}", control.getId()).session(soqmSession))
+                .andExpect(redirectedUrl(viewUrl));
+        mockMvc.perform(get("/view-control/{id}", control.getId()).session(soqmSession))
+                .andExpect(status().isOk())
+                .andExpect(view().name("view-control"))
+                .andExpect(content().string(containsString("Draft description " + s)));
     }
 
     @Test

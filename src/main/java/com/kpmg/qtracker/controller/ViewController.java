@@ -1103,31 +1103,10 @@ public class ViewController {
         dto.setUpdatedAt(control.getUpdatedAt());
         return dto;
     }
+    /** The former Edit Control page; controls are edited on View Control, which checks access itself. */
     @GetMapping("/edit-control/{id}")
-    public String editControl(@PathVariable Long id, Model model, HttpSession session,
-                              RedirectAttributes redirectAttributes) {
-        String redirect = checkAuthAndRedirect(session);
-        if (redirect != null) return redirect;
-
-        User currentUser = getCurrentUser(session);
-
-        Control control = controlService.getControlById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Control not found with id: " + id));
-
-        ControlPermission permission = permissionService.resolve(control, currentUser);
-        if (!permission.canView()) {
-            throw new ForbiddenException("You do not have permission to view this control.");
-        }
-
-        model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getRole());
-        model.addAttribute("userEmail", currentUser.getMail());
-        model.addAttribute("readOnly", !permission.canEdit());
-        model.addAttribute("canUseWorkflowActions", permission.canUseWorkflowActions());
-        model.addAttribute("allowedEditableFields", permission.getAllowedEditableFields());
-        model.addAttribute("control", control);
-
-        return "edit-control";
+    public String editControl(@PathVariable Long id) {
+        return "redirect:/view-control/" + id + "#control";
     }
 
     @GetMapping("/new-control")
