@@ -1564,7 +1564,8 @@ function makeAllFormsEditable() {
     // 3. ASSIGNMENT TAB
     console.log('рџ”„ Processing Assignment tab fields...');
     const assignmentFields = document.querySelectorAll('#assignmentForm input, #assignmentForm select');
-    const alwaysReadonlyFields = [];
+    // Calculated by the server from the Control Operation Date and the frequency
+    const alwaysReadonlyFields = ['controlOperationDeadline', 'nextControlOperationDate'];
     const canEditAssignment = true;
 
     assignmentFields.forEach(field => {
