@@ -197,6 +197,51 @@ class NotificationServiceTest {
         verify(notificationRepository, times(2)).save(any(Notification.class));
     }
 
+    @Test
+    void sendReturnNotifications_repeatedReturnWithinMinutes_isAnnouncedAgain() {
+        Control control = controlWithId(16L);
+        User operator = userWithId(11L, "op@example.test", "CONTROL_OPERATOR");
+
+        when(userRepository.findByMail("op@example.test")).thenReturn(Optional.of(operator));
+        when(notificationTemplateService.renderReturnNotification(
+                any(Control.class), anyString(), anyString(), any(), eq("RETURN_TO_OPERATOR")))
+                .thenReturn(new NotificationTemplateService.NotificationTemplate(
+                        "Returned", "Body", "RETURN_TO_OPERATOR"));
+        when(notificationTemplateService.buildControlLink(any(Control.class)))
+                .thenReturn("http://example.test/view-control/16");
+        when(emailChannelProvider.getIfAvailable()).thenReturn(emailChannel);
+
+        // Returned by SoQM, resubmitted, then returned again by the Process Owner right away
+        notificationService.sendReturnNotifications(control, List.of("op@example.test"),
+                "SOQM_TEAM", "SoQM User", "Control Operator", "Fix the sample", "RETURN_TO_OPERATOR");
+        notificationService.sendReturnNotifications(control, List.of("op@example.test"),
+                "PROCESS_OWNER", "Owner User", "Control Operator", "Attach evidence", "RETURN_TO_OPERATOR");
+
+        verify(notificationRepository, times(2)).save(any(Notification.class));
+        verify(emailChannel, times(2)).send("op@example.test", "Returned", "Body");
+    }
+
+    @Test
+    void sendReturnNotifications_sameRecipientTwiceInOneCall_isNotifiedOnce() {
+        Control control = controlWithId(17L);
+        User facilitator = userWithId(12L, "fac@example.test", "FACILITATOR");
+
+        when(userRepository.findByMail("fac@example.test")).thenReturn(Optional.of(facilitator));
+        when(notificationTemplateService.renderReturnNotification(
+                any(Control.class), anyString(), anyString(), any(), eq("RETURN_TO_FACILITATOR")))
+                .thenReturn(new NotificationTemplateService.NotificationTemplate(
+                        "Returned", "Body", "RETURN_TO_FACILITATOR"));
+        when(notificationTemplateService.buildControlLink(any(Control.class)))
+                .thenReturn("http://example.test/view-control/17");
+        when(emailChannelProvider.getIfAvailable()).thenReturn(null);
+
+        notificationService.sendReturnNotifications(control,
+                List.of("fac@example.test", " fac@example.test ", "fac@example.test"),
+                "CONTROL_OPERATOR", "Operator User", "Facilitator", null, "RETURN_TO_FACILITATOR");
+
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+    }
+
     private void stubTemplate() {
         NotificationTemplateService.NotificationTemplate template =
                 new NotificationTemplateService.NotificationTemplate("Subject", "Body", "WORKFLOW_STEP");

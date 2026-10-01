@@ -165,6 +165,26 @@ class WorkflowFlowIT {
     }
 
     @Test
+    void returnedAgainWithinMinutes_facilitatorIsNotifiedEachTime() throws Exception {
+        Long controlId = control.getId();
+
+        for (int round = 1; round <= 2; round++) {
+            mockMvc.perform(workflowPost("/api/workflow/submit-to-control-operator", controlId, facilitator))
+                    .andExpect(status().isOk());
+            mockMvc.perform(workflowPost("/api/workflow/return-to-facilitator", controlId, operator)
+                            .param("comments", "Fix round " + round))
+                    .andExpect(status().isOk());
+            assertPerformanceStatus(controlId, "IN_PROGRESS");
+        }
+
+        long returnNotices = notificationRepository.findByControlIdOrderByCreatedAtDesc(controlId).stream()
+                .filter(notification -> facilitator.getId().equals(notification.getUserId()))
+                .filter(notification -> "RETURN_TO_FACILITATOR".equals(notification.getType()))
+                .count();
+        assertEquals(2L, returnNotices);
+    }
+
+    @Test
     void submitToControlOperator_withWrongRole_returns403() throws Exception {
         mockMvc.perform(workflowPost("/api/workflow/submit-to-control-operator", control.getId(), operator))
                 .andExpect(status().isForbidden());

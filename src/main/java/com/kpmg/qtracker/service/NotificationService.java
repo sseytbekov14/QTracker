@@ -29,7 +29,6 @@ public class NotificationService {
     private final StatusDisplayMapper statusDisplayMapper;
     private static final String TYPE_AUTO_CREATED = "CONTROL_AUTO_CREATED";
     private static final String TYPE_INITIATE = "INITIATE";
-    private static final long RETURN_DEDUPE_WINDOW_MINUTES = 5;
     private static final java.time.format.DateTimeFormatter AUTO_CREATE_DATE_FORMAT =
             java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy");
     
@@ -167,24 +166,10 @@ public class NotificationService {
                 unique.add(email.trim());
             }
         }
-        LocalDateTime now = LocalDateTime.now(Notification.ZONE);
-        LocalDateTime start = now.minusMinutes(RETURN_DEDUPE_WINDOW_MINUTES);
-        LocalDateTime end = now.plusSeconds(1);
-
+        // Every return is a separate guarded status change, so each one is announced,
+        // even when the same control comes back to the same person within minutes
         for (String email : unique) {
             userRepository.findByMail(email).ifPresent(user -> {
-                boolean alreadySent = notificationRepository
-                        .existsByControlIdAndUserIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                                control.getId(),
-                                user.getId(),
-                                notificationType,
-                                start,
-                                end
-                        );
-                if (alreadySent) {
-                    return;
-                }
-
                 Notification notif = new Notification();
                 notif.setUserId(user.getId());
                 notif.setControlId(control.getId());
