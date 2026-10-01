@@ -119,12 +119,21 @@ public class ControlService implements IControlService {
             return getAllControls();
         }
 
+        // LIKE finds the address anywhere in a column, including inside another address
+        // (a@kpmg.kz in ba@kpmg.kz), so the candidates are checked for a whole-address match below
         Set<Long> visibleControlIds = new LinkedHashSet<>();
         addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByFacilitator(userEmail));
         addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByControlOperator(userEmail));
         addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsBySoqmLead(userEmail));
         addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByProcessOwner(userEmail));
         addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByControlSharedWith(userEmail));
+        if (!visibleControlIds.isEmpty()) {
+            Set<Long> assignedIds = controlAssignmentRepository.findAllById(visibleControlIds).stream()
+                    .filter(assignment -> isAssignedOrSharedWith(assignment, userEmail))
+                    .map(ControlAssignment::getControlId)
+                    .collect(Collectors.toSet());
+            visibleControlIds.retainAll(assignedIds);
+        }
 
         if (visibleControlIds.isEmpty()) {
             return Collections.emptyList();
@@ -809,6 +818,14 @@ public class ControlService implements IControlService {
                 .replace(' ', '_')
                 .toUpperCase(java.util.Locale.ROOT);
         return "ADMIN".equals(normalized) || normalized.startsWith("SOQM");
+    }
+
+    private boolean isAssignedOrSharedWith(ControlAssignment assignment, String userEmail) {
+        return EmailList.contains(assignment.getFacilitator(), userEmail)
+                || EmailList.contains(assignment.getControlOperator(), userEmail)
+                || EmailList.contains(assignment.getSoqmLead(), userEmail)
+                || EmailList.contains(assignment.getProcessOwner(), userEmail)
+                || EmailList.contains(assignment.getControlSharedWith(), userEmail);
     }
 
     private void addVisibleIds(Set<Long> target, List<Long> source) {

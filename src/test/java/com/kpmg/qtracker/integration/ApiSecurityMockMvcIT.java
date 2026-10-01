@@ -770,6 +770,30 @@ class ApiSecurityMockMvcIT {
         return (List<com.kpmg.qtracker.dto.ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
     }
 
+    @Test
+    void controlsList_matchesWholeAddresses_aDoesNotSeeTheControlOfBa() throws Exception {
+        User a = saveUser("a-user", "a@kpmg.kz", "FACILITATOR");
+        User ba = saveUser("ba-user", "ba@kpmg.kz", "FACILITATOR");
+        LocalDate deadline = DeadlineOverdue.today(Instant.now()).plusDays(10);
+        Control ownControl = deadlineControl("CTRL-A-" + suffix(), a, "IN_PROGRESS", deadline);
+        // "a@kpmg.kz" is part of "ba@kpmg.kz", which a plain LIKE used to treat as a match
+        Control baControl = deadlineControl("CTRL-BA-" + suffix(), ba, "IN_PROGRESS", deadline);
+
+        MvcResult asA = mockMvc.perform(get("/controls").session(login(a.getMail())))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(controlsIn(asA)).extracting(com.kpmg.qtracker.dto.ControlResponseDTO::getId)
+                .contains(ownControl.getId())
+                .doesNotContain(baControl.getId());
+
+        MvcResult asBa = mockMvc.perform(get("/controls").session(login(ba.getMail())))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(controlsIn(asBa)).extracting(com.kpmg.qtracker.dto.ControlResponseDTO::getId)
+                .contains(baControl.getId())
+                .doesNotContain(ownControl.getId());
+    }
+
     private void saveHistory(Control control, WorkflowActionType type, String fromStep, String toStep, LocalDate day) {
         WorkflowHistory history = new WorkflowHistory();
         history.setControlId(control.getId());
