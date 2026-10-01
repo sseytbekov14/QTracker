@@ -590,6 +590,17 @@ public class ControlController {
             
             // ADMIN can modify everything
 
+            // Without full edit rights every field checked above is unchanged, so only the Process Owner
+            // comment may still differ. A request that changes nothing is not saved: updatedAt, the audit
+            // log, a legacy frequency spelling and the schedule stay as they are.
+            boolean changesProcessOwnerComments = controlDTO.getProcessOwnerComments() != null
+                    && "PROCESS_OWNER".equals(userRole)
+                    && !normalizeValue(controlDTO.getProcessOwnerComments())
+                            .equals(normalizeValue(existingControl.getProcessOwnerComments()));
+            if (!permission.canEditAll() && !changesProcessOwnerComments) {
+                return ResponseEntity.ok(convertToResponseDTO(existingControl));
+            }
+
             // ============================================
             // UPDATE ALLOWED FIELDS
             // ============================================

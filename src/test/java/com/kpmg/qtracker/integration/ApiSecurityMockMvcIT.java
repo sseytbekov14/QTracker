@@ -8,6 +8,7 @@ import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.enums.WorkflowActionType;
+import com.kpmg.qtracker.repository.AdminAuditLogRepository;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlAttachmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
@@ -36,6 +37,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -108,6 +110,9 @@ class ApiSecurityMockMvcIT {
 
     @Autowired
     private ControlAttachmentRepository attachmentRepository;
+
+    @Autowired
+    private AdminAuditLogRepository auditLogRepository;
 
     @Autowired
     private UserService userService;
@@ -260,6 +265,52 @@ class ApiSecurityMockMvcIT {
                         .content(controlForm(" monthly ", "HR ", "IN_PROGRESS"))
                         .session(session))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void assignedFacilitator_unchangedControlForm_savesNothing() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-NOOP-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+        // "Annually" is shown as Annual and would be rewritten by a save, which also recalculates the schedule
+        LocalDateTime updatedAt = LocalDateTime.of(2026, 1, 10, 9, 0);
+        control.setControlFrequency("Annually");
+        control.setUpdatedAt(updatedAt);
+        controlRepository.save(control);
+        LocalDate sentinelDeadline = LocalDate.of(2030, 12, 31);
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setControlOperationDeadline(sentinelDeadline);
+        assignmentRepository.save(assignment);
+
+        mockMvc.perform(put("/api/controls/{id}", control.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(controlForm("Annual", "HR", "IN_PROGRESS"))
+                        .session(login(p.facilitator.getMail())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.controlFrequency").value("Annually"));
+
+        Control stored = controlRepository.findById(control.getId()).orElseThrow();
+        assertThat(stored.getControlFrequency()).isEqualTo("Annually");
+        assertThat(stored.getUpdatedAt()).isEqualTo(updatedAt);
+        assertThat(assignmentRepository.findByControlId(control.getId()).orElseThrow().getControlOperationDeadline())
+                .isEqualTo(sentinelDeadline);
+        assertThat(auditLogRepository.findByControlIdOrderByCreatedAtDesc(control.getId())).isEmpty();
+    }
+
+    @Test
+    void assignedProcessOwner_changingOwnComment_isSaved() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-POC-" + suffix(), p.soqm, "PROCESS_OWNER_REVIEW");
+        assign(control, p);
+
+        mockMvc.perform(put("/api/controls/{id}", control.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"processOwnerComments\":\"Checked by PO\"}")
+                        .session(login(p.owner.getMail())))
+                .andExpect(status().isOk());
+
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getProcessOwnerComments())
+                .isEqualTo("Checked by PO");
     }
 
     @Test
