@@ -1196,7 +1196,7 @@ a.stat-block:focus-visible,
                                     th:attr="data-reasons=${item.getReasonKeys()}"
                                     th:classappend="${iter.index >= needsAttentionLimit} ? 'na-extra'">
                                     <a class="action-item"
-                                       th:href="@{/view-control/{id}(id=${item.id()})}"
+                                       th:href="${item.status() == 'DRAFT'} ? @{/initiate/{id}(id=${item.id()})} : @{/view-control/{id}(id=${item.id()})}"
                                        th:classappend="${item.isOverdue()} ? 'is-overdue'">
                                         <span class="action-item-main">
                                             <span class="na-item-head">

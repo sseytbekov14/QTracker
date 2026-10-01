@@ -458,8 +458,6 @@ class ApiSecurityMockMvcIT {
                 .andExpect(content().string(containsString("href=\"" + initiateUrl + "\"")))
                 .andExpect(content().string(not(containsString("id=\"initiateBtn\""))))
                 .andExpect(content().string(not(containsString("Initiation checklist"))));
-        mockMvc.perform(get("/controls").session(soqmSession))
-                .andExpect(content().string(containsString("href=\"" + viewUrl + "\"")));
 
         MockHttpSession facilitatorSession = login(p.facilitator.getMail());
         mockMvc.perform(get("/performance/{id}", control.getId()).session(facilitatorSession))
@@ -484,6 +482,38 @@ class ApiSecurityMockMvcIT {
                 .andExpect(redirectedUrl(viewUrl));
         mockMvc.perform(get(viewUrl).session(soqmSession))
                 .andExpect(content().string(not(containsString("href=\"" + initiateUrl + "\""))));
+    }
+
+    @Test
+    void draftsOpenOnTheInitiatePage_fromTheControlsListAndTheDashboard() throws Exception {
+        Participants p = participants();
+        LocalDate today = DeadlineOverdue.today(Instant.now());
+        Control draft = deadlineControl("CTRL-OPEN-DRAFT-" + suffix(), p.facilitator, "DRAFT", today.minusDays(1));
+        Control running = deadlineControl("CTRL-OPEN-RUN-" + suffix(), p.facilitator, "IN_PROGRESS", today.minusDays(1));
+        String draftPage = "/initiate/" + draft.getId();
+        MockHttpSession soqmSession = login(p.soqm.getMail());
+
+        mockMvc.perform(get("/controls").session(soqmSession))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("href=\"" + draftPage + "\"")))
+                .andExpect(content().string(not(containsString("href=\"/view-control/" + draft.getId() + "\""))))
+                .andExpect(content().string(containsString("href=\"/performance-cycle/" + running.getId() + "\"")));
+        // Needs attention lists both: the draft is overdue and neither has CO, SoQM or PO
+        mockMvc.perform(get("/").session(soqmSession))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("href=\"" + draftPage + "\"")))
+                .andExpect(content().string(containsString("href=\"/view-control/" + running.getId() + "\"")));
+        mockMvc.perform(get("/api/dashboard/deadline-countdown").param("limit", "50").session(soqmSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.overdue[?(@.id == " + draft.getId() + ")].url").value(draftPage))
+                .andExpect(jsonPath("$.overdue[?(@.id == " + running.getId() + ")].url")
+                        .value("/view-control/" + running.getId()));
+        mockMvc.perform(get("/api/dashboard/deadline-calendar")
+                        .param("start", today.minusDays(7).toString())
+                        .param("end", today.plusDays(7).toString())
+                        .session(soqmSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.title == '" + draft.getControlId() + "')].url").value(draftPage));
     }
 
     @Test

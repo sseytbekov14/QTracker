@@ -175,7 +175,7 @@ public class DashboardService {
                     shortenText(row.description(), 48),
                     DeadlineOverdue.endOfDay(row.deadline()),
                     normalizeStatus(row.status()),
-                    "/view-control/" + row.id(),
+                    controlPage(row),
                     DeadlineOverdue.isOverdue(row.status(), row.deadline(), today),
                     DeadlineOverdue.daysOverdue(row.status(), row.deadline(), today)
             ));
@@ -194,9 +194,14 @@ public class DashboardService {
                 .map(row -> new DashboardCalendarEventDTO(
                         row.controlId() != null ? row.controlId() : "Control",
                         row.deadline().toString(),
-                        "/view-control/" + row.id(),
+                        controlPage(row),
                         calendarColor(row, today)))
                 .collect(Collectors.toList());
+    }
+
+    // A draft opens on its Initiate page (which sends anyone who may not initiate it on to View Control)
+    private String controlPage(DeadlineRow row) {
+        return "DRAFT".equals(normalizeStatus(row.status())) ? "/initiate/" + row.id() : "/view-control/" + row.id();
     }
 
     private String calendarColor(DeadlineRow row, LocalDate today) {

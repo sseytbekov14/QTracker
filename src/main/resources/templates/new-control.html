@@ -779,7 +779,7 @@
                 message: newId
                     ? 'The control was created as a Draft. Opening it so you can assign people and initiate it…'
                     : 'The control was created as a Draft.',
-                redirectUrl: newId ? '/view-control/' + newId + '#assignment' : '/controls'
+                redirectUrl: newId ? '/initiate/' + newId : '/controls'
             });
         })
         .catch(function(error) {
