@@ -292,7 +292,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
         // 4. Р—Р°РІРµСЂС€Р°РµРј С‚РµРєСѓС‰РёР№ С€Р°Рі
         currentStep.setStatus(WorkflowStatus.COMPLETED);
-        currentStep.setCompletedAt(LocalDateTime.now());
+        currentStep.setCompletedAt(LocalDateTime.now(Notification.ZONE));
         currentStep.setComments(actionDTO.getComments());
         workflowStepRepository.save(currentStep);
 
@@ -365,7 +365,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
         // 6. Р—Р°РІРµСЂС€Р°РµРј С‚РµРєСѓС‰РёР№ С€Р°Рі
         currentStep.setStatus(WorkflowStatus.COMPLETED);
-        currentStep.setCompletedAt(LocalDateTime.now());
+        currentStep.setCompletedAt(LocalDateTime.now(Notification.ZONE));
         currentStep.setReturnReason(actionDTO.getReturnReason());
         currentStep.setReturnedToStep(returnToStep);
         workflowStepRepository.save(currentStep);

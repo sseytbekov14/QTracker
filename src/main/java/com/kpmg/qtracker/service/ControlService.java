@@ -3,6 +3,7 @@ package com.kpmg.qtracker.service;
 import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
+import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
@@ -568,8 +569,8 @@ public class ControlService implements IControlService {
                 );
             }
 
-            control.setCreatedAt(LocalDateTime.now());
-            control.setUpdatedAt(LocalDateTime.now());
+            control.setCreatedAt(LocalDateTime.now(Notification.ZONE));
+            control.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
 
             // Set initial workflow status to DRAFT
             if (control.getPerformanceStatus() == null || control.getPerformanceStatus().isEmpty()) {
@@ -592,7 +593,7 @@ public class ControlService implements IControlService {
     @Override
     public Control save(Control control) {
         logger.info("Saving control with ID: {}", control.getControlId());
-        control.setUpdatedAt(LocalDateTime.now());
+        control.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
         return controlRepository.save(control);
     }
 
@@ -686,7 +687,7 @@ public class ControlService implements IControlService {
 
     @Override
     public Control updateControl(Control control) {
-        control.setUpdatedAt(LocalDateTime.now());
+        control.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
         return controlRepository.save(control);
     }
 

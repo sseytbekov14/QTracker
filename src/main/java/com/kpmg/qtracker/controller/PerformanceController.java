@@ -3,6 +3,7 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.dto.PerformanceDTO;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
@@ -107,7 +108,7 @@ public class PerformanceController {
             model.addAttribute("controlOperator", controlOperator);
             model.addAttribute("processOwner", processOwner);
             model.addAttribute("lastUpdatedBy", currentUser.getDisplayName());
-            model.addAttribute("lastUpdatedOn", LocalDateTime.now());
+            model.addAttribute("lastUpdatedOn", LocalDateTime.now(Notification.ZONE));
 
             return "performance-cycle";
 

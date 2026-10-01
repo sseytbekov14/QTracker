@@ -19,6 +19,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -115,69 +118,55 @@ class WorkflowFlowIT {
         Long controlId = control.getId();
         Map<String, Integer> expectedCounts = new HashMap<>();
 
-        mockMvc.perform(post("/api/workflow/submit-to-control-operator")
-                        .param("controlId", String.valueOf(controlId))
-                        .sessionAttr("currentUser", facilitator))
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-control-operator", controlId, facilitator))
                 .andExpect(status().isOk());
-        assertControlStatus(controlId, "REVIEW");
+        assertPerformanceStatus(controlId, "REVIEW");
         expectedCounts.put(operator.getMail(), 1);
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 1);
 
-        mockMvc.perform(post("/api/workflow/submit-to-soqm-lead")
-                        .param("controlId", String.valueOf(controlId))
-                        .sessionAttr("currentUser", operator))
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-soqm-lead", controlId, operator))
                 .andExpect(status().isOk());
-        assertControlStatus(controlId, "SOQM_HEAD_REVIEW");
+        assertPerformanceStatus(controlId, "SOQM_HEAD_REVIEW");
         expectedCounts.put(soqmLead.getMail(), 1);
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 2);
 
-        mockMvc.perform(post("/api/workflow/return-to-operator")
-                        .param("controlId", String.valueOf(controlId))
-                        .sessionAttr("currentUser", soqmLead))
+        mockMvc.perform(workflowPost("/api/workflow/return-to-operator", controlId, soqmLead))
                 .andExpect(status().isOk());
-        assertControlStatus(controlId, "REVIEW");
+        assertPerformanceStatus(controlId, "REVIEW");
         expectedCounts.put(operator.getMail(), 2);
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 3);
 
-        mockMvc.perform(post("/api/workflow/submit-to-soqm-lead")
-                        .param("controlId", String.valueOf(controlId))
-                        .sessionAttr("currentUser", operator))
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-soqm-lead", controlId, operator))
                 .andExpect(status().isOk());
-        assertControlStatus(controlId, "SOQM_HEAD_REVIEW");
+        assertPerformanceStatus(controlId, "SOQM_HEAD_REVIEW");
         expectedCounts.put(soqmLead.getMail(), 2);
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 4);
 
-        mockMvc.perform(post("/api/workflow/submit-to-process-owner")
-                        .param("controlId", String.valueOf(controlId))
-                        .sessionAttr("currentUser", soqmLead))
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-process-owner", controlId, soqmLead))
                 .andExpect(status().isOk());
-        assertControlStatus(controlId, "PROCESS_OWNER_REVIEW");
+        assertPerformanceStatus(controlId, "PROCESS_OWNER_REVIEW");
         expectedCounts.put(processOwner.getMail(), 1);
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 5);
 
-        mockMvc.perform(post("/api/workflow/complete-control")
-                        .param("controlId", String.valueOf(controlId))
-                        .sessionAttr("currentUser", processOwner))
+        mockMvc.perform(workflowPost("/api/workflow/complete-control", controlId, processOwner))
                 .andExpect(status().isOk());
-        assertControlStatus(controlId, "COMPLETED");
+        assertPerformanceStatus(controlId, "COMPLETED");
         expectedCounts.put(facilitator.getMail(), 1);
         expectedCounts.put(operator.getMail(), 3);
         expectedCounts.put(soqmLead.getMail(), 3);
-        expectedCounts.put(processOwner.getMail(), 2);
+        // COMPLETED_ALL goes to facilitator, operator and SoQM lead only; the process owner keeps 1
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 6);
     }
 
     @Test
     void submitToControlOperator_withWrongRole_returns403() throws Exception {
-        mockMvc.perform(post("/api/workflow/submit-to-control-operator")
-                        .param("controlId", String.valueOf(control.getId()))
-                        .sessionAttr("currentUser", operator))
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-control-operator", control.getId(), operator))
                 .andExpect(status().isForbidden());
         assertNotificationCounts(control.getId(), Map.of());
     }
@@ -186,9 +175,7 @@ class WorkflowFlowIT {
     void submitToControlOperator_requiresControlStepsPerformed() throws Exception {
         updateDetails(control.getId(), details -> details.setControlStepsPerformed(""));
 
-        mockMvc.perform(post("/api/workflow/submit-to-control-operator")
-                        .param("controlId", String.valueOf(control.getId()))
-                        .sessionAttr("currentUser", facilitator))
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-control-operator", control.getId(), facilitator))
                 .andExpect(status().isBadRequest());
     }
 
@@ -198,9 +185,7 @@ class WorkflowFlowIT {
         controlRepository.save(control);
         updateDetails(control.getId(), details -> details.setControlStepsPerformed(""));
 
-        mockMvc.perform(post("/api/workflow/submit-to-soqm-lead")
-                        .param("controlId", String.valueOf(control.getId()))
-                        .sessionAttr("currentUser", operator))
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-soqm-lead", control.getId(), operator))
                 .andExpect(status().isBadRequest());
     }
 
@@ -210,9 +195,7 @@ class WorkflowFlowIT {
         controlRepository.save(control);
         updateDetails(control.getId(), details -> details.setSoqmHeadComments(""));
 
-        mockMvc.perform(post("/api/workflow/submit-to-process-owner")
-                        .param("controlId", String.valueOf(control.getId()))
-                        .sessionAttr("currentUser", soqmLead))
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-process-owner", control.getId(), soqmLead))
                 .andExpect(status().isBadRequest());
     }
 
@@ -222,10 +205,17 @@ class WorkflowFlowIT {
         controlRepository.save(control);
         updateDetails(control.getId(), details -> details.setProcessOwnerComments(""));
 
-        mockMvc.perform(post("/api/workflow/complete-control")
-                        .param("controlId", String.valueOf(control.getId()))
-                        .sessionAttr("currentUser", processOwner))
+        mockMvc.perform(workflowPost("/api/workflow/complete-control", control.getId(), processOwner))
                 .andExpect(status().isBadRequest());
+    }
+
+    /** Workflow POST that passes the security filter chain: authenticated principal, CSRF token, app session user. */
+    private MockHttpServletRequestBuilder workflowPost(String path, Long controlId, User actor) {
+        return post(path)
+                .param("controlId", String.valueOf(controlId))
+                .sessionAttr("currentUser", actor)
+                .with(user(actor.getMail()).roles(actor.getRole()))
+                .with(csrf());
     }
 
     private User saveUser(String role, String mail, String displayName) {
@@ -244,9 +234,9 @@ class WorkflowFlowIT {
         userRepository.findById(user.getId()).ifPresent(userRepository::delete);
     }
 
-    private void assertControlStatus(Long controlId, String expectedStatus) {
+    private void assertPerformanceStatus(Long controlId, String expectedStatus) {
         String status = controlRepository.findById(controlId)
-                .map(Control::getControlStatus)
+                .map(Control::getPerformanceStatus)
                 .orElse(null);
         assertEquals(expectedStatus, status);
     }

@@ -3,6 +3,7 @@ package com.kpmg.qtracker.service;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
+import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.enums.ControlFrequency;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
@@ -182,8 +183,8 @@ public class ControlAutoCreationService {
         control.setControlDescription(previousControl.getControlDescription());
         control.setPrp(previousControl.getPrp());
         control.setCreatedBy(previousControl.getCreatedBy());
-        control.setCreatedAt(LocalDateTime.now());
-        control.setUpdatedAt(LocalDateTime.now());
+        control.setCreatedAt(LocalDateTime.now(Notification.ZONE));
+        control.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
         control.setDeadline(deadline);
 
         control.setSoqmHeadComments(null);

@@ -320,7 +320,7 @@ public class WorkflowController {
             history.setPerformedByEmail(currentUser.getMail());
             history.setPerformedByName(currentUser.getDisplayName());
             history.setComments("Control submitted to Process Owner for review");
-            history.setCreatedAt(LocalDateTime.now());
+            history.setCreatedAt(LocalDateTime.now(Notification.ZONE));
             workflowHistoryRepository.save(history);
 
             // Notify Process Owner only
@@ -391,7 +391,7 @@ public class WorkflowController {
             history.setComments(comments != null && !comments.isEmpty() 
                 ? comments 
                 : "Control returned to Control Operator for revision");
-            history.setCreatedAt(LocalDateTime.now());
+            history.setCreatedAt(LocalDateTime.now(Notification.ZONE));
             workflowHistoryRepository.save(history);
 
             // Notify Control Operator only
@@ -459,7 +459,7 @@ public class WorkflowController {
             history.setPerformedByEmail(currentUser.getMail());
             history.setPerformedByName(currentUser.getDisplayName());
             history.setComments("Control completed by Process Owner");
-            history.setCreatedAt(LocalDateTime.now());
+            history.setCreatedAt(LocalDateTime.now(Notification.ZONE));
             workflowHistoryRepository.save(history);
 
             // Notify control participants (excluding process owner and shared users)
@@ -530,7 +530,7 @@ public class WorkflowController {
             history.setComments(comments != null && !comments.isEmpty() 
                 ? comments 
                 : "Control returned to SoQM Team for revision");
-            history.setCreatedAt(LocalDateTime.now());
+            history.setCreatedAt(LocalDateTime.now(Notification.ZONE));
             workflowHistoryRepository.save(history);
 
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);

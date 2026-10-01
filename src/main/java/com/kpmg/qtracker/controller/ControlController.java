@@ -8,6 +8,7 @@ import com.kpmg.qtracker.dto.ControlDetailsDTO;
 import com.kpmg.qtracker.dto.ControlDocumentsDTO;
 import com.kpmg.qtracker.dto.PerformanceDTO;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -442,7 +443,7 @@ public class ControlController {
             }
 
             // ★ ГЕНЕРАЦИЯ ИМЕНИ ФАЙЛА
-            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String timestamp = LocalDateTime.now(Notification.ZONE).format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
             String userPart = "all";
             if (userEmail != null && !userEmail.isEmpty()) {
                 userPart = userEmail.split("@")[0];
@@ -632,7 +633,7 @@ public class ControlController {
                 existingControl.setProcessOwnerComments(controlDTO.getProcessOwnerComments());
             }
             
-            existingControl.setUpdatedAt(LocalDateTime.now());
+            existingControl.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
 
             Control updatedControl = controlService.updateControl(existingControl);
             if (canonicalFrequency != null

@@ -50,6 +50,8 @@ public class AdminAuditLog {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now(Notification.ZONE);
+        }
     }
 }
