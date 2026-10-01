@@ -604,37 +604,23 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
-    void assignedFacilitator_cannotAutoSaveSoqmYear_returns403() throws Exception {
+    void checklistEndpoints_areNotExposed() throws Exception {
         Participants p = participants();
-        Control control = createControl("CTRL-YEAR-" + suffix(), p.soqm, "DRAFT");
+        Control control = createControl("CTRL-PERF-API-" + suffix(), p.soqm, "DRAFT");
         assign(control, p);
-
-        MockHttpSession session = login(p.facilitator.getMail());
-
-        mockMvc.perform(post("/api/performance/auto-save")
-                        .param("controlId", String.valueOf(control.getId()))
-                        .param("soqmYear", "2031")
-                        .session(session))
-                .andExpect(status().isForbidden());
-
-        assertThat(controlRepository.findById(control.getId()).orElseThrow().getSoqmYear()).isNull();
-    }
-
-    @Test
-    void soqm_canAutoSaveSoqmYear_returns200() throws Exception {
-        Participants p = participants();
-        Control control = createControl("CTRL-YEAR-" + suffix(), p.soqm, "DRAFT");
-        assign(control, p);
-
         MockHttpSession session = login(p.soqm.getMail());
 
         mockMvc.perform(post("/api/performance/auto-save")
                         .param("controlId", String.valueOf(control.getId()))
-                        .param("soqmYear", "2031")
+                        .param("soqmYear", "1 OCT 2026 - 30 SEP 2027")
                         .session(session))
-                .andExpect(status().isOk());
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/performance/{id}", control.getId()).session(session))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/performance/performance-cycle/{id}", control.getId()).session(session))
+                .andExpect(status().isNotFound());
 
-        assertThat(controlRepository.findById(control.getId()).orElseThrow().getSoqmYear()).isEqualTo("2031");
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getSoqmYear()).isNull();
     }
 
     @Test

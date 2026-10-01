@@ -6,8 +6,6 @@ import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlService;
-import com.kpmg.qtracker.service.PerformanceService;
-import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.service.WorkflowService;
 import com.kpmg.qtracker.service.WorkflowTransitionGuard;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,13 +34,9 @@ class PerformanceControllerInitiateTest {
     private static final long CONTROL_ID = 600L;
 
     @Mock
-    private PerformanceService performanceService;
-    @Mock
     private ControlService controlService;
     @Mock
     private ControlAssignmentService controlAssignmentService;
-    @Mock
-    private UserService userService;
     @Mock
     private WorkflowService workflowService;
     @Mock
@@ -55,10 +49,8 @@ class PerformanceControllerInitiateTest {
     @BeforeEach
     void setUp() {
         PerformanceController controller = new PerformanceController(
-                performanceService,
                 controlService,
                 controlAssignmentService,
-                userService,
                 workflowService,
                 controlPermissionService,
                 new WorkflowTransitionGuard()

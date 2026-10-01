@@ -71,17 +71,6 @@ public class PerformanceService implements IPerformanceService {
         return dto;
     }
 
-    /**
-     * Save soqmYear directly into controls table.
-     */
-    @Override
-    public void saveSoqmYear(Long controlId, String soqmYear) {
-        Control control = controlService.getControlById(controlId)
-                .orElseThrow(() -> new RuntimeException("Control not found: " + controlId));
-        control.setSoqmYear(soqmYear);
-        controlService.save(control);
-    }
-
     @Override
     public String getPerformanceStatusByControlId(Long controlId) {
         if (controlId == null) {
