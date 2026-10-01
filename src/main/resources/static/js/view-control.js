@@ -718,12 +718,14 @@ function confirmWorkflowAction() {
         closeUserDropdown();
     }
 
+    // The display boxes are always read-only text; Edit unlocks them by dropping readonly-field
     function isAssignmentDropdownEditable(inputId) {
         const input = document.getElementById(inputId);
         if (!input) {
             return true;
         }
-        return !(input.disabled || input.readOnly || input.classList.contains('readonly-field'));
+        return !(input.disabled || input.classList.contains('readonly-field')
+            || input.getAttribute('aria-disabled') === 'true');
     }
 
     // ========== CONTROL OPERATOR FUNCTIONS ==========
@@ -1616,9 +1618,12 @@ function makeAllFormsEditable() {
         if (input) {
             console.log(`  рџ“ќ Processing dropdown: ${id}`);
             if (canEditAssignment) {
+                // The box only shows who is selected; the choice is made in its list
                 input.classList.remove('readonly-field');
-                input.readOnly = false;
+                input.removeAttribute('aria-disabled');
+                if (input.tagName === 'INPUT') input.readOnly = true;
                 input.style.pointerEvents = 'auto';
+                input.style.cursor = '';
                 input.style.backgroundColor = '';
             } else {
                 input.classList.add('readonly-field');

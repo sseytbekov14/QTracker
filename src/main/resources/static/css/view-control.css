@@ -382,12 +382,6 @@ textarea.readonly-field::-webkit-resizer {
 body.theme-dark #workflow-buttons-container .btn-warning { background: transparent; border-color: #d4a843; color: #f0c870; }
 
 /* ── User Dropdowns ── */
-.facilitator-dropdown {
-    border: 1px solid var(--kpmg-gray-200);
-    border-radius: 4px;
-    padding: 10px;
-    background: var(--kpmg-gray-50);
-}
 
 .selected-users-container {
     display: flex;
@@ -519,11 +513,11 @@ body.theme-dark #workflow-buttons-container .btn-warning { background: transpare
     right: 0;
     background: var(--kpmg-white);
     border: 1px solid var(--kpmg-gray-200);
-    border-top: none;
-    border-radius: 0 0 4px 4px;
+    border-radius: 4px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     z-index: 1000;
-    margin-top: -1px;
+    margin-top: 2px;
+    overflow: hidden;
 }
 
 .dropdown-search {
@@ -543,7 +537,7 @@ body.theme-dark #workflow-buttons-container .btn-warning { background: transpare
 }
 
 .compact-user-item:hover {
-    background-color: var(--kpmg-gray-50);
+    background-color: #eef3fb;
 }
 
 .compact-user-item.selected {
@@ -734,7 +728,6 @@ body.theme-dark .nav-tabs .nav-link:hover {
 
 body.theme-dark .form-section,
 body.theme-dark .action-buttons,
-body.theme-dark .facilitator-dropdown,
 body.theme-dark .selected-users-container,
 body.theme-dark .multiple-selection .selected-users-container,
 body.theme-dark .edit-nav-panel {
