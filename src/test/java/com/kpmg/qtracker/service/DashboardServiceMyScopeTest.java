@@ -5,8 +5,6 @@ import com.kpmg.qtracker.dto.DashboardChartDataDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlRepository;
-import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
-import com.kpmg.qtracker.repository.WorkflowStepRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,12 +28,6 @@ class DashboardServiceMyScopeTest {
     @Mock
     private ControlAssignmentService controlAssignmentService;
 
-    @Mock
-    private WorkflowStepRepository workflowStepRepository;
-
-    @Mock
-    private WorkflowHistoryRepository workflowHistoryRepository;
-
     private DashboardService dashboardService;
 
     @BeforeEach
@@ -43,9 +35,7 @@ class DashboardServiceMyScopeTest {
         dashboardService = new DashboardService(
                 controlRepository,
                 controlService,
-                controlAssignmentService,
-                workflowStepRepository,
-                workflowHistoryRepository
+                controlAssignmentService
         );
     }
 

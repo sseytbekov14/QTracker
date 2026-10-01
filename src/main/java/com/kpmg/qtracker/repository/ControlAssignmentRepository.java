@@ -102,13 +102,4 @@ public interface ControlAssignmentRepository extends JpaRepository<ControlAssign
 
     @Query("SELECT ca.controlId FROM ControlAssignment ca WHERE ca.controlSharedWith LIKE %:email%")
     List<Long> findControlIdsByControlSharedWith(@Param("email") String email);
-
-    @Query(value = """
-            SELECT c.id
-            FROM controls c
-            WHERE c.control_operation_deadline IS NOT NULL
-              AND c.control_operation_deadline < :today
-              AND COALESCE(UPPER(TRIM(c.performance_status)), 'DRAFT') NOT IN ('DRAFT', 'COMPLETED')
-            """, nativeQuery = true)
-    List<Long> findOverdueControlIds(@Param("today") LocalDate today);
 }

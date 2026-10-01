@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.kpmg.qtracker.service.WorkflowService;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -38,6 +39,7 @@ import java.util.UUID;
 public class ViewController {
 
     private static final int DASHBOARD_ACTION_ITEMS_LIMIT = 8;
+    private static final int DUE_SOON_DAYS = 3;
     private static final int NOTIFICATIONS_PAGE_SIZE = 50;
     private static final int NOTIFICATIONS_MAX_LIMIT = 1000;
 
@@ -195,30 +197,13 @@ public class ViewController {
         model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
 
         List<ControlResponseDTO> allControls = findControlsVisibleToUser(currentUser);
-        Map<Long, LocalDateTime> completionTimeByControlId = resolveCompletionTimes(allControls);
-        LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
+        LocalDate todayAlmaty = DeadlineOverdue.today(Instant.now());
         for (ControlResponseDTO control : allControls) {
-            control.setOverdue(isOverdue(control, todayAlmaty, completionTimeByControlId));
+            control.setOverdue(DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), todayAlmaty));
         }
+        // The same controls as the Controls list behind each tile (drafts only for roles that see every control)
         boolean hideDraftControls = !isGlobalVisibilityRole(userRole, userIsAdmin);
-        ControlCounters dashboardCounters = countControlsVisibleToUser(
-                allControls,
-                hideDraftControls,
-                completionTimeByControlId
-        );
-        if (isGlobalVisibilityRole(userRole, userIsAdmin)) {
-            DashboardService.DashboardKpiCounts serviceCounts = dashboardService.getKpiCounts();
-            if (serviceCounts != null) {
-                dashboardCounters = new ControlCounters(
-                        Math.toIntExact(serviceCounts.total()),
-                        Math.toIntExact(serviceCounts.active()),
-                        Math.toIntExact(serviceCounts.completed()),
-                        Math.toIntExact(serviceCounts.overdue())
-                );
-            } else {
-                dashboardCounters = new ControlCounters(0, 0, 0, 0);
-            }
-        }
+        ControlCounters dashboardCounters = countControlsVisibleToUser(allControls, hideDraftControls);
 
         model.addAttribute("totalControls", dashboardCounters.total());
         model.addAttribute("activeControls", dashboardCounters.active());
@@ -240,8 +225,7 @@ public class ViewController {
         // ===== NEEDS ATTENTION =====
         // Team-wide controls nobody is moving; SoQM and admins only (they see every control)
         if (isGlobalVisibilityRole(userRole, userIsAdmin)) {
-            model.addAttribute("needsAttention",
-                    buildNeedsAttention(allControls, completionTimeByControlId, userEmail, todayAlmaty));
+            model.addAttribute("needsAttention", buildNeedsAttention(allControls, userEmail, todayAlmaty));
             model.addAttribute("needsAttentionLimit", DASHBOARD_ACTION_ITEMS_LIMIT);
         }
 
@@ -275,7 +259,7 @@ public class ViewController {
             componentStats.put("All", nonDraftCount);
         }
         model.addAttribute("componentStats", componentStats);
-        addComponentSummaries(model, allControls, isSoqmRole(userRole));
+        addComponentSummaries(model, allControls, isGlobalVisibilityRole(userRole, userIsAdmin));
 
         // ===== NOTIFICATIONS DATA =====
         // Newest first, NOTIFICATIONS_PAGE_SIZE at a time ("Show more" raises notifLimit).
@@ -392,10 +376,10 @@ public class ViewController {
             return date2.compareTo(date1);
         });
 
-        LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
+        LocalDate todayAlmaty = DeadlineOverdue.today(Instant.now());
         if (overdueFilter) {
             userControlsList = userControlsList.stream()
-                    .filter(control -> isOverdue(control, todayAlmaty, completionTimeByControlId))
+                    .filter(control -> DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), todayAlmaty))
                     .collect(Collectors.toList());
             System.out.println("controls filter scope=overdue user=" + userEmail
                     + " count=" + userControlsList.size());
@@ -457,10 +441,12 @@ public class ViewController {
         }
 
         for (ControlResponseDTO control : userControlsList) {
-            control.setOverdue(isOverdue(control, todayAlmaty, completionTimeByControlId));
+            control.setOverdue(DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), todayAlmaty));
+            control.setClosedLate(DeadlineOverdue.isClosedLate(control.getPerformanceStatus(), control.getDeadline(),
+                    completedOn(control, completionTimeByControlId)));
         }
 
-        ControlCounters counters = countControlsVisibleToUser(userControlsList, false, completionTimeByControlId);
+        ControlCounters counters = countControlsVisibleToUser(userControlsList, false);
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userTitle", currentUser.getRole());
@@ -492,13 +478,9 @@ public class ViewController {
                 .map(ControlResponseDTO::getId)
                 .collect(Collectors.toSet()));
         // Not overdue yet, but the deadline is within the next 3 days (Almaty date)
-        LocalDate dueSoonLimit = todayAlmaty.plusDays(3);
         model.addAttribute("dueSoonControlIds", userControlsList.stream()
-                .filter(control -> control.getDeadline() != null
-                        && !control.isOverdue()
-                        && !"COMPLETED".equals(normalizeStatus(control.getPerformanceStatus()))
-                        && !control.getDeadline().isBefore(todayAlmaty)
-                        && !control.getDeadline().isAfter(dueSoonLimit))
+                .filter(control -> DeadlineOverdue.isDueSoon(control.getPerformanceStatus(), control.getDeadline(),
+                        todayAlmaty, DUE_SOON_DAYS))
                 .map(ControlResponseDTO::getId)
                 .collect(Collectors.toSet()));
         model.addAttribute("totalControls", counters.total());
@@ -534,32 +516,16 @@ public class ViewController {
     }
 
     private ControlCounters countControlsVisibleToUser(List<ControlResponseDTO> controls, boolean hideDraftControls) {
-        return countControlsVisibleToUser(controls, hideDraftControls, resolveCompletionTimes(controls));
-    }
-
-    private ControlCounters countControlsVisibleToUser(List<ControlResponseDTO> controls,
-                                                       boolean hideDraftControls,
-                                                       Map<Long, LocalDateTime> completionTimeByControlId) {
         List<ControlResponseDTO> base = controls == null ? new ArrayList<>() : new ArrayList<>(controls);
         if (hideDraftControls) {
             base = base.stream()
                     .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
                     .collect(Collectors.toList());
         }
-        LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
-        int totalControls = base.size();
-        int completedControls = (int) base.stream()
-                .filter(control -> isCompletedForDashboard(control, completionTimeByControlId))
-                .count();
-        int overdueControls = (int) base.stream()
-                .filter(control -> isCurrentOverdueForDashboard(control, todayAlmaty, completionTimeByControlId))
-                .count();
-        int activeControls = totalControls - completedControls - overdueControls;
-        return new ControlCounters(totalControls, activeControls, completedControls, overdueControls);
-    }
-
-    private boolean isAdminRole(String userRole) {
-        return userRole != null && "ADMIN".equalsIgnoreCase(userRole.trim());
+        DeadlineOverdue.Counts counts = DeadlineOverdue.count(base,
+                ControlResponseDTO::getPerformanceStatus, ControlResponseDTO::getDeadline, DeadlineOverdue.today(Instant.now()));
+        return new ControlCounters(Math.toIntExact(counts.total()), Math.toIntExact(counts.active()),
+                Math.toIntExact(counts.completed()), Math.toIntExact(counts.overdue()));
     }
 
     private boolean isSoqmRole(String userRole) {
@@ -574,11 +540,11 @@ public class ViewController {
     }
 
     private boolean isGlobalVisibilityRole(String userRole) {
-        return isAdminRole(userRole) || isSoqmRole(userRole);
+        return ControlScope.seesAllControls(userRole, false);
     }
 
     private boolean isGlobalVisibilityRole(String userRole, boolean userIsAdmin) {
-        return userIsAdmin || isAdminRole(userRole) || isSoqmRole(userRole);
+        return ControlScope.seesAllControls(userRole, userIsAdmin);
     }
 
     /** A filter link on the Controls page (status chip / component option). */
@@ -692,7 +658,7 @@ public class ViewController {
                     continue;
                 }
                 total++;
-                if ("COMPLETED".equals(status)) {
+                if (DeadlineOverdue.isCompleted(control.getPerformanceStatus())) {
                     completed++;
                 } else if (control.isOverdue()) {
                     overdue++;
@@ -728,50 +694,8 @@ public class ViewController {
         return status.trim().toUpperCase(Locale.ROOT);
     }
 
-    private boolean isOverdue(ControlResponseDTO control,
-                              LocalDate today,
-                              Map<Long, LocalDateTime> completionTimeByControlId) {
-        if (control == null || today == null) {
-            return false;
-        }
-        LocalDate deadline = control.getDeadline();
-        if (deadline == null) {
-            return false;
-        }
-        String status = normalizeStatus(control.getPerformanceStatus());
-        if ("COMPLETED".equals(status)) {
-            LocalDate completedDate = resolveCompletedDate(control, completionTimeByControlId);
-            return completedDate != null && completedDate.isAfter(deadline);
-        }
-        return deadline.isBefore(today);
-    }
-
-    private boolean isCompletedForDashboard(ControlResponseDTO control,
-                                            Map<Long, LocalDateTime> completionTimeByControlId) {
-        if (control == null) {
-            return false;
-        }
-        if ("COMPLETED".equals(normalizeStatus(control.getPerformanceStatus()))) {
-            return true;
-        }
-        return resolveCompletedDate(control, completionTimeByControlId) != null;
-    }
-
-    private boolean isCurrentOverdueForDashboard(ControlResponseDTO control,
-                                                 LocalDate today,
-                                                 Map<Long, LocalDateTime> completionTimeByControlId) {
-        if (control == null || today == null) {
-            return false;
-        }
-        if (isCompletedForDashboard(control, completionTimeByControlId)) {
-            return false;
-        }
-        LocalDate deadline = control.getDeadline();
-        return deadline != null && deadline.isBefore(today);
-    }
-
-    private LocalDate resolveCompletedDate(ControlResponseDTO control,
-                                           Map<Long, LocalDateTime> completionTimeByControlId) {
+    // Day the control was completed according to workflow history; only used for "Closed late"
+    private LocalDate completedOn(ControlResponseDTO control, Map<Long, LocalDateTime> completionTimeByControlId) {
         if (control == null || control.getId() == null || completionTimeByControlId == null) {
             return null;
         }
@@ -846,11 +770,10 @@ public class ViewController {
 
     /** Rules are in {@link NeedsAttention}; the only extra query is the last move of open controls. */
     private NeedsAttention.Result buildNeedsAttention(List<ControlResponseDTO> controls,
-                                                      Map<Long, LocalDateTime> completionTimeByControlId,
                                                       String userEmail,
                                                       LocalDate today) {
         List<Long> openControlIds = controls.stream()
-                .filter(control -> !isCompletedForDashboard(control, completionTimeByControlId))
+                .filter(control -> !DeadlineOverdue.isCompleted(control.getPerformanceStatus()))
                 .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
                 .map(ControlResponseDTO::getId)
                 .filter(Objects::nonNull)
@@ -868,7 +791,6 @@ public class ViewController {
                         control.getControlOperators(),
                         control.getSoqmLeads(),
                         control.getProcessOwners(),
-                        isCompletedForDashboard(control, completionTimeByControlId),
                         isActiveQueueForUser(control, userEmail),
                         lastMoves.get(control.getId()),
                         control.getUpdatedAt()))
@@ -1136,13 +1058,11 @@ public class ViewController {
 
         // Header summary + workflow stepper
         String normalizedStatus = normalizeStatus(performanceStatus);
-        LocalDate deadline = assignment != null && assignment.getControlOperationDeadline() != null
-                ? assignment.getControlOperationDeadline()
-                : control.getDeadline();
+        LocalDate deadline = DeadlineOverdue.deadlineOf(
+                assignment != null ? assignment.getControlOperationDeadline() : null, control.getDeadline());
         model.addAttribute("deadline", deadline);
-        model.addAttribute("overdue", deadline != null
-                && !"COMPLETED".equals(normalizedStatus)
-                && deadline.isBefore(LocalDate.now(ZoneId.of("Asia/Almaty"))));
+        model.addAttribute("overdue",
+                DeadlineOverdue.isOverdue(performanceStatus, deadline, DeadlineOverdue.today(Instant.now())));
         model.addAttribute("workflowStepIndex", workflowStepIndex(normalizedStatus));
         model.addAttribute("facilitatorNames", assignment != null ? joinDisplayNames(assignment.getFacilitator()) : null);
         model.addAttribute("operatorNames", assignment != null ? joinDisplayNames(assignment.getControlOperator()) : null);
@@ -1268,10 +1188,9 @@ public class ViewController {
         model.addAttribute("componentStats", componentStats);
 
         List<ControlResponseDTO> visibleControls = findControlsVisibleToUser(currentUser);
-        LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
-        Map<Long, LocalDateTime> completionTimes = resolveCompletionTimes(visibleControls);
+        LocalDate todayAlmaty = DeadlineOverdue.today(Instant.now());
         for (ControlResponseDTO control : visibleControls) {
-            control.setOverdue(isOverdue(control, todayAlmaty, completionTimes));
+            control.setOverdue(DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), todayAlmaty));
         }
         addComponentSummaries(model, visibleControls, includeDraft);
 
@@ -1326,13 +1245,9 @@ public class ViewController {
             LocalDateTime lastUpdatedOn = lastAction != null ? lastAction.getCreatedAt() : control.getUpdatedAt();
             String lastUpdatedBy = lastAction != null ? lastAction.getPerformedByName() : null;
 
-            LocalDate deadline = assignment.getControlOperationDeadline() != null
-                    ? assignment.getControlOperationDeadline()
-                    : control.getDeadline();
+            LocalDate deadline = DeadlineOverdue.deadlineOf(assignment.getControlOperationDeadline(), control.getDeadline());
             String status = normalizeStatus(control.getPerformanceStatus());
-            boolean overdue = deadline != null
-                    && !"COMPLETED".equals(status)
-                    && deadline.isBefore(LocalDate.now(ZoneId.of("Asia/Almaty")));
+            boolean overdue = DeadlineOverdue.isOverdue(status, deadline, DeadlineOverdue.today(Instant.now()));
 
             // 6. Model
             model.addAttribute("userName", currentUser.getDisplayName());

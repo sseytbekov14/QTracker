@@ -174,8 +174,8 @@ class NeedsAttentionTest {
     @Test
     void completedControls_andMyTurn_areLeftOut() {
         Result result = evaluate(
-                control("Done-status").status("COMPLETED").operators(),
-                control("Done-history").status("PROCESS_OWNER_REVIEW").completed().operators(),
+                control("Done").status("COMPLETED").operators(),
+                control("Done-lowercase").status(" completed ").operators().deadline(TODAY.minusDays(5)),
                 control("Mine").status("SOQM_HEAD_REVIEW").myTurn().movedTo("REVIEW", "SOQM_HEAD_REVIEW", daysAgo(20)));
 
         assertThat(result.items()).isEmpty();
@@ -282,7 +282,6 @@ class NeedsAttentionTest {
         private List<String> operators = List.of("op@example.test");
         private List<String> soqmLeads = List.of("soqm@example.test");
         private List<String> owners = List.of("po@example.test");
-        private boolean completed;
         private boolean myTurn;
         private LastMove lastMove;
         private LocalDateTime updatedAt = TODAY.atTime(9, 0);
@@ -321,11 +320,6 @@ class NeedsAttentionTest {
             return this;
         }
 
-        Builder completed() {
-            completed = true;
-            return this;
-        }
-
         Builder myTurn() {
             myTurn = true;
             return this;
@@ -343,7 +337,7 @@ class NeedsAttentionTest {
 
         Candidate build() {
             return new Candidate(nextId++, controlId, controlId + " description", status, deadline,
-                    facilitators, operators, soqmLeads, owners, completed, myTurn, lastMove, updatedAt);
+                    facilitators, operators, soqmLeads, owners, myTurn, lastMove, updatedAt);
         }
     }
 }

@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -79,5 +81,91 @@ class DeadlineOverdueTest {
         assertThat(json.get("deadline").asText()).isEqualTo("2026-09-28T23:59:00+05:00");
         assertThat(json.get("overdue").asBoolean()).isTrue();
         assertThat(json.get("daysOverdue").asLong()).isEqualTo(3L);
+    }
+
+    // ===== The control rule: status + deadline =====
+
+    @Test
+    void openControlPastItsDeadline_isOverdue_draftsIncluded() {
+        LocalDate yesterday = TODAY.minusDays(1);
+
+        for (String status : List.of("IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW", "DRAFT")) {
+            assertThat(DeadlineOverdue.isOverdue(status, yesterday, TODAY)).as(status).isTrue();
+            assertThat(DeadlineOverdue.daysOverdue(status, yesterday, TODAY)).as(status).isEqualTo(1L);
+        }
+        // A missing status is a draft
+        assertThat(DeadlineOverdue.isOverdue(null, yesterday, TODAY)).isTrue();
+        assertThat(DeadlineOverdue.isOverdue(" ", yesterday, TODAY)).isTrue();
+    }
+
+    @Test
+    void completedControl_isNeverOverdue_whateverItsDeadline() {
+        assertThat(DeadlineOverdue.isCompleted("COMPLETED")).isTrue();
+        assertThat(DeadlineOverdue.isCompleted(" completed ")).isTrue();
+        assertThat(DeadlineOverdue.isCompleted("PROCESS_OWNER_REVIEW")).isFalse();
+        assertThat(DeadlineOverdue.isCompleted(null)).isFalse();
+
+        assertThat(DeadlineOverdue.isOverdue("COMPLETED", TODAY.minusDays(30), TODAY)).isFalse();
+        assertThat(DeadlineOverdue.daysOverdue("COMPLETED", TODAY.minusDays(30), TODAY)).isZero();
+    }
+
+    @Test
+    void controlDueToday_orWithoutDeadline_isNotOverdue() {
+        assertThat(DeadlineOverdue.isOverdue("IN_PROGRESS", TODAY, TODAY)).isFalse();
+        assertThat(DeadlineOverdue.daysOverdue("IN_PROGRESS", TODAY, TODAY)).isZero();
+        assertThat(DeadlineOverdue.isOverdue("IN_PROGRESS", null, TODAY)).isFalse();
+    }
+
+    @Test
+    void closedLate_onlyForCompletedControlsFinishedAfterTheDeadlineDay() {
+        LocalDate deadline = TODAY.minusDays(5);
+
+        assertThat(DeadlineOverdue.isClosedLate("COMPLETED", deadline, deadline.plusDays(1))).isTrue();
+        assertThat(DeadlineOverdue.isClosedLate("COMPLETED", deadline, deadline)).isFalse();
+        assertThat(DeadlineOverdue.isClosedLate("COMPLETED", deadline, deadline.minusDays(1))).isFalse();
+        assertThat(DeadlineOverdue.isClosedLate("COMPLETED", deadline, null)).isFalse();
+        assertThat(DeadlineOverdue.isClosedLate("COMPLETED", null, TODAY)).isFalse();
+        // Still open: overdue, not closed late
+        assertThat(DeadlineOverdue.isClosedLate("REVIEW", deadline, TODAY)).isFalse();
+    }
+
+    @Test
+    void dueSoon_isOpenAndDueFromTodayToTheLastDayOfTheWindow() {
+        assertThat(DeadlineOverdue.isDueSoon("REVIEW", TODAY, TODAY, 3)).isTrue();
+        assertThat(DeadlineOverdue.isDueSoon("REVIEW", TODAY.plusDays(3), TODAY, 3)).isTrue();
+        assertThat(DeadlineOverdue.isDueSoon("DRAFT", TODAY.plusDays(1), TODAY, 3)).isTrue();
+        assertThat(DeadlineOverdue.isDueSoon("REVIEW", TODAY.plusDays(4), TODAY, 3)).isFalse();
+        assertThat(DeadlineOverdue.isDueSoon("REVIEW", TODAY.minusDays(1), TODAY, 3)).isFalse();
+        assertThat(DeadlineOverdue.isDueSoon("COMPLETED", TODAY.plusDays(1), TODAY, 3)).isFalse();
+        assertThat(DeadlineOverdue.isDueSoon("REVIEW", null, TODAY, 3)).isFalse();
+    }
+
+    @Test
+    void deadlineOf_prefersTheOperationDeadline() {
+        LocalDate operation = TODAY.plusDays(2);
+        LocalDate stored = TODAY.plusDays(9);
+
+        assertThat(DeadlineOverdue.deadlineOf(operation, stored)).isEqualTo(operation);
+        assertThat(DeadlineOverdue.deadlineOf(null, stored)).isEqualTo(stored);
+        assertThat(DeadlineOverdue.deadlineOf(null, null)).isNull();
+    }
+
+    @Test
+    void count_putsEveryControlInExactlyOneOfCompletedOverdueActive() {
+        record Row(String status, LocalDate deadline) {
+        }
+        List<Row> rows = Arrays.asList(
+                new Row("COMPLETED", TODAY.minusDays(10)),   // closed late: completed, not overdue
+                new Row("COMPLETED", null),
+                new Row("REVIEW", TODAY.minusDays(1)),      // overdue
+                new Row("DRAFT", TODAY.minusDays(3)),       // overdue draft
+                new Row("IN_PROGRESS", TODAY),              // due today: active
+                new Row(null, null),                        // draft without deadline: active
+                null);
+
+        DeadlineOverdue.Counts counts = DeadlineOverdue.count(rows, Row::status, Row::deadline, TODAY);
+
+        assertThat(counts).isEqualTo(new DeadlineOverdue.Counts(6, 2, 2, 2));
+        assertThat(counts.active() + counts.completed() + counts.overdue()).isEqualTo(counts.total());
     }
 }

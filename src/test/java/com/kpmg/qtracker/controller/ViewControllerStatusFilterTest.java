@@ -259,7 +259,7 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
-    void controls_setsOverdueFlagForCompletedControlClosedAfterDeadline() throws Exception {
+    void controls_completedAfterDeadline_isClosedLate_notOverdue() throws Exception {
         User currentUser = new User();
         currentUser.setId(14L);
         currentUser.setRole("FACILITATOR");
@@ -293,7 +293,24 @@ class ViewControllerStatusFilterTest {
                 (List<ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
 
         assertThat(controls).hasSize(1);
-        assertThat(controls.get(0).isOverdue()).isTrue();
+        assertThat(controls.get(0).isOverdue()).isFalse();
+        assertThat(controls.get(0).isClosedLate()).isTrue();
+        assertThat(result.getResponse().getContentAsString())
+                .contains(">Closed late<")
+                .contains("data-closed-late=\"true\"")
+                .doesNotContain("title=\"Deadline passed\"");
+
+        // The Overdue filter only lists controls that are still open
+        MvcResult overdueResult = mockMvc.perform(get("/controls")
+                        .param("filter", "OVERDUE")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk())
+                .andReturn();
+        @SuppressWarnings("unchecked")
+        List<ControlResponseDTO> overdueControls =
+                (List<ControlResponseDTO>) overdueResult.getModelAndView().getModel().get("controls");
+        assertThat(overdueControls).isEmpty();
+        assertThat(overdueResult.getModelAndView().getModel().get("overdueControls")).isEqualTo(0);
     }
 
     @Test
@@ -332,6 +349,7 @@ class ViewControllerStatusFilterTest {
 
         assertThat(controls).hasSize(1);
         assertThat(controls.get(0).isOverdue()).isFalse();
+        assertThat(controls.get(0).isClosedLate()).isFalse();
     }
 
     @Test
@@ -1270,7 +1288,6 @@ class ViewControllerStatusFilterTest {
         soqm.setRole("SOQM_TEAM");
         soqm.setMail("soqm@kpmg.kz");
         soqm.setDisplayName("SoQM User");
-        when(dashboardService.getKpiCounts()).thenReturn(new DashboardService.DashboardKpiCounts(3, 1, 1, 1));
 
         java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
         ControlResponseDTO hrOverdue = new ControlResponseDTO();

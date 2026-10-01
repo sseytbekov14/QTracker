@@ -290,6 +290,8 @@ th[aria-sort="descending"] .sort-btn .bi { opacity: 1; color: var(--kpmg-blue); 
 .status-po         { background: #d1f0ef; color: #0b5c5a; }
 .status-completed  { background: #d4edda; color: #155724; }
 .status-overdue    { background: var(--kpmg-red); color: var(--kpmg-white); }
+/* Completed after the deadline: history, not an open problem */
+.status-closed-late { background: transparent; color: var(--kpmg-red); border: 1px solid var(--kpmg-red); }
 .control-table td.status-cell { white-space: nowrap; }
 
 /* Empty states */
@@ -481,7 +483,8 @@ body.theme-dark .status-draft { background: var(--surface-bg-2); color: var(--te
                                          data-soqm=${soqmNames},
                                          data-owner=${ownerNames},
                                          data-status-label=${statusLabel},
-                                         data-overdue=${control.overdue}">
+                                         data-overdue=${control.overdue},
+                                         data-closed-late=${control.closedLate}">
 
                                 <td class="row-num">1</td>
                                 <td>
@@ -501,7 +504,7 @@ body.theme-dark .status-draft { background: var(--surface-bg-2); color: var(--te
                                 </td>
                                 <td>
                                     <span th:if="${control.deadline != null}"
-                                          th:classappend="${control.overdue and !#strings.equals(control.performanceStatus, 'COMPLETED')} ? 'deadline-overdue' : (${dueSoon} ? 'deadline-soon' : '')"
+                                          th:classappend="${control.overdue} ? 'deadline-overdue' : (${dueSoon} ? 'deadline-soon' : '')"
                                           th:title="${dueSoon} ? 'Due within 3 days' : null"
                                           th:text="${#temporals.format(control.deadline, 'dd.MM.yyyy')}">-</span>
                                     <span th:if="${control.deadline == null}" class="muted">&mdash;</span>
@@ -539,7 +542,9 @@ body.theme-dark .status-draft { background: var(--surface-bg-2); color: var(--te
                                         <span th:case="*" class="badge status-draft" th:text="${statusLabel}">Draft</span>
                                     </span>
                                     <span th:if="${control.overdue}" class="badge status-overdue ms-1"
-                                          th:title="${#strings.equals(control.performanceStatus, 'COMPLETED')} ? 'Closed after deadline' : 'Deadline passed'">Overdue</span>
+                                          title="Deadline passed">Overdue</span>
+                                    <span th:if="${control.closedLate}" class="badge status-closed-late ms-1"
+                                          title="Closed after deadline">Closed late</span>
                                 </td>
                             </tr>
                             <tr th:if="${#lists.isEmpty(controls)}">
@@ -758,7 +763,8 @@ body.theme-dark .status-draft { background: var(--surface-bg-2); color: var(--te
                     data.push([index + 1, d.controlId || '', d.description || '', d.component || '',
                         d.frequency || '', d.type || '', formatDate(d.opdate), formatDate(d.deadline),
                         d.facilitator || '', d.operator || '', d.soqm || '', d.owner || '',
-                        d.statusLabel || '', d.overdue === 'true' ? 'Yes' : '']);
+                        d.statusLabel || '',
+                        d.overdue === 'true' ? 'Yes' : (d.closedLate === 'true' ? 'Closed late' : '')]);
                 });
                 const sheet = XLSX.utils.aoa_to_sheet(data);
                 sheet['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 40 }, { wch: 11 }, { wch: 12 }, { wch: 18 },

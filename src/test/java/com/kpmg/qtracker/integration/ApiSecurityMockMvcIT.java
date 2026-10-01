@@ -693,6 +693,83 @@ class ApiSecurityMockMvcIT {
                 .andExpect(content().string(not(containsString("No CO, SoQM, PO"))));
     }
 
+    @Test
+    void overdueTile_deadlinesBlock_andOverdueList_agree_forSoqmAdminAndFacilitator() throws Exception {
+        String s = suffix();
+        User facilitator = saveUser("ov-fac-" + s, "ov-fac-" + s + "@example.test", "FACILITATOR");
+        User otherFacilitator = saveUser("ov-other-" + s, "ov-other-" + s + "@example.test", "FACILITATOR");
+        User soqm = saveUser("ov-soqm-" + s, "ov-soqm-" + s + "@example.test", "SOQM_TEAM");
+        User admin = saveUser("ov-admin-" + s, "ov-admin-" + s + "@example.test", "ADMIN");
+        admin.setAdminAccess(true);
+        userRepository.save(admin);
+        LocalDate today = DeadlineOverdue.today(Instant.now());
+
+        Control openOverdue = deadlineControl("CTRL-OV-OPEN-" + s, facilitator, "REVIEW", today.minusDays(4));
+        Control draftOverdue = deadlineControl("CTRL-OV-DRAFT-" + s, facilitator, "DRAFT", today.minusDays(2));
+        Control closedLate = deadlineControl("CTRL-OV-LATE-" + s, facilitator, "COMPLETED", today.minusDays(6));
+        saveHistory(closedLate, WorkflowActionType.APPROVE, "PROCESS_OWNER_REVIEW", "COMPLETED", today.minusDays(1));
+        Control dueToday = deadlineControl("CTRL-OV-TODAY-" + s, facilitator, "IN_PROGRESS", today);
+        Control othersOverdue = deadlineControl("CTRL-OV-OTHER-" + s, otherFacilitator, "PROCESS_OWNER_REVIEW",
+                today.minusDays(1));
+
+        // Facilitator: their open controls only, drafts hidden
+        assertThat(overdueEverywhere(facilitator)).containsExactly(openOverdue.getId());
+
+        // SoQM and admin: every control, drafts included; never a completed one
+        for (User viewer : List.of(soqm, admin)) {
+            assertThat(overdueEverywhere(viewer))
+                    .as(viewer.getRole())
+                    .contains(openOverdue.getId(), draftOverdue.getId(), othersOverdue.getId())
+                    .doesNotContain(closedLate.getId(), dueToday.getId());
+        }
+
+        // The control finished after its deadline is labelled "Closed late" in the list instead
+        MvcResult completed = mockMvc.perform(get("/controls").param("filter", "COMPLETED").session(login(soqm.getMail())))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(controlsIn(completed))
+                .filteredOn(control -> closedLate.getId().equals(control.getId()))
+                .singleElement()
+                .satisfies(control -> {
+                    assertThat(control.isClosedLate()).isTrue();
+                    assertThat(control.isOverdue()).isFalse();
+                });
+        assertThat(completed.getResponse().getContentAsString()).contains(">Closed late<");
+    }
+
+    /**
+     * The Overdue tile on the dashboard, the total in the deadlines block and the Overdue list
+     * behind "View all" must show the same number; returns the ids in that list.
+     */
+    private List<Long> overdueEverywhere(User viewer) throws Exception {
+        MockHttpSession session = login(viewer.getMail());
+
+        Object tile = mockMvc.perform(get("/").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getModelAndView().getModel().get("overdueControls");
+
+        String block = mockMvc.perform(get("/api/dashboard/deadline-countdown").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        int blockTotal = com.jayway.jsonpath.JsonPath.read(block, "$.overdueTotal");
+
+        MvcResult list = mockMvc.perform(get("/controls").param("filter", "OVERDUE").session(session))
+                .andExpect(status().isOk())
+                .andReturn();
+        List<com.kpmg.qtracker.dto.ControlResponseDTO> listed = controlsIn(list);
+
+        assertThat(tile).as("tile vs deadlines block for " + viewer.getRole()).isEqualTo(blockTotal);
+        assertThat(listed).as("View all list for " + viewer.getRole()).hasSize(blockTotal);
+        assertThat(list.getModelAndView().getModel().get("overdueControls")).isEqualTo(blockTotal);
+        assertThat(listed).allSatisfy(control -> assertThat(control.isOverdue()).isTrue());
+        return listed.stream().map(com.kpmg.qtracker.dto.ControlResponseDTO::getId).toList();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<com.kpmg.qtracker.dto.ControlResponseDTO> controlsIn(MvcResult result) {
+        return (List<com.kpmg.qtracker.dto.ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
+    }
+
     private void saveHistory(Control control, WorkflowActionType type, String fromStep, String toStep, LocalDate day) {
         WorkflowHistory history = new WorkflowHistory();
         history.setControlId(control.getId());
@@ -737,6 +814,8 @@ class ApiSecurityMockMvcIT {
         control.setControlStatus(performanceStatus);
         control.setPerformanceStatus(performanceStatus);
         control.setCreatedBy(createdBy);
+        // As ControlService does on create; the Controls list sorts by updated/created time
+        control.setCreatedAt(java.time.LocalDateTime.now());
         Control saved = controlRepository.save(control);
         createdControlIds.add(saved.getId());
         return saved;

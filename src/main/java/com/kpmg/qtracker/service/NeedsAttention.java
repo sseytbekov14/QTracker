@@ -59,7 +59,6 @@ public final class NeedsAttention {
                             List<String> controlOperators,
                             List<String> soqmLeads,
                             List<String> processOwners,
-                            boolean completed,
                             boolean myTurn,
                             LastMove lastMove,
                             LocalDateTime updatedAt) {
@@ -127,7 +126,7 @@ public final class NeedsAttention {
             if ("SOQM_HEAD_REVIEW".equals(status)) {
                 inSoqmReview++;
             }
-            if (candidate.completed() || "COMPLETED".equals(status) || candidate.myTurn()) {
+            if (DeadlineOverdue.isCompleted(status) || candidate.myTurn()) {
                 continue;
             }
             long idleDays = idleDays(candidate, status, today);
@@ -144,7 +143,7 @@ public final class NeedsAttention {
                     candidate.description(),
                     status,
                     candidate.deadline(),
-                    DeadlineOverdue.daysOverdue(candidate.deadline(), today),
+                    DeadlineOverdue.daysOverdue(status, candidate.deadline(), today),
                     idleDays,
                     flags));
         }

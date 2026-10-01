@@ -469,9 +469,7 @@ public class ControlService implements IControlService {
         }
 
         // ★ Если deadline не загружен из assignment, берём из control_controls
-        if (dto.getDeadline() == null && control.getDeadline() != null) {
-            dto.setDeadline(control.getDeadline());
-        }
+        dto.setDeadline(DeadlineOverdue.deadlineOf(dto.getDeadline(), control.getDeadline()));
         
         // Use performance_status for workflow display
         String performanceStatus = control.getPerformanceStatus();
