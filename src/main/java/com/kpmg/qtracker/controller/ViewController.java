@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.UUID;
@@ -113,10 +114,69 @@ public class ViewController {
         return "workflow/approvals";
     }
 
-    /** The former Initiation Checklist; drafts are initiated on View Control, which checks access itself. */
+    /** The former Initiation Checklist URL; the Initiate page checks access itself. */
     @GetMapping("/performance/{controlId}")
     public String performanceChecklist(@PathVariable Long controlId) {
-        return "redirect:/view-control/" + controlId;
+        return "redirect:/initiate/" + controlId;
+    }
+
+    /**
+     * Initiation checklist of a draft: what is still missing, the SoQM Year and the Initiate button.
+     * Anyone the INITIATE transition does not allow (other participants, controls already in the
+     * workflow) is sent to View Control.
+     */
+    @GetMapping("/initiate/{id}")
+    public String initiateControl(@PathVariable Long id, Model model, HttpSession session) {
+        String redirect = checkAuthAndRedirect(session);
+        if (redirect != null) return redirect;
+
+        User currentUser = getCurrentUser(session);
+        Control control = controlService.getControlById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Control not found with id: " + id));
+        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(id);
+        ControlPermission permission = permissionService.resolve(control, currentUser, assignment);
+        if (!permission.canView()) {
+            throw new ForbiddenException("You do not have permission to view this control.");
+        }
+        if (!transitionGuard.check(control, currentUser, permission, WorkflowTransition.INITIATE).allowed()) {
+            return "redirect:/view-control/" + id;
+        }
+
+        List<InitiationReadiness.Item> items = InitiationReadiness.items(control, assignment);
+        List<InitiationRow> rows = items.stream()
+                .map(item -> new InitiationRow(item.label(), item.tab(), item.done(),
+                        item.done() ? initiationValue(item.field(), control, assignment) : null))
+                .toList();
+        LocalDate todayAlmaty = DeadlineOverdue.today(Instant.now());
+
+        model.addAttribute("userName", currentUser.getDisplayName());
+        model.addAttribute("userTitle", currentUser.getRole());
+        model.addAttribute("userEmail", currentUser.getMail());
+        model.addAttribute("userRole", currentUser.getRole());
+        model.addAttribute("control", control);
+        model.addAttribute("initiationRows", rows);
+        model.addAttribute("initiationReady", InitiationReadiness.isReady(items));
+        model.addAttribute("missingCount", rows.stream().filter(row -> !row.done()).count());
+        model.addAttribute("soqmYearOptions", SoqmYear.options(todayAlmaty));
+        model.addAttribute("initiateSoqmYear", SoqmYear.preselected(control.getSoqmYear(), todayAlmaty));
+        return "initiate-control";
+    }
+
+    /** One line of the Initiate page: the item, the View Control tab that holds it, and its value once filled in. */
+    public record InitiationRow(String label, String tab, boolean done, String value) {
+    }
+
+    private String initiationValue(String field, Control control, ControlAssignmentDTO assignment) {
+        return switch (field) {
+            case "facilitator" -> joinDisplayNames(assignment.getFacilitator());
+            case "controlOperator" -> joinDisplayNames(assignment.getControlOperator());
+            case "soqmLead" -> joinDisplayNames(assignment.getSoqmLead());
+            case "processOwner" -> joinDisplayNames(assignment.getProcessOwner());
+            case "controlOperationDate" -> assignment.getControlOperationDate()
+                    .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
+            case "controlFrequency" -> control.getControlFrequency();
+            default -> null;
+        };
     }
 
     @GetMapping({"/performance", "/performance/"})
@@ -1024,16 +1084,10 @@ public class ViewController {
                         || ("PROCESS_OWNER_REVIEW".equals(normalizedStatus) && permission.isProcessOwner()));
         model.addAttribute("yourTurn", yourTurn);
 
-        // Initiation checklist above the tabs, for whoever the server lets initiate this draft
-        boolean canInitiate = transitionGuard.check(control, currentUser, permission, WorkflowTransition.INITIATE).allowed();
-        model.addAttribute("canInitiate", canInitiate);
-        if (canInitiate) {
-            List<InitiationReadiness.Item> initiationItems = InitiationReadiness.items(control, assignment);
-            model.addAttribute("initiationItems", initiationItems);
-            model.addAttribute("initiationReady", InitiationReadiness.isReady(initiationItems));
-            model.addAttribute("initiateSoqmYear", SoqmYear.preselected(control.getSoqmYear(), todayAlmaty));
-        }
-        // SoQM Year choices for the Initiate confirmation and the Control tab
+        // A draft links to its Initiate page for whoever the server lets initiate it
+        model.addAttribute("canInitiate",
+                transitionGuard.check(control, currentUser, permission, WorkflowTransition.INITIATE).allowed());
+        // SoQM Year choices for the Control tab
         model.addAttribute("soqmYearOptions", SoqmYear.options(todayAlmaty));
 
         return "view-control";

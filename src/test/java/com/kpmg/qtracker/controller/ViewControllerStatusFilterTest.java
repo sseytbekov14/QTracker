@@ -868,7 +868,7 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
-    void performanceChecklistUrl_redirectsToViewControl() throws Exception {
+    void performanceChecklistUrl_redirectsToInitiatePage() throws Exception {
         User currentUser = new User();
         currentUser.setId(22L);
         currentUser.setRole("FACILITATOR");
@@ -876,7 +876,7 @@ class ViewControllerStatusFilterTest {
 
         mockMvc.perform(get("/performance/18").sessionAttr("currentUser", currentUser))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/view-control/18"));
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/initiate/18"));
     }
 
     @Test

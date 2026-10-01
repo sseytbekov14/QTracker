@@ -429,38 +429,47 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
-    void performanceChecklistUrl_redirectsToViewControl_whereOnlySoqmCanInitiate() throws Exception {
+    void initiatePage_isForSoqmOnDrafts_everyoneElseGetsViewControl() throws Exception {
         Participants p = participants();
         Control control = createControl("CTRL-INIT-VC-" + suffix(), p.soqm, "DRAFT");
         assign(control, p);
         String viewUrl = "/view-control/" + control.getId();
+        String initiateUrl = "/initiate/" + control.getId();
 
         MockHttpSession soqmSession = login(p.soqm.getMail());
+        // The former checklist URL leads to the Initiate page
         mockMvc.perform(get("/performance/{id}", control.getId()).session(soqmSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl(viewUrl));
-        mockMvc.perform(get("/controls").session(soqmSession))
+                .andExpect(redirectedUrl(initiateUrl));
+        String html = mockMvc.perform(get(initiateUrl).session(soqmSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("href=\"" + viewUrl + "\"")))
-                .andExpect(content().string(not(containsString("href=\"/performance/" + control.getId() + "\""))));
-        String html = mockMvc.perform(get(viewUrl).session(soqmSession))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Initiation checklist")))
-                .andExpect(content().string(containsString("id=\"initiateControlModal\"")))
-                .andExpect(content().string(not(containsString("(missing)"))))
+                .andExpect(view().name("initiate-control"))
+                .andExpect(content().string(containsString("Everything is in place")))
+                .andExpect(content().string(containsString(p.facilitator.getDisplayName())))
+                .andExpect(content().string(containsString("15.01.2026")))
+                .andExpect(content().string(not(containsString(">Missing<"))))
                 .andReturn().getResponse().getContentAsString();
         assertThat(initiateButtonTag(html))
                 .contains("data-control-id=\"" + control.getId() + "\"")
-                .contains("title=\"Start the workflow")
                 .doesNotContain("disabled");
+        // View Control keeps only a link to it in the header
+        mockMvc.perform(get(viewUrl).session(soqmSession))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("href=\"" + initiateUrl + "\"")))
+                .andExpect(content().string(not(containsString("id=\"initiateBtn\""))))
+                .andExpect(content().string(not(containsString("Initiation checklist"))));
+        mockMvc.perform(get("/controls").session(soqmSession))
+                .andExpect(content().string(containsString("href=\"" + viewUrl + "\"")));
 
         MockHttpSession facilitatorSession = login(p.facilitator.getMail());
         mockMvc.perform(get("/performance/{id}", control.getId()).session(facilitatorSession))
+                .andExpect(redirectedUrl(initiateUrl));
+        mockMvc.perform(get(initiateUrl).session(facilitatorSession))
+                .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl(viewUrl));
         mockMvc.perform(get(viewUrl).session(facilitatorSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("id=\"initiateBtn\""))))
-                .andExpect(content().string(not(containsString("Initiation checklist"))));
+                .andExpect(content().string(not(containsString("href=\"" + initiateUrl + "\""))));
         mockMvc.perform(post("/api/performance/initiate")
                         .param("controlId", String.valueOf(control.getId()))
                         .param("soqmYear", "1 OCT 2026 - 30 SEP 2027")
@@ -468,10 +477,17 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isForbidden());
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
                 .isEqualTo("DRAFT");
+
+        // Once initiated the page is gone for SoQM too
+        moveTo(control, "IN_PROGRESS");
+        mockMvc.perform(get(initiateUrl).session(soqmSession))
+                .andExpect(redirectedUrl(viewUrl));
+        mockMvc.perform(get(viewUrl).session(soqmSession))
+                .andExpect(content().string(not(containsString("href=\"" + initiateUrl + "\""))));
     }
 
     @Test
-    void initiationChecklist_namesMissingItems_andKeepsInitiateDisabled() throws Exception {
+    void initiatePage_namesMissingItems_andKeepsInitiateDisabled() throws Exception {
         Participants p = participants();
         Control control = createControl("CTRL-INIT-MISS-" + suffix(), p.soqm, "DRAFT");
         assign(control, p);
@@ -479,22 +495,22 @@ class ApiSecurityMockMvcIT {
         assignment.setProcessOwner(null);
         assignmentRepository.save(assignment);
 
-        String html = mockMvc.perform(get("/view-control/{id}", control.getId()).session(login(p.soqm.getMail())))
+        String html = mockMvc.perform(get("/initiate/{id}", control.getId()).session(login(p.soqm.getMail())))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        assertThat(html).contains("Fill in the missing items");
-        // Only the Process Owner line is missing, with a link to the tab that holds it
-        assertThat(html.split("\\(missing\\)", -1)).hasSize(2);
-        assertThat(html.indexOf("<span>Process Owner</span>")).isLessThan(html.indexOf("(missing)"));
-        assertThat(html.indexOf("<span>Control Operation Date</span>")).isGreaterThan(html.indexOf("(missing)"));
-        assertThat(html).contains("data-vc-tab=\"assignment\">Assignment tab</a>");
+        assertThat(html).contains("1 item missing").contains("Fill in the missing items first.");
+        // Only the Process Owner line is missing, with a link to the View Control tab that holds it
+        assertThat(html.split(">Missing<", -1)).hasSize(2);
+        assertThat(html.indexOf(">Process Owner<")).isLessThan(html.indexOf(">Missing<"));
+        assertThat(html.indexOf(">Control Operation Date<")).isGreaterThan(html.indexOf(">Missing<"));
+        assertThat(html).contains("href=\"/view-control/" + control.getId() + "#assignment\"");
         assertThat(initiateButtonTag(html))
                 .contains("disabled=\"disabled\"")
-                .contains("title=\"Fill in the missing items first\"");
+                .contains("aria-describedby=\"initiateNotReady\"");
     }
 
-    /** The opening tag of View Control's Initiate button; Thymeleaf decides the attribute order. */
+    /** The opening tag of the Initiate button; Thymeleaf decides the attribute order. */
     private String initiateButtonTag(String html) {
         int start = html.lastIndexOf("<button", html.indexOf("id=\"initiateBtn\""));
         return html.substring(start, html.indexOf('>', start));
@@ -521,21 +537,21 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
-    void initiateConfirmation_offersSoqmYears_withTheCurrentOnePreselected() throws Exception {
+    void initiatePage_offersSoqmYears_withTheCurrentOnePreselected() throws Exception {
         Participants p = participants();
         Control control = createControl("CTRL-YEAR-PICK-" + suffix(), p.soqm, "DRAFT");
         assign(control, p);
         LocalDate today = DeadlineOverdue.today(Instant.now());
 
-        String html = mockMvc.perform(get("/view-control/{id}", control.getId()).session(login(p.soqm.getMail())))
+        String html = mockMvc.perform(get("/initiate/{id}", control.getId()).session(login(p.soqm.getMail())))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        String modal = html.substring(html.indexOf("id=\"initiateSoqmYear\""), html.indexOf("</select>", html.indexOf("id=\"initiateSoqmYear\"")));
+        String select = html.substring(html.indexOf("id=\"initiateSoqmYear\""), html.indexOf("</select>", html.indexOf("id=\"initiateSoqmYear\"")));
         for (String year : SoqmYear.options(today)) {
-            assertThat(modal).contains("value=\"" + year + "\"");
+            assertThat(select).contains("value=\"" + year + "\"");
         }
-        assertThat(modal).contains("value=\"" + SoqmYear.current(today) + "\" selected=\"selected\"");
+        assertThat(select).contains("value=\"" + SoqmYear.current(today) + "\" selected=\"selected\"");
     }
 
     @Test

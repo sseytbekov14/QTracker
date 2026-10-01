@@ -7,17 +7,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * What a draft needs before it can be initiated. View Control lists these items above the tabs,
- * each with the tab that holds the field; the Initiate endpoint refuses a control that misses any
- * of them or the SoQM Year.
+ * What a draft needs before it can be initiated. The Initiate page lists these items, each with the
+ * View Control tab that holds the field; the Initiate endpoint refuses a control that misses any of
+ * them or the SoQM Year.
  */
 public final class InitiationReadiness {
 
     public static final String TAB_CONTROL = "control";
     public static final String TAB_ASSIGNMENT = "assignment";
 
-    /** One line of the checklist: the field, the View Control tab it is on, and whether it is filled in. */
-    public record Item(String label, String tab, boolean done) {
+    /**
+     * One line of the checklist: the field (its name on View Control), its label, the View Control tab
+     * it is on, and whether it is filled in.
+     */
+    public record Item(String field, String label, String tab, boolean done) {
     }
 
     private InitiationReadiness() {
@@ -26,12 +29,14 @@ public final class InitiationReadiness {
     public static List<Item> items(Control control, ControlAssignmentDTO assignment) {
         ControlAssignmentDTO a = assignment != null ? assignment : new ControlAssignmentDTO();
         return List.of(
-                new Item("Facilitator", TAB_ASSIGNMENT, hasAny(a.getFacilitator())),
-                new Item("Control Operator", TAB_ASSIGNMENT, hasAny(a.getControlOperator())),
-                new Item("SoQM Team / Delegate", TAB_ASSIGNMENT, hasAny(a.getSoqmLead())),
-                new Item("Process Owner", TAB_ASSIGNMENT, hasAny(a.getProcessOwner())),
-                new Item("Control Operation Date", TAB_ASSIGNMENT, a.getControlOperationDate() != null),
-                new Item("Control Frequency", TAB_CONTROL, control != null && hasText(control.getControlFrequency())));
+                new Item("facilitator", "Facilitator", TAB_ASSIGNMENT, hasAny(a.getFacilitator())),
+                new Item("controlOperator", "Control Operator", TAB_ASSIGNMENT, hasAny(a.getControlOperator())),
+                new Item("soqmLead", "SoQM Team / Delegate", TAB_ASSIGNMENT, hasAny(a.getSoqmLead())),
+                new Item("processOwner", "Process Owner", TAB_ASSIGNMENT, hasAny(a.getProcessOwner())),
+                new Item("controlOperationDate", "Control Operation Date", TAB_ASSIGNMENT,
+                        a.getControlOperationDate() != null),
+                new Item("controlFrequency", "Control Frequency", TAB_CONTROL,
+                        control != null && hasText(control.getControlFrequency())));
     }
 
     public static boolean isReady(List<Item> items) {
