@@ -725,7 +725,7 @@
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field">Control Frequency</label>
-                                        <select class="form-control readonly-field" name="controlFrequency" readonly>
+                                        <select class="form-control readonly-field" name="controlFrequency" readonly th:data-stored-value="${control.controlFrequency}">
                                             <option value="">Select Frequency</option>
                                             <option value="Monthly" th:selected="${control.controlFrequency == 'Monthly'}">Monthly</option>
                                             <option value="Quarterly" th:selected="${control.controlFrequency == 'Quarterly'}">Quarterly</option>
@@ -737,7 +737,7 @@
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label">Control Category</label>
-                                        <select class="form-control readonly-field" name="controlCategory" readonly>
+                                        <select class="form-control readonly-field" name="controlCategory" readonly th:data-stored-value="${control.controlCategory}">
                                             <option value="">Select Category</option>
                                             <option value="New" th:selected="${control.controlCategory == 'New'}">New</option>
                                             <option value="Enhanced" th:selected="${control.controlCategory == 'Enhanced'}">Enhanced</option>
@@ -746,7 +746,7 @@
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field">Control Type</label>
-                                        <select class="form-control readonly-field" name="controlType" readonly>
+                                        <select class="form-control readonly-field" name="controlType" readonly th:data-stored-value="${control.controlType}">
                                             <option value="">Select Type</option>
                                             <option value="Manual" th:selected="${control.controlType == 'Manual'}">Manual</option>
                                             <option value="Automated" th:selected="${control.controlType == 'Automated'}">Automated</option>
@@ -758,7 +758,7 @@
                                 <div class="row">
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field">Component</label>
-                                        <select class="form-control readonly-field" name="component" readonly>
+                                        <select class="form-control readonly-field" name="component" readonly th:data-stored-value="${control.component}">
                                             <option value="">Select Component</option>
                                             <option value="HR" th:selected="${control.component == 'HR'}">Human Resources (HR)</option>
                                             <option value="A&C" th:selected="${control.component == 'A&C'}">Acceptance and Continuance (A&C)</option>
@@ -775,7 +775,7 @@
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field">Operated By</label>
-                                        <select class="form-control readonly-field" name="operatedBy" readonly>
+                                        <select class="form-control readonly-field" name="operatedBy" readonly th:data-stored-value="${control.operatedBy}">
                                             <option value="">Select Operator</option>
                                             <option value="Member Firm" th:selected="${control.operatedBy == 'Member Firm'}">Member Firm</option>
                                             <option value="Network" th:selected="${control.operatedBy == 'Network'}">Network</option>
@@ -785,7 +785,7 @@
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label">Control Status</label>
-                                        <select class="form-control readonly-field" name="controlStatus" readonly>
+                                        <select class="form-control readonly-field" name="controlStatus" readonly th:data-stored-value="${control.controlStatus}">
                                             <option value="">Select Status</option>
                                             <option value="NOT_APPLICABLE" th:selected="${control.controlStatus == 'NOT_APPLICABLE'}">Not Applicable</option>
                                             <option value="ACTIVE" th:selected="${control.controlStatus == 'ACTIVE'}">Active</option>
@@ -795,7 +795,7 @@
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field">Priority</label>
-                                        <select class="form-control readonly-field" name="priority" readonly>
+                                        <select class="form-control readonly-field" name="priority" readonly th:data-stored-value="${control.priority}">
                                             <option value="">Select Priority</option>
                                             <option value="High" th:selected="${control.priority == 'High'}">High</option>
                                             <option value="Medium" th:selected="${control.priority == 'Medium'}">Medium</option>
@@ -807,7 +807,7 @@
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label required-field">Non-Audit Services Control Applicability</label>
-                                        <select class="form-control readonly-field" name="nonAuditServicesApplicability" readonly>
+                                        <select class="form-control readonly-field" name="nonAuditServicesApplicability" readonly th:data-stored-value="${control.nonAuditServicesApplicability}">
                                             <option value="">Select Applicability</option>
                                             <option value="ALL" th:selected="${control.nonAuditServicesApplicability == 'ALL'}">ALL</option>
                                             <option value="AFS" th:selected="${control.nonAuditServicesApplicability == 'AFS'}">AFS</option>
@@ -1685,7 +1685,7 @@
 <script src="/js/vendor/bootstrap.bundle.min.js"></script>
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/app-modal.js?v=4"></script>
-<script src="/js/view-control.js?v=3.9"></script>
+<script src="/js/view-control.js?v=4.0"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {

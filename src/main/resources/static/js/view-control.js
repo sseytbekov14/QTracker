@@ -1333,6 +1333,9 @@ function confirmWorkflowAction() {
                             const field = form.querySelector(`[name="${key}"]`);
                             if (field && field.type !== 'file' && detailsDataCache[key] !== undefined && detailsDataCache[key] !== null) {
                                 field.value = detailsDataCache[key];
+                                if (field.tagName === 'SELECT') {
+                                    keepStoredSelectValue(field, detailsDataCache[key]);
+                                }
                             }
                         });
                         const stepsField = form.querySelector('textarea[name="controlStepsPerformed"]');
@@ -1365,7 +1368,9 @@ function confirmWorkflowAction() {
                     const form = document.getElementById('documentsForm');
                     if (form) {
                         if (documentsData.soqmDevelopmentMaterials) {
-                            form.querySelector('[name="soqmDevelopmentMaterials"]').value = documentsData.soqmDevelopmentMaterials;
+                            const materialsField = form.querySelector('[name="soqmDevelopmentMaterials"]');
+                            materialsField.value = documentsData.soqmDevelopmentMaterials;
+                            keepStoredSelectValue(materialsField, documentsData.soqmDevelopmentMaterials);
                         }
                     }
                 }
@@ -1690,6 +1695,9 @@ function initCharCounters() {
 
 document.addEventListener('DOMContentLoaded', function() {
     initCharCounters();
+    document.querySelectorAll('#controlForm select[data-stored-value]').forEach(select => {
+        keepStoredSelectValue(select, select.dataset.storedValue);
+    });
 });
 
 function saveControlData(controlId) {
@@ -1706,7 +1714,10 @@ function saveControlData(controlId) {
 
     const getControlValue = (selector) => {
         const element = controlForm.querySelector(selector);
-        return element ? element.value : '';
+        if (!element) {
+            return '';
+        }
+        return element.tagName === 'SELECT' ? selectValueForSave(element) : element.value;
     };
 
     const controlData = {
@@ -2455,7 +2466,10 @@ function saveDocumentsData(controlId) {
 
     const getDocumentsValue = (selector) => {
         const element = documentsForm.querySelector(selector);
-        return element ? element.value : '';
+        if (!element) {
+            return '';
+        }
+        return element.tagName === 'SELECT' ? selectValueForSave(element) : element.value;
     };
 
     const documentsData = {
@@ -3194,6 +3208,23 @@ function serverErrorText(text) {
     return String(text || '').replace(/^\s*VALIDATION_ERROR:\s*/, '');
 }
 
+// A stored value that none of the select's options carries (older or imported data) gets an option of its
+// own, so the select shows it instead of the placeholder and Save does not blank it
+function keepStoredSelectValue(select, value) {
+    if (!select || value === null || value === undefined || String(value).trim() === '' || select.value !== '') {
+        return;
+    }
+    const option = new Option(value, value, true, true);
+    option.dataset.storedValue = 'true';
+    select.add(option);
+}
+
+// While that option is still selected the field is unchanged; null makes the server keep the stored value
+function selectValueForSave(select) {
+    const selected = select.options[select.selectedIndex];
+    return selected && selected.dataset.storedValue === 'true' ? null : select.value;
+}
+
 // Global access helper for workflow checks used outside the IIFE scope.
 function areWorkflowActionsAllowed() {
     if (window.qtrackerPermissions
@@ -3211,7 +3242,10 @@ function buildDetailsPayload(controlId) {
 
     const getDetailsValue = (selector) => {
         const element = detailsForm.querySelector(selector);
-        return element ? element.value : '';
+        if (!element) {
+            return '';
+        }
+        return element.tagName === 'SELECT' ? selectValueForSave(element) : element.value;
     };
 
     const payload = {

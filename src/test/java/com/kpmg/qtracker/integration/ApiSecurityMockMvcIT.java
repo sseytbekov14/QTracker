@@ -494,6 +494,60 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
+    void unlistedSelectValues_areRenderedForTheSelect_andKeptWhenSaveLeavesThemOut() throws Exception {
+        Participants p = participants();
+        // createControl stores Control Type "Preventive" and Operated By "Finance", which no option carries;
+        // older or imported rows hold such values too
+        Control control = createControl("CTRL-UNL-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+        control.setControlFrequency("Annual/Semi-annual");
+        control.setHomogeneity("Homogeneous");
+        controlRepository.save(control);
+        var documents = documentsRepository.findByControlId(control.getId()).orElseThrow();
+        documents.setSoqmDevelopmentMaterials("Partly available");
+        documentsRepository.save(documents);
+
+        MockHttpSession session = login(p.soqm.getMail());
+
+        // view-control.js adds these values to their selects as options of their own
+        mockMvc.perform(get("/view-control/{id}", control.getId()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("data-stored-value=\"Annual/Semi-annual\"")))
+                .andExpect(content().string(containsString("data-stored-value=\"Preventive\"")))
+                .andExpect(content().string(containsString("data-stored-value=\"Finance\"")));
+
+        // While those options stay selected Save sends the fields as null; other fields still change
+        mockMvc.perform(put("/api/controls/{id}", control.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlFrequency\":null,\"controlCategory\":null,\"controlType\":null,"
+                                + "\"component\":\"GOV\",\"operatedBy\":null,\"controlStatus\":null,\"priority\":\"Low\","
+                                + "\"nonAuditServicesApplicability\":null,\"controlDescription\":\"\",\"prp\":\"\"}")
+                        .session(session))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/control-details")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId() + ",\"processName\":\"Payroll\",\"homogeneity\":null}")
+                        .session(session))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/control-documents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":null}")
+                        .session(session))
+                .andExpect(status().isOk());
+
+        Control stored = controlRepository.findById(control.getId()).orElseThrow();
+        assertThat(stored.getControlFrequency()).isEqualTo("Annual/Semi-annual");
+        assertThat(stored.getControlType()).isEqualTo("Preventive");
+        assertThat(stored.getOperatedBy()).isEqualTo("Finance");
+        assertThat(stored.getHomogeneity()).isEqualTo("Homogeneous");
+        assertThat(stored.getComponent()).isEqualTo("GOV");
+        assertThat(stored.getPriority()).isEqualTo("Low");
+        assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getProcessName()).isEqualTo("Payroll");
+        assertThat(documentsRepository.findByControlId(control.getId()).orElseThrow().getSoqmDevelopmentMaterials())
+                .isEqualTo("Partly available");
+    }
+
+    @Test
     void roleChangedByAdmin_appliesToExistingSession() throws Exception {
         User soqm = saveUser("soqm-" + suffix(), "soqm-" + suffix() + "@example.test", "SOQM_TEAM");
         Control control = createControl("CTRL-ROLE-" + suffix(), soqm, "DRAFT");
