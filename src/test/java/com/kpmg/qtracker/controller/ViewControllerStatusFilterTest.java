@@ -1360,6 +1360,10 @@ class ViewControllerStatusFilterTest {
         control.setControlId("HR-CTRL-MF-601");
         control.setControlDescription("Monthly payroll check");
         control.setPerformanceStatus("REVIEW");
+        User creator = new User();
+        creator.setDisplayName("Control Creator");
+        control.setCreatedBy(creator);
+        control.setCreatedAt(java.time.LocalDateTime.of(2026, 8, 20, 11, 0));
         when(controlService.getControlById(601L)).thenReturn(java.util.Optional.of(control));
         when(controlPermissionService.resolve(any(Control.class), any(User.class)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, true, false));
@@ -1392,7 +1396,10 @@ class ViewControllerStatusFilterTest {
                 .andExpect(content().string(containsString(">Submitted to Control Operator<")))
                 .andExpect(content().string(containsString("aria-current=\"step\"")))
                 .andExpect(content().string(containsString("status-badge status-overdue")))
-                .andExpect(content().string(containsString("href=\"/view-control/601\"")));
+                .andExpect(content().string(containsString("href=\"/view-control/601\"")))
+                .andExpect(content().string(containsString("<dt>Created</dt>")))
+                .andExpect(content().string(containsString("20.08.2026 · Control Creator")))
+                .andExpect(content().string(not(containsString("Actual Operation Date"))));
     }
 
     @Test

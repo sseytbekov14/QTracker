@@ -68,11 +68,6 @@ public class PerformanceService implements IPerformanceService {
             dto.setAssignedTo("Not assigned");
         }
 
-        // Actual operation date from control creation
-        if (control.getCreatedAt() != null) {
-            dto.setActualOperationDate(control.getCreatedAt().toLocalDate());
-        }
-
         return dto;
     }
 

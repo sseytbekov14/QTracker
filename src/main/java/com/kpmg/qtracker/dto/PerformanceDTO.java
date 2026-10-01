@@ -13,15 +13,6 @@ public class PerformanceDTO {
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate controlOperationDate;
     private String soqmYear;
-    @JsonFormat(pattern = "yyyy-MM-dd")
-    private LocalDate actualOperationDate;
     private String assignedTo;
     private String performanceStatus = "DRAFT";
-
-    public boolean isAllFieldsCompleted() {
-        return controlOperator != null && !controlOperator.trim().isEmpty() &&
-                facilitator != null && !facilitator.trim().isEmpty() &&
-                soqmYear != null && !soqmYear.trim().isEmpty() &&
-                actualOperationDate != null;
-    }
 }

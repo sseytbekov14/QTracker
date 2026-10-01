@@ -227,9 +227,11 @@
                                 <dd th:if="${deadline != null}" th:classappend="${overdue} ? 'pc-overdue'"
                                     th:text="${#temporals.format(deadline, 'dd.MM.yyyy')} + (${overdue} ? ' · overdue' : '')">05.10.2026</dd>
                                 <dd th:if="${deadline == null}" class="pc-empty">Not set</dd></div>
-                            <div class="pc-field"><dt>Actual Operation Date</dt>
-                                <dd th:if="${actualOperationDate != null}" th:text="${#temporals.format(actualOperationDate, 'dd.MM.yyyy')}">02.10.2026</dd>
-                                <dd th:if="${actualOperationDate == null}" class="pc-empty">Not set</dd></div>
+                            <div class="pc-field"><dt>Created</dt>
+                                <dd th:if="${control.createdAt != null}"
+                                    th:text="${#temporals.format(control.createdAt, 'dd.MM.yyyy')} + (${control.createdBy != null} ? ' · ' + ${control.createdBy.displayName} : '')"
+                                    th:title="${control.createdBy != null} ? ${control.createdBy.mail} : null">02.10.2026 · Name</dd>
+                                <dd th:if="${control.createdAt == null}" class="pc-empty">—</dd></div>
                             <div class="pc-field"><dt>Initiated On</dt>
                                 <dd th:if="${initiationDate != null}" th:text="${#temporals.format(initiationDate, 'dd.MM.yyyy HH:mm')}">01.10.2026</dd>
                                 <dd th:if="${initiationDate == null}" class="pc-empty">Not initiated</dd></div>

@@ -1197,7 +1197,6 @@ public class ViewController {
             model.addAttribute("soqmYear", performanceDTO.getSoqmYear());
             model.addAttribute("initiationDate", initiatedAt);
             model.addAttribute("operationDate", assignment.getControlOperationDate());
-            model.addAttribute("actualOperationDate", performanceDTO.getActualOperationDate());
             model.addAttribute("deadline", deadline);
             model.addAttribute("overdue", overdue);
             model.addAttribute("performanceStatus", performanceDTO.getPerformanceStatus());

@@ -761,7 +761,7 @@ public class ControlController {
 
             rowNum = addRow(sheet, rowNum, "Created By",
                     control.getCreatedBy() != null ? control.getCreatedBy().getDisplayName() : null);
-            rowNum = addRow(sheet, rowNum, "Created At", formatDateTime(control.getCreatedAt()));
+            rowNum = addRow(sheet, rowNum, "Created", formatDateTime(control.getCreatedAt()));
             rowNum = addRow(sheet, rowNum, "Updated At", formatDateTime(control.getUpdatedAt()));
             rowNum = addRow(sheet, rowNum, "Deadline", formatDate(control.getDeadline()));
 
@@ -777,7 +777,6 @@ public class ControlController {
             }
 
             rowNum = addRow(sheet, rowNum, "SoQM Year", performanceDTO.getSoqmYear());
-            rowNum = addRow(sheet, rowNum, "Actual Operation Date", formatDate(performanceDTO.getActualOperationDate()));
             rowNum = addRow(sheet, rowNum, "Performance Status", performanceStatus);
 
             if (details != null) {

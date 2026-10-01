@@ -33,7 +33,12 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockMultipartFile;
 
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
 import javax.sql.DataSource;
+import java.io.ByteArrayInputStream;
 import java.sql.Connection;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -492,6 +497,26 @@ class ApiSecurityMockMvcIT {
     private String initiateButtonTag(String html) {
         int start = html.lastIndexOf("<button", html.indexOf("id=\"initiateBtn\""));
         return html.substring(start, html.indexOf('>', start));
+    }
+
+    @Test
+    void completedControlExport_hasCreated_andNoActualOperationDate() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-EXPORT-" + suffix(), p.soqm, "COMPLETED");
+        assign(control, p);
+
+        byte[] xlsx = mockMvc.perform(get("/api/controls/{id}/export/completed", control.getId())
+                        .session(login(p.soqm.getMail())))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+
+        List<String> fields = new ArrayList<>();
+        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(xlsx))) {
+            for (Row row : workbook.getSheetAt(0)) {
+                fields.add(row.getCell(0).getStringCellValue());
+            }
+        }
+        assertThat(fields).contains("Created").doesNotContain("Created At", "Actual Operation Date");
     }
 
     @Test
