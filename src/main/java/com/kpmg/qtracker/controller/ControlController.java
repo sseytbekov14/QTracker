@@ -810,24 +810,6 @@ public class ControlController {
         }
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteControl(@PathVariable Long id) {
-        try {
-            logger.info("Deleting control with ID: {}", id);
-
-            Control control = controlService.getControlById(id)
-                    .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
-
-            controlService.deleteControl(id);
-            logger.info("Control deleted successfully: {}", id);
-
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            logger.error("Error deleting control: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body("Error deleting control: " + e.getMessage());
-        }
-    }
-
     private ControlResponseDTO convertToResponseDTO(Control control) {
         ControlResponseDTO dto = new ControlResponseDTO();
         dto.setId(control.getId());

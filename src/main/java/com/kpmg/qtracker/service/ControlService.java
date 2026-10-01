@@ -613,11 +613,6 @@ public class ControlService implements IControlService {
     }
 
     @Override
-    public void deleteControl(Long id) {
-        controlRepository.deleteById(id);
-    }
-
-    @Override
     public String getControlFrequency(Long controlId) {
         return getControlById(controlId)
                 .map(Control::getControlFrequency)

@@ -38,6 +38,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -401,6 +402,21 @@ class ApiSecurityMockMvcIT {
 
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
                 .isEqualTo("IN_PROGRESS");
+    }
+
+    @Test
+    void hardDeleteOfControl_isNotExposed() throws Exception {
+        User soqm = saveUser("soqm-" + suffix(), "soqm-" + suffix() + "@example.test", "SOQM_TEAM");
+        Control control = createControl("CTRL-DEL-" + suffix(), soqm, "DRAFT");
+
+        MockHttpSession session = login(soqm.getMail());
+
+        // Controls are removed only by the soft delete (Control Status = Deleted)
+        mockMvc.perform(delete("/api/controls/{id}", control.getId())
+                        .session(session))
+                .andExpect(status().isMethodNotAllowed());
+
+        assertThat(controlRepository.findById(control.getId())).isPresent();
     }
 
     private User saveUser(String username, String mail, String role) {

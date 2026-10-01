@@ -24,7 +24,6 @@ public interface IControlService {
     Control save(Control control);
     boolean isControlComplete(Control control);
     Optional<Control> getControlById(Long id);
-    void deleteControl(Long id);
     Map<String, Long> getComponentStatistics();
     Control updateControl(Control control);
     String getControlFrequency(Long controlId);

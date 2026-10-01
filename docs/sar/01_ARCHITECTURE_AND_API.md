@@ -105,7 +105,6 @@ All endpoints below require an active authenticated session. Unauthenticated req
 | `POST` | `/api/controls` | `ControlController` | `SOQM_TEAM` only | Create a new control |
 | `GET` | `/api/controls/{id}` | `ControlController` | Assigned / SOQM_TEAM | Get control by DB ID |
 | `PUT` | `/api/controls/{id}` | `ControlController` | Assigned users (role-filtered) | Update control fields |
-| `DELETE` | `/api/controls/{id}` | `ControlController` | `SOQM_TEAM` only | Delete control |
 | `GET` | `/api/controls/user/{email}` | `ControlController` | All authenticated | Controls assigned to user |
 | `GET` | `/api/controls/component/{component}` | `ControlController` | All authenticated | Controls by component |
 | `GET` | `/api/controls/generate-id` | `ControlController` | All authenticated | Generate control ID suggestion |
@@ -249,7 +248,7 @@ The `FACILITATOR` role is used in workflow assignment. The `SOQM_TEAM` role corr
 | Edit control fields | ✅ all | ✅ limited | ✅ PO comments only | ✅ limited | ✅ |
 | Modify SoQM Comments | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Modify Process Owner Comments | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Delete control | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Soft delete (Control Status = Deleted) | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Export controls (bulk) | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Export completed control | ✅ | ❌ | ❌ | ❌ unless SharedWith | ✅ |
 | Submit to Control Operator | ✅ | ❌ | ❌ | ✅ | ✅ |
