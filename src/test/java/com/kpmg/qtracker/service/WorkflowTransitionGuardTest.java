@@ -133,6 +133,12 @@ class WorkflowTransitionGuardTest {
         assertThat(WorkflowTransition.forAction(null)).isEmpty();
     }
 
+    @Test
+    void initiate_isNotAPerformAction() {
+        assertThat(WorkflowTransition.forAction("INITIATE")).isEmpty();
+        assertThat(WorkflowTransition.forAction("SUBMIT_FOR_REVIEW")).isEmpty();
+    }
+
     private ControlPermission permissionFor(WorkflowTransition.Actor actor) {
         return switch (actor) {
             case FACILITATOR -> permission(true, false, false, false, false, false);

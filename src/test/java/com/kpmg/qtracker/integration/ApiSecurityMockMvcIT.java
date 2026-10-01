@@ -816,15 +816,56 @@ class ApiSecurityMockMvcIT {
                         .param("controlId", String.valueOf(control.getId()))
                         .session(session))
                 .andExpect(status().isNotFound());
+        // perform-action has no Initiate either: it would skip the required fields and the workflow steps
+        for (String action : List.of("INITIATE", "SUBMIT_FOR_REVIEW")) {
+            mockMvc.perform(post("/api/workflow/perform-action")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"controlId\":" + control.getId() + ",\"action\":\"" + action + "\"}")
+                            .session(session))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().string(containsString("Unsupported workflow action")));
+        }
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
                 .isEqualTo("DRAFT");
 
         mockMvc.perform(post("/api/performance/initiate")
                         .param("controlId", String.valueOf(control.getId()))
+                        .param("soqmYear", "1 OCT 2026 - 30 SEP 2027")
                         .session(session))
                 .andExpect(status().isOk());
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
                 .isEqualTo("IN_PROGRESS");
+    }
+
+    @Test
+    void initiate_withoutProcessOwnerOrSoqmYear_returns400_namingWhatIsMissing() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-INIT-REQ-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setProcessOwner(null);
+        assignmentRepository.save(assignment);
+        MockHttpSession session = login(p.soqm.getMail());
+
+        mockMvc.perform(post("/api/performance/initiate")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .param("soqmYear", "1 OCT 2026 - 30 SEP 2027")
+                        .session(session))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Required fields are missing: Process Owner"));
+
+        assignment.setProcessOwner(p.owner.getMail());
+        assignmentRepository.save(assignment);
+        mockMvc.perform(post("/api/performance/initiate")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .session(session))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Required fields are missing: SoQM Year"));
+
+        Control stored = controlRepository.findById(control.getId()).orElseThrow();
+        assertThat(stored.getPerformanceStatus()).isEqualTo("DRAFT");
+        assertThat(stored.getSoqmYear()).isNull();
+        assertThat(workflowHistoryRepository.findByControlIdOrderByCreatedAtDesc(control.getId())).isEmpty();
     }
 
     @Test

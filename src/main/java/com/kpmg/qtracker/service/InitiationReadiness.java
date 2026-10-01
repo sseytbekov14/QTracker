@@ -3,11 +3,13 @@ package com.kpmg.qtracker.service;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * What a draft needs before it can be initiated. View Control lists these items above the tabs,
- * each with the tab that holds the field.
+ * each with the tab that holds the field; the Initiate endpoint refuses a control that misses any
+ * of them or the SoQM Year.
  */
 public final class InitiationReadiness {
 
@@ -34,6 +36,20 @@ public final class InitiationReadiness {
 
     public static boolean isReady(List<Item> items) {
         return items.stream().allMatch(Item::done);
+    }
+
+    /** Labels of everything still missing, the SoQM Year last; empty when the control can be initiated. */
+    public static List<String> missing(Control control, ControlAssignmentDTO assignment, String soqmYear) {
+        List<String> missing = new ArrayList<>();
+        for (Item item : items(control, assignment)) {
+            if (!item.done()) {
+                missing.add(item.label());
+            }
+        }
+        if (!hasText(soqmYear)) {
+            missing.add("SoQM Year");
+        }
+        return missing;
     }
 
     private static boolean hasAny(List<String> emails) {

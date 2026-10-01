@@ -42,10 +42,9 @@ public enum WorkflowTransition {
         }
     }
 
-    // Action names sent to /api/workflow/perform-action
+    // Action names sent to /api/workflow/perform-action. Initiate is not one of them: it has its own
+    // endpoint (POST /api/performance/initiate), which checks the required fields and creates the steps.
     private static final Map<String, List<WorkflowTransition>> ACTIONS = Map.ofEntries(
-            Map.entry("INITIATE", List.of(INITIATE)),
-            Map.entry("SUBMIT_FOR_REVIEW", List.of(INITIATE)),
             Map.entry("SUBMIT_TO_CONTROL_OPERATOR", List.of(SUBMIT_TO_CONTROL_OPERATOR)),
             Map.entry("SUBMIT_FOR_SOQM", List.of(SUBMIT_TO_SOQM_TEAM)),
             Map.entry("SUBMIT_SOQM", List.of(SUBMIT_TO_SOQM_TEAM)),

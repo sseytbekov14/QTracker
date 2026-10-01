@@ -7,6 +7,7 @@ import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
+import com.kpmg.qtracker.service.InitiationReadiness;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.PerformanceService;
 import com.kpmg.qtracker.service.SoqmYear;
@@ -163,24 +164,24 @@ public class PerformanceController {
             }
 
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
-            String facilitatorEmail = null;
-            if (assignment != null && assignment.getFacilitator() != null && !assignment.getFacilitator().isEmpty()) {
-                facilitatorEmail = assignment.getFacilitator().get(0);
-            }
-
-            if (facilitatorEmail == null) {
-                return ResponseEntity.badRequest().body("Facilitator not assigned to this control");
-            }
-
-            // The SoQM Year chosen in the Initiate confirmation
+            // The SoQM Year chosen in the Initiate confirmation, else the one already stored
             String soqmYear = performanceDTO.getSoqmYear() == null || performanceDTO.getSoqmYear().isBlank()
                     ? null : performanceDTO.getSoqmYear().trim();
+            List<String> missing = InitiationReadiness.missing(control, assignment,
+                    soqmYear != null ? soqmYear : control.getSoqmYear());
+            if (!missing.isEmpty()) {
+                return ResponseEntity.badRequest().body("Required fields are missing: " + String.join(", ", missing));
+            }
             if (soqmYear != null && !SoqmYear.isValid(soqmYear)) {
                 return ResponseEntity.badRequest().body(SoqmYear.invalidMessage());
             }
             if (soqmYear != null) {
                 control.setSoqmYear(soqmYear);
             }
+            String facilitatorEmail = assignment.getFacilitator().stream()
+                    .filter(email -> email != null && !email.isBlank())
+                    .findFirst()
+                    .orElseThrow();
 
             control.setPerformanceStatus("IN_PROGRESS");
             controlService.save(control);

@@ -46,6 +46,17 @@ class InitiationReadinessTest {
         assertThat(items).filteredOn(item -> !item.done()).hasSize(5);
     }
 
+    @Test
+    void missing_listsTheMissingItemsAndTheSoqmYear() {
+        ControlAssignmentDTO assignment = assignment();
+        assignment.setControlOperator(null);
+
+        assertThat(InitiationReadiness.missing(control("Monthly"), assignment, " "))
+                .containsExactly("Control Operator", "SoQM Year");
+        assertThat(InitiationReadiness.missing(control("Monthly"), assignment(), "1 OCT 2026 - 30 SEP 2027"))
+                .isEmpty();
+    }
+
     private Control control(String frequency) {
         Control control = new Control();
         control.setControlFrequency(frequency);
