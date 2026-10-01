@@ -17,6 +17,9 @@ import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -34,6 +37,7 @@ public class WorkflowTransitionController {
     private final WorkflowTransitionGuard transitionGuard;
 
     @PostMapping("/initiate")
+    @Transactional
     public ResponseEntity<?> initiateControl(
             @RequestParam Long controlId,
             HttpSession session) {
@@ -78,6 +82,7 @@ public class WorkflowTransitionController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
+            rollbackCurrentTransaction();
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
                     "message", "Error initiating control: " + e.getMessage()
@@ -86,6 +91,7 @@ public class WorkflowTransitionController {
     }
 
     @PostMapping("/submit-to-control-operator")
+    @Transactional
     public ResponseEntity<?> submitToControlOperator(
             @RequestParam Long controlId,
             HttpSession session) {
@@ -155,6 +161,7 @@ public class WorkflowTransitionController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
+            rollbackCurrentTransaction();
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
                     "message", "Error submitting control: " + e.getMessage()
@@ -163,6 +170,7 @@ public class WorkflowTransitionController {
     }
 
     @PostMapping("/submit-to-soqm-lead")
+    @Transactional
     public ResponseEntity<?> submitToSoqmLead(
             @RequestParam Long controlId,
             HttpSession session) {
@@ -233,6 +241,7 @@ public class WorkflowTransitionController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
+            rollbackCurrentTransaction();
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
                     "message", "Error submitting control: " + e.getMessage()
@@ -241,6 +250,7 @@ public class WorkflowTransitionController {
     }
 
     @PostMapping("/shared-submit-to-soqm-lead")
+    @Transactional
     public ResponseEntity<?> sharedSubmitToSoqmLead(
             @RequestParam Long controlId,
             HttpSession session) {
@@ -305,6 +315,7 @@ public class WorkflowTransitionController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
+            rollbackCurrentTransaction();
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
                     "message", "Error submitting control: " + e.getMessage()
@@ -347,6 +358,7 @@ public class WorkflowTransitionController {
     }
 
     @PostMapping("/return-to-facilitator")
+    @Transactional
     public ResponseEntity<?> returnToFacilitator(
             @RequestParam Long controlId,
             @RequestParam(required = false) String comments,
@@ -428,6 +440,7 @@ public class WorkflowTransitionController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
+            rollbackCurrentTransaction();
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
                     "message", "Error returning control: " + e.getMessage()
@@ -444,5 +457,14 @@ public class WorkflowTransitionController {
         return ResponseEntity.status(decision.httpStatus())
                 .body(Map.of("success", false, "message", decision.message()));
     }
-}
 
+    /**
+     * Errors are turned into responses instead of propagating, so the transaction would commit a
+     * half-done transition (status without history or workflow steps); mark it for rollback instead.
+     */
+    private void rollbackCurrentTransaction() {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        }
+    }
+}

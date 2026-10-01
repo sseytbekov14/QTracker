@@ -335,6 +335,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     }
 
     @Override
+    @Transactional
     public WorkflowStepDTO returnStep(WorkflowActionDTO actionDTO, String approverEmail) {
         log.info("Returning step for control: {}, approver: {}", actionDTO.getControlId(), approverEmail);
 

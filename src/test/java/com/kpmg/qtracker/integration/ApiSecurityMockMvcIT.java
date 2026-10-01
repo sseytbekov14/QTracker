@@ -3,11 +3,15 @@ package com.kpmg.qtracker.integration;
 import com.kpmg.qtracker.config.DevUserSeeder;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
+import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
+import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockHttpSession;
@@ -30,6 +35,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -81,8 +88,14 @@ class ApiSecurityMockMvcIT {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private ControlDetailsRepository detailsRepository;
+
     @MockitoBean
     private DevUserSeeder devUserSeeder;
+
+    @MockitoSpyBean
+    private WorkflowHistoryRepository workflowHistoryRepository;
 
     private final List<Long> createdControlIds = new ArrayList<>();
     private final List<Long> createdUserIds = new ArrayList<>();
@@ -366,6 +379,28 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isForbidden());
 
         assertThat(((User) session.getAttribute("currentUser")).getRole()).isEqualTo("FACILITATOR");
+    }
+
+    @Test
+    void transitionFailingAfterStatusChange_rollsBackStatus() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-TX-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+        ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();
+        details.setControlStepsPerformed("Steps performed");
+        detailsRepository.save(details);
+        doThrow(new IllegalStateException("history store unavailable"))
+                .when(workflowHistoryRepository).save(any(WorkflowHistory.class));
+
+        MockHttpSession session = login(p.facilitator.getMail());
+
+        mockMvc.perform(post("/api/workflow/submit-to-control-operator")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .session(session))
+                .andExpect(status().isInternalServerError());
+
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
+                .isEqualTo("IN_PROGRESS");
     }
 
     private User saveUser(String username, String mail, String role) {

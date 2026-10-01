@@ -18,6 +18,9 @@ import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
@@ -140,6 +143,7 @@ public class PerformanceController {
     }
 
     @PostMapping("/initiate")
+    @Transactional
     public ResponseEntity<?> initiatePerformance(@ModelAttribute PerformanceDTO performanceDTO, HttpSession session) {
         try {
             User currentUser = (User) session.getAttribute("currentUser");
@@ -179,6 +183,7 @@ public class PerformanceController {
 
             return ResponseEntity.ok().build();
         } catch (Exception e) {
+            rollbackCurrentTransaction();
             return ResponseEntity.badRequest().body("Error initiating: " + e.getMessage());
         }
     }
@@ -186,5 +191,15 @@ public class PerformanceController {
     private boolean isCreator(Control control, User user) {
         return user.getMail() != null && control.getCreatedBy() != null && control.getCreatedBy().getMail() != null
                 && control.getCreatedBy().getMail().trim().equalsIgnoreCase(user.getMail().trim());
+    }
+
+    /**
+     * Errors are turned into responses instead of propagating, so the transaction would commit a
+     * half-done transition (status without history or workflow steps); mark it for rollback instead.
+     */
+    private void rollbackCurrentTransaction() {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        }
     }
 }
