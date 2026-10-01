@@ -185,7 +185,7 @@ public class PerformanceController {
             control.setPerformanceStatus("IN_PROGRESS");
             controlService.save(control);
 
-            workflowService.initiateWorkflow(control.getId(), facilitatorEmail);
+            workflowService.initiateWorkflow(control.getId(), facilitatorEmail, currentUser);
 
             return ResponseEntity.ok().build();
         } catch (Exception e) {

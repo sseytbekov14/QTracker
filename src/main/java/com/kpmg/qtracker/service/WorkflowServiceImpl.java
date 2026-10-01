@@ -27,7 +27,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
     @Override
     @Transactional
-    public void initiateWorkflow(Long controlId, String facilitatorEmail) {
+    public void initiateWorkflow(Long controlId, String facilitatorEmail, User initiatedBy) {
         log.info("Initiating workflow for control: {}, facilitator: {}", controlId, facilitatorEmail);
 
         // 1. РџРѕР»СѓС‡Р°РµРј assignment С‡С‚РѕР±С‹ Р·РЅР°С‚СЊ РєС‚Рѕ РЅР°Р·РЅР°С‡РµРЅ
@@ -46,11 +46,11 @@ public class WorkflowServiceImpl implements WorkflowService {
         workflowStepRepository.save(firstStep);
 
         // 5. РЎРѕР·РґР°РµРј Р·Р°РїРёСЃСЊ РІ РёСЃС‚РѕСЂРёРё
-        createHistoryRecord(controlId, facilitatorEmail,
+        createHistoryRecord(controlId, initiatedBy.getMail(),
                 WorkflowActionType.INITIATE,
                 null,
                 "IN_PROGRESS",
-                "Workflow initiated by facilitator");
+                null);
 
         // 6. Notify Facilitator(s) that the control has been initiated
         Control control = controlService.getControlById(controlId).orElse(null);

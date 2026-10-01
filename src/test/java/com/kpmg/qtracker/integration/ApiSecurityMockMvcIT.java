@@ -828,6 +828,30 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
+    void initiateBySoqm_recordsSoqmAsThePerformer_notTheFacilitator() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-INIT-WHO-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+
+        mockMvc.perform(post("/api/performance/initiate")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .param("soqmYear", "1 OCT 2026 - 30 SEP 2027")
+                        .session(login(p.soqm.getMail())))
+                .andExpect(status().isOk());
+
+        List<WorkflowHistory> initiated = workflowHistoryRepository.findByControlIdOrderByCreatedAtDesc(control.getId())
+                .stream()
+                .filter(h -> h.getActionType() == WorkflowActionType.INITIATE)
+                .toList();
+        assertThat(initiated).singleElement().satisfies(h -> {
+            assertThat(h.getPerformedByEmail()).isEqualTo(p.soqm.getMail());
+            assertThat(h.getPerformedByName()).isEqualTo(p.soqm.getDisplayName());
+            assertThat(h.getToStep()).isEqualTo("IN_PROGRESS");
+            assertThat(h.getComments()).isNull();
+        });
+    }
+
+    @Test
     void soqmTransitionFailingAfterStatusChange_rollsBackStatus() throws Exception {
         Participants p = participants();
         Control control = createControl("CTRL-TX2-" + suffix(), p.soqm, "SOQM_HEAD_REVIEW");

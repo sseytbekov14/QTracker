@@ -84,7 +84,7 @@ class PerformanceControllerInitiateTest {
                 .andExpect(status().isConflict());
 
         verify(controlService, never()).save(any(Control.class));
-        verify(workflowService, never()).initiateWorkflow(anyLong(), anyString());
+        verify(workflowService, never()).initiateWorkflow(anyLong(), anyString(), any(User.class));
     }
 
     @Test
@@ -98,7 +98,7 @@ class PerformanceControllerInitiateTest {
                 .andExpect(status().isForbidden());
 
         verify(controlService, never()).save(any(Control.class));
-        verify(workflowService, never()).initiateWorkflow(anyLong(), anyString());
+        verify(workflowService, never()).initiateWorkflow(anyLong(), anyString(), any(User.class));
     }
 
     private void givenPermission(boolean soqm) {

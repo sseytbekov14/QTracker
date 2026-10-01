@@ -3,6 +3,7 @@ package com.kpmg.qtracker.service;
 import com.kpmg.qtracker.dto.WorkflowButtonDTO;
 import com.kpmg.qtracker.dto.WorkflowStepDTO;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.WorkflowStatus;
 
 import java.util.List;
@@ -11,7 +12,8 @@ import java.util.Map;
 public interface WorkflowService {
 
     // Инициализация workflow
-    void initiateWorkflow(Long controlId, String facilitatorEmail);
+    // initiatedBy is recorded as the performer of the INITIATE history entry
+    void initiateWorkflow(Long controlId, String facilitatorEmail, User initiatedBy);
 
     // Получить текущий шаг workflow для контроля
     WorkflowStepDTO getCurrentStep(Long controlId);
