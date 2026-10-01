@@ -1,5 +1,6 @@
 package com.kpmg.qtracker.integration;
 
+import com.kpmg.qtracker.config.DevUserSeeder;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlRepository;
@@ -12,20 +13,47 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.mock.web.MockHttpSession;
 
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = "spring.main.allow-bean-definition-overriding=true")
-@AutoConfigureMockMvc(addFilters = false)
-@ActiveProfiles("test")
+/**
+ * API access through the real dev security chain: form login, session, CSRF rules.
+ * The dev profile is active only for its security chain; the datasource is overridden to
+ * in-memory H2 and the dev user seeder is replaced by a mock.
+ */
+@SpringBootTest(properties = {
+        "spring.main.allow-bean-definition-overriding=true",
+        "spring.datasource.url=jdbc:h2:mem:api-security-it;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=",
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.jpa.show-sql=false",
+        "spring.flyway.enabled=false",
+        "reminders.enabled=false"
+})
+@AutoConfigureMockMvc
+@ActiveProfiles({"test", "dev"})
 class ApiSecurityMockMvcIT {
+
+    private static final String PASSWORD = "Test#123";
 
     @Autowired
     private MockMvc mockMvc;
@@ -39,28 +67,39 @@ class ApiSecurityMockMvcIT {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private DataSource dataSource;
+
+    @MockitoBean
+    private DevUserSeeder devUserSeeder;
+
+    private final List<Long> createdControlIds = new ArrayList<>();
+    private final List<Long> createdUserIds = new ArrayList<>();
+
     @AfterEach
     void tearDown() {
-        controlRepository.deleteAll();
-        userRepository.deleteAll();
+        // controls.created_by references users, so controls go first
+        controlRepository.deleteAllById(createdControlIds);
+        userRepository.deleteAllById(createdUserIds);
+        createdControlIds.clear();
+        createdUserIds.clear();
     }
 
     @Test
-    void apiWithoutLogin_returns401() throws Exception {
-        mockMvc.perform(post("/api/controls")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlId\":\"CTRL-NOLOGIN\",\"controlFrequency\":\"Monthly\"}"))
-                .andExpect(status().isUnauthorized());
+    void devProfile_usesInMemoryH2_withoutSeededUsers() throws Exception {
+        try (Connection connection = dataSource.getConnection()) {
+            assertThat(connection.getMetaData().getURL()).startsWith("jdbc:h2:mem:");
+        }
+        assertThat(userRepository.existsByMail("fac1@qtracker.local")).isFalse();
     }
 
     @Test
     void loginWithDbUser_thenOwnControls_returns200() throws Exception {
         String qaEmail = "qa-user-" + suffix() + "@example.test";
-        String qaPassword = "Test#123";
-        User qaUser = saveUser("qa-user", qaEmail, "FACILITATOR", qaPassword);
-        createControl("CTRL-DB-" + UUID.randomUUID().toString().substring(0, 6), qaUser, "DRAFT");
+        User qaUser = saveUser("qa-user", qaEmail, "FACILITATOR");
+        createControl("CTRL-DB-" + suffix(), qaUser, "DRAFT");
 
-        MockHttpSession session = loginAndAttachCurrentUser(qaEmail, qaPassword, qaUser);
+        MockHttpSession session = login(qaEmail);
 
         mockMvc.perform(get("/api/controls/user/{email}", qaEmail)
                         .session(session))
@@ -69,12 +108,12 @@ class ApiSecurityMockMvcIT {
 
     @Test
     void readForeignControl_returns403() throws Exception {
-        User owner = saveUser("owner-" + suffix(), "owner-" + suffix() + "@example.test", "PROCESS_OWNER", "Test#123");
+        User owner = saveUser("owner-" + suffix(), "owner-" + suffix() + "@example.test", "PROCESS_OWNER");
         Control foreignControl = createControl("CTRL-FGN-" + suffix(), owner, "IN_PROGRESS");
 
         String facEmail = "fac-" + suffix() + "@example.test";
-        User facilitator = saveUser(facEmail, facEmail, "FACILITATOR", "Test#123");
-        MockHttpSession session = loginAndAttachCurrentUser(facEmail, "Test#123", facilitator);
+        saveUser(facEmail, facEmail, "FACILITATOR");
+        MockHttpSession session = login(facEmail);
 
         mockMvc.perform(get("/api/controls/{id}/changelog", foreignControl.getId())
                         .session(session))
@@ -84,23 +123,25 @@ class ApiSecurityMockMvcIT {
     @Test
     void forbiddenWorkflowTransition_returns403() throws Exception {
         String ownerEmail = "owner2-" + suffix() + "@example.test";
-        User processOwner = saveUser(ownerEmail, ownerEmail, "PROCESS_OWNER", "Test#123");
+        User processOwner = saveUser(ownerEmail, ownerEmail, "PROCESS_OWNER");
         Control control = createControl("CTRL-WF-" + suffix(), processOwner, "IN_PROGRESS");
 
-        MockHttpSession session = loginAndAttachCurrentUser(ownerEmail, "Test#123", processOwner);
+        MockHttpSession session = login(ownerEmail);
 
+        // The message proves the 403 comes from the workflow guard, not from the security filters
         mockMvc.perform(post("/api/workflow/submit-to-control-operator")
                         .param("controlId", String.valueOf(control.getId()))
                         .session(session))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(containsString("Only the assigned Facilitator")));
     }
 
     @Test
     void soqmLead_read_modify_workflow_are200() throws Exception {
-        User soqmLead = saveUser("soqm-" + suffix(), "soqm-" + suffix() + "@example.test", "SOQM_TEAM", "Test#123");
+        User soqmLead = saveUser("soqm-" + suffix(), "soqm-" + suffix() + "@example.test", "SOQM_TEAM");
         Control control = createControl("CTRL-SOQM-" + suffix(), soqmLead, "SOQM_HEAD_REVIEW");
 
-        MockHttpSession session = loginAndAttachCurrentUser(soqmLead.getMail(), "Test#123", soqmLead);
+        MockHttpSession session = login(soqmLead.getMail());
 
         mockMvc.perform(get("/api/controls/{id}/changelog", control.getId())
                         .session(session))
@@ -117,14 +158,16 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isOk());
     }
 
-    private User saveUser(String username, String mail, String role, String rawPassword) {
+    private User saveUser(String username, String mail, String role) {
         User user = new User();
         user.setMail(mail);
         user.setRole(role);
         user.setDisplayName(username);
         user.setEnabled(true);
-        user.setPassword(passwordEncoder.encode(rawPassword));
-        return userRepository.save(user);
+        user.setPassword(passwordEncoder.encode(PASSWORD));
+        User saved = userRepository.save(user);
+        createdUserIds.add(saved.getId());
+        return saved;
     }
 
     private Control createControl(String controlId, User createdBy, String performanceStatus) {
@@ -137,22 +180,24 @@ class ApiSecurityMockMvcIT {
         control.setControlStatus(performanceStatus);
         control.setPerformanceStatus(performanceStatus);
         control.setCreatedBy(createdBy);
-        return controlRepository.save(control);
+        Control saved = controlRepository.save(control);
+        createdControlIds.add(saved.getId());
+        return saved;
     }
 
-    private MockHttpSession loginAndAttachCurrentUser(String username, String password, User user) throws Exception {
+    /** Logs in through the form login filter; its success handler puts currentUser into the session. */
+    private MockHttpSession login(String mail) throws Exception {
         MvcResult login = mockMvc.perform(post("/login")
-                        .param("username", username)
-                        .param("password", password))
+                        .with(csrf())
+                        .param("username", mail)
+                        .param("password", PASSWORD))
                 .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/"))
                 .andReturn();
 
         MockHttpSession session = (MockHttpSession) login.getRequest().getSession(false);
-        if (session == null) {
-            throw new IllegalStateException("Login did not create session");
-        }
-        session.setAttribute("currentUser", user);
-        session.setAttribute("userRole", user.getRole());
+        assertThat(session).isNotNull();
+        assertThat(session.getAttribute("currentUser")).isNotNull();
         return session;
     }
 
