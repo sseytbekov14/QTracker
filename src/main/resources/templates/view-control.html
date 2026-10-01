@@ -7,7 +7,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=11" rel="stylesheet">
-    <link href="/css/view-control.css?v=8" rel="stylesheet">
+    <link href="/css/view-control.css?v=9" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator Program validation styling */
@@ -686,7 +686,9 @@
                     <div th:replace="~{fragments/workflow-stepper :: stepper(${workflowStepIndex}, ${facilitatorNames}, ${operatorNames}, ${soqmNames}, ${ownerNames})}"></div>
                     <p class="vc-turn-hint" th:if="${yourTurn}">
                         <i class="bi bi-info-circle" aria-hidden="true"></i>
-                        This step is yours — complete the required fields, then use the action buttons at the bottom of the page.
+                        <span>This step is yours — fill in the required fields on the
+                            <a href="#details" class="vc-turn-hint-link" data-vc-tab="details">Details tab</a>,
+                            then use the action buttons at the bottom of the page.</span>
                     </p>
                 </div>
 
@@ -954,6 +956,10 @@
 
                             <div class="form-section">
                                 <h5 class="mb-3">Assignment Details</h5>
+                                <p class="vc-soqm-only-note d-none">
+                                    <i class="bi bi-lock" aria-hidden="true"></i>
+                                    Only SoQM Team can change the assignment.
+                                </p>
 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
@@ -1166,12 +1172,92 @@
                                             <option value="Available">Available</option>
                                             <option value="Not Available">Not Available</option>
                                         </select>
+                                        <p class="vc-soqm-only-note d-none">
+                                            <i class="bi bi-lock" aria-hidden="true"></i>
+                                            Only SoQM Team can change SoQM Development Materials.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
                         </form>
                     </div>
                 </div>
+
+                <script>
+                    // One tab at a time; the active tab is kept in the URL hash (#control, #details,
+                    // #assignment, #documents). replaceState, so Back leaves the page instead of cycling tabs.
+                    (function () {
+                        var TABS = ['control', 'details', 'assignment', 'documents'];
+                        var nav = document.getElementById('controlTabs');
+                        if (!nav) return;
+
+                        function tabName(value) {
+                            var name = String(value || '').replace(/^#/, '').replace(/-tab$/, '');
+                            return TABS.indexOf(name) >= 0 ? name : null;
+                        }
+
+                        function linkFor(name) {
+                            return nav.querySelector('a[href="#' + name + '-tab"]');
+                        }
+
+                        // Runs before the first paint, so Bootstrap is not loaded yet: switch the classes by hand
+                        var initial = tabName(window.location.hash);
+                        if (initial && initial !== 'control') {
+                            nav.querySelectorAll('.nav-link.active').forEach(function (link) {
+                                link.classList.remove('active');
+                            });
+                            document.querySelectorAll('#controlTabsContent > .tab-pane.active').forEach(function (pane) {
+                                pane.classList.remove('active', 'show');
+                            });
+                            linkFor(initial).classList.add('active');
+                            document.getElementById(initial + '-tab').classList.add('active', 'show');
+                        }
+
+                        // onShown runs once the pane is visible (Bootstrap fades the old pane out first)
+                        function show(name, onShown) {
+                            var link = linkFor(name);
+                            if (!link) return;
+                            if (link.classList.contains('active') || !window.bootstrap) {
+                                if (onShown) onShown();
+                                return;
+                            }
+                            if (onShown) link.addEventListener('shown.bs.tab', onShown, { once: true });
+                            bootstrap.Tab.getOrCreateInstance(link).show();
+                        }
+
+                        // Opens the tab that holds the field (validation errors on a hidden tab)
+                        function revealField(field, onShown) {
+                            var pane = field && field.closest ? field.closest('#controlTabsContent > .tab-pane') : null;
+                            var name = pane ? tabName(pane.id) : null;
+                            if (name) {
+                                show(name, onShown);
+                            } else if (onShown) {
+                                onShown();
+                            }
+                        }
+
+                        nav.addEventListener('shown.bs.tab', function (event) {
+                            var name = tabName(event.target.getAttribute('href'));
+                            if (name && tabName(window.location.hash) !== name) {
+                                history.replaceState(history.state, '', '#' + name);
+                            }
+                        });
+
+                        window.addEventListener('hashchange', function () {
+                            var name = tabName(window.location.hash);
+                            if (name) show(name);
+                        });
+
+                        document.addEventListener('click', function (event) {
+                            var trigger = event.target.closest ? event.target.closest('[data-vc-tab]') : null;
+                            if (!trigger) return;
+                            event.preventDefault();
+                            show(trigger.getAttribute('data-vc-tab'));
+                        });
+
+                        window.ViewControlTabs = { show: show, revealField: revealField };
+                    })();
+                </script>
 
                 <!-- Toast container -->
                 <div class="kpmg-toast-container" id="kpmgToastContainer"></div>
@@ -1598,7 +1684,7 @@
 <script src="/js/vendor/bootstrap.bundle.min.js"></script>
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/app-modal.js?v=4"></script>
-<script src="/js/view-control.js?v=3.6"></script>
+<script src="/js/view-control.js?v=3.7"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {

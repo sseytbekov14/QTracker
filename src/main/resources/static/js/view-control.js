@@ -1645,11 +1645,13 @@ function makeAllFormsEditable() {
 function validateFieldLengths(formElement) {
     if (!formElement) return true;
     let isValid = true;
+    let firstInvalid = null;
     const elements = formElement.querySelectorAll('input[maxlength], textarea[maxlength]');
     elements.forEach(el => {
         const maxLength = parseInt(el.getAttribute('maxlength'), 10);
         if (el.value && el.value.length > maxLength) {
             isValid = false;
+            firstInvalid = firstInvalid || el;
             el.classList.add('is-invalid');
             console.error(`Field ${el.name || el.id} exceeds max length of ${maxLength}`);
         } else {
@@ -1657,11 +1659,15 @@ function validateFieldLengths(formElement) {
         }
     });
     
+    if (!isValid) {
+        revealFieldTab(firstInvalid);
+    }
     if (!isValid && typeof showAppModal === 'function') {
         showAppModal({
             variant: 'danger',
             title: 'Validation Error',
-            message: 'Some fields exceed their maximum allowed length. Please check the highlighted fields.'
+            message: 'Some fields exceed their maximum allowed length. Please check the highlighted fields.',
+            onClose: () => focusField(firstInvalid)
         });
     }
     
@@ -1870,6 +1876,18 @@ function saveControlData(controlId) {
         if (editBtn) editBtn.classList.add('d-none');
 
         makeAllFormsEditable();
+
+        // Without full rights only Details fields are editable (Assignment and Documents are saved by SoQM Team only)
+        toggleSoqmOnlyNotes(!fullEditEnabled);
+        if (!fullEditEnabled && window.ViewControlTabs) {
+            ViewControlTabs.show('details');
+        }
+    }
+
+    function toggleSoqmOnlyNotes(visible) {
+        document.querySelectorAll('.vc-soqm-only-note').forEach(note => {
+            note.classList.toggle('d-none', !visible);
+        });
     }
 
     function switchToReadOnlyMode() {
@@ -1893,6 +1911,7 @@ function saveControlData(controlId) {
         }
 
         makeAllFormsReadOnly();
+        toggleSoqmOnlyNotes(false);
     }
 
     function checkControlIdUnique(newControlId, currentControlId) {
@@ -2046,19 +2065,7 @@ function renameControlId(newControlId) {
     }
 
 function showRequiredFieldMessage(message, field) {
-    if (window.showAppModal) {
-        showAppModal({
-            variant: 'warning',
-            title: 'Missing Required Field',
-            message: message,
-            autoCloseMs: 0
-        });
-    } else {
-        alert(message);
-    }
-    if (field && typeof field.focus === 'function') {
-        field.focus();
-    }
+    showMissingFieldMessage(message, field);
 }
 
     function isBlankValue(value) {
@@ -2137,6 +2144,11 @@ function showRequiredFieldMessage(message, field) {
         return true;
     }
 
+// A reload keeps the #tab hash. Assigning the same URL with a hash would only scroll, not reload.
+function reloadKeepingTab() {
+    window.location.reload();
+}
+
 function saveControlChanges() {
     console.log('=== START SAVE CONTROL CHANGES ===');
 
@@ -2158,7 +2170,7 @@ function saveControlChanges() {
                     title: 'Saved Successfully',
                     message: 'Allowed control fields have been saved',
                     autoCloseMs: 2500,
-                    redirectUrl: '/view-control/' + controlId
+                    onClose: reloadKeepingTab
                 });
                 return { success: true };
             })
@@ -2184,7 +2196,7 @@ function saveControlChanges() {
                 title: 'Saved Successfully',
                 message: 'All control data has been saved',
                 autoCloseMs: 2500,
-                redirectUrl: '/view-control/' + controlId
+                onClose: reloadKeepingTab
             });
 
             return { success: true };
@@ -2724,16 +2736,6 @@ function saveDocumentsData(controlId) {
                     if (isSharedWithDropdownOpen) closeSharedWithDropdown();
                 }
             });
-
-            const lastActiveTab = localStorage.getItem('lastActiveTab');
-            if (lastActiveTab) {
-                const tabElement = document.querySelector(`a[href="${lastActiveTab}"]`);
-                if (tabElement) {
-                    const tab = new bootstrap.Tab(tabElement);
-                    tab.show();
-                }
-                localStorage.removeItem('lastActiveTab');
-            }
 
             // LOAD DATA BEFORE INITIALIZING READONLY MODE
             const controlId = document.querySelector('input[name="id"]').value;
@@ -3291,20 +3293,37 @@ function showSavedSuccessfullyModal(options) {
     });
 }
 
-function showWorkflowRequirementMessage(message, field) {
+// The field may sit on a hidden tab: open that tab right away, focus the field once the message is closed
+function revealFieldTab(field) {
+    if (field && window.ViewControlTabs) {
+        ViewControlTabs.revealField(field);
+    }
+}
+
+function focusField(field) {
+    if (field && typeof field.focus === 'function') {
+        field.focus();
+    }
+}
+
+function showMissingFieldMessage(message, field) {
+    revealFieldTab(field);
     if (window.showAppModal) {
         showAppModal({
             variant: 'warning',
             title: 'Missing Required Field',
             message: message,
-            autoCloseMs: 0
+            autoCloseMs: 0,
+            onClose: () => focusField(field)
         });
     } else {
         alert(message);
+        focusField(field);
     }
-    if (field && typeof field.focus === 'function') {
-        field.focus();
-    }
+}
+
+function showWorkflowRequirementMessage(message, field) {
+    showMissingFieldMessage(message, field);
 }
 
 function isBlankValueForWorkflow(value) {
