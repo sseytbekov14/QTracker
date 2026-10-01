@@ -57,39 +57,6 @@ class WorkflowTransitionControllerTest {
     private ControlPermissionService controlPermissionService;
 
     @Test
-    void initiateControl_doesNotSendImmediateNotifications() throws Exception {
-        User currentUser = new User();
-        currentUser.setId(1L);
-        currentUser.setRole("SOQM_TEAM");
-        currentUser.setMail("soqm@kpmg.kz");
-
-        Control control = new Control();
-        control.setId(10L);
-        control.setControlStatus("DRAFT");
-
-        ControlAssignment assignment = new ControlAssignment();
-        assignment.setControlId(10L);
-        assignment.setFacilitator("fac@example.test");
-        assignment.setControlOperator("op@example.test");
-
-        when(controlService.getControlById(10L)).thenReturn(Optional.of(control));
-        when(controlPermissionService.resolve(control, currentUser))
-                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
-                        false, false, false, false, true, false));
-        when(controlAssignmentRepository.findByControlId(10L)).thenReturn(Optional.of(assignment));
-        when(controlService.save(any(Control.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(requiredFieldService.getMissingFieldMessage(any(Control.class), any(User.class)))
-                .thenReturn(Optional.empty());
-
-        mockMvc.perform(post("/api/workflow/initiate")
-                        .param("controlId", "10")
-                        .sessionAttr("currentUser", currentUser))
-                .andExpect(status().isOk());
-
-        verify(notificationService, never()).sendInitiateNotifications(eq(control), anyList());
-    }
-
-    @Test
     void returnToFacilitator_includesCommentInReturnNotification() throws Exception {
         User currentUser = new User();
         currentUser.setId(2L);
@@ -153,31 +120,6 @@ class WorkflowTransitionControllerTest {
                         .param("controlId", "30")
                         .sessionAttr("currentUser", currentUser))
                 .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void initiate_controlAlreadyInProgress_isConflict() throws Exception {
-        Control control = controlInStatus(40L, "IN_PROGRESS");
-        User soqm = user("soqm@kpmg.kz");
-        givenPermission(control, soqm, new ControlPermission(true, true, java.util.Set.of(), true, true,
-                false, false, false, false, true, false));
-
-        mockMvc.perform(post("/api/workflow/initiate").param("controlId", "40").sessionAttr("currentUser", soqm))
-                .andExpect(status().isConflict());
-
-        verify(controlService, never()).save(any(Control.class));
-    }
-
-    @Test
-    void initiate_byFacilitatorWhoIsNotCreator_isForbidden() throws Exception {
-        Control control = controlInStatus(41L, "DRAFT");
-        User facilitator = user("fac@kpmg.kz");
-        givenPermission(control, facilitator, participant(true, false, false, false));
-
-        mockMvc.perform(post("/api/workflow/initiate").param("controlId", "41").sessionAttr("currentUser", facilitator))
-                .andExpect(status().isForbidden());
-
-        verify(controlService, never()).save(any(Control.class));
     }
 
     @Test

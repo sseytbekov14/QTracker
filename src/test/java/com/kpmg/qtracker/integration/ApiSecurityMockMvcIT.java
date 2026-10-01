@@ -439,6 +439,29 @@ class ApiSecurityMockMvcIT {
                 .isEqualTo("REVIEW");
     }
 
+    @Test
+    void duplicateWorkflowInitiate_isNotExposed_performanceInitiateStillWorks() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-INIT-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+
+        MockHttpSession session = login(p.soqm.getMail());
+
+        mockMvc.perform(post("/api/workflow/initiate")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .session(session))
+                .andExpect(status().isNotFound());
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
+                .isEqualTo("DRAFT");
+
+        mockMvc.perform(post("/api/performance/initiate")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .session(session))
+                .andExpect(status().isOk());
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
+                .isEqualTo("IN_PROGRESS");
+    }
+
     private User saveUser(String username, String mail, String role) {
         User user = new User();
         user.setMail(mail);

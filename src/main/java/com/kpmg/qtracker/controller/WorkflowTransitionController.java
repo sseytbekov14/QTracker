@@ -36,60 +36,6 @@ public class WorkflowTransitionController {
     private final ControlPermissionService controlPermissionService;
     private final WorkflowTransitionGuard transitionGuard;
 
-    @PostMapping("/initiate")
-    @Transactional
-    public ResponseEntity<?> initiateControl(
-            @RequestParam Long controlId,
-            HttpSession session) {
-        
-        try {
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(401).body(Map.of("success", false, "message", "Unauthorized"));
-            }
-
-            Optional<Control> controlOpt = controlService.getControlById(controlId);
-            if (controlOpt.isEmpty()) {
-                return ResponseEntity.status(404).body(Map.of("success", false, "message", "Control not found"));
-            }
-
-            Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.INITIATE);
-            if (restrictedResponse != null) {
-                return restrictedResponse;
-            }
-
-            // Get control assignment to find facilitator
-            Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(controlId);
-            if (assignmentOpt.isEmpty()) {
-                return ResponseEntity.status(400).body(Map.of("success", false, "message", "Control assignment not found. Please assign a Facilitator first."));
-            }
-
-            ControlAssignment assignment = assignmentOpt.get();
-            if (assignment.getFacilitator() == null || assignment.getFacilitator().isEmpty()) {
-                return ResponseEntity.status(400).body(Map.of("success", false, "message", "No Facilitator assigned to this control"));
-            }
-
-            // Update workflow status to In Progress
-            control.setPerformanceStatus("IN_PROGRESS");
-            controlService.save(control);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Control initiated and sent to Facilitator for review");
-            response.put("controlStatus", control.getPerformanceStatus());
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            rollbackCurrentTransaction();
-            return ResponseEntity.status(500).body(Map.of(
-                    "success", false,
-                    "message", "Error initiating control: " + e.getMessage()
-            ));
-        }
-    }
-
     @PostMapping("/submit-to-control-operator")
     @Transactional
     public ResponseEntity<?> submitToControlOperator(
