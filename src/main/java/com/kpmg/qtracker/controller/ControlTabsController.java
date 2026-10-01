@@ -184,13 +184,10 @@ public class ControlTabsController {
             Control control = controlService.getControlById(documentsDTO.getControlId()).orElse(null);
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(documentsDTO.getControlId());
             ControlPermission permission = controlPermissionService.resolve(control, currentUser, assignment);
-            if (!permission.canEdit()) {
+            // SoQM Development Materials belong to the SoQM Team, not to the stage participants
+            if (!permission.canEditAll()) {
                 return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: User does not have permission to edit this control");
-            }
-            if (permission.isSharedCompleted()) {
-                return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: Shared users on COMPLETED controls cannot edit document fields");
+                        .body("VALIDATION_ERROR: Only SoQM Team can change SoQM Development Materials");
             }
             ControlDocumentsDTO existingDocuments = controlDocumentsService.getDocumentsByControlId(documentsDTO.getControlId());
             ControlDocumentsDTO mergedDocuments = mergeControlDocuments(existingDocuments, documentsDTO);

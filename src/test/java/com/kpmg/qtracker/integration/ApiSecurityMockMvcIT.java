@@ -5,6 +5,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
+import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -70,6 +71,9 @@ class ApiSecurityMockMvcIT {
 
     @Autowired
     private ControlAssignmentRepository assignmentRepository;
+
+    @Autowired
+    private ControlDocumentsRepository documentsRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -306,6 +310,43 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isOk());
 
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getSoqmYear()).isEqualTo("2031");
+    }
+
+    @Test
+    void assignedFacilitator_cannotChangeSoqmDevelopmentMaterials_returns403() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-DOC-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+
+        MockHttpSession session = login(p.facilitator.getMail());
+
+        mockMvc.perform(post("/api/control-documents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Available\"}")
+                        .session(session))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(containsString("Only SoQM Team can change SoQM Development Materials")));
+
+        assertThat(documentsRepository.findByControlId(control.getId()).orElseThrow().getSoqmDevelopmentMaterials())
+                .isNull();
+    }
+
+    @Test
+    void soqm_canChangeSoqmDevelopmentMaterials_returns200() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-DOC-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+
+        MockHttpSession session = login(p.soqm.getMail());
+
+        mockMvc.perform(post("/api/control-documents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Available\"}")
+                        .session(session))
+                .andExpect(status().isOk());
+
+        assertThat(documentsRepository.findByControlId(control.getId()).orElseThrow().getSoqmDevelopmentMaterials())
+                .isEqualTo("Available");
     }
 
     private User saveUser(String username, String mail, String role) {
