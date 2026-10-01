@@ -77,6 +77,15 @@ public class UserEnabledGuardFilter extends OncePerRequestFilter {
             return;
         }
 
+        // The session keeps a copy of the user taken at login; refresh it so role and admin
+        // changes made by an administrator apply on the next request, not after re-login
+        HttpSession session = request.getSession(false);
+        if (session != null && session.getAttribute("currentUser") instanceof User) {
+            User dbUser = dbUserOpt.get();
+            session.setAttribute("currentUser", dbUser);
+            session.setAttribute("userRole", dbUser.getRole());
+        }
+
         filterChain.doFilter(request, response);
     }
 

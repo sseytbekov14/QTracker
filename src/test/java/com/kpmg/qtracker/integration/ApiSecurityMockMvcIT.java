@@ -349,6 +349,25 @@ class ApiSecurityMockMvcIT {
                 .isEqualTo("Available");
     }
 
+    @Test
+    void roleChangedByAdmin_appliesToExistingSession() throws Exception {
+        User soqm = saveUser("soqm-" + suffix(), "soqm-" + suffix() + "@example.test", "SOQM_TEAM");
+        Control control = createControl("CTRL-ROLE-" + suffix(), soqm, "DRAFT");
+
+        MockHttpSession session = login(soqm.getMail());
+
+        soqm.setRole("FACILITATOR");
+        userRepository.save(soqm);
+
+        mockMvc.perform(post("/api/controls/{id}/rename-id", control.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newControlId\":\"" + control.getControlId() + "-R\"}")
+                        .session(session))
+                .andExpect(status().isForbidden());
+
+        assertThat(((User) session.getAttribute("currentUser")).getRole()).isEqualTo("FACILITATOR");
+    }
+
     private User saveUser(String username, String mail, String role) {
         User user = new User();
         user.setMail(mail);
