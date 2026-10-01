@@ -7,6 +7,7 @@ import com.kpmg.qtracker.entity.ControlAttachment;
 import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.entity.WorkflowHistory;
+import com.kpmg.qtracker.enums.WorkflowActionType;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlAttachmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
@@ -40,6 +41,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -50,6 +52,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -649,6 +652,55 @@ class ApiSecurityMockMvcIT {
                 .andExpect(jsonPath("$.upcoming[0].overdue").value(false))
                 .andExpect(jsonPath("$.upcoming[0].daysOverdue").value(0))
                 .andExpect(jsonPath("$.upcoming[1].id").value(dueSoon.getId()));
+    }
+
+    @Test
+    void needsAttention_isRenderedForSoqmAndAdmin_notForFacilitator() throws Exception {
+        String s = suffix();
+        User facilitator = saveUser("na-fac-" + s, "na-fac-" + s + "@example.test", "FACILITATOR");
+        User soqm = saveUser("na-soqm-" + s, "na-soqm-" + s + "@example.test", "SOQM_TEAM");
+        User admin = saveUser("na-admin-" + s, "na-admin-" + s + "@example.test", "ADMIN");
+        admin.setAdminAccess(true);
+        userRepository.save(admin);
+
+        // Only the Facilitator is assigned, so the control is visible to them and lacks CO, SoQM lead and PO
+        Control control = createControl("CTRL-NA-" + s, soqm, "REVIEW");
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setFacilitator(facilitator.getMail());
+        assignmentRepository.save(assignment);
+
+        // SoQM sent it back to the operator; the later comment keeps the step and is not a move
+        LocalDate today = DeadlineOverdue.today(Instant.now());
+        saveHistory(control, WorkflowActionType.SUBMIT_TO_OPERATOR, "IN_PROGRESS", "REVIEW", today.minusDays(5));
+        saveHistory(control, WorkflowActionType.SUBMIT_TO_SOQM_TEAM, "REVIEW", "SOQM_HEAD_REVIEW", today.minusDays(4));
+        saveHistory(control, WorkflowActionType.RETURN_TO_OPERATOR, "SOQM_HEAD_REVIEW", "REVIEW", today.minusDays(2));
+        saveHistory(control, WorkflowActionType.COMMENT, "REVIEW", "REVIEW", today);
+
+        for (User viewer : List.of(soqm, admin)) {
+            mockMvc.perform(get("/").session(login(viewer.getMail())))
+                    .andExpect(status().isOk())
+                    .andExpect(model().attributeExists("needsAttention"))
+                    .andExpect(content().string(containsString("id=\"needsAttention\"")))
+                    .andExpect(content().string(containsString(control.getControlId())))
+                    .andExpect(content().string(containsString("No CO, SoQM, PO")))
+                    .andExpect(content().string(containsString("Returned by SoQM · 2d ago")));
+        }
+
+        mockMvc.perform(get("/").session(login(facilitator.getMail())))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeDoesNotExist("needsAttention"))
+                .andExpect(content().string(not(containsString("id=\"needsAttention\""))))
+                .andExpect(content().string(not(containsString("No CO, SoQM, PO"))));
+    }
+
+    private void saveHistory(Control control, WorkflowActionType type, String fromStep, String toStep, LocalDate day) {
+        WorkflowHistory history = new WorkflowHistory();
+        history.setControlId(control.getId());
+        history.setActionType(type);
+        history.setFromStep(fromStep);
+        history.setToStep(toStep);
+        history.setCreatedAt(day.atTime(10, 0));
+        workflowHistoryRepository.save(history);
     }
 
     private Control deadlineControl(String controlId, User facilitator, String status, LocalDate deadline) {

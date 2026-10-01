@@ -237,6 +237,14 @@ public class ViewController {
         model.addAttribute("actionItemsTotal", actionItems.size());
         model.addAttribute("actionItemsOverdue", actionItems.stream().filter(ControlResponseDTO::isOverdue).count());
 
+        // ===== NEEDS ATTENTION =====
+        // Team-wide controls nobody is moving; SoQM and admins only (they see every control)
+        if (isGlobalVisibilityRole(userRole, userIsAdmin)) {
+            model.addAttribute("needsAttention",
+                    buildNeedsAttention(allControls, completionTimeByControlId, userEmail, todayAlmaty));
+            model.addAttribute("needsAttentionLimit", DASHBOARD_ACTION_ITEMS_LIMIT);
+        }
+
         // ===== ACTION CENTRE DATA =====
         List<ControlResponseDTO> controlsForAction = allControls;
         Map<String, Long> componentStats = new HashMap<>();
@@ -834,6 +842,74 @@ public class ViewController {
             return listContains(control.getProcessOwners(), userEmail);
         }
         return false;
+    }
+
+    /** Rules are in {@link NeedsAttention}; the only extra query is the last move of open controls. */
+    private NeedsAttention.Result buildNeedsAttention(List<ControlResponseDTO> controls,
+                                                      Map<Long, LocalDateTime> completionTimeByControlId,
+                                                      String userEmail,
+                                                      LocalDate today) {
+        List<Long> openControlIds = controls.stream()
+                .filter(control -> !isCompletedForDashboard(control, completionTimeByControlId))
+                .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
+                .map(ControlResponseDTO::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        Map<Long, NeedsAttention.LastMove> lastMoves = findLastMoves(openControlIds);
+
+        List<NeedsAttention.Candidate> candidates = controls.stream()
+                .map(control -> new NeedsAttention.Candidate(
+                        control.getId(),
+                        control.getControlId(),
+                        control.getControlDescription(),
+                        control.getPerformanceStatus(),
+                        control.getDeadline(),
+                        control.getFacilitators(),
+                        control.getControlOperators(),
+                        control.getSoqmLeads(),
+                        control.getProcessOwners(),
+                        isCompletedForDashboard(control, completionTimeByControlId),
+                        isActiveQueueForUser(control, userEmail),
+                        lastMoves.get(control.getId()),
+                        control.getUpdatedAt()))
+                .collect(Collectors.toList());
+        return NeedsAttention.evaluate(candidates, today);
+    }
+
+    /** Latest row per control that changed its step (comments that keep the step are skipped). */
+    private Map<Long, NeedsAttention.LastMove> findLastMoves(List<Long> controlIds) {
+        if (controlIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<Long, Object[]> latestRows = new HashMap<>();
+        for (Object[] row : workflowHistoryRepository.findStepMovesByControlIds(controlIds)) {
+            if (row == null || row.length < 5 || !(row[0] instanceof Number)
+                    || !(row[3] instanceof LocalDateTime) || !(row[4] instanceof Number)) {
+                continue;
+            }
+            String fromStep = row[1] != null ? row[1].toString().trim() : "";
+            String toStep = row[2] != null ? row[2].toString().trim() : "";
+            if (toStep.isEmpty() || toStep.equalsIgnoreCase(fromStep)) {
+                continue;
+            }
+            latestRows.merge(((Number) row[0]).longValue(), row, (current, candidate) ->
+                    isLaterMove(candidate, current) ? candidate : current);
+        }
+        Map<Long, NeedsAttention.LastMove> lastMoves = new HashMap<>();
+        latestRows.forEach((controlId, row) -> lastMoves.put(controlId, new NeedsAttention.LastMove(
+                row[1] != null ? row[1].toString() : null,
+                row[2].toString(),
+                (LocalDateTime) row[3])));
+        return lastMoves;
+    }
+
+    // By time, then by id for rows written in the same instant
+    private boolean isLaterMove(Object[] row, Object[] other) {
+        int byTime = ((LocalDateTime) row[3]).compareTo((LocalDateTime) other[3]);
+        if (byTime != 0) {
+            return byTime > 0;
+        }
+        return ((Number) row[4]).longValue() > ((Number) other[4]).longValue();
     }
 
     private boolean listContains(List<String> items, String value) {
