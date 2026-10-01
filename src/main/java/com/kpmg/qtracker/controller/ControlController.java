@@ -545,6 +545,13 @@ public class ControlController {
                             .body("VALIDATION_ERROR: Control Frequency must be one of Monthly, Quarterly, Ad-hoc, Recurring, Annual, Semi Annual");
                 }
             }
+            if (!permission.canEditAll()) {
+                String lockedField = findChangedRestrictedField(controlDTO, existingControl, canonicalFrequency, permission);
+                if (lockedField != null) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body("VALIDATION_ERROR: " + lockedField + " can be changed only by SoQM Team");
+                }
+            }
 
             // ============================================
             // ROLE-BASED FIELD RESTRICTIONS VALIDATION
@@ -986,6 +993,49 @@ public class ControlController {
             String value = field.getValue();
             boolean missing = value == null ? requireAll : value.isBlank();
             if (missing) {
+                return field.getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * First master field whose sent value differs from the stored one. Participants without full edit
+     * rights may resend the whole form unchanged (edit-control.html does), so values are compared, not presence.
+     */
+    private String findChangedRestrictedField(ControlDTO dto, Control existing, String canonicalFrequency,
+                                              ControlPermission permission) {
+        if (canonicalFrequency != null) {
+            String storedFrequency = canonicalizeFrequency(existing.getControlFrequency());
+            if (!Objects.equals(canonicalFrequency,
+                    storedFrequency != null ? storedFrequency : normalizeValue(existing.getControlFrequency()))) {
+                return "Control Frequency";
+            }
+        }
+        Map<String, String[]> fields = new LinkedHashMap<>();
+        fields.put("Control Category", new String[]{dto.getControlCategory(), existing.getControlCategory()});
+        fields.put("Control Type", new String[]{dto.getControlType(), existing.getControlType()});
+        fields.put("Component", new String[]{dto.getComponent(), existing.getComponent()});
+        fields.put("Operated By", new String[]{dto.getOperatedBy(), existing.getOperatedBy()});
+        fields.put("References to Control", new String[]{dto.getReferencesToControl(), existing.getReferencesToControl()});
+        fields.put("Priority", new String[]{dto.getPriority(), existing.getPriority()});
+        fields.put("Non-audit Services Applicability",
+                new String[]{dto.getNonAuditServicesApplicability(), existing.getNonAuditServicesApplicability()});
+        fields.put("Homogeneity", new String[]{dto.getHomogeneity(), existing.getHomogeneity()});
+        // A blank status is ignored by the update, so only a non-blank one can change it
+        fields.put("Control Status", new String[]{
+                dto.getControlStatus() == null || dto.getControlStatus().isBlank() ? null : dto.getControlStatus(),
+                existing.getControlStatus()});
+        fields.put("Control Description", new String[]{dto.getControlDescription(), existing.getControlDescription()});
+        fields.put("PRP", new String[]{dto.getPrp(), existing.getPrp()});
+        fields.put("SoQM Head/Team Comments", new String[]{dto.getSoqmHeadComments(), existing.getSoqmHeadComments()});
+        if (!permission.canEditProcessOwnerComments()) {
+            fields.put("Process Owner Comments",
+                    new String[]{dto.getProcessOwnerComments(), existing.getProcessOwnerComments()});
+        }
+        for (Map.Entry<String, String[]> field : fields.entrySet()) {
+            String sent = field.getValue()[0];
+            if (sent != null && !normalizeValue(sent).equals(normalizeValue(field.getValue()[1]))) {
                 return field.getKey();
             }
         }

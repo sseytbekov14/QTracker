@@ -32,6 +32,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -205,6 +206,74 @@ class ApiSecurityMockMvcIT {
                 .isEqualTo(newOwner);
     }
 
+    @Test
+    void assignedFacilitator_resendingUnchangedControlForm_returns200() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-PUT-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+
+        MockHttpSession session = login(p.facilitator.getMail());
+
+        // Same values as stored, with the whitespace a form round-trip may add
+        mockMvc.perform(put("/api/controls/{id}", control.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(controlForm(" monthly ", "HR ", "IN_PROGRESS"))
+                        .session(session))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void assignedFacilitator_changingMasterField_returns403() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-PUT-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+
+        MockHttpSession session = login(p.facilitator.getMail());
+
+        mockMvc.perform(put("/api/controls/{id}", control.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(controlForm("Monthly", "GOV", "IN_PROGRESS"))
+                        .session(session))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(containsString("Component can be changed only by SoQM Team")));
+
+        mockMvc.perform(put("/api/controls/{id}", control.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(controlForm("Monthly", "HR", "DELETED"))
+                        .session(session))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(containsString("Control Status can be changed only by SoQM Team")));
+
+        mockMvc.perform(put("/api/controls/{id}", control.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(controlForm("Quarterly", "HR", "IN_PROGRESS"))
+                        .session(session))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(containsString("Control Frequency can be changed only by SoQM Team")));
+
+        Control stored = controlRepository.findById(control.getId()).orElseThrow();
+        assertThat(stored.getComponent()).isEqualTo("HR");
+        assertThat(stored.getControlStatus()).isEqualTo("IN_PROGRESS");
+        assertThat(stored.getControlFrequency()).isEqualTo("Monthly");
+    }
+
+    @Test
+    void soqm_changingMasterField_returns200() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-PUT-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+
+        MockHttpSession session = login(p.soqm.getMail());
+
+        mockMvc.perform(put("/api/controls/{id}", control.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(controlForm("Monthly", "GOV", "IN_PROGRESS"))
+                        .session(session))
+                .andExpect(status().isOk());
+
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getComponent()).isEqualTo("GOV");
+    }
+
     private User saveUser(String username, String mail, String role) {
         User user = new User();
         user.setMail(mail);
@@ -224,12 +293,23 @@ class ApiSecurityMockMvcIT {
         control.setControlCategory("Manual");
         control.setControlType("Preventive");
         control.setComponent("HR");
+        control.setOperatedBy("Finance");
+        control.setPriority("High");
+        control.setNonAuditServicesApplicability("No");
         control.setControlStatus(performanceStatus);
         control.setPerformanceStatus(performanceStatus);
         control.setCreatedBy(createdBy);
         Control saved = controlRepository.save(control);
         createdControlIds.add(saved.getId());
         return saved;
+    }
+
+    /** Body of the control form as view-control.js sends it; other fields match the createControl fixture. */
+    private String controlForm(String frequency, String component, String controlStatus) {
+        return "{\"controlFrequency\":\"" + frequency + "\",\"controlCategory\":\"Manual\","
+                + "\"controlType\":\"Preventive\",\"component\":\"" + component + "\","
+                + "\"operatedBy\":\"Finance\",\"priority\":\"High\",\"nonAuditServicesApplicability\":\"No\","
+                + "\"controlStatus\":\"" + controlStatus + "\",\"controlDescription\":\"\",\"prp\":\"\"}";
     }
 
     /** One user per workflow role, each with a unique mail. */
