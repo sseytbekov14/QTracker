@@ -43,10 +43,19 @@ public class PerformanceController {
     @PostMapping("/auto-save")
     public ResponseEntity<?> autoSavePerformance(@RequestParam(required = false) String soqmYear,
                                                  @RequestParam(required = false) String actualOperationDate,
-                                                 @RequestParam Long controlId) {
+                                                 @RequestParam Long controlId,
+                                                 HttpSession session) {
         try {
+            User currentUser = (User) session.getAttribute("currentUser");
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body("User not authenticated");
+            }
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found"));
+            // Same circle as Initiate: the SoQM year is set while preparing the control for its cycle
+            if (!controlPermissionService.resolve(control, currentUser).canEditAll() && !isCreator(control, currentUser)) {
+                return ResponseEntity.status(403).body("Only SoQM Team or the control creator can change the SoQM year");
+            }
 
             // Save soqmYear directly to controls table
             if (soqmYear != null && !soqmYear.trim().isEmpty()) {
@@ -172,5 +181,10 @@ public class PerformanceController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error initiating: " + e.getMessage());
         }
+    }
+
+    private boolean isCreator(Control control, User user) {
+        return user.getMail() != null && control.getCreatedBy() != null && control.getCreatedBy().getMail() != null
+                && control.getCreatedBy().getMail().trim().equalsIgnoreCase(user.getMail().trim());
     }
 }

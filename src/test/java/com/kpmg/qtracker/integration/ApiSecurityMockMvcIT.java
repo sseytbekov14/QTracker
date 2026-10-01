@@ -274,6 +274,40 @@ class ApiSecurityMockMvcIT {
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getComponent()).isEqualTo("GOV");
     }
 
+    @Test
+    void assignedFacilitator_cannotAutoSaveSoqmYear_returns403() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-YEAR-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+
+        MockHttpSession session = login(p.facilitator.getMail());
+
+        mockMvc.perform(post("/api/performance/auto-save")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .param("soqmYear", "2031")
+                        .session(session))
+                .andExpect(status().isForbidden());
+
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getSoqmYear()).isNull();
+    }
+
+    @Test
+    void soqm_canAutoSaveSoqmYear_returns200() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-YEAR-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+
+        MockHttpSession session = login(p.soqm.getMail());
+
+        mockMvc.perform(post("/api/performance/auto-save")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .param("soqmYear", "2031")
+                        .session(session))
+                .andExpect(status().isOk());
+
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getSoqmYear()).isEqualTo("2031");
+    }
+
     private User saveUser(String username, String mail, String role) {
         User user = new User();
         user.setMail(mail);
