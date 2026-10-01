@@ -595,6 +595,55 @@ body.theme-dark #pane-notifications .notif-more { color: var(--text-secondary); 
 .deadlines-block .deadline-remaining.is-overdue {
     color: var(--kpmg-red);
 }
+.deadlines-block .deadline-group-title {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted-text);
+    background: var(--dashboard-card-bg);
+    border-bottom: 1px solid var(--dashboard-border);
+}
+.deadlines-block .deadline-group-title.is-overdue {
+    color: var(--kpmg-red);
+}
+.deadlines-block .deadline-group-count {
+    display: inline-block;
+    min-width: 18px;
+    margin-left: 4px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--kpmg-red);
+    color: #ffffff;
+    text-align: center;
+}
+.deadlines-block .deadline-group-link {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--link-color);
+    text-decoration: none;
+}
+.deadlines-block .deadline-item.is-overdue {
+    border-left: 3px solid var(--kpmg-red);
+}
+.deadlines-block .deadline-empty {
+    padding: 12px 10px;
+    color: var(--muted-text);
+    font-size: 0.82rem;
+}
+body.theme-dark .deadlines-block .deadline-group-title.is-overdue,
+body.theme-dark .deadlines-block .deadline-remaining.is-overdue {
+    color: #ff8a9b;
+}
 .deadlines-block .deadline-status {
     display: inline-block;
     margin-top: 4px;
@@ -1085,7 +1134,7 @@ a.stat-block:focus-visible,
                                     <div class="dashboard-surface-card" style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 12px 14px;">
                                         <div class="row g-3 deadlines-block">
                                             <div class="col-12 col-xl-4">
-                                                <div class="section-title" style="margin-bottom: 8px;">DEADLINES — NEXT 3 DAYS</div>
+                                                <div class="section-title" style="margin-bottom: 8px;">DEADLINES — OVERDUE &amp; NEXT 3 DAYS</div>
                                                 <div id="deadlineCountdownList"
                                                      class="deadlines-list deadlines-panel">
                                                 </div>
@@ -1884,37 +1933,62 @@ async function loadDeadlineCountdown() {
     }
 }
 
-function renderDeadlineCountdown(items) {
+// Overdue group first (days overdue come from the server, counted in Almaty), then the next 3 days
+function renderDeadlineCountdown(data) {
     const container = document.getElementById('deadlineCountdownList');
     if (!container) {
         return;
     }
 
-    if (!Array.isArray(items) || items.length === 0) {
-        container.innerHTML = '<div style="padding: 16px; color: var(--muted-text); font-size: 0.82rem;">No upcoming deadlines in the next 3 days.</div>';
-        return;
-    }
+    const overdue = data && Array.isArray(data.overdue) ? data.overdue : [];
+    const upcoming = data && Array.isArray(data.upcoming) ? data.upcoming : [];
+    const overdueTotal = data && typeof data.overdueTotal === 'number' ? data.overdueTotal : overdue.length;
 
-    container.innerHTML = items.map(function(item, index) {
-        const urgency = getDeadlineUrgency(item.deadline);
-        return '<div class="deadline-item" data-deadline="' + escapeAttribute(item.deadline || '') + '">'
-            + '<div class="d-flex justify-content-between align-items-start gap-2">'
-            + '<div style="min-width: 0;">'
-            + '<a href="' + escapeAttribute(item.url || '#') + '" class="deadline-link">'
-            + escapeHtml(item.controlId || 'Control')
-            + '</a>'
-            + '<div class="deadline-name">' + escapeHtml(item.name || 'Untitled Control') + '</div>'
-            + '<div class="deadline-date">' + escapeHtml(formatDeadlineDateTime(item.deadline)) + '</div>'
+    let html = '';
+    if (overdue.length > 0) {
+        html += '<div class="deadline-group-title is-overdue">'
+            + '<span>Overdue <span class="deadline-group-count">' + overdueTotal + '</span></span>'
+            + (overdueTotal > overdue.length
+                ? '<a href="/controls?filter=OVERDUE" class="deadline-group-link">View all</a>'
+                : '')
             + '</div>'
-            + '<div class="text-end" style="white-space: nowrap;">'
-            + '<div class="deadline-remaining" data-deadline-text>' + escapeHtml(formatTimeLeft(item.deadline)) + '</div>'
-            + '<div><span class="deadline-status" style="background: ' + urgency.color + '; color: ' + readableTextOn(urgency.color) + ';">' + escapeHtml(urgency.label) + '</span></div>'
-            + '</div>'
-            + '</div>'
-            + '</div>';
-    }).join('');
+            + overdue.map(renderDeadlineItem).join('');
+    }
+    html += '<div class="deadline-group-title">Next 3 days</div>';
+    html += upcoming.length > 0
+        ? upcoming.map(renderDeadlineItem).join('')
+        : '<div class="deadline-empty">No upcoming deadlines in the next 3 days.</div>';
+    container.innerHTML = html;
 
     updateDeadlineCountdownTimers();
+}
+
+function renderDeadlineItem(item) {
+    const urgency = item.overdue ? { label: 'OVERDUE', color: getDashboardChartPalette().red } : getDeadlineUrgency(item.deadline);
+    const remaining = item.overdue
+        ? '<div class="deadline-remaining is-overdue">' + escapeHtml(formatDaysOverdue(item.daysOverdue)) + '</div>'
+        : '<div class="deadline-remaining" data-deadline-text>' + escapeHtml(formatTimeLeft(item.deadline)) + '</div>';
+    return '<div class="deadline-item' + (item.overdue ? ' is-overdue' : '') + '"'
+        + (item.overdue ? '' : ' data-deadline="' + escapeAttribute(item.deadline || '') + '"') + '>'
+        + '<div class="d-flex justify-content-between align-items-start gap-2">'
+        + '<div style="min-width: 0;">'
+        + '<a href="' + escapeAttribute(item.url || '#') + '" class="deadline-link">'
+        + escapeHtml(item.controlId || 'Control')
+        + '</a>'
+        + '<div class="deadline-name">' + escapeHtml(item.name || 'Untitled Control') + '</div>'
+        + '<div class="deadline-date">' + escapeHtml(formatDeadlineDateTime(item.deadline)) + '</div>'
+        + '</div>'
+        + '<div class="text-end" style="white-space: nowrap;">'
+        + remaining
+        + '<div><span class="deadline-status" style="background: ' + urgency.color + '; color: ' + readableTextOn(urgency.color) + ';">' + escapeHtml(urgency.label) + '</span></div>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
+}
+
+function formatDaysOverdue(days) {
+    const count = Math.max(1, Number(days) || 0);
+    return count + (count === 1 ? ' day' : ' days') + ' overdue';
 }
 
 function initializeDeadlineCalendar() {
@@ -2002,15 +2076,27 @@ function shortControlId(controlId) {
     return text.split('/')[0] || text || 'Control';
 }
 
+// The deadline carries the Almaty offset ("2026-10-01T23:59:00+05:00"); its date part is the due day
+// in Almaty, whatever the browser timezone
+function deadlineDueDay(deadline) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(deadline || ''));
+    return match ? { year: match[1], month: match[2], day: match[3] } : null;
+}
+
+// Whole days from today in Almaty to the due day: 0 = today, 1 = tomorrow
+function daysUntilDueInAlmaty(deadline) {
+    const due = deadlineDueDay(deadline);
+    if (!due) {
+        return NaN;
+    }
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty' }).format(new Date());
+    return Math.round((Date.parse(due.year + '-' + due.month + '-' + due.day + 'T00:00:00Z')
+        - Date.parse(today + 'T00:00:00Z')) / 86400000);
+}
+
 function formatDeadlineDateTime(deadline) {
-    if (!deadline) {
-        return 'No deadline';
-    }
-    const date = new Date(deadline);
-    if (Number.isNaN(date.getTime())) {
-        return 'No deadline';
-    }
-    return 'Due ' + formatDate(date);
+    const due = deadlineDueDay(deadline);
+    return due ? 'Due ' + due.day + '.' + due.month + '.' + due.year : 'No deadline';
 }
 
 function formatDate(date) {
@@ -2069,25 +2155,19 @@ function getDeadlineUrgency(deadline) {
     if (!deadline) {
         return { label: 'DUE SOON', color: palette.blueLight };
     }
-    const target = new Date(deadline);
-    if (Number.isNaN(target.getTime())) {
+    const daysLeft = daysUntilDueInAlmaty(deadline);
+    if (Number.isNaN(daysLeft)) {
         return { label: 'DUE SOON', color: palette.blueLight };
     }
 
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfTomorrow = new Date(startOfToday);
-    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
-    const startOfDayAfterTomorrow = new Date(startOfTomorrow);
-    startOfDayAfterTomorrow.setDate(startOfDayAfterTomorrow.getDate() + 1);
-
-    if (target.getTime() < now.getTime()) {
+    // A deadline today is not overdue until the Almaty day ends
+    if (daysLeft < 0) {
         return { label: 'OVERDUE', color: palette.red };
     }
-    if (target.getTime() < startOfTomorrow.getTime()) {
+    if (daysLeft === 0) {
         return { label: 'DUE TODAY', color: palette.amber };
     }
-    if (target.getTime() < startOfDayAfterTomorrow.getTime()) {
+    if (daysLeft === 1) {
         return { label: 'DUE TOMORROW', color: palette.blue };
     }
     return { label: 'DUE SOON', color: palette.blueLight };

@@ -3,6 +3,7 @@ package com.kpmg.qtracker.service;
 import com.kpmg.qtracker.dto.DashboardCalendarEventDTO;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.dto.DashboardChartDataDTO;
+import com.kpmg.qtracker.dto.DashboardDeadlineCountdownDTO;
 import com.kpmg.qtracker.dto.DashboardDeadlineCountdownItemDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
@@ -16,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -206,45 +208,77 @@ public class DashboardService {
         return toTrendChartData(grouped);
     }
 
-    public List<DashboardDeadlineCountdownItemDTO> getDeadlineCountdown(User currentUser, int days, int limit) {
+    public DashboardDeadlineCountdownDTO getDeadlineCountdown(User currentUser, int days, int limit) {
+        DashboardDeadlineCountdownDTO empty = new DashboardDeadlineCountdownDTO(
+                Collections.emptyList(), 0L, Collections.emptyList());
         if (currentUser == null) {
-            return Collections.emptyList();
+            return empty;
         }
         DeadlineScopeSql scope = buildDeadlineScope(currentUser);
         if (scope.blocked()) {
-            return Collections.emptyList();
+            return empty;
         }
 
-        LocalDate startDate = LocalDate.now(ZONE);
-        LocalDate endDate = startDate.plusDays(Math.max(days, 0));
+        LocalDate today = DeadlineOverdue.today(Instant.now());
+        LocalDate endDate = today.plusDays(Math.max(days, 0));
         int safeLimit = Math.max(1, limit);
 
-        String sql = """
+        // Open (non-draft, not completed) controls in the user's scope; the caller adds the date range
+        String openControlsSql = """
+                FROM controls c
+                %2$s
+                  AND COALESCE(UPPER(TRIM(c.performance_status)), 'DRAFT') <> 'DRAFT'
+                  AND NOT %1$s
+                """.formatted(COMPLETED_SQL, scope.whereClause());
+        String selectSql = """
                 SELECT c.id,
                        c.control_id,
                        c.control_description,
                        c.control_operation_deadline,
                        COALESCE(UPPER(TRIM(c.performance_status)), 'DRAFT') AS effective_status
-                FROM controls c
-                %2$s
-                  AND COALESCE(UPPER(TRIM(c.performance_status)), 'DRAFT') <> 'DRAFT'
-                  AND NOT %1$s
-                  AND c.control_operation_deadline >= :startDate
-                  AND c.control_operation_deadline <= :endDate
-                ORDER BY c.control_operation_deadline ASC, c.id ASC
-                """.formatted(COMPLETED_SQL, scope.whereClause());
+                """;
 
         @SuppressWarnings("unchecked")
-        List<Object[]> rows = applyScopeParameters(entityManager.createNativeQuery(sql), scope)
-                .setParameter("startDate", startDate)
+        List<Object[]> overdueRows = applyScopeParameters(entityManager.createNativeQuery(selectSql + openControlsSql + """
+                  AND c.control_operation_deadline < :today
+                ORDER BY c.control_operation_deadline ASC, c.id ASC
+                """), scope)
+                .setParameter("today", today)
+                .setMaxResults(safeLimit)
+                .getResultList();
+
+        Object overdueTotal = applyScopeParameters(entityManager.createNativeQuery("SELECT COUNT(*) " + openControlsSql + """
+                  AND c.control_operation_deadline < :today
+                """), scope)
+                .setParameter("today", today)
+                .getSingleResult();
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> upcomingRows = applyScopeParameters(entityManager.createNativeQuery(selectSql + openControlsSql + """
+                  AND c.control_operation_deadline >= :today
+                  AND c.control_operation_deadline <= :endDate
+                ORDER BY c.control_operation_deadline ASC, c.id ASC
+                """), scope)
+                .setParameter("today", today)
                 .setParameter("endDate", endDate)
                 .setMaxResults(safeLimit)
                 .getResultList();
 
+        return new DashboardDeadlineCountdownDTO(
+                toDeadlineItems(overdueRows, today),
+                toLong(overdueTotal),
+                toDeadlineItems(upcomingRows, today)
+        );
+    }
+
+    private List<DashboardDeadlineCountdownItemDTO> toDeadlineItems(List<Object[]> rows, LocalDate today) {
         List<DashboardDeadlineCountdownItemDTO> items = new ArrayList<>();
         for (Object[] row : rows) {
-            LocalDateTime deadline = toDeadlineDateTime(row[3]);
-            if (row == null || row.length < 5 || row[0] == null || deadline == null) {
+            if (row == null || row.length < 5 || row[0] == null) {
+                continue;
+            }
+            LocalDate deadline = toLocalDate(row[3]);
+            if (deadline == null) {
                 continue;
             }
             Long id = ((Number) row[0]).longValue();
@@ -255,9 +289,11 @@ public class DashboardService {
                     id,
                     controlId,
                     name,
-                    deadline,
+                    DeadlineOverdue.endOfDay(deadline),
                     status,
-                    "/view-control/" + id
+                    "/view-control/" + id,
+                    DeadlineOverdue.isOverdue(deadline, today),
+                    DeadlineOverdue.daysOverdue(deadline, today)
             ));
         }
         return items;
@@ -696,20 +732,6 @@ public class DashboardService {
             return timestamp.toLocalDateTime().toLocalDate();
         }
         return null;
-    }
-
-    private LocalDateTime toDeadlineDateTime(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof LocalDateTime localDateTime) {
-            return localDateTime.withSecond(0).withNano(0);
-        }
-        if (value instanceof java.sql.Timestamp timestamp) {
-            return timestamp.toLocalDateTime().withSecond(0).withNano(0);
-        }
-        LocalDate localDate = toLocalDate(value);
-        return localDate != null ? localDate.atTime(23, 59) : null;
     }
 
     private long toLong(Object value) {

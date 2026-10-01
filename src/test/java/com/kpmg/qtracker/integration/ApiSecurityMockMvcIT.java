@@ -14,6 +14,7 @@ import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
+import com.kpmg.qtracker.service.DeadlineOverdue;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,7 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -619,6 +621,43 @@ class ApiSecurityMockMvcIT {
         Control stored = controlRepository.findById(control.getId()).orElseThrow();
         stored.setPerformanceStatus(status);
         controlRepository.save(stored);
+    }
+
+    @Test
+    void deadlineCountdown_listsOverdueSeparately_andKeepsTodayInUpcoming() throws Exception {
+        String mail = "deadline-fac-" + suffix() + "@example.test";
+        User facilitator = saveUser("deadline-fac", mail, "FACILITATOR");
+        LocalDate today = DeadlineOverdue.today(Instant.now());
+
+        Control overdue = deadlineControl("CTRL-OVERDUE-" + suffix(), facilitator, "IN_PROGRESS", today.minusDays(5));
+        Control dueToday = deadlineControl("CTRL-TODAY-" + suffix(), facilitator, "IN_PROGRESS", today);
+        Control dueSoon = deadlineControl("CTRL-SOON-" + suffix(), facilitator, "IN_PROGRESS", today.plusDays(2));
+        deadlineControl("CTRL-LATER-" + suffix(), facilitator, "IN_PROGRESS", today.plusDays(10));
+        deadlineControl("CTRL-DONE-" + suffix(), facilitator, "COMPLETED", today.minusDays(3));
+        deadlineControl("CTRL-DRAFT-" + suffix(), facilitator, "DRAFT", today.minusDays(3));
+
+        mockMvc.perform(get("/api/dashboard/deadline-countdown").param("days", "3").session(login(mail)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.overdueTotal").value(1))
+                .andExpect(jsonPath("$.overdue.length()").value(1))
+                .andExpect(jsonPath("$.overdue[0].id").value(overdue.getId()))
+                .andExpect(jsonPath("$.overdue[0].overdue").value(true))
+                .andExpect(jsonPath("$.overdue[0].daysOverdue").value(5))
+                .andExpect(jsonPath("$.overdue[0].deadline").value(today.minusDays(5) + "T23:59:00+05:00"))
+                .andExpect(jsonPath("$.upcoming.length()").value(2))
+                .andExpect(jsonPath("$.upcoming[0].id").value(dueToday.getId()))
+                .andExpect(jsonPath("$.upcoming[0].overdue").value(false))
+                .andExpect(jsonPath("$.upcoming[0].daysOverdue").value(0))
+                .andExpect(jsonPath("$.upcoming[1].id").value(dueSoon.getId()));
+    }
+
+    private Control deadlineControl(String controlId, User facilitator, String status, LocalDate deadline) {
+        Control control = createControl(controlId, facilitator, status);
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setFacilitator(facilitator.getMail());
+        assignment.setControlOperationDeadline(deadline);
+        assignmentRepository.save(assignment);
+        return control;
     }
 
     private User saveUser(String username, String mail, String role) {
