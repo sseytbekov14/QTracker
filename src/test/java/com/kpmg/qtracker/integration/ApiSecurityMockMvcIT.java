@@ -2,7 +2,9 @@ package com.kpmg.qtracker.integration;
 
 import com.kpmg.qtracker.config.DevUserSeeder;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -20,6 +22,7 @@ import org.springframework.mock.web.MockHttpSession;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -63,6 +66,9 @@ class ApiSecurityMockMvcIT {
 
     @Autowired
     private ControlRepository controlRepository;
+
+    @Autowired
+    private ControlAssignmentRepository assignmentRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -158,6 +164,47 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    void assignedFacilitator_cannotReassignRoles_returns403() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-ASG-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+
+        MockHttpSession session = login(p.facilitator.getMail());
+
+        mockMvc.perform(post("/api/control-assignment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId()
+                                + ",\"processOwner\":[\"" + p.facilitator.getMail() + "\"]}")
+                        .session(session))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(containsString("Only SoQM Team can change control assignment")));
+
+        assertThat(assignmentRepository.findByControlId(control.getId()).orElseThrow().getProcessOwner())
+                .isEqualTo(p.owner.getMail());
+    }
+
+    @Test
+    void soqm_canReassignRoles_returns200() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-ASG-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+        String newOwner = "owner-new-" + suffix() + "@example.test";
+        saveUser(newOwner, newOwner, "PROCESS_OWNER");
+
+        MockHttpSession session = login(p.soqm.getMail());
+
+        mockMvc.perform(post("/api/control-assignment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId()
+                                + ",\"processOwner\":[\"" + newOwner + "\"]}")
+                        .session(session))
+                .andExpect(status().isOk());
+
+        assertThat(assignmentRepository.findByControlId(control.getId()).orElseThrow().getProcessOwner())
+                .isEqualTo(newOwner);
+    }
+
     private User saveUser(String username, String mail, String role) {
         User user = new User();
         user.setMail(mail);
@@ -183,6 +230,29 @@ class ApiSecurityMockMvcIT {
         Control saved = controlRepository.save(control);
         createdControlIds.add(saved.getId());
         return saved;
+    }
+
+    /** One user per workflow role, each with a unique mail. */
+    private Participants participants() {
+        String s = suffix();
+        return new Participants(
+                saveUser("fac-" + s, "fac-" + s + "@example.test", "FACILITATOR"),
+                saveUser("op-" + s, "op-" + s + "@example.test", "CONTROL_OPERATOR"),
+                saveUser("soqm-" + s, "soqm-" + s + "@example.test", "SOQM_TEAM"),
+                saveUser("po-" + s, "po-" + s + "@example.test", "PROCESS_OWNER"));
+    }
+
+    private void assign(Control control, Participants p) {
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setFacilitator(p.facilitator.getMail());
+        assignment.setControlOperator(p.operator.getMail());
+        assignment.setSoqmLead(p.soqm.getMail());
+        assignment.setProcessOwner(p.owner.getMail());
+        assignment.setControlOperationDate(LocalDate.of(2026, 1, 15));
+        assignmentRepository.save(assignment);
+    }
+
+    private record Participants(User facilitator, User operator, User soqm, User owner) {
     }
 
     /** Logs in through the form login filter; its success handler puts currentUser into the session. */

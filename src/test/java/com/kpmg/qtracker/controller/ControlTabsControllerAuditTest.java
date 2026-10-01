@@ -128,12 +128,12 @@ class ControlTabsControllerAuditTest {
     @Test
     void saveControlAssignment_doesNotTriggerImmediateDay0Notifications() throws Exception {
         User sessionUser = new User();
-        sessionUser.setMail("fac@kpmg.com");
-        sessionUser.setRole("FACILITATOR");
-        sessionUser.setDisplayName("Facilitator One");
+        sessionUser.setMail("soqm@kpmg.com");
+        sessionUser.setRole("SOQM_TEAM");
+        sessionUser.setDisplayName("SoQM One");
 
         User creator = new User();
-        creator.setMail("fac@kpmg.com");
+        creator.setMail("soqm@kpmg.com");
 
         Control control = new Control();
         control.setId(2L);
@@ -156,9 +156,8 @@ class ControlTabsControllerAuditTest {
         when(controlService.getControlById(2L)).thenReturn(Optional.of(control));
         when(controlAssignmentService.getAssignmentByControlId(2L)).thenReturn(existingAssignment);
         when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(existingAssignment)))
-                .thenReturn(new ControlPermission(true, true,
-                        java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
-                        true, false, false, false, true, false, false, false));
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(),
+                        true, true, false, false, false, false, true, false));
 
         mockMvc.perform(post("/api/control-assignment")
                         .contentType(MediaType.APPLICATION_JSON)

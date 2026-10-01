@@ -114,13 +114,10 @@ public class ControlTabsController {
             Control control = controlService.getControlById(assignmentDTO.getControlId()).orElse(null);
             ControlAssignmentDTO existingAssignment = controlAssignmentService.getAssignmentByControlId(assignmentDTO.getControlId());
             ControlPermission permission = controlPermissionService.resolve(control, currentUser, existingAssignment);
-            if (!permission.canEdit()) {
+            // Participants must not reassign roles (e.g. appoint themselves Process Owner and complete alone)
+            if (!permission.canEditAll()) {
                 return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: User does not have permission to edit this control");
-            }
-            if (permission.isSharedCompleted()) {
-                return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: Shared users on COMPLETED controls cannot edit assignment fields");
+                        .body("VALIDATION_ERROR: Only SoQM Team can change control assignment");
             }
             ControlAssignmentDTO mergedAssignment = mergeControlAssignment(existingAssignment, assignmentDTO);
             String missingField = findMissingAssignmentField(mergedAssignment);
