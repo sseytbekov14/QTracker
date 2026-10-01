@@ -80,7 +80,7 @@ public class NotificationTemplateService {
                     );
                 }
                 return new NotificationTemplate(
-                        "Control ready for review by Control Operator",
+                        "Control sent to SoQM Head/Delegate",
                         greeting + "\n" +
                                     "\n" +
                                     "The control has been completed by the Control Operator. Please review the details by clicking the \"Go to Control\" button below.\n" +
