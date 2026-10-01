@@ -1736,7 +1736,7 @@ function saveControlData(controlId) {
         console.log('рџ“Ґ Control save response status:', response.status);
 
         if (!response.ok) {
-            const errorText = await response.text();
+            const errorText = serverErrorText(await response.text());
             throw new Error(`Control save failed: ${errorText}`);
         }
 
@@ -2309,7 +2309,7 @@ function saveAssignmentData(controlId) {
             }
 
             console.error('вќЊ Server error:', errorMessage);
-            throw new Error(errorMessage);
+            throw new Error(serverErrorText(errorMessage));
         }
 
         // Р•СЃР»Рё РѕС‚РІРµС‚ РїСѓСЃС‚РѕР№ РёР»Рё РЅРµ JSON - РІРѕР·РІСЂР°С‰Р°РµРј success
@@ -2393,7 +2393,7 @@ function saveDetailsData(controlId) {
         console.log('рџ“Ґ Details response status:', response.status);
 
         if (!response.ok) {
-            const errorText = await response.text();
+            const errorText = serverErrorText(await response.text());
             throw new Error(`Details save failed: ${errorText}`);
         }
 
@@ -2474,7 +2474,7 @@ function saveDocumentsData(controlId) {
         console.log('рџ“Ґ Documents response status:', response.status);
 
         if (!response.ok) {
-            const errorText = await response.text().catch(() => 'Unknown error');
+            const errorText = serverErrorText(await response.text().catch(() => 'Unknown error'));
             console.error('вќЊ Documents save failed:', errorText);
             throw new Error(`Documents save failed: ${errorText}`);
         }
@@ -3188,6 +3188,12 @@ function saveDocumentsData(controlId) {
     };
 })();
 
+// Save endpoints answer a refused change with "VALIDATION_ERROR: <reason>"; the user sees only the reason.
+// Global, as the save code both inside and outside the IIFE uses it.
+function serverErrorText(text) {
+    return String(text || '').replace(/^\s*VALIDATION_ERROR:\s*/, '');
+}
+
 // Global access helper for workflow checks used outside the IIFE scope.
 function areWorkflowActionsAllowed() {
     if (window.qtrackerPermissions
@@ -3408,7 +3414,7 @@ function saveDetailsDataSilently(controlId) {
     })
     .then(async response => {
         if (!response.ok) {
-            const errorText = await response.text();
+            const errorText = serverErrorText(await response.text());
             throw new Error(errorText || 'Details save failed');
         }
         detailsDataCache = { ...(detailsDataCache || {}), ...detailsData };
