@@ -462,6 +462,36 @@ class ApiSecurityMockMvcIT {
                 .isEqualTo("IN_PROGRESS");
     }
 
+    @Test
+    void soqmTransitionFailingAfterStatusChange_rollsBackStatus() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-TX2-" + suffix(), p.soqm, "SOQM_HEAD_REVIEW");
+        assign(control, p);
+        ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();
+        details.setControlStepsPerformed("Steps performed");
+        details.setSoqmHeadComments("SoQM comments");
+        detailsRepository.save(details);
+        doThrow(new IllegalStateException("history store unavailable"))
+                .when(workflowHistoryRepository).save(any(WorkflowHistory.class));
+
+        MockHttpSession session = login(p.soqm.getMail());
+
+        mockMvc.perform(post("/api/workflow/submit-to-process-owner")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .session(session))
+                .andExpect(status().isBadRequest());
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
+                .isEqualTo("SOQM_HEAD_REVIEW");
+
+        mockMvc.perform(post("/api/workflow/perform-action")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId() + ",\"action\":\"SEND_TO_PROCESS_OWNER\"}")
+                        .session(session))
+                .andExpect(status().isBadRequest());
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
+                .isEqualTo("SOQM_HEAD_REVIEW");
+    }
+
     private User saveUser(String username, String mail, String role) {
         User user = new User();
         user.setMail(mail);

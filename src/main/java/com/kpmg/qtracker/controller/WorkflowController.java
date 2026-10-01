@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -121,6 +123,7 @@ public class WorkflowController {
 
         } catch (Exception e) {
             log.error("Error performing workflow action: {}", e.getMessage(), e);
+            rollbackCurrentTransaction();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -288,6 +291,7 @@ public class WorkflowController {
 
         } catch (Exception e) {
             log.error("❌ Error submitting control to Process Owner: {}", e.getMessage(), e);
+            rollbackCurrentTransaction();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -367,6 +371,7 @@ public class WorkflowController {
 
         } catch (Exception e) {
             log.error("❌ Error returning control to Operator: {}", e.getMessage(), e);
+            rollbackCurrentTransaction();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -427,6 +432,7 @@ public class WorkflowController {
 
         } catch (Exception e) {
             log.error("❌ Error completing control: {}", e.getMessage(), e);
+            rollbackCurrentTransaction();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -509,6 +515,7 @@ public class WorkflowController {
 
         } catch (Exception e) {
             log.error("❌ Error returning control to SoQM Team: {}", e.getMessage(), e);
+            rollbackCurrentTransaction();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -698,5 +705,15 @@ public class WorkflowController {
         WorkflowTransitionGuard.Decision decision = transitionGuard.check(
                 control, currentUser, controlPermissionService.resolve(control, currentUser), transition);
         return decision.allowed() ? null : ResponseEntity.status(decision.httpStatus()).body(decision.message());
+    }
+
+    /**
+     * Errors are turned into responses instead of propagating, so the transaction would commit a
+     * half-done transition (status without history); mark it for rollback instead.
+     */
+    private void rollbackCurrentTransaction() {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        }
     }
 }
