@@ -466,7 +466,7 @@ body.theme-dark .status-draft { background: var(--surface-bg-2); color: var(--te
                                          yourTurn=${actionControlIds != null and #sets.contains(actionControlIds, control.id)},
                                          dueSoon=${dueSoonControlIds != null and #sets.contains(dueSoonControlIds, control.id)},
                                          statusLabel=${@statusDisplayMapper.display(control.performanceStatus) ?: 'Draft'},
-                                         controlUrl=${#strings.equals(control.performanceStatus, 'DRAFT') or control.performanceStatus == null ? '/performance/' + control.id : '/performance-cycle/' + control.id}"
+                                         controlUrl=${#strings.equals(control.performanceStatus, 'DRAFT') or control.performanceStatus == null ? '/view-control/' + control.id : '/performance-cycle/' + control.id}"
                                 class="control-row"
                                 th:classappend="${control.overdue} ? 'is-overdue' : (${yourTurn} ? 'is-your-turn' : '')"
                                 th:attr="data-href=${controlUrl},

@@ -59,6 +59,7 @@ public class ViewController {
     private final PermissionService permissionService;
     private final ControlPermissionService controlPermissionService;
     private final StatusDisplayMapper statusDisplayMapper;
+    private final WorkflowTransitionGuard transitionGuard;
 
     private User getCurrentUser(HttpSession session) {
         return (User) session.getAttribute("currentUser");
@@ -112,61 +113,10 @@ public class ViewController {
         return "workflow/approvals";
     }
 
+    /** The former Initiation Checklist; drafts are initiated on View Control, which checks access itself. */
     @GetMapping("/performance/{controlId}")
-    public String performanceChecklist(@PathVariable Long controlId, Model model, HttpSession session,
-                                       RedirectAttributes redirectAttributes) {
-        String redirect = checkAuthAndRedirect(session);
-        if (redirect != null) return redirect;
-
-        User currentUser = getCurrentUser(session);
-
-        Optional<Control> controlOptional = controlService.getControlById(controlId);
-        if (controlOptional.isEmpty()) {
-            redirectAttributes.addFlashAttribute("accessDeniedMessage",
-                    "Control not found.");
-            return "redirect:/controls";
-        }
-
-        Control control = controlOptional.get();
-
-        if (!canViewControl(controlId, control, currentUser)) {
-            redirectAttributes.addFlashAttribute("accessDeniedMessage",
-                    "Access revoked — you no longer have permission to view this control.");
-            return "redirect:/controls";
-        }
-
-        try {
-            String performanceStatus = control.getPerformanceStatus();
-            if (performanceStatus == null || performanceStatus.isBlank()) {
-                performanceStatus = "DRAFT";
-            }
-
-            // Получаем данные из Assignment
-            ControlAssignmentDTO assignmentDTO = controlAssignmentService.getAssignmentByControlId(controlId);
-
-            // Получаем данные Performance (built from Control + Assignment, no separate table)
-            PerformanceDTO performanceDTO = performanceService.buildPerformanceDTO(control);
-
-            // Если Assigned To все еще пустое или "Not assigned", устанавливаем дефолтное значение
-            if (performanceDTO.getAssignedTo() == null || performanceDTO.getAssignedTo().isEmpty() ||
-                    performanceDTO.getAssignedTo().equals("0")) {
-                performanceDTO.setAssignedTo("Not assigned");
-            }
-
-            performanceDTO.setControlId(controlId);
-
-            model.addAttribute("userName", currentUser.getDisplayName());
-            model.addAttribute("userTitle", currentUser.getRole());
-            model.addAttribute("userEmail", currentUser.getMail());
-            model.addAttribute("control", control);
-            model.addAttribute("performance", performanceDTO);
-            model.addAttribute("assignment", assignmentDTO); // Добавляем assignment в модель
-            model.addAttribute("performanceStatus", performanceStatus);
-
-            return "performance-checklist";
-        } catch (Exception ex) {
-            return "redirect:/performance-cycle/" + controlId;
-        }
+    public String performanceChecklist(@PathVariable Long controlId) {
+        return "redirect:/view-control/" + controlId;
     }
 
     @GetMapping({"/performance", "/performance/"})
@@ -1074,6 +1024,15 @@ public class ViewController {
                         || ("PROCESS_OWNER_REVIEW".equals(normalizedStatus) && permission.isProcessOwner()));
         model.addAttribute("yourTurn", yourTurn);
 
+        // Initiation checklist above the tabs, for whoever the server lets initiate this draft
+        boolean canInitiate = transitionGuard.check(control, currentUser, permission, WorkflowTransition.INITIATE).allowed();
+        model.addAttribute("canInitiate", canInitiate);
+        if (canInitiate) {
+            List<InitiationReadiness.Item> initiationItems = InitiationReadiness.items(control, assignment);
+            model.addAttribute("initiationItems", initiationItems);
+            model.addAttribute("initiationReady", InitiationReadiness.isReady(initiationItems));
+        }
+
         return "view-control";
     }
 
@@ -1260,8 +1219,7 @@ public class ViewController {
             return "performance-cycle";
 
         } catch (Exception e) {
-            // В случае ошибки возвращаемся на страницу performance
-            return "redirect:/performance/" + controlId + "?error=" + e.getMessage();
+            return "redirect:/view-control/" + controlId;
         }
     }
 

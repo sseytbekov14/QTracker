@@ -423,6 +423,78 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
+    void performanceChecklistUrl_redirectsToViewControl_whereOnlySoqmCanInitiate() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-INIT-VC-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+        String viewUrl = "/view-control/" + control.getId();
+
+        MockHttpSession soqmSession = login(p.soqm.getMail());
+        mockMvc.perform(get("/performance/{id}", control.getId()).session(soqmSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(viewUrl));
+        mockMvc.perform(get("/controls").session(soqmSession))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("href=\"" + viewUrl + "\"")))
+                .andExpect(content().string(not(containsString("href=\"/performance/" + control.getId() + "\""))));
+        String html = mockMvc.perform(get(viewUrl).session(soqmSession))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Initiation checklist")))
+                .andExpect(content().string(containsString("id=\"initiateControlModal\"")))
+                .andExpect(content().string(not(containsString("(missing)"))))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(initiateButtonTag(html))
+                .contains("data-control-id=\"" + control.getId() + "\"")
+                .contains("title=\"Start the workflow")
+                .doesNotContain("disabled");
+
+        MockHttpSession facilitatorSession = login(p.facilitator.getMail());
+        mockMvc.perform(get("/performance/{id}", control.getId()).session(facilitatorSession))
+                .andExpect(redirectedUrl(viewUrl));
+        mockMvc.perform(get(viewUrl).session(facilitatorSession))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("id=\"initiateBtn\""))))
+                .andExpect(content().string(not(containsString("Initiation checklist"))));
+        mockMvc.perform(post("/api/performance/initiate")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .param("soqmYear", "1 OCT 2026 - 30 SEP 2027")
+                        .session(facilitatorSession))
+                .andExpect(status().isForbidden());
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
+                .isEqualTo("DRAFT");
+    }
+
+    @Test
+    void initiationChecklist_namesMissingItems_andKeepsInitiateDisabled() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-INIT-MISS-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setProcessOwner(null);
+        assignmentRepository.save(assignment);
+
+        String html = mockMvc.perform(get("/view-control/{id}", control.getId()).session(login(p.soqm.getMail())))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html).contains("Fill in the missing items");
+        // Only the Process Owner line is missing, with a link to the tab that holds it
+        assertThat(html.split("\\(missing\\)", -1)).hasSize(2);
+        assertThat(html.indexOf("<span>Process Owner</span>")).isLessThan(html.indexOf("(missing)"));
+        assertThat(html.indexOf("<span>Control Operation Date</span>")).isGreaterThan(html.indexOf("(missing)"));
+        assertThat(html).contains("data-vc-tab=\"assignment\">Assignment tab</a>");
+        assertThat(initiateButtonTag(html))
+                .contains("disabled=\"disabled\"")
+                .contains("title=\"Fill in the missing items first\"");
+    }
+
+    /** The opening tag of View Control's Initiate button; Thymeleaf decides the attribute order. */
+    private String initiateButtonTag(String html) {
+        int start = html.lastIndexOf("<button", html.indexOf("id=\"initiateBtn\""));
+        return html.substring(start, html.indexOf('>', start));
+    }
+
+    @Test
     void assignedFacilitator_cannotAutoSaveSoqmYear_returns403() throws Exception {
         Participants p = participants();
         Control control = createControl("CTRL-YEAR-" + suffix(), p.soqm, "DRAFT");

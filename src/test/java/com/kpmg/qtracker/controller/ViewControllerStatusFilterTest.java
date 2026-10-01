@@ -22,6 +22,7 @@ import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.service.PermissionService;
 import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.service.WorkflowService;
+import com.kpmg.qtracker.service.WorkflowTransitionGuard;
 import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -47,6 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 @WebMvcTest(controllers = ViewController.class)
+@Import(WorkflowTransitionGuard.class)
 @AutoConfigureMockMvc(addFilters = false)
 class ViewControllerStatusFilterTest {
 
@@ -865,37 +868,15 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
-    void performanceChecklist_usesPerformanceStatusFromControl() throws Exception {
+    void performanceChecklistUrl_redirectsToViewControl() throws Exception {
         User currentUser = new User();
         currentUser.setId(22L);
         currentUser.setRole("FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
-        currentUser.setDisplayName("Facilitator User");
 
-        Control control = new Control();
-        control.setId(18L);
-        control.setControlStatus("ACTIVE");
-        control.setPerformanceStatus("REVIEW");
-
-        PerformanceDTO performanceDTO = new PerformanceDTO();
-        ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
-        assignmentDTO.setFacilitator(List.of("facilitator@kpmg.kz"));
-
-        when(controlService.getControlById(18L)).thenReturn(java.util.Optional.of(control));
-        when(controlAssignmentService.getAssignmentByControlId(18L)).thenReturn(assignmentDTO);
-        when(performanceService.buildPerformanceDTO(control)).thenReturn(performanceDTO);
-        when(controlPermissionService.resolve(any(Control.class), any(User.class)))
-                .thenReturn(new ControlPermission(true, true,
-                        java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
-                        true, false, false, false, true, false, false, false));
-
-        MvcResult result = mockMvc.perform(get("/performance/18")
-                        .sessionAttr("currentUser", currentUser))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        assertThat(result.getModelAndView().getModel().get("performanceStatus"))
-                .isEqualTo("REVIEW");
+        mockMvc.perform(get("/performance/18").sessionAttr("currentUser", currentUser))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/view-control/18"));
     }
 
     @Test
