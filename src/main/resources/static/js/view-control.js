@@ -2047,18 +2047,11 @@ function renameControlId(newControlId) {
 
         if (!operationDateInput) return;
 
-        const isReadOnly = operationDateInput.readOnly || operationDateInput.disabled || operationDateInput.classList.contains('readonly-field');
         const isoValue = formatDateForApi(operationDateInput.value || operationDateInput.dataset.isoValue || '');
         if (!isoValue) return;
 
         operationDateInput.dataset.isoValue = isoValue;
-        if (isReadOnly) {
-            operationDateInput.type = 'text';
-            operationDateInput.value = formatDateDisplay(isoValue);
-        } else {
-            operationDateInput.type = 'date';
-            operationDateInput.value = isoValue;
-        }
+        operationDateInput.value = formatDateDisplay(isoValue);
     }
 
     function formatDateForApi(dateString) {
