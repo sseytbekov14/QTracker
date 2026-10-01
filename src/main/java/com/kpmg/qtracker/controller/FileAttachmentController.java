@@ -292,7 +292,7 @@ public class FileAttachmentController {
      * GET /api/attachments/info/{controlId}
      */
     @GetMapping("/info/{controlId}")
-    public ResponseEntity<Map<String, Object>> getAttachmentInfo(@PathVariable Long controlId) {
+    public ResponseEntity<Map<String, Object>> getAttachmentInfo(@PathVariable Long controlId, HttpSession session) {
         try {
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found: " + controlId));
@@ -301,6 +301,14 @@ public class FileAttachmentController {
             info.put("controlId", controlId);
             info.put("attachmentDetailsPath", control.getAttachmentDetailsPath());
             info.put("attachmentDocumentsPath", control.getAttachmentDocumentsPath());
+
+            // Lets the page show the delete button only where the delete endpoint would allow it
+            User currentUser = getCurrentUser(session);
+            ControlPermission permission = currentUser != null ? controlPermissionService.resolve(control, currentUser) : null;
+            info.put("deletableDetails", deletableFiles(control, ControlAttachment.TAB_DETAILS,
+                    control.getAttachmentDetailsPath(), currentUser, permission));
+            info.put("deletableDocuments", deletableFiles(control, ControlAttachment.TAB_DOCUMENTS,
+                    control.getAttachmentDocumentsPath(), currentUser, permission));
             
             return ResponseEntity.ok(info);
             
@@ -375,6 +383,22 @@ public class FileAttachmentController {
             response.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
+    }
+
+    private List<String> deletableFiles(Control control, String tab, String storedList,
+                                        User user, ControlPermission permission) {
+        List<String> deletable = new ArrayList<>();
+        if (user == null || storedList == null || storedList.isBlank()) {
+            return deletable;
+        }
+        for (String part : storedList.split(";")) {
+            String name = part.trim();
+            if (!name.isEmpty() && !deletable.contains(name)
+                    && controlAttachmentService.canDelete(control, tab, name, user, permission)) {
+                deletable.add(name);
+            }
+        }
+        return deletable;
     }
 
     private boolean hasAttachment(String storedList, String filename) {

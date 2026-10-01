@@ -47,6 +47,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -569,6 +570,30 @@ class ApiSecurityMockMvcIT {
         deleteAttachment(control, login(p.soqm.getMail()), "Старый_файл.pdf")
                 .andExpect(status().isOk());
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getAttachmentDetailsPath()).isNull();
+    }
+
+    @Test
+    void attachmentInfo_listsAsDeletableOnlyWhatTheUserMayDelete() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-ATT-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+        MockHttpSession facilitator = login(p.facilitator.getMail());
+        String stored = upload(control, facilitator, "Отчёт.pdf");
+
+        mockMvc.perform(get("/api/attachments/info/{id}", control.getId()).session(facilitator))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deletableDetails[0]").value(stored))
+                .andExpect(jsonPath("$.deletableDocuments").isEmpty());
+
+        moveTo(control, "REVIEW");
+
+        mockMvc.perform(get("/api/attachments/info/{id}", control.getId()).session(facilitator))
+                .andExpect(jsonPath("$.deletableDetails").isEmpty());
+        mockMvc.perform(get("/api/attachments/info/{id}", control.getId()).session(login(p.operator.getMail())))
+                .andExpect(jsonPath("$.attachmentDetailsPath").value(stored))
+                .andExpect(jsonPath("$.deletableDetails").isEmpty());
+        mockMvc.perform(get("/api/attachments/info/{id}", control.getId()).session(login(p.soqm.getMail())))
+                .andExpect(jsonPath("$.deletableDetails[0]").value(stored));
     }
 
     private String upload(Control control, MockHttpSession session, String originalName) throws Exception {

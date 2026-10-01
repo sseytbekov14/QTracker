@@ -2029,7 +2029,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ── Render file cards into a container ────────────────────────────
-    function renderFileCards(containerEl, files, controlIdVal, type) {
+    // deletableNames: stored names the current user may delete (from /api/attachments/info);
+    // without it no delete button is shown, e.g. for files selected but not uploaded yet
+    function renderFileCards(containerEl, files, controlIdVal, type, deletableNames) {
         if (!containerEl) return;
         if (!files || files.length === 0) { containerEl.innerHTML = ''; return; }
         let html = `<div class="kpmg-file-list-header">
@@ -2044,6 +2046,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const icon = getFileIconHTML(displayName);
             const encodedFile = encodeURIComponent(rawName);
             const downloadHref = `/api/attachments/download/${encodedFile}?controlId=${controlIdVal}`;
+            const canDelete = Boolean(deletableNames && deletableNames.has(rawName.trim()));
             html += `<div class="kpmg-file-card">
                 <div class="kpmg-file-card-icon ${icon.cls}">${icon.svg}</div>
                 <span class="kpmg-file-card-name" title="${displayName}">${displayName}</span>
@@ -2052,9 +2055,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     <a href="${downloadHref}" class="kpmg-file-card-btn download-btn" download title="Download file">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     </a>
-                    <button type="button" class="kpmg-file-card-btn delete-btn kpmg-file-delete" data-file="${encodedFile}" data-type="${type}" title="Delete file">
+                    ${canDelete ? `<button type="button" class="kpmg-file-card-btn delete-btn kpmg-file-delete" data-file="${encodedFile}" data-type="${type}" title="Delete file">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                    </button>
+                    </button>` : ''}
                 </div>
             </div>`;
         });
@@ -2238,12 +2241,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (data.attachmentDetailsPath && detailsFileInfo) {
                     const files = data.attachmentDetailsPath.split(';').filter(f => f.trim());
-                    renderFileCards(detailsFileInfo, files, controlId, 'details');
+                    renderFileCards(detailsFileInfo, files, controlId, 'details', new Set(data.deletableDetails || []));
                 } else if (detailsFileInfo) { detailsFileInfo.innerHTML = ''; }
 
                 if (data.attachmentDocumentsPath && documentsFileInfo) {
                     const files = data.attachmentDocumentsPath.split(';').filter(f => f.trim());
-                    renderFileCards(documentsFileInfo, files, controlId, 'documents');
+                    renderFileCards(documentsFileInfo, files, controlId, 'documents', new Set(data.deletableDocuments || []));
                 } else if (documentsFileInfo) { documentsFileInfo.innerHTML = ''; }
             })
             .catch(err => console.warn('Could not load attachments:', err));
