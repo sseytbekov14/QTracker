@@ -430,6 +430,46 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
+    void controls_sortNewestFirst_controlsWithoutDatesLast() throws Exception {
+        User soqm = new User();
+        soqm.setId(90L);
+        soqm.setRole("SOQM_TEAM");
+        soqm.setMail("soqm@kpmg.kz");
+        soqm.setDisplayName("SoQM User");
+
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        ControlResponseDTO noDates = listControl(901L);
+        ControlResponseDTO createdLastWeek = listControl(902L);
+        createdLastWeek.setCreatedAt(now.minusDays(7));
+        ControlResponseDTO updatedToday = listControl(903L);
+        updatedToday.setCreatedAt(now.minusDays(30));
+        updatedToday.setUpdatedAt(now);
+        ControlResponseDTO alsoNoDates = listControl(904L);
+        mockVisibleControls(soqm, List.of(noDates, createdLastWeek, updatedToday, alsoNoDates));
+
+        MvcResult result = mockMvc.perform(get("/controls").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        @SuppressWarnings("unchecked")
+        List<ControlResponseDTO> controls =
+                (List<ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
+        // Updated date wins over created date; controls with neither keep their order at the end
+        assertThat(controls).extracting(ControlResponseDTO::getId).containsExactly(903L, 902L, 901L, 904L);
+    }
+
+    private ControlResponseDTO listControl(Long id) {
+        ControlResponseDTO control = new ControlResponseDTO();
+        control.setId(id);
+        control.setControlStatus("REVIEW");
+        control.setFacilitators(List.of());
+        control.setControlOperators(List.of());
+        control.setSoqmLeads(List.of());
+        control.setProcessOwners(List.of());
+        return control;
+    }
+
+    @Test
     void controls_allScope_forNonSoqm_excludesDraft() throws Exception {
         User currentUser = new User();
         currentUser.setId(3L);

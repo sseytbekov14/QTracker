@@ -369,12 +369,10 @@ public class ViewController {
                     .collect(Collectors.toList());
         }
         Map<Long, LocalDateTime> completionTimeByControlId = resolveCompletionTimes(userControlsList);
-        // Sort by updated date in descending order (most recently updated first)
-        userControlsList.sort((c1, c2) -> {
-            LocalDateTime date1 = c1.getUpdatedAt() != null ? c1.getUpdatedAt() : c1.getCreatedAt();
-            LocalDateTime date2 = c2.getUpdatedAt() != null ? c2.getUpdatedAt() : c2.getCreatedAt();
-            return date2.compareTo(date1);
-        });
+        // Most recently updated (or created) first; controls with neither date count as the oldest
+        userControlsList.sort(Comparator.comparing(
+                (ControlResponseDTO control) -> control.getUpdatedAt() != null ? control.getUpdatedAt() : control.getCreatedAt(),
+                Comparator.nullsLast(Comparator.<LocalDateTime>reverseOrder())));
 
         LocalDate todayAlmaty = DeadlineOverdue.today(Instant.now());
         if (overdueFilter) {
