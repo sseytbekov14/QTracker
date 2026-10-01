@@ -67,10 +67,10 @@ public class Control {
 
     private LocalDate controlOperationDate;
 
-    @Column(name = "attachment_details_path", length = 500)
+    @Column(name = "attachment_details_path", columnDefinition = "TEXT")
     private String attachmentDetailsPath;
 
-    @Column(name = "attachment_documents_path", length = 500)
+    @Column(name = "attachment_documents_path", columnDefinition = "TEXT")
     private String attachmentDocumentsPath;
 
     @Column(name = "soqm_year")

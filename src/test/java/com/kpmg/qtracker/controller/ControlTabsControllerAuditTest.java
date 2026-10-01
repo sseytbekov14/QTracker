@@ -41,6 +41,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 @WebMvcTest(controllers = ControlTabsController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -143,6 +144,9 @@ class ControlTabsControllerAuditTest {
         existingAssignment.setControlId(2L);
         existingAssignment.setFacilitator(List.of("fac@kpmg.com"));
         existingAssignment.setControlOperator(List.of("op@kpmg.com"));
+        existingAssignment.setSoqmLead(List.of("soqm@kpmg.com"));
+        existingAssignment.setProcessOwner(List.of("po@kpmg.com"));
+        existingAssignment.setControlOperationDate(java.time.LocalDate.of(2026, 1, 15));
 
         ControlAssignmentDTO request = new ControlAssignmentDTO();
         request.setControlId(2L);
@@ -168,6 +172,44 @@ class ControlTabsControllerAuditTest {
         verify(AdhocNotificationService, never()).maybeSendImmediateDay0(anyLong());
         verify(AnnualNotificationService, never()).maybeSendImmediateDay0(anyLong());
         verify(semiAnnualNotificationService, never()).maybeSendImmediateDay0(anyLong());
+    }
+
+    @Test
+    void saveControlAssignment_whenRequiredRoleCleared_returns400() throws Exception {
+        User sessionUser = new User();
+        sessionUser.setMail("soqm@kpmg.com");
+        sessionUser.setRole("SOQM_TEAM");
+
+        Control control = new Control();
+        control.setId(5L);
+        control.setPerformanceStatus("IN_PROGRESS");
+
+        ControlAssignmentDTO existingAssignment = new ControlAssignmentDTO();
+        existingAssignment.setControlId(5L);
+        existingAssignment.setFacilitator(List.of("fac@kpmg.com"));
+        existingAssignment.setControlOperator(List.of("op@kpmg.com"));
+        existingAssignment.setSoqmLead(List.of("soqm@kpmg.com"));
+        existingAssignment.setProcessOwner(List.of("po@kpmg.com"));
+        existingAssignment.setControlOperationDate(java.time.LocalDate.of(2026, 1, 15));
+
+        ControlAssignmentDTO request = new ControlAssignmentDTO();
+        request.setControlId(5L);
+        request.setProcessOwner(List.of());
+
+        when(controlService.getControlById(5L)).thenReturn(Optional.of(control));
+        when(controlAssignmentService.getAssignmentByControlId(5L)).thenReturn(existingAssignment);
+        when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(existingAssignment)))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
+                        false, false, false, false, true, false));
+
+        mockMvc.perform(post("/api/control-assignment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("VALIDATION_ERROR: Process Owner is required"));
+
+        verify(controlAssignmentService, never()).saveAssignment(any());
     }
 
     @Test

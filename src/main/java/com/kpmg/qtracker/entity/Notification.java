@@ -3,6 +3,7 @@ package com.kpmg.qtracker.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "notifications", indexes = {
@@ -11,7 +12,9 @@ import java.time.LocalDateTime;
 })
 @Data
 public class Notification {
-    
+
+    public static final ZoneId ZONE = ZoneId.of("Asia/Almaty");
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -46,7 +49,7 @@ public class Notification {
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
-            createdAt = LocalDateTime.now();
+            createdAt = LocalDateTime.now(ZONE);
         }
         if (isRead == null) {
             isRead = false;

@@ -36,25 +36,82 @@
     border-bottom: 3px solid var(--kpmg-blue-light);
 }
 
-.control-header h2 {
-    font-size: 1.1rem;
+.vc-header-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.75);
+}
+.vc-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 2px 0 0;
+    font-size: 1.2rem;
     font-weight: 700;
-    margin-bottom: 4px;
-    letter-spacing: 0.3px;
 }
-
-.control-header h4 {
-    font-size: 0.88rem;
+.vc-desc {
+    margin: 6px 0 0;
+    max-width: 760px;
+    font-size: 0.84rem;
+    color: rgba(255, 255, 255, 0.88);
+}
+.vc-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 3px;
+    font-size: 0.72rem;
     font-weight: 600;
-    margin-bottom: 2px;
-    color: rgba(255,255,255,0.9);
+    letter-spacing: 0;
 }
+/* same status palette as the Controls list */
+.vc-status-draft { background: #d8dce5; color: #5c6478; }
+.vc-status-progress { background: #fff3cd; color: #6b5104; }
+.vc-status-review { background: #cce5ff; color: #004085; }
+.vc-status-soqm { background: #e2d5f1; color: #4a2d7a; }
+.vc-status-po { background: #d1f0ef; color: #0b5c5a; }
+.vc-status-completed { background: #d4edda; color: #155724; }
+.vc-status-overdue { background: #c8102e; color: #ffffff; }
+.vc-your-turn { background: #ffffff; color: var(--kpmg-blue); }
+.vc-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 28px;
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    font-size: 0.8rem;
+}
+.vc-facts li { display: flex; flex-direction: column; }
+.vc-facts span { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(255, 255, 255, 0.7); }
+.vc-facts strong { font-weight: 600; color: #ffffff; }
+.vc-facts .vc-fact-overdue { color: #ffb3bf; }
+.vc-facts .vc-fact-empty { font-weight: 400; color: rgba(255, 255, 255, 0.7); }
 
-.control-header p {
-    font-size: 0.74rem;
-    color: rgba(255,255,255,0.6);
-    margin: 0;
+/* Workflow progress strip between the header and the tabs */
+.vc-stepper {
+    background: var(--kpmg-white);
+    border-left: 1px solid var(--kpmg-gray-200);
+    border-right: 1px solid var(--kpmg-gray-200);
+    padding: 16px 24px 12px;
 }
+.vc-turn-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 12px 0 0;
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: #e6ecf6;
+    color: var(--kpmg-blue);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+body.theme-dark .vc-stepper { background: var(--surface-bg); border-color: var(--border); }
+body.theme-dark .vc-turn-hint { background: rgba(127, 176, 255, 0.14); color: var(--link); }
 
 /* ── Tabs ── */
 .nav-tabs {
@@ -248,6 +305,40 @@ textarea.readonly-field::-webkit-resizer {
     min-height: 36px;
     white-space: normal;
 }
+#workflow-buttons-container .btn-primary,
+#workflow-buttons-container .btn-success:not(#completeControlBtn) {
+    background: var(--kpmg-blue);
+    border-color: var(--kpmg-blue);
+    color: #ffffff;
+}
+#workflow-buttons-container .btn-primary:hover,
+#workflow-buttons-container .btn-success:not(#completeControlBtn):hover {
+    background: var(--kpmg-blue-dark);
+    border-color: var(--kpmg-blue-dark);
+}
+#workflow-buttons-container #completeControlBtn {
+    background: #009a44;
+    border-color: #009a44;
+    color: #ffffff;
+}
+#workflow-buttons-container #completeControlBtn:hover { background: #007d37; border-color: #007d37; }
+#workflow-buttons-container .btn-warning {
+    background: #ffffff;
+    border: 1px solid #b86e00;
+    color: #8a5300;
+}
+#workflow-buttons-container .btn-warning:hover { background: #fff4e5; color: #6b4100; }
+#workflow-buttons-container .workflow-submit-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+#workflow-buttons-container .workflow-submit-btn:focus-visible,
+.action-buttons .btn:focus-visible {
+    outline: 2px solid var(--kpmg-blue);
+    outline-offset: 2px;
+    box-shadow: none;
+}
+body.theme-dark #workflow-buttons-container .btn-warning { background: transparent; border-color: #d4a843; color: #f0c870; }
 
 /* ── User Dropdowns ── */
 .facilitator-dropdown {

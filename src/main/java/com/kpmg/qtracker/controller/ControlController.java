@@ -198,6 +198,14 @@ public class ControlController {
                 return ResponseEntity.badRequest().body(errorResponse);
             }
 
+            String missingField = findMissingRequiredField(controlDTO, true);
+            if (missingField != null) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false,
+                                "error", "REQUIRED_FIELD",
+                                "message", missingField + " is required"));
+            }
+
             User user = userService.getUserByEmail(currentUser.getMail())
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -518,6 +526,12 @@ public class ControlController {
             if (permission.isSharedCompleted()) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body("VALIDATION_ERROR: Shared users can edit only allowed fields in Control Details");
+            }
+            // Fields not sent (null) are left unchanged; a required field sent as blank is rejected
+            String missingField = findMissingRequiredField(controlDTO, false);
+            if (missingField != null) {
+                return ResponseEntity.badRequest()
+                        .body("VALIDATION_ERROR: " + missingField + " is required");
             }
             String previousFrequency = existingControl.getControlFrequency();
             String requestedFrequency = controlDTO.getControlFrequency();
@@ -952,6 +966,29 @@ public class ControlController {
 
     private static String normalizeValue(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    /**
+     * Returns the label of the first required Control field that is missing, or null.
+     * requireAll=true (create): every required field must be present and non-blank.
+     * requireAll=false (update): only fields that were sent are checked, and they must not be blank.
+     */
+    private String findMissingRequiredField(ControlDTO dto, boolean requireAll) {
+        Map<String, String> required = new LinkedHashMap<>();
+        required.put("Control Frequency", dto.getControlFrequency());
+        required.put("Control Type", dto.getControlType());
+        required.put("Component", dto.getComponent());
+        required.put("Operated By", dto.getOperatedBy());
+        required.put("Priority", dto.getPriority());
+        required.put("Non-Audit Services Control Applicability", dto.getNonAuditServicesApplicability());
+        for (Map.Entry<String, String> field : required.entrySet()) {
+            String value = field.getValue();
+            boolean missing = value == null ? requireAll : value.isBlank();
+            if (missing) {
+                return field.getKey();
+            }
+        }
+        return null;
     }
 
     private String canonicalizeFrequency(String raw) {

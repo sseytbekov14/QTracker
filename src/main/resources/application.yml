@@ -1,5 +1,8 @@
 server:
   port: ${SERVER_PORT:8080}
+  tomcat:
+    # Let Tomcat read an oversized upload so the client gets a JSON error instead of a connection reset
+    max-swallow-size: 100MB
 
 logging:
   level:
@@ -15,6 +18,10 @@ spring:
   web:
     resources:
       static-locations: classpath:/static/
+  servlet:
+    multipart:
+      max-file-size: ${FILE_UPLOAD_MAX_FILE_SIZE_MB:10}MB
+      max-request-size: ${FILE_UPLOAD_MAX_REQUEST_SIZE_MB:100}MB
   mail:
     host: ${SPRING_MAIL_HOST:}
     port: ${SPRING_MAIL_PORT:25}
@@ -33,6 +40,10 @@ spring:
 
 app:
   base-url: ${APP_BASE_URL:}
+
+file:
+  upload:
+    max-file-size-mb: ${FILE_UPLOAD_MAX_FILE_SIZE_MB:10}
 
 reminders:
   enabled: true

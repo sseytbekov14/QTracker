@@ -10,6 +10,8 @@ import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.FileStorageService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -21,9 +23,12 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/attachments")
@@ -35,6 +40,13 @@ public class FileAttachmentController {
     private final ControlPermissionService controlPermissionService;
     private final AdminAuditService adminAuditService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static final int MAX_FILES_PER_TAB = 50;
+    private static final List<String> ALLOWED_EXTENSIONS =
+            List.of(".pdf", ".docx", ".doc", ".xlsx", ".xls", ".csv", ".png", ".jpg", ".jpeg");
+
+    @Value("${file.upload.max-file-size-mb:10}")
+    private long maxFileSizeMb;
 
     /**
      * Upload files for a control
@@ -69,79 +81,40 @@ public class FileAttachmentController {
             }
             
             String controlFolder = resolveControlFolder(control);
+
+            // Validate everything before writing any file to disk
+            List<String> errors = new ArrayList<>();
+            errors.addAll(validateIncomingFiles(detailsFiles, control.getAttachmentDetailsPath(), "Details"));
+            errors.addAll(validateIncomingFiles(documentsFiles, control.getAttachmentDocumentsPath(), "Documents"));
+            if (!errors.isEmpty()) {
+                response.put("success", false);
+                response.put("message", String.join(" ", errors));
+                response.put("errors", errors);
+                return ResponseEntity.badRequest().body(response);
+            }
+
             List<String> addedDetails = new ArrayList<>();
             List<String> addedDocuments = new ArrayList<>();
-
-            // Save details attachments (multiple files)
-            if (detailsFiles != null && detailsFiles.length > 0) {
-                StringBuilder filenames = new StringBuilder();
-                String oldFiles = control.getAttachmentDetailsPath();
-
-                int existingCount = countExistingFiles(oldFiles);
-                int incomingCount = countIncomingFiles(detailsFiles);
-                if (existingCount + incomingCount > 50) {
-                    response.put("success", false);
-                    response.put("message", "Maximum 50 files allowed for Details attachments.");
-                    return ResponseEntity.badRequest().body(response);
+            try {
+                if (detailsFiles != null && detailsFiles.length > 0) {
+                    saveFiles(detailsFiles, controlFolder, addedDetails);
+                    control.setAttachmentDetailsPath(appendToList(control.getAttachmentDetailsPath(), addedDetails));
+                    response.put("detailsFiles", String.join(";", addedDetails));
                 }
-                
-                for (MultipartFile file : detailsFiles) {
-                    if (file != null && !file.isEmpty()) {
-                        String filename = fileStorageService.saveFile(file, controlFolder);
-                        if (filenames.length() > 0) {
-                            filenames.append(";"); // Use semicolon as separator
-                        }
-                        filenames.append(filename);
-                        if (filename != null && !filename.isBlank()) {
-                            addedDetails.add(filename);
-                        }
-                        System.out.println("✅ Details file saved: " + filename);
-                    }
+                if (documentsFiles != null && documentsFiles.length > 0) {
+                    saveFiles(documentsFiles, controlFolder, addedDocuments);
+                    control.setAttachmentDocumentsPath(appendToList(control.getAttachmentDocumentsPath(), addedDocuments));
+                    response.put("documentsFiles", String.join(";", addedDocuments));
                 }
-                
-                // Append to existing files or replace
-                String existingFiles = oldFiles != null && !oldFiles.isEmpty() ? oldFiles : "";
-                String newFileList = existingFiles.isEmpty() ? filenames.toString() : existingFiles + ";" + filenames.toString();
-                control.setAttachmentDetailsPath(newFileList);
-                response.put("detailsFiles", filenames.toString());
+
+                // Update control in database
+                controlService.updateControl(control);
+            } catch (Exception e) {
+                // Don't leave orphaned files on disk when the upload fails midway
+                deleteQuietly(addedDetails, controlFolder);
+                deleteQuietly(addedDocuments, controlFolder);
+                throw e;
             }
-
-            // Save documents attachments (multiple files)
-            if (documentsFiles != null && documentsFiles.length > 0) {
-                StringBuilder filenames = new StringBuilder();
-                String oldFiles = control.getAttachmentDocumentsPath();
-
-                int existingCount = countExistingFiles(oldFiles);
-                int incomingCount = countIncomingFiles(documentsFiles);
-                if (existingCount + incomingCount > 50) {
-                    response.put("success", false);
-                    response.put("message", "Maximum 50 files allowed for Documents attachments.");
-                    return ResponseEntity.badRequest().body(response);
-                }
-                
-                for (MultipartFile file : documentsFiles) {
-                    if (file != null && !file.isEmpty()) {
-                        String filename = fileStorageService.saveFile(file, controlFolder);
-                        if (filenames.length() > 0) {
-                            filenames.append(";");
-                        }
-                        filenames.append(filename);
-                        if (filename != null && !filename.isBlank()) {
-                            addedDocuments.add(filename);
-                        }
-                        System.out.println("✅ Documents file saved: " + filename);
-                    }
-                }
-                
-                // Append to existing files or replace
-                String existingFiles = oldFiles != null && !oldFiles.isEmpty() ? oldFiles : "";
-                String newFileList = existingFiles.isEmpty() ? filenames.toString() : existingFiles + ";" + filenames.toString();
-                control.setAttachmentDocumentsPath(newFileList);
-                response.put("documentsFiles", filenames.toString());
-            }
-
-            // Update control in database
-            controlService.updateControl(control);
             logAttachmentAdds(currentUser, control, "DETAILS", addedDetails);
             logAttachmentAdds(currentUser, control, "DOCUMENTS", addedDocuments);
             
@@ -153,8 +126,91 @@ public class FileAttachmentController {
             System.err.println("❌ Upload error: " + e.getMessage());
             e.printStackTrace();
             response.put("success", false);
+            response.put("message", "Upload failed: " + e.getMessage());
             response.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * Validates files for one attachment tab: count limit, allowed type, size and duplicate names
+     * (inside the selection and against files already attached to this tab).
+     */
+    private List<String> validateIncomingFiles(MultipartFile[] files, String existingList, String tabLabel) {
+        List<String> errors = new ArrayList<>();
+        if (files == null || files.length == 0) {
+            return errors;
+        }
+
+        if (countExistingFiles(existingList) + countIncomingFiles(files) > MAX_FILES_PER_TAB) {
+            errors.add("Maximum " + MAX_FILES_PER_TAB + " files allowed for " + tabLabel + " attachments.");
+            return errors;
+        }
+
+        Set<String> existingNames = new HashSet<>();
+        if (existingList != null) {
+            for (String name : existingList.split(";")) {
+                if (!name.isBlank()) {
+                    existingNames.add(name.trim().toLowerCase(Locale.ROOT));
+                }
+            }
+        }
+
+        long maxBytes = maxFileSizeMb * 1024 * 1024;
+        Set<String> incomingNames = new HashSet<>();
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+            String original = file.getOriginalFilename() != null ? file.getOriginalFilename() : "file";
+            String lower = original.toLowerCase(Locale.ROOT);
+
+            if (ALLOWED_EXTENSIONS.stream().noneMatch(lower::endsWith)) {
+                errors.add("File \"" + original + "\" has an unsupported type. Allowed: PDF, DOCX, DOC, XLSX, XLS, CSV, PNG, JPG, JPEG.");
+                continue;
+            }
+            if (file.getSize() > maxBytes) {
+                errors.add("File \"" + original + "\" exceeds the maximum size of " + maxFileSizeMb + " MB.");
+                continue;
+            }
+
+            String storedName = FileStorageService.toStoredFilename(original).toLowerCase(Locale.ROOT);
+            if (existingNames.contains(storedName)) {
+                errors.add("File \"" + original + "\" is already attached in " + tabLabel
+                        + ". Delete the existing file or rename the new one.");
+            } else if (!incomingNames.add(storedName)) {
+                errors.add("File \"" + original + "\" is selected more than once for " + tabLabel + ".");
+            }
+        }
+        return errors;
+    }
+
+    private void saveFiles(MultipartFile[] files, String controlFolder, List<String> saved) throws java.io.IOException {
+        for (MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                String filename = fileStorageService.saveFile(file, controlFolder);
+                if (filename != null && !filename.isBlank()) {
+                    saved.add(filename);
+                }
+            }
+        }
+    }
+
+    private String appendToList(String existing, List<String> added) {
+        String addedList = String.join(";", added);
+        if (existing == null || existing.isBlank()) {
+            return addedList;
+        }
+        return addedList.isEmpty() ? existing : existing + ";" + addedList;
+    }
+
+    private void deleteQuietly(List<String> filenames, String controlFolder) {
+        for (String filename : filenames) {
+            try {
+                fileStorageService.deleteFile(filename, controlFolder);
+            } catch (Exception ignored) {
+                // best effort cleanup
+            }
         }
     }
 
@@ -189,7 +245,7 @@ public class FileAttachmentController {
             
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(mimeType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + decodedFilename + "\"")
+                    .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition("attachment", decodedFilename))
                     .body(fileContent);
                     
         } catch (Exception e) {
@@ -229,7 +285,7 @@ public class FileAttachmentController {
             
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(mimeType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + decodedFilename + "\"")
+                    .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition("inline", decodedFilename))
                     .body(fileContent);
                     
         } catch (Exception e) {
@@ -397,6 +453,11 @@ public class FileAttachmentController {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    // RFC 6266 header with filename*=UTF-8'' so non-ASCII (e.g. Cyrillic) names download correctly
+    private String contentDisposition(String type, String filename) {
+        return ContentDisposition.builder(type).filename(filename, StandardCharsets.UTF_8).build().toString();
     }
 
     private User getCurrentUser(HttpSession session) {

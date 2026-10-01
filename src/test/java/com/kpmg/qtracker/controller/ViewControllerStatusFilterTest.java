@@ -623,6 +623,7 @@ class ViewControllerStatusFilterTest {
         MvcResult result = mockMvc.perform(get("/action-centre")
                         .sessionAttr("currentUser", currentUser))
                 .andExpect(status().isOk())
+                .andExpect(content().string(containsString("class=\"sidebar-new-control\"")))
                 .andReturn();
 
         @SuppressWarnings("unchecked")
@@ -773,6 +774,8 @@ class ViewControllerStatusFilterTest {
 
         ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
         assignmentDTO.setFacilitator(List.of("facilitator@kpmg.kz"));
+        assignmentDTO.setControlOperationDeadline(
+                java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).minusDays(2));
 
         when(controlService.getControlById(34L)).thenReturn(java.util.Optional.of(control));
         when(controlAssignmentService.getAssignmentByControlId(34L)).thenReturn(assignmentDTO);
@@ -794,7 +797,13 @@ class ViewControllerStatusFilterTest {
         mockMvc.perform(get("/view-control/34")
                         .sessionAttr("currentUser", currentUser))
                 .andExpect(status().isOk())
-                .andExpect(view().name("view-control"));
+                .andExpect(view().name("view-control"))
+                // header: shared sidebar, your-turn and overdue badges, workflow stepper on step 1
+                .andExpect(content().string(containsString("class=\"col-md-2 sidebar p-3\"")))
+                .andExpect(content().string(containsString("vc-badge vc-your-turn")))
+                .andExpect(content().string(containsString("vc-badge vc-status-overdue")))
+                .andExpect(content().string(containsString("aria-current=\"step\"")))
+                .andExpect(content().string(containsString(">Creator · ")));
     }
 
     @Test
@@ -1062,7 +1071,8 @@ class ViewControllerStatusFilterTest {
 
         mockVisibleControls(currentUser, List.of(draftControl, inProgressOverdue, completedControl));
 
-        MvcResult result = mockMvc.perform(get("/component/All")
+        // "/component/All" now redirects to the Controls list, so the counters are checked there
+        MvcResult result = mockMvc.perform(get("/controls")
                         .sessionAttr("currentUser", currentUser))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -1076,6 +1086,323 @@ class ViewControllerStatusFilterTest {
         assertThat(result.getModelAndView().getModel().get("activeControls")).isEqualTo(1);
         assertThat(result.getModelAndView().getModel().get("completedControls")).isEqualTo(1);
         assertThat(result.getModelAndView().getModel().get("overdueControls")).isEqualTo(1);
+    }
+
+    @Test
+    void dashboard_showsControlsAwaitingUserAction_overdueFirst_andSharedSidebar() throws Exception {
+        User currentUser = new User();
+        currentUser.setId(20L);
+        currentUser.setRole("FACILITATOR");
+        currentUser.setMail("facilitator@kpmg.kz");
+        currentUser.setDisplayName("Facilitator User");
+
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
+
+        ControlResponseDTO dueLater = new ControlResponseDTO();
+        dueLater.setId(201L);
+        dueLater.setControlId("HR-CTRL-MF-201");
+        dueLater.setPerformanceStatus("IN_PROGRESS");
+        dueLater.setFacilitators(List.of("facilitator@kpmg.kz"));
+        dueLater.setDeadline(today.plusDays(5));
+
+        ControlResponseDTO overdue = new ControlResponseDTO();
+        overdue.setId(202L);
+        overdue.setControlId("HR-CTRL-MF-202");
+        overdue.setPerformanceStatus("IN_PROGRESS");
+        overdue.setFacilitators(List.of("Facilitator@KPMG.kz"));
+        overdue.setDeadline(today.minusDays(2));
+
+        ControlResponseDTO someoneElsesStep = new ControlResponseDTO();
+        someoneElsesStep.setId(203L);
+        someoneElsesStep.setControlId("HR-CTRL-MF-203");
+        someoneElsesStep.setPerformanceStatus("REVIEW");
+        someoneElsesStep.setFacilitators(List.of("facilitator@kpmg.kz"));
+        someoneElsesStep.setControlOperators(List.of("operator@kpmg.kz"));
+
+        mockVisibleControls(currentUser, List.of(dueLater, overdue, someoneElsesStep));
+
+        MvcResult result = mockMvc.perform(get("/").sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk())
+                .andExpect(view().name("dashboard"))
+                .andExpect(content().string(containsString("Awaiting my action")))
+                .andExpect(content().string(containsString("href=\"/view-control/202\"")))
+                .andExpect(content().string(not(containsString("href=\"/view-control/203\""))))
+                .andExpect(content().string(containsString("href=\"/controls\"")))
+                .andExpect(content().string(containsString(">Facilitator<")))
+                .andExpect(content().string(containsString("class=\"sidebar-avatar\" aria-hidden=\"true\">FU<")))
+                .andExpect(content().string(not(containsString("sidebar-new-control"))))
+                .andReturn();
+
+        @SuppressWarnings("unchecked")
+        List<ControlResponseDTO> actionItems =
+                (List<ControlResponseDTO>) result.getModelAndView().getModel().get("actionItems");
+        assertThat(actionItems).extracting(ControlResponseDTO::getId).containsExactly(202L, 201L);
+        assertThat(result.getModelAndView().getModel().get("actionItemsOverdue")).isEqualTo(1L);
+    }
+
+    @Test
+    void dashboard_showsFirstPageOfNotifications_with24hTime_andShowMore() throws Exception {
+        User currentUser = new User();
+        currentUser.setId(21L);
+        currentUser.setRole("FACILITATOR");
+        currentUser.setMail("facilitator@kpmg.kz");
+        currentUser.setDisplayName("Facilitator User");
+        mockVisibleControls(currentUser, List.of());
+
+        java.time.LocalDateTime base = java.time.LocalDateTime.of(2025, 3, 10, 15, 45);
+        List<com.kpmg.qtracker.entity.Notification> notifications = new java.util.ArrayList<>();
+        for (int i = 0; i < 60; i++) {
+            com.kpmg.qtracker.entity.Notification n = new com.kpmg.qtracker.entity.Notification();
+            n.setId((long) i + 1);
+            n.setUserId(21L);
+            n.setControlId(1L);
+            n.setType("WORKFLOW_STEP");
+            n.setTitle("Title " + i);
+            n.setMessage("Message " + i);
+            n.setIsRead(false);
+            n.setCreatedAt(base.minusMinutes(i));
+            notifications.add(n);
+        }
+        when(notificationService.getUserNotifications(21L)).thenReturn(notifications);
+        when(notificationTypeDisplayMapper.map(any(), any()))
+                .thenReturn(new NotificationTypeDisplayMapper.Display("Workflow Update", "badge-default"));
+
+        MvcResult result = mockMvc.perform(get("/").sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(">15:45<")))
+                .andExpect(content().string(containsString("10.03.2025")))
+                .andExpect(content().string(containsString("Showing 50 of 60")))
+                .andExpect(content().string(containsString("notifLimit=100")))
+                .andReturn();
+
+        assertThat(result.getModelAndView().getModel().get("notificationsShown")).isEqualTo(50);
+
+        mockMvc.perform(get("/").param("notifLimit", "100").sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("Show more"))));
+    }
+
+    @Test
+    void newControl_soqm_rendersFormWithSidebar_othersRedirected() throws Exception {
+        User soqm = new User();
+        soqm.setId(30L);
+        soqm.setRole("SOQM_TEAM");
+        soqm.setMail("soqm@kpmg.kz");
+        soqm.setDisplayName("SoQM User");
+
+        mockMvc.perform(get("/new-control").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andExpect(view().name("new-control"))
+                .andExpect(content().string(containsString("id=\"controlForm\"")))
+                .andExpect(content().string(containsString("class=\"col-md-2 sidebar p-3\"")))
+                .andExpect(content().string(containsString("id=\"controlId-status\"")));
+
+        User facilitator = new User();
+        facilitator.setId(31L);
+        facilitator.setRole("FACILITATOR");
+        facilitator.setMail("facilitator@kpmg.kz");
+
+        mockMvc.perform(get("/new-control").sessionAttr("currentUser", facilitator))
+                .andExpect(status().is3xxRedirection());
+    }
+
+    @Test
+    void controls_soqmActiveScope_excludesCompleted() throws Exception {
+        User soqm = new User();
+        soqm.setId(40L);
+        soqm.setRole("SOQM_TEAM");
+        soqm.setMail("soqm@kpmg.kz");
+        soqm.setDisplayName("SoQM User");
+
+        ControlResponseDTO inProgress = new ControlResponseDTO();
+        inProgress.setId(401L);
+        inProgress.setPerformanceStatus("IN_PROGRESS");
+        inProgress.setCreatedAt(java.time.LocalDateTime.now());
+        ControlResponseDTO completed = new ControlResponseDTO();
+        completed.setId(402L);
+        completed.setPerformanceStatus("COMPLETED");
+        completed.setCreatedAt(java.time.LocalDateTime.now());
+        mockVisibleControls(soqm, List.of(inProgress, completed));
+
+        MvcResult result = mockMvc.perform(get("/controls").param("scope", "active").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        @SuppressWarnings("unchecked")
+        List<ControlResponseDTO> controls =
+                (List<ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
+        assertThat(controls).extracting(ControlResponseDTO::getId).containsExactly(401L);
+    }
+
+    @Test
+    void controls_marksYourTurn_andShowsCurrentAssignee() throws Exception {
+        User facilitator = new User();
+        facilitator.setId(41L);
+        facilitator.setRole("FACILITATOR");
+        facilitator.setMail("facilitator@kpmg.kz");
+        facilitator.setDisplayName("Facilitator User");
+
+        com.kpmg.qtracker.dto.UserDTO facilitatorUser = new com.kpmg.qtracker.dto.UserDTO();
+        facilitatorUser.setDisplayName("Aigerim Facilitator");
+
+        ControlResponseDTO mine = new ControlResponseDTO();
+        mine.setId(411L);
+        mine.setControlId("HR-CTRL-MF-411");
+        mine.setControlDescription("Monthly HR check");
+        mine.setPerformanceStatus("IN_PROGRESS");
+        mine.setFacilitators(List.of("facilitator@kpmg.kz"));
+        mine.setFacilitatorUsers(List.of(facilitatorUser));
+        mine.setCreatedAt(java.time.LocalDateTime.now());
+        mockVisibleControls(facilitator, List.of(mine));
+
+        mockMvc.perform(get("/controls").sessionAttr("currentUser", facilitator))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("href=\"/performance-cycle/411\"")))
+                .andExpect(content().string(containsString(">Your turn<")))
+                .andExpect(content().string(containsString(">Aigerim Facilitator<")))
+                .andExpect(content().string(containsString(">Monthly HR check<")));
+    }
+
+    @Test
+    void dashboard_actionCentreSummarisesComponents() throws Exception {
+        User soqm = new User();
+        soqm.setId(50L);
+        soqm.setRole("SOQM_TEAM");
+        soqm.setMail("soqm@kpmg.kz");
+        soqm.setDisplayName("SoQM User");
+        when(dashboardService.getKpiCounts()).thenReturn(new DashboardService.DashboardKpiCounts(3, 1, 1, 1));
+
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
+        ControlResponseDTO hrOverdue = new ControlResponseDTO();
+        hrOverdue.setId(501L);
+        hrOverdue.setComponent("HR");
+        hrOverdue.setPerformanceStatus("IN_PROGRESS");
+        hrOverdue.setDeadline(today.minusDays(3));
+        ControlResponseDTO hrCompleted = new ControlResponseDTO();
+        hrCompleted.setId(502L);
+        hrCompleted.setComponent("HR");
+        hrCompleted.setPerformanceStatus("COMPLETED");
+        ControlResponseDTO epActive = new ControlResponseDTO();
+        epActive.setId(503L);
+        epActive.setComponent("EP");
+        epActive.setPerformanceStatus("REVIEW");
+        epActive.setDeadline(today.plusDays(10));
+        mockVisibleControls(soqm, List.of(hrOverdue, hrCompleted, epActive));
+
+        MvcResult result = mockMvc.perform(get("/").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(">Human Resources<")))
+                .andExpect(content().string(containsString(">1 overdue<")))
+                .andReturn();
+
+        @SuppressWarnings("unchecked")
+        List<ViewController.ComponentSummary> summaries =
+                (List<ViewController.ComponentSummary>) result.getModelAndView().getModel().get("componentSummaries");
+        ViewController.ComponentSummary hr = summaries.stream().filter(c -> c.code().equals("HR")).findFirst().orElseThrow();
+        assertThat(hr.total()).isEqualTo(2);
+        assertThat(hr.overdue()).isEqualTo(1);
+        assertThat(hr.completed()).isEqualTo(1);
+        assertThat(hr.active()).isZero();
+        ViewController.ComponentSummary all =
+                (ViewController.ComponentSummary) result.getModelAndView().getModel().get("componentSummaryAll");
+        assertThat(all.total()).isEqualTo(3);
+        assertThat(all.active()).isEqualTo(1);
+    }
+
+    @Test
+    void performanceCycle_showsRealHistory_allPeople_andCurrentStep() throws Exception {
+        User soqm = new User();
+        soqm.setId(60L);
+        soqm.setRole("SOQM_TEAM");
+        soqm.setMail("soqm@kpmg.kz");
+        soqm.setDisplayName("SoQM User");
+
+        Control control = new Control();
+        control.setId(601L);
+        control.setControlId("HR-CTRL-MF-601");
+        control.setControlDescription("Monthly payroll check");
+        control.setPerformanceStatus("REVIEW");
+        when(controlService.getControlById(601L)).thenReturn(java.util.Optional.of(control));
+        when(controlPermissionService.resolve(any(Control.class), any(User.class)))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, true, false));
+        when(performanceService.buildPerformanceDTO(control)).thenReturn(new PerformanceDTO());
+
+        ControlAssignmentDTO assignment = new ControlAssignmentDTO();
+        assignment.setFacilitator(List.of("fac1@kpmg.kz", "fac2@kpmg.kz"));
+        assignment.setControlOperator(List.of("op@kpmg.kz"));
+        assignment.setControlOperationDeadline(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty")).minusDays(1));
+        when(controlAssignmentService.getAssignmentByControlId(601L)).thenReturn(assignment);
+
+        com.kpmg.qtracker.entity.WorkflowHistory initiated = new com.kpmg.qtracker.entity.WorkflowHistory();
+        initiated.setActionType(com.kpmg.qtracker.enums.WorkflowActionType.INITIATE);
+        initiated.setPerformedByName("SoQM User");
+        initiated.setCreatedAt(java.time.LocalDateTime.of(2026, 9, 1, 9, 30));
+        com.kpmg.qtracker.entity.WorkflowHistory submitted = new com.kpmg.qtracker.entity.WorkflowHistory();
+        submitted.setActionType(com.kpmg.qtracker.enums.WorkflowActionType.SUBMIT_TO_OPERATOR);
+        submitted.setPerformedByName("Facilitator One");
+        submitted.setFromStep("IN_PROGRESS");
+        submitted.setToStep("REVIEW");
+        submitted.setCreatedAt(java.time.LocalDateTime.of(2026, 9, 5, 14, 0));
+        when(workflowHistoryRepository.findByControlIdOrderByCreatedAtDesc(601L)).thenReturn(List.of(submitted, initiated));
+
+        mockMvc.perform(get("/performance-cycle/601").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andExpect(view().name("performance-cycle"))
+                .andExpect(content().string(containsString("01.09.2026 09:30")))
+                .andExpect(content().string(containsString("05.09.2026 14:00 · Facilitator One")))
+                .andExpect(content().string(containsString("fac1@kpmg.kz, fac2@kpmg.kz")))
+                .andExpect(content().string(containsString(">Submitted to Control Operator<")))
+                .andExpect(content().string(containsString("aria-current=\"step\"")))
+                .andExpect(content().string(containsString("status-badge status-overdue")))
+                .andExpect(content().string(containsString("href=\"/view-control/601\"")));
+    }
+
+    @Test
+    void componentPage_redirectsToControlsWithComponentFilter() throws Exception {
+        User soqm = new User();
+        soqm.setId(70L);
+        soqm.setRole("SOQM_TEAM");
+        soqm.setMail("soqm@kpmg.kz");
+
+        mockMvc.perform(get("/component/hr").sessionAttr("currentUser", soqm))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/controls?component=HR"));
+        mockMvc.perform(get("/component/A&C").sessionAttr("currentUser", soqm))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/controls?component=A%26C"));
+        mockMvc.perform(get("/component/All").sessionAttr("currentUser", soqm))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/controls"));
+    }
+
+    @Test
+    void controls_componentFilter_keepsComponentInStatusLinks() throws Exception {
+        User soqm = new User();
+        soqm.setId(71L);
+        soqm.setRole("SOQM_TEAM");
+        soqm.setMail("soqm@kpmg.kz");
+        soqm.setDisplayName("SoQM User");
+
+        ControlResponseDTO hr = new ControlResponseDTO();
+        hr.setId(711L);
+        hr.setComponent("HR");
+        hr.setPerformanceStatus("IN_PROGRESS");
+        hr.setCreatedAt(java.time.LocalDateTime.now());
+        ControlResponseDTO ac = new ControlResponseDTO();
+        ac.setId(712L);
+        ac.setComponent("A&C");
+        ac.setPerformanceStatus("IN_PROGRESS");
+        ac.setCreatedAt(java.time.LocalDateTime.now());
+        mockVisibleControls(soqm, List.of(hr, ac));
+
+        MvcResult result = mockMvc.perform(get("/controls").param("component", "A&C").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Acceptance &amp; Continuance (A&amp;C)")))
+                .andExpect(content().string(containsString("href=\"/controls?filter=OVERDUE&amp;component=A%26C\"")))
+                .andReturn();
+
+        @SuppressWarnings("unchecked")
+        List<ControlResponseDTO> controls =
+                (List<ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
+        assertThat(controls).extracting(ControlResponseDTO::getId).containsExactly(712L);
     }
 
     private void mockVisibleControls(User user, List<ControlResponseDTO> dtos) {

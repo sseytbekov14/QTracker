@@ -52,6 +52,13 @@ public class WorkflowServiceImpl implements WorkflowService {
                 "IN_PROGRESS",
                 "Workflow initiated by facilitator");
 
+        // 6. Notify Facilitator(s) that the control has been initiated
+        Control control = controlService.getControlById(controlId).orElse(null);
+        List<String> facilitators = assignment != null && assignment.getFacilitator() != null
+                ? assignment.getFacilitator()
+                : List.of(facilitatorEmail);
+        notificationService.sendInitiateNotifications(control, facilitators);
+
         log.info("Workflow initiated successfully with {} steps", steps.size());
     }
 

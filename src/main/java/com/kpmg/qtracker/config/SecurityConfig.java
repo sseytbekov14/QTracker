@@ -68,7 +68,7 @@ public class SecurityConfig {
                 )
                 .headers(headers -> headers
                         .addHeaderWriter(new StaticHeadersWriter("Content-Security-Policy",
-                        "default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https: ws: wss:; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")))
+                        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")))
                 .sessionManagement(session -> session
                         .sessionFixation(fixation -> fixation.migrateSession()))
                 .oauth2Login(Customizer.withDefaults())
@@ -112,7 +112,7 @@ public class SecurityConfig {
                 )
                 .headers(headers -> headers
                         .addHeaderWriter(new StaticHeadersWriter("Content-Security-Policy",
-                        "default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https: ws: wss:; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")))
+                        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")))
                 .sessionManagement(session -> session
                         .sessionFixation(fixation -> fixation.migrateSession()))
                 .authenticationProvider(devAuthenticationProvider)

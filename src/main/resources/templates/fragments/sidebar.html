@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  Shared sidebar. Usage: <div th:replace="~{fragments/sidebar :: sidebar('controls')}"></div>
+  active: dashboard | controls | action | notifications | admin | '' (none).
+  Data comes from SidebarModelAdvice (model attribute "sidebar").
+  The ids sidebarDashboard / sidebarActionCentre / sidebarNotifications are used by dashboard.html
+  to switch tabs without reloading.
+-->
+<div th:fragment="sidebar(active)" class="col-md-2 sidebar p-3">
+    <div class="sidebar-content">
+        <a href="/" class="sidebar-brand" aria-label="QTracker home">
+            <img src="/images/kpmg_white.png" alt="KPMG">
+            <span class="sidebar-brand-name">QTracker</span>
+        </a>
+
+        <div class="sidebar-user" th:if="${sidebar != null}">
+            <div class="sidebar-avatar" aria-hidden="true" th:text="${sidebar.initials}">ST</div>
+            <div class="sidebar-user-info">
+                <div class="sidebar-user-name" th:text="${sidebar.name}" th:title="${sidebar.name}">Full Name</div>
+                <div class="sidebar-user-role" th:text="${sidebar.roleLabel}">Role</div>
+                <div class="sidebar-user-email" th:text="${sidebar.email}" th:title="${sidebar.email}">email@kpmg.kz</div>
+            </div>
+        </div>
+
+        <a href="/new-control" class="sidebar-new-control" th:if="${sidebar != null and sidebar.soqm}">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>New Control
+        </a>
+
+        <nav aria-label="Main navigation">
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link" id="sidebarDashboard" href="/"
+                       th:classappend="${active == 'dashboard'} ? 'active'"
+                       th:attr="aria-current=${active == 'dashboard'} ? 'page' : null">
+                        <i class="bi bi-speedometer2" aria-hidden="true"></i>Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/controls"
+                       th:classappend="${active == 'controls'} ? 'active'"
+                       th:attr="aria-current=${active == 'controls'} ? 'page' : null">
+                        <i class="bi bi-list-check" aria-hidden="true"></i>Controls</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="sidebarActionCentre" href="/#action-centre"
+                       th:classappend="${active == 'action'} ? 'active'"
+                       th:attr="aria-current=${active == 'action'} ? 'page' : null">
+                        <i class="bi bi-grid-3x3-gap" aria-hidden="true"></i>Action Centre</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="sidebarNotifications" href="/#notifications"
+                       th:classappend="${active == 'notifications'} ? 'active'"
+                       th:attr="aria-current=${active == 'notifications'} ? 'page' : null">
+                        <i class="bi bi-bell" aria-hidden="true"></i>Notifications
+                        <span th:if="${sidebar != null and sidebar.unreadCount > 0}"
+                              class="notif-pill"
+                              th:text="${sidebar.unreadCount}"
+                              th:attr="aria-label=${sidebar.unreadCount} + ' unread'">0</span>
+                    </a>
+                </li>
+                <li class="nav-item" th:if="${sidebar != null and sidebar.admin}">
+                    <a class="nav-link" href="/admin/users"
+                       th:classappend="${active == 'admin'} ? 'active'"
+                       th:attr="aria-current=${active == 'admin'} ? 'page' : null">
+                        <i class="bi bi-shield-lock" aria-hidden="true"></i>Admin Panel</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+
+    <a href="/logout" class="sidebar-logout">
+        <i class="bi bi-box-arrow-right" aria-hidden="true"></i>Logout
+    </a>
+
+    <div class="sidebar-footer">
+        <small class="text-muted">Registered to</small><br>
+        <small><strong>KPMG Kazakhstan</strong></small><br>
+        <small><strong>QTracker | FY26</strong></small>
+    </div>
+</div>
+</body>
+</html>

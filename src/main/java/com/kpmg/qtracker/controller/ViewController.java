@@ -4,6 +4,8 @@ import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.entity.WorkflowHistory;
+import com.kpmg.qtracker.enums.WorkflowActionType;
 import com.kpmg.qtracker.exception.ControlNotAvailableException;
 import com.kpmg.qtracker.exception.ForbiddenException;
 import com.kpmg.qtracker.exception.ResourceNotFoundException;
@@ -13,6 +15,7 @@ import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.repository.WorkflowStepRepository;
 import com.kpmg.qtracker.service.*;
 import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
+import com.kpmg.qtracker.util.StatusDisplayMapper;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -33,6 +36,11 @@ import java.util.UUID;
 @Controller
 @RequiredArgsConstructor
 public class ViewController {
+
+    private static final int DASHBOARD_ACTION_ITEMS_LIMIT = 8;
+    private static final int NOTIFICATIONS_PAGE_SIZE = 50;
+    private static final int NOTIFICATIONS_MAX_LIMIT = 1000;
+
     private final UserService userService;
     private final IControlService controlService;
     private final IPerformanceService performanceService;
@@ -48,6 +56,7 @@ public class ViewController {
     private final NotificationTypeDisplayMapper notificationTypeDisplayMapper;
     private final PermissionService permissionService;
     private final ControlPermissionService controlPermissionService;
+    private final StatusDisplayMapper statusDisplayMapper;
 
     private User getCurrentUser(HttpSession session) {
         return (User) session.getAttribute("currentUser");
@@ -166,7 +175,8 @@ public class ViewController {
     }
 
     @GetMapping("/")
-    public String dashboard(Model model, HttpSession session) {
+    public String dashboard(@RequestParam(value = "notifLimit", required = false) Integer notifLimit,
+                            Model model, HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
 
@@ -215,13 +225,17 @@ public class ViewController {
         model.addAttribute("completedControls", dashboardCounters.completed());
         model.addAttribute("overdueControls", dashboardCounters.overdue());
 
-        model.addAttribute("recentControls", allControls.stream()
-                .sorted((c1, c2) -> {
-                    if (c1.getCreatedAt() == null || c2.getCreatedAt() == null) return 0;
-                    return c2.getCreatedAt().compareTo(c1.getCreatedAt());
-                })
-                .limit(5)
-                .collect(Collectors.toList()));
+        // ===== AWAITING MY ACTION =====
+        // Controls where the current workflow step belongs to this user; overdue first, then nearest deadline
+        List<ControlResponseDTO> actionItems = allControls.stream()
+                .filter(control -> isActiveQueueForUser(control, userEmail))
+                .sorted(Comparator.comparing(ControlResponseDTO::isOverdue).reversed()
+                        .thenComparing(ControlResponseDTO::getDeadline,
+                                Comparator.nullsLast(Comparator.naturalOrder())))
+                .collect(Collectors.toList());
+        model.addAttribute("actionItems", actionItems.stream().limit(DASHBOARD_ACTION_ITEMS_LIMIT).toList());
+        model.addAttribute("actionItemsTotal", actionItems.size());
+        model.addAttribute("actionItemsOverdue", actionItems.stream().filter(ControlResponseDTO::isOverdue).count());
 
         // ===== ACTION CENTRE DATA =====
         List<ControlResponseDTO> controlsForAction = allControls;
@@ -253,17 +267,27 @@ public class ViewController {
             componentStats.put("All", nonDraftCount);
         }
         model.addAttribute("componentStats", componentStats);
+        addComponentSummaries(model, allControls, isSoqmRole(userRole));
 
         // ===== NOTIFICATIONS DATA =====
-        List<com.kpmg.qtracker.entity.Notification> dbNotifications =
-                notificationService.getUserNotifications(currentUser.getId());
-        List<NotificationItemDTO> notifications = dbNotifications.stream()
-                .filter(notif -> !notificationTypeDisplayMapper.isHiddenType(notif.getType()))
+        // Newest first, NOTIFICATIONS_PAGE_SIZE at a time ("Show more" raises notifLimit).
+        // The limit is applied before mapping because each item loads its control.
+        int limit = notifLimit == null || notifLimit < NOTIFICATIONS_PAGE_SIZE
+                ? NOTIFICATIONS_PAGE_SIZE
+                : Math.min(notifLimit, NOTIFICATIONS_MAX_LIMIT);
+        List<com.kpmg.qtracker.entity.Notification> visibleNotifications =
+                notificationService.getUserNotifications(currentUser.getId()).stream()
+                        .filter(notif -> !notificationTypeDisplayMapper.isHiddenType(notif.getType()))
+                        .collect(Collectors.toList());
+        List<NotificationItemDTO> notifications = visibleNotifications.stream()
+                .limit(limit)
                 .map(this::convertNotificationToDTO)
                 .collect(Collectors.toList());
-        session.setAttribute("cachedNotifications", notifications);
-        List<NotificationGroupDTO> groupedNotifications = groupNotificationsByDate(notifications);
-        model.addAttribute("notificationGroups", groupedNotifications);
+        model.addAttribute("notificationGroups", groupNotificationsByDate(notifications));
+        model.addAttribute("notificationsTotal", visibleNotifications.size());
+        model.addAttribute("notificationsShown", notifications.size());
+        model.addAttribute("notificationsNextLimit",
+                Math.min(limit + NOTIFICATIONS_PAGE_SIZE, NOTIFICATIONS_MAX_LIMIT));
 
         return "dashboard";
     }
@@ -272,6 +296,7 @@ public class ViewController {
     public String controls(@RequestParam(value = "scope", required = false) String scope,
                            @RequestParam(value = "status", required = false) String status,
                            @RequestParam(value = "filter", required = false) String filter,
+                           @RequestParam(value = "component", required = false) String component,
                            Model model,
                            HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
@@ -313,7 +338,9 @@ public class ViewController {
                 effectiveScope = "active";
             }
         } else {
-            if (!"all".equals(effectiveScope)) {
+            // SoQM / admin: "active" = not completed (was silently turned into "all",
+            // so the dashboard's Active link showed every control)
+            if (!"all".equals(effectiveScope) && !"active".equals(effectiveScope)) {
                 effectiveScope = "all";
             }
         }
@@ -343,6 +370,12 @@ public class ViewController {
         }
 
         List<ControlResponseDTO> userControlsList = findControlsVisibleToUser(currentUser);
+        String componentFilter = resolveComponentCode(component);
+        if (componentFilter != null) {
+            userControlsList = userControlsList.stream()
+                    .filter(control -> componentFilter.equalsIgnoreCase(control.getComponent()))
+                    .collect(Collectors.toList());
+        }
         Map<Long, LocalDateTime> completionTimeByControlId = resolveCompletionTimes(userControlsList);
         // Sort by updated date in descending order (most recently updated first)
         userControlsList.sort((c1, c2) -> {
@@ -441,7 +474,25 @@ public class ViewController {
             resolvedStatusFilter = "COMPLETED";
         }
         model.addAttribute("statusFilter", resolvedStatusFilter);
+        model.addAttribute("componentFilter", componentFilter);
+        model.addAttribute("componentFilterName", componentFilter != null ? COMPONENT_NAMES.get(componentFilter) : null);
+        addControlsFilterLinks(model, resolvedStatusFilter, resolvedControlsFilter, componentFilter, isSoqmRole(userRole));
         model.addAttribute("controls", userControlsList);
+        // Controls where the current workflow step is this user's ("Your turn" badge)
+        model.addAttribute("actionControlIds", userControlsList.stream()
+                .filter(control -> isActiveQueueForUser(control, userEmail))
+                .map(ControlResponseDTO::getId)
+                .collect(Collectors.toSet()));
+        // Not overdue yet, but the deadline is within the next 3 days (Almaty date)
+        LocalDate dueSoonLimit = todayAlmaty.plusDays(3);
+        model.addAttribute("dueSoonControlIds", userControlsList.stream()
+                .filter(control -> control.getDeadline() != null
+                        && !control.isOverdue()
+                        && !"COMPLETED".equals(normalizeStatus(control.getPerformanceStatus()))
+                        && !control.getDeadline().isBefore(todayAlmaty)
+                        && !control.getDeadline().isAfter(dueSoonLimit))
+                .map(ControlResponseDTO::getId)
+                .collect(Collectors.toSet()));
         model.addAttribute("totalControls", counters.total());
         model.addAttribute("activeControls", counters.active());
         model.addAttribute("completedControls", counters.completed());
@@ -520,6 +571,134 @@ public class ViewController {
 
     private boolean isGlobalVisibilityRole(String userRole, boolean userIsAdmin) {
         return userIsAdmin || isAdminRole(userRole) || isSoqmRole(userRole);
+    }
+
+    /** A filter link on the Controls page (status chip / component option). */
+    public record FilterLink(String label, String href, boolean active) {
+    }
+
+    /** Known component code (case-insensitive), or null for "all components" / unknown values. */
+    private String resolveComponentCode(String component) {
+        if (component == null || component.isBlank()) {
+            return null;
+        }
+        String trimmed = component.trim();
+        return COMPONENT_NAMES.keySet().stream()
+                .filter(code -> code.equalsIgnoreCase(trimmed))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /** /controls URL with an optional status (or filter=OVERDUE/COMPLETED / scope=active) and component. */
+    private String controlsUrl(String statusKey, String value, String component) {
+        org.springframework.web.util.UriComponentsBuilder builder =
+                org.springframework.web.util.UriComponentsBuilder.fromPath("/controls");
+        if (statusKey != null && value != null) {
+            builder.queryParam(statusKey, value);
+        }
+        if (component != null) {
+            builder.queryParam("component", component);
+        }
+        // build().encode() escapes "&" inside values (component "A&C")
+        return builder.build().encode().toUriString();
+    }
+
+    private void addControlsFilterLinks(Model model, String statusFilter, String controlsFilter,
+                                        String component, boolean soqm) {
+        String status = statusFilter == null ? "" : statusFilter;
+        boolean activeScope = "active".equals(controlsFilter);
+        boolean all = status.isEmpty() && !activeScope;
+
+        List<FilterLink> chips = new ArrayList<>();
+        chips.add(new FilterLink("All", controlsUrl(null, null, component), all));
+        if (soqm) {
+            chips.add(new FilterLink("Draft", controlsUrl("status", "DRAFT", component), "DRAFT".equals(status)));
+        }
+        chips.add(new FilterLink("In Progress", controlsUrl("status", "IN_PROGRESS", component), "IN_PROGRESS".equals(status)));
+        chips.add(new FilterLink("Review", controlsUrl("status", "REVIEW", component), "REVIEW".equals(status)));
+        chips.add(new FilterLink("SoQM Review", controlsUrl("status", "SOQM_HEAD_REVIEW", component), "SOQM_HEAD_REVIEW".equals(status)));
+        chips.add(new FilterLink("Process Owner Review", controlsUrl("status", "PROCESS_OWNER_REVIEW", component), "PROCESS_OWNER_REVIEW".equals(status)));
+        chips.add(new FilterLink("Completed", controlsUrl("filter", "COMPLETED", component), "COMPLETED".equals(status)));
+        chips.add(new FilterLink("Overdue", controlsUrl("filter", "OVERDUE", component), "OVERDUE".equals(status)));
+        model.addAttribute("statusChips", chips);
+
+        model.addAttribute("statTotalLink", new FilterLink("Total", controlsUrl(null, null, component), all));
+        model.addAttribute("statActiveLink", new FilterLink("Active", controlsUrl("scope", "active", component),
+                status.isEmpty() && activeScope));
+        model.addAttribute("statCompletedLink", new FilterLink("Completed", controlsUrl("filter", "COMPLETED", component),
+                "COMPLETED".equals(status)));
+        model.addAttribute("statOverdueLink", new FilterLink("Overdue", controlsUrl("filter", "OVERDUE", component),
+                "OVERDUE".equals(status)));
+
+        // Component select keeps the current status filter
+        String statusKey = null;
+        String statusValue = null;
+        if ("OVERDUE".equals(status) || "COMPLETED".equals(status)) {
+            statusKey = "filter";
+            statusValue = status;
+        } else if (!status.isEmpty()) {
+            statusKey = "status";
+            statusValue = status;
+        } else if (activeScope) {
+            statusKey = "scope";
+            statusValue = "active";
+        }
+        List<FilterLink> components = new ArrayList<>();
+        components.add(new FilterLink("All components", controlsUrl(statusKey, statusValue, null), component == null));
+        for (Map.Entry<String, String> entry : COMPONENT_NAMES.entrySet()) {
+            components.add(new FilterLink(entry.getValue() + " (" + entry.getKey() + ")",
+                    controlsUrl(statusKey, statusValue, entry.getKey()), entry.getKey().equals(component)));
+        }
+        model.addAttribute("componentOptions", components);
+    }
+
+    /** Per-component breakdown for the Action Centre cards. */
+    public record ComponentSummary(String code, String name, long total, long active, long overdue, long completed) {
+        public int completedPercent() {
+            return total == 0 ? 0 : (int) Math.round(completed * 100.0 / total);
+        }
+    }
+
+    private static final Map<String, String> COMPONENT_NAMES = new LinkedHashMap<>();
+    static {
+        COMPONENT_NAMES.put("HR", "Human Resources");
+        COMPONENT_NAMES.put("EP", "Engagement Performance");
+        COMPONENT_NAMES.put("A&C", "Acceptance & Continuance");
+        COMPONENT_NAMES.put("RER", "Relevant Ethical Requirements");
+        COMPONENT_NAMES.put("INTR", "Intellectual Resources");
+        COMPONENT_NAMES.put("I&C", "Information & Communication");
+        COMPONENT_NAMES.put("GOV", "Governance");
+        COMPONENT_NAMES.put("TECHR", "Technological Resources");
+        COMPONENT_NAMES.put("M&R", "Monitoring & Remediation");
+        COMPONENT_NAMES.put("RAP", "Risk Assessment Process");
+    }
+
+    private void addComponentSummaries(Model model, List<ControlResponseDTO> controls, boolean includeDraft) {
+        List<ComponentSummary> summaries = new ArrayList<>();
+        long allTotal = 0, allOverdue = 0, allCompleted = 0;
+        for (Map.Entry<String, String> component : COMPONENT_NAMES.entrySet()) {
+            long total = 0, overdue = 0, completed = 0;
+            for (ControlResponseDTO control : controls) {
+                String status = normalizeStatus(control.getPerformanceStatus());
+                if (!component.getKey().equals(control.getComponent()) || (!includeDraft && "DRAFT".equals(status))) {
+                    continue;
+                }
+                total++;
+                if ("COMPLETED".equals(status)) {
+                    completed++;
+                } else if (control.isOverdue()) {
+                    overdue++;
+                }
+            }
+            summaries.add(new ComponentSummary(component.getKey(), component.getValue(),
+                    total, total - overdue - completed, overdue, completed));
+            allTotal += total;
+            allOverdue += overdue;
+            allCompleted += completed;
+        }
+        model.addAttribute("componentSummaries", summaries);
+        model.addAttribute("componentSummaryAll", new ComponentSummary("All", "All components",
+                allTotal, allTotal - allOverdue - allCompleted, allOverdue, allCompleted));
     }
 
     private Map<String, Long> initializeComponentStats() {
@@ -816,45 +995,14 @@ public class ViewController {
     }
 
     @GetMapping("/component/{componentName}")
-    public String controlsByComponent(@PathVariable String componentName, Model model, HttpSession session) {
+    public String controlsByComponent(@PathVariable String componentName, HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
-
-        User currentUser = getCurrentUser(session);
-        String userRole = currentUser.getRole();
-        boolean userIsAdmin = Boolean.TRUE.equals(currentUser.getAdminAccess());
-        List<ControlResponseDTO> visibleControls = findControlsVisibleToUser(currentUser);
-        List<ControlResponseDTO> controlDTOs = visibleControls.stream()
-                .filter(control -> "All".equalsIgnoreCase(componentName)
-                        || (control.getComponent() != null && componentName.equalsIgnoreCase(control.getComponent())))
-                .sorted((c1, c2) -> c2.getId().compareTo(c1.getId()))
-                .collect(Collectors.toList());
-        Map<Long, LocalDateTime> completionTimeByControlId = resolveCompletionTimes(controlDTOs);
-
-        boolean hideDraftControls = !isGlobalVisibilityRole(userRole, userIsAdmin);
-        ControlCounters counters = countControlsVisibleToUser(controlDTOs, hideDraftControls, completionTimeByControlId);
-        if (hideDraftControls) {
-            controlDTOs = controlDTOs.stream()
-                    .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
-                    .collect(Collectors.toList());
-        }
-        LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
-        for (ControlResponseDTO control : controlDTOs) {
-            control.setOverdue(isOverdue(control, todayAlmaty, completionTimeByControlId));
-        }
-
-        model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getRole());
-        model.addAttribute("userEmail", currentUser.getMail());
-        model.addAttribute("controls", controlDTOs);
-        model.addAttribute("currentComponent", componentName);
-        model.addAttribute("totalControls", counters.total());
-        model.addAttribute("activeControls", counters.active());
-        model.addAttribute("completedControls", counters.completed());
-        model.addAttribute("overdueControls", counters.overdue());
-
-        return "component-controls";
+        // The component page is the Controls list filtered by component
+        String code = resolveComponentCode(componentName);
+        return "redirect:" + (code == null ? "/controls" : controlsUrl(null, null, code));
     }
+
     @GetMapping("/view-control/{id}")
     public String viewControl(@PathVariable Long id, Model model, HttpSession session,
                               RedirectAttributes redirectAttributes) {
@@ -909,6 +1057,27 @@ public class ViewController {
             hasSharedSubmitted = workflowHistoryRepository.hasSharedSubmitted(id, userEmail);
         }
         model.addAttribute("hasSharedSubmitted", hasSharedSubmitted);
+
+        // Header summary + workflow stepper
+        String normalizedStatus = normalizeStatus(performanceStatus);
+        LocalDate deadline = assignment != null && assignment.getControlOperationDeadline() != null
+                ? assignment.getControlOperationDeadline()
+                : control.getDeadline();
+        model.addAttribute("deadline", deadline);
+        model.addAttribute("overdue", deadline != null
+                && !"COMPLETED".equals(normalizedStatus)
+                && deadline.isBefore(LocalDate.now(ZoneId.of("Asia/Almaty"))));
+        model.addAttribute("workflowStepIndex", workflowStepIndex(normalizedStatus));
+        model.addAttribute("facilitatorNames", assignment != null ? joinDisplayNames(assignment.getFacilitator()) : null);
+        model.addAttribute("operatorNames", assignment != null ? joinDisplayNames(assignment.getControlOperator()) : null);
+        model.addAttribute("soqmNames", assignment != null ? joinDisplayNames(assignment.getSoqmLead()) : null);
+        model.addAttribute("ownerNames", assignment != null ? joinDisplayNames(assignment.getProcessOwner()) : null);
+        boolean yourTurn = permission.canUseWorkflowActions() && (
+                ("IN_PROGRESS".equals(normalizedStatus) && permission.isFacilitator())
+                        || ("REVIEW".equals(normalizedStatus) && permission.isControlOperator())
+                        || ("SOQM_HEAD_REVIEW".equals(normalizedStatus) && permission.isSoqmLead())
+                        || ("PROCESS_OWNER_REVIEW".equals(normalizedStatus) && permission.isProcessOwner()));
+        model.addAttribute("yourTurn", yourTurn);
 
         return "view-control";
     }
@@ -973,6 +1142,10 @@ public class ViewController {
         if (redirect != null) return redirect;
 
         User currentUser = getCurrentUser(session);
+        // Only SoQM Team can create controls (POST /api/controls enforces the same rule)
+        if (!isSoqmRole(currentUser.getRole())) {
+            return "redirect:/";
+        }
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userTitle", currentUser.getRole());
@@ -1018,6 +1191,14 @@ public class ViewController {
         componentStats.put("All", total);
         model.addAttribute("componentStats", componentStats);
 
+        List<ControlResponseDTO> visibleControls = findControlsVisibleToUser(currentUser);
+        LocalDate todayAlmaty = LocalDate.now(ZoneId.of("Asia/Almaty"));
+        Map<Long, LocalDateTime> completionTimes = resolveCompletionTimes(visibleControls);
+        for (ControlResponseDTO control : visibleControls) {
+            control.setOverdue(isOverdue(control, todayAlmaty, completionTimes));
+        }
+        addComponentSummaries(model, visibleControls, includeDraft);
+
         return "dashboard";
     }
 
@@ -1046,35 +1227,38 @@ public class ViewController {
             // 3. Получаем Assignment
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
 
-            // 4. Получаем Process Owner из Assignment
-            String processOwner = "Not assigned";
-            if (assignment.getProcessOwner() != null && !assignment.getProcessOwner().isEmpty()) {
-                List<String> processOwners = assignment.getProcessOwner();
-                // Берем первого process owner
-                String email = processOwners.get(0);
-                Optional<User> ownerUser = userService.getUserByEmail(email);
-                processOwner = ownerUser.map(User::getDisplayName).orElse(email);
-            }
+            // 4. People: every assignee per role (display names), not only the first one
+            String facilitator = joinDisplayNames(assignment.getFacilitator());
+            String controlOperator = joinDisplayNames(assignment.getControlOperator());
+            String soqmTeam = joinDisplayNames(assignment.getSoqmLead());
+            String processOwner = joinDisplayNames(assignment.getProcessOwner());
 
-            // 5. Получаем Facilitator из Assignment
-            String facilitator = "Not assigned";
-            if (assignment.getFacilitator() != null && !assignment.getFacilitator().isEmpty()) {
-                List<String> facilitators = assignment.getFacilitator();
-                String email = facilitators.get(0);
-                Optional<User> facilitatorUser = userService.getUserByEmail(email);
-                facilitator = facilitatorUser.map(User::getDisplayName).orElse(email);
+            // 5. Real dates from the workflow history (was: "now" and the current user)
+            List<WorkflowHistory> history = workflowHistoryRepository.findByControlIdOrderByCreatedAtDesc(controlId);
+            if (history == null) {
+                history = List.of();
             }
+            LocalDateTime initiatedAt = history.stream()
+                    .filter(h -> h.getActionType() == WorkflowActionType.INITIATE && h.getCreatedAt() != null)
+                    .map(WorkflowHistory::getCreatedAt)
+                    .min(Comparator.naturalOrder())
+                    .orElse(null);
+            WorkflowHistory lastAction = history.stream()
+                    .filter(h -> h.getCreatedAt() != null)
+                    .findFirst()
+                    .orElse(null);
+            LocalDateTime lastUpdatedOn = lastAction != null ? lastAction.getCreatedAt() : control.getUpdatedAt();
+            String lastUpdatedBy = lastAction != null ? lastAction.getPerformedByName() : null;
 
-            // 6. Получаем Control Operator из Assignment
-            String controlOperator = "Not assigned";
-            if (assignment.getControlOperator() != null && !assignment.getControlOperator().isEmpty()) {
-                List<String> operators = assignment.getControlOperator();
-                String email = operators.get(0);
-                Optional<User> operatorUser = userService.getUserByEmail(email);
-                controlOperator = operatorUser.map(User::getDisplayName).orElse(email);
-            }
+            LocalDate deadline = assignment.getControlOperationDeadline() != null
+                    ? assignment.getControlOperationDeadline()
+                    : control.getDeadline();
+            String status = normalizeStatus(control.getPerformanceStatus());
+            boolean overdue = deadline != null
+                    && !"COMPLETED".equals(status)
+                    && deadline.isBefore(LocalDate.now(ZoneId.of("Asia/Almaty")));
 
-            // 7. Добавляем данные в модель
+            // 6. Model
             model.addAttribute("userName", currentUser.getDisplayName());
             model.addAttribute("userTitle", currentUser.getRole());
             model.addAttribute("userEmail", currentUser.getMail());
@@ -1083,15 +1267,20 @@ public class ViewController {
             model.addAttribute("control", control);
 
             model.addAttribute("soqmYear", performanceDTO.getSoqmYear());
-            model.addAttribute("initiationDate", LocalDateTime.now()); // Текущее время как Initiation Date
+            model.addAttribute("initiationDate", initiatedAt);
             model.addAttribute("operationDate", assignment.getControlOperationDate());
             model.addAttribute("actualOperationDate", performanceDTO.getActualOperationDate());
+            model.addAttribute("deadline", deadline);
+            model.addAttribute("overdue", overdue);
             model.addAttribute("performanceStatus", performanceDTO.getPerformanceStatus());
+            model.addAttribute("workflowStepIndex", workflowStepIndex(status));
             model.addAttribute("facilitator", facilitator);
             model.addAttribute("controlOperator", controlOperator);
+            model.addAttribute("soqmTeam", soqmTeam);
             model.addAttribute("processOwner", processOwner);
-            model.addAttribute("lastUpdatedBy", currentUser.getDisplayName());
-            model.addAttribute("lastUpdatedOn", LocalDateTime.now());
+            model.addAttribute("lastUpdatedBy", lastUpdatedBy);
+            model.addAttribute("lastUpdatedOn", lastUpdatedOn);
+            model.addAttribute("historyRows", history.stream().map(this::toHistoryRow).toList());
 
             // Check if current user is a shared viewer
             boolean isShared = assignment.getControlSharedWith() != null
@@ -1107,9 +1296,77 @@ public class ViewController {
         }
     }
 
+    /** One line of the workflow timeline on the Performance Cycle page. */
+    public record HistoryRow(LocalDateTime at, String who, String action, String kind,
+                             String fromStatus, String toStatus, String comment) {
+    }
+
+    private HistoryRow toHistoryRow(WorkflowHistory h) {
+        String to = h.getToStep();
+        String action;
+        String kind;
+        WorkflowActionType type = h.getActionType();
+        if (type == null) {
+            action = "Updated";
+            kind = "other";
+        } else {
+            switch (type) {
+                case INITIATE -> { action = "Initiated"; kind = "start"; }
+                case SUBMIT_TO_OPERATOR -> { action = "Submitted to Control Operator"; kind = "forward"; }
+                case SUBMIT_TO_SOQM_TEAM -> { action = "Submitted to SoQM Team"; kind = "forward"; }
+                case SUBMIT_TO_PROCESS_OWNER -> { action = "Sent to Process Owner"; kind = "forward"; }
+                case RETURN_TO_FACILITATOR -> { action = "Returned to Facilitator"; kind = "return"; }
+                case RETURN_TO_OPERATOR -> { action = "Returned to Control Operator"; kind = "return"; }
+                case RETURN, REJECT -> { action = "Returned"; kind = "return"; }
+                case APPROVE -> {
+                    boolean completed = "COMPLETED".equalsIgnoreCase(to);
+                    action = completed ? "Completed" : "Approved";
+                    kind = completed ? "done" : "forward";
+                }
+                case COMMENT -> { action = "Comment"; kind = "other"; }
+                case REASSIGN -> { action = "Reassigned"; kind = "other"; }
+                default -> { action = type.name(); kind = "other"; }
+            }
+        }
+        String who = h.getPerformedByName() != null && !h.getPerformedByName().isBlank()
+                ? h.getPerformedByName()
+                : h.getPerformedByEmail();
+        return new HistoryRow(h.getCreatedAt(), who, action, kind,
+                statusDisplayMapper.display(h.getFromStep()), statusDisplayMapper.display(to), h.getComments());
+    }
+
+    /** Position in Facilitator -> Control Operator -> SoQM -> Process Owner -> Completed; -1 = not initiated. */
+    private int workflowStepIndex(String status) {
+        return switch (status) {
+            case "IN_PROGRESS" -> 0;
+            case "REVIEW" -> 1;
+            case "SOQM_HEAD_REVIEW" -> 2;
+            case "PROCESS_OWNER_REVIEW" -> 3;
+            case "COMPLETED" -> 4;
+            default -> -1;
+        };
+    }
+
+    private String joinDisplayNames(List<String> emails) {
+        if (emails == null || emails.isEmpty()) {
+            return null;
+        }
+        List<String> names = new ArrayList<>();
+        for (String email : emails) {
+            if (email == null || email.isBlank()) {
+                continue;
+            }
+            names.add(userService.getUserByEmail(email.trim())
+                    .map(User::getDisplayName)
+                    .filter(name -> name != null && !name.isBlank())
+                    .orElse(email.trim()));
+        }
+        return names.isEmpty() ? null : String.join(", ", names);
+    }
+
     private List<NotificationGroupDTO> groupNotificationsByDate(List<NotificationItemDTO> notifications) {
         Map<String, List<NotificationItemDTO>> grouped = new LinkedHashMap<>();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Almaty"));
         LocalDate yesterday = today.minusDays(1);
 
         for (NotificationItemDTO notif : notifications) {
@@ -1123,8 +1380,8 @@ public class ViewController {
                 } else if (notifDate.equals(yesterday)) {
                     dateLabel = "Yesterday";
                 } else {
-                    // Format as "Jan 22", "Jun 10" etc
-                    dateLabel = notif.getTimestamp().format(java.time.format.DateTimeFormatter.ofPattern("MMM d"));
+                    // Includes the year so the same day of different years is not merged into one group
+                    dateLabel = notif.getTimestamp().format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"));
                 }
             } else {
                 dateLabel = "No date";

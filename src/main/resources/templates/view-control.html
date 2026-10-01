@@ -2,10 +2,12 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title th:text="'Control - ' + ${control.controlId}">Control - Sultan</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/style.css?v=8" rel="stylesheet">
-    <link href="/css/view-control.css?v=7" rel="stylesheet">
+    <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css?v=11" rel="stylesheet">
+    <link href="/css/view-control.css?v=8" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator Program validation styling */
@@ -136,21 +138,36 @@
             box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.15) !important;
         }
 
-        /* KPMG Upload Zone */
+        /* KPMG Upload Zone — redesigned */
         .kpmg-upload-zone {
             border: 2px dashed #d8dce5;
-            border-radius: 8px;
+            border-radius: 12px;
             background: #f7f8fa;
-            transition: border-color 0.2s, background 0.2s;
+            transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
             cursor: pointer;
+            position: relative;
+            overflow: hidden;
         }
-        .kpmg-upload-zone:hover,
-        .kpmg-upload-zone.drag-over {
+        .kpmg-upload-zone:hover {
             border-color: #00338D;
             background: #eef2f9;
+            box-shadow: 0 0 0 4px rgba(0,51,141,0.07);
+        }
+        .kpmg-upload-zone.drag-over {
+            border-color: #00338D;
+            background: linear-gradient(135deg, #eef2f9 0%, #dce8ff 100%);
+            box-shadow: 0 0 0 5px rgba(0,51,141,0.13);
+            transform: scale(1.012);
+        }
+        .kpmg-upload-zone.drag-over .kpmg-upload-icon {
+            animation: kpmg-bounce 0.5s ease infinite alternate;
+        }
+        @keyframes kpmg-bounce {
+            from { transform: translateY(0); }
+            to   { transform: translateY(-6px); }
         }
         .kpmg-upload-zone[data-disabled="true"] {
-            opacity: 0.55;
+            opacity: 0.5;
             pointer-events: none;
             cursor: not-allowed;
         }
@@ -159,17 +176,23 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 20px 16px;
+            padding: 16px 16px 14px;
             position: relative;
         }
+        .kpmg-upload-icon { margin-bottom: 4px; transition: transform 0.3s; }
         .kpmg-upload-text {
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             font-weight: 600;
-            color: #5c6478;
+            color: #3a4260;
+            margin-bottom: 0px;
         }
         .kpmg-upload-hint {
             font-size: 0.72rem;
             color: #9ba3b5;
+        }
+        .kpmg-upload-types {
+            font-size: 0.68rem;
+            color: #b0b8cc;
             margin-top: 2px;
         }
         .kpmg-upload-input {
@@ -182,51 +205,195 @@
         }
         .kpmg-upload-zone[data-disabled="true"] .kpmg-upload-input {
             pointer-events: none;
-            cursor: not-allowed;
         }
-        .kpmg-file-list {
-            font-size: 0.8rem;
-            color: #5c6478;
-            line-height: 1.7;
-        }
-        .kpmg-file-badge {
-            display: inline-flex;
-            align-items: center;
-            margin: 2px 4px 2px 0;
-            border-radius: 4px;
-            overflow: hidden;
-            background: #00338D;
-        }
-        .kpmg-file-badge .badge {
-            font-size: 0.72rem;
-            font-weight: 500;
-            padding: 4px 8px;
-            border-radius: 4px 0 0 4px;
-            background: #00338D !important;
-            color: #fff !important;
-            margin: 0;
-        }
-        .kpmg-file-badge .badge:hover {
-            background: #005EB8 !important;
-        }
-        .kpmg-file-delete {
+        /* Progress bar */
+        .kpmg-upload-progress {
             display: none;
-            border: none;
-            background: #c8102e;
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 0 0 10px 10px;
+            overflow: hidden;
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+        }
+        .kpmg-upload-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00338D, #005EB8, #00338D);
+            background-size: 200% 100%;
+            animation: kpmg-progress-shimmer 1.4s linear infinite;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        @keyframes kpmg-progress-shimmer {
+            0%   { background-position: 200% center; }
+            100% { background-position: -200% center; }
+        }
+        .kpmg-upload-zone.uploading .kpmg-upload-progress { display: block; }
+        /* File list header */
+        .kpmg-file-list-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #3a4260;
+            padding: 10px 0 6px;
+        }
+        .kpmg-file-count-badge {
+            background: #00338D;
             color: #fff;
-            font-size: 0.78rem;
+            border-radius: 20px;
+            font-size: 0.68rem;
             font-weight: 700;
-            padding: 3px 7px;
+            padding: 1px 7px;
+            line-height: 1.6;
+        }
+        /* File cards */
+        .kpmg-file-cards { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+        .kpmg-file-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: #fff;
+            border: 1px solid #e8ecf4;
+            border-radius: 8px;
+            transition: box-shadow 0.18s, border-color 0.18s;
+        }
+        .kpmg-file-card:hover { border-color: #b0c4e8; box-shadow: 0 2px 8px rgba(0,51,141,0.08); }
+        .kpmg-file-card-icon {
+            flex-shrink: 0;
+            width: 32px; height: 32px;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .kpmg-file-card-icon.type-pdf   { background: #fff0f0; }
+        .kpmg-file-card-icon.type-excel { background: #f0fff4; }
+        .kpmg-file-card-icon.type-word  { background: #eff5ff; }
+        .kpmg-file-card-icon.type-image { background: #fff8f0; }
+        .kpmg-file-card-icon.type-other { background: #f4f5f7; }
+        .kpmg-file-card-name {
+            flex: 1;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #2d3552;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+        .kpmg-file-card-size {
+            font-size: 0.7rem;
+            color: #9ba3b5;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .kpmg-file-card-actions {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .kpmg-file-card-btn {
+            width: 28px; height: 28px;
+            border: none;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
             cursor: pointer;
+            transition: background 0.18s, transform 0.15s;
+            background: transparent;
+        }
+        .kpmg-file-card-btn:hover { transform: scale(1.12); }
+        .kpmg-file-card-btn.download-btn { color: #00338D; }
+        .kpmg-file-card-btn.download-btn:hover { background: #eef2f9; }
+        .kpmg-file-card-btn.delete-btn  { color: #c8102e; display: none; }
+        .kpmg-file-card-btn.delete-btn:hover  { background: #fff0f2; }
+        .edit-mode-active .kpmg-file-card-btn.delete-btn { display: flex; }
+        /* Toast notifications */
+        .kpmg-toast-container {
+            position: fixed;
+            top: 20px; right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .kpmg-toast {
+            min-width: 260px;
+            max-width: 380px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+            animation: kpmg-toast-in 0.3s cubic-bezier(.2,.8,.4,1) forwards;
+        }
+        .kpmg-toast.toast-error   { background: #c8102e; }
+        .kpmg-toast.toast-warning { background: #e67e22; }
+        .kpmg-toast.toast-success { background: #00a86b; }
+        @keyframes kpmg-toast-in {
+            from { opacity: 0; transform: translateX(30px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        /* Footer button hierarchy */
+        #editBtn {
+            background: #00338D;
+            border-color: #00338D;
+            color: #fff;
+            font-weight: 600;
+            padding: 7px 22px;
+            border-radius: 6px;
+            transition: background 0.18s, box-shadow 0.18s;
+        }
+        #editBtn:hover {
+            background: #00278a;
+            border-color: #00278a;
+            box-shadow: 0 2px 10px rgba(0,51,141,0.25);
+        }
+        /* Rename ID dropdown */
+        .kpmg-more-menu { position: relative; }
+        .kpmg-more-menu-btn {
+            border: 1px solid #d8dce5;
+            border-radius: 6px;
+            background: #fff;
+            color: #5c6478;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 1rem;
             line-height: 1;
-            border-radius: 0 4px 4px 0;
+            transition: background 0.15s, border-color 0.15s;
         }
-        .kpmg-file-delete:hover {
-            background: #a00d24;
+        .kpmg-more-menu-btn:hover { background: #f0f2f8; border-color: #b0b8cc; }
+        .kpmg-more-dropdown {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 0;
+            min-width: 150px;
+            background: #fff;
+            border: 1px solid #e2e6f0;
+            border-radius: 8px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.12);
+            z-index: 200;
+            overflow: hidden;
         }
-        .edit-mode-active .kpmg-file-delete {
-            display: inline-block;
+        .kpmg-more-dropdown.open { display: block; }
+        .kpmg-more-dropdown-item {
+            display: block;
+            width: 100%;
+            padding: 9px 14px;
+            font-size: 0.82rem;
+            color: #3a4260;
+            background: transparent;
+            border: none;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.15s;
         }
+        .kpmg-more-dropdown-item:hover { background: #f0f4ff; color: #00338D; }
 
         body.theme-dark .role-restricted-field:disabled,
         body.theme-dark .role-restricted-field[readonly],
@@ -463,7 +630,9 @@
 
 <div class="container-fluid">
     <div class="row">
-        <div class="col-12">
+        <div th:replace="~{fragments/sidebar :: sidebar('controls')}"></div>
+
+        <div class="col-md-10">
             <div class="view-control-container">
 
                 <nav class="app-breadcrumb" aria-label="breadcrumb">
@@ -477,16 +646,47 @@
                     <span class="app-breadcrumb-separator">/</span>
                     <a href="/controls" class="app-breadcrumb-link">Controls</a>
                     <span class="app-breadcrumb-separator">/</span>
-                    <span class="app-breadcrumb-current">Control Details</span>
+                    <span class="app-breadcrumb-current control-id-display" th:text="${control.controlId}">Control</span>
                 </nav>
 
-                <div class="control-header">
-                    <h2>Control Details</h2>
-                    <h4>ID: <span class="control-id-display" th:text="${control.controlId}">Sultan</span></h4>
-                    <p class="mb-0">
-                        Created by: <span th:text="${control.createdBy.displayName}">ccg-nrc-pa</span>
-                        ( <span th:text="${control.createdBy.mail}">acrecg-nrc-pa@kpmg.com</span>)
-                        on <span th:text="${#temporals.format(control.createdAt, 'dd.MM.yyyy')}">25.11.2025</span>
+                <div class="control-header"
+                     th:with="st=${performanceStatus},
+                              stLabel=${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">
+                    <div class="vc-header-label">Control</div>
+                    <h1 class="vc-title">
+                        <span class="control-id-display" th:text="${control.controlId}">HR-CTRL-MF-1</span>
+                        <span class="vc-badge"
+                              th:classappend="${st == 'COMPLETED'} ? 'vc-status-completed'
+                                 : (${st == 'IN_PROGRESS'} ? 'vc-status-progress'
+                                 : (${st == 'REVIEW'} ? 'vc-status-review'
+                                 : (${st == 'SOQM_HEAD_REVIEW'} ? 'vc-status-soqm'
+                                 : (${st == 'PROCESS_OWNER_REVIEW'} ? 'vc-status-po' : 'vc-status-draft'))))"
+                              th:text="${stLabel}">In Progress</span>
+                        <span th:if="${overdue}" class="vc-badge vc-status-overdue">Overdue</span>
+                        <span th:if="${yourTurn}" class="vc-badge vc-your-turn"><i class="bi bi-person-check" aria-hidden="true"></i> Your turn</span>
+                    </h1>
+                    <p class="vc-desc" th:if="${control.controlDescription != null and !#strings.isEmpty(control.controlDescription)}"
+                       th:text="${control.controlDescription}">Description</p>
+                    <ul class="vc-facts">
+                        <li th:if="${control.component != null}"><span>Component</span><strong th:text="${control.component}">HR</strong></li>
+                        <li th:if="${control.controlFrequency != null}"><span>Frequency</span><strong th:text="${control.controlFrequency}">Monthly</strong></li>
+                        <li><span>Deadline</span>
+                            <strong th:if="${deadline != null}" th:classappend="${overdue} ? 'vc-fact-overdue'"
+                                    th:text="${#temporals.format(deadline, 'dd.MM.yyyy')}">05.10.2026</strong>
+                            <strong th:if="${deadline == null}" class="vc-fact-empty">Not set</strong></li>
+                        <li><span>Created</span>
+                            <strong th:text="${(control.createdBy != null ? control.createdBy.displayName + ' · ' : '')
+                                     + (control.createdAt != null ? #temporals.format(control.createdAt, 'dd.MM.yyyy') : '')}"
+                                    th:title="${control.createdBy != null} ? ${control.createdBy.mail} : null">Name · 01.10.2026</strong></li>
+                    </ul>
+                </div>
+
+                <!-- Workflow progress -->
+                <div class="vc-stepper">
+                    <div th:replace="~{fragments/workflow-stepper :: stepper(${workflowStepIndex}, ${facilitatorNames}, ${operatorNames}, ${soqmNames}, ${ownerNames})}"></div>
+                    <p class="vc-turn-hint" th:if="${yourTurn}">
+                        <i class="bi bi-info-circle" aria-hidden="true"></i>
+                        This step is yours — complete the required fields, then use the action buttons at the bottom of the page.
                     </p>
                 </div>
 
@@ -638,7 +838,7 @@
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Process Name</label>
-                                        <input type="text" class="form-control" name="processName"
+                                        <input type="text" class="form-control" name="processName" maxlength="255"
                                                placeholder="Enter process name">
                                     </div>
                                     <div class="col-md-6 mb-3">
@@ -654,12 +854,12 @@
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">References to this Control</label>
-                                        <input type="text" class="form-control" name="referencesToControl"
+                                        <input type="text" class="form-control" name="referencesToControl" maxlength="255"
                                                placeholder="Enter references">
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Department</label>
-                                        <input type="text" class="form-control" name="department"
+                                        <input type="text" class="form-control" name="department" maxlength="255"
                                                placeholder="Enter department">
                                     </div>
                                 </div>
@@ -675,12 +875,12 @@
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Other Related Controls</label>
-                                        <input type="text" class="form-control" name="otherRelatedControls"
+                                        <input type="text" class="form-control" name="otherRelatedControls" maxlength="255"
                                                placeholder="Enter other related controls">
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">IT Applications</label>
-                                        <input type="text" class="form-control" name="itApplications"
+                                        <input type="text" class="form-control" name="itApplications" maxlength="255"
                                                placeholder="Enter IT applications">
                                     </div>
                                 </div>
@@ -727,19 +927,21 @@
                                         <label class="form-label">Attachment (Details)</label>
                                         <div class="kpmg-upload-zone" id="detailsUploadZone">
                                             <div class="kpmg-upload-inner">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="#9ba3b5" viewBox="0 0 16 16" class="mb-2">
-                                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.1A1.5 1.5 0 0 0 2.5 14h11a1.5 1.5 0 0 0 1.5-1.5v-2.1a.5.5 0 0 1 1 0v2.1a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5v-2.1a.5.5 0 0 1 .5-.5z"/>
-                                                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
-                                                </svg>
-                                                <span class="kpmg-upload-text">Choose files or drag & drop</span>
-                                                <span class="kpmg-upload-hint">Up to 50 files</span>
-                                                <input type="file" class="kpmg-upload-input" name="attachedFile" id="attachmentDetailsInput" multiple>
+                                                <div class="kpmg-upload-icon">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00338D" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                                        <polyline points="16 16 12 12 8 16"></polyline>
+                                                        <line x1="12" y1="12" x2="12" y2="21"></line>
+                                                        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+                                                    </svg>
+                                                </div>
+                                                <span class="kpmg-upload-text">Drop files here or click to browse</span>
+                                                <span class="kpmg-upload-hint">Up to 50 files at once</span>
+                                                <span class="kpmg-upload-types">PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG</span>
+                                                <input type="file" class="kpmg-upload-input" name="attachedFile" id="attachmentDetailsInput" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg">
                                             </div>
+                                            <div class="kpmg-upload-progress"><div class="kpmg-upload-progress-bar" id="detailsProgressBar"></div></div>
                                         </div>
-                                        <a id="downloadDetailsBtn" href="#" class="btn btn-outline-info btn-sm mt-1" style="display: none;" download>
-                                            <i class="bi bi-download"></i> Download
-                                        </a>
-                                        <div class="kpmg-file-list mt-2" id="detailsFileInfo"></div>
+                                        <div id="detailsFileInfo"></div>
                                     </div>
                                 </div>
                             </div>
@@ -938,19 +1140,21 @@
                                         <label class="form-label">Attachment (Documents)</label>
                                         <div class="kpmg-upload-zone" id="documentsUploadZone">
                                             <div class="kpmg-upload-inner">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="#9ba3b5" viewBox="0 0 16 16" class="mb-2">
-                                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.1A1.5 1.5 0 0 0 2.5 14h11a1.5 1.5 0 0 0 1.5-1.5v-2.1a.5.5 0 0 1 1 0v2.1a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5v-2.1a.5.5 0 0 1 .5-.5z"/>
-                                                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
-                                                </svg>
-                                                <span class="kpmg-upload-text">Choose files or drag & drop</span>
-                                                <span class="kpmg-upload-hint">Up to 50 files</span>
-                                                <input type="file" class="kpmg-upload-input" name="attachment" id="attachmentDocumentsInput" multiple>
+                                                <div class="kpmg-upload-icon">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00338D" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                                        <polyline points="16 16 12 12 8 16"></polyline>
+                                                        <line x1="12" y1="12" x2="12" y2="21"></line>
+                                                        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+                                                    </svg>
+                                                </div>
+                                                <span class="kpmg-upload-text">Drop files here or click to browse</span>
+                                                <span class="kpmg-upload-hint">Up to 50 files at once</span>
+                                                <span class="kpmg-upload-types">PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG</span>
+                                                <input type="file" class="kpmg-upload-input" name="attachment" id="attachmentDocumentsInput" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg">
                                             </div>
+                                            <div class="kpmg-upload-progress"><div class="kpmg-upload-progress-bar" id="documentsProgressBar"></div></div>
                                         </div>
-                                        <a id="downloadDocumentsBtn" href="#" class="btn btn-outline-info btn-sm mt-1" style="display: none;" download>
-                                            <i class="bi bi-download"></i> Download
-                                        </a>
-                                        <div class="kpmg-file-list mt-2" id="documentsFileInfo"></div>
+                                        <div id="documentsFileInfo"></div>
                                     </div>
                                 </div>
 
@@ -969,18 +1173,38 @@
                     </div>
                 </div>
 
+                <!-- Toast container -->
+                <div class="kpmg-toast-container" id="kpmgToastContainer"></div>
+
                 <div class="action-buttons">
                     <div class="d-flex justify-content-between align-items-center">
-                        <!-- ����� �������: Home, Changelog, Rename ID -->
+                        <!-- Left: Home, Changelog, and More (Rename ID) -->
                         <div class="d-flex align-items-center gap-2">
-                            <a href="/" class="btn btn-outline-secondary">Home</a>
-                            <button class="btn btn-outline-secondary" id="changelogBtn">Changelog</button>
-                            <button class="btn btn-outline-secondary" id="renameIdBtn" th:if="${userRole == 'SOQM_TEAM'}">Rename ID</button>
+                            <button class="btn btn-outline-secondary" id="changelogBtn"><i class="bi bi-clock-history" aria-hidden="true"></i> Changelog</button>
+                            <!-- Rename ID as dropdown (SOQM_TEAM only) -->
+                            <div class="kpmg-more-menu" id="kpmgMoreMenuWrapper" th:if="${userRole == 'SOQM_TEAM'}">
+                                <button class="kpmg-more-menu-btn" id="kpmgMoreMenuBtn" type="button" title="More actions">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <circle cx="5"  cy="12" r="2"/>
+                                        <circle cx="12" cy="12" r="2"/>
+                                        <circle cx="19" cy="12" r="2"/>
+                                    </svg>
+                                </button>
+                                <div class="kpmg-more-dropdown" id="kpmgMoreDropdown">
+                                    <button class="kpmg-more-dropdown-item" id="renameIdBtn" type="button">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-1px">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                        </svg>
+                                        Rename ID
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- ������ �������: Workflow ������ + Back + Edit -->
+                        <!-- Right: Workflow buttons + Back + Edit (primary) -->
                         <div class="d-flex align-items-center gap-2">
-                            <!-- Workflow ������ (����� ������������ �����������) -->
+                            <!-- Workflow buttons -->
                             <div id="workflow-buttons-container" class="d-inline-flex align-items-center gap-2">
                                 <!-- 1. Submit to Control Operator button for FACILITATOR -->
                                 <button type="button"
@@ -990,7 +1214,6 @@
                                         title="Submit this control to Control Operator for review">
                                     Submit for Review
                                 </button>
-
 
                                 <!-- 2. Submit to SoQM Team button for CONTROL_OPERATOR -->
                                 <button type="button"
@@ -1054,7 +1277,10 @@
                             </div>
 
                             <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Back</button>
-                            <button class="btn btn-outline-secondary" id="editBtn" th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or userRole == 'SOQM_TEAM')}">Edit</button>
+                            <button class="btn" id="editBtn"
+                                    th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or userRole == 'SOQM_TEAM')}">
+                                Edit
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1369,9 +1595,9 @@
     </div>
 </div>
 <div th:replace="fragments/app-modal :: appModal"></div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/vendor/bootstrap.bundle.min.js"></script>
 <script src="/js/date-format.js?v=2"></script>
-<script src="/js/app-modal.js?v=3"></script>
+<script src="/js/app-modal.js?v=4"></script>
 <script src="/js/view-control.js?v=3.6"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
@@ -1708,234 +1934,322 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ============================================
-// FILE ATTACHMENT UPLOAD & DOWNLOAD SYSTEM
+// FILE ATTACHMENT UPLOAD & DOWNLOAD SYSTEM (v2)
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('?? Initializing file attachment system...');
-    
-    // Get numeric control ID from hidden input
+
+    // ── Toast helper ──────────────────────────────────────────────────
+    function showToast(message, type = 'error', durationMs = 4000) {
+        const container = document.getElementById('kpmgToastContainer');
+        if (!container) return;
+        const icons = {
+            error:   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+            warning: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            success: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+        };
+        const toast = document.createElement('div');
+        toast.className = `kpmg-toast toast-${type}`;
+        toast.innerHTML = `${icons[type] || ''}<span>${message}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(30px)'; toast.style.transition = 'all 0.3s ease'; setTimeout(() => toast.remove(), 320); }, durationMs);
+    }
+
+    // ── File type icon helper ─────────────────────────────────────────
+    function getFileIconHTML(filename) {
+        const ext = (filename.split('.').pop() || '').toLowerCase();
+        if (ext === 'pdf') return { cls: 'type-pdf', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e53e3e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/></svg>' };
+        if (['xlsx','xls','csv'].includes(ext)) return { cls: 'type-excel', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38a169" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="8" y1="9" x2="10" y2="9"/></svg>' };
+        if (['docx','doc'].includes(ext)) return { cls: 'type-word', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3182ce" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>' };
+        if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) return { cls: 'type-image', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dd6b20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' };
+        return { cls: 'type-other', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#718096" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' };
+    }
+
+    // ── Format file size ──────────────────────────────────────────────
+    function formatSize(bytes) {
+        if (!bytes || bytes === 0) return '';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // ── Blocked extensions ────────────────────────────────────────────
+    const BLOCKED_EXTS = ['.crdownload', '.tmp', '.part', '.download'];
+    const ALLOWED_EXTS = ['.pdf','.docx','.doc','.xlsx','.xls','.csv','.png','.jpg','.jpeg'];
+    // Must match file.upload.max-file-size-mb / spring.servlet.multipart.max-request-size on the server
+    const MAX_FILE_SIZE_MB = 10;
+    const MAX_REQUEST_SIZE_MB = 100;
+
+    // Names already uploaded per tab (lower-cased stored names), filled by loadExistingAttachments()
+    const existingNames = { details: new Set(), documents: new Set() };
+
+    // Same rule as FileStorageService.toStoredFilename(): the name the server will store the file under
+    function toStoredFilename(name) {
+        const safe = (name || 'unknown').replace(/[^\p{L}\p{N}._-]/gu, '_');
+        const dot = safe.lastIndexOf('.');
+        let base = safe, ext = '';
+        if (dot > 0 && dot < safe.length - 1) { base = safe.substring(0, dot); ext = safe.substring(dot + 1); }
+        if (!base.trim()) base = 'file';
+        return ext ? base + '.' + ext : base;
+    }
+
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function validateFiles(files) {
+        const blocked = [];
+        const disallowed = [];
+        const tooLarge = [];
+        const empty = [];
+        const valid = [];
+        Array.from(files).forEach(file => {
+            const lower = file.name.toLowerCase();
+            if (BLOCKED_EXTS.some(e => lower.endsWith(e))) {
+                blocked.push(file.name);
+            } else if (!ALLOWED_EXTS.some(e => lower.endsWith(e))) {
+                disallowed.push(file.name);
+            } else if (file.size === 0) {
+                empty.push(file.name);
+            } else if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+                tooLarge.push(`${file.name} (${formatSize(file.size)})`);
+            } else {
+                valid.push(file);
+            }
+        });
+        if (blocked.length) showToast(`Blocked file(s): ${escapeHtml(blocked.join(', '))} — incomplete downloads are not allowed.`, 'error');
+        if (disallowed.length) showToast(`Unsupported type(s): ${escapeHtml(disallowed.join(', '))}. Allowed: PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG.`, 'warning');
+        if (empty.length) showToast(`Empty file(s) skipped: ${escapeHtml(empty.join(', '))}.`, 'warning');
+        if (tooLarge.length) showToast(`File(s) too large: ${escapeHtml(tooLarge.join(', '))}. Maximum size is ${MAX_FILE_SIZE_MB} MB per file.`, 'error', 6000);
+        return valid;
+    }
+
+    // Display name for a stored file; strips the legacy "yyyyMMdd_HHmmss_xxxxxxxx_" prefix
+    function toDisplayName(rawName) {
+        return rawName.replace(/^\d{8}_\d{6}_[0-9a-fA-F]{8}_/, '') || rawName;
+    }
+
+    // ── Render file cards into a container ────────────────────────────
+    function renderFileCards(containerEl, files, controlIdVal, type) {
+        if (!containerEl) return;
+        if (!files || files.length === 0) { containerEl.innerHTML = ''; return; }
+        let html = `<div class="kpmg-file-list-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#00338D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+            <span>Files</span>
+            <span class="kpmg-file-count-badge">${files.length}</span>
+        </div><div class="kpmg-file-cards">`;
+        files.forEach(file => {
+            const rawName = typeof file === 'string' ? file : file.name;
+            const displayName = escapeHtml(typeof file === 'string' ? toDisplayName(rawName) : rawName);
+            const sizeStr = (file && file.size) ? formatSize(file.size) : '';
+            const icon = getFileIconHTML(displayName);
+            const encodedFile = encodeURIComponent(rawName);
+            const downloadHref = `/api/attachments/download/${encodedFile}?controlId=${controlIdVal}`;
+            html += `<div class="kpmg-file-card">
+                <div class="kpmg-file-card-icon ${icon.cls}">${icon.svg}</div>
+                <span class="kpmg-file-card-name" title="${displayName}">${displayName}</span>
+                ${sizeStr ? `<span class="kpmg-file-card-size">${sizeStr}</span>` : ''}
+                <div class="kpmg-file-card-actions">
+                    <a href="${downloadHref}" class="kpmg-file-card-btn download-btn" download title="Download file">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </a>
+                    <button type="button" class="kpmg-file-card-btn delete-btn kpmg-file-delete" data-file="${encodedFile}" data-type="${type}" title="Delete file">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                    </button>
+                </div>
+            </div>`;
+        });
+        html += '</div>';
+        containerEl.innerHTML = html;
+    }
+
+    // ── Progress bar helpers ──────────────────────────────────────────
+    function showProgress(zone, barEl) {
+        if (zone) zone.classList.add('uploading');
+        if (barEl) { barEl.style.width = '0%'; }
+    }
+    function animateProgress(barEl, targetPct, durationMs) {
+        if (!barEl) return;
+        const start = performance.now();
+        const from = parseFloat(barEl.style.width) || 0;
+        function step(now) {
+            const p = Math.min((now - start) / durationMs, 1);
+            barEl.style.width = (from + (targetPct - from) * p) + '%';
+            if (p < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
+    function hideProgress(zone, barEl) {
+        if (barEl) barEl.style.width = '100%';
+        setTimeout(() => { if (zone) zone.classList.remove('uploading'); if (barEl) barEl.style.width = '0%'; }, 500);
+    }
+
+    // ── Main init ─────────────────────────────────────────────────────
     const idInput = document.querySelector('input[name="id"]');
     const controlId = idInput ? idInput.value : null;
-    
     if (!controlId || isNaN(controlId)) {
-        console.warn('?? Numeric control ID not found, file attachment disabled');
+        console.warn('Numeric control ID not found, file attachment disabled');
         return;
     }
-    
-    console.log('? Control ID for attachments:', controlId);
-    
-    // DOM Elements
-    const detailsInput = document.getElementById('attachmentDetailsInput');
-    const documentsInput = document.getElementById('attachmentDocumentsInput');
-    const downloadDetailsBtn = document.getElementById('downloadDetailsBtn');
-    const downloadDocumentsBtn = document.getElementById('downloadDocumentsBtn');
+
+    const detailsInput    = document.getElementById('attachmentDetailsInput');
+    const documentsInput  = document.getElementById('attachmentDocumentsInput');
     const detailsFileInfo = document.getElementById('detailsFileInfo');
     const documentsFileInfo = document.getElementById('documentsFileInfo');
-    
-    // Upload zone elements
-    const detailsZone = document.getElementById('detailsUploadZone');
-    const documentsZone = document.getElementById('documentsUploadZone');
+    const detailsZone     = document.getElementById('detailsUploadZone');
+    const documentsZone   = document.getElementById('documentsUploadZone');
+    const detailsBar      = document.getElementById('detailsProgressBar');
+    const documentsBar    = document.getElementById('documentsProgressBar');
 
-    // Upload zones start disabled; they are enabled when entering Edit mode via enableFileInputs()
-    if (detailsZone) detailsZone.setAttribute('data-disabled', 'true');
-    if (detailsInput) detailsInput.disabled = true;
+    // Start disabled
+    if (detailsZone)   detailsZone.setAttribute('data-disabled', 'true');
+    if (detailsInput)  detailsInput.disabled = true;
     if (documentsZone) documentsZone.setAttribute('data-disabled', 'true');
     if (documentsInput) documentsInput.disabled = true;
 
     // Drag & drop visual feedback
     [detailsZone, documentsZone].forEach(zone => {
         if (!zone) return;
-        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+        zone.addEventListener('dragover', e => { e.preventDefault(); if (zone.getAttribute('data-disabled') !== 'true') zone.classList.add('drag-over'); });
         zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-        zone.addEventListener('drop', () => zone.classList.remove('drag-over'));
+        zone.addEventListener('drop', e => { zone.classList.remove('drag-over'); });
     });
-    
-    // Load existing attachments on page load
+
+    // Load existing on page load
     loadExistingAttachments();
-    
-    // Use DataTransfer objects to accumulate selected files
-    const detailsDataTransfer = new DataTransfer();
-    const documentsDataTransfer = new DataTransfer();
 
-    // Show selected file name when user selects a file
-    if (detailsInput) {
-        detailsInput.addEventListener('change', function() {
-            if (this.files.length > 0) {
-                // Append newly selected files to DataTransfer
-                Array.from(this.files).forEach(file => {
-                    let isDuplicate = false;
-                    for (let i = 0; i < detailsDataTransfer.items.length; i++) {
-                        if (detailsDataTransfer.items[i].getAsFile().name === file.name) {
-                            isDuplicate = true;
-                            break;
-                        }
-                    }
-                    if (!isDuplicate) {
-                        detailsDataTransfer.items.add(file);
-                    }
-                });
-                
-                // Update input's files list
-                this.files = detailsDataTransfer.files;
+    // Accumulate files
+    const detailsDT   = new DataTransfer();
+    const documentsDT = new DataTransfer();
 
-                const count = this.files.length;
-                if (count > 50) {
-                    alert('?? Maximum 50 files allowed. Please select fewer files.');
-                    detailsDataTransfer.items.clear();
-                    this.value = '';
-                    if (detailsFileInfo) detailsFileInfo.textContent = '';
+    function handleFileChange(input, dt, zone, barEl, fileInfoEl, label) {
+        if (!input) return;
+        input.addEventListener('change', function() {
+            const raw = Array.from(this.files);
+            const valid = validateFiles(raw);
+            const alreadyAttached = [];
+            const alreadySelected = [];
+            valid.forEach(file => {
+                const stored = toStoredFilename(file.name).toLowerCase();
+                if (existingNames[label].has(stored)) {
+                    alreadyAttached.push(file.name);
                     return;
                 }
-                const fileNames = Array.from(this.files).map(f => f.name).join(', ');
-                if (detailsFileInfo) detailsFileInfo.textContent = `?? Selected ${count} file(s): ${fileNames.substring(0, 100)}${fileNames.length > 100 ? '...' : ''}`;
-                console.log(`?? Details files selected: ${count}`, this.files);
-            }
-        });
-    }
-    
-    if (documentsInput) {
-        documentsInput.addEventListener('change', function() {
-            if (this.files.length > 0) {
-                // Append newly selected files to DataTransfer
-                Array.from(this.files).forEach(file => {
-                    let isDuplicate = false;
-                    for (let i = 0; i < documentsDataTransfer.items.length; i++) {
-                        if (documentsDataTransfer.items[i].getAsFile().name === file.name) {
-                            isDuplicate = true;
-                            break;
-                        }
-                    }
-                    if (!isDuplicate) {
-                        documentsDataTransfer.items.add(file);
-                    }
-                });
-                
-                // Update input's files list
-                this.files = documentsDataTransfer.files;
-
-                const count = this.files.length;
-                if (count > 50) {
-                    alert('?? Maximum 50 files allowed. Please select fewer files.');
-                    documentsDataTransfer.items.clear();
-                    this.value = '';
-                    if (documentsFileInfo) documentsFileInfo.textContent = '';
+                const dup = Array.from(dt.files).some(f => toStoredFilename(f.name).toLowerCase() === stored);
+                if (dup) {
+                    alreadySelected.push(file.name);
                     return;
                 }
-                const fileNames = Array.from(this.files).map(f => f.name).join(', ');
-                if (documentsFileInfo) documentsFileInfo.textContent = `?? Selected ${count} file(s): ${fileNames.substring(0, 100)}${fileNames.length > 100 ? '...' : ''}`;
-                console.log('?? Documents files selected:', count);
+                dt.items.add(file);
+            });
+            if (alreadyAttached.length) {
+                showToast(`Already attached: ${escapeHtml(alreadyAttached.join(', '))}. Delete the existing file or rename the new one.`, 'warning', 6000);
             }
+            if (alreadySelected.length) {
+                showToast(`Already selected: ${escapeHtml(alreadySelected.join(', '))}.`, 'warning');
+            }
+            this.files = dt.files;
+            const count = dt.files.length + existingNames[label].size;
+            if (count > 50) {
+                showToast(`Maximum 50 files allowed (${existingNames[label].size} already attached). Please select fewer files.`, 'warning');
+                dt.items.clear();
+                this.value = '';
+                if (fileInfoEl) fileInfoEl.innerHTML = '';
+                return;
+            }
+            // Show pending card list (local files, no size from server)
+            renderFileCards(fileInfoEl, Array.from(dt.files), controlId, label);
         });
     }
-    
+
+    handleFileChange(detailsInput,   detailsDT,   detailsZone,   detailsBar,   detailsFileInfo,   'details');
+    handleFileChange(documentsInput, documentsDT, documentsZone, documentsBar, documentsFileInfo, 'documents');
+
     // Flag to prevent multiple uploads
     let filesAlreadyUploaded = false;
-    
-    // Global function to upload attachments (called from save functions)
+
     window.uploadAttachments = async function() {
-        console.log('?? uploadAttachments() called');
-        
-        // Prevent duplicate uploads
-        if (filesAlreadyUploaded) {
-            console.log('?? Files already uploaded, skipping');
-            return Promise.resolve({ success: true, skipped: true });
-        }
-        
+        if (filesAlreadyUploaded) return Promise.resolve({ success: true, skipped: true });
         const formData = new FormData();
         let hasFiles = false;
-        
         if (detailsInput && detailsInput.files.length > 0) {
-            // Add all selected files for Details
-            Array.from(detailsInput.files).forEach(file => {
-                formData.append('attachmentDetails', file);
-                console.log('?? Adding details file:', file.name);
-            });
+            Array.from(detailsInput.files).forEach(f => formData.append('attachmentDetails', f));
             hasFiles = true;
         }
-        
         if (documentsInput && documentsInput.files.length > 0) {
-            // Add all selected files for Documents
-            Array.from(documentsInput.files).forEach(file => {
-                formData.append('attachmentDocuments', file);
-                console.log('?? Adding documents file:', file.name);
-            });
+            Array.from(documentsInput.files).forEach(f => formData.append('attachmentDocuments', f));
             hasFiles = true;
         }
-        
-        if (!hasFiles) {
-            console.log('?? No files selected for upload');
-            return Promise.resolve();
+        if (!hasFiles) return Promise.resolve();
+
+        const totalBytes = [...(detailsInput?.files || []), ...(documentsInput?.files || [])]
+            .reduce((sum, f) => sum + f.size, 0);
+        if (totalBytes > MAX_REQUEST_SIZE_MB * 1024 * 1024) {
+            showToast(`Total size of selected files is ${formatSize(totalBytes)}. Maximum per upload is ${MAX_REQUEST_SIZE_MB} MB.`, 'error', 6000);
+            return Promise.resolve({ success: false, error: 'Total upload size exceeded' });
         }
-        
-        // Mark as uploaded to prevent duplicates
+
         filesAlreadyUploaded = true;
-        
-        console.log('?? Uploading files to /api/attachments/upload/' + controlId);
-        
+        showProgress(detailsZone, detailsBar);
+        showProgress(documentsZone, documentsBar);
+        animateProgress(detailsBar,   80, 1500);
+        animateProgress(documentsBar, 80, 1500);
+
         try {
-            const response = await fetch('/api/attachments/upload/' + controlId, {
-                method: 'POST',
-                body: formData
-            });
-            
-            const data = await response.json();
-            console.log('?? Upload response:', data);
-            
-            if (data.success) {
-                console.log('? Files uploaded successfully');
+            const response = await fetch('/api/attachments/upload/' + controlId, { method: 'POST', body: formData });
+            const text = await response.text();
+            let data;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (e) {
+                data = { success: false, message: response.status === 413 ? 'File is too large.' : 'Unexpected server response (' + response.status + ').' };
+            }
+            hideProgress(detailsZone, detailsBar);
+            hideProgress(documentsZone, documentsBar);
+            if (response.ok && data.success) {
+                showToast('Files uploaded successfully!', 'success');
+                detailsDT.items.clear();
+                documentsDT.items.clear();
+                if (detailsInput) detailsInput.value = '';
+                if (documentsInput) documentsInput.value = '';
+                filesAlreadyUploaded = false;
                 loadExistingAttachments();
             } else {
-                console.error('? Upload failed:', data.error);
+                data.success = false;
+                showToast('Upload failed: ' + escapeHtml(data.message || data.error || 'Unknown error'), 'error', 8000);
+                filesAlreadyUploaded = false;
             }
-            
             return data;
         } catch (error) {
-            console.error('? Upload error:', error);
+            hideProgress(detailsZone, detailsBar);
+            hideProgress(documentsZone, documentsBar);
+            showToast('Upload error: ' + error.message, 'error');
+            filesAlreadyUploaded = false;
             return { success: false, error: error.message };
         }
     };
-    
-    // Load existing attachment info from server
+
     function loadExistingAttachments() {
         fetch('/api/attachments/info/' + controlId)
-            .then(response => response.json())
+            .then(r => r.json())
             .then(data => {
-                console.log('?? Existing attachments:', data);
-                
-                // Show Details attachments if exist (semicolon-separated list)
+                const toNameSet = list => new Set((list || '').split(';').map(f => f.trim().toLowerCase()).filter(Boolean));
+                existingNames.details = toNameSet(data.attachmentDetailsPath);
+                existingNames.documents = toNameSet(data.attachmentDocumentsPath);
+
                 if (data.attachmentDetailsPath && detailsFileInfo) {
                     const files = data.attachmentDetailsPath.split(';').filter(f => f.trim());
-                    if (files.length > 0) {
-                        const fileLinks = files.map(file => {
-                            const filename = file.split('_').slice(2).join('_') || file;
-                            return `<span class="kpmg-file-badge"><a href="/api/attachments/download/${encodeURIComponent(file)}?controlId=${controlId}" class="badge text-decoration-none" download>${filename}</a><button type="button" class="kpmg-file-delete" data-file="${encodeURIComponent(file)}" data-type="details" title="Remove file">&times;</button></span>`;
-                        }).join(' ');
-                        detailsFileInfo.innerHTML = `?? Files (${files.length}): ${fileLinks}`;
-                        if (downloadDetailsBtn) downloadDetailsBtn.style.display = 'none';
-                    }
-                } else if (detailsFileInfo) {
-                    detailsFileInfo.innerHTML = '';
-                }
-                
-                // Show Documents attachments if exist (semicolon-separated list)
+                    renderFileCards(detailsFileInfo, files, controlId, 'details');
+                } else if (detailsFileInfo) { detailsFileInfo.innerHTML = ''; }
+
                 if (data.attachmentDocumentsPath && documentsFileInfo) {
                     const files = data.attachmentDocumentsPath.split(';').filter(f => f.trim());
-                    if (files.length > 0) {
-                        const fileLinks = files.map(file => {
-                            const filename = file.split('_').slice(2).join('_') || file;
-                            return `<span class="kpmg-file-badge"><a href="/api/attachments/download/${encodeURIComponent(file)}?controlId=${controlId}" class="badge text-decoration-none" download>${filename}</a><button type="button" class="kpmg-file-delete" data-file="${encodeURIComponent(file)}" data-type="documents" title="Remove file">&times;</button></span>`;
-                        }).join(' ');
-                        documentsFileInfo.innerHTML = `?? Files (${files.length}): ${fileLinks}`;
-                        if (downloadDocumentsBtn) downloadDocumentsBtn.style.display = 'none';
-                    }
-                } else if (documentsFileInfo) {
-                    documentsFileInfo.innerHTML = '';
-                }
+                    renderFileCards(documentsFileInfo, files, controlId, 'documents');
+                } else if (documentsFileInfo) { documentsFileInfo.innerHTML = ''; }
             })
-            .catch(error => console.warn('?? Could not load attachments:', error));
+            .catch(err => console.warn('Could not load attachments:', err));
     }
 
-    // Delete file handler (event delegation)
+    // Delete handler (event delegation)
     document.addEventListener('click', async function(e) {
         const btn = e.target.closest('.kpmg-file-delete');
         if (!btn) return;
@@ -1945,21 +2259,25 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const resp = await fetch(`/api/attachments/delete/${controlId}?filename=${file}&type=${type}`, { method: 'DELETE' });
             const data = await resp.json();
-            if (data.success) {
-                loadExistingAttachments();
-            } else {
-                alert(data.message || 'Failed to delete file');
-            }
-        } catch (err) {
-            console.error('Delete error:', err);
-            alert('Failed to delete file');
-        }
+            if (data.success) { loadExistingAttachments(); showToast('File deleted.', 'success', 2500); }
+            else { showToast(data.message || 'Failed to delete file', 'error'); }
+        } catch (err) { showToast('Failed to delete file: ' + err.message, 'error'); }
     });
-    
-    // Expose function globally for Cancel button to call
+
+    // More menu (Rename ID dropdown) toggle
+    const moreBtn = document.getElementById('kpmgMoreMenuBtn');
+    const moreDropdown = document.getElementById('kpmgMoreDropdown');
+    if (moreBtn && moreDropdown) {
+        moreBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            moreDropdown.classList.toggle('open');
+        });
+        document.addEventListener('click', function() { moreDropdown.classList.remove('open'); });
+    }
+
     window.reloadExistingAttachments = loadExistingAttachments;
-    
-    console.log('? File attachment system initialized');
+    console.log('File attachment system v2 initialized');
+
 });
 </script>
 </body>

@@ -43,6 +43,8 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 @WebMvcTest(controllers = ControlController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -98,6 +100,9 @@ class ControlControllerSecurityTest {
         requestBody.setControlCategory("Manual");
         requestBody.setControlType("Preventive");
         requestBody.setComponent("HR");
+        requestBody.setOperatedBy("Network");
+        requestBody.setPriority("High");
+        requestBody.setNonAuditServicesApplicability("Applicable");
     }
 
     @Test
@@ -224,6 +229,48 @@ class ControlControllerSecurityTest {
                 .andExpect(status().isUnauthorized());
 
         verify(controlService, never()).createControl(any(Control.class));
+    }
+
+    @Test
+    void createControl_whenRequiredFieldBlank_returns400() throws Exception {
+        requestBody.setPriority("  ");
+
+        mockMvc.perform(post("/api/controls")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestBody))
+                        .sessionAttr("currentUser", userWithRole("SOQM_TEAM")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Priority is required"));
+
+        verify(controlService, never()).createControl(any(Control.class));
+    }
+
+    @Test
+    void updateControl_whenRequiredFieldSentBlank_returns400() throws Exception {
+        User sessionUser = userWithRole("SOQM_TEAM");
+        Control existing = new Control();
+        existing.setId(201L);
+        existing.setControlId("CTRL-201");
+        existing.setControlFrequency("Monthly");
+
+        ControlDTO updateRequest = new ControlDTO();
+        updateRequest.setControlFrequency("Monthly");
+        updateRequest.setOperatedBy("");
+
+        when(controlService.getControlById(201L)).thenReturn(Optional.of(existing));
+        when(controlAssignmentService.getAssignmentByControlId(201L)).thenReturn(new ControlAssignmentDTO());
+        when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
+                        false, false, false, false, true, false));
+
+        mockMvc.perform(put("/api/controls/201")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("VALIDATION_ERROR: Operated By is required"));
+
+        verify(controlService, never()).updateControl(any(Control.class));
     }
 
     @Test

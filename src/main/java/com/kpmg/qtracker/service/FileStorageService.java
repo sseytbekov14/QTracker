@@ -41,22 +41,14 @@ public class FileStorageService {
             System.out.println("📁 Created upload directory: " + uploadPath);
         }
 
-        String originalFilename = file.getOriginalFilename();
-        String safeFilename = sanitizeFilename(originalFilename);
-        String baseName = safeFilename;
-        String extension = "";
-        int dotIndex = safeFilename.lastIndexOf('.');
-        if (dotIndex > 0 && dotIndex < safeFilename.length() - 1) {
-            baseName = safeFilename.substring(0, dotIndex);
-            extension = safeFilename.substring(dotIndex + 1);
+        String uniqueFilename = toStoredFilename(file.getOriginalFilename());
+        String baseName = uniqueFilename;
+        String extensionSuffix = "";
+        int dotIndex = uniqueFilename.lastIndexOf('.');
+        if (dotIndex > 0) {
+            baseName = uniqueFilename.substring(0, dotIndex);
+            extensionSuffix = uniqueFilename.substring(dotIndex);
         }
-
-        if (baseName == null || baseName.isBlank()) {
-            baseName = "file";
-        }
-
-        String extensionSuffix = extension.isBlank() ? "" : "." + extension;
-        String uniqueFilename = baseName + extensionSuffix;
         Path filePath = uploadPath.resolve(uniqueFilename);
 
         int counter = 1;
@@ -152,11 +144,31 @@ public class FileStorageService {
     }
 
     /**
+     * Name under which an uploaded file is stored (before " (n)" de-duplication).
+     * Used both for saving and for duplicate-name validation, so they always agree.
+     */
+    public static String toStoredFilename(String originalFilename) {
+        String safeFilename = sanitizeFilename(originalFilename);
+        String baseName = safeFilename;
+        String extension = "";
+        int dotIndex = safeFilename.lastIndexOf('.');
+        if (dotIndex > 0 && dotIndex < safeFilename.length() - 1) {
+            baseName = safeFilename.substring(0, dotIndex);
+            extension = safeFilename.substring(dotIndex + 1);
+        }
+        if (baseName.isBlank()) {
+            baseName = "file";
+        }
+        return extension.isBlank() ? baseName : baseName + "." + extension;
+    }
+
+    /**
      * Sanitize filename to prevent path traversal
      */
-    private String sanitizeFilename(String filename) {
+    private static String sanitizeFilename(String filename) {
         if (filename == null) return "unknown";
-        return filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+        // Keep letters/digits of any alphabet (e.g. Cyrillic) so different names don't collapse into "___.pdf"
+        return filename.replaceAll("[^\\p{L}\\p{N}._-]", "_");
     }
 
     private String sanitizeFolderName(String folder) {

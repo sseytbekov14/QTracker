@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  Workflow progress: Facilitator -> Control Operator -> SoQM Review -> Process Owner -> Completed.
+  step: 0..4 = current stage (4 = completed), -1 = not initiated. People are display-name strings (nullable).
+  Styles: .wf-stepper in static/css/style.css
+-->
+<div th:fragment="stepper(step, facilitator, controlOperator, soqmTeam, processOwner)" class="wf-stepper-wrap">
+    <ol class="wf-stepper" aria-label="Workflow progress">
+        <li class="wf-step" th:classappend="${step > 0} ? 'is-done' : (${step == 0} ? 'is-current')"
+            th:attr="aria-current=${step == 0} ? 'step' : null">
+            <span class="wf-step-dot"><i th:if="${step > 0}" class="bi bi-check-lg" aria-hidden="true"></i><span th:unless="${step > 0}">1</span></span>
+            Facilitator
+            <span class="wf-step-who" th:text="${facilitator ?: '—'}" th:title="${facilitator}">Name</span>
+        </li>
+        <li class="wf-step" th:classappend="${step > 1} ? 'is-done' : (${step == 1} ? 'is-current')"
+            th:attr="aria-current=${step == 1} ? 'step' : null">
+            <span class="wf-step-dot"><i th:if="${step > 1}" class="bi bi-check-lg" aria-hidden="true"></i><span th:unless="${step > 1}">2</span></span>
+            Control Operator
+            <span class="wf-step-who" th:text="${controlOperator ?: '—'}" th:title="${controlOperator}">Name</span>
+        </li>
+        <li class="wf-step" th:classappend="${step > 2} ? 'is-done' : (${step == 2} ? 'is-current')"
+            th:attr="aria-current=${step == 2} ? 'step' : null">
+            <span class="wf-step-dot"><i th:if="${step > 2}" class="bi bi-check-lg" aria-hidden="true"></i><span th:unless="${step > 2}">3</span></span>
+            SoQM Review
+            <span class="wf-step-who" th:text="${soqmTeam ?: '—'}" th:title="${soqmTeam}">Name</span>
+        </li>
+        <li class="wf-step" th:classappend="${step > 3} ? 'is-done' : (${step == 3} ? 'is-current')"
+            th:attr="aria-current=${step == 3} ? 'step' : null">
+            <span class="wf-step-dot"><i th:if="${step > 3}" class="bi bi-check-lg" aria-hidden="true"></i><span th:unless="${step > 3}">4</span></span>
+            Process Owner
+            <span class="wf-step-who" th:text="${processOwner ?: '—'}" th:title="${processOwner}">Name</span>
+        </li>
+        <li class="wf-step" th:classappend="${step == 4} ? 'is-done'">
+            <span class="wf-step-dot"><i th:if="${step == 4}" class="bi bi-check-lg" aria-hidden="true"></i><span th:unless="${step == 4}">5</span></span>
+            Completed
+        </li>
+    </ol>
+    <p class="wf-stepper-note" th:if="${step < 0}">This control has not been initiated yet.</p>
+</div>
+</body>
+</html>

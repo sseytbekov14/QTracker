@@ -13,6 +13,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
@@ -20,6 +21,7 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -28,6 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = FileAttachmentController.class)
+@TestPropertySource(properties = "file.upload.max-file-size-mb=1")
 @AutoConfigureMockMvc(addFilters = false)
 class FileAttachmentControllerTest {
 
@@ -62,8 +65,8 @@ class FileAttachmentControllerTest {
 
         MockMultipartFile file = new MockMultipartFile(
                 "attachmentDetails",
-                "file.txt",
-                "text/plain",
+                "file.pdf",
+                "application/pdf",
                 "data".getBytes()
         );
 
@@ -89,8 +92,8 @@ class FileAttachmentControllerTest {
 
         MockMultipartFile file = new MockMultipartFile(
                 "attachmentDocuments",
-                "file.txt",
-                "text/plain",
+                "file.pdf",
+                "application/pdf",
                 "data".getBytes()
         );
 
@@ -106,7 +109,7 @@ class FileAttachmentControllerTest {
         control.setId(3L);
         control.setControlId("HR13");
         when(controlService.getControlById(3L)).thenReturn(Optional.of(control));
-        when(fileStorageService.saveFile(any(), any())).thenReturn("test.txt");
+        when(fileStorageService.saveFile(any(), any())).thenReturn("test.pdf");
         when(controlService.updateControl(any(Control.class))).thenReturn(control);
 
         User user = new User();
@@ -117,8 +120,8 @@ class FileAttachmentControllerTest {
 
         MockMultipartFile file = new MockMultipartFile(
                 "attachmentDetails",
-                "test.txt",
-                "text/plain",
+                "test.pdf",
+                "application/pdf",
                 "data".getBytes()
         );
 
@@ -172,6 +175,77 @@ class FileAttachmentControllerTest {
                 anyString(),
                 anyString()
         );
+    }
+
+    @Test
+    void upload_fileTooLarge_returnsBadRequestAndSavesNothing() throws Exception {
+        User user = mockEditableControl(5L, null);
+        MockMultipartFile file = new MockMultipartFile(
+                "attachmentDetails", "big.pdf", "application/pdf", new byte[1024 * 1024 + 1]);
+
+        mockMvc.perform(multipart("/api/attachments/upload/5").file(file).sessionAttr("currentUser", user))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("File \"big.pdf\" exceeds the maximum size of 1 MB."));
+
+        verify(fileStorageService, never()).saveFile(any(), any());
+    }
+
+    @Test
+    void upload_nameAlreadyAttached_returnsBadRequest() throws Exception {
+        User user = mockEditableControl(6L, "Report.pdf;other.pdf");
+        MockMultipartFile file = new MockMultipartFile(
+                "attachmentDetails", "report.PDF", "application/pdf", "data".getBytes());
+
+        mockMvc.perform(multipart("/api/attachments/upload/6").file(file).sessionAttr("currentUser", user))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "File \"report.PDF\" is already attached in Details. Delete the existing file or rename the new one."));
+
+        verify(fileStorageService, never()).saveFile(any(), any());
+    }
+
+    @Test
+    void upload_sameNameTwiceInSelection_returnsBadRequest() throws Exception {
+        User user = mockEditableControl(7L, null);
+        MockMultipartFile first = new MockMultipartFile(
+                "attachmentDetails", "a.pdf", "application/pdf", "1".getBytes());
+        MockMultipartFile second = new MockMultipartFile(
+                "attachmentDetails", "a.pdf", "application/pdf", "2".getBytes());
+
+        mockMvc.perform(multipart("/api/attachments/upload/7").file(first).file(second)
+                        .sessionAttr("currentUser", user))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("File \"a.pdf\" is selected more than once for Details."));
+
+        verify(fileStorageService, never()).saveFile(any(), any());
+    }
+
+    @Test
+    void upload_unsupportedType_returnsBadRequest() throws Exception {
+        User user = mockEditableControl(8L, null);
+        MockMultipartFile file = new MockMultipartFile(
+                "attachmentDocuments", "script.exe", "application/octet-stream", "x".getBytes());
+
+        mockMvc.perform(multipart("/api/attachments/upload/8").file(file).sessionAttr("currentUser", user))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(fileStorageService, never()).saveFile(any(), any());
+    }
+
+    private User mockEditableControl(Long id, String detailsPath) {
+        Control control = new Control();
+        control.setId(id);
+        control.setControlId("HR" + id);
+        control.setAttachmentDetailsPath(detailsPath);
+        when(controlService.getControlById(id)).thenReturn(Optional.of(control));
+        when(controlPermissionService.resolve(any(Control.class), any(User.class)))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false, false));
+        User user = new User();
+        user.setMail("user@test.com");
+        user.setDisplayName("Test User");
+        return user;
     }
 
     private String buildList(int count) {

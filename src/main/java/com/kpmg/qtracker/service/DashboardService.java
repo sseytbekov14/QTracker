@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,6 +37,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DashboardService {
     private static final Logger log = LoggerFactory.getLogger(DashboardService.class);
+    // "Today" is the business day in Almaty, not the server/DB timezone (UTC in Docker)
+    private static final ZoneId ZONE = ZoneId.of("Asia/Almaty");
     private static final DateTimeFormatter TREND_LABEL_FORMAT = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
     private static final String COMPLETED_SQL = """
             (
@@ -144,7 +147,7 @@ public class DashboardService {
 
     public DashboardChartDataDTO getMyOverdueTrend(User currentUser) {
         List<Control> visibleControls = findMyScopedNonDraftControls(currentUser);
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZONE);
         LocalDate startDate = today.minusDays(29);
         Map<LocalDate, Long> grouped = new LinkedHashMap<>();
         for (LocalDate date = startDate; !date.isAfter(today); date = date.plusDays(1)) {
@@ -171,7 +174,7 @@ public class DashboardService {
     }
 
     public DashboardChartDataDTO getOverdueTrend() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZONE);
         LocalDate startDate = today.minusDays(29);
 
         Map<LocalDate, Long> grouped = new LinkedHashMap<>();
@@ -183,12 +186,13 @@ public class DashboardService {
                 SELECT c.control_operation_deadline, COUNT(*)
                 FROM controls c
                 WHERE c.control_operation_deadline >= :startDate
-                  AND c.control_operation_deadline < CURRENT_DATE
+                  AND c.control_operation_deadline < :today
                   AND NOT %s
                 GROUP BY c.control_operation_deadline
                 ORDER BY c.control_operation_deadline
                 """.formatted(COMPLETED_SQL))
                 .setParameter("startDate", startDate)
+                .setParameter("today", today)
                 .getResultList();
 
         for (Object[] row : rows) {
@@ -211,7 +215,7 @@ public class DashboardService {
             return Collections.emptyList();
         }
 
-        LocalDate startDate = LocalDate.now();
+        LocalDate startDate = LocalDate.now(ZONE);
         LocalDate endDate = startDate.plusDays(Math.max(days, 0));
         int safeLimit = Math.max(1, limit);
 
@@ -274,7 +278,7 @@ public class DashboardService {
                        DATE(c.control_operation_deadline) AS event_start,
                        CASE
                            WHEN %1$s THEN '#9BA3B5'
-                           WHEN c.control_operation_deadline < CURRENT_DATE THEN '#C8102E'
+                           WHEN c.control_operation_deadline < :today THEN '#C8102E'
                            WHEN c.control_operation_deadline <= :dueSoonDate THEN '#D4A843'
                            ELSE '#005EB8'
                        END AS event_color
@@ -289,7 +293,8 @@ public class DashboardService {
         List<Object[]> rows = applyScopeParameters(entityManager.createNativeQuery(sql), scope)
                 .setParameter("startDate", start)
                 .setParameter("endDate", end)
-                .setParameter("dueSoonDate", LocalDate.now().plusDays(3))
+                .setParameter("dueSoonDate", LocalDate.now(ZONE).plusDays(3))
+                .setParameter("today", LocalDate.now(ZONE))
                 .getResultList();
 
         List<DashboardCalendarEventDTO> events = new ArrayList<>();
@@ -379,14 +384,15 @@ public class DashboardService {
                     COALESCE(SUM(CASE WHEN %1$s THEN 1 ELSE 0 END), 0) AS completed_count,
                     COALESCE(SUM(CASE
                         WHEN NOT %1$s
-                         AND c.control_operation_deadline < CURRENT_DATE
+                         AND c.control_operation_deadline < :today
                         THEN 1 ELSE 0 END), 0) AS overdue_count,
                     COALESCE(SUM(CASE
                         WHEN NOT %1$s
-                         AND (c.control_operation_deadline IS NULL OR c.control_operation_deadline >= CURRENT_DATE)
+                         AND (c.control_operation_deadline IS NULL OR c.control_operation_deadline >= :today)
                         THEN 1 ELSE 0 END), 0) AS active_count
                 FROM controls c
                 """.formatted(COMPLETED_SQL))
+                .setParameter("today", LocalDate.now(ZONE))
                 .getSingleResult();
 
         DashboardKpiCounts rawCounts = new DashboardKpiCounts(

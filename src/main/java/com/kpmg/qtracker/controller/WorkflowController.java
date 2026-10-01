@@ -57,6 +57,10 @@ public class WorkflowController {
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
+            Optional<String> missingComment = requiredFieldService.getMissingReviewCommentMessage(control);
+            if (missingComment.isPresent()) {
+                return ResponseEntity.badRequest().body(missingComment.get());
+            }
 
             log.info("Workflow action: {} for control: {} by user: {}",
                     action, controlId, userEmail);
@@ -339,6 +343,10 @@ public class WorkflowController {
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
+            Optional<String> missingComment = requiredFieldService.getMissingReviewCommentMessage(control);
+            if (missingComment.isPresent()) {
+                return ResponseEntity.badRequest().body(missingComment.get());
+            }
 
             Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control, currentUser);
             if (missingField.isPresent()) {
@@ -400,6 +408,10 @@ public class WorkflowController {
             ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
             if (restrictedResponse != null) {
                 return restrictedResponse;
+            }
+            Optional<String> missingComment = requiredFieldService.getMissingReviewCommentMessage(control);
+            if (missingComment.isPresent()) {
+                return ResponseEntity.badRequest().body(missingComment.get());
             }
 
             // Validate comment length
@@ -475,6 +487,10 @@ public class WorkflowController {
             if (restrictedResponse != null) {
                 return restrictedResponse;
             }
+            Optional<String> missingComment = requiredFieldService.getMissingReviewCommentMessage(control);
+            if (missingComment.isPresent()) {
+                return ResponseEntity.badRequest().body(missingComment.get());
+            }
 
             // Update control status to Completed
             control.setPerformanceStatus("COMPLETED");
@@ -531,6 +547,10 @@ public class WorkflowController {
             ResponseEntity<?> restrictedResponse = denyWorkflowActionIfRestricted(control, currentUser);
             if (restrictedResponse != null) {
                 return restrictedResponse;
+            }
+            Optional<String> missingComment = requiredFieldService.getMissingReviewCommentMessage(control);
+            if (missingComment.isPresent()) {
+                return ResponseEntity.badRequest().body(missingComment.get());
             }
 
             // Validate comment length

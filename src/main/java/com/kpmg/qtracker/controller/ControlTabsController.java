@@ -123,6 +123,10 @@ public class ControlTabsController {
                         .body("VALIDATION_ERROR: Shared users on COMPLETED controls cannot edit assignment fields");
             }
             ControlAssignmentDTO mergedAssignment = mergeControlAssignment(existingAssignment, assignmentDTO);
+            String missingField = findMissingAssignmentField(mergedAssignment);
+            if (missingField != null) {
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + missingField + " is required");
+            }
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
             List<String> changedFields = new ArrayList<>();
@@ -437,6 +441,30 @@ public class ControlTabsController {
             return existingValue;
         }
         return incomingValue != null ? incomingValue : existingValue;
+    }
+
+    /** Required assignment fields (same as the Save validation in view-control.js). */
+    private String findMissingAssignmentField(ControlAssignmentDTO assignment) {
+        if (!hasAnyEmail(assignment.getFacilitator())) {
+            return "Facilitator";
+        }
+        if (!hasAnyEmail(assignment.getControlOperator())) {
+            return "Control Operator";
+        }
+        if (!hasAnyEmail(assignment.getSoqmLead())) {
+            return "SoQM Team / Delegate";
+        }
+        if (!hasAnyEmail(assignment.getProcessOwner())) {
+            return "Process Owner";
+        }
+        if (assignment.getControlOperationDate() == null) {
+            return "Control Operation Date";
+        }
+        return null;
+    }
+
+    private boolean hasAnyEmail(List<String> emails) {
+        return emails != null && emails.stream().anyMatch(e -> e != null && !e.isBlank());
     }
 
     private List<String> resolveList(List<String> existingValue, List<String> incomingValue) {

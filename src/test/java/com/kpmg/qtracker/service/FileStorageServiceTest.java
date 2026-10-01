@@ -40,4 +40,11 @@ class FileStorageServiceTest {
         assertThat(Files.exists(firstPath)).isTrue();
         assertThat(Files.exists(secondPath)).isTrue();
     }
+
+    @Test
+    void toStoredFilename_keepsCyrillicSoDifferentNamesDoNotCollide() {
+        assertThat(FileStorageService.toStoredFilename("Акт сверки.pdf")).isEqualTo("Акт_сверки.pdf");
+        assertNotEquals(FileStorageService.toStoredFilename("Акт.pdf"), FileStorageService.toStoredFilename("Док.pdf"));
+        assertThat(FileStorageService.toStoredFilename("../../etc/passwd")).doesNotContain("/");
+    }
 }

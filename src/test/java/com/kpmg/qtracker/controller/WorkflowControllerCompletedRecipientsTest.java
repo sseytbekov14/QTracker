@@ -32,6 +32,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
@@ -112,6 +113,35 @@ class WorkflowControllerCompletedRecipientsTest {
         List<String> recipients = recipientsCaptor.getValue();
         assertThat(recipients).containsExactlyInAnyOrder("fac@kpmg.kz", "op@kpmg.kz", "soqm@kpmg.kz");
         assertThat(recipients).doesNotContain("owner@kpmg.kz", "owner2@kpmg.kz");
+    }
+
+    @Test
+    void completeControl_withoutProcessOwnerComments_returns400AndKeepsStatus() {
+        Long controlId = 101L;
+        Control control = new Control();
+        control.setId(controlId);
+        control.setControlId("CTRL-101");
+        control.setPerformanceStatus("PROCESS_OWNER_REVIEW");
+
+        User currentUser = new User();
+        currentUser.setMail("owner.current@kpmg.kz");
+        currentUser.setRole("PROCESS_OWNER");
+
+        when(session.getAttribute("currentUser")).thenReturn(currentUser);
+        when(controlService.getControlById(controlId)).thenReturn(Optional.of(control));
+        when(controlPermissionService.resolve(control, currentUser))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, false,
+                        false, false, false, false, false, true));
+        when(requiredFieldService.getMissingReviewCommentMessage(control))
+                .thenReturn(Optional.of("Required field is missing: Process Owner Comments"));
+
+        ResponseEntity<?> response = controller.completeControl(controlId, session);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).isEqualTo("Required field is missing: Process Owner Comments");
+        assertThat(control.getPerformanceStatus()).isEqualTo("PROCESS_OWNER_REVIEW");
+        verify(controlService, never()).save(any(Control.class));
+        verifyNoInteractions(notificationService);
     }
 
     @Test

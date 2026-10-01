@@ -1,17 +1,15 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Controls - QTracker</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=8" rel="stylesheet">
+    <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css?v=11" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 
     <style>
-/* =====================
-   KPMG BRAND
-   ===================== */
 :root {
     --kpmg-blue: #00338D;
     --kpmg-blue-light: #005EB8;
@@ -25,57 +23,47 @@
     --kpmg-white: #ffffff;
     --kpmg-green: #009a44;
     --kpmg-red: #c8102e;
-    --kpmg-amber: #d4a843;
+    --kpmg-amber-text: #8a6100;
 }
 
 body { background: var(--kpmg-gray-50); }
 
-/* =====================
-   PAGE HEADER
-   ===================== */
+/* Header */
 .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
     background: var(--kpmg-blue);
     color: var(--kpmg-white);
-    padding: 20px 24px;
+    padding: 14px 24px;
     border-bottom: 3px solid var(--kpmg-blue-light);
 }
-
-.page-header h1 {
-    font-size: 1.35rem;
-    font-weight: 600;
-    margin: 0;
-}
-
-.page-header .subtitle {
-    font-size: 0.78rem;
-    color: rgba(255,255,255,0.65);
-    margin: 2px 0 0 0;
-}
-
-.page-header .btn-export {
+.page-header h1 { font-size: 1.15rem; font-weight: 600; margin: 0; }
+.page-header .subtitle { font-size: 0.8rem; color: rgba(255, 255, 255, 0.75); margin: 2px 0 0; }
+.btn-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     background: var(--kpmg-white);
     color: var(--kpmg-blue);
     border: none;
-    font-size: 0.76rem;
+    font-size: 0.8rem;
     font-weight: 600;
-    padding: 5px 14px;
-    border-radius: 3px;
+    padding: 7px 14px;
+    border-radius: 4px;
+    white-space: nowrap;
 }
+.btn-export:hover { background: #e6ecf6; }
+.btn-export:focus-visible { outline: 2px solid var(--kpmg-white); outline-offset: 2px; }
 
-.page-header .btn-export:hover {
-    background: var(--kpmg-gray-100);
-}
-
-/* =====================
-   STATS BAR
-   ===================== */
+/* Stats: each block is a filter link */
 .stats-bar {
     display: flex;
     background: var(--kpmg-white);
     border: 1px solid var(--kpmg-gray-200);
     border-top: none;
 }
-
 .stats-bar .stat-item {
     flex: 1;
     display: flex;
@@ -83,179 +71,132 @@ body { background: var(--kpmg-gray-50); }
     justify-content: center;
     gap: 8px;
     padding: 10px 16px;
-    font-size: 0.76rem;
+    font-size: 0.78rem;
     color: var(--kpmg-gray-600);
     border-right: 1px solid var(--kpmg-gray-200);
+    text-decoration: none;
+    transition: background 0.12s;
 }
-
 .stats-bar .stat-item:last-child { border-right: none; }
-
-.stats-bar .stat-num {
-    font-size: 1.1rem;
-    font-weight: 700;
-}
-
+.stats-bar .stat-item:hover { background: #f0f4fa; color: var(--kpmg-gray-800); }
+.stats-bar .stat-item.is-active { box-shadow: inset 0 -3px 0 var(--kpmg-blue); color: var(--kpmg-gray-800); font-weight: 600; }
+.stats-bar .stat-item:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: -2px; }
+.stats-bar .stat-num { font-size: 1.15rem; font-weight: 700; }
 .stats-bar .total .stat-num { color: var(--kpmg-blue); }
-.stats-bar .active .stat-num { color: var(--kpmg-amber); }
+.stats-bar .active .stat-num { color: var(--kpmg-amber-text); }
 .stats-bar .completed .stat-num { color: var(--kpmg-green); }
 .stats-bar .overdue .stat-num { color: var(--kpmg-red); }
 
-/* =====================
-   TOOLBAR
-   ===================== */
+/* Toolbar: status chips + search */
 .controls-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-top: none;
+}
+.status-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.status-chip {
+    padding: 4px 12px;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 14px;
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: var(--kpmg-gray-800);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all 0.12s;
+}
+.status-chip:hover { border-color: var(--kpmg-blue); color: var(--kpmg-blue); }
+.status-chip.is-active { background: var(--kpmg-blue); border-color: var(--kpmg-blue); color: var(--kpmg-white); font-weight: 600; }
+.status-chip.chip-overdue:not(.is-active) { color: var(--kpmg-red); border-color: #f1b8c2; }
+.status-chip:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
+
+.toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.component-select {
+    padding: 6px 28px 6px 10px;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: var(--kpmg-gray-800);
+    background-color: var(--kpmg-white);
+    max-width: 260px;
+}
+.component-select:focus { border-color: var(--kpmg-blue); box-shadow: 0 0 0 3px rgba(0, 51, 141, 0.12); outline: none; }
+.search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.search-box .bi-search {
+    position: absolute;
+    left: 10px;
+    color: var(--kpmg-gray-400);
+    font-size: 0.85rem;
+    pointer-events: none;
+}
+.search-box input {
+    width: 260px;
+    padding: 6px 30px 6px 30px;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: var(--kpmg-gray-800);
+}
+.search-box input:focus { border-color: var(--kpmg-blue); box-shadow: 0 0 0 3px rgba(0, 51, 141, 0.12); outline: none; }
+.search-clear {
+    position: absolute;
+    right: 4px;
+    border: none;
+    background: none;
+    color: var(--kpmg-gray-600);
+    padding: 2px 6px;
+    line-height: 1;
+}
+.search-clear[hidden] { display: none; }
+.result-count {
+    padding: 6px 16px;
+    font-size: 0.74rem;
+    color: var(--kpmg-gray-600);
     background: var(--kpmg-white);
     border: 1px solid var(--kpmg-gray-200);
     border-top: none;
 }
 
-.controls-toolbar .form-select,
-.controls-toolbar .form-control {
-    border: 1px solid var(--kpmg-gray-200);
-    border-radius: 3px;
-    padding: 5px 10px;
-    font-size: 0.78rem;
-    color: var(--kpmg-gray-800);
-}
-
-.controls-toolbar .form-select:focus,
-.controls-toolbar .form-control:focus {
-    border-color: var(--kpmg-blue);
-    box-shadow: 0 0 0 2px rgba(0,51,141,0.1);
-    outline: none;
-}
-
-/* ── Custom Dropdown ── */
-.kpmg-dropdown {
-    position: relative;
-    min-width: 180px;
-    user-select: none;
-}
-
-.kpmg-dropdown-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 12px;
-    border: 1px solid var(--kpmg-gray-200);
-    border-radius: 3px;
-    background: var(--kpmg-white);
-    cursor: pointer;
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: var(--kpmg-gray-800);
-    transition: border-color 0.15s;
-}
-
-.kpmg-dropdown-toggle:hover {
-    border-color: var(--kpmg-blue);
-}
-
-.kpmg-dropdown.open .kpmg-dropdown-toggle {
-    border-color: var(--kpmg-blue);
-    box-shadow: 0 0 0 2px rgba(0,51,141,0.1);
-}
-
-.kpmg-dropdown-arrow {
-    width: 16px;
-    height: 16px;
-    color: var(--kpmg-gray-400);
-    transition: transform 0.2s;
-    flex-shrink: 0;
-}
-
-.kpmg-dropdown.open .kpmg-dropdown-arrow {
-    transform: rotate(180deg);
-}
-
-.kpmg-dropdown-menu {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    background: var(--kpmg-white);
-    border: 1px solid var(--kpmg-gray-200);
-    border-radius: 4px;
-    box-shadow: 0 4px 16px rgba(0,20,60,0.12);
-    z-index: 100;
-    display: none;
-    padding: 4px 0;
-}
-
-.kpmg-dropdown.open .kpmg-dropdown-menu {
-    display: block;
-}
-
-.kpmg-dropdown-item {
-    padding: 7px 14px;
-    font-size: 0.78rem;
-    color: var(--kpmg-gray-700);
-    cursor: pointer;
-    transition: background 0.1s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.kpmg-dropdown-item:hover {
-    background: var(--kpmg-gray-50);
-    color: var(--kpmg-gray-800);
-}
-
-.kpmg-dropdown-item.active {
-    background: var(--kpmg-blue);
-    color: var(--kpmg-white);
-    font-weight: 600;
-}
-
-.kpmg-dropdown-item.active:hover {
-    background: var(--kpmg-blue-light);
-}
-
-.controls-toolbar .btn-search {
-    background: var(--kpmg-blue);
-    color: var(--kpmg-white);
-    border: none;
-    border-radius: 3px;
-    padding: 5px 12px;
-    font-size: 0.78rem;
-    font-weight: 500;
-}
-
-.controls-toolbar .btn-search:hover {
-    background: var(--kpmg-blue-light);
-}
-
-/* =====================
-   TABLE
-   ===================== */
+/* Table */
 .table-wrapper {
     background: var(--kpmg-white);
     border: 1px solid var(--kpmg-gray-200);
     border-top: none;
     overflow-x: auto;
 }
-
 .control-table {
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     width: 100%;
     margin: 0;
     border-collapse: collapse;
 }
-
 .control-table thead th {
     background: var(--kpmg-gray-50);
     color: var(--kpmg-gray-600);
     font-weight: 600;
-    font-size: 0.68rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 10px 14px;
+    letter-spacing: 0.04em;
+    padding: 9px 12px;
     border-bottom: 2px solid var(--kpmg-gray-200);
     white-space: nowrap;
     vertical-align: middle;
@@ -263,180 +204,146 @@ body { background: var(--kpmg-gray-50); }
     top: 0;
     z-index: 2;
 }
+.sort-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+}
+.sort-btn:hover { color: var(--kpmg-blue); }
+.sort-btn .bi { font-size: 0.7rem; opacity: 0.45; }
+th[aria-sort="ascending"] .sort-btn .bi,
+th[aria-sort="descending"] .sort-btn .bi { opacity: 1; color: var(--kpmg-blue); }
+.sort-btn:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
 
 .control-table tbody td {
-    padding: 9px 14px;
+    padding: 9px 12px;
     vertical-align: middle;
     color: var(--kpmg-gray-800);
     border-bottom: 1px solid var(--kpmg-gray-100);
 }
-
 .control-table tbody tr:last-child td { border-bottom: none; }
 
-/* =====================
-   ROW STATES
-   ===================== */
-.clickable-row {
+.control-row {
     cursor: pointer;
-    transition: background 0.1s;
     border-left: 3px solid transparent;
+    transition: background 0.1s;
 }
+.control-row:hover { background: #f0f4fa; }
+.control-row.is-your-turn { border-left-color: var(--kpmg-blue-light); }
+.control-row.is-overdue { border-left-color: var(--kpmg-red); }
+.control-row .row-num { color: var(--kpmg-gray-400); width: 40px; }
 
-.clickable-row:hover {
-    background-color: #eef2f9 !important;
-}
-
-.clickable-row.editable-row {
-    background: var(--kpmg-white) !important;
-    border-left: 3px solid var(--kpmg-green);
-}
-
-.clickable-row.editable-row:hover {
-    background: #edf5f0 !important;
-}
-
-.clickable-row.view-only-row {
-    cursor: default;
-    background: var(--kpmg-gray-50) !important;
-    border-left: 3px solid var(--kpmg-gray-200);
-}
-
-.clickable-row.view-only-row:hover {
-    background: var(--kpmg-gray-100) !important;
-}
-
-.clickable-row.completed-row { border-left-color: var(--kpmg-green); }
-.clickable-row.overdue-row { border-left-color: var(--kpmg-red) !important; }
-
-/* =====================
-   CONTROL ID
-   ===================== */
-.control-id-text {
-    font-weight: 600;
+.control-link {
+    font-weight: 700;
     color: var(--kpmg-blue);
-    font-size: 0.78rem;
+    text-decoration: none;
 }
+.control-link:hover { text-decoration: underline; }
+.control-link:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
+.control-desc {
+    display: block;
+    max-width: 320px;
+    margin-top: 1px;
+    font-size: 0.74rem;
+    color: var(--kpmg-gray-600);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tag {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.64rem;
+    font-weight: 700;
+    vertical-align: 1px;
+}
+.tag-your-turn { background: #e6ecf6; color: var(--kpmg-blue); }
+.tag-shared { background: #e0f2f7; color: #055160; }
 
-/* =====================
-   STATUS BADGES
-   ===================== */
+.with-name { display: block; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.with-role { font-size: 0.7rem; color: var(--kpmg-gray-600); }
+.muted { color: var(--kpmg-gray-400); }
+
+.deadline-overdue { color: var(--kpmg-red); font-weight: 700; }
+.deadline-soon { color: var(--kpmg-amber-text); font-weight: 700; }
+
+/* Status badges */
 .badge {
-    font-weight: 500;
-    font-size: 0.67rem;
+    font-weight: 600;
+    font-size: 0.7rem;
     padding: 3px 8px;
     border-radius: 3px;
 }
-
 .status-draft      { background: var(--kpmg-gray-200); color: var(--kpmg-gray-600); }
-.status-progress   { background: #fff3cd; color: #856404; }
+.status-progress   { background: #fff3cd; color: #6b5104; }
 .status-review     { background: #cce5ff; color: #004085; }
 .status-soqm       { background: #e2d5f1; color: #4a2d7a; }
-.status-po         { background: #d4edda; color: #155724; }
-.status-completed  { background: var(--kpmg-green); color: var(--kpmg-white); }
+.status-po         { background: #d1f0ef; color: #0b5c5a; }
+.status-completed  { background: #d4edda; color: #155724; }
 .status-overdue    { background: var(--kpmg-red); color: var(--kpmg-white); }
+.control-table td.status-cell { white-space: nowrap; }
 
-.control-table td:last-child { white-space: nowrap; }
-
-/* =====================
-   EMPTY STATE
-   ===================== */
+/* Empty states */
 .empty-state {
     text-align: center;
-    padding: 48px 20px;
-    color: var(--kpmg-gray-400);
+    padding: 44px 20px;
+    color: var(--kpmg-gray-600);
+}
+.empty-state i { font-size: 2.2rem; display: block; margin-bottom: 8px; color: var(--kpmg-gray-400); }
+.empty-state p { font-size: 0.86rem; margin: 0 0 8px; }
+.empty-state a, .empty-state button {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--kpmg-blue);
+    background: none;
+    border: none;
+    padding: 0;
+    text-decoration: underline;
 }
 
-.empty-state i { font-size: 2.5rem; display: block; margin-bottom: 8px; }
-.empty-state p { font-size: 0.85rem; margin: 0; }
-
-body.theme-dark {
-    background: var(--app-bg);
-    color: var(--text-primary);
+@media (max-width: 767.98px) {
+    .search-box, .search-box input, .toolbar-right, .component-select { width: 100%; max-width: none; }
+    .controls-toolbar { flex-direction: column; align-items: stretch; }
+    .page-header { flex-wrap: wrap; }
 }
 
-body.theme-dark .page-header,
+/* Dark theme */
+body.theme-dark { background: var(--app-bg); color: var(--text-primary); }
 body.theme-dark .stats-bar,
 body.theme-dark .controls-toolbar,
-body.theme-dark .table-wrapper {
-    border-color: var(--border) !important;
-}
-
-body.theme-dark .stats-bar,
-body.theme-dark .controls-toolbar,
-body.theme-dark .table-wrapper,
-body.theme-dark .clickable-row.editable-row {
-    background: var(--surface-bg) !important;
-}
-
-body.theme-dark .clickable-row.view-only-row,
-body.theme-dark .control-table thead th {
-    background: var(--surface-bg-2) !important;
-}
-
+body.theme-dark .result-count,
+body.theme-dark .table-wrapper { background: var(--surface-bg); border-color: var(--border); }
 body.theme-dark .stats-bar .stat-item,
-body.theme-dark .controls-toolbar,
 body.theme-dark .control-table thead th,
-body.theme-dark .control-table tbody td {
-    border-color: var(--divider) !important;
-}
-
+body.theme-dark .control-table tbody td { border-color: var(--divider); }
 body.theme-dark .stats-bar .stat-item,
-body.theme-dark .controls-toolbar .form-select,
-body.theme-dark .controls-toolbar .form-control,
-body.theme-dark .kpmg-dropdown-toggle,
-body.theme-dark .kpmg-dropdown-menu,
-body.theme-dark .table-wrapper,
-body.theme-dark .control-table tbody td,
-body.theme-dark .empty-state {
-    color: var(--text-primary) !important;
-}
-
-body.theme-dark .stats-bar .stat-item,
-body.theme-dark .kpmg-dropdown-arrow,
-body.theme-dark .empty-state,
-body.theme-dark .controls-toolbar .form-select::placeholder,
-body.theme-dark .controls-toolbar .form-control::placeholder {
-    color: var(--text-secondary) !important;
-}
-
-body.theme-dark .controls-toolbar .form-select,
-body.theme-dark .controls-toolbar .form-control,
-body.theme-dark .kpmg-dropdown-toggle,
-body.theme-dark .kpmg-dropdown-menu {
-    background: var(--surface-bg-2) !important;
-    border-color: var(--border) !important;
-}
-
-body.theme-dark .kpmg-dropdown-item {
-    color: var(--text-secondary);
-}
-
-body.theme-dark .kpmg-dropdown-item:hover,
-body.theme-dark .clickable-row:hover,
-body.theme-dark .clickable-row.editable-row:hover,
-body.theme-dark .clickable-row.view-only-row:hover {
-    background: var(--hover-bg) !important;
-    color: var(--text-primary) !important;
-}
-
-body.theme-dark .control-table thead th {
-    color: var(--text-secondary) !important;
-}
-
-body.theme-dark .control-table tbody tr,
-body.theme-dark .clickable-row {
-    background: var(--surface-bg) !important;
-}
-
-body.theme-dark .control-id-text {
-    color: var(--link) !important;
-}
-
-body.theme-dark .status-draft {
-    background: var(--surface-bg-2);
-    color: var(--text-secondary);
-}
-</style>
+body.theme-dark .result-count,
+body.theme-dark .with-role,
+body.theme-dark .control-desc,
+body.theme-dark .empty-state { color: var(--text-secondary); }
+body.theme-dark .stats-bar .stat-item:hover,
+body.theme-dark .control-row:hover { background: var(--hover-bg); }
+body.theme-dark .stats-bar .active .stat-num { color: #d4a843; }
+body.theme-dark .status-chip { border-color: var(--border); color: var(--text-primary); }
+body.theme-dark .status-chip.is-active { background: var(--link); border-color: var(--link); color: #101722; }
+body.theme-dark .search-box input,
+body.theme-dark .component-select { background-color: var(--input-bg); color: var(--input-text); border-color: var(--border); }
+body.theme-dark .control-table thead th { background: var(--surface-bg-2); color: var(--text-secondary); }
+body.theme-dark .control-table tbody td { color: var(--text-primary); }
+body.theme-dark .control-link { color: var(--link); }
+body.theme-dark .deadline-soon { color: #d4a843; }
+body.theme-dark .tag-your-turn { background: rgba(127, 176, 255, 0.18); color: var(--link); }
+body.theme-dark .status-draft { background: var(--surface-bg-2); color: var(--text-secondary); }
+    </style>
 </head>
 <body>
 <script>
@@ -451,180 +358,205 @@ body.theme-dark .status-draft {
 </script>
 <div class="container-fluid">
     <div class="row">
-        <!-- Sidebar -->
-        <div class="col-md-2 sidebar p-3">
-            <div class="sidebar-content">
-                <div class="d-flex align-items-center mb-3">
-                    <a href="/" class="me-2">
-                        <img src="/images/kpmg_white.png" alt="KPMG" style="height: 45px; width: auto;">
-                    </a>
-                    <h6 class="mb-0" th:text="${userName}">Full Name</h6>
-                </div>
-                <small class="text-muted" th:text="${userTitle}">Title</small><br>
-                <small class="text-muted" th:text="${userEmail}">email@kpmg.kz</small>
-                <hr>
-                <ul class="nav flex-column">
-                    <li class="nav-item"><a class="nav-link active" href="/controls">Controls</a></li>
-                </ul>
-            </div>
-            <div class="mt-2">
-                <a href="/logout" class="btn btn-outline-secondary btn-sm">Logout</a>
-            </div>
-            <div class="sidebar-footer">
-                <hr class="my-2">
-                <small class="text-muted">Registered to</small><br>
-                <small><strong>KPMG Kazakhstan</strong></small><br>
-                <small><strong>QTracker | FY26</strong></small>
-            </div>
-        </div>
+        <div th:replace="~{fragments/sidebar :: sidebar('controls')}"></div>
 
-        <!-- Main Content -->
         <div class="col-md-10">
             <div class="p-3">
 
-                <!-- Access Denied Flash Message -->
                 <div th:if="${accessDeniedMessage}" class="alert alert-warning d-flex align-items-center mb-3" role="alert"
                      style="border: 1px solid #d4a843; background: #fef9ee; color: #5c4813; font-size: 0.85rem; font-weight: 500; border-radius: 6px; padding: 12px 16px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="#d4a843" class="me-2 flex-shrink-0" viewBox="0 0 16 16">
-                        <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-                    </svg>
+                    <i class="bi bi-exclamation-triangle-fill me-2" style="color: #b8860b;" aria-hidden="true"></i>
                     <span th:text="${accessDeniedMessage}"></span>
                 </div>
 
                 <nav class="app-breadcrumb" aria-label="breadcrumb">
                     <a href="/" class="app-breadcrumb-link">
-                        <svg class="app-breadcrumb-home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M3 10.5 12 3l9 7.5"></path>
-                            <path d="M5 9.5V21h14V9.5"></path>
-                        </svg>
+                        <i class="bi bi-house app-breadcrumb-home-icon" aria-hidden="true"></i>
                         <span>Home</span>
                     </a>
                     <span class="app-breadcrumb-separator">/</span>
-                    <span class="app-breadcrumb-current">Controls</span>
+                    <th:block th:if="${componentFilter != null}">
+                        <a href="/controls" class="app-breadcrumb-link">Controls</a>
+                        <span class="app-breadcrumb-separator">/</span>
+                        <span class="app-breadcrumb-current" th:text="${componentFilterName}">Component</span>
+                    </th:block>
+                    <span class="app-breadcrumb-current" th:if="${componentFilter == null}">Controls</span>
                 </nav>
 
-                <!-- Page Header -->
-                <div class="page-header d-flex justify-content-between align-items-center">
+                <!-- Header -->
+                <div class="page-header">
                     <div>
-                        <h1>Controls</h1>
-                        <p class="subtitle">View and manage your assigned controls</p>
+                        <h1 th:text="${componentFilter != null} ? ${componentFilterName} + ' (' + ${componentFilter} + ')' : 'Controls'">Controls</h1>
+                        <p class="subtitle" th:text="${userIsSoqm or userIsAdmin} ? 'All controls in QTracker' : 'Controls assigned to you or shared with you'">Controls</p>
                     </div>
-                    <button onclick="exportToExcel()" class="btn-export"
-                            th:if="${userRole == 'SOQM_TEAM'}"
-                            th:attr="data-user-email=${userEmail}" id="exportBtn">
-                        <i class="bi bi-download me-1"></i>Export to Excel
+                    <button type="button" class="btn-export" id="exportBtn"
+                            th:if="${userIsSoqm}" th:attr="data-user-email=${userEmail}">
+                        <i class="bi bi-download" aria-hidden="true"></i>Export to Excel
                     </button>
                 </div>
 
-                <!-- Stats Bar -->
+                <!-- Stats (links to the same filters as on the dashboard) -->
                 <div class="stats-bar">
-                    <div class="stat-item total">
-                        <span>Total</span>
-                        <span class="stat-num" id="statTotal" th:text="${totalControls}">0</span>
-                    </div>
-                    <div class="stat-item active">
-                        <span>Active</span>
-                        <span class="stat-num" id="statActive" th:text="${activeControls}">0</span>
-                    </div>
-                    <div class="stat-item completed">
-                        <span>Completed</span>
-                        <span class="stat-num" id="statCompleted" th:text="${completedControls}">0</span>
-                    </div>
-                    <div class="stat-item overdue">
-                        <span>Overdue</span>
-                        <span class="stat-num" id="statOverdue" th:text="${overdueControls}">0</span>
-                    </div>
+                    <a class="stat-item total" th:href="${statTotalLink.href()}" th:classappend="${statTotalLink.active()} ? 'is-active'">
+                        <span>Total</span><span class="stat-num" th:text="${totalControls}">0</span>
+                    </a>
+                    <a class="stat-item active" th:href="${statActiveLink.href()}" th:classappend="${statActiveLink.active()} ? 'is-active'">
+                        <span>Active</span><span class="stat-num" th:text="${activeControls}">0</span>
+                    </a>
+                    <a class="stat-item completed" th:href="${statCompletedLink.href()}" th:classappend="${statCompletedLink.active()} ? 'is-active'">
+                        <span>Completed</span><span class="stat-num" th:text="${completedControls}">0</span>
+                    </a>
+                    <a class="stat-item overdue" th:href="${statOverdueLink.href()}" th:classappend="${statOverdueLink.active()} ? 'is-active'">
+                        <span>Overdue</span><span class="stat-num" th:text="${overdueControls}">0</span>
+                    </a>
                 </div>
 
                 <!-- Toolbar -->
                 <div class="controls-toolbar">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="kpmg-dropdown" id="statusDropdown">
-                            <div class="kpmg-dropdown-toggle" id="statusDropdownToggle">
-                                <span id="statusDropdownLabel">All Controls</span>
-                                <svg class="kpmg-dropdown-arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-                            </div>
-                            <div class="kpmg-dropdown-menu" id="statusDropdownMenu">
-                                <div class="kpmg-dropdown-item active" data-value="">All Controls</div>
-                                <div class="kpmg-dropdown-item" data-value="DRAFT" th:if="${userIsSoqm}">Draft</div>
-                                <div class="kpmg-dropdown-item" data-value="IN_PROGRESS">In Progress</div>
-                                <div class="kpmg-dropdown-item" data-value="REVIEW">Review</div>
-                                <div class="kpmg-dropdown-item" data-value="SOQM_HEAD_REVIEW">SoQM Head Review</div>
-                                <div class="kpmg-dropdown-item" data-value="PROCESS_OWNER_REVIEW">Process Owner Review</div>
-                                <div class="kpmg-dropdown-item" data-value="COMPLETED">Completed</div>
-                                <div class="kpmg-dropdown-item" data-value="OVERDUE">Overdue Controls</div>
-                            </div>
+                    <nav class="status-chips" aria-label="Filter by status">
+                        <a th:each="chip : ${statusChips}" class="status-chip"
+                           th:href="${chip.href()}" th:text="${chip.label()}"
+                           th:classappend="(${chip.active()} ? 'is-active' : '') + (${chip.label() == 'Overdue'} ? ' chip-overdue' : '')"
+                           th:attr="aria-current=${chip.active()} ? 'page' : null">All</a>
+                    </nav>
+                    <div class="toolbar-right">
+                        <label class="visually-hidden" for="componentSelect">Component</label>
+                        <select id="componentSelect" class="component-select">
+                            <option th:each="option : ${componentOptions}"
+                                    th:value="${option.href()}" th:text="${option.label()}"
+                                    th:selected="${option.active()}">All components</option>
+                        </select>
+                        <div class="search-box" role="search">
+                            <i class="bi bi-search" aria-hidden="true"></i>
+                            <input type="search" id="controlsSearchInput" placeholder="Search ID, description, person…"
+                                   aria-label="Search controls" autocomplete="off">
+                            <button type="button" class="search-clear" id="controlsSearchClear" aria-label="Clear search" hidden>
+                                <i class="bi bi-x-lg" aria-hidden="true"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <input type="text" id="controlsSearchInput" class="form-control" style="min-width:200px;max-width:240px;" placeholder="Search...">
-                        <button class="btn btn-search" id="controlsSearchBtn"><i class="bi bi-search"></i></button>
-                    </div>
                 </div>
+                <div class="result-count" id="resultCount" aria-live="polite"
+                     th:text="${#lists.size(controls)} + (${#lists.size(controls) == 1} ? ' control' : ' controls')">0 controls</div>
 
                 <!-- Table -->
                 <div class="table-wrapper">
-                    <table class="table control-table">
+                    <table class="table control-table" id="controlsTable">
                         <thead>
                             <tr>
-                                <th style="width: 40px;">&numero;</th>
-                                <th style="min-width: 200px;">Control ID</th>
-                                <th>Component</th>
-                                <th>Type</th>
-                                <th>Frequency</th>
-                                <th>Operation Date</th>
-                                <th>Control Operator</th>
-                                <th>Process Owner</th>
-                                <th>SoQM Head</th>
-                                <th>Deadline</th>
-                                <th style="min-width: 110px;">Status</th>
+                                <th scope="col">&numero;</th>
+                                <th scope="col" aria-sort="none"><button type="button" class="sort-btn" data-sort="control">Control <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                                <th scope="col">Component</th>
+                                <th scope="col">Frequency</th>
+                                <th scope="col">Type</th>
+                                <th scope="col" aria-sort="none"><button type="button" class="sort-btn" data-sort="opdate">Operation Date <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                                <th scope="col" aria-sort="none"><button type="button" class="sort-btn" data-sort="deadline">Deadline <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                                <th scope="col">Currently with</th>
+                                <th scope="col" aria-sort="none"><button type="button" class="sort-btn" data-sort="status">Status <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr th:each="control, stat : ${controls}"
-                                class="clickable-row"
-                                th:classappend="${userIsAdmin ? ' view-only-row' : (userIsSoqm ? ' editable-row' : (((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (control.facilitators != null and #lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (control.controlOperators != null and #lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (control.soqmLeads != null and #lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (control.processOwners != null and #lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW'))) ? ' editable-row' : ' view-only-row'))} + (${#strings.equals(control.performanceStatus, 'COMPLETED')} ? ' completed-row' : '') + (${control.overdue} ? ' overdue-row' : '')"
-                                th:attr="data-id=${control.id}, data-status=${control.performanceStatus}, data-go-cycle=${control.goToPerformanceCycle}, data-editable=${!control.sharedViewOnly and (userIsAdmin ? false : (userIsSoqm ? true : ((control.createdByEmail == userEmail and #strings.equals(control.performanceStatus, 'DRAFT')) or (control.facilitators != null and #lists.contains(control.facilitators, userEmail) and #strings.equals(control.performanceStatus, 'IN_PROGRESS')) or (control.controlOperators != null and #lists.contains(control.controlOperators, userEmail) and #strings.equals(control.performanceStatus, 'REVIEW')) or (control.soqmLeads != null and #lists.contains(control.soqmLeads, userEmail) and #strings.equals(control.performanceStatus, 'SOQM_HEAD_REVIEW')) or (control.processOwners != null and #lists.contains(control.processOwners, userEmail) and #strings.equals(control.performanceStatus, 'PROCESS_OWNER_REVIEW')))))}, data-shared=${control.sharedViewOnly}">
+                            <tr th:each="control : ${controls}"
+                                th:with="facilitatorNames=${(control.facilitatorUsers != null and !#lists.isEmpty(control.facilitatorUsers)) ? #strings.listJoin(control.facilitatorUsers.![displayName], ', ') : (control.facilitators != null ? #strings.listJoin(control.facilitators, ', ') : '')},
+                                         operatorNames=${(control.controlOperatorUsers != null and !#lists.isEmpty(control.controlOperatorUsers)) ? #strings.listJoin(control.controlOperatorUsers.![displayName], ', ') : (control.controlOperators != null ? #strings.listJoin(control.controlOperators, ', ') : '')},
+                                         soqmNames=${(control.soqmLeadUsers != null and !#lists.isEmpty(control.soqmLeadUsers)) ? #strings.listJoin(control.soqmLeadUsers.![displayName], ', ') : (control.soqmLeads != null ? #strings.listJoin(control.soqmLeads, ', ') : '')},
+                                         ownerNames=${(control.processOwnerUsers != null and !#lists.isEmpty(control.processOwnerUsers)) ? #strings.listJoin(control.processOwnerUsers.![displayName], ', ') : (control.processOwners != null ? #strings.listJoin(control.processOwners, ', ') : '')},
+                                         yourTurn=${actionControlIds != null and #sets.contains(actionControlIds, control.id)},
+                                         dueSoon=${dueSoonControlIds != null and #sets.contains(dueSoonControlIds, control.id)},
+                                         statusLabel=${@statusDisplayMapper.display(control.performanceStatus) ?: 'Draft'},
+                                         controlUrl=${#strings.equals(control.performanceStatus, 'DRAFT') or control.performanceStatus == null ? '/performance/' + control.id : '/performance-cycle/' + control.id}"
+                                class="control-row"
+                                th:classappend="${control.overdue} ? 'is-overdue' : (${yourTurn} ? 'is-your-turn' : '')"
+                                th:attr="data-href=${controlUrl},
+                                         data-status=${control.performanceStatus},
+                                         data-control-id=${control.controlId},
+                                         data-description=${control.controlDescription},
+                                         data-component=${control.component},
+                                         data-type=${control.controlType},
+                                         data-frequency=${control.controlFrequency},
+                                         data-opdate=${control.controlOperationDate != null ? #temporals.format(control.controlOperationDate, 'yyyy-MM-dd') : ''},
+                                         data-deadline=${control.deadline != null ? #temporals.format(control.deadline, 'yyyy-MM-dd') : ''},
+                                         data-facilitator=${facilitatorNames},
+                                         data-operator=${operatorNames},
+                                         data-soqm=${soqmNames},
+                                         data-owner=${ownerNames},
+                                         data-status-label=${statusLabel},
+                                         data-overdue=${control.overdue}">
 
-                                <td th:text="${stat.count}">1</td>
+                                <td class="row-num">1</td>
                                 <td>
-                                    <span class="control-id-text" th:text="${control.controlId}">CTRL-001</span>
-                                    <span th:if="${control.sharedViewOnly}" class="badge bg-info ms-1" style="font-size:0.6rem;">Shared</span>
+                                    <a class="control-link" th:href="${controlUrl}" th:text="${control.controlId}">CTRL-001</a>
+                                    <span th:if="${yourTurn}" class="tag tag-your-turn" title="The current workflow step is yours">Your turn</span>
+                                    <span th:if="${control.sharedViewOnly}" class="tag tag-shared" title="Shared with you (view only)">Shared</span>
+                                    <span class="control-desc" th:if="${control.controlDescription != null and !#strings.isEmpty(control.controlDescription)}"
+                                          th:text="${control.controlDescription}" th:title="${control.controlDescription}">Description</span>
                                 </td>
                                 <td th:text="${control.component}">HR</td>
-                                <td th:text="${control.controlType}">Manual</td>
                                 <td th:text="${control.controlFrequency}">Monthly</td>
+                                <td th:text="${control.controlType}">Manual</td>
                                 <td>
                                     <span th:if="${control.controlOperationDate != null}"
                                           th:text="${#temporals.format(control.controlOperationDate, 'dd.MM.yyyy')}">-</span>
-                                    <span th:if="${control.controlOperationDate == null}" class="text-muted">&mdash;</span>
-                                </td>
-                                <td th:text="${(control.controlOperatorUsers != null and !#lists.isEmpty(control.controlOperatorUsers)) ? #strings.listJoin(control.controlOperatorUsers.![displayName], ', ') : (control.controlOperators != null ? #strings.listJoin(control.controlOperators, ', ') : '')}">&mdash;</td>
-                                <td th:text="${(control.processOwnerUsers != null and !#lists.isEmpty(control.processOwnerUsers)) ? #strings.listJoin(control.processOwnerUsers.![displayName], ', ') : (control.processOwners != null ? #strings.listJoin(control.processOwners, ', ') : '')}">&mdash;</td>
-                                <td th:text="${(control.soqmLeadUsers != null and !#lists.isEmpty(control.soqmLeadUsers)) ? #strings.listJoin(control.soqmLeadUsers.![displayName], ', ') : (control.soqmLeads != null ? #strings.listJoin(control.soqmLeads, ', ') : '')}">&mdash;</td>
-                                <td>
-                                    <span th:if="${control.deadline != null}" th:text="${#temporals.format(control.deadline, 'dd.MM.yyyy')}">-</span>
-                                    <span th:if="${control.deadline == null}" class="text-muted">&mdash;</span>
+                                    <span th:if="${control.controlOperationDate == null}" class="muted">&mdash;</span>
                                 </td>
                                 <td>
+                                    <span th:if="${control.deadline != null}"
+                                          th:classappend="${control.overdue and !#strings.equals(control.performanceStatus, 'COMPLETED')} ? 'deadline-overdue' : (${dueSoon} ? 'deadline-soon' : '')"
+                                          th:title="${dueSoon} ? 'Due within 3 days' : null"
+                                          th:text="${#temporals.format(control.deadline, 'dd.MM.yyyy')}">-</span>
+                                    <span th:if="${control.deadline == null}" class="muted">&mdash;</span>
+                                </td>
+                                <td th:switch="${control.performanceStatus}">
+                                    <th:block th:case="'IN_PROGRESS'">
+                                        <span class="with-name" th:text="${facilitatorNames != '' ? facilitatorNames : '—'}" th:title="${facilitatorNames}">Name</span>
+                                        <span class="with-role">Facilitator</span>
+                                    </th:block>
+                                    <th:block th:case="'REVIEW'">
+                                        <span class="with-name" th:text="${operatorNames != '' ? operatorNames : '—'}" th:title="${operatorNames}">Name</span>
+                                        <span class="with-role">Control Operator</span>
+                                    </th:block>
+                                    <th:block th:case="'SOQM_HEAD_REVIEW'">
+                                        <span class="with-name" th:text="${soqmNames != '' ? soqmNames : '—'}" th:title="${soqmNames}">Name</span>
+                                        <span class="with-role">SoQM Team</span>
+                                    </th:block>
+                                    <th:block th:case="'PROCESS_OWNER_REVIEW'">
+                                        <span class="with-name" th:text="${ownerNames != '' ? ownerNames : '—'}" th:title="${ownerNames}">Name</span>
+                                        <span class="with-role">Process Owner</span>
+                                    </th:block>
+                                    <th:block th:case="'COMPLETED'"><span class="muted">&mdash;</span></th:block>
+                                    <th:block th:case="*">
+                                        <span class="with-name">SoQM Team</span>
+                                        <span class="with-role">To initiate</span>
+                                    </th:block>
+                                </td>
+                                <td class="status-cell">
                                     <span th:switch="${control.performanceStatus}">
-                                        <span th:case="'COMPLETED'" class="badge status-completed" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                        <span th:case="'IN_PROGRESS'" class="badge status-progress" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                        <span th:case="'REVIEW'" class="badge status-review" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                        <span th:case="'SOQM_HEAD_REVIEW'" class="badge status-soqm" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                        <span th:case="'PROCESS_OWNER_REVIEW'" class="badge status-po" th:text="${@statusDisplayMapper.display(control.performanceStatus)}"></span>
-                                        <span th:case="*" class="badge status-draft" th:text="${@statusDisplayMapper.display(control.performanceStatus) ?: 'Draft'}">Draft</span>
+                                        <span th:case="'COMPLETED'" class="badge status-completed" th:text="${statusLabel}"></span>
+                                        <span th:case="'IN_PROGRESS'" class="badge status-progress" th:text="${statusLabel}"></span>
+                                        <span th:case="'REVIEW'" class="badge status-review" th:text="${statusLabel}"></span>
+                                        <span th:case="'SOQM_HEAD_REVIEW'" class="badge status-soqm" th:text="${statusLabel}"></span>
+                                        <span th:case="'PROCESS_OWNER_REVIEW'" class="badge status-po" th:text="${statusLabel}"></span>
+                                        <span th:case="*" class="badge status-draft" th:text="${statusLabel}">Draft</span>
                                     </span>
-                                    <span th:if="${control.overdue}"
-                                          class="badge status-overdue ms-1"
+                                    <span th:if="${control.overdue}" class="badge status-overdue ms-1"
                                           th:title="${#strings.equals(control.performanceStatus, 'COMPLETED')} ? 'Closed after deadline' : 'Deadline passed'">Overdue</span>
                                 </td>
                             </tr>
                             <tr th:if="${#lists.isEmpty(controls)}">
-                                <td colspan="11">
+                                <td colspan="9">
                                     <div class="empty-state">
-                                        <i class="bi bi-inbox"></i>
-                                        <p>No controls found</p>
+                                        <i class="bi bi-inbox" aria-hidden="true"></i>
+                                        <p>No controls match this filter.</p>
+                                        <a th:if="${(statusFilter != null and statusFilter != '') or controlsFilter == 'active' or componentFilter != null}" th:href="@{/controls}">Show all controls</a>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr id="noSearchResults" hidden>
+                                <td colspan="9">
+                                    <div class="empty-state">
+                                        <i class="bi bi-search" aria-hidden="true"></i>
+                                        <p>No controls match your search.</p>
+                                        <button type="button" id="noResultsClear">Clear search</button>
                                     </div>
                                 </td>
                             </tr>
@@ -638,149 +570,213 @@ body.theme-dark .status-draft {
 </div>
 
 <script>
-// Row navigation
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.clickable-row').forEach(row => {
-        const isEditable = String(row.getAttribute('data-editable')) === 'true';
-        const rawId = row.getAttribute('data-id');
-        const id = rawId && /^\d+$/.test(rawId) ? rawId : null;
-        const rowStatus = String(row.getAttribute('data-status') || '').trim().toUpperCase();
-        const normalizedStatus = rowStatus || 'DRAFT';
-        if (isEditable) { row.classList.add('editable-row'); row.classList.remove('view-only-row'); }
-        else { row.classList.add('view-only-row'); row.classList.remove('editable-row'); }
-
-        row.addEventListener('click', function() {
-            if (!id) {
-                showToast('Control id is missing for this row.', 'warning', 2200);
-                return;
-            }
-            // Deterministic routing by status:
-            // DRAFT -> checklist page, other statuses -> performance cycle page.
-            if (normalizedStatus === 'DRAFT') {
-                window.location.href = `/performance/${id}`;
-            } else {
-                window.location.href = `/performance-cycle/${id}`;
-            }
-        });
-    });
-});
-
-// Search
-document.addEventListener('DOMContentLoaded', function() {
-    const searchBtn = document.getElementById('controlsSearchBtn');
+(function() {
+    const table = document.getElementById('controlsTable');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr.control-row'));
     const searchInput = document.getElementById('controlsSearchInput');
-    const table = document.querySelector('.control-table');
-    if (!searchBtn || !searchInput || !table) return;
-    function norm(t) { return t.toLowerCase().replace(/\s+/g, ''); }
-    function doSearch() {
-        const q = norm(searchInput.value);
-        table.querySelectorAll('tbody tr').forEach(row => {
-            let found = false;
-            row.querySelectorAll('td').forEach(c => { if (norm(c.textContent).includes(q)) found = true; });
-            row.style.display = found || !q ? '' : 'none';
+    const searchClear = document.getElementById('controlsSearchClear');
+    const resultCount = document.getElementById('resultCount');
+    const noResults = document.getElementById('noSearchResults');
+
+    function visibleRows() {
+        return rows.filter(function(row) { return !row.hidden; });
+    }
+
+    // Row numbers always 1..N in the current order / search
+    function renumber() {
+        visibleRows().forEach(function(row, index) {
+            row.querySelector('.row-num').textContent = index + 1;
         });
     }
-    searchBtn.addEventListener('click', doSearch);
-    searchInput.addEventListener('input', doSearch);
-    searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
-});
 
-// Toast
-function showToast(msg, type = 'success', ms = 2000) {
-    let c = document.getElementById('toast-container');
-    if (!c) { c = document.createElement('div'); c.id = 'toast-container'; c.style.cssText = 'position:fixed;top:20px;right:20px;z-index:1080;max-width:320px;'; document.body.appendChild(c); }
-    const a = document.createElement('div'); a.className = `alert alert-${type} shadow-sm mb-2 fade show`; a.role = 'alert'; a.style.minWidth = '260px'; a.textContent = msg; c.appendChild(a);
-    setTimeout(() => { a.classList.remove('show'); a.classList.add('hide'); setTimeout(() => a.remove(), 300); }, ms);
-}
+    function plural(count) {
+        return count + (count === 1 ? ' control' : ' controls');
+    }
 
-// Excel
-function loadSheetJS() {
-    return new Promise((ok, fail) => {
-        if (window.XLSX) return ok();
-        const s = document.createElement('script');
-        s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
-        s.onload = ok; s.onerror = () => fail(new Error('Failed'));
-        document.head.appendChild(s);
-    });
-}
-
-function exportToExcel() {
-    const btn = document.getElementById('exportBtn');
-    const email = btn?.getAttribute('data-user-email');
-    if (!email) { showToast('User email not found.', 'danger'); return; }
-    btn.disabled = true; btn.innerHTML = 'Exporting...';
-    loadSheetJS().then(() => {
-        const table = document.querySelector('.control-table');
-        if (!table) { showToast('Table not found', 'danger'); return; }
-        const wb = XLSX.utils.book_new();
-        const headers = []; table.querySelectorAll('thead th').forEach(th => headers.push(th.textContent.trim()));
-        const data = [headers];
-        table.querySelectorAll('tbody tr.clickable-row').forEach(row => {
-            const rd = [];
-            row.querySelectorAll('td').forEach(cell => {
-                const b = cell.querySelector('.badge');
-                rd.push((b ? b.textContent.trim() : cell.textContent.trim()) || '�');
-            });
-            data.push(rd);
-        });
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        ws['!cols'] = [{ wch: 5 },{ wch: 28 },{ wch: 12 },{ wch: 12 },{ wch: 14 },{ wch: 14 },{ wch: 22 },{ wch: 22 },{ wch: 22 },{ wch: 12 },{ wch: 18 }];
-        XLSX.utils.book_append_sheet(wb, ws, 'Controls');
-        const today = new Date().toISOString().split('T')[0];
-        XLSX.writeFile(wb, `QTracker_${email.split('@')[0]}_${today}.xlsx`);
-        showToast(`Exported ${data.length - 1} row(s)`);
-    }).catch(() => showToast('Export failed.', 'danger'))
-      .finally(() => { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-download me-1"></i>Export to Excel'; }});
-}
-
-// Status filter - custom dropdown
-document.addEventListener('DOMContentLoaded', function() {
-    const dropdown = document.getElementById('statusDropdown');
-    const toggle = document.getElementById('statusDropdownToggle');
-    const menu = document.getElementById('statusDropdownMenu');
-    const label = document.getElementById('statusDropdownLabel');
-    if (!dropdown || !toggle || !menu || !label) return;
-
-    // Set active item from URL
-    const url = new URL(window.location.href);
-    const currentStatus = url.searchParams.get('status') || '';
-    const currentFilter = url.searchParams.get('filter') || '';
-    const activeValue = currentFilter === 'OVERDUE'
-        ? 'OVERDUE'
-        : (currentFilter === 'COMPLETED' ? 'COMPLETED' : currentStatus);
-
-    menu.querySelectorAll('.kpmg-dropdown-item').forEach(item => {
-        item.classList.remove('active');
-        if (item.dataset.value === activeValue) {
-            item.classList.add('active');
-            label.textContent = item.textContent;
+    // ── Row click opens the control (the ID cell is a real link for keyboard / new tab) ──
+    tbody.addEventListener('click', function(event) {
+        const row = event.target.closest('tr.control-row');
+        if (!row || event.target.closest('a, button')) {
+            return;
+        }
+        if (window.getSelection && String(window.getSelection()).length > 0) {
+            return; // user is selecting text
+        }
+        const href = row.dataset.href;
+        if (event.ctrlKey || event.metaKey) {
+            window.open(href, '_blank');
+        } else {
+            window.location.href = href;
         }
     });
 
-    // Toggle open/close
-    toggle.addEventListener('click', function(e) {
-        e.stopPropagation();
-        dropdown.classList.toggle('open');
+    // ── Search: ID, description, component, people, status ──
+    rows.forEach(function(row) {
+        row.dataset.search = [
+            row.dataset.controlId, row.dataset.description, row.dataset.component, row.dataset.type,
+            row.dataset.frequency, row.dataset.facilitator, row.dataset.operator, row.dataset.soqm,
+            row.dataset.owner, row.dataset.statusLabel
+        ].join(' ').toLowerCase();
     });
 
-    // Item click
-    menu.addEventListener('click', function(e) {
-        const item = e.target.closest('.kpmg-dropdown-item');
-        if (!item) return;
-        const v = item.dataset.value;
-        const navUrl = new URL(window.location.href);
-        if (v === 'OVERDUE') { navUrl.searchParams.set('filter', 'OVERDUE'); navUrl.searchParams.delete('status'); }
-        else if (v) { navUrl.searchParams.set('status', v); navUrl.searchParams.delete('filter'); }
-        else { navUrl.searchParams.delete('status'); navUrl.searchParams.delete('filter'); }
-        window.location.href = navUrl.toString();
+    function applySearch() {
+        const query = searchInput.value.trim().toLowerCase();
+        const terms = query.split(/\s+/).filter(Boolean);
+        rows.forEach(function(row) {
+            row.hidden = terms.length > 0 && !terms.every(function(term) {
+                return row.dataset.search.includes(term);
+            });
+        });
+        const shown = visibleRows().length;
+        searchClear.hidden = query === '';
+        noResults.hidden = !(rows.length > 0 && shown === 0);
+        resultCount.textContent = query
+            ? 'Showing ' + shown + ' of ' + plural(rows.length)
+            : plural(rows.length);
+        renumber();
+    }
+
+    function clearSearch() {
+        searchInput.value = '';
+        applySearch();
+        searchInput.focus();
+    }
+
+    searchInput.addEventListener('input', applySearch);
+    searchInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            clearSearch();
+        }
+    });
+    searchClear.addEventListener('click', clearSearch);
+    document.getElementById('noResultsClear').addEventListener('click', clearSearch);
+
+    // ── Sorting ──
+    const STATUS_ORDER = ['DRAFT', 'IN_PROGRESS', 'REVIEW', 'SOQM_HEAD_REVIEW', 'PROCESS_OWNER_REVIEW', 'COMPLETED'];
+    const sortKeys = {
+        control: function(row) { return (row.dataset.controlId || '').toLowerCase(); },
+        opdate: function(row) { return row.dataset.opdate || ''; },
+        deadline: function(row) { return row.dataset.deadline || ''; },
+        status: function(row) {
+            const index = STATUS_ORDER.indexOf(row.dataset.status);
+            return index < 0 ? 0 : index;
+        }
+    };
+
+    table.querySelectorAll('.sort-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const th = button.closest('th');
+            const direction = th.getAttribute('aria-sort') === 'ascending' ? 'descending' : 'ascending';
+            table.querySelectorAll('thead th[aria-sort]').forEach(function(other) {
+                other.setAttribute('aria-sort', 'none');
+                other.querySelector('.bi').className = 'bi bi-arrow-down-up';
+            });
+            th.setAttribute('aria-sort', direction);
+            button.querySelector('.bi').className = direction === 'ascending' ? 'bi bi-arrow-up' : 'bi bi-arrow-down';
+
+            const key = sortKeys[button.dataset.sort];
+            const factor = direction === 'ascending' ? 1 : -1;
+            rows.sort(function(a, b) {
+                const va = key(a);
+                const vb = key(b);
+                // Empty values (no date) always go last
+                if (va === '' && vb !== '') { return 1; }
+                if (vb === '' && va !== '') { return -1; }
+                if (va < vb) { return -factor; }
+                if (va > vb) { return factor; }
+                return 0;
+            });
+            rows.forEach(function(row) { tbody.insertBefore(row, noResults); });
+            renumber();
+        });
     });
 
-    // Close on outside click
-    document.addEventListener('click', function() {
-        dropdown.classList.remove('open');
-    });
-});
+    renumber();
+
+    // ── Component filter ──
+    const componentSelect = document.getElementById('componentSelect');
+    if (componentSelect) {
+        componentSelect.addEventListener('change', function() {
+            window.location.href = componentSelect.value;
+        });
+    }
+
+    // ── Excel export: exactly the rows on screen, with all assignees ──
+    function showToast(message, type) {
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:1080;max-width:320px;';
+            document.body.appendChild(container);
+        }
+        const toast = document.createElement('div');
+        toast.className = 'alert alert-' + (type || 'success') + ' shadow-sm mb-2 fade show';
+        toast.setAttribute('role', 'status');
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(function() { toast.remove(); }, 2500);
+    }
+
+    function loadSheetJS() {
+        return new Promise(function(resolve, reject) {
+            if (window.XLSX) {
+                resolve();
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = '/js/vendor/xlsx.full.min.js';
+            script.onload = resolve;
+            script.onerror = function() { reject(new Error('Failed to load exporter')); };
+            document.head.appendChild(script);
+        });
+    }
+
+    function formatDate(iso) {
+        if (!iso) {
+            return '';
+        }
+        const parts = iso.split('-');
+        return parts[2] + '.' + parts[1] + '.' + parts[0];
+    }
+
+    const exportBtn = document.getElementById('exportBtn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function() {
+            const email = exportBtn.dataset.userEmail || 'user';
+            const original = exportBtn.innerHTML;
+            exportBtn.disabled = true;
+            exportBtn.textContent = 'Exporting…';
+            loadSheetJS().then(function() {
+                const header = ['№', 'Control ID', 'Description', 'Component', 'Frequency', 'Type',
+                    'Operation Date', 'Deadline', 'Facilitator', 'Control Operator', 'SoQM Team',
+                    'Process Owner', 'Status', 'Overdue'];
+                const data = [header];
+                visibleRows().forEach(function(row, index) {
+                    const d = row.dataset;
+                    data.push([index + 1, d.controlId || '', d.description || '', d.component || '',
+                        d.frequency || '', d.type || '', formatDate(d.opdate), formatDate(d.deadline),
+                        d.facilitator || '', d.operator || '', d.soqm || '', d.owner || '',
+                        d.statusLabel || '', d.overdue === 'true' ? 'Yes' : '']);
+                });
+                const sheet = XLSX.utils.aoa_to_sheet(data);
+                sheet['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 40 }, { wch: 11 }, { wch: 12 }, { wch: 18 },
+                    { wch: 14 }, { wch: 12 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 20 }, { wch: 9 }];
+                const book = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(book, sheet, 'Controls');
+                const today = new Date().toISOString().split('T')[0];
+                XLSX.writeFile(book, 'QTracker_' + email.split('@')[0] + '_' + today + '.xlsx');
+                showToast('Exported ' + plural(data.length - 1));
+            }).catch(function() {
+                showToast('Export failed. Please try again.', 'danger');
+            }).finally(function() {
+                exportBtn.disabled = false;
+                exportBtn.innerHTML = original;
+            });
+        });
+    }
+})();
 </script>
 </body>
 </html>
-

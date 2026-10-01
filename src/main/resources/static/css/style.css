@@ -133,7 +133,7 @@ body.theme-dark {
 }
 
 .sidebar-footer small {
-    color: #6c7489 !important;
+    color: #9ba3b5 !important; /* was #6c7489: ~3.5:1 on the dark sidebar, below WCAG AA */
     font-size: 0.72rem;
 }
 
@@ -1658,3 +1658,342 @@ body.theme-dark .accordion-button:hover {
         align-items: flex-start;
     }
 }
+
+
+/* ── Sidebar: brand, user block, logout ──
+   Colour rules also list "body.theme-dark .sidebar ..." because the dark theme sets
+   "body.theme-dark .sidebar * { color: inherit }", which would otherwise win. */
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1.25rem;
+    text-decoration: none;
+}
+.sidebar-brand img {
+    height: 34px;
+    width: auto;
+}
+.sidebar-brand-name,
+body.theme-dark .sidebar .sidebar-brand-name {
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding-left: 10px;
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+.sidebar .nav-link i {
+    width: 1.1rem;
+    display: inline-block;
+    text-align: center;
+}
+.sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.75rem 0;
+    margin-bottom: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+/* Primary action for SoQM: white button stands out on the dark sidebar
+   and does not look like the (blue) active menu item */
+.sidebar-new-control,
+body.theme-dark .sidebar .sidebar-new-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    margin-bottom: 1rem;
+    padding: 9px 12px;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #00338D;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: background 0.12s ease;
+}
+.sidebar-new-control:hover,
+body.theme-dark .sidebar .sidebar-new-control:hover {
+    background: #e6ecf6;
+    color: #00338D;
+    text-decoration: none;
+}
+.sidebar-new-control:focus-visible {
+    outline: 2px solid #7fb0ff;
+    outline-offset: 2px;
+}
+.sidebar-avatar,
+body.theme-dark .sidebar .sidebar-avatar {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #00338D;
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+.sidebar-user-info {
+    min-width: 0;
+}
+.sidebar-user-name,
+.sidebar-user-role,
+.sidebar-user-email {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sidebar-user-name,
+body.theme-dark .sidebar .sidebar-user-name {
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.sidebar-user-role,
+.sidebar-user-email,
+body.theme-dark .sidebar .sidebar-user-role,
+body.theme-dark .sidebar .sidebar-user-email {
+    color: #9ba3b5;
+    font-size: 0.72rem;
+}
+.sidebar-logout,
+body.theme-dark .sidebar .sidebar-logout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    color: #e6e9ef;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.12s ease;
+}
+.sidebar-logout:hover,
+body.theme-dark .sidebar .sidebar-logout:hover {
+    background: rgba(200, 16, 46, 0.2);
+    border-color: #c8102e;
+    color: #ffffff;
+}
+.sidebar-logout:focus-visible,
+.sidebar .nav-link:focus-visible,
+.sidebar-brand:focus-visible {
+    outline: 2px solid #7fb0ff;
+    outline-offset: 2px;
+}
+
+/* ── Phones / small tablets: sidebar becomes a top bar, content takes full width ── */
+@media (max-width: 767.98px) {
+    .sidebar {
+        position: static;
+        width: 100%;
+        min-height: auto;
+        border-right: none;
+        border-bottom: 2px solid #00338D;
+    }
+    .sidebar .nav {
+        flex-direction: row !important;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    .sidebar .nav-link {
+        margin-bottom: 0;
+    }
+    .sidebar-logout,
+    body.theme-dark .sidebar .sidebar-logout,
+    .sidebar-new-control,
+    body.theme-dark .sidebar .sidebar-new-control {
+        width: auto;
+        display: inline-flex;
+    }
+    .sidebar-footer,
+    .sidebar-user-email {
+        display: none;
+    }
+    .col-md-10 {
+        margin-left: 0;
+    }
+}
+
+/* ── Confirm dialog (window.showConfirmModal in app-modal.js) ── */
+.app-confirm-dialog {
+    max-width: 420px;
+}
+.app-confirm-content {
+    border: none;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0, 20, 60, 0.25);
+}
+.app-confirm-body {
+    display: flex;
+    gap: 14px;
+    padding: 22px 22px 8px;
+}
+.app-confirm-icon {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #fdecef;
+    color: #c8102e;
+}
+.app-confirm-icon.is-primary {
+    background: #e6ecf6;
+    color: #00338D;
+}
+.app-confirm-title {
+    margin: 2px 0 4px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #2d3340;
+}
+.app-confirm-message {
+    margin: 0;
+    font-size: 0.86rem;
+    color: #5c6478;
+}
+.app-confirm-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 22px 18px;
+}
+.app-confirm-cancel,
+.app-confirm-ok {
+    padding: 7px 18px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 4px;
+}
+.app-confirm-cancel {
+    background: #ffffff;
+    border: 1px solid #cdd0d6;
+    color: #2d3340;
+}
+.app-confirm-cancel:hover {
+    border-color: #00338D;
+    color: #00338D;
+}
+.app-confirm-ok {
+    background: #c8102e;
+    border: 1px solid #c8102e;
+    color: #ffffff;
+}
+.app-confirm-ok:hover {
+    background: #a50d26;
+    border-color: #a50d26;
+    color: #ffffff;
+}
+.app-confirm-ok.is-primary {
+    background: #00338D;
+    border-color: #00338D;
+}
+.app-confirm-ok.is-primary:hover {
+    background: #002060;
+    border-color: #002060;
+}
+.app-confirm-cancel:focus-visible,
+.app-confirm-ok:focus-visible {
+    outline: 2px solid #005EB8;
+    outline-offset: 2px;
+    box-shadow: none;
+}
+body.theme-dark .app-confirm-content {
+    background: var(--surface-bg);
+}
+body.theme-dark .app-confirm-title {
+    color: var(--text-primary);
+}
+body.theme-dark .app-confirm-message {
+    color: var(--text-secondary);
+}
+body.theme-dark .app-confirm-cancel {
+    background: var(--surface-bg-2);
+    border-color: var(--border);
+    color: var(--text-primary);
+}
+body.theme-dark .app-confirm-icon {
+    background: rgba(200, 16, 46, 0.18);
+    color: #ff8a9b;
+}
+
+/* ── Workflow stepper (templates/fragments/workflow-stepper.html) ── */
+.wf-stepper {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.wf-step {
+    flex: 1;
+    position: relative;
+    text-align: center;
+    font-size: 0.76rem;
+    color: #5c6478;
+}
+.wf-step::before {
+    content: '';
+    position: absolute;
+    top: 13px;
+    left: -50%;
+    right: 50%;
+    height: 3px;
+    background: #d8dce5;
+}
+.wf-step:first-child::before { display: none; }
+.wf-step.is-done::before,
+.wf-step.is-current::before { background: #009a44; }
+.wf-step-dot {
+    position: relative;
+    z-index: 1;
+    width: 28px;
+    height: 28px;
+    margin: 0 auto 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 2px solid #d8dce5;
+    background: #ffffff;
+    font-weight: 700;
+    font-size: 0.75rem;
+    color: #5c6478;
+}
+.wf-step.is-done .wf-step-dot { background: #009a44; border-color: #009a44; color: #ffffff; }
+.wf-step.is-current .wf-step-dot { background: #00338D; border-color: #00338D; color: #ffffff; box-shadow: 0 0 0 4px rgba(0, 51, 141, 0.15); }
+.wf-step.is-current { color: #2d3340; font-weight: 700; }
+.wf-step-who {
+    display: block;
+    margin-top: 2px;
+    padding: 0 4px;
+    font-weight: 400;
+    font-size: 0.72rem;
+    color: #5c6478;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wf-stepper-note { margin: 10px 0 0; font-size: 0.8rem; color: #5c6478; text-align: center; }
+@media (max-width: 575.98px) {
+    .wf-step-who { display: none; }
+}
+body.theme-dark .wf-step,
+body.theme-dark .wf-step-who,
+body.theme-dark .wf-stepper-note { color: var(--text-secondary); }
+body.theme-dark .wf-step.is-current { color: var(--text-primary); }
+body.theme-dark .wf-step-dot { background: var(--surface-bg); border-color: var(--border); color: var(--text-secondary); }
+body.theme-dark .wf-step::before { background: var(--border); }

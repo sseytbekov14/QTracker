@@ -3333,9 +3333,24 @@ function getWorkflowRoleRequirement() {
     }
 
     if (isSoqmLead && performanceStatus === 'SOQM_HEAD_REVIEW') {
+        const soqmComments = document.querySelector('textarea[name="soqmHeadComments"]');
+        if (soqmComments && isBlankValueForWorkflow(soqmComments.value)) {
+            return {
+                field: soqmComments,
+                message: 'To continue, please fill: SoQM Head/Team Comments'
+            };
+        }
         return {
             field: document.querySelector('textarea[name="controlStepsPerformed"]'),
             message: 'To submit, please fill: Control steps performed and results'
+        };
+    }
+
+    // Process Owner comments are required for Complete / Return and are saved before the action
+    if (isProcessOwner && performanceStatus === 'PROCESS_OWNER_REVIEW') {
+        return {
+            field: document.querySelector('textarea[name="processOwnerComments"]'),
+            message: 'To continue, please fill: Process Owner Comments'
         };
     }
 

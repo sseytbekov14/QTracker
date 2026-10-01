@@ -167,7 +167,7 @@ public class NotificationService {
                 unique.add(email.trim());
             }
         }
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(Notification.ZONE);
         LocalDateTime start = now.minusMinutes(RETURN_DEDUPE_WINDOW_MINUTES);
         LocalDateTime end = now.plusSeconds(1);
 
@@ -401,7 +401,7 @@ public class NotificationService {
         notificationRepository.findById(notificationId).ifPresent(notif -> {
             if (!notif.getIsRead()) {
                 notif.setIsRead(true);
-                notif.setReadAt(LocalDateTime.now());
+                notif.setReadAt(LocalDateTime.now(Notification.ZONE));
                 notificationRepository.save(notif);
                 log.debug("Marked notification {} as read", notificationId);
             }

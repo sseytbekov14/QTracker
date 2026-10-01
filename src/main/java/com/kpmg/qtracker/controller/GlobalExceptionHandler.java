@@ -5,6 +5,9 @@ import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.unit.DataSize;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +27,12 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @Value("${file.upload.max-file-size-mb:10}")
+    private long maxFileSizeMb;
+
+    @Value("${spring.servlet.multipart.max-request-size:100MB}")
+    private DataSize maxRequestSize;
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
@@ -116,6 +125,14 @@ public class GlobalExceptionHandler {
                 getCorrelationId()
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        String message = "File is too large. Maximum file size is " + maxFileSizeMb
+                + " MB and maximum total upload size is " + maxRequestSize.toMegabytes() + " MB.";
+        ErrorResponse response = new ErrorResponse("FILE_TOO_LARGE", message, getCorrelationId());
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(response);
     }
 
     private String formatFieldError(FieldError fieldError) {
