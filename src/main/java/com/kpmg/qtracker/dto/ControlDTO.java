@@ -36,6 +36,8 @@ public class ControlDTO {
     private String soqmHeadComments;
     @Size(max = 2000, message = "Process Owner Comments must be at most 2000 characters")
     private String processOwnerComments;
+    @Size(max = 255, message = "SoQM Year must be at most 255 characters")
+    private String soqmYear;
     private String createdByEmail;
     
     // Assignment fields - can be set when creating a control

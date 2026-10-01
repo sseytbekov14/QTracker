@@ -9,6 +9,7 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.PerformanceService;
+import com.kpmg.qtracker.service.SoqmYear;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.service.WorkflowService;
@@ -171,9 +172,14 @@ public class PerformanceController {
                 return ResponseEntity.badRequest().body("Facilitator not assigned to this control");
             }
 
-            // Save soqmYear to controls
-            if (performanceDTO.getSoqmYear() != null && !performanceDTO.getSoqmYear().trim().isEmpty()) {
-                control.setSoqmYear(performanceDTO.getSoqmYear());
+            // The SoQM Year chosen in the Initiate confirmation
+            String soqmYear = performanceDTO.getSoqmYear() == null || performanceDTO.getSoqmYear().isBlank()
+                    ? null : performanceDTO.getSoqmYear().trim();
+            if (soqmYear != null && !SoqmYear.isValid(soqmYear)) {
+                return ResponseEntity.badRequest().body(SoqmYear.invalidMessage());
+            }
+            if (soqmYear != null) {
+                control.setSoqmYear(soqmYear);
             }
 
             control.setPerformanceStatus("IN_PROGRESS");

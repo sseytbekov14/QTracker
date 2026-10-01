@@ -22,6 +22,7 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
+import com.kpmg.qtracker.service.SoqmYear;
 import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import jakarta.servlet.http.HttpServletResponse;
@@ -534,6 +535,13 @@ public class ControlController {
                 return ResponseEntity.badRequest()
                         .body("VALIDATION_ERROR: " + missingField + " is required");
             }
+            // A blank SoQM Year leaves the stored one; any other value must be a real SoQM year
+            String requestedSoqmYear = controlDTO.getSoqmYear() == null || controlDTO.getSoqmYear().isBlank()
+                    ? null : controlDTO.getSoqmYear().trim();
+            controlDTO.setSoqmYear(requestedSoqmYear);
+            if (requestedSoqmYear != null && !SoqmYear.isValid(requestedSoqmYear)) {
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + SoqmYear.invalidMessage());
+            }
             String previousFrequency = existingControl.getControlFrequency();
             String requestedFrequency = controlDTO.getControlFrequency();
             String canonicalFrequency = null;
@@ -630,6 +638,9 @@ public class ControlController {
             }
             if (controlDTO.getHomogeneity() != null) {
                 existingControl.setHomogeneity(controlDTO.getHomogeneity());
+            }
+            if (requestedSoqmYear != null) {
+                existingControl.setSoqmYear(requestedSoqmYear);
             }
             // NOTE: DO NOT update performanceStatus here - it should only change via workflow transitions (Submit buttons)
             if (controlDTO.getControlStatus() != null && !controlDTO.getControlStatus().isBlank()) {
@@ -1014,6 +1025,7 @@ public class ControlController {
         fields.put("Non-audit Services Applicability",
                 new String[]{dto.getNonAuditServicesApplicability(), existing.getNonAuditServicesApplicability()});
         fields.put("Homogeneity", new String[]{dto.getHomogeneity(), existing.getHomogeneity()});
+        fields.put("SoQM Year", new String[]{dto.getSoqmYear(), existing.getSoqmYear()});
         // A blank status is ignored by the update, so only a non-blank one can change it
         fields.put("Control Status", new String[]{
                 dto.getControlStatus() == null || dto.getControlStatus().isBlank() ? null : dto.getControlStatus(),

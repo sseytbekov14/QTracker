@@ -1007,11 +1007,11 @@ public class ViewController {
 
         // Header summary + workflow stepper
         String normalizedStatus = normalizeStatus(performanceStatus);
+        LocalDate todayAlmaty = DeadlineOverdue.today(Instant.now());
         LocalDate deadline = DeadlineOverdue.deadlineOf(
                 assignment != null ? assignment.getControlOperationDeadline() : null, control.getDeadline());
         model.addAttribute("deadline", deadline);
-        model.addAttribute("overdue",
-                DeadlineOverdue.isOverdue(performanceStatus, deadline, DeadlineOverdue.today(Instant.now())));
+        model.addAttribute("overdue", DeadlineOverdue.isOverdue(performanceStatus, deadline, todayAlmaty));
         model.addAttribute("workflowStepIndex", workflowStepIndex(normalizedStatus));
         model.addAttribute("facilitatorNames", assignment != null ? joinDisplayNames(assignment.getFacilitator()) : null);
         model.addAttribute("operatorNames", assignment != null ? joinDisplayNames(assignment.getControlOperator()) : null);
@@ -1031,7 +1031,10 @@ public class ViewController {
             List<InitiationReadiness.Item> initiationItems = InitiationReadiness.items(control, assignment);
             model.addAttribute("initiationItems", initiationItems);
             model.addAttribute("initiationReady", InitiationReadiness.isReady(initiationItems));
+            model.addAttribute("initiateSoqmYear", SoqmYear.preselected(control.getSoqmYear(), todayAlmaty));
         }
+        // SoQM Year choices for the Initiate confirmation and the Control tab
+        model.addAttribute("soqmYearOptions", SoqmYear.options(todayAlmaty));
 
         return "view-control";
     }

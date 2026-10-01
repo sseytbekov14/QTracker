@@ -1729,6 +1729,8 @@ function saveControlData(controlId) {
         controlStatus: isBlankValue(getControlValue('[name="controlStatus"]')) ? null : getControlValue('[name="controlStatus"]'),
         priority: getControlValue('[name="priority"]'),
         nonAuditServicesApplicability: getControlValue('[name="nonAuditServicesApplicability"]'),
+        // A blank choice ("Not set") leaves the stored year as it is
+        soqmYear: isBlankValue(getControlValue('[name="soqmYear"]')) ? null : getControlValue('[name="soqmYear"]'),
         controlDescription: getControlValue('[name="controlDescription"]'),
         prp: getControlValue('[name="prp"]')
     };

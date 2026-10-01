@@ -17,6 +17,7 @@ import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.DeadlineOverdue;
+import com.kpmg.qtracker.service.SoqmYear;
 import com.kpmg.qtracker.service.UserService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -517,6 +518,89 @@ class ApiSecurityMockMvcIT {
             }
         }
         assertThat(fields).contains("Created").doesNotContain("Created At", "Actual Operation Date");
+    }
+
+    @Test
+    void initiateConfirmation_offersSoqmYears_withTheCurrentOnePreselected() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-YEAR-PICK-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+        LocalDate today = DeadlineOverdue.today(Instant.now());
+
+        String html = mockMvc.perform(get("/view-control/{id}", control.getId()).session(login(p.soqm.getMail())))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        String modal = html.substring(html.indexOf("id=\"initiateSoqmYear\""), html.indexOf("</select>", html.indexOf("id=\"initiateSoqmYear\"")));
+        for (String year : SoqmYear.options(today)) {
+            assertThat(modal).contains("value=\"" + year + "\"");
+        }
+        assertThat(modal).contains("value=\"" + SoqmYear.current(today) + "\" selected=\"selected\"");
+    }
+
+    @Test
+    void initiate_withSomethingThatIsNotASoqmYear_returns400() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-YEAR-BAD-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+
+        mockMvc.perform(post("/api/performance/initiate")
+                        .param("controlId", String.valueOf(control.getId()))
+                        .param("soqmYear", "2026-27")
+                        .session(login(p.soqm.getMail())))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("SoQM Year must be a SoQM year")));
+
+        Control stored = controlRepository.findById(control.getId()).orElseThrow();
+        assertThat(stored.getPerformanceStatus()).isEqualTo("DRAFT");
+        assertThat(stored.getSoqmYear()).isNull();
+    }
+
+    @Test
+    void soqmYear_isChangedThroughEdit_onlyBySoqm_andAudited() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-YEAR-EDIT-" + suffix(), p.soqm, "IN_PROGRESS");
+        control.setSoqmYear("1 OCT 2025 - 30 SEP 2026");
+        controlRepository.save(control);
+        assign(control, p);
+        String newYear = "1 OCT 2026 - 30 SEP 2027";
+
+        MockHttpSession facilitatorSession = login(p.facilitator.getMail());
+        mockMvc.perform(put("/api/controls/{id}", control.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(controlFormWithSoqmYear(newYear))
+                        .session(facilitatorSession))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(containsString("SoQM Year can be changed only by SoQM Team")));
+        mockMvc.perform(put("/api/controls/{id}", control.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(controlFormWithSoqmYear("1 OCT 2025 - 30 SEP 2026"))
+                        .session(facilitatorSession))
+                .andExpect(status().isOk());
+
+        MockHttpSession soqmSession = login(p.soqm.getMail());
+        mockMvc.perform(put("/api/controls/{id}", control.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(controlFormWithSoqmYear("2031"))
+                        .session(soqmSession))
+                .andExpect(status().isBadRequest());
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getSoqmYear())
+                .isEqualTo("1 OCT 2025 - 30 SEP 2026");
+
+        mockMvc.perform(put("/api/controls/{id}", control.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(controlFormWithSoqmYear(newYear))
+                        .session(soqmSession))
+                .andExpect(status().isOk());
+
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getSoqmYear()).isEqualTo(newYear);
+        assertThat(auditLogRepository.findByControlIdOrderByCreatedAtDesc(control.getId()))
+                .anySatisfy(log -> {
+                    assertThat(log.getChangedFields()).contains("soqm_year");
+                    assertThat(log.getPreviousValues()).contains("1 OCT 2025 - 30 SEP 2026");
+                    assertThat(log.getNewValues()).contains(newYear);
+                    assertThat(log.getAdminEmail()).isEqualTo(p.soqm.getMail());
+                });
     }
 
     @Test
@@ -1151,6 +1235,11 @@ class ApiSecurityMockMvcIT {
                 + "\"controlType\":\"Preventive\",\"component\":\"" + component + "\","
                 + "\"operatedBy\":\"Finance\",\"priority\":\"High\",\"nonAuditServicesApplicability\":\"No\","
                 + "\"controlStatus\":\"" + controlStatus + "\",\"controlDescription\":\"\",\"prp\":\"\"}";
+    }
+
+    private String controlFormWithSoqmYear(String soqmYear) {
+        String form = controlForm("Monthly", "HR", "IN_PROGRESS");
+        return form.substring(0, form.length() - 1) + ",\"soqmYear\":\"" + soqmYear + "\"}";
     }
 
     /** One user per workflow role, each with a unique mail. */

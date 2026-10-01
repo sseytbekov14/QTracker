@@ -842,6 +842,14 @@
                                             <option value="Elected (Audit, Assurance, ORS only)" th:selected="${control.nonAuditServicesApplicability == 'Elected (Audit, Assurance, ORS only)'}">Elected (Audit, Assurance, ORS only)</option>
                                         </select>
                                     </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label" for="soqmYear">SoQM Year</label>
+                                        <select class="form-control readonly-field" name="soqmYear" id="soqmYear" readonly th:data-stored-value="${control.soqmYear}">
+                                            <option value="" th:unless="${#lists.contains(soqmYearOptions, control.soqmYear)}">Not set</option>
+                                            <option th:each="year : ${soqmYearOptions}" th:value="${year}" th:text="${year}"
+                                                    th:selected="${year == control.soqmYear}">1 OCT 2026 - 30 SEP 2027</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <div class="row">
@@ -1720,14 +1728,13 @@
                                     and the Facilitator gets an e-mail. This cannot be undone.
                                 </p>
                                 <label for="initiateSoqmYear" class="form-label required-field">SoQM Year</label>
-                                <select class="form-select" id="initiateSoqmYear" required>
-                                    <option value="">Select SoQM Year</option>
-                                    <option value="1 OCT 2024 - 30 SEP 2025" th:selected="${control.soqmYear == '1 OCT 2024 - 30 SEP 2025'}">1 OCT 2024 - 30 SEP 2025</option>
-                                    <option value="1 OCT 2025 - 30 SEP 2026" th:selected="${control.soqmYear == '1 OCT 2025 - 30 SEP 2026'}">1 OCT 2025 - 30 SEP 2026</option>
-                                    <option value="1 OCT 2026 - 30 SEP 2027" th:selected="${control.soqmYear == '1 OCT 2026 - 30 SEP 2027'}">1 OCT 2026 - 30 SEP 2027</option>
-                                    <option value="1 OCT 2027 - 30 SEP 2028" th:selected="${control.soqmYear == '1 OCT 2027 - 30 SEP 2028'}">1 OCT 2027 - 30 SEP 2028</option>
+                                <select class="form-select" id="initiateSoqmYear" required aria-describedby="initiateSoqmYearHint">
+                                    <option th:each="year : ${soqmYearOptions}" th:value="${year}" th:text="${year}"
+                                            th:selected="${year == initiateSoqmYear}">1 OCT 2026 - 30 SEP 2027</option>
                                 </select>
                                 <div class="invalid-feedback">Select the SoQM Year.</div>
+                                <div class="form-text" id="initiateSoqmYearHint">
+                                    Later only SoQM Team can change it, with Edit on the Control tab.</div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
@@ -1748,7 +1755,7 @@
 <script src="/js/vendor/bootstrap.bundle.min.js"></script>
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/app-modal.js?v=4"></script>
-<script src="/js/view-control.js?v=4.0"></script>
+<script src="/js/view-control.js?v=4.1"></script>
 <script th:if="${canInitiate}">
 // Initiate a draft: confirm with the SoQM Year, then reload to show it In Progress
 (function () {
