@@ -422,37 +422,6 @@ public class WorkflowServiceImpl implements WorkflowService {
                 .collect(Collectors.toList());
     }
 
-    @Override
-    public boolean canUserEditControl(Long controlId, String userEmail) {
-
-        boolean isSoqmRole = userService.getUserByEmail(userEmail)
-                .map(user -> "SOQM_TEAM".equals(user.getRole()))
-                .orElse(false);
-        if (isSoqmRole) {
-            return true;
-        }
-        boolean isFacilitator = controlAssignmentService.isUserFacilitator(controlId, userEmail);
-        if (!isFacilitator) {
-            return false;
-        }
-
-        WorkflowStatus currentStatus = getCurrentWorkflowStatus(controlId);
-
-        boolean canEdit = (currentStatus == WorkflowStatus.DRAFT
-                || currentStatus == WorkflowStatus.IN_PROGRESS);
-
-        log.debug("User {} can edit control {}: {} (status: {}, isFacilitator: {})",
-                userEmail, controlId, canEdit, currentStatus, isFacilitator);
-
-        return canEdit;
-    }
-
-    @Override
-    public boolean isCurrentApprover(Long controlId, String userEmail) {
-        Optional<WorkflowStep> currentStep = workflowStepRepository.findCurrentStep(controlId);
-        return currentStep.filter(step -> userEmail.equals(step.getAssignedToEmail())).isPresent();
-    }
-
     // Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ РјРµС‚РѕРґС‹
     private WorkflowStepDTO convertToDTO(WorkflowStep step) {
         WorkflowStepDTO dto = new WorkflowStepDTO();

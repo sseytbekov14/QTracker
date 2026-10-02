@@ -163,40 +163,6 @@ public class WorkflowController {
         workflowHistoryRepository.save(history);
     }
 
-    @GetMapping("/{controlId}/status")
-    public ResponseEntity<WorkflowStatusDTO> getWorkflowStatus(@PathVariable Long controlId,
-                                                               HttpSession session) {
-        try {
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(401).build();
-            }
-
-            WorkflowStepDTO currentStep = workflowService.getCurrentStep(controlId);
-            WorkflowStatusDTO statusDTO = new WorkflowStatusDTO();
-
-            if (currentStep != null) {
-                statusDTO.setCurrentStatus(currentStep.getStatus());
-                statusDTO.setCurrentStep(currentStep.getStepType().name());
-                statusDTO.setAssignedToEmail(currentStep.getAssignedToEmail());
-                statusDTO.setAssignedToName(currentStep.getAssignedToName());
-                statusDTO.setCompleted(currentStep.getStatus() == WorkflowStatus.COMPLETED);
-                statusDTO.setReturned(false);
-            }
-
-            // Проверяем права
-            statusDTO.setCanEdit(workflowService.canUserEditControl(controlId, currentUser.getMail()));
-            statusDTO.setCanApprove(workflowService.isCurrentApprover(controlId, currentUser.getMail()));
-            statusDTO.setCanReturn(workflowService.isCurrentApprover(controlId, currentUser.getMail()));
-
-            return ResponseEntity.ok(statusDTO);
-
-        } catch (Exception e) {
-            log.error("Error getting workflow status: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().build();
-        }
-    }
-
     @GetMapping("/my-approvals")
     public ResponseEntity<List<PendingApprovalDTO>> getMyPendingApprovals(HttpSession session) {
         try {

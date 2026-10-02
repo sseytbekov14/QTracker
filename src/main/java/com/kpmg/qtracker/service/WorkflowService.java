@@ -28,12 +28,6 @@ public interface WorkflowService {
     // Получить контроли ожидающие моего апрува
     List<Control> getPendingApprovals(String userEmail);
 
-    // Проверить может ли пользователь редактировать контроль
-    boolean canUserEditControl(Long controlId, String userEmail);
-
-    // Проверить является ли пользователь текущим апрувером
-    boolean isCurrentApprover(Long controlId, String userEmail);
-
     // ★ ТОЛЬКО ОБЪЯВЛЕНИЕ метода, без реализации
     List<WorkflowButtonDTO> getAvailableButtons(Long controlId, String userEmail);
 

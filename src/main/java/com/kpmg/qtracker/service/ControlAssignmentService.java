@@ -147,11 +147,6 @@ public class ControlAssignmentService {
     }
 
     // Методы проверки ролей — Facilitator and Control Operator are interchangeable
-    public boolean isUserFacilitator(Long controlId, String userEmail) {
-        Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && hasAnyRole(user.get(), Set.of("FACILITATOR", "CONTROL_OPERATOR"));
-    }
-
     public boolean isUserControlOperator(Long controlId, String userEmail) {
         Optional<User> user = userRepository.findByMail(userEmail);
         return user.isPresent() && hasAnyRole(user.get(), Set.of("CONTROL_OPERATOR", "FACILITATOR"));
