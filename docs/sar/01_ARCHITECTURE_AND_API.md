@@ -95,7 +95,7 @@ All `(managed)` versions are resolved from the Spring Boot 3.5.7 BOM, which pins
 
 ### 3.2 Authenticated REST API Endpoints (`/api/**`)
 
-All endpoints below require an active authenticated session. Unauthenticated requests return `401 Unauthorized`.
+All endpoints below require an active authenticated session. Spring Security answers an unauthenticated request with a redirect (`302`) to the login page `/login` — under the `ssodev` profile into the OAuth 2.0 login flow — the same as for the HTML pages; it does not return `401 Unauthorized`.
 
 #### 3.2.1 Controls (`/api/controls`)
 
