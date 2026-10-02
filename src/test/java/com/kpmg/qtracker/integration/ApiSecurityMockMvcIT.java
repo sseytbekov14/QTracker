@@ -1430,6 +1430,27 @@ class ApiSecurityMockMvcIT {
                 .session(session));
     }
 
+    @Test
+    void changelog_participant200_unknownControl404_sharedOnlyUser403OnDraft() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-LOG-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+        MockHttpSession facilitator = login(p.facilitator.getMail());
+        MockHttpSession shared = login(shareWith(control, "shared-" + suffix() + "@example.test").getMail());
+
+        mockMvc.perform(get("/api/controls/{id}/changelog", control.getId()).with(ownAddress()).session(facilitator))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/controls/{id}/changelog", UNKNOWN_CONTROL_ID).with(ownAddress()).session(facilitator))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/controls/{id}/changelog", control.getId()).with(ownAddress()).session(shared))
+                .andExpect(status().isForbidden());
+
+        moveTo(control, "IN_PROGRESS");
+
+        mockMvc.perform(get("/api/controls/{id}/changelog", control.getId()).with(ownAddress()).session(shared))
+                .andExpect(status().isOk());
+    }
+
     // ---- User lists: everyone for SoQM Team and admins, the control's people by name and e-mail for others ----
 
     @Test

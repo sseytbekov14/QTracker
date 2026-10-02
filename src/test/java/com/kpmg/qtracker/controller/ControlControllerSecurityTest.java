@@ -16,6 +16,7 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
+import com.kpmg.qtracker.service.PermissionService;
 import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,6 +84,9 @@ class ControlControllerSecurityTest {
 
     @MockBean
     private ControlPermissionService controlPermissionService;
+
+    @MockBean
+    private PermissionService permissionService;
 
     @MockBean
     private com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;

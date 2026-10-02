@@ -22,6 +22,7 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
+import com.kpmg.qtracker.service.PermissionService;
 import com.kpmg.qtracker.service.SoqmYear;
 import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
@@ -62,6 +63,7 @@ public class ControlController {
     private final ControlHistoryService controlHistoryService;
     private final ControlAuditChangeService controlAuditChangeService;
     private final ControlPermissionService controlPermissionService;
+    private final PermissionService permissionService;
     private final StatusDisplayMapper statusDisplayMapper;
     private final com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;
     private static final Logger logger = LoggerFactory.getLogger(ControlController.class);
@@ -161,17 +163,7 @@ public class ControlController {
 
     @GetMapping("/{id}/changelog")
     public ResponseEntity<?> getControlChangelog(@PathVariable Long id, HttpSession session) {
-        User currentUser = (User) session.getAttribute("currentUser");
-        if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        java.util.Optional<Control> controlOpt = controlService.findById(id);
-        if (controlOpt.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        if (!controlPermissionService.resolve(controlOpt.get(), currentUser).canView()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        permissionService.requireReadable(id, (User) session.getAttribute("currentUser"));
         return ResponseEntity.ok(controlHistoryService.getControlHistory(id));
     }
 
