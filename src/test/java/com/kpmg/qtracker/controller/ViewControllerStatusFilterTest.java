@@ -26,6 +26,10 @@ import com.kpmg.qtracker.service.WorkflowTransitionGuard;
 import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.slf4j.MDC;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -50,6 +54,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 @WebMvcTest(controllers = ViewController.class)
+@ExtendWith(OutputCaptureExtension.class)
 @Import(WorkflowTransitionGuard.class)
 @AutoConfigureMockMvc(addFilters = false)
 class ViewControllerStatusFilterTest {
@@ -1455,6 +1460,33 @@ class ViewControllerStatusFilterTest {
         List<ControlResponseDTO> controls =
                 (List<ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
         assertThat(controls).extracting(ControlResponseDTO::getId).containsExactly(712L);
+    }
+
+    @Test
+    void unexpectedError_pageShowsOnlyAGeneralText_causeGoesToTheLogWithTheCorrelationId(CapturedOutput output) throws Exception {
+        User user = new User();
+        user.setId(5L);
+        user.setRole("FACILITATOR");
+        user.setMail("fac@kpmg.kz");
+        when(notificationService.getUserNotifications(5L))
+                .thenThrow(new IllegalStateException("JDBC failure on table notifications, host db-internal-01"));
+
+        MDC.put("correlationId", "cid-500-test");
+        try {
+            mockMvc.perform(get("/notification/7").sessionAttr("currentUser", user))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(view().name("error/500"))
+                    .andExpect(content().string(containsString("Something went wrong")))
+                    .andExpect(content().string(not(containsString("JDBC"))))
+                    .andExpect(content().string(not(containsString("db-internal-01"))))
+                    .andExpect(content().string(not(containsString("/notification/7"))));
+        } finally {
+            MDC.remove("correlationId");
+        }
+
+        assertThat(output.getAll())
+                .contains("Unexpected error on GET /notification/7 (correlationId=cid-500-test)")
+                .contains("JDBC failure on table notifications, host db-internal-01");
     }
 
     private void mockVisibleControls(User user, List<ControlResponseDTO> dtos) {

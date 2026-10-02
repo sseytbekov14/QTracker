@@ -28,11 +28,9 @@
 </script>
 <main class="page">
     <section class="card">
-        <h1 th:text="${title} ?: 'Unexpected Error'">Unexpected Error</h1>
-        <p th:text="${message} ?: 'Something went wrong while processing your request.'">
-            Something went wrong while processing your request.
-        </p>
-        <p class="muted" th:if="${path}" th:text="'Path: ' + ${path}">Path: /</p>
+        <!-- General text only: the cause is in the server log, never on the page -->
+        <h1>Something went wrong</h1>
+        <p>The request could not be completed. Please try again; if it keeps happening, contact the QTracker team.</p>
         <a class="btn" href="/controls">Back to Controls</a>
     </section>
 </main>
