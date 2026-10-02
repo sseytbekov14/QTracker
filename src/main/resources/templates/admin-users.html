@@ -98,29 +98,6 @@
             text-transform: none;
         }
 
-        .admin-theme-toggle {
-            width: 34px;
-            height: 34px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            border: 1px solid rgba(255, 255, 255, 0.22);
-            border-radius: 4px;
-            background: rgba(255, 255, 255, 0.08);
-            color: #fff;
-            font-size: 0.95rem;
-            line-height: 1;
-        }
-
-        .admin-theme-toggle:hover,
-        .admin-theme-toggle:focus {
-            background: rgba(255, 255, 255, 0.14);
-            color: #fff;
-            border-color: rgba(255, 255, 255, 0.3);
-            box-shadow: none;
-        }
-
         .toolbar-strip {
             display: grid;
             grid-template-columns: minmax(280px, 2fr) minmax(180px, 1fr) minmax(180px, 1fr) auto;
@@ -537,6 +514,17 @@
     </style>
 </head>
 <body>
+<script>
+(function() {
+    // One light theme; a dark theme saved by the former switch is dropped
+    document.body.classList.add('theme-light');
+    try {
+        localStorage.removeItem('qtrackerTheme');
+    } catch (error) {
+        // Storage may be blocked; nothing is read from it
+    }
+})();
+</script>
 <div class="container-fluid">
     <div class="row">
         <div th:replace="~{fragments/sidebar :: sidebar('admin')}"></div>
@@ -562,11 +550,6 @@
                                 <p class="subtitle">User Management</p>
                             </div>
                         </div>
-                        <button type="button"
-                                id="adminThemeToggle"
-                                class="btn admin-theme-toggle"
-                                title="Switch theme"
-                            aria-label="Switch theme"><i class="bi bi-moon-fill"></i></button>
                     </div>
 
                     <div class="toolbar-strip">
@@ -746,11 +729,6 @@
 <script src="/js/vendor/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const ADMIN_THEME_STORAGE_KEY = 'qtrackerTheme';
-
-    applyAdminTheme(getStoredAdminTheme());
-    initializeAdminThemeToggle();
-
     const rows = Array.from(document.querySelectorAll('.admin-user-row'));
     const searchInput = document.getElementById('searchUsers');
     const roleFilter = document.getElementById('filterRole');
@@ -1368,53 +1346,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     renderTablePage();
-
-    function getStoredAdminTheme() {
-        try {
-            const storedTheme = localStorage.getItem(ADMIN_THEME_STORAGE_KEY);
-            return storedTheme === 'dark' ? 'dark' : 'light';
-        } catch (error) {
-            return 'light';
-        }
-    }
-
-    function initializeAdminThemeToggle() {
-        const toggleButton = document.getElementById('adminThemeToggle');
-        if (!toggleButton) {
-            return;
-        }
-
-        updateAdminThemeToggleIcon();
-        toggleButton.addEventListener('click', function() {
-            const nextTheme = document.body.classList.contains('theme-dark') ? 'light' : 'dark';
-            applyAdminTheme(nextTheme);
-        });
-    }
-
-    function applyAdminTheme(theme) {
-        const normalizedTheme = theme === 'dark' ? 'dark' : 'light';
-        document.body.classList.remove('theme-light', 'theme-dark');
-        document.body.classList.add('theme-' + normalizedTheme);
-
-        try {
-            localStorage.setItem(ADMIN_THEME_STORAGE_KEY, normalizedTheme);
-        } catch (error) {
-            // Ignore storage restrictions (e.g., private mode)
-        }
-
-        updateAdminThemeToggleIcon();
-    }
-
-    function updateAdminThemeToggleIcon() {
-        const toggleButton = document.getElementById('adminThemeToggle');
-        if (!toggleButton) {
-            return;
-        }
-        const dark = document.body.classList.contains('theme-dark');
-        toggleButton.innerHTML = dark
-            ? '<i class="bi bi-brightness-high-fill"></i>'
-            : '<i class="bi bi-moon-fill"></i>';
-    }
 });
 </script>
 <div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">

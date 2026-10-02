@@ -147,11 +147,12 @@
 <body>
 <script>
 (function() {
+    // One light theme; a dark theme saved by the former switch is dropped
+    document.body.classList.add('theme-light');
     try {
-        var savedTheme = localStorage.getItem('qtrackerTheme');
-        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+        localStorage.removeItem('qtrackerTheme');
     } catch (error) {
-        document.body.classList.add('theme-light');
+        // Storage may be blocked; nothing is read from it
     }
 })();
 </script>

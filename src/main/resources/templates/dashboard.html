@@ -112,37 +112,6 @@ html.tab-init-pending #mainTabContent {
     padding: 14px 24px;
 }
 .dashboard-header-panel h1 { font-size: 1.15rem; }
-.dashboard-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
-}
-.dashboard-theme-toggle:focus-visible {
-    outline: 2px solid var(--kpmg-white);
-    outline-offset: 2px;
-}
-.dashboard-theme-toggle {
-    width: 34px;
-    height: 34px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--kpmg-white);
-    font-size: 0.95rem;
-    line-height: 1;
-}
-.dashboard-theme-toggle:hover,
-.dashboard-theme-toggle:focus {
-    background: rgba(255, 255, 255, 0.14);
-    color: var(--kpmg-white);
-    border-color: rgba(255, 255, 255, 0.3);
-    box-shadow: none;
-}
 
 /* Stats strip */
 .stats-strip {
@@ -984,11 +953,12 @@ a.stat-block:focus-visible,
 <body>
 <script>
 (function() {
+    // One light theme; a dark theme saved by the former switch is dropped
+    document.body.classList.add('theme-light');
     try {
-        var savedTheme = localStorage.getItem('qtrackerTheme');
-        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+        localStorage.removeItem('qtrackerTheme');
     } catch (error) {
-        document.body.classList.add('theme-light');
+        // Storage may be blocked; nothing is read from it
     }
 })();
 </script>
@@ -1030,13 +1000,6 @@ a.stat-block:focus-visible,
                                    th:text="${actionItemsTotal} + (${actionItemsTotal == 1} ? ' control is' : ' controls are') + ' awaiting your action'
                                             + (${actionItemsOverdue > 0} ? ' · ' + ${actionItemsOverdue} + ' overdue' : '')"></p>
                                 <p class="subtitle" th:if="${actionItemsTotal != null and actionItemsTotal == 0}">Nothing is awaiting your action</p>
-                            </div>
-                            <div class="dashboard-header-actions">
-                                <button type="button"
-                                        id="dashboardThemeToggle"
-                                        class="btn dashboard-theme-toggle"
-                                        title="Switch theme"
-                                        aria-label="Switch theme"><i class="bi bi-moon-fill"></i></button>
                             </div>
                         </div>
 
@@ -1349,16 +1312,11 @@ let deadlineCountdownTickHandle;
 let dashboardLeftChartData;
 let dashboardRightChartData;
 
-const DASHBOARD_THEME_STORAGE_KEY = 'qtrackerTheme';
-
 if (window.Chart && window.ChartDataLabels) {
     Chart.register(ChartDataLabels);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    applyDashboardTheme(getStoredDashboardTheme());
-    initializeDashboardThemeToggle();
-
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('success') === 'true') {
         showSuccessAlert('Control created successfully!');
@@ -1415,73 +1373,6 @@ function showSuccessAlert(message) {
 function hideSuccessAlert() {
     const a = document.getElementById('successAlert');
     if (a) a.style.display = 'none';
-}
-
-function getStoredDashboardTheme() {
-    try {
-        const storedTheme = localStorage.getItem(DASHBOARD_THEME_STORAGE_KEY);
-        return storedTheme === 'dark' ? 'dark' : 'light';
-    } catch (error) {
-        return 'light';
-    }
-}
-
-function initializeDashboardThemeToggle() {
-    const toggleButton = document.getElementById('dashboardThemeToggle');
-    if (!toggleButton) {
-        return;
-    }
-
-    updateDashboardThemeToggleIcon();
-    toggleButton.addEventListener('click', function() {
-        const nextTheme = document.body.classList.contains('theme-dark') ? 'light' : 'dark';
-        applyDashboardTheme(nextTheme);
-        rerenderDashboardCharts();
-    });
-}
-
-function applyDashboardTheme(theme) {
-    const normalizedTheme = theme === 'dark' ? 'dark' : 'light';
-    document.body.classList.remove('theme-light', 'theme-dark');
-    document.body.classList.add('theme-' + normalizedTheme);
-
-    try {
-        localStorage.setItem(DASHBOARD_THEME_STORAGE_KEY, normalizedTheme);
-    } catch (error) {
-        // Ignore localStorage failures and keep the current in-memory theme.
-    }
-
-    updateDashboardThemeToggleIcon();
-}
-
-function updateDashboardThemeToggleIcon() {
-    const toggleButton = document.getElementById('dashboardThemeToggle');
-    if (!toggleButton) {
-        return;
-    }
-
-    const isDarkMode = document.body.classList.contains('theme-dark');
-    toggleButton.innerHTML = isDarkMode
-        ? '<i class="bi bi-brightness-high-fill"></i>'
-        : '<i class="bi bi-moon-fill"></i>';
-}
-
-function rerenderDashboardCharts() {
-    const dashboardCharts = document.getElementById('dashboardCharts');
-    if (!dashboardCharts || !window.Chart) {
-        return;
-    }
-
-    if (hasChartData(dashboardLeftChartData)) {
-        renderStatusBreakdownChart(dashboardLeftChartData);
-    }
-    if (hasChartData(dashboardRightChartData)) {
-        renderFrequencyChart(dashboardRightChartData);
-    }
-
-    if (deadlineCalendarInstance) {
-        deadlineCalendarInstance.updateSize();
-    }
 }
 
 async function initializeAdminDashboardCharts() {
