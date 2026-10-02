@@ -1421,6 +1421,46 @@ class ViewControllerStatusFilterTest {
                 .contains("JDBC failure on table notifications, host db-internal-01");
     }
 
+    @Test
+    void notificationDetail_linksToViewControl_draftToItsAssignmentTab() throws Exception {
+        User user = new User();
+        user.setId(6L);
+        user.setRole("FACILITATOR");
+        user.setMail("fac@kpmg.kz");
+        user.setDisplayName("Fac User");
+        when(notificationTypeDisplayMapper.map(any(), any()))
+                .thenReturn(new NotificationTypeDisplayMapper.Display("Returned", "badge-default"));
+
+        for (String status : List.of("IN_PROGRESS", "DRAFT")) {
+            Control control = new Control();
+            control.setId(41L);
+            control.setControlId("CTRL-041");
+            control.setComponent("HR");
+            control.setPerformanceStatus(status);
+            when(controlService.getControlById(41L)).thenReturn(java.util.Optional.of(control));
+            com.kpmg.qtracker.entity.Notification notification = new com.kpmg.qtracker.entity.Notification();
+            notification.setId(9L);
+            notification.setUserId(6L);
+            notification.setControlId(41L);
+            notification.setType("RETURN_TO_FACILITATOR");
+            notification.setTitle("Control CTRL-041 returned to you");
+            notification.setMessage("Comment: attach the signed review");
+            notification.setCreatedAt(java.time.LocalDateTime.of(2026, 10, 2, 14, 30));
+            when(notificationService.getUserNotifications(6L)).thenReturn(List.of(notification));
+
+            String expectedUrl = "DRAFT".equals(status) ? "/view-control/41#assignment" : "/view-control/41";
+            mockMvc.perform(get("/notification/9").sessionAttr("currentUser", user))
+                    .andExpect(status().isOk())
+                    .andExpect(view().name("notification-detail"))
+                    .andExpect(content().string(containsString("href=\"" + expectedUrl + "\"")))
+                    .andExpect(content().string(containsString("Human Resources (HR)")))
+                    .andExpect(content().string(containsString("Comment: attach the signed review")))
+                    .andExpect(content().string(containsString("class=\"col-md-2 sidebar")))
+                    .andExpect(content().string(not(containsString("/performance-cycle/"))))
+                    .andExpect(content().string(not(containsString("System"))));
+        }
+    }
+
     private void mockVisibleControls(User user, List<ControlResponseDTO> dtos) {
         List<Control> controls = new java.util.ArrayList<>();
         for (ControlResponseDTO dto : dtos) {

@@ -787,10 +787,6 @@ public class ViewController {
 
         User currentUser = getCurrentUser(session);
 
-        model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getRole());
-        model.addAttribute("userEmail", currentUser.getMail());
-
         try {
             Long notifId = Long.parseLong(notificationId);
 
@@ -809,13 +805,19 @@ public class ViewController {
             notificationService.markAsRead(notifId);
             NotificationItemDTO dto = convertNotificationToDTO(notif);
             model.addAttribute("notification", dto);
-            
+            // "Go to Control": View Control, a draft on its Assignment tab; no button if the control is gone
+            controlService.getControlById(notif.getControlId()).ifPresent(control -> {
+                boolean draft = "DRAFT".equals(normalizeStatus(control.getPerformanceStatus()));
+                model.addAttribute("controlUrl", "/view-control/" + control.getId() + (draft ? "#assignment" : ""));
+                if (control.getComponent() != null && COMPONENT_NAMES.containsKey(control.getComponent())) {
+                    model.addAttribute("componentName",
+                            COMPONENT_NAMES.get(control.getComponent()) + " (" + control.getComponent() + ")");
+                }
+            });
         } catch (NumberFormatException e) {
             model.addAttribute("error", "Invalid notification ID");
             return "notification-detail";
         }
-
-        model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
 
         return "notification-detail";
     }
@@ -882,10 +884,8 @@ public class ViewController {
         
         dto.setMessage(notif.getTitle());
         dto.setFullText(notif.getMessage());
-        dto.setBy("System"); // can enhance to store actual user name
         dto.setTimestamp(notif.getCreatedAt());
         dto.setRead(notif.getIsRead());
-        dto.setAttachments(new ArrayList<>());
         applyNotificationDisplay(dto);
         
         return dto;
