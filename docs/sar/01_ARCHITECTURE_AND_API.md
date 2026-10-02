@@ -102,7 +102,6 @@ All endpoints below require an active authenticated session. Spring Security ans
 | Method | Path | Controller | Allowed Roles | Description |
 |---|---|---|---|---|
 | `POST` | `/api/controls` | `ControlController` | `SOQM_TEAM` only | Create a new control |
-| `GET` | `/api/controls/{id}` | `ControlController` | Assigned / SOQM_TEAM | Get control by DB ID |
 | `PUT` | `/api/controls/{id}` | `ControlController` | Assigned users (role-filtered) | Update control fields |
 | `GET` | `/api/controls/user/{email}` | `ControlController` | All authenticated | Controls assigned to user |
 | `GET` | `/api/controls/generate-id` | `ControlController` | All authenticated | Generate control ID suggestion |
