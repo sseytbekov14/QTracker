@@ -546,11 +546,6 @@ class ApiSecurityMockMvcIT {
                 .andExpect(content().string(containsString("href=\"" + draftPage + "\"")))
                 .andExpect(content().string(not(containsString("href=\"/view-control/" + draft.getId() + "\""))))
                 .andExpect(content().string(containsString("href=\"/performance-cycle/" + running.getId() + "\"")));
-        // Needs attention lists both: the draft is overdue and neither has CO, SoQM or PO
-        mockMvc.perform(get("/").session(soqmSession))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("href=\"" + draftPage + "\"")))
-                .andExpect(content().string(containsString("href=\"/view-control/" + running.getId() + "\"")));
         mockMvc.perform(get("/api/dashboard/deadline-countdown").param("limit", "50").session(soqmSession))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.overdue[?(@.id == " + draft.getId() + ")].url").value(draftPage))
@@ -1149,42 +1144,22 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
-    void needsAttention_isRenderedForSoqmAndAdmin_notForFacilitator() throws Exception {
+    void dashboard_hasNoNeedsAttentionBlock_forSoqmOrAdmin() throws Exception {
         String s = suffix();
-        User facilitator = saveUser("na-fac-" + s, "na-fac-" + s + "@example.test", "FACILITATOR");
         User soqm = saveUser("na-soqm-" + s, "na-soqm-" + s + "@example.test", "SOQM_TEAM");
         User admin = saveUser("na-admin-" + s, "na-admin-" + s + "@example.test", "ADMIN");
         admin.setAdminAccess(true);
         userRepository.save(admin);
-
-        // Only the Facilitator is assigned, so the control is visible to them and lacks CO, SoQM lead and PO
-        Control control = createControl("CTRL-NA-" + s, soqm, "REVIEW");
-        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
-        assignment.setFacilitator(facilitator.getMail());
-        assignmentRepository.save(assignment);
-
-        // SoQM sent it back to the operator; the later comment keeps the step and is not a move
-        LocalDate today = DeadlineOverdue.today(Instant.now());
-        saveHistory(control, WorkflowActionType.SUBMIT_TO_OPERATOR, "IN_PROGRESS", "REVIEW", today.minusDays(5));
-        saveHistory(control, WorkflowActionType.SUBMIT_TO_SOQM_TEAM, "REVIEW", "SOQM_HEAD_REVIEW", today.minusDays(4));
-        saveHistory(control, WorkflowActionType.RETURN_TO_OPERATOR, "SOQM_HEAD_REVIEW", "REVIEW", today.minusDays(2));
-        saveHistory(control, WorkflowActionType.COMMENT, "REVIEW", "REVIEW", today);
+        // Lacks CO, SoQM lead and PO: the removed block used to list it
+        createControl("CTRL-NA-" + s, soqm, "REVIEW");
 
         for (User viewer : List.of(soqm, admin)) {
             mockMvc.perform(get("/").session(login(viewer.getMail())))
                     .andExpect(status().isOk())
-                    .andExpect(model().attributeExists("needsAttention"))
-                    .andExpect(content().string(containsString("id=\"needsAttention\"")))
-                    .andExpect(content().string(containsString(control.getControlId())))
-                    .andExpect(content().string(containsString("No CO, SoQM, PO")))
-                    .andExpect(content().string(containsString("Returned by SoQM · 2d ago")));
+                    .andExpect(model().attributeDoesNotExist("needsAttention"))
+                    .andExpect(content().string(not(containsString("Needs attention"))))
+                    .andExpect(content().string(containsString("Awaiting my action")));
         }
-
-        mockMvc.perform(get("/").session(login(facilitator.getMail())))
-                .andExpect(status().isOk())
-                .andExpect(model().attributeDoesNotExist("needsAttention"))
-                .andExpect(content().string(not(containsString("id=\"needsAttention\""))))
-                .andExpect(content().string(not(containsString("No CO, SoQM, PO"))));
     }
 
     @Test

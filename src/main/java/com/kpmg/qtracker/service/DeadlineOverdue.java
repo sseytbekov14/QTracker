@@ -13,8 +13,8 @@ import java.util.function.Function;
  * the control is due until the end of that day and becomes overdue the next day.
  *
  * <p>This is the one place that decides whether a control is overdue. The dashboard tiles,
- * the deadlines block and calendar, the Overdue filter on Controls, Action Centre, the control
- * pages and Needs attention all call it; none of them repeat the rule.
+ * the deadlines block and calendar, the Overdue filter on Controls, Action Centre and the control
+ * pages all call it; none of them repeat the rule.
  */
 public final class DeadlineOverdue {
     private static final ZoneId ZONE = ZoneId.of("Asia/Almaty");

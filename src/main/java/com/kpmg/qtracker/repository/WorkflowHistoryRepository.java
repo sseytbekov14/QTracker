@@ -44,12 +44,4 @@ public interface WorkflowHistoryRepository extends JpaRepository<WorkflowHistory
            "AND UPPER(TRIM(h.fromStep)) = 'PROCESS_OWNER_REVIEW')) " +
            "GROUP BY h.controlId")
     List<Object[]> findLatestCompletionTimestampByControlIds(@Param("controlIds") List<Long> controlIds);
-
-    // Rows that moved the given controls to a step: [controlId, fromStep, toStep, createdAt, id]
-    @Query("SELECT h.controlId, h.fromStep, h.toStep, h.createdAt, h.id " +
-           "FROM WorkflowHistory h " +
-           "WHERE h.controlId IN :controlIds " +
-           "AND h.toStep IS NOT NULL " +
-           "AND h.createdAt IS NOT NULL")
-    List<Object[]> findStepMovesByControlIds(@Param("controlIds") List<Long> controlIds);
 }
