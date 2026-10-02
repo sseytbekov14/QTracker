@@ -226,8 +226,10 @@ const viewControl = (function() {
 
     async function loadAllUsers() {
         try {
-            const response = await fetch('/api/users/all');
-            allUsers = await response.json();
+            // SoQM Team and admins get every user; others only the people on this control
+            const controlId = document.querySelector('input[name="id"]')?.value || '';
+            const response = await fetch('/api/users/all?controlId=' + encodeURIComponent(controlId));
+            allUsers = response.ok ? await response.json() : [];
             console.log('вњ… Р—Р°РіСЂСѓР¶РµРЅРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№:', allUsers.length);
             return allUsers;
         } catch (error) {

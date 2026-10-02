@@ -1430,6 +1430,73 @@ class ApiSecurityMockMvcIT {
                 .session(session));
     }
 
+    // ---- User lists: everyone for SoQM Team and admins, the control's people by name and e-mail for others ----
+
+    @Test
+    void usersAll_soqmGetsEveryone_othersOnlyThePeopleOnAControlTheyRead() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-USR-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+        User shared = shareWith(control, "shared-" + suffix() + "@example.test");
+        User stranger = saveUser("stranger-" + suffix(), "stranger-" + suffix() + "@example.test", "FACILITATOR");
+
+        String everyone = mockMvc.perform(get("/api/users/all").with(ownAddress()).session(login(p.soqm.getMail())))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(everyone).contains(stranger.getMail(), "\"role\":\"FACILITATOR\"");
+
+        MockHttpSession facilitator = login(p.facilitator.getMail());
+        mockMvc.perform(get("/api/users/all").param("controlId", String.valueOf(control.getId()))
+                        .with(ownAddress()).session(facilitator))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(5))
+                .andExpect(jsonPath("$[*].mail").value(org.hamcrest.Matchers.containsInAnyOrder(
+                        p.facilitator.getMail(), p.operator.getMail(), p.soqm.getMail(), p.owner.getMail(),
+                        shared.getMail())))
+                .andExpect(jsonPath("$[0].displayName").value(p.facilitator.getDisplayName()))
+                .andExpect(jsonPath("$[0].id").doesNotExist())
+                .andExpect(jsonPath("$[0].role").doesNotExist())
+                .andExpect(jsonPath("$[0].enabled").doesNotExist());
+
+        mockMvc.perform(get("/api/users/all").with(ownAddress()).session(facilitator))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/users/all").param("controlId", String.valueOf(control.getId()))
+                        .with(ownAddress()).session(login(stranger.getMail())))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/users/all").param("controlId", String.valueOf(UNKNOWN_CONTROL_ID))
+                        .with(ownAddress()).session(facilitator))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void usersAll_sharedOnlyUser_403OnDraft() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-USR-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+        MockHttpSession shared = login(shareWith(control, "shared-" + suffix() + "@example.test").getMail());
+
+        mockMvc.perform(get("/api/users/all").param("controlId", String.valueOf(control.getId()))
+                        .with(ownAddress()).session(shared))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void usersByRole_andUserList_onlySoqmAndAdmins() throws Exception {
+        Participants p = participants();
+        User admin = saveUser("admin-" + suffix(), "admin-" + suffix() + "@example.test", "PROCESS_OWNER");
+        admin.setAdminAccess(true);
+        userRepository.save(admin);
+        MockHttpSession soqm = login(p.soqm.getMail());
+        MockHttpSession adminSession = login(admin.getMail());
+        MockHttpSession facilitator = login(p.facilitator.getMail());
+
+        for (String path : List.of("/api/users/role/FACILITATOR", "/api/users")) {
+            mockMvc.perform(get(path).with(ownAddress()).session(soqm)).andExpect(status().isOk());
+            mockMvc.perform(get(path).with(ownAddress()).session(adminSession)).andExpect(status().isOk());
+            mockMvc.perform(get(path).with(ownAddress()).session(facilitator)).andExpect(status().isForbidden());
+        }
+    }
+
     private static final long UNKNOWN_CONTROL_ID = 987_654_321L;
 
     private static int requestAddressCount;

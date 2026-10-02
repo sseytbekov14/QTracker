@@ -8,6 +8,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.ControlFrequency;
 import com.kpmg.qtracker.service.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -214,22 +215,60 @@ public class ControlTabsController {
         }
     }
 
-    // Get all users for assignment dropdowns
+    /**
+     * SoQM Team and admins get every user, for the assignment pickers. Anyone else gets only the people
+     * on the control they may read, by name and e-mail, so View Control can show who is assigned.
+     */
     @GetMapping("/api/users/all")
-    public ResponseEntity<List<UserDTO>> getAllUsers() {
-        List<UserDTO> users = userService.getAllUsers().stream()
+    public ResponseEntity<List<UserDTO>> getAllUsers(@RequestParam(required = false) Long controlId,
+                                                     HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (ControlScope.seesAllControls(currentUser)) {
+            List<UserDTO> users = userService.getAllUsers().stream()
+                    .map(this::convertToUserDTO)
+                    .toList();
+            return ResponseEntity.ok(users);
+        }
+        if (currentUser != null && controlId == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        permissionService.requireReadable(controlId, currentUser);
+
+        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
+        Set<String> mails = new LinkedHashSet<>();
+        for (List<String> group : List.of(nullToEmpty(assignment.getFacilitator()),
+                nullToEmpty(assignment.getControlOperator()), nullToEmpty(assignment.getSoqmLead()),
+                nullToEmpty(assignment.getProcessOwner()), nullToEmpty(assignment.getControlSharedWith()))) {
+            group.stream().filter(mail -> mail != null && !mail.isBlank()).map(String::trim).forEach(mails::add);
+        }
+        Map<Long, UserDTO> people = new LinkedHashMap<>();
+        for (String mail : mails) {
+            userService.getUserByEmail(mail).ifPresent(user -> people.putIfAbsent(user.getId(), nameAndMail(user)));
+        }
+        return ResponseEntity.ok(new ArrayList<>(people.values()));
+    }
+
+    // Users by role for the assignment pickers, which only SoQM Team and admins can open
+    @GetMapping("/api/users/role/{role}")
+    public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable String role, HttpSession session) {
+        if (!ControlScope.seesAllControls((User) session.getAttribute("currentUser"))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        List<UserDTO> users = userService.getUsersByRole(role).stream()
                 .map(this::convertToUserDTO)
                 .toList();
         return ResponseEntity.ok(users);
     }
 
-    // Get users filtered by role
-    @GetMapping("/api/users/role/{role}")
-    public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable String role) {
-        List<UserDTO> users = userService.getUsersByRole(role).stream()
-                .map(this::convertToUserDTO)
-                .toList();
-        return ResponseEntity.ok(users);
+    private static List<String> nullToEmpty(List<String> values) {
+        return values == null ? List.of() : values;
+    }
+
+    private UserDTO nameAndMail(User user) {
+        UserDTO dto = new UserDTO();
+        dto.setDisplayName(user.getDisplayName());
+        dto.setMail(user.getMail());
+        return dto;
     }
 
     @GetMapping("/api/control-details")
