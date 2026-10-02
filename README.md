@@ -211,7 +211,8 @@ Authentication:
 Authorization:
 - Endpoint protection configured in `SecurityConfig`
 - Per-control permissions in `ControlPermissionService`; one read rule for pages and the REST API in `PermissionService.readAccess` / `requireReadable` (no field is hidden on read)
-- Roles used in business logic: `FACILITATOR`, `CONTROL_OPERATOR`, `SOQM_LEAD`, `PROCESS_OWNER`, `ADMIN`
+- Roles (`users.role`): `FACILITATOR`, `CONTROL_OPERATOR`, `PROCESS_OWNER`, `SOQM_TEAM`, `KDN` (read-only, KDN controls only); optional secondary role `FACILITATOR`, `CONTROL_OPERATOR` or `PROCESS_OWNER`
+- Administration through the `admin_access` flag, independent of the role; the dev seeder's `ADMIN` role sees all controls in lists but has no other admin rights
 
 Request protection:
 - CSRF token repository enabled (with configured exclusions)
