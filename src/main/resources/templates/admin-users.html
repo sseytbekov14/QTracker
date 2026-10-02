@@ -265,22 +265,36 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .audit-table td { padding: 6px 12px; color: var(--kpmg-gray-800); border-color: var(--kpmg-gray-100); }
 .audit-table td.audit-date { white-space: nowrap; color: var(--kpmg-gray-600); }
 
-.admin-content-wrap { position: relative; }
+/* Page message: a toast in the top right corner, visible wherever the page is scrolled */
 .client-alert {
-    position: absolute;
-    top: 8px;
-    left: 12px;
-    right: 12px;
-    z-index: 1060;
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 1080;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    max-width: 440px;
+    margin: 0;
+    padding: 10px 12px 10px 14px;
     border-radius: 6px;
     font-size: 0.82rem;
-    margin-bottom: 0;
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 24px rgba(0, 20, 60, 0.18);
 }
+.client-alert.d-none { display: none; }
+.client-alert .btn-close { flex-shrink: 0; font-size: 0.7rem; margin-top: 2px; }
+
+/* Dialogs */
+.modal .btn-primary { background-color: var(--kpmg-blue); border-color: var(--kpmg-blue); }
+.modal .btn-primary:hover:not(:disabled) { background-color: var(--kpmg-blue-light); border-color: var(--kpmg-blue-light); }
+.required-mark { color: var(--kpmg-red); }
+.modal-note { font-size: 0.82rem; color: var(--kpmg-gray-600); margin-bottom: 12px; overflow-wrap: anywhere; }
+#editEmailCurrent { font-weight: 600; color: var(--kpmg-gray-800); }
 
 @media (max-width: 767.98px) {
     .page-header { flex-wrap: wrap; }
     .search-box { max-width: none; }
+    .client-alert { left: 16px; max-width: none; }
 }
     </style>
 </head>
@@ -301,8 +315,11 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
         <div th:replace="~{fragments/sidebar :: sidebar('admin')}"></div>
 
         <div class="col-md-10">
-            <div class="p-3 admin-content-wrap">
-                <div id="clientAlert" class="alert d-none mb-3 client-alert" role="alert"></div>
+            <div class="p-3">
+                <div id="clientAlert" class="alert d-none client-alert" role="status" aria-live="polite">
+                    <span id="clientAlertText"></span>
+                    <button type="button" class="btn-close" aria-label="Close message"></button>
+                </div>
 
                 <nav class="app-breadcrumb" aria-label="breadcrumb">
                     <a href="/" class="app-breadcrumb-link">
@@ -518,6 +535,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusFilter = document.getElementById('filterStatus');
     const saveAllBtn = document.getElementById('saveAllChanges');
     const clientAlert = document.getElementById('clientAlert');
+    const clientAlertText = document.getElementById('clientAlertText');
     const exportUsersBtn = document.getElementById('exportUsersBtn');
     const openAddUserBtn = document.getElementById('openAddUserBtn');
     const pageSizeSelect = document.getElementById('pageSizeSelect');
@@ -527,6 +545,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const paginationInfo = document.getElementById('paginationInfo');
     const noUsersClientRow = document.getElementById('noUsersClientRow');
     const addUserModalElement = document.getElementById('addUserModal');
+    const addUserForm = document.getElementById('addUserForm');
     const addUserEmail = document.getElementById('addUserEmail');
     const addUserName = document.getElementById('addUserName');
     const addUserRole = document.getElementById('addUserRole');
@@ -535,6 +554,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const addUserSaveBtn = document.getElementById('addUserSaveBtn');
     const addUserError = document.getElementById('addUserError');
     const editEmailModalElement = document.getElementById('editEmailModal');
+    const editEmailForm = document.getElementById('editEmailForm');
+    const editEmailUser = document.getElementById('editEmailUser');
     const editEmailCurrent = document.getElementById('editEmailCurrent');
     const editEmailInput = document.getElementById('editEmailInput');
     const editEmailSaveBtn = document.getElementById('editEmailSaveBtn');
@@ -543,8 +564,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // "None" clears the additional role; an empty value (the option of a stored value the list
     // does not offer) is saved as "unchanged"
     const NO_SECONDARY_ROLE = /*[[${noSecondaryRole}]]*/ 'NONE';
+    // A message that has to survive the reload after Add User
+    const FLASH_KEY = 'qtrackerAdminFlash';
     let currentPage = 1;
     let pageSize = Number(pageSizeSelect?.value || 10);
+    let alertTimer = null;
     const addUserModal = (addUserModalElement && window.bootstrap && bootstrap.Modal)
         ? new bootstrap.Modal(addUserModalElement)
         : null;
@@ -593,7 +617,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (secondaryRoleSelect.value && secondaryRoleSelect.value === roleSelect.value) {
                     const original = originalState.get(userId).secondaryRole;
                     secondaryRoleSelect.value = original !== roleSelect.value ? original : NO_SECONDARY_ROLE;
-                    showClientAlert('Additional role must be different from the primary role.', 'warning');
+                    showClientAlert(userName(row) + ': the additional role must be different from the role.', 'warning');
                 }
                 updateRowDirtyState(row);
                 updateSaveButtonState();
@@ -619,7 +643,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (editEmailBtn && emailText) {
             editEmailBtn.addEventListener('click', function() {
                 if (!editEmailModal) {
-                    showClientAlert('Edit Email dialog is unavailable because UI dependencies did not load.', 'danger');
+                    showClientAlert('The Edit Email dialog could not be opened. Reload the page and try again.', 'danger');
                     return;
                 }
 
@@ -630,17 +654,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     currentEmail: currentEmail
                 };
 
-                if (editEmailCurrent) {
-                    editEmailCurrent.textContent = currentEmail;
-                }
-                if (editEmailInput) {
-                    editEmailInput.value = currentEmail;
-                }
-                if (editEmailError) {
-                    editEmailError.classList.add('d-none');
-                    editEmailError.textContent = '';
-                }
-
+                editEmailUser.textContent = userName(row);
+                editEmailCurrent.textContent = currentEmail;
+                editEmailInput.value = currentEmail;
+                setFieldError(editEmailInput, '');
+                hideFormError(editEmailError);
                 editEmailModal.show();
             });
         }
@@ -649,11 +667,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if (adminToggle) {
                 adminToggle.checked = true;
                 adminToggle.disabled = true;
+                adminToggle.title = 'You cannot remove your own admin access';
                 updateAdminLabel(adminLabel, true);
             }
             if (statusSelect) {
                 statusSelect.value = 'ACTIVE';
                 statusSelect.disabled = true;
+                statusSelect.title = 'You cannot deactivate your own account';
                 applyStatusBadge(statusSelect);
             }
         }
@@ -661,27 +681,40 @@ document.addEventListener('DOMContentLoaded', function() {
         updateRowDirtyState(row);
     });
 
-    if (editEmailSaveBtn) {
-        editEmailSaveBtn.addEventListener('click', async function() {
+    if (editEmailModalElement) {
+        editEmailModalElement.addEventListener('shown.bs.modal', function() {
+            editEmailInput.focus();
+            editEmailInput.select();
+        });
+        editEmailModalElement.addEventListener('hidden.bs.modal', function() {
+            editEmailContext = null;
+            setFieldError(editEmailInput, '');
+            hideFormError(editEmailError);
+        });
+    }
+
+    if (editEmailForm) {
+        editEmailInput.addEventListener('input', function() {
+            setFieldError(editEmailInput, '');
+        });
+
+        editEmailForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
             if (!editEmailContext) {
                 return;
             }
+            hideFormError(editEmailError);
 
-            const currentEmail = editEmailContext.currentEmail;
-            const nextEmail = (editEmailInput?.value || '').trim().toLowerCase();
-
-            if (!nextEmail) {
-                if (editEmailError) {
-                    editEmailError.textContent = 'Email is required.';
-                    editEmailError.classList.remove('d-none');
-                }
+            const nextEmail = editEmailInput.value.trim().toLowerCase();
+            const emailProblem = checkEmail(nextEmail);
+            if (emailProblem) {
+                setFieldError(editEmailInput, emailProblem);
+                editEmailInput.focus();
                 return;
             }
-            if (nextEmail === currentEmail.toLowerCase()) {
-                showClientAlert('Email was not changed.', 'info');
-                if (editEmailModal) {
-                    editEmailModal.hide();
-                }
+            if (nextEmail === editEmailContext.currentEmail.toLowerCase()) {
+                setFieldError(editEmailInput, 'This is the current e-mail. Enter a new one.');
+                editEmailInput.focus();
                 return;
             }
 
@@ -689,48 +722,23 @@ document.addEventListener('DOMContentLoaded', function() {
             const oldLabel = editEmailSaveBtn.textContent;
             editEmailSaveBtn.textContent = 'Saving...';
             try {
-                const params = new URLSearchParams({
-                    email: nextEmail
-                });
-
-                const response = await fetch('/api/admin/users/' + editEmailContext.userId + '/email', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-                    },
-                    body: params.toString()
-                });
-
+                const response = await postForm('/api/admin/users/' + editEmailContext.userId + '/email', 'PUT', { email: nextEmail });
                 if (!response.ok) {
-                    const message = await response.text();
-                    throw new Error(message || 'Failed to update email');
+                    showServerError(await responseMessage(response, 'The e-mail could not be changed.'),
+                        { email: editEmailInput }, editEmailError);
+                    return;
                 }
 
                 const payload = await response.json();
                 editEmailContext.emailText.textContent = payload.mail || nextEmail;
-                if (editEmailModal) {
-                    editEmailModal.hide();
-                }
-                showClientAlert('Email updated successfully.', 'success');
+                editEmailModal.hide();
+                showClientAlert('E-mail changed to ' + (payload.mail || nextEmail) + '.', 'success');
                 renderTablePage();
             } catch (error) {
-                if (editEmailError) {
-                    editEmailError.textContent = error.message || 'Failed to update email';
-                    editEmailError.classList.remove('d-none');
-                }
+                showFormError(editEmailError, error.message || 'The e-mail could not be changed.');
             } finally {
                 editEmailSaveBtn.disabled = false;
                 editEmailSaveBtn.textContent = oldLabel;
-            }
-        });
-    }
-
-    if (editEmailModalElement) {
-        editEmailModalElement.addEventListener('hidden.bs.modal', function() {
-            editEmailContext = null;
-            if (editEmailError) {
-                editEmailError.classList.add('d-none');
-                editEmailError.textContent = '';
             }
         });
     }
@@ -775,7 +783,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const filteredRows = getFilteredRows();
                 const exportRows = filteredRows.map(function(row) {
-                    const nameElement = row.querySelector('.user-cell > div > span');
                     const emailElement = row.children[1];
                     const roleSelect = row.querySelector('.js-role');
                     const secondaryRoleSelect = row.querySelector('.js-secondary-role');
@@ -784,7 +791,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const lastLoginElement = row.querySelector('.last-login');
 
                     return {
-                        Name: nameElement ? nameElement.textContent.trim() : '',
+                        Name: userName(row),
                         Email: emailElement ? emailElement.textContent.trim() : '',
                         Role: roleExportValue(roleSelect),
                         AdditionalRole: roleExportValue(secondaryRoleSelect),
@@ -795,7 +802,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
 
                 if (exportRows.length === 0) {
-                    showClientAlert('No users to export with current filters.', 'warning');
+                    showClientAlert('No users to export with the current filters.', 'warning');
                     return;
                 }
 
@@ -812,49 +819,51 @@ document.addEventListener('DOMContentLoaded', function() {
                     + String(now.getMinutes()).padStart(2, '0');
 
                 XLSX.writeFile(workbook, 'qtracker-users-' + stamp + '.xlsx');
-                showClientAlert('Export completed successfully.', 'success');
+                showClientAlert('Exported ' + exportRows.length + (exportRows.length === 1 ? ' user.' : ' users.'), 'success');
             } catch (error) {
                 showClientAlert('Export failed: ' + (error.message || 'unknown error'), 'danger');
             }
         });
     }
 
-    if (openAddUserBtn && addUserModal) {
+    if (openAddUserBtn) {
         openAddUserBtn.addEventListener('click', function() {
-            if (addUserEmail) addUserEmail.value = '';
-            if (addUserName) addUserName.value = '';
-            if (addUserRole && addUserRole.options.length > 0) {
-                addUserRole.value = addUserRole.options[0].value;
+            if (!addUserModal) {
+                showClientAlert('The Add User dialog could not be opened. Reload the page and try again.', 'danger');
+                return;
             }
-            if (addUserAdmin) addUserAdmin.value = 'NO';
-            if (addUserStatus) addUserStatus.value = 'ACTIVE';
-            if (addUserError) {
-                addUserError.classList.add('d-none');
-                addUserError.textContent = '';
-            }
+            addUserForm.reset();
+            [addUserEmail, addUserName, addUserRole].forEach(function(field) {
+                setFieldError(field, '');
+            });
+            hideFormError(addUserError);
             addUserModal.show();
         });
     }
 
-    if (openAddUserBtn && !addUserModal) {
-        openAddUserBtn.addEventListener('click', function() {
-            showClientAlert('Add User dialog is unavailable because UI dependencies did not load.', 'danger');
+    if (addUserModalElement) {
+        addUserModalElement.addEventListener('shown.bs.modal', function() {
+            addUserEmail.focus();
         });
     }
 
-    if (addUserSaveBtn) {
-        addUserSaveBtn.addEventListener('click', async function() {
-            const email = (addUserEmail?.value || '').trim();
-            const displayName = (addUserName?.value || '').trim();
-            const role = addUserRole?.value || '';
-            const adminAccess = addUserAdmin?.value === 'YES';
-            const enabled = addUserStatus?.value === 'ACTIVE';
+    if (addUserForm) {
+        [addUserEmail, addUserName, addUserRole].forEach(function(field) {
+            field.addEventListener(field.tagName === 'SELECT' ? 'change' : 'input', function() {
+                setFieldError(field, '');
+            });
+        });
 
-            if (!email) {
-                if (addUserError) {
-                    addUserError.textContent = 'Email is required';
-                    addUserError.classList.remove('d-none');
-                }
+        addUserForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            hideFormError(addUserError);
+
+            const email = addUserEmail.value.trim().toLowerCase();
+            const emailProblem = checkEmail(email);
+            setFieldError(addUserEmail, emailProblem);
+            setFieldError(addUserRole, addUserRole.value ? '' : 'Role is required');
+            if (emailProblem || !addUserRole.value) {
+                (emailProblem ? addUserEmail : addUserRole).focus();
                 return;
             }
 
@@ -863,37 +872,24 @@ document.addEventListener('DOMContentLoaded', function() {
             addUserSaveBtn.textContent = 'Creating...';
 
             try {
-                const params = new URLSearchParams({
+                const response = await postForm('/api/users', 'POST', {
                     email: email,
-                    displayName: displayName,
-                    role: role,
-                    adminAccess: String(adminAccess),
-                    enabled: String(enabled)
+                    displayName: addUserName.value.trim(),
+                    role: addUserRole.value,
+                    adminAccess: String(addUserAdmin.value === 'YES'),
+                    enabled: String(addUserStatus.value === 'ACTIVE')
                 });
-
-                const response = await fetch('/api/users', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-                    },
-                    body: params.toString()
-                });
-
                 if (!response.ok) {
-                    const message = await response.text();
-                    throw new Error(message || 'Failed to create user');
+                    showServerError(await responseMessage(response, 'The user could not be created.'),
+                        { email: addUserEmail, role: addUserRole }, addUserError);
+                    return;
                 }
 
-                if (addUserModal) {
-                    addUserModal.hide();
-                }
-                showClientAlert('User created successfully.', 'success');
+                const created = await response.json();
+                storeFlash('User ' + (created.displayName || created.mail || email) + ' (' + (created.mail || email) + ') created.');
                 window.location.reload();
             } catch (error) {
-                if (addUserError) {
-                    addUserError.textContent = error.message;
-                    addUserError.classList.remove('d-none');
-                }
+                showFormError(addUserError, error.message || 'The user could not be created.');
             } finally {
                 addUserSaveBtn.disabled = false;
                 addUserSaveBtn.textContent = oldLabel;
@@ -902,17 +898,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     saveAllBtn.addEventListener('click', async function() {
-        const updates = rows.map(function(row) {
-            const userId = row.dataset.userId;
-            const role = row.querySelector('.js-role').value;
-            const secondaryRole = row.querySelector('.js-secondary-role')?.value || '';
-            const enabled = row.querySelector('.js-status').value === 'ACTIVE';
-            const adminAccess = !!row.querySelector('.js-admin-toggle')?.checked;
-            const orig = originalState.get(userId);
-            const changed = !orig || orig.role !== role || orig.secondaryRole !== secondaryRole || orig.enabled !== enabled || orig.adminAccess !== adminAccess;
-
-            return changed ? { userId: userId, role: role, secondaryRole: secondaryRole, enabled: enabled, adminAccess: adminAccess } : null;
-        }).filter(Boolean);
+        const updates = rows.filter(function(row) {
+            return row.classList.contains('row-dirty');
+        }).map(function(row) {
+            const state = getCurrentRowState(row);
+            state.row = row;
+            return state;
+        });
 
         if (updates.length === 0) {
             showClientAlert('No changes to save.', 'warning');
@@ -923,56 +915,61 @@ document.addEventListener('DOMContentLoaded', function() {
         const originalLabel = saveAllBtn.textContent;
         saveAllBtn.textContent = 'Saving...';
 
+        // Every changed row is sent, also after a failed one; the failed rows stay marked
+        const saved = [];
+        const failed = [];
         try {
             for (const item of updates) {
+                const name = userName(item.row);
                 if (item.secondaryRole && item.secondaryRole === item.role) {
-                    throw new Error('Primary and additional role must be different for user ' + item.userId);
+                    failed.push(name + ': the additional role must be different from the role');
+                    continue;
                 }
-
-                const params = new URLSearchParams({
-                    role: item.role,
-                    secondaryRole: item.secondaryRole,
-                    enabled: String(item.enabled),
-                    adminAccess: String(item.adminAccess)
-                });
-
-                const response = await fetch('/api/users/' + item.userId + '/access', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-                    },
-                    body: params.toString()
-                });
-
-                if (!response.ok) {
-                    const message = await response.text();
-                    throw new Error(message || 'Failed to update user ' + item.userId);
-                }
-
-                originalState.set(item.userId, {
-                    role: item.role,
-                    secondaryRole: item.secondaryRole,
-                    enabled: item.enabled,
-                    adminAccess: item.adminAccess
-                });
-
-                const savedRow = rows.find(function(row) {
-                    return row.dataset.userId === String(item.userId);
-                });
-                if (savedRow) {
-                    updateRowDirtyState(savedRow);
+                try {
+                    const response = await postForm('/api/users/' + item.row.dataset.userId + '/access', 'POST', {
+                        role: item.role,
+                        secondaryRole: item.secondaryRole,
+                        enabled: String(item.enabled),
+                        adminAccess: String(item.adminAccess)
+                    });
+                    if (!response.ok) {
+                        failed.push(name + ': ' + await responseMessage(response, 'not saved'));
+                        continue;
+                    }
+                    originalState.set(item.row.dataset.userId, {
+                        role: item.role,
+                        secondaryRole: item.secondaryRole,
+                        enabled: item.enabled,
+                        adminAccess: item.adminAccess
+                    });
+                    updateRowDirtyState(item.row);
+                    saved.push(name);
+                } catch (error) {
+                    failed.push(name + ': ' + (error.message || 'not saved'));
+                    if (error.sessionExpired) {
+                        break;
+                    }
                 }
             }
-
-            showClientAlert('Changes saved successfully.', 'success');
-            updateSaveButtonState();
-        } catch (error) {
-            showClientAlert('Save failed: ' + error.message, 'danger');
         } finally {
-            saveAllBtn.disabled = hasNoPendingChanges();
             saveAllBtn.textContent = originalLabel;
+            updateSaveButtonState();
+        }
+
+        if (failed.length === 0) {
+            showClientAlert(saved.length === 1
+                ? 'Changes saved for ' + saved[0] + '.'
+                : 'Changes saved for ' + saved.length + ' users.', 'success');
+        } else {
+            showClientAlert('Not saved — ' + failed.join('; ') + '.'
+                + (saved.length ? ' Saved: ' + saved.join(', ') + '.' : '')
+                + ' Rows not saved stay highlighted.', 'danger');
         }
     });
+
+    clientAlert.querySelector('.btn-close').addEventListener('click', hideClientAlert);
+
+    showStoredFlash();
 
     function getCurrentRowState(row) {
         return {
@@ -1006,6 +1003,11 @@ document.addEventListener('DOMContentLoaded', function() {
         saveAllBtn.disabled = hasNoPendingChanges();
     }
 
+    function userName(row) {
+        const name = row.querySelector('.user-name');
+        return name ? name.textContent.trim() : '';
+    }
+
     // The value a role select stands for: the stored text for an unlisted value, nothing for "None"
     function roleExportValue(select) {
         if (!select || select.selectedIndex < 0) {
@@ -1037,20 +1039,133 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Page message: success and info close by themselves, warnings and errors stay until closed
     function showClientAlert(message, type) {
-        if (!clientAlert) {
+        const kind = type || 'info';
+        clearTimeout(alertTimer);
+        clientAlert.classList.remove('d-none', 'alert-success', 'alert-warning', 'alert-danger', 'alert-info');
+        clientAlert.classList.add('alert-' + kind);
+        clientAlert.setAttribute('role', kind === 'danger' ? 'alert' : 'status');
+        clientAlertText.textContent = message;
+        if (kind === 'success' || kind === 'info') {
+            alertTimer = setTimeout(hideClientAlert, 5000);
+        }
+    }
+
+    function hideClientAlert() {
+        clearTimeout(alertTimer);
+        clientAlert.classList.add('d-none');
+    }
+
+    function storeFlash(message) {
+        try {
+            sessionStorage.setItem(FLASH_KEY, message);
+        } catch (error) {
+            // Storage may be blocked; the new user is visible in the list anyway
+        }
+    }
+
+    function showStoredFlash() {
+        let message = null;
+        try {
+            message = sessionStorage.getItem(FLASH_KEY);
+            sessionStorage.removeItem(FLASH_KEY);
+        } catch (error) {
+            message = null;
+        }
+        if (message) {
+            showClientAlert(message, 'success');
+        }
+    }
+
+    // Same rule as the server (one "@" with text on both sides), plus no spaces
+    function checkEmail(value) {
+        if (!value) {
+            return 'Email is required';
+        }
+        if (!/^[^\s@]+@[^\s@]+$/.test(value)) {
+            return 'Enter an e-mail like name@kpmg.kz';
+        }
+        return '';
+    }
+
+    function setFieldError(field, message) {
+        if (!field) {
             return;
         }
-
-        clientAlert.classList.remove('d-none', 'alert-success', 'alert-warning', 'alert-danger', 'alert-info');
-        clientAlert.classList.add('alert-' + (type || 'info'));
-        clientAlert.textContent = message;
-
-        if (type !== 'danger') {
-            setTimeout(function() {
-                clientAlert.classList.add('d-none');
-            }, 2600);
+        const feedback = document.getElementById(field.id + '-error');
+        field.classList.toggle('is-invalid', !!message);
+        field.setAttribute('aria-invalid', message ? 'true' : 'false');
+        if (feedback) {
+            feedback.textContent = message || '';
         }
+    }
+
+    function showFormError(element, message) {
+        element.textContent = message.charAt(0).toUpperCase() + message.slice(1);
+        element.classList.remove('d-none');
+    }
+
+    function hideFormError(element) {
+        element.textContent = '';
+        element.classList.add('d-none');
+    }
+
+    // A server message about the e-mail or the role goes under that field, anything else above the form
+    function showServerError(message, fields, formError) {
+        const target = /e-?mail/i.test(message) ? fields.email
+            : /role/i.test(message) ? fields.role
+            : null;
+        if (target) {
+            setFieldError(target, message.charAt(0).toUpperCase() + message.slice(1));
+            target.focus();
+        } else {
+            showFormError(formError, message);
+        }
+    }
+
+    async function postForm(url, method, values) {
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+            },
+            body: new URLSearchParams(values).toString()
+        });
+        // An expired session answers with the login page instead of the API response
+        if (response.redirected && /\/login/.test(response.url)) {
+            const error = new Error('your session has expired, sign in again');
+            error.sessionExpired = true;
+            throw error;
+        }
+        return response;
+    }
+
+    async function responseMessage(response, fallback) {
+        if (response.status === 401) {
+            return 'your session has expired, sign in again';
+        }
+        if (response.status === 403) {
+            return 'you do not have admin access';
+        }
+        let text = '';
+        try {
+            text = (await response.text()).trim();
+        } catch (error) {
+            text = '';
+        }
+        if (text.startsWith('{')) {
+            try {
+                const json = JSON.parse(text);
+                text = json.message || json.error || '';
+            } catch (error) {
+                text = '';
+            }
+        }
+        if (!text || text.startsWith('<')) {
+            return fallback;
+        }
+        return text;
     }
 
     function applyFilters() {
@@ -1146,72 +1261,87 @@ document.addEventListener('DOMContentLoaded', function() {
     renderTablePage();
 });
 </script>
-<div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add User</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="addUserError" class="alert alert-danger d-none mb-3" role="alert"></div>
-                <div class="mb-3">
-                    <label for="addUserEmail" class="form-label">Email</label>
-                    <input type="email" id="addUserEmail" class="form-control" placeholder="new.user@kpmg.kz">
+            <form id="addUserForm" novalidate>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addUserTitle">Add User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="mb-3">
-                    <label for="addUserName" class="form-label">Name</label>
-                    <input type="text" id="addUserName" class="form-control" placeholder="John Smith">
-                </div>
-                <div class="mb-3">
-                    <label for="addUserRole" class="form-label">Role</label>
-                    <select id="addUserRole" class="form-select">
-                        <option th:each="role : ${allowedRoles}" th:value="${role}" th:text="${roleLabels.get(role)}"></option>
-                    </select>
-                </div>
-                <div class="row g-2">
-                    <div class="col-6">
-                        <label for="addUserAdmin" class="form-label">Admin Access</label>
-                        <select id="addUserAdmin" class="form-select">
-                            <option value="NO" selected>No</option>
-                            <option value="YES">Yes</option>
-                        </select>
+                <div class="modal-body">
+                    <div id="addUserError" class="alert alert-danger d-none mb-3" role="alert"></div>
+                    <div class="mb-3">
+                        <label for="addUserEmail" class="form-label">Email <span class="required-mark" aria-hidden="true">*</span></label>
+                        <input type="email" id="addUserEmail" class="form-control" placeholder="new.user@kpmg.kz"
+                               autocomplete="off" required aria-describedby="addUserEmail-error">
+                        <div class="invalid-feedback" id="addUserEmail-error"></div>
                     </div>
-                    <div class="col-6">
-                        <label for="addUserStatus" class="form-label">Status</label>
-                        <select id="addUserStatus" class="form-select">
-                            <option value="ACTIVE" selected>Active</option>
-                            <option value="INACTIVE">Inactive</option>
+                    <div class="mb-3">
+                        <label for="addUserName" class="form-label">Name</label>
+                        <input type="text" id="addUserName" class="form-control" placeholder="John Smith"
+                               autocomplete="off" aria-describedby="addUserName-hint addUserName-error">
+                        <div class="form-text" id="addUserName-hint">Leave empty to take the name from the e-mail.</div>
+                        <div class="invalid-feedback" id="addUserName-error"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addUserRole" class="form-label">Role <span class="required-mark" aria-hidden="true">*</span></label>
+                        <select id="addUserRole" class="form-select" required aria-describedby="addUserRole-error">
+                            <option th:each="role : ${allowedRoles}" th:value="${role}" th:text="${roleLabels.get(role)}"></option>
                         </select>
+                        <div class="invalid-feedback" id="addUserRole-error"></div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label for="addUserAdmin" class="form-label">Admin Access</label>
+                            <select id="addUserAdmin" class="form-select">
+                                <option value="NO" selected>No</option>
+                                <option value="YES">Yes</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label for="addUserStatus" class="form-label">Status</label>
+                            <select id="addUserStatus" class="form-select">
+                                <option value="ACTIVE" selected>Active</option>
+                                <option value="INACTIVE">Inactive</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="addUserSaveBtn">Create User</button>
-            </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="addUserSaveBtn">Create User</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
-<div class="modal fade" id="editEmailModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="editEmailModal" tabindex="-1" aria-labelledby="editEmailTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Edit Email</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="editEmailError" class="alert alert-danger d-none mb-3" role="alert"></div>
-                <div class="mb-2 text-muted" style="font-size: 0.8rem;">Current Email: <span id="editEmailCurrent">-</span></div>
-                <div class="mb-1">
-                    <label for="editEmailInput" class="form-label">New Email</label>
-                    <input type="email" id="editEmailInput" class="form-control" placeholder="new.user@kpmg.kz" autocomplete="off">
+            <form id="editEmailForm" novalidate>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editEmailTitle">Edit Email</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="editEmailSaveBtn">Save Email</button>
-            </div>
+                <div class="modal-body">
+                    <div id="editEmailError" class="alert alert-danger d-none mb-3" role="alert"></div>
+                    <p class="modal-note">
+                        <span id="editEmailUser">User</span> has not signed in yet, so the e-mail can still be changed.
+                        Current: <span id="editEmailCurrent">-</span>
+                    </p>
+                    <div class="mb-1">
+                        <label for="editEmailInput" class="form-label">New Email <span class="required-mark" aria-hidden="true">*</span></label>
+                        <input type="email" id="editEmailInput" class="form-control" placeholder="new.user@kpmg.kz"
+                               autocomplete="off" required aria-describedby="editEmailInput-error">
+                        <div class="invalid-feedback" id="editEmailInput-error"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="editEmailSaveBtn">Save Email</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
