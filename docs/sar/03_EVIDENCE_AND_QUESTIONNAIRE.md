@@ -260,7 +260,7 @@ Account deactivation takes effect on the next HTTP request made by the affected 
 | Application performs input sanitization for file uploads | Confirmed — filename and folder sanitization applied; extension-based MIME whitelist enforced |
 | HTTPS is planned and application code is ready | Confirmed — HSTS headers pre-configured; pending IT Infrastructure certificate provisioning (#INFRA-10482) |
 | SSO integration is planned and application code is ready | Confirmed — `ssodev` Spring profile and `.oauth2Login()` implemented; pending IT Infrastructure IdP parameters (#INFRA-10482) |
-| Data segregation enforced between users | Confirmed — `ControlPermissionService` and `AuthorizationPolicy` enforce role/assignment-based isolation at the service layer |
+| Data segregation enforced between users | Confirmed — `ControlPermissionService` and `PermissionService` enforce role/assignment-based isolation at the service layer, for the pages and the REST API alike; reads are not filtered by field (see Document 01, Section 5.4) |
 
 ### Q15.3 — Outstanding items required before Production go-live
 

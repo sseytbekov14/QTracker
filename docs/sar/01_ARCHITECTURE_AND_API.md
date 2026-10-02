@@ -302,13 +302,15 @@ DRAFT ──[SUBMIT_FOR_REVIEW / INITIATE]────────────�
 
 Data segregation between users is enforced at two independent levels.
 
-**Level 1 — Service Layer (`ControlPermissionService`, `AuthorizationPolicy`):**
-Every API call that reads or modifies a control resolves a `ControlPermission` object via `controlPermissionService.resolve(control, currentUser)`. This service queries `ControlAssignment` to determine whether the current user is present in the `facilitator`, `controlOperator`, `soqmLead`, `processOwner`, or `controlSharedWith` lists. `SOQM_TEAM` users have global read access; all other roles are restricted to their assigned controls.
+**Level 1 — Service Layer (`ControlPermissionService`, `PermissionService`):**
+Every request that reads or modifies a control resolves a `ControlPermission` object via `ControlPermissionService.resolve(control, currentUser)`. This service queries `ControlAssignment` to determine whether the current user is present in the `facilitator`, `controlOperator`, `soqmLead`, `processOwner`, or `controlSharedWith` lists. Users with `admin_access` and users with a SoQM role (`SOQM_TEAM`) can view every control; the creator and the users in those lists can view that control; users with the `KDN` role can view only controls whose ID starts with `KDN`, read-only.
+
+Reading a single control follows one rule for the pages and the REST API, `PermissionService.readAccess`: the user must be able to view the control, and a control still in `DRAFT` stays closed to users it is only shared with (`controlSharedWith` and no other assignment) until it is initiated. View Control and Performance Cycle apply it; the per-control REST reads apply it through `PermissionService.requireReadable` before loading any data and answer `403` (`ACCESS_DENIED`) when it refuses and `404` (`NOT_FOUND`) for an unknown control. Control lists and dashboard figures use `ControlScope`: admins and SoQM roles see all controls including drafts; users with the `KDN` role see the KDN controls; everyone else sees the controls they are assigned to or that are shared with them, without drafts.
 
 **Level 2 — Field-level Isolation:**
-- `AuthorizationPolicy.filterReadableFields()` strips `soqmHeadComments` from DTO responses for `FACILITATOR` and `CONTROL_OPERATOR` roles
+- Reads are not filtered by field: everyone who may read a control sees all of its fields, including SoQM Head/Team Comments and Process Owner Comments, which are shown read-only to users who may not edit them
 - `ControlController.updateControl()` enforces role-based write restrictions: only `SOQM_TEAM` may write `soqmHeadComments`; only `PROCESS_OWNER` may write `processOwnerComments`
-- `AuthorizationPolicy.validateEditableFields()` throws `AccessDeniedException` on any attempt to modify a restricted field
+- `POST /api/control-details` keeps every field the user may not edit at its stored value (`ControlTabsController.mergeControlDetails`): SoQM Head/Team Comments and the descriptive fields only with full edit rights (`admin_access` or a SoQM role); Process Owner Comments also by the assigned Process Owner during `PROCESS_OWNER_REVIEW`; Control Steps Performed also by the assigned Facilitator or Control Operator during their stage; on a completed control shared with them, users with the Facilitator or Control Operator role may edit Control Steps Performed and users with the Process Owner role Process Owner Comments
 
 Row-level security is not applied at the database layer. Isolation is enforced entirely by the application service layer. The database uses a single application-level credential; no per-user row restrictions exist at the DBMS level.
 
@@ -383,7 +385,7 @@ if (existingCount + incomingCount > 50) {
 
 ### 7.4 Access Control for Downloads
 
-Download and view endpoints (`GET /api/attachments/download/{filename}`, `GET /api/attachments/view/{filename}`) require an active authenticated session. `AuthorizationPolicy.checkAttachmentAccess()` resolves the control that owns the requested file and verifies the requesting user is assigned to that control via `ControlPermission` before serving content.
+`GET /api/attachments/download/{filename}?controlId=` applies the control read rule of Section 5.4 (`PermissionService.requireReadable`: `403` when the user may not read the control, `404` for an unknown control) and then serves the file only if that control lists it — in `attachment_details_path`, `attachment_documents_path` or `control_attachments`; any other name returns `404`. `GET /api/attachments/info/{controlId}`, which returns the control's file lists, applies the same read rule. `GET /api/attachments/view/{filename}?controlId=` (not used by the UI) checks only that the user can view the given control.
 
 ### 7.5 Audit Logging for Attachments
 

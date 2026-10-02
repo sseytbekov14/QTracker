@@ -253,7 +253,7 @@ flowchart LR
     end
 
     subgraph SERVICES["Service Layer"]
-        AUTHZ["AuthorizationPolicy\nControlPermissionService"]
+        AUTHZ["PermissionService\nControlPermissionService"]
         AUDIT["AdminAuditService\n→ admin_audit_log"]
         FSVC["FileStorageService\n(path sanitization + storage)"]
         WFSVC["WorkflowService\n→ workflow_history"]

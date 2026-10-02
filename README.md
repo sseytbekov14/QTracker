@@ -34,7 +34,7 @@ Mapped to real modules and classes:
   - `WorkflowController`, `WorkflowTransitionController`, `WorkflowApiController`
   - `WorkflowServiceImpl`, `WorkflowRequiredFieldService`
 - Role-based authorization and permission checks
-  - `SecurityConfig`, `AuthorizationPolicy`, `ControlPermissionService`, `PermissionService`
+  - `SecurityConfig`, `ControlPermissionService`, `PermissionService`, `ControlScope`
 - Notifications (in-app and email)
   - `NotificationApiController`, `NotificationService`, `NotificationTemplateService`, `EmailNotificationService`
 - Reminder and auto-creation scheduling
@@ -210,7 +210,7 @@ Authentication:
 
 Authorization:
 - Endpoint protection configured in `SecurityConfig`
-- Fine-grained checks in `AuthorizationPolicy` and `ControlPermissionService`
+- Per-control permissions in `ControlPermissionService`; one read rule for pages and the REST API in `PermissionService.readAccess` / `requireReadable` (no field is hidden on read)
 - Roles used in business logic: `FACILITATOR`, `CONTROL_OPERATOR`, `SOQM_LEAD`, `PROCESS_OWNER`, `ADMIN`
 
 Request protection:
@@ -227,7 +227,7 @@ Attachment handling:
 
 Security considerations in implementation:
 - Filename and folder sanitization
-- Access checks before file operations through `AuthorizationPolicy`
+- Read access to the control checked through `PermissionService.requireReadable` before file reads; a download serves only a file the control lists
 
 ## How to Build
 Build with Maven Wrapper:
