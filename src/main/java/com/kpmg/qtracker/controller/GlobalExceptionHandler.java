@@ -1,6 +1,7 @@
 package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.dto.ErrorResponse;
+import com.kpmg.qtracker.exception.ControlReadDeniedException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +43,17 @@ public class GlobalExceptionHandler {
                 getCorrelationId()
         );
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
+    @ExceptionHandler(ControlReadDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleControlReadDenied(ControlReadDeniedException ex) {
+        String code = switch (ex.getStatus()) {
+            case NOT_FOUND -> "NOT_FOUND";
+            case UNAUTHORIZED -> "UNAUTHORIZED";
+            default -> "ACCESS_DENIED";
+        };
+        return ResponseEntity.status(ex.getStatus())
+                .body(new ErrorResponse(code, ex.getMessage(), getCorrelationId()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

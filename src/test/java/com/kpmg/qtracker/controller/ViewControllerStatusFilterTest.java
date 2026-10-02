@@ -40,6 +40,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
@@ -713,6 +714,8 @@ class ViewControllerStatusFilterTest {
         when(controlAssignmentService.getAssignmentByControlId(30L)).thenReturn(assignmentDTO);
         when(permissionService.resolve(draftControl, currentUser, assignmentDTO))
                 .thenReturn(ControlPermission.denied());
+        when(permissionService.readAccess(eq(draftControl), eq(currentUser), any(ControlPermission.class)))
+                .thenReturn(PermissionService.ReadAccess.DENIED);
 
         mockMvc.perform(get("/view-control/30")
                         .sessionAttr("currentUser", currentUser))
@@ -743,6 +746,8 @@ class ViewControllerStatusFilterTest {
         when(permissionService.resolve(draftControl, currentUser, assignmentDTO))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
                         false, false, false, false, true, false));
+        when(permissionService.readAccess(eq(draftControl), eq(currentUser), any(ControlPermission.class)))
+                .thenReturn(PermissionService.ReadAccess.ALLOWED);
 
         mockMvc.perform(get("/view-control/31")
                         .sessionAttr("currentUser", currentUser))
@@ -786,8 +791,8 @@ class ViewControllerStatusFilterTest {
                         false,
                         false
                 ));
-        when(permissionService.isSharedOnly(any(Control.class), any(User.class), any(ControlPermission.class)))
-                .thenReturn(true);
+        when(permissionService.readAccess(eq(draftControl), eq(currentUser), any(ControlPermission.class)))
+                .thenReturn(PermissionService.ReadAccess.DRAFT_NOT_INITIATED);
 
         mockMvc.perform(get("/view-control/32")
                         .sessionAttr("currentUser", currentUser))
@@ -854,6 +859,8 @@ class ViewControllerStatusFilterTest {
                         false,
                         false
                 ));
+        when(permissionService.readAccess(eq(control), eq(currentUser), any(ControlPermission.class)))
+                .thenReturn(PermissionService.ReadAccess.ALLOWED);
 
         mockMvc.perform(get("/view-control/34")
                         .sessionAttr("currentUser", currentUser))
@@ -1365,8 +1372,8 @@ class ViewControllerStatusFilterTest {
         control.setCreatedBy(creator);
         control.setCreatedAt(java.time.LocalDateTime.of(2026, 8, 20, 11, 0));
         when(controlService.getControlById(601L)).thenReturn(java.util.Optional.of(control));
-        when(controlPermissionService.resolve(any(Control.class), any(User.class)))
-                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, true, false));
+        when(permissionService.readAccess(eq(control), eq(soqm), any()))
+                .thenReturn(PermissionService.ReadAccess.ALLOWED);
         when(performanceService.buildPerformanceDTO(control)).thenReturn(new PerformanceDTO());
 
         ControlAssignmentDTO assignment = new ControlAssignmentDTO();

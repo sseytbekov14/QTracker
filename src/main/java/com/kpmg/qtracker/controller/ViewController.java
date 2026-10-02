@@ -58,7 +58,6 @@ public class ViewController {
     private final WorkflowStepRepository workflowStepRepository;
     private final NotificationTypeDisplayMapper notificationTypeDisplayMapper;
     private final PermissionService permissionService;
-    private final ControlPermissionService controlPermissionService;
     private final StatusDisplayMapper statusDisplayMapper;
     private final WorkflowTransitionGuard transitionGuard;
 
@@ -820,13 +819,6 @@ public class ViewController {
         return false;
     }
 
-    /**
-     * Unified access check: can this user view the given control?
-     */
-    private boolean canViewControl(Long controlId, Control control, User user) {
-        return controlPermissionService.resolve(control, user).canView();
-    }
-
     @GetMapping("/notifications")
     public String notifications(HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
@@ -950,20 +942,19 @@ public class ViewController {
         ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(id);
         ControlPermission permission = permissionService.resolve(control, currentUser, assignment);
 
-        if (!permission.canView()) {
-            throw new ForbiddenException("You do not have permission to view this control.");
+        switch (permissionService.readAccess(control, currentUser, permission)) {
+            case DENIED -> throw new ForbiddenException("You do not have permission to view this control.");
+            case DRAFT_NOT_INITIATED -> throw new ControlNotAvailableException(
+                    "This control is still in Draft and has not been initiated into the workflow. "
+                            + "You will get access after it is initiated."
+            );
+            case ALLOWED -> {
+            }
         }
 
         String performanceStatus = control.getPerformanceStatus();
         if (performanceStatus == null || performanceStatus.isEmpty()) {
             performanceStatus = "DRAFT";
-        }
-        if ("DRAFT".equals(normalizeStatus(performanceStatus))
-                && permissionService.isSharedOnly(control, currentUser, permission)) {
-            throw new ControlNotAvailableException(
-                    "This control is still in Draft and has not been initiated into the workflow. "
-                            + "You will get access after it is initiated."
-            );
         }
 
         String userEmail = currentUser.getMail();
@@ -1131,7 +1122,8 @@ public class ViewController {
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + controlId));
 
-            if (!canViewControl(controlId, control, currentUser)) {
+            if (permissionService.readAccess(control, currentUser, permissionService.resolve(control, currentUser))
+                    != PermissionService.ReadAccess.ALLOWED) {
                 redirectAttributes.addFlashAttribute("accessDeniedMessage",
                         "Access revoked — you no longer have permission to view this control.");
                 return "redirect:/controls";
