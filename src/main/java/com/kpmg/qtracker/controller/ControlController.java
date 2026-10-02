@@ -68,18 +68,6 @@ public class ControlController {
     private final com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;
     private static final Logger logger = LoggerFactory.getLogger(ControlController.class);
 
-    @GetMapping
-    public ResponseEntity<?> getAllControls(HttpSession session) {
-        User currentUser = (User) session.getAttribute("currentUser");
-        if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        List<ControlResponseDTO> controls = controlService.findVisibleControlsForUser(currentUser.getMail(), currentUser.getRole()).stream()
-                .map(this::convertToResponseDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(controls);
-    }
-
     /**
      * Generate a Control ID automatically based on component and frequency.
      * GET /api/controls/generate-id?component=HR&frequency=Monthly
