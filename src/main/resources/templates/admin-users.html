@@ -531,8 +531,6 @@
 
         <div class="col-md-10">
             <div class="p-3 admin-content-wrap">
-                <div th:if="${successMessage != null}" class="alert alert-success mb-3" role="alert" th:text="${successMessage}"></div>
-                <div th:if="${errorMessage != null}" class="alert alert-danger mb-3" role="alert" th:text="${errorMessage}"></div>
                 <div id="clientAlert" class="alert d-none mb-3 client-alert" role="alert"></div>
 
                 <div class="panel-shell">
@@ -594,7 +592,7 @@
                             <tbody id="usersTableBody">
                             <tr th:each="user : ${users}"
                                 class="admin-user-row"
-                                th:attr="data-user-id=${user.id},data-role=${user.role},data-secondary-role=${user.secondaryRole},data-enabled=${user.enabled},data-email-editable=${user.lastLoginAt == null}">
+                                th:attr="data-user-id=${user.id}">
                                 <td>
                                     <div class="user-cell">
                                         <span class="avatar" th:text="${user.displayName != null and !#strings.isEmpty(user.displayName)} ? ${#strings.substring(#strings.trim(user.displayName),0,1)} : 'U'">U</span>
@@ -830,7 +828,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         statusSelect.addEventListener('change', function() {
-            row.dataset.enabled = statusSelect.value === 'ACTIVE' ? 'true' : 'false';
             applyStatusBadge(statusSelect);
             updateRowDirtyState(row);
             updateSaveButtonState();
@@ -856,7 +853,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 editEmailContext = {
                     userId: userId,
                     emailText: emailText,
-                    editEmailBtn: editEmailBtn,
                     currentEmail: currentEmail
                 };
 

@@ -1592,6 +1592,21 @@ class ApiSecurityMockMvcIT {
                 .andExpect(jsonPath("$.secondaryRole").doesNotExist());
     }
 
+    @Test
+    void formUpdateEndpoint_isGone_andChangesNothing() throws Exception {
+        MockHttpSession adminSession = login(adminUser().getMail());
+        User target = saveUser("form-target", "form-target-" + suffix() + "@example.test", "FACILITATOR");
+
+        mockMvc.perform(post("/admin/users/" + target.getId() + "/update").with(csrf()).session(adminSession)
+                        .param("role", "PROCESS_OWNER")
+                        .param("enabled", "false"))
+                .andExpect(status().isNotFound());
+
+        User unchanged = userRepository.findById(target.getId()).orElseThrow();
+        assertThat(unchanged.getRole()).isEqualTo("FACILITATOR");
+        assertThat(unchanged.getEnabled()).isTrue();
+    }
+
     private User adminUser() {
         User admin = saveUser("panel-admin", "panel-admin-" + suffix() + "@example.test", "PROCESS_OWNER");
         admin.setAdminAccess(true);
