@@ -204,11 +204,6 @@ public class ControlService implements IControlService {
         return controls;
     }
 
-    @Override
-    public List<Control> getControlsByComponent(String component) {
-        return controlRepository.findByComponentOrderByCreatedAtDesc(component);
-    }
-
 
 
     @Override

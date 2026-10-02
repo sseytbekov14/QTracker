@@ -136,19 +136,6 @@ public class ControlController {
         return ResponseEntity.ok(controls);
     }
 
-    @GetMapping("/component/{component}")
-    public ResponseEntity<?> getControlsByComponent(@PathVariable String component, HttpSession session) {
-        User currentUser = (User) session.getAttribute("currentUser");
-        if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        List<ControlResponseDTO> controls = controlService.getControlsByComponent(component).stream()
-                .filter(c -> controlPermissionService.resolve(controlService.findById(c.getId()).get(), currentUser).canView())
-                .map(this::convertToResponseDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(controls);
-    }
-
     @GetMapping("/{id}/changelog")
     public ResponseEntity<?> getControlChangelog(@PathVariable Long id, HttpSession session) {
         permissionService.requireReadable(id, (User) session.getAttribute("currentUser"));

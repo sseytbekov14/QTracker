@@ -11,7 +11,6 @@ public interface IControlService {
     List<Control> findVisibleControlsForUser(String userEmail, String userRole);
     List<Control> getUserControls(String userEmail);
     List<Control> getAllUserControls(String userEmail);
-    List<Control> getControlsByComponent(String component);
     List<Control> getFacilitatorControls(String userEmail);
     List<Control> getControlOperatorControls(String userEmail);
     List<Control> getProcessOwnerControls(String userEmail);

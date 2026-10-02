@@ -38,7 +38,6 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
     Long countAllControls();
 
     List<Control> findByCreatedByMailOrderByCreatedAtDesc(String userEmail);
-    List<Control> findByComponentOrderByCreatedAtDesc(String component);
     List<Control> findAllByOrderByIdDesc();
     List<Control> findByControlStatusIgnoreCase(String controlStatus);
     List<Control> findByPerformanceStatusIgnoreCase(String performanceStatus);
