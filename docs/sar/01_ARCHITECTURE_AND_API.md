@@ -150,10 +150,15 @@ All endpoints below require an active authenticated session. Spring Security ans
 | Method | Path | Controller | Description |
 |---|---|---|---|
 | `POST` | `/notifications/mark-all-read` | View controller | Mark notifications read |
-| `GET` | `/api/workflow-transitions` | `WorkflowTransitionController` | Workflow transition definitions |
-| `GET` | `/api/permissions` | `PermissionController` | User permission query |
-| `GET` | `/api/performance` | `PerformanceController` | Performance metrics |
-| `GET` | `/api/dashboard` | `DashboardController` | Dashboard summary data |
+| `POST` | `/api/workflow/submit-to-control-operator` | `WorkflowTransitionController` | `IN_PROGRESS` → `REVIEW`; assigned Facilitator only |
+| `POST` | `/api/workflow/submit-to-soqm-lead` | `WorkflowTransitionController` | `REVIEW` → `SOQM_HEAD_REVIEW`; assigned Control Operator only |
+| `POST` | `/api/workflow/return-to-facilitator` | `WorkflowTransitionController` | `REVIEW` → `IN_PROGRESS`; assigned Control Operator only |
+| `POST` | `/api/workflow/shared-submit-to-soqm-lead` | `WorkflowTransitionController` | `COMPLETED` → `SOQM_HEAD_REVIEW`; a Shared With user only |
+| `POST` | `/api/performance/initiate` | `PerformanceController` | `DRAFT` → `IN_PROGRESS`; SoQM Team, admins or the creator, once the required fields are filled |
+| `GET` | `/api/permissions/{controlId}`, `/api/permissions/{controlId}/can-edit` | `PermissionController` | The calling user's own permissions on a control |
+| `GET` | `/api/dashboard/admin/status`, `/component-breakdown`, `/frequency`, `/overdue-trend` | `DashboardController` | Dashboard charts over all controls; `SOQM_TEAM` only |
+| `GET` | `/api/dashboard/my/frequency`, `/component`, `/overdue-trend` | `MyDashboardController` | Dashboard charts over the calling user's visible controls |
+| `GET` | `/api/dashboard/deadline-countdown`, `/api/dashboard/deadline-calendar` | `DashboardDeadlineController` | Deadline block and calendar over the calling user's visible controls |
 
 ### 3.3 OpenAPI Specification
 
