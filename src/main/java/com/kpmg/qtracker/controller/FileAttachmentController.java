@@ -242,46 +242,6 @@ public class FileAttachmentController {
     }
 
     /**
-     * View a file in browser (for images, PDFs)
-     * GET /api/attachments/view/{filename}
-     */
-    @GetMapping("/view/{filename:.+}")
-    public ResponseEntity<byte[]> viewFile(@PathVariable String filename,
-                                           @RequestParam(value = "controlId", required = false) Long controlId,
-                                           HttpSession session) {
-        try {
-            if (controlId == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-            }
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-            }
-            Control control = controlService.findById(controlId)
-                    .orElseThrow(() -> new RuntimeException("Control not found"));
-            if (!controlPermissionService.resolve(control, currentUser).canView()) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-            
-            String decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8);
-            String controlFolder = resolveControlFolder(controlId);
-            byte[] fileContent = controlFolder == null
-                    ? fileStorageService.downloadFile(decodedFilename)
-                    : fileStorageService.downloadFile(decodedFilename, controlFolder);
-            String mimeType = fileStorageService.getMimeType(decodedFilename);
-            
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(mimeType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition("inline", decodedFilename))
-                    .body(fileContent);
-                    
-        } catch (Exception e) {
-            System.err.println("❌ View error: " + e.getMessage());
-            return ResponseEntity.notFound().build();
-        }
-    }
-
-    /**
      * Get attachment info for a control
      * GET /api/attachments/info/{controlId}
      */
@@ -429,19 +389,6 @@ public class FileAttachmentController {
             return String.valueOf(control.getId());
         }
         return controlCode;
-    }
-
-    private String resolveControlFolder(Long controlId) {
-        if (controlId == null) {
-            return null;
-        }
-        try {
-            return controlService.getControlById(controlId)
-                    .map(this::resolveControlFolder)
-                    .orElse(null);
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     // RFC 6266 header with filename*=UTF-8'' so non-ASCII (e.g. Cyrillic) names download correctly

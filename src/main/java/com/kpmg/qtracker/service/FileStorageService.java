@@ -64,10 +64,6 @@ public class FileStorageService {
     /**
      * Returns the file bytes for download
      */
-    public byte[] downloadFile(String filename) throws IOException {
-        return downloadFile(filename, null);
-    }
-
     public byte[] downloadFile(String filename, String controlFolder) throws IOException {
         Path filePath = filePath(filename, controlFolder);
         // Files uploaded before control folders existed lie in the upload root
