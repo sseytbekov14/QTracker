@@ -637,15 +637,6 @@ public class ViewController {
                 allTotal, allTotal - allOverdue - allCompleted, allOverdue, allCompleted));
     }
 
-    private Map<String, Long> initializeComponentStats() {
-        Map<String, Long> componentStats = new HashMap<>();
-        String[] allComponentNames = {"HR", "INTR", "M&R", "RAP", "A&C", "I&C", "GOV", "EP", "RER", "TECHR", "All"};
-        for (String component : allComponentNames) {
-            componentStats.put(component, 0L);
-        }
-        return componentStats;
-    }
-
     private record ControlCounters(int total, int active, int completed, int overdue) {
     }
 
@@ -1043,51 +1034,10 @@ public class ViewController {
         return "new-control";
     }
 
+    /** The Action Centre is a tab of the dashboard; this address only leads there (old bookmarks). */
     @GetMapping("/action-centre")
-    public String actionCentre(Model model, HttpSession session) {
-        String redirect = checkAuthAndRedirect(session);
-        if (redirect != null) return redirect;
-
-        User currentUser = getCurrentUser(session);
-        model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getRole());
-        model.addAttribute("userEmail", currentUser.getMail());
-        model.addAttribute("userRole", currentUser.getRole());
-        model.addAttribute("userIsAdmin", Boolean.TRUE.equals(currentUser.getAdminAccess()));
-        model.addAttribute("userIsSoqm", isSoqmRole(currentUser.getRole()));
-        model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
-
-        Map<String, Long> componentStats = initializeComponentStats();
-        List<Control> allControls = controlService.getAllControls();
-        boolean includeDraft = isGlobalVisibilityRole(currentUser.getRole(), Boolean.TRUE.equals(currentUser.getAdminAccess()));
-        long total = 0;
-        if (allControls != null) {
-            for (Control control : allControls) {
-                if (control == null) {
-                    continue;
-                }
-                String status = normalizeStatus(control.getControlStatus());
-                if (!includeDraft && "DRAFT".equals(status)) {
-                    continue;
-                }
-                total++;
-                String component = control.getComponent();
-                if (component != null && componentStats.containsKey(component)) {
-                    componentStats.put(component, componentStats.get(component) + 1);
-                }
-            }
-        }
-        componentStats.put("All", total);
-        model.addAttribute("componentStats", componentStats);
-
-        List<ControlResponseDTO> visibleControls = findControlsVisibleToUser(currentUser);
-        LocalDate todayAlmaty = DeadlineOverdue.today(Instant.now());
-        for (ControlResponseDTO control : visibleControls) {
-            control.setOverdue(DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), todayAlmaty));
-        }
-        addComponentSummaries(model, visibleControls, includeDraft);
-
-        return "dashboard";
+    public String actionCentre() {
+        return "redirect:/#action-centre";
     }
 
     @GetMapping("/performance-cycle/{controlId}")

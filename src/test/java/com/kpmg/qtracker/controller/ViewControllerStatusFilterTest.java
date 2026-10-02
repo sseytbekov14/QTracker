@@ -50,6 +50,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
@@ -610,96 +611,27 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
-    void actionCentre_nonSoqm_countsActiveByComponent() throws Exception {
+    void actionCentre_nonSoqm_redirectsToTheDashboardTab() throws Exception {
         User currentUser = new User();
         currentUser.setId(7L);
         currentUser.setRole("FACILITATOR");
-        currentUser.setMail("facilitator@kpmg.kz");
-        currentUser.setDisplayName("Facilitator User");
+        currentUser.setMail("fac@kpmg.kz");
 
-        User creator = new User();
-        creator.setMail("facilitator@kpmg.kz");
-
-        Control control1 = new Control();
-        control1.setId(100L);
-        control1.setComponent("HR");
-        control1.setControlStatus("IN_PROGRESS");
-        control1.setCreatedBy(creator);
-
-        Control control2 = new Control();
-        control2.setId(101L);
-        control2.setComponent("INTR");
-        control2.setControlStatus("IN_PROGRESS");
-        control2.setCreatedBy(creator);
-
-        Control control3 = new Control();
-        control3.setId(102L);
-        control3.setComponent("HR");
-        control3.setControlStatus("COMPLETED");
-        control3.setCreatedBy(creator);
-
-        Control control4 = new Control();
-        control4.setId(103L);
-        control4.setComponent("HR");
-        control4.setControlStatus("DRAFT");
-        control4.setCreatedBy(creator);
-
-        when(controlService.getAllControls())
-                .thenReturn(List.of(control1, control2, control3, control4));
-
-        MvcResult result = mockMvc.perform(get("/action-centre")
-                        .sessionAttr("currentUser", currentUser))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        @SuppressWarnings("unchecked")
-        Map<String, Long> componentStats =
-                (Map<String, Long>) result.getModelAndView().getModel().get("componentStats");
-
-        assertThat(componentStats.get("All")).isEqualTo(3L);
-        assertThat(componentStats.get("HR")).isEqualTo(2L);
-        assertThat(componentStats.get("INTR")).isEqualTo(1L);
+        mockMvc.perform(get("/action-centre").sessionAttr("currentUser", currentUser))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/#action-centre"));
     }
 
     @Test
-    void actionCentre_soqm_countsAllControls() throws Exception {
+    void actionCentre_soqm_redirectsToTheDashboardTab() throws Exception {
         User currentUser = new User();
         currentUser.setId(8L);
         currentUser.setRole("SOQM_TEAM");
         currentUser.setMail("soqm@kpmg.kz");
-        currentUser.setDisplayName("SoQM User");
 
-        Control control1 = new Control();
-        control1.setId(200L);
-        control1.setComponent("HR");
-        control1.setControlStatus("DRAFT");
-
-        Control control2 = new Control();
-        control2.setId(201L);
-        control2.setComponent("INTR");
-        control2.setControlStatus("COMPLETED");
-
-        Control control3 = new Control();
-        control3.setId(202L);
-        control3.setComponent("HR");
-        control3.setControlStatus("IN_PROGRESS");
-
-        when(controlService.getAllControls())
-                .thenReturn(List.of(control1, control2, control3));
-
-        MvcResult result = mockMvc.perform(get("/action-centre")
-                        .sessionAttr("currentUser", currentUser))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("class=\"sidebar-new-control\"")))
-                .andReturn();
-
-        @SuppressWarnings("unchecked")
-        Map<String, Long> componentStats =
-                (Map<String, Long>) result.getModelAndView().getModel().get("componentStats");
-
-        assertThat(componentStats.get("All")).isEqualTo(3L);
-        assertThat(componentStats.get("HR")).isEqualTo(2L);
-        assertThat(componentStats.get("INTR")).isEqualTo(1L);
+        mockMvc.perform(get("/action-centre").sessionAttr("currentUser", currentUser))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/#action-centre"));
     }
 
     @Test
