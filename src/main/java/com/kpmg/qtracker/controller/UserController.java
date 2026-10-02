@@ -50,8 +50,9 @@ public class UserController {
         }
 
         try {
-            User before = userService.getUserById(id)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            // The service changes the same managed entity, so the values before the change are copied first
+            User before = accessSnapshot(userService.getUserById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found")));
 
             User updated = userService.updateUserAccess(id, role, secondaryRole, adminAccess, enabled, currentUser.getId());
             String description = buildAccessUpdateDescription(before, updated);
@@ -173,6 +174,17 @@ public class UserController {
         }
     }
 
+
+    private static User accessSnapshot(User user) {
+        User copy = new User();
+        copy.setId(user.getId());
+        copy.setMail(user.getMail());
+        copy.setRole(user.getRole());
+        copy.setSecondaryRole(user.getSecondaryRole());
+        copy.setAdminAccess(user.getAdminAccess());
+        copy.setEnabled(user.getEnabled());
+        return copy;
+    }
 
     private UserDTO convertToDTO(User user) {
         UserDTO dto = new UserDTO();
