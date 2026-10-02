@@ -95,6 +95,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     overflow-x: auto;
 }
 .users-table { font-size: 0.8rem; width: 100%; margin: 0; }
+/* Bootstrap draws a dark line over the tbody; the header has its own border */
+.users-table > :not(:first-child), .audit-table > :not(:first-child) { border-top: 0; }
 .users-table thead th {
     background: var(--kpmg-gray-50);
     color: var(--kpmg-gray-600);
@@ -292,9 +294,53 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 #editEmailCurrent { font-weight: 600; color: var(--kpmg-gray-800); }
 
 @media (max-width: 767.98px) {
-    .page-header { flex-wrap: wrap; }
-    .search-box { max-width: none; }
+    .page-header { flex-wrap: wrap; padding: 14px 16px; }
+    .search-box { max-width: none; flex-basis: 100%; }
+    .toolbar-select { flex: 1 1 140px; min-width: 0; }
     .client-alert { left: 16px; max-width: none; }
+
+    /* Each user is a card: the name on top, then one labelled line per field */
+    .table-wrapper { overflow-x: visible; }
+    .users-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+    }
+    .users-table, .users-table tbody { display: block; }
+    .users-table tbody tr { display: block; padding: 10px 16px; border-bottom: 1px solid var(--kpmg-gray-200); }
+    .users-table tbody tr:last-child { border-bottom: none; }
+    .users-table tbody td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 4px 0;
+        border: none;
+        min-height: 36px;
+    }
+    .users-table tbody td[data-label]::before {
+        content: attr(data-label);
+        flex-shrink: 0;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--kpmg-gray-600);
+    }
+    .users-table tbody td:first-child { padding-bottom: 6px; }
+    .users-table .compact-select { flex: 0 1 220px; min-width: 0; }
+    .email-cell { min-width: 0; justify-content: flex-end; }
+    .email-cell .js-email-text { overflow-wrap: anywhere; text-align: right; }
+    .users-table tbody tr.empty-row td { display: block; text-align: center; }
+    .admin-user-row.row-dirty { background: #fff8e1; box-shadow: inset 3px 0 0 #e0a800; }
+    .admin-user-row.row-dirty td { background: transparent; }
+    .admin-user-row.row-dirty td:first-child { box-shadow: none; }
+
+    .table-footer { flex-direction: column; align-items: stretch; }
+    .footer-right { justify-content: space-between; }
+    .save-btn { width: 100%; padding: 10px 18px; }
 }
     </style>
 </head>
@@ -391,7 +437,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                     </div>
                                 </div>
                             </td>
-                            <td>
+                            <td data-label="Email">
                                 <div class="email-cell">
                                     <span class="js-email-text" th:text="${user.mail}">user@mail.com</span>
                                     <button th:if="${user.lastLoginAt == null}"
@@ -403,7 +449,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                     </button>
                                 </div>
                             </td>
-                            <td>
+                            <td data-label="Role">
                                 <!-- A stored value the list does not offer gets its own option with an empty value:
                                      an empty value is saved as "unchanged" until another role is chosen -->
                                 <select class="form-select form-select-sm compact-select js-role" aria-label="Role">
@@ -418,7 +464,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                             th:selected="${role == user.role}"></option>
                                 </select>
                             </td>
-                            <td>
+                            <td data-label="Additional role">
                                 <select class="form-select form-select-sm compact-select js-secondary-role" aria-label="Additional role">
                                     <option th:value="${noSecondaryRole}"
                                             th:selected="${#strings.isEmpty(user.secondaryRole)}">None</option>
@@ -433,7 +479,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                             th:selected="${role == user.secondaryRole}"></option>
                                 </select>
                             </td>
-                            <td>
+                            <td data-label="Admin access">
                                 <div class="form-check form-switch admin-switch-wrap m-0">
                                     <input class="form-check-input js-admin-toggle"
                                            type="checkbox"
@@ -443,13 +489,13 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                     <span class="admin-switch-label js-admin-label" th:text="${user.adminAccess} ? 'Yes' : 'No'">No</span>
                                 </div>
                             </td>
-                            <td>
+                            <td data-label="Status">
                                 <select class="form-select form-select-sm compact-select js-status status-badge-select" aria-label="Status">
                                     <option value="ACTIVE" th:selected="${user.enabled}">Active</option>
                                     <option value="INACTIVE" th:selected="${!user.enabled}">Inactive</option>
                                 </select>
                             </td>
-                            <td class="last-login">
+                            <td class="last-login" data-label="Last login">
                                 <span th:if="${user.lastLoginAt != null}" th:text="${#temporals.format(user.lastLoginAt, 'dd.MM.yyyy HH:mm')}">15.05.2024 14:30</span>
                                 <span th:if="${user.lastLoginAt == null}">-</span>
                             </td>
