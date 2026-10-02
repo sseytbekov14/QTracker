@@ -14,7 +14,17 @@
     }
 
     function currentDate(input) {
-        return D.parseDisplayDate(input.value) || D.parseIsoDate(input.dataset.isoValue || '');
+        return D.parseDisplayDate(input.value);
+    }
+
+    // The month the typed text names: that of a real date, or of a dd.mm.yyyy whose day the month
+    // does not have (31.02.2026 shows February); null for anything else
+    function typedMonth(input) {
+        var typed = currentDate(input);
+        if (typed) return new Date(typed.getFullYear(), typed.getMonth(), 1);
+        var match = input.value.trim().match(/^\d{1,2}\.(\d{1,2})\.(\d{4})$/);
+        var month = match ? Number(match[1]) : 0;
+        return month >= 1 && month <= 12 ? new Date(Number(match[2]), month - 1, 1) : null;
     }
 
     function sameDay(a, b) {
@@ -85,8 +95,8 @@
 
         function open() {
             if (!popup.hidden || !isEditable(input)) return;
-            var selected = currentDate(input) || new Date();
-            shown = new Date(selected.getFullYear(), selected.getMonth(), 1);
+            var today = new Date();
+            shown = typedMonth(input) || new Date(today.getFullYear(), today.getMonth(), 1);
             render();
             // Right under the input, whatever padding or label its container has
             popup.style.left = input.offsetLeft + 'px';
@@ -109,17 +119,19 @@
                 if (target) target.focus();
             }
         });
-        // A typed date: keep the ISO value in step, so clearing the text also clears the date
+        // A typed date: keep the ISO value in step. Text that is not a date clears it, so nothing
+        // (this calendar included) goes on using the date that was there before.
         input.addEventListener('input', function (event) {
             if (!event.isTrusted) return;
-            var typed = D.parseDisplayDate(input.value);
+            var typed = currentDate(input);
             if (typed) {
                 input.dataset.isoValue = D.toIsoDate(typed);
-            } else if (!input.value.trim()) {
+            } else {
                 delete input.dataset.isoValue;
             }
-            if (!popup.hidden && typed) {
-                shown = new Date(typed.getFullYear(), typed.getMonth(), 1);
+            var month = typedMonth(input);
+            if (!popup.hidden && month) {
+                shown = month;
                 render();
             }
         });

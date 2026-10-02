@@ -217,6 +217,11 @@ const viewControl = (function() {
         updateSharedWithDisplay();
         updateSharedWithHidden();
         normalizeAssignmentDateFieldsForDisplay();
+
+        // Marks left by a refused Save belong to the edit that is being cancelled
+        document.querySelectorAll('#controlForm .is-invalid, #detailsForm .is-invalid, #assignmentForm .is-invalid, #documentsForm .is-invalid')
+            .forEach(field => field.classList.remove('is-invalid'));
+        document.getElementById('controlOperationDate')?.removeAttribute('aria-invalid');
     }
 
     async function loadAllUsers() {
@@ -1652,11 +1657,12 @@ function makeAllFormsEditable() {
         console.log('  Style pointerEvents:', controlFreq.style.pointerEvents);
     }
 }
-function validateFieldLengths(formElement) {
-    if (!formElement) return true;
+// Every form Save sends, checked at once before the first request, so one message covers them all
+function validateFieldLengths(...formElements) {
     let isValid = true;
     let firstInvalid = null;
-    const elements = formElement.querySelectorAll('input[maxlength], textarea[maxlength]');
+    const elements = formElements.filter(Boolean)
+        .flatMap(form => Array.from(form.querySelectorAll('input[maxlength], textarea[maxlength]')));
     elements.forEach(el => {
         const maxLength = parseInt(el.getAttribute('maxlength'), 10);
         if (el.value && el.value.length > maxLength) {
@@ -1710,11 +1716,7 @@ function saveControlData(controlId) {
 
     const controlForm = document.getElementById('controlForm');
     if (!controlForm) {
-        return Promise.reject('Control form not found');
-    }
-
-    if (!validateFieldLengths(controlForm)) {
-        return Promise.reject('Validation failed');
+        return Promise.reject(new Error('Control form not found'));
     }
 
     const getControlValue = (selector) => {
@@ -1774,18 +1776,11 @@ function saveControlData(controlId) {
 .then(data => {
     console.log('вњ… Control saved successfully:', data);
 
-    // РџРѕРєР°Р·С‹РІР°РµРј Р°Р»РµСЂС‚
-    showAppModal({
-        variant: 'success',
-        title: 'Saved Successfully',
-        message: 'Control information has been saved'
-    });
-
     return data;
 })
     .catch(error => {
         console.error('вќЊ Error saving control:', error);
-        alert('Error saving control: ' + error.message);
+        // saveControlChanges shows the one message for the whole Save
         throw error;
     });
 }
@@ -2003,8 +1998,10 @@ function renameControlId(newControlId) {
         }
         if (!isoDateValue) {
             input.value = '';
+            delete input.dataset.isoValue;
             return;
         }
+        input.dataset.isoValue = isoDateValue;
         if (input.type === 'date') {
             input.value = isoDateValue;
             return;
@@ -2047,11 +2044,43 @@ function renameControlId(newControlId) {
 
         if (!operationDateInput) return;
 
-        const isoValue = formatDateForApi(operationDateInput.value || operationDateInput.dataset.isoValue || '');
+        // Only a real dd.mm.yyyy date is rewritten (1.2.2026 to 01.02.2026); other text stays for the user to fix
+        const isoValue = readOperationDate(operationDateInput);
         if (!isoValue) return;
 
         operationDateInput.dataset.isoValue = isoValue;
         operationDateInput.value = formatDateDisplay(isoValue);
+    }
+
+    // The Control Operation Date is typed as dd.mm.yyyy only. Returns the ISO date, '' for an empty field,
+    // or null for text that is not a real dd.mm.yyyy date (31.02.2026, 15/10/2026, 2026-10-15, 15.10.26)
+    function readOperationDate(input) {
+        const text = input ? String(input.value || '').trim() : '';
+        if (!text) {
+            return '';
+        }
+        const date = window.QTrackerDate ? window.QTrackerDate.parseDisplayDate(text) : null;
+        return date ? toIsoDate(date) : null;
+    }
+
+    function setOperationDateError(input, invalid) {
+        input.classList.toggle('is-invalid', invalid);
+        if (invalid) {
+            input.setAttribute('aria-invalid', 'true');
+        } else {
+            input.removeAttribute('aria-invalid');
+        }
+    }
+
+    // Leaving the field (or picking a day): a real date is written as dd.mm.yyyy, other text is marked
+    function checkOperationDateField(input) {
+        const isoValue = readOperationDate(input);
+        if (isoValue) {
+            input.value = formatDateDisplay(isoValue);
+            input.dataset.isoValue = isoValue;
+        }
+        setOperationDateError(input, isoValue === null);
+        updateCalculatedDates();
     }
 
     function formatDateForApi(dateString) {
@@ -2074,10 +2103,6 @@ function renameControlId(newControlId) {
             return null;
         }
     }
-
-function showRequiredFieldMessage(message, field) {
-    showMissingFieldMessage(message, field);
-}
 
     function isBlankValue(value) {
         return value === null || value === undefined || String(value).trim() === '';
@@ -2142,13 +2167,26 @@ function showRequiredFieldMessage(message, field) {
                     field.classList.add('is-invalid');
                 }
                 if (!firstInvalid) {
-                    firstInvalid = { field, label };
+                    firstInvalid = { field, message: `${label} is required.` };
                 }
             }
         });
 
+        // Text that is not a dd.mm.yyyy date would reach the server as no date at all
+        const operationDateField = assignmentForm?.querySelector('[name="controlOperationDate"]');
+        if (operationDateField && readOperationDate(operationDateField) === null) {
+            setOperationDateError(operationDateField, true);
+            if (!firstInvalid) {
+                firstInvalid = {
+                    field: operationDateField,
+                    title: 'Control Operation Date',
+                    message: 'Enter the date as dd.mm.yyyy'
+                };
+            }
+        }
+
         if (firstInvalid) {
-            showRequiredFieldMessage(`${firstInvalid.label} is required.`, firstInvalid.field);
+            showMissingFieldMessage(firstInvalid.message, firstInvalid.field, firstInvalid.title);
             return false;
         }
 
@@ -2228,11 +2266,6 @@ function saveControlChanges() {
 function saveAssignmentData(controlId) {
     console.log('=== SAVE ASSIGNMENT DATA ===');
 
-    const assignmentForm = document.getElementById('assignmentForm');
-    if (assignmentForm && !validateFieldLengths(assignmentForm)) {
-        return Promise.reject('Validation failed');
-    }
-
     // РџРѕР»СѓС‡Р°РµРј email Р·РЅР°С‡РµРЅРёСЏ
     const getEmailValue = (id) => {
         const element = document.getElementById(id);
@@ -2258,14 +2291,9 @@ function saveAssignmentData(controlId) {
     }
 
     // РџРѕР»СѓС‡Р°РµРј РґР°С‚С‹
-    const getDateValue = (name) => {
-        const element = document.querySelector(`input[name="${name}"]`);
-        const value = element ? element.value : null;
-        return formatDateForApi(value);
-    };
-
-    // The deadline and the next date are calculated by the server, so they are not sent
-    const controlOperationDate = getDateValue('controlOperationDate');
+    // The deadline and the next date are calculated by the server, so they are not sent.
+    // Save has already refused a date that is not dd.mm.yyyy.
+    const controlOperationDate = readOperationDate(document.querySelector('input[name="controlOperationDate"]')) || null;
 
     // РџСЂРѕРІРµСЂСЏРµРј controlId
     const numericControlId = parseInt(controlId, 10);
@@ -2317,7 +2345,7 @@ function saveAssignmentData(controlId) {
             }
 
             console.error('вќЊ Server error:', errorMessage);
-            throw new Error(serverErrorText(errorMessage));
+            throw new Error('Assignment save failed: ' + serverErrorText(errorMessage));
         }
 
         // Р•СЃР»Рё РѕС‚РІРµС‚ РїСѓСЃС‚РѕР№ РёР»Рё РЅРµ JSON - РІРѕР·РІСЂР°С‰Р°РµРј success
@@ -2345,33 +2373,12 @@ function saveAssignmentData(controlId) {
             window.uploadAttachments();
         }
 
-        // РџРѕРєР°Р·С‹РІР°РµРј Р°Р»РµСЂС‚
-        showAppModal({
-            variant: 'success',
-            title: 'Saved Successfully',
-            message: 'Assignment data has been saved'
-        });
-
-        // Р РµРґРёСЂРµРєС‚ С‡РµСЂРµР· 2 СЃРµРєСѓРЅРґС‹ (РїРѕСЃР»Рµ Р·Р°РєСЂС‹С‚РёСЏ Р°Р»РµСЂС‚Р°)
-
         return data;
     })
     .catch(error => {
         console.error('вќЊ Save error:', error);
 
-        let userMessage = 'Error saving assignment data. ';
-
-        if (error.message.includes('1 saves failed')) {
-            userMessage = 'Validation failed on server. Please check all required fields.';
-        } else if (error.message.includes('400')) {
-            userMessage = 'Bad request. Please check your data.';
-        } else if (error.message.includes('500')) {
-            userMessage = 'Server error. Please try again later.';
-        } else {
-            userMessage += error.message;
-        }
-
-        alert(userMessage);
+        // saveControlChanges shows the one message for the whole Save
         throw error;
     });
 }
@@ -2379,14 +2386,9 @@ function saveAssignmentData(controlId) {
 function saveDetailsData(controlId) {
     console.log('=== SAVE DETAILS DATA ===');
 
-    const detailsForm = document.getElementById('detailsForm');
-    if (detailsForm && !validateFieldLengths(detailsForm)) {
-        return Promise.reject('Validation failed');
-    }
-
     const detailsData = buildDetailsPayload(controlId);
     if (!detailsData) {
-        return Promise.reject('Details form not found');
+        return Promise.reject(new Error('Details form not found'));
     }
 
     console.log('Details data to send:', detailsData);
@@ -2427,26 +2429,12 @@ function saveDetailsData(controlId) {
             window.uploadAttachments();
         }
 
-        showAppModal({
-            variant: 'success',
-            title: 'Saved Successfully',
-            message: 'Details have been saved'
-        });
-
-        // Р РµРґРёСЂРµРєС‚ С‡РµСЂРµР· 2.1 СЃРµРєСѓРЅРґС‹
-
         return data;
     })
     .catch(error => {
         console.error('вќЊ Error saving details:', error);
 
-        showAppModal({
-            variant: 'error',
-            title: 'Save Failed',
-            message: 'Error saving details: ' + error.message,
-            autoCloseMs: 0
-        });
-
+        // The caller shows the one message for the whole Save
         throw error;
     });
 }
@@ -2522,28 +2510,13 @@ function saveDocumentsData(controlId) {
         window.uploadAttachments();
     }
 
-    showAppModal({
-        variant: 'success',
-        title: 'Saved Successfully',
-        message: 'Documents have been saved'
-    });
-
-    // Р РµРґРёСЂРµРєС‚ С‡РµСЂРµР· 2.1 СЃРµРєСѓРЅРґС‹
-
     return data;
 })
     .catch(error => {
         console.error('вќЊ Unexpected error in saveDocumentsData:', error);
 
-        showAppModal({
-            variant: 'error',
-            title: 'Save Failed',
-            message: 'Error saving documents: ' + error.message,
-            autoCloseMs: 0
-        });
-
-        // РќРµ Р±СЂРѕСЃР°РµРј РѕС€РёР±РєСѓ РґР°Р»СЊС€Рµ
-        return { success: false, caughtError: error.message };
+        // saveControlChanges shows the one message for the whole Save, so a failure here is not hidden
+        throw error;
     });
 }
 
@@ -2553,8 +2526,11 @@ function saveDocumentsData(controlId) {
         if (!operationDateInput) {
             return;
         }
-        const isoValue = formatDateForApi(operationDateInput.value || operationDateInput.dataset.isoValue || '');
+        const isoValue = readOperationDate(operationDateInput);
         if (!isoValue) {
+            // No date or no real one: no deadline and next date either, rather than those of the previous date
+            setDateFieldValue(document.querySelector('input[name="controlOperationDeadline"]'), '');
+            setDateFieldValue(document.querySelector('input[name="nextControlOperationDate"]'), '');
             return;
         }
         const operationDate = parseIsoDate(isoValue);
@@ -2786,7 +2762,12 @@ function saveDocumentsData(controlId) {
 
                     console.log('=== SAVE BUTTON CLICKED ===');
 
-                    if (!validateControlSaveRequiredFields()) {
+                    // Everything is checked before the first request: a refused field must not leave
+                    // the tabs saved before it
+                    if (!validateControlSaveRequiredFields()
+                        || !validateFieldLengths(document.getElementById('controlForm'),
+                            document.getElementById('assignmentForm'),
+                            document.getElementById('detailsForm'))) {
                         return;
                     }
 
@@ -2804,23 +2785,9 @@ function saveDocumentsData(controlId) {
                     } catch (error) {
                         console.error('вќЊ Save error in button handler:', error);
 
+                        // saveControlChanges has already shown the message
                         saveEditBtn.disabled = false;
                         saveEditBtn.textContent = originalText;
-
-                        let errorMessage = error.message;
-
-                        if (errorMessage.includes('Validation failed') || errorMessage.includes('invalid')) {
-                            alert('Validation error: ' + errorMessage);
-                        } else if (errorMessage.includes('failed')) {
-                            const match = errorMessage.match(/Status (\d+): (.*)/);
-                            if (match) {
-                                alert(`Server error (${match[1]}): ${match[2]}`);
-                            } else {
-                                alert('Error saving changes: ' + errorMessage);
-                            }
-                        } else {
-                            alert('Error: ' + errorMessage);
-                        }
                     }
                 });
             }
@@ -2833,26 +2800,18 @@ function saveDocumentsData(controlId) {
                 });
             }
 
-            const handleOperationDateChange = function() {
-                console.log('Control Operation Date changed:', this.value);
-
-                const isoValue = formatDateForApi(this.value || this.dataset.isoValue || '');
-                if (isoValue) {
-                    const operationDate = parseIsoDate(isoValue);
-                    if (!operationDate) {
-                        return;
-                    }
-                    const controlFrequency = document.querySelector('#controlForm [name="controlFrequency"]')?.value
-                        || document.querySelector('[name="controlFrequency"]')?.value;
-                    console.log('Control Frequency:', controlFrequency);
-                    applyAssignmentDatePreview(operationDate, controlFrequency);
-                }
-            };
-
             const operationDateInput = document.querySelector('input[name="controlOperationDate"]');
             if (operationDateInput) {
-                operationDateInput.addEventListener('change', handleOperationDateChange);
-                operationDateInput.addEventListener('input', handleOperationDateChange);
+                // While typing the preview follows the text, and a date put right loses its mark at once
+                operationDateInput.addEventListener('input', function() {
+                    if (readOperationDate(this) !== null) {
+                        setOperationDateError(this, false);
+                    }
+                    updateCalculatedDates();
+                });
+                operationDateInput.addEventListener('change', function() {
+                    checkOperationDateField(this);
+                });
             }
 
             document.querySelector('#controlForm select[name="controlFrequency"]')?.addEventListener('change', function() {
@@ -3347,12 +3306,12 @@ function focusField(field) {
     }
 }
 
-function showMissingFieldMessage(message, field) {
+function showMissingFieldMessage(message, field, title) {
     revealFieldTab(field);
     if (window.showAppModal) {
         showAppModal({
             variant: 'warning',
-            title: 'Missing Required Field',
+            title: title || 'Missing Required Field',
             message: message,
             autoCloseMs: 0,
             onClose: () => focusField(field)

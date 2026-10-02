@@ -7,7 +7,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=11" rel="stylesheet">
-    <link href="/css/view-control.css?v=13" rel="stylesheet">
+    <link href="/css/view-control.css?v=14" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator Program validation styling */
@@ -1127,7 +1127,8 @@
                                         <label class="form-label required-field">Control Operation Date</label>
                                         <input type="text" class="form-control" name="controlOperationDate"
                                                id="controlOperationDate" placeholder="dd.mm.yyyy" inputmode="numeric"
-                                               data-date-picker>
+                                               aria-describedby="controlOperationDateFeedback" data-date-picker>
+                                        <div class="invalid-feedback" id="controlOperationDateFeedback">Enter the date as dd.mm.yyyy</div>
                                     </div>
                                     <div class="col-md-4 mb-3">
                                         <label class="form-label">Control Operation Deadline</label>
@@ -1701,9 +1702,9 @@
 <div th:replace="fragments/app-modal :: appModal"></div>
 <script src="/js/vendor/bootstrap.bundle.min.js"></script>
 <script src="/js/date-format.js?v=2"></script>
-<script src="/js/date-picker.js?v=1"></script>
+<script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=4"></script>
-<script src="/js/view-control.js?v=4.5"></script>
+<script src="/js/view-control.js?v=4.6"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {

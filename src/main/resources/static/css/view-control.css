@@ -800,6 +800,14 @@ body.theme-dark .editable-select:focus {
     box-shadow: 0 0 0 2px rgba(127, 176, 255, 0.15);
 }
 
+/* A field marked invalid stays red, focused or not: the two rules above are !important */
+body.theme-dark .editable-field.is-invalid,
+body.theme-dark .editable-select.is-invalid,
+body.theme-dark .editable-field.is-invalid:focus,
+body.theme-dark .editable-select.is-invalid:focus {
+    border-color: var(--bs-form-invalid-border-color, #dc3545) !important;
+}
+
 body.theme-dark .action-buttons .btn-outline-secondary,
 body.theme-dark .edit-nav-panel .btn-outline-secondary {
     background: var(--surface-bg-2);
