@@ -1301,8 +1301,8 @@ function confirmWorkflowAction() {
                                 nextDateInput.dataset.isoValue = assignmentData.nextControlOperationDate;
                             }
                         }
+                        // The deadline and the next date are shown as stored; the preview runs only on a change
                         normalizeAssignmentDateFieldsForDisplay();
-                        updateCalculatedDates();
                     }
                 }
             }
@@ -1639,7 +1639,6 @@ function makeAllFormsEditable() {
     console.log('✅ All forms are now editable');
     enableFileInputs();
     normalizeAssignmentDateFieldsForDisplay();
-    updateCalculatedDates();
 
     // 6. РџСЂРѕРІРµСЂРєР° СЂРµР·СѓР»СЊС‚Р°С‚Р°
     console.log('=== FINAL CHECK ===');
@@ -2265,9 +2264,8 @@ function saveAssignmentData(controlId) {
         return formatDateForApi(value);
     };
 
+    // The deadline and the next date are calculated by the server, so they are not sent
     const controlOperationDate = getDateValue('controlOperationDate');
-    const controlOperationDeadline = getDateValue('controlOperationDeadline');
-    const nextControlOperationDate = getDateValue('nextControlOperationDate');
 
     // РџСЂРѕРІРµСЂСЏРµРј controlId
     const numericControlId = parseInt(controlId, 10);
@@ -2283,9 +2281,7 @@ function saveAssignmentData(controlId) {
         soqmLead: soqmLead,
         processOwner: processOwner,
         controlSharedWith: controlSharedWith,
-        controlOperationDate: controlOperationDate,
-        controlOperationDeadline: controlOperationDeadline,
-        nextControlOperationDate: nextControlOperationDate
+        controlOperationDate: controlOperationDate
     };
 
     console.log('рџ“¤ Sending assignment data:', assignmentData);
@@ -2358,7 +2354,6 @@ function saveAssignmentData(controlId) {
 
         // Р РµРґРёСЂРµРєС‚ С‡РµСЂРµР· 2 СЃРµРєСѓРЅРґС‹ (РїРѕСЃР»Рµ Р·Р°РєСЂС‹С‚РёСЏ Р°Р»РµСЂС‚Р°)
 
-        updateCalculatedDates();
         return data;
     })
     .catch(error => {
@@ -2602,7 +2597,16 @@ function saveDocumentsData(controlId) {
         return null;
     }
 
-    // UI regression examples (matches ControlScheduleCalculator):
+    // As LocalDate.plusMonths: a day the target month does not have becomes its last day
+    // (31.01.2026 + 1 month = 28.02.2026), where Date.setMonth would roll over to 03.03.2026
+    function plusMonths(date, months) {
+        const result = new Date(date.getFullYear(), date.getMonth() + months, 1);
+        const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+        result.setDate(Math.min(date.getDate(), lastDay));
+        return result;
+    }
+
+    // UI regression examples (matches ControlScheduleCalculator; SchedulePreviewParityTest runs these functions):
     // OperationDate=2026-02-06
     // Monthly:   deadline=2026-02-13, next=2026-03-06
     // Quarterly: deadline=2026-02-20, next=2026-05-06
@@ -2610,6 +2614,7 @@ function saveDocumentsData(controlId) {
     // Ad-hoc:    deadline=2026-02-20, next=(none)
     // Annual:    deadline=2026-03-06, next=2027-02-06
     // Semi Annual: deadline=2026-03-06, next=2026-08-06
+    // OperationDate=2026-01-31, Monthly: next=2026-02-28
     function calculateDeadline(operationDate, controlFrequency) {
         const date = new Date(operationDate.getFullYear(), operationDate.getMonth(), operationDate.getDate());
         const normalized = normalizeControlFrequency(controlFrequency);
@@ -2626,8 +2631,7 @@ function saveDocumentsData(controlId) {
                 break;
             case 'semi annual':
             case 'annual':
-                date.setMonth(date.getMonth() + 1);
-                break;
+                return plusMonths(date, 1);
             case 'monthly':
                 date.setDate(date.getDate() + 7);
                 break;
@@ -2648,18 +2652,14 @@ function saveDocumentsData(controlId) {
 
         switch (normalized) {
             case 'monthly':
-                date.setMonth(date.getMonth() + 1);
-                return date;
+                return plusMonths(date, 1);
             case 'quarterly':
             case 'recurring':
-                date.setMonth(date.getMonth() + 3);
-                return date;
+                return plusMonths(date, 3);
             case 'semi annual':
-                date.setMonth(date.getMonth() + 6);
-                return date;
+                return plusMonths(date, 6);
             case 'annual':
-                date.setMonth(date.getMonth() + 12);
-                return date;
+                return plusMonths(date, 12);
             case 'ad-hoc':
                 return null;
             default:

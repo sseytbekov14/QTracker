@@ -258,6 +258,35 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
+    void soqm_savingAssignment_storesAndLogsTheServerSchedule_notTheOneSent() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-SCH-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+
+        // Monthly from 31 January: the next date is the end of February. A browser that rolled the day
+        // over would send 3 March; the page's values must not reach the database or the log.
+        mockMvc.perform(post("/api/control-assignment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId()
+                                + ",\"controlOperationDate\":\"2026-01-31\""
+                                + ",\"controlOperationDeadline\":\"2026-02-09\""
+                                + ",\"nextControlOperationDate\":\"2026-03-03\"}")
+                        .session(login(p.soqm.getMail())))
+                .andExpect(status().isOk());
+
+        ControlAssignment stored = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assertThat(stored.getControlOperationDeadline()).isEqualTo(LocalDate.of(2026, 2, 7));
+        assertThat(stored.getNextControlOperationDate()).isEqualTo(LocalDate.of(2026, 2, 28));
+        String loggedValues = auditLogRepository.findByControlIdOrderByCreatedAtDesc(control.getId())
+                .get(0).getNewValues();
+        assertThat(loggedValues)
+                .contains("\"Control Operation Deadline\":\"2026-02-07\"")
+                .contains("\"Next Control Operation Date\":\"2026-02-28\"")
+                .doesNotContain("2026-02-09")
+                .doesNotContain("2026-03-03");
+    }
+
+    @Test
     void assignedFacilitator_resendingUnchangedControlForm_returns200() throws Exception {
         Participants p = participants();
         Control control = createControl("CTRL-PUT-" + suffix(), p.soqm, "IN_PROGRESS");

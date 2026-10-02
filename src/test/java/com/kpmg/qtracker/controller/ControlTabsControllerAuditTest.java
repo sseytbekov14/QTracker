@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.dto.ControlDetailsDTO;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdhocNotificationService;
@@ -158,6 +159,7 @@ class ControlTabsControllerAuditTest {
         when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(existingAssignment)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(),
                         true, true, false, false, false, false, true, false));
+        when(controlAssignmentService.saveAssignment(any())).thenReturn(new ControlAssignment());
 
         mockMvc.perform(post("/api/control-assignment")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -3,6 +3,7 @@ package com.kpmg.qtracker.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.*;
 import lombok.RequiredArgsConstructor;
@@ -140,12 +141,13 @@ public class ControlTabsController {
                     existingAssignment.getControlSharedWith(), mergedAssignment.getControlSharedWith());
             collectChange(changedFields, previousValues, newValues, "Control Operation Date",
                     existingAssignment.getControlOperationDate(), mergedAssignment.getControlOperationDate());
-            collectChange(changedFields, previousValues, newValues, "Control Operation Deadline",
-                    existingAssignment.getControlOperationDeadline(), mergedAssignment.getControlOperationDeadline());
-            collectChange(changedFields, previousValues, newValues, "Next Control Operation Date",
-                    existingAssignment.getNextControlOperationDate(), mergedAssignment.getNextControlOperationDate());
 
-            controlAssignmentService.saveAssignment(mergedAssignment);
+            ControlAssignment saved = controlAssignmentService.saveAssignment(mergedAssignment);
+            // The service calculates both from the date and the frequency; the log shows what it stored
+            collectChange(changedFields, previousValues, newValues, "Control Operation Deadline",
+                    existingAssignment.getControlOperationDeadline(), saved.getControlOperationDeadline());
+            collectChange(changedFields, previousValues, newValues, "Next Control Operation Date",
+                    existingAssignment.getNextControlOperationDate(), saved.getNextControlOperationDate());
 
             // Send notifications to newly shared users
             List<String> oldShared = existingAssignment != null && existingAssignment.getControlSharedWith() != null
@@ -422,10 +424,7 @@ public class ControlTabsController {
                 incoming != null ? incoming.getControlSharedWith() : null));
         merged.setControlOperationDate(resolveDate(existing != null ? existing.getControlOperationDate() : null,
                 incoming != null ? incoming.getControlOperationDate() : null));
-        merged.setControlOperationDeadline(resolveDate(existing != null ? existing.getControlOperationDeadline() : null,
-                incoming != null ? incoming.getControlOperationDeadline() : null));
-        merged.setNextControlOperationDate(resolveDate(existing != null ? existing.getNextControlOperationDate() : null,
-                incoming != null ? incoming.getNextControlOperationDate() : null));
+        // The deadline and the next date are not taken from the request: saveAssignment calculates them
 
         return merged;
     }
