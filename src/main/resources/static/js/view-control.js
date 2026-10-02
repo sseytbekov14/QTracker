@@ -2072,6 +2072,37 @@ function renameControlId(newControlId) {
         }
     }
 
+    // A Control Operation Date in the past is allowed, but its deadline may have passed too, so the control
+    // turns overdue on saving: ask first. Only a date changed in this edit is asked about.
+    async function confirmPastOperationDate() {
+        const input = document.querySelector('input[name="controlOperationDate"]');
+        const isoValue = readOperationDate(input);
+        const atEditStart = editModeSnapshot?.fieldValues?.['id:controlOperationDate']?.value || '';
+        if (!isoValue || isoValue === readOperationDate({ value: atEditStart })
+            || isoValue >= toIsoDate(new Date())) {
+            return true;
+        }
+
+        const deadlineIso = formatDateForApi(document.querySelector('input[name="controlOperationDeadline"]')?.value || '');
+        let message = `${formatDateDisplay(isoValue)} is before today.`;
+        if (deadlineIso && deadlineIso < toIsoDate(new Date())) {
+            message += ` Its deadline, ${formatDateDisplay(deadlineIso)}, has passed too, so the control will be overdue as soon as it is saved.`;
+        } else if (deadlineIso) {
+            message += ` The deadline will be ${formatDateDisplay(deadlineIso)}.`;
+        }
+        const confirmed = await showConfirmModal({
+            title: 'Save a Control Operation Date in the past?',
+            message: message,
+            confirmText: 'Save',
+            cancelText: 'Change the date'
+        });
+        if (!confirmed) {
+            revealFieldTab(input);
+            focusField(input);
+        }
+        return confirmed;
+    }
+
     // Leaving the field (or picking a day): a real date is written as dd.mm.yyyy, other text is marked
     function checkOperationDateField(input) {
         const isoValue = readOperationDate(input);
@@ -2768,6 +2799,9 @@ function saveDocumentsData(controlId) {
                         || !validateFieldLengths(document.getElementById('controlForm'),
                             document.getElementById('assignmentForm'),
                             document.getElementById('detailsForm'))) {
+                        return;
+                    }
+                    if (!(await confirmPastOperationDate())) {
                         return;
                     }
 
