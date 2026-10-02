@@ -134,8 +134,6 @@
     font-size: 0.8rem;
     font-weight: 500;
 }
-body.theme-dark .vc-stepper { background: var(--surface-bg); border-color: var(--border); }
-body.theme-dark .vc-turn-hint { background: rgba(127, 176, 255, 0.14); color: var(--link); }
 .vc-turn-hint-link {
     color: inherit;
     font-weight: 700;
@@ -152,7 +150,6 @@ body.theme-dark .vc-turn-hint { background: rgba(127, 176, 255, 0.14); color: va
     font-size: 0.78rem;
     color: var(--kpmg-gray-600);
 }
-body.theme-dark .vc-soqm-only-note { color: var(--muted); }
 
 /* ── Tabs ── */
 .nav-tabs {
@@ -379,7 +376,6 @@ textarea.readonly-field::-webkit-resizer {
     outline-offset: 2px;
     box-shadow: none;
 }
-body.theme-dark #workflow-buttons-container .btn-warning { background: transparent; border-color: #d4a843; color: #f0c870; }
 
 /* ── User Dropdowns ── */
 
@@ -707,159 +703,7 @@ body.theme-dark #workflow-buttons-container .btn-warning { background: transpare
     background: var(--kpmg-gray-50) !important;
 }
 
-body.theme-dark .view-control-container,
-body.theme-dark .tab-content {
-    color: var(--text-primary);
-}
-
-body.theme-dark .nav-tabs {
-    background: var(--surface-bg);
-    border-bottom-color: var(--border);
-}
-
-body.theme-dark .nav-tabs .nav-link {
-    color: var(--text-secondary);
-}
-
-body.theme-dark .nav-tabs .nav-link.active,
-body.theme-dark .nav-tabs .nav-link:hover {
-    color: var(--link);
-}
-
-body.theme-dark .form-section,
-body.theme-dark .action-buttons,
-body.theme-dark .selected-users-container,
-body.theme-dark .multiple-selection .selected-users-container,
-body.theme-dark .edit-nav-panel {
-    background: var(--surface-bg) !important;
-    color: var(--text-primary) !important;
-    border-color: var(--border) !important;
-}
-
-body.theme-dark .form-section h5 {
-    color: var(--card-title, var(--text-primary));
-}
-
-body.theme-dark .form-label,
-body.theme-dark .user-list-item .user-email,
-body.theme-dark .multiple-selection .placeholder-text,
-body.theme-dark .no-users-found {
-    color: var(--text-secondary) !important;
-}
-
-body.theme-dark .readonly-field,
-body.theme-dark .readonly-select {
-    background-color: var(--surface-bg-2) !important;
-    border-color: var(--border) !important;
-    color: var(--text-primary) !important;
-}
-
-body.theme-dark textarea.readonly-field::-webkit-resizer {
-    background-color: var(--surface-bg-2);
-    box-shadow: inset 1px 1px 0 var(--border);
-}
-
-body.theme-dark .selected-user-display input {
-    background: var(--surface-bg-2) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23cfd7e6' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") right 0.75rem center/16px 12px no-repeat !important;
-    border-color: var(--border) !important;
-    color: var(--text-primary) !important;
-}
-
-body.theme-dark .dropdown-users,
-body.theme-dark .multiple-selection .dropdown-users {
-    background: var(--surface-bg) !important;
-    border-color: var(--border) !important;
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35) !important;
-}
-
-body.theme-dark .dropdown-search {
-    background: var(--surface-bg-2) !important;
-    border-bottom-color: var(--border) !important;
-}
-
-body.theme-dark .dropdown-search .form-control {
-    background: var(--surface-bg-2) !important;
-    border-color: var(--border) !important;
-    color: var(--text-primary) !important;
-}
-
-body.theme-dark .dropdown-search .form-control::placeholder {
-    color: var(--text-secondary) !important;
-}
-
-body.theme-dark .editable-field,
-body.theme-dark .editable-select {
-    background-color: var(--input-bg) !important;
-    border-color: var(--border) !important;
-    color: var(--input-text) !important;
-}
-
-body.theme-dark .editable-field:focus,
-body.theme-dark .editable-select:focus {
-    border-color: var(--link) !important;
-    box-shadow: 0 0 0 2px rgba(127, 176, 255, 0.15);
-}
-
 /* A field marked invalid stays red, focused or not: the two rules above are !important */
-body.theme-dark .editable-field.is-invalid,
-body.theme-dark .editable-select.is-invalid,
-body.theme-dark .editable-field.is-invalid:focus,
-body.theme-dark .editable-select.is-invalid:focus {
-    border-color: var(--bs-form-invalid-border-color, #dc3545) !important;
-}
-
-body.theme-dark .action-buttons .btn-outline-secondary,
-body.theme-dark .edit-nav-panel .btn-outline-secondary {
-    background: var(--surface-bg-2);
-    border-color: var(--border);
-    color: var(--text-primary);
-}
-
-body.theme-dark .action-buttons .btn-outline-secondary:hover,
-body.theme-dark .edit-nav-panel .btn-outline-secondary:hover {
-    background: var(--hover-bg) !important;
-    border-color: var(--link) !important;
-    color: var(--link) !important;
-}
-
-body.theme-dark .user-list-item {
-    border-bottom-color: var(--divider);
-}
-
-body.theme-dark .user-list-item:hover {
-    background-color: var(--hover-bg);
-}
-
-body.theme-dark .user-list-item.selected,
-body.theme-dark .selected-user-badge,
-body.theme-dark .multiple-selection .selected-user-badge {
-    background: rgba(0, 94, 184, 0.14);
-}
-
-body.theme-dark .user-list-item .user-name {
-    color: var(--text-primary);
-}
-
-body.theme-dark .compact-user-item {
-    background: var(--surface-bg) !important;
-    border-bottom-color: var(--divider) !important;
-}
-
-body.theme-dark .compact-user-item:hover {
-    background-color: var(--hover-bg) !important;
-}
-
-body.theme-dark .compact-user-item.selected {
-    background-color: rgba(0, 94, 184, 0.14) !important;
-}
-
-body.theme-dark .compact-user-item .user-name {
-    color: var(--text-primary) !important;
-}
-
-body.theme-dark .compact-user-item .user-email {
-    color: var(--text-secondary) !important;
-}
 
 /* ── Date picker (date-picker.js): English calendar for dd.mm.yyyy text inputs ── */
 input[data-date-picker] {
@@ -907,19 +751,3 @@ input[data-date-picker] {
 .qt-datepicker-link:hover { text-decoration: underline; }
 .qt-datepicker button:focus-visible { outline: 2px solid var(--kpmg-blue-light); outline-offset: 1px; }
 /* the dark form-control rules set the background shorthand with !important */
-body.theme-dark input[data-date-picker] {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cg fill='none' stroke='%23cfd7e6' stroke-width='1.4' stroke-linecap='round'%3e%3crect x='2' y='3' width='12' height='11' rx='1.5'/%3e%3cpath d='M2 6.5h12M5 1.5v3M11 1.5v3'/%3e%3c/g%3e%3c/svg%3e") !important;
-    background-repeat: no-repeat !important;
-    background-position: right 0.75rem center !important;
-    background-size: 15px 15px !important;
-}
-body.theme-dark .qt-datepicker { background: var(--surface-bg); border-color: var(--border); box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35); }
-body.theme-dark .qt-datepicker-title,
-body.theme-dark .qt-datepicker-day { color: var(--text-primary); }
-body.theme-dark .qt-datepicker-weekday { color: var(--text-secondary); }
-body.theme-dark .qt-datepicker-day:hover,
-body.theme-dark .qt-datepicker-nav:hover { background: var(--hover-bg); }
-body.theme-dark .qt-datepicker-day.is-selected { background: var(--kpmg-blue-light); color: var(--kpmg-white); }
-body.theme-dark .qt-datepicker-nav,
-body.theme-dark .qt-datepicker-link { color: var(--link); }
-body.theme-dark .qt-datepicker-foot { border-color: var(--divider); }

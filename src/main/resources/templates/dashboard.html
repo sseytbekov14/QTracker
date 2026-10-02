@@ -22,7 +22,7 @@
     </script>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=12" rel="stylesheet">
+    <link href="/css/style.css?v=13" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
 :root {
@@ -76,22 +76,6 @@ body.theme-light {
     --dashboard-hover-bg: #f0f4fa;
 }
 
-body.theme-dark {
-    --text-color: #e9eef8;
-    --muted-text: #b8c3d8;
-    --link-color: #7fb0ff;
-    --card-title: #f3f7ff;
-    --border-color: #3a4e6a;
-    --gridline: rgba(132, 150, 178, 0.28);
-    --dashboard-bg: #101722;
-    --dashboard-card-bg: #182332;
-    --dashboard-text: var(--text-color);
-    --dashboard-muted-text: var(--muted-text);
-    --dashboard-border: var(--border-color);
-    --dashboard-chart-grid: var(--gridline);
-    --dashboard-hover-bg: #223149;
-}
-
 /* Hide tab panes until hash-based tab restore is applied to avoid initial flicker */
 html.tab-init-pending #mainTabContent {
     visibility: hidden;
@@ -136,7 +120,6 @@ html.tab-init-pending #mainTabContent {
 .stats-strip .stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--kpmg-gray-600); margin-top: 4px; font-weight: 600; }
 .stats-strip .stat-block.total .stat-num { color: var(--kpmg-blue); }
 .stats-strip .stat-block.active .stat-num { color: var(--kpmg-amber-text); }
-body.theme-dark .stats-strip .stat-block.active .stat-num { color: var(--kpmg-amber); }
 .stats-strip .stat-block.completed .stat-num { color: var(--kpmg-green); }
 .stats-strip .stat-block.overdue .stat-num { color: var(--kpmg-red); }
 
@@ -325,21 +308,6 @@ body.theme-dark .stats-strip .stat-block.active .stat-num { color: var(--kpmg-am
 .ac-swatch-overdue { background: var(--kpmg-red); }
 .ac-swatch-active { background: #d6e4f5; }
 
-body.theme-dark .ac-summary,
-body.theme-dark .ac-card { background: var(--surface-bg); border-color: var(--border); color: var(--text-primary); }
-body.theme-dark .ac-card.is-empty { background: var(--surface-bg-2); }
-body.theme-dark .ac-summary-stats,
-body.theme-dark .ac-counts,
-body.theme-dark .ac-legend { color: var(--text-secondary); }
-body.theme-dark .ac-summary-stats strong,
-body.theme-dark .ac-counts strong,
-body.theme-dark .ac-stat-overdue.is-zero strong { color: var(--text-primary); }
-body.theme-dark .ac-code { background: rgba(127, 176, 255, 0.16); color: var(--link); }
-body.theme-dark .ac-code-all { background: var(--link); color: #101722; }
-body.theme-dark .ac-progress,
-body.theme-dark .ac-swatch-active { background: #2c3e58; }
-body.theme-dark .ac-overdue-flag { background: rgba(200, 16, 46, 0.2); color: #ff8a9b; }
-
 /* ── Notifications ── */
 .notif-body { padding-top: 16px; }
 .notif-filter {
@@ -485,21 +453,6 @@ body.theme-dark .ac-overdue-flag { background: rgba(200, 16, 46, 0.2); color: #f
 }
 .notif-empty i { display: block; font-size: 2rem; margin-bottom: 8px; color: var(--kpmg-gray-400); }
 
-body.theme-dark #pane-notifications .notif-list,
-body.theme-dark #pane-notifications .notif-empty,
-body.theme-dark #pane-notifications .notif-filter-btn { background: var(--surface-bg); border-color: var(--border); color: var(--text-primary); }
-body.theme-dark #pane-notifications .notif-filter-btn.is-active { background: var(--link); border-color: var(--link); color: #101722; }
-body.theme-dark #pane-notifications .notif-item { border-color: var(--divider); }
-body.theme-dark #pane-notifications .notif-item:hover { background: var(--hover-bg); }
-body.theme-dark #pane-notifications .notif-item.unread { background: rgba(0, 94, 184, 0.14); }
-body.theme-dark #pane-notifications .notif-msg { color: var(--text-primary); }
-body.theme-dark #pane-notifications .notif-meta,
-body.theme-dark #pane-notifications .notif-time,
-body.theme-dark #pane-notifications .notif-date-header,
-body.theme-dark #pane-notifications .notif-empty { color: var(--text-secondary); }
-body.theme-dark #pane-notifications .notif-control { color: var(--link); }
-body.theme-dark #pane-notifications .notif-icon { background: rgba(127, 176, 255, 0.14); }
-
 /* Mark all read btn */
 .btn-mark-read {
     display: inline-flex;
@@ -547,7 +500,6 @@ body.theme-dark #pane-notifications .notif-icon { background: rgba(127, 176, 255
     text-decoration: none;
 }
 .notif-more-link:hover { text-decoration: underline; }
-body.theme-dark #pane-notifications .notif-more { color: var(--text-secondary); }
 
 /* Compact alert */
 .compact-alert {
@@ -657,10 +609,6 @@ body.theme-dark #pane-notifications .notif-more { color: var(--text-secondary); 
     padding: 12px 10px;
     color: var(--muted-text);
     font-size: 0.82rem;
-}
-body.theme-dark .deadlines-block .deadline-group-title.is-overdue,
-body.theme-dark .deadlines-block .deadline-remaining.is-overdue {
-    color: #ff8a9b;
 }
 .deadlines-block .deadline-status {
     display: inline-block;
