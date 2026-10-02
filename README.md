@@ -36,11 +36,11 @@ Mapped to real modules and classes:
 - Role-based authorization and permission checks
   - `SecurityConfig`, `ControlPermissionService`, `PermissionService`, `ControlScope`
 - Notifications (in-app and email)
-  - `NotificationApiController`, `NotificationService`, `NotificationTemplateService`, `EmailNotificationService`
+  - `NotificationService`, `NotificationTemplateService`, `EmailNotificationService`
 - Reminder and auto-creation scheduling
   - `ControlReminderScheduler`, `ControlAutoCreationScheduler`
   - `ReminderNotificationService`, `ControlAutoCreationService`
-- Attachment upload/download/view/delete
+- Attachment upload/download/delete
   - `FileAttachmentController`, `FileStorageService`
 - Dashboard and performance endpoints
   - `DashboardController`, `MyDashboardController`, `DashboardDeadlineController`, `PerformanceController`

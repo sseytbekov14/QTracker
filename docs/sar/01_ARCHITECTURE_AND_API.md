@@ -101,12 +101,10 @@ All endpoints below require an active authenticated session. Unauthenticated req
 
 | Method | Path | Controller | Allowed Roles | Description |
 |---|---|---|---|---|
-| `GET` | `/api/controls` | `ControlController` | All authenticated | List all controls |
 | `POST` | `/api/controls` | `ControlController` | `SOQM_TEAM` only | Create a new control |
 | `GET` | `/api/controls/{id}` | `ControlController` | Assigned / SOQM_TEAM | Get control by DB ID |
 | `PUT` | `/api/controls/{id}` | `ControlController` | Assigned users (role-filtered) | Update control fields |
 | `GET` | `/api/controls/user/{email}` | `ControlController` | All authenticated | Controls assigned to user |
-| `GET` | `/api/controls/component/{component}` | `ControlController` | All authenticated | Controls by component |
 | `GET` | `/api/controls/generate-id` | `ControlController` | All authenticated | Generate control ID suggestion |
 | `GET` | `/api/controls/check-id-unique` | `ControlController` | All authenticated | Validate control ID uniqueness |
 | `POST` | `/api/controls/{id}/rename-id` | `ControlController` | `SOQM_TEAM` | Rename control ID |
@@ -122,7 +120,6 @@ All endpoints below require an active authenticated session. Unauthenticated req
 | Method | Path | Controller | Allowed Roles | Description |
 |---|---|---|---|---|
 | `POST` | `/api/workflow/perform-action` | `WorkflowController` | Assigned users | Generic workflow action dispatch |
-| `GET` | `/api/workflow/{controlId}/status` | `WorkflowController` | Assigned users | Get current workflow status |
 | `GET` | `/api/workflow/my-approvals` | `WorkflowController` | All authenticated | List controls pending user's approval |
 | `POST` | `/api/workflow/submit-to-process-owner` | `WorkflowController` | `SOQM_TEAM` | Move to PROCESS_OWNER_REVIEW |
 | `POST` | `/api/workflow/return-to-operator` | `WorkflowController` | `SOQM_TEAM` | Return to REVIEW (Control Operator) |
@@ -135,7 +132,6 @@ All endpoints below require an active authenticated session. Unauthenticated req
 |---|---|---|---|---|
 | `POST` | `/api/attachments/upload/{controlId}` | `FileAttachmentController` | Assigned users | Upload file(s) to control |
 | `GET` | `/api/attachments/download/{filename}?controlId=` | `FileAttachmentController` | Users who may read the control (Section 5.4); only a file the control lists | Download file |
-| `GET` | `/api/attachments/view/{filename}` | `FileAttachmentController` | Assigned users | Inline view (PDF, image) |
 | `GET` | `/api/attachments/info/{controlId}` | `FileAttachmentController` | Users who may read the control (Section 5.4) | Get attachment metadata |
 | `DELETE` | `/api/attachments/delete/{controlId}` | `FileAttachmentController` | Uploader in the same workflow stage, or `SOQM_TEAM` | Remove attachment |
 
@@ -146,7 +142,6 @@ All endpoints below require an active authenticated session. Unauthenticated req
 | `GET` | `/api/users` | `UserController` | `SOQM_TEAM`, Admin | List all users (DTO, no passwords) |
 | `GET` | `/api/users/all` | `ControlTabsController` | `SOQM_TEAM`, Admin: every user; others: with `?controlId=` of a control they may read (Section 5.4), only the people assigned to or sharing that control, name and e-mail | Users for the Assignment tab |
 | `GET` | `/api/users/role/{role}` | `ControlTabsController` | `SOQM_TEAM`, Admin | Users by role for the assignment pickers |
-| `GET` | `/api/users/{email}` | `UserController` | All authenticated | Get user by email |
 | `POST` | `/api/users` | `UserController` | `adminAccess=true` | Create new user |
 | `POST` | `/api/users/{id}/access` | `UserController` | `adminAccess=true` | Update user role/access |
 | `PUT` | `/api/admin/users/{id}/email` | `UserController` | `adminAccess=true` | Update user email |
@@ -155,8 +150,6 @@ All endpoints below require an active authenticated session. Unauthenticated req
 
 | Method | Path | Controller | Description |
 |---|---|---|---|
-| `GET` | `/api/roles` | `RoleController` | List available roles |
-| `GET` | `/api/notifications` | `NotificationApiController` | Get user notifications |
 | `POST` | `/notifications/mark-all-read` | View controller | Mark notifications read |
 | `GET` | `/api/workflow-transitions` | `WorkflowTransitionController` | Workflow transition definitions |
 | `GET` | `/api/permissions` | `PermissionController` | User permission query |
@@ -392,7 +385,7 @@ if (existingCount + incomingCount > 50) {
 
 ### 7.4 Access Control for Downloads
 
-`GET /api/attachments/download/{filename}?controlId=` applies the control read rule of Section 5.4 (`PermissionService.requireReadable`: `403` when the user may not read the control, `404` for an unknown control) and then serves the file only if that control lists it — in `attachment_details_path`, `attachment_documents_path` or `control_attachments`; any other name returns `404`. `GET /api/attachments/info/{controlId}`, which returns the control's file lists, applies the same read rule. `GET /api/attachments/view/{filename}?controlId=` (not used by the UI) checks only that the user can view the given control.
+`GET /api/attachments/download/{filename}?controlId=` applies the control read rule of Section 5.4 (`PermissionService.requireReadable`: `403` when the user may not read the control, `404` for an unknown control) and then serves the file only if that control lists it — in `attachment_details_path`, `attachment_documents_path` or `control_attachments`; any other name returns `404`. `GET /api/attachments/info/{controlId}`, which returns the control's file lists, applies the same read rule.
 
 ### 7.5 Audit Logging for Attachments
 
