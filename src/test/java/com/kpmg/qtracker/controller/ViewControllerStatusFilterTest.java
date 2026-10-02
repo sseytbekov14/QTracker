@@ -736,7 +736,7 @@ class ViewControllerStatusFilterTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("control-not-available"))
                 .andExpect(content().string(containsString("Control Not Available Yet")))
-                .andExpect(content().string(containsString("Back to Controls")))
+                .andExpect(content().string(containsString("Back to Dashboard")))
                 .andExpect(content().string(not(containsString("QT-2026-001"))));
     }
 

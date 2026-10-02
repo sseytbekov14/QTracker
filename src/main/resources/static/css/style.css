@@ -1997,3 +1997,56 @@ body.theme-dark .wf-stepper-note { color: var(--text-secondary); }
 body.theme-dark .wf-step.is-current { color: var(--text-primary); }
 body.theme-dark .wf-step-dot { background: var(--surface-bg); border-color: var(--border); color: var(--text-secondary); }
 body.theme-dark .wf-step::before { background: var(--border); }
+
+/* ── Error pages and "Control Not Available" (fragments/status-page.html) ── */
+.status-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    background: #f7f8fa;
+}
+.status-card {
+    width: 100%;
+    max-width: 520px;
+    background: #ffffff;
+    border: 1px solid #d8dce5;
+    border-top: 3px solid #005EB8;
+    border-radius: 4px;
+    padding: 28px 32px 30px;
+    text-align: center;
+    color: #2d3340;
+}
+.status-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 22px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #00338D;
+}
+.status-brand img { height: 48px; width: auto; margin: -12px -8px; } /* the PNG has wide empty margins */
+.status-brand span { padding-left: 10px; border-left: 1px solid #d8dce5; }
+.status-icon { font-size: 2.2rem; line-height: 1; color: #9ba3b5; margin-bottom: 10px; }
+.status-card h1 { font-size: 1.25rem; font-weight: 600; color: #00338D; margin: 0 0 8px; }
+.status-card p { font-size: 0.9rem; line-height: 1.55; color: #5c6478; margin: 0 0 22px; overflow-wrap: anywhere; }
+.status-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border-radius: 4px;
+    background: #00338D;
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+.status-btn:hover { background: #005EB8; color: #ffffff; }
+.status-btn:focus-visible { outline: 2px solid #00338D; outline-offset: 2px; }
+@media (max-width: 575.98px) {
+    .status-card { padding: 24px 20px 26px; }
+    .status-btn { width: 100%; justify-content: center; }
+}

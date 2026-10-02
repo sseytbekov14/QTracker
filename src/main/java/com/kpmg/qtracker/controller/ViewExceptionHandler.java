@@ -54,7 +54,6 @@ public class ViewExceptionHandler {
         mav.setStatus(status);
         mav.addObject("title", title);
         mav.addObject("message", message);
-        mav.addObject("path", request != null ? request.getRequestURI() : "");
         return mav;
     }
 }
