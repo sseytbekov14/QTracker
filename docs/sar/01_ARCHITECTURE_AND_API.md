@@ -13,7 +13,7 @@
 |---|---|---|
 | 1.0 | 2026-07-24 | Initial issue |
 | 1.1 | 2026-10-02 | Brought in line with the application. **3.2:** unauthenticated API requests are redirected to `/login`, not answered with `401`. **3.2.1–3.2.4:** per-control reads (changelog, Details / Assignment / Documents tabs, attachment info and download) follow the read rule of 5.4; `GET /api/users`, `/api/users/all` and `/api/users/role/{role}` listed with their access; removed `GET /api/controls`, `/api/controls/component/{component}`, `/api/workflow/{controlId}/status`, `/api/attachments/view/{filename}`, `/api/users/{email}` (deleted from the application) and `GET /api/controls/{id}` (never existed). **3.2.5:** `/api/roles` and `/api/notifications` deleted from the application; the four placeholder rows replaced by the real workflow transition, initiate, permission and dashboard endpoints. **5.4:** rewritten — one read rule for pages and API (`PermissionService`), and reads are not filtered by field: SoQM Head/Team and Process Owner comments are visible, read-only, to everyone who may read the control (the former statement that they were hidden from Facilitators and Control Operators was not accurate); `AuthorizationPolicy` removed from the application. **7.1:** current filename sanitizer and the path checks on download and delete. **7.4:** download serves only files the control lists. **7.6:** 10 MB per-file upload limit. Diagram sources `02_application_dfd_level1.mmd` and `06_workflow_rbac_state_machine.mmd` updated accordingly; their PNG renderings have not been redrawn yet |
-| 1.2 | 2026-10-02 | **3.2.4:** `POST /api/users/{id}/access` keeps a stored role or additional role when the request leaves it blank; `NONE` clears the additional role |
+| 1.2 | 2026-10-02 | **3.2.4:** `POST /api/users/{id}/access` keeps a stored role or additional role when the request leaves it blank; `NONE` clears the additional role. **3.2.2:** `GET /api/workflow/my-approvals` removed from the application together with the unused My Approvals page |
 
 ---
 
@@ -127,7 +127,6 @@ All endpoints below require an active authenticated session. Spring Security ans
 | Method | Path | Controller | Allowed Roles | Description |
 |---|---|---|---|---|
 | `POST` | `/api/workflow/perform-action` | `WorkflowController` | Assigned users | Generic workflow action dispatch |
-| `GET` | `/api/workflow/my-approvals` | `WorkflowController` | All authenticated | List controls pending user's approval |
 | `POST` | `/api/workflow/submit-to-process-owner` | `WorkflowController` | `SOQM_TEAM` | Move to PROCESS_OWNER_REVIEW |
 | `POST` | `/api/workflow/return-to-operator` | `WorkflowController` | `SOQM_TEAM` | Return to REVIEW (Control Operator) |
 | `POST` | `/api/workflow/complete-control` | `WorkflowController` | `PROCESS_OWNER` | Mark control COMPLETED |
