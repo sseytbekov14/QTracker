@@ -1,7 +1,7 @@
 package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.AdminAuditTrail;
 import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.util.RoleDisplayMapper;
 import jakarta.servlet.http.HttpSession;
@@ -12,8 +12,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Controller
@@ -22,7 +24,7 @@ import java.util.Map;
 public class AdminViewController {
 
     private final UserService userService;
-    private final AdminAuditService adminAuditService;
+    private final AdminAuditTrail adminAuditTrail;
 
     @GetMapping("/users")
     public String users(Model model, HttpSession session) {
@@ -43,7 +45,20 @@ public class AdminViewController {
         model.addAttribute("allowedSecondaryRoles", userService.getAllowedSecondaryRoles());
         model.addAttribute("noSecondaryRole", UserService.NO_SECONDARY_ROLE);
         model.addAttribute("roleLabels", roleLabels());
-        model.addAttribute("auditLogs", adminAuditService.getRecentLogs());
+        AdminAuditTrail.Trail trail = adminAuditTrail.latest();
+        model.addAttribute("auditTrail", trail.entries());
+        model.addAttribute("auditCounts", trail.counts());
+        model.addAttribute("auditGroups", AdminAuditTrail.Group.values());
+        model.addAttribute("auditLimit", AdminAuditTrail.LIMIT);
+        model.addAttribute("auditUserAccessCount", trail.counts().get(AdminAuditTrail.Group.USER_ACCESS));
+        // Names for the "Target user" column, by e-mail
+        Map<String, String> userNames = new HashMap<>();
+        users.forEach(user -> {
+            if (user.getMail() != null) {
+                userNames.put(user.getMail().toLowerCase(Locale.ROOT), user.getDisplayName());
+            }
+        });
+        model.addAttribute("userNames", userNames);
 
         return "admin-users";
     }

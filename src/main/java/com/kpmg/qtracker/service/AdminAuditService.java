@@ -92,13 +92,6 @@ public class AdminAuditService {
     }
     
     /**
-     * Get recent audit logs
-     */
-    public List<AdminAuditLog> getRecentLogs() {
-        return auditLogRepository.findTop100ByOrderByCreatedAtDesc();
-    }
-    
-    /**
      * Get logs by action type
      */
     public List<AdminAuditLog> getLogsByActionType(String actionType) {

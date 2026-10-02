@@ -266,6 +266,19 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 }
 .audit-table td { padding: 6px 12px; color: var(--kpmg-gray-800); border-color: var(--kpmg-gray-100); }
 .audit-table td.audit-date { white-space: nowrap; color: var(--kpmg-gray-600); }
+.audit-filter {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--kpmg-gray-200);
+}
+.audit-filter label { font-size: 0.76rem; color: var(--kpmg-gray-600); margin: 0; }
+.audit-filter select { width: auto; min-width: 200px; }
+.audit-hint { font-size: 0.72rem; color: var(--kpmg-gray-400); }
+.audit-target-name { display: block; font-weight: 600; }
+.audit-target-mail { font-size: 0.72rem; color: var(--kpmg-gray-600); overflow-wrap: anywhere; }
 
 /* Page message: a toast in the top right corner, visible wherever the page is scrolled */
 .client-alert {
@@ -339,6 +352,25 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     .admin-user-row.row-dirty td:first-child { box-shadow: none; }
 
     .table-footer { flex-direction: column; align-items: stretch; }
+
+    /* Audit entries as stacked lines as well */
+    .audit-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .audit-table, .audit-table tbody { display: block; }
+    .audit-table tbody tr { display: block; padding: 8px 16px; border-bottom: 1px solid var(--kpmg-gray-100); }
+    .audit-table tbody tr.d-none { display: none; }
+    .audit-table tbody td { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; border: none; text-align: right; }
+    .audit-table tbody td[data-label]::before {
+        content: attr(data-label);
+        flex-shrink: 0;
+        font-size: 0.68rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--kpmg-gray-600);
+        text-align: left;
+    }
+    .audit-table tbody tr.empty-row td { display: block; text-align: center; }
+    .audit-target-name { display: inline; margin-right: 6px; }
     .footer-right { justify-content: space-between; }
     .save-btn { width: 100%; padding: 10px 18px; }
 }
@@ -537,30 +569,55 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                             aria-controls="auditTrailCollapse">
                         <span>Audit Trail</span>
                         <span>
-                            <span class="audit-count" th:text="${#lists.size(auditLogs)} + ' records'">0 records</span>
+                            <span class="audit-count" id="auditCount"
+                                  th:text="${auditUserAccessCount} + (${auditUserAccessCount == 1} ? ' record' : ' records')">0 records</span>
                             <i class="bi bi-chevron-down" aria-hidden="true"></i>
                         </span>
                     </button>
                     <div id="auditTrailCollapse" class="collapse">
+                        <div class="audit-filter">
+                            <label for="auditFilter">Show</label>
+                            <select id="auditFilter" class="form-select form-select-sm toolbar-control">
+                                <th:block th:each="group : ${auditGroups}">
+                                    <option th:if="${group.name() != 'OTHER' or auditCounts.get(group) > 0}"
+                                            th:value="${group.name()}"
+                                            th:selected="${group.name() == 'USER_ACCESS'}"
+                                            th:attr="data-target-label=${group.targetLabel},data-count=${auditCounts.get(group)}"
+                                            th:text="${group.label} + ' (' + ${auditCounts.get(group)} + ')'">User access (0)</option>
+                                </th:block>
+                                <option value="ALL" data-target-label="Target"
+                                        th:attr="data-count=${#lists.size(auditTrail)}"
+                                        th:text="'All events (' + ${#lists.size(auditTrail)} + ')'">All events (0)</option>
+                            </select>
+                            <span class="audit-hint" th:text="'Latest ' + ${auditLimit} + ' per event type'">Latest 100 per event type</span>
+                        </div>
                         <div class="audit-scroll">
                             <table class="table table-sm audit-table">
                                 <thead>
                                 <tr>
                                     <th scope="col">Date/Time</th>
-                                    <th scope="col">Administrator</th>
+                                    <th scope="col">Changed by</th>
                                     <th scope="col">Action</th>
-                                    <th scope="col">Target</th>
+                                    <th scope="col" id="auditTargetHeader">Target user</th>
                                 </tr>
                                 </thead>
                                 <tbody>
-                                <tr th:each="log : ${auditLogs}">
-                                    <td class="audit-date" th:text="${log.createdAt != null ? #temporals.format(log.createdAt, 'dd.MM.yyyy HH:mm') : '-'}">09.04.2026 11:41</td>
-                                    <td th:text="${log.adminName != null ? log.adminName : log.adminEmail}">Admin User</td>
-                                    <td th:text="${log.actionDescription != null ? log.actionDescription : log.actionType}">Updated role/access settings</td>
-                                    <td th:text="${log.controlControlId != null ? log.controlControlId : 'User access policy'}">User access policy</td>
+                                <tr th:each="entry : ${auditTrail}" class="audit-row"
+                                    th:attr="data-group=${entry.group().name()}"
+                                    th:classappend="${entry.group().name() != 'USER_ACCESS'} ? 'd-none'">
+                                    <td class="audit-date" data-label="Date/Time" th:text="${entry.createdAt() != null ? #temporals.format(entry.createdAt(), 'dd.MM.yyyy HH:mm') : '-'}">09.04.2026 11:41</td>
+                                    <td data-label="Changed by" th:text="${entry.changedBy()}">Admin User</td>
+                                    <td data-label="Action" th:text="${entry.action()}">Changed status from ACTIVE to INACTIVE</td>
+                                    <td th:if="${entry.targetIsUser()}" data-label="Target user"
+                                        th:with="targetName=${entry.target() != null ? userNames.get(#strings.toLowerCase(entry.target())) : null}">
+                                        <span class="audit-target-name" th:if="${targetName != null}" th:text="${targetName}">User Name</span>
+                                        <span class="audit-target-mail" th:text="${entry.target() ?: '-'}">user@kpmg.kz</span>
+                                    </td>
+                                    <td th:unless="${entry.targetIsUser()}" data-label="Control" th:text="${entry.target() ?: '-'}">CTRL-001</td>
                                 </tr>
-                                <tr th:if="${#lists.isEmpty(auditLogs)}" class="empty-row">
-                                    <td colspan="4">No audit events yet.</td>
+                                <tr id="auditEmptyRow" class="empty-row"
+                                    th:classappend="${auditUserAccessCount > 0} ? 'd-none'">
+                                    <td colspan="4">No events of this type yet.</td>
                                 </tr>
                                 </tbody>
                             </table>
@@ -1057,6 +1114,26 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     showStoredFlash();
+
+    // Audit Trail: one event type at a time, user access first
+    const auditFilter = document.getElementById('auditFilter');
+    if (auditFilter) {
+        auditFilter.addEventListener('change', function() {
+            const group = auditFilter.value;
+            const option = auditFilter.options[auditFilter.selectedIndex];
+            let shown = 0;
+            document.querySelectorAll('.audit-row').forEach(function(row) {
+                const visible = group === 'ALL' || row.dataset.group === group;
+                row.classList.toggle('d-none', !visible);
+                if (visible) {
+                    shown += 1;
+                }
+            });
+            document.getElementById('auditEmptyRow').classList.toggle('d-none', shown > 0);
+            document.getElementById('auditTargetHeader').textContent = option.dataset.targetLabel || 'Target';
+            document.getElementById('auditCount').textContent = shown + (shown === 1 ? ' record' : ' records');
+        });
+    }
 
     function getCurrentRowState(row) {
         return {
