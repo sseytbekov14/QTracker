@@ -45,6 +45,8 @@ public class AdminViewController {
         model.addAttribute("userRole", currentUser.getRole());
         model.addAttribute("users", users);
         model.addAttribute("allowedRoles", userService.getAllowedRoles());
+        model.addAttribute("allowedSecondaryRoles", userService.getAllowedSecondaryRoles());
+        model.addAttribute("noSecondaryRole", UserService.NO_SECONDARY_ROLE);
         model.addAttribute("auditLogs", adminAuditService.getRecentLogs());
 
         return "admin-users";

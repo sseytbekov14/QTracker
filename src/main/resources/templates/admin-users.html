@@ -617,22 +617,33 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <select class="form-select form-select-sm compact-select js-role">
+                                    <!-- A stored value the list does not offer gets its own option with an empty value:
+                                         an empty value is saved as "unchanged" until another role is chosen -->
+                                    <select class="form-select form-select-sm compact-select js-role" aria-label="Role">
+                                        <option th:unless="${#lists.contains(allowedRoles, user.role)}"
+                                                value="" selected data-stored-value="true"
+                                                th:attr="data-stored-text=${user.role}"
+                                                th:text="${#strings.isEmpty(user.role) ? '(no role)' : user.role + ' (not in list)'}"
+                                                title="Not in the role list; kept until another role is chosen">ADMIN (not in list)</option>
                                         <option th:each="role : ${allowedRoles}"
                                                 th:value="${role}"
                                                 th:text="${role}"
-                                                th:selected="${#strings.equalsIgnoreCase(role, user.role)}"></option>
+                                                th:selected="${role == user.role}"></option>
                                     </select>
                                 </td>
                                 <td>
-                                    <select class="form-select form-select-sm compact-select js-secondary-role">
-                                        <option value="" th:selected="${user.secondaryRole == null || #strings.isEmpty(user.secondaryRole)}">None</option>
-                                    <option value="FACILITATOR"
-                                        th:selected="${#strings.equalsIgnoreCase('FACILITATOR', user.secondaryRole)}">FACILITATOR</option>
-                                    <option value="CONTROL_OPERATOR"
-                                        th:selected="${#strings.equalsIgnoreCase('CONTROL_OPERATOR', user.secondaryRole)}">CONTROL_OPERATOR</option>
-                                    <option value="PROCESS_OWNER"
-                                        th:selected="${#strings.equalsIgnoreCase('PROCESS_OWNER', user.secondaryRole)}">PROCESS_OWNER</option>
+                                    <select class="form-select form-select-sm compact-select js-secondary-role" aria-label="Additional role">
+                                        <option th:value="${noSecondaryRole}"
+                                                th:selected="${#strings.isEmpty(user.secondaryRole)}">None</option>
+                                        <option th:unless="${#strings.isEmpty(user.secondaryRole) or #lists.contains(allowedSecondaryRoles, user.secondaryRole)}"
+                                                value="" selected data-stored-value="true"
+                                                th:attr="data-stored-text=${user.secondaryRole}"
+                                                th:text="${user.secondaryRole + ' (not in list)'}"
+                                                title="Not in the additional role list; kept until another value is chosen">Facilitator (not in list)</option>
+                                        <option th:each="role : ${allowedSecondaryRoles}"
+                                                th:value="${role}"
+                                                th:text="${role}"
+                                                th:selected="${role == user.secondaryRole}"></option>
                                     </select>
                                 </td>
                                 <td>
@@ -727,7 +738,7 @@
 </div>
 
 <script src="/js/vendor/bootstrap.bundle.min.js"></script>
-<script>
+<script th:inline="javascript">
 document.addEventListener('DOMContentLoaded', function() {
     const rows = Array.from(document.querySelectorAll('.admin-user-row'));
     const searchInput = document.getElementById('searchUsers');
@@ -757,6 +768,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const editEmailSaveBtn = document.getElementById('editEmailSaveBtn');
     const editEmailError = document.getElementById('editEmailError');
 
+    // "None" clears the additional role; an empty value (the option of a stored value the list
+    // does not offer) is saved as "unchanged"
+    const NO_SECONDARY_ROLE = /*[[${noSecondaryRole}]]*/ 'NONE';
     let currentPage = 1;
     let pageSize = Number(pageSizeSelect?.value || 10);
     const addUserModal = (addUserModalElement && window.bootstrap && bootstrap.Modal)
@@ -794,8 +808,8 @@ document.addEventListener('DOMContentLoaded', function() {
         updateAdminLabel(adminLabel, !!adminToggle?.checked);
 
         roleSelect.addEventListener('change', function() {
-            if (secondaryRoleSelect && secondaryRoleSelect.value === roleSelect.value) {
-                secondaryRoleSelect.value = '';
+            if (secondaryRoleSelect && roleSelect.value && secondaryRoleSelect.value === roleSelect.value) {
+                secondaryRoleSelect.value = NO_SECONDARY_ROLE;
             }
             updateRowDirtyState(row);
             updateSaveButtonState();
@@ -805,7 +819,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (secondaryRoleSelect) {
             secondaryRoleSelect.addEventListener('change', function() {
                 if (secondaryRoleSelect.value && secondaryRoleSelect.value === roleSelect.value) {
-                    secondaryRoleSelect.value = '';
+                    const original = originalState.get(userId).secondaryRole;
+                    secondaryRoleSelect.value = original !== roleSelect.value ? original : NO_SECONDARY_ROLE;
                     showClientAlert('Additional role must be different from the primary role.', 'warning');
                 }
                 updateRowDirtyState(row);
@@ -993,6 +1008,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const nameElement = row.querySelector('.user-cell > div > span');
                     const emailElement = row.children[1];
                     const roleSelect = row.querySelector('.js-role');
+                    const secondaryRoleSelect = row.querySelector('.js-secondary-role');
                     const adminToggle = row.querySelector('.js-admin-toggle');
                     const statusSelect = row.querySelector('.js-status');
                     const lastLoginElement = row.querySelector('.last-login');
@@ -1000,8 +1016,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     return {
                         Name: nameElement ? nameElement.textContent.trim() : '',
                         Email: emailElement ? emailElement.textContent.trim() : '',
-                        Role: roleSelect ? roleSelect.value : '',
-                        AdditionalRole: row.querySelector('.js-secondary-role') ? row.querySelector('.js-secondary-role').value : '',
+                        Role: roleExportValue(roleSelect),
+                        AdditionalRole: roleExportValue(secondaryRoleSelect),
                         AdminAccess: adminToggle && adminToggle.checked ? 'YES' : 'NO',
                         Status: statusSelect ? statusSelect.value : '',
                         LastLogin: lastLoginElement ? lastLoginElement.textContent.replace(/\s+/g, ' ').trim() : ''
@@ -1218,6 +1234,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateSaveButtonState() {
         saveAllBtn.disabled = hasNoPendingChanges();
+    }
+
+    // The value a role select stands for: the stored text for an unlisted value, nothing for "None"
+    function roleExportValue(select) {
+        if (!select || select.selectedIndex < 0) {
+            return '';
+        }
+        const option = select.options[select.selectedIndex];
+        if (option.dataset.storedValue === 'true') {
+            return option.dataset.storedText || '';
+        }
+        return option.value === NO_SECONDARY_ROLE ? '' : option.value;
     }
 
     function updateAdminLabel(labelElement, checked) {

@@ -26,11 +26,13 @@ public class UserService {
             "SOQM_TEAM",
             "KDN"
     );
-        private static final Set<String> ALLOWED_SECONDARY_ROLES = Set.of(
+    private static final List<String> ALLOWED_SECONDARY_ROLES = List.of(
             "FACILITATOR",
-                "CONTROL_OPERATOR",
-                "PROCESS_OWNER"
-        );
+            "CONTROL_OPERATOR",
+            "PROCESS_OWNER"
+    );
+    /** Additional role value that clears it; a blank value keeps the stored one. */
+    public static final String NO_SECONDARY_ROLE = "NONE";
 
     public List<User> getAllUsers() {
         return userRepository.findAll();
@@ -61,6 +63,10 @@ public class UserService {
         return ALLOWED_ROLES;
     }
 
+    public List<String> getAllowedSecondaryRoles() {
+        return ALLOWED_SECONDARY_ROLES;
+    }
+
     public boolean hasAdminAccess(User user) {
         return user != null && Boolean.TRUE.equals(user.getAdminAccess());
     }
@@ -74,13 +80,35 @@ public class UserService {
         User targetUser = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        Set<String> selectedRoles = normalizeSelectedRoles(role, secondaryRole);
-        String normalizedRole = selectedRoles.stream().findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("Role is required"));
-        String normalizedSecondaryRole = selectedRoles.stream().skip(1).findFirst().orElse(null);
+        // A blank role or additional role keeps the stored value as it is, even one outside the lists
+        // (e.g. ADMIN), so saving other fields of a user never rewrites it
+        boolean keepRole = role == null || role.isBlank();
+        boolean keepSecondaryRole = secondaryRole == null || secondaryRole.isBlank();
+        boolean clearSecondaryRole = !keepSecondaryRole && NO_SECONDARY_ROLE.equalsIgnoreCase(secondaryRole.trim());
+        String requestedSecondaryRole = keepSecondaryRole || clearSecondaryRole ? null : secondaryRole;
+
+        String normalizedRole;
+        String normalizedSecondaryRole;
+        if (keepRole) {
+            normalizedRole = targetUser.getRole();
+            normalizedSecondaryRole = requestedSecondaryRole != null ? normalizeSingleRole(requestedSecondaryRole) : null;
+        } else {
+            Set<String> selectedRoles = normalizeSelectedRoles(role, requestedSecondaryRole);
+            normalizedRole = selectedRoles.stream().findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Role is required"));
+            normalizedSecondaryRole = selectedRoles.stream().skip(1).findFirst().orElse(null);
+        }
 
         if (normalizedSecondaryRole != null && !ALLOWED_SECONDARY_ROLES.contains(normalizedSecondaryRole)) {
             throw new IllegalArgumentException("Additional role can only be FACILITATOR, CONTROL_OPERATOR or PROCESS_OWNER");
+        }
+        if (normalizedSecondaryRole == null && keepSecondaryRole) {
+            normalizedSecondaryRole = targetUser.getSecondaryRole();
+        }
+        if (!(keepRole && keepSecondaryRole)
+                && normalizedSecondaryRole != null && !normalizedSecondaryRole.isBlank()
+                && roleKey(normalizedSecondaryRole).equals(roleKey(normalizedRole))) {
+            throw new IllegalArgumentException("Additional role must be different from the primary role");
         }
 
         boolean nextAdminAccess = adminAccess != null ? adminAccess : Boolean.TRUE.equals(targetUser.getAdminAccess());
@@ -205,6 +233,20 @@ public class UserService {
             throw new IllegalArgumentException("Unsupported role: " + role);
         }
         return normalized;
+    }
+
+    private String normalizeSingleRole(String source) {
+        Set<String> roles = new LinkedHashSet<>();
+        addNormalizedRoles(roles, source, true);
+        if (roles.size() > 1) {
+            throw new IllegalArgumentException("A user can have at most 2 roles");
+        }
+        return roles.iterator().next();
+    }
+
+    /** Comparison key for stored roles that may not be normalized ("SoQM Team" = "SOQM_TEAM"). */
+    private static String roleKey(String role) {
+        return role == null ? "" : role.trim().replace('-', '_').replace(' ', '_').toUpperCase(Locale.ROOT);
     }
 
     private Set<String> normalizeSelectedRoles(String primaryRole, String secondaryRole) {

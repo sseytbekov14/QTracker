@@ -36,7 +36,7 @@ public class UserController {
 
     @PostMapping("/users/{id}/access")
     public ResponseEntity<?> updateUserAccess(@PathVariable Long id,
-                                              @RequestParam String role,
+                                              @RequestParam(required = false) String role,
                                               @RequestParam(required = false) String secondaryRole,
                                               @RequestParam(defaultValue = "false") boolean adminAccess,
                                               @RequestParam(defaultValue = "false") boolean enabled,

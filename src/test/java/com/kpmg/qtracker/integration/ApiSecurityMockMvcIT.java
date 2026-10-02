@@ -1527,6 +1527,96 @@ class ApiSecurityMockMvcIT {
         }
     }
 
+    // ---- Admin Panel: stored roles the lists do not offer are shown as they are and never rewritten ----
+
+    @Test
+    void adminPage_unlistedStoredRoles_getTheirOwnSelectedOption() throws Exception {
+        MockHttpSession adminSession = login(adminUser().getMail());
+        User adminRole = saveUser("role-admin", "role-admin-" + suffix() + "@example.test", "ADMIN");
+        User spelling = saveUser("role-spelling", "role-spelling-" + suffix() + "@example.test", "SoQM Team");
+        User comma = saveUser("role-comma", "role-comma-" + suffix() + "@example.test", "FACILITATOR,PROCESS_OWNER");
+        User listed = saveUser("role-listed", "role-listed-" + suffix() + "@example.test", "CONTROL_OPERATOR");
+        listed.setSecondaryRole("Facilitator");
+        userRepository.save(listed);
+
+        String html = mockMvc.perform(get("/admin/users").session(adminSession))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(selectedOptions(html, adminRole, "js-role")).containsExactly("ADMIN (not in list)");
+        assertThat(selectedOptions(html, spelling, "js-role")).containsExactly("SoQM Team (not in list)");
+        assertThat(selectedOptions(html, comma, "js-role")).containsExactly("FACILITATOR,PROCESS_OWNER (not in list)");
+        assertThat(selectedOptions(html, adminRole, "js-secondary-role")).containsExactly("None");
+        assertThat(selectedOptions(html, listed, "js-role")).containsExactly("CONTROL_OPERATOR");
+        assertThat(selectedOptions(html, listed, "js-secondary-role")).containsExactly("Facilitator (not in list)");
+        assertThat(roleSelect(html, adminRole, "js-role"))
+                .contains("value=\"\"", "data-stored-value=\"true\"", "data-stored-text=\"ADMIN\"");
+        assertThat(roleSelect(html, adminRole, "js-secondary-role")).contains("value=\"NONE\"");
+    }
+
+    @Test
+    void accessUpdate_blankRoles_keepUnlistedStoredValues() throws Exception {
+        MockHttpSession adminSession = login(adminUser().getMail());
+        for (String storedRole : List.of("ADMIN", "SoQM Team", "FACILITATOR,PROCESS_OWNER")) {
+            User target = saveUser("keep-role", "keep-role-" + suffix() + "@example.test", storedRole);
+            target.setSecondaryRole("Facilitator");
+            userRepository.save(target);
+
+            mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(ownAddress()).session(adminSession)
+                            .param("role", "")
+                            .param("secondaryRole", "")
+                            .param("adminAccess", "false")
+                            .param("enabled", "false"))
+                    .andExpect(status().isOk());
+
+            User saved = userRepository.findById(target.getId()).orElseThrow();
+            assertThat(saved.getRole()).isEqualTo(storedRole);
+            assertThat(saved.getSecondaryRole()).isEqualTo("Facilitator");
+            assertThat(saved.getEnabled()).isFalse();
+        }
+    }
+
+    @Test
+    void accessUpdate_noneClearsAdditionalRole_andAListedRoleReplacesTheStoredOne() throws Exception {
+        MockHttpSession adminSession = login(adminUser().getMail());
+        User target = saveUser("change-role", "change-role-" + suffix() + "@example.test", "ADMIN");
+        target.setSecondaryRole("FACILITATOR");
+        userRepository.save(target);
+
+        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(ownAddress()).session(adminSession)
+                        .param("role", "PROCESS_OWNER")
+                        .param("secondaryRole", "NONE")
+                        .param("enabled", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("PROCESS_OWNER"))
+                .andExpect(jsonPath("$.secondaryRole").doesNotExist());
+    }
+
+    private User adminUser() {
+        User admin = saveUser("panel-admin", "panel-admin-" + suffix() + "@example.test", "PROCESS_OWNER");
+        admin.setAdminAccess(true);
+        return userRepository.save(admin);
+    }
+
+    /** The markup of one row's select (class js-role or js-secondary-role) on the Admin Panel. */
+    private static String roleSelect(String html, User user, String selectClass) {
+        int row = html.indexOf("data-user-id=\"" + user.getId() + "\"");
+        assertThat(row).as("row of user %s", user.getId()).isPositive();
+        int select = html.indexOf(selectClass, row);
+        return html.substring(select, html.indexOf("</select>", select));
+    }
+
+    private static List<String> selectedOptions(String html, User user, String selectClass) {
+        List<String> texts = new ArrayList<>();
+        java.util.regex.Matcher option = java.util.regex.Pattern
+                .compile("<option[^>]*\\sselected[^>]*>([^<]*)</option>")
+                .matcher(roleSelect(html, user, selectClass));
+        while (option.find()) {
+            texts.add(org.springframework.web.util.HtmlUtils.htmlUnescape(option.group(1)).trim());
+        }
+        return texts;
+    }
+
     @Test
     void markNotificationRead_ownOne_returnsTheNewUnreadCount() throws Exception {
         User owner = saveUser("notif-owner", "notif-owner-" + suffix() + "@example.test", "FACILITATOR");
