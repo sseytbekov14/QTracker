@@ -110,7 +110,10 @@ All endpoints below require an active authenticated session. Unauthenticated req
 | `GET` | `/api/controls/generate-id` | `ControlController` | All authenticated | Generate control ID suggestion |
 | `GET` | `/api/controls/check-id-unique` | `ControlController` | All authenticated | Validate control ID uniqueness |
 | `POST` | `/api/controls/{id}/rename-id` | `ControlController` | `SOQM_TEAM` | Rename control ID |
-| `GET` | `/api/controls/{id}/changelog` | `ControlController` | All authenticated | Control change history |
+| `GET` | `/api/controls/{id}/changelog` | `ControlController` | Users who may read the control (Section 5.4) | Control change history |
+| `GET` | `/api/control-details?controlId=` | `ControlTabsController` | Users who may read the control (Section 5.4) | Details tab of a control |
+| `GET` | `/api/control-assignment?controlId=` | `ControlTabsController` | Users who may read the control (Section 5.4) | Assignment tab of a control |
+| `GET` | `/api/control-documents?controlId=` | `ControlTabsController` | Users who may read the control (Section 5.4) | Documents tab of a control |
 | `GET` | `/api/controls/export/excel` | `ControlController` | `SOQM_TEAM` only | Export controls to .xlsx |
 | `GET` | `/api/controls/{id}/export/completed` | `ControlController` | `SOQM_TEAM` + SharedWith | Export completed control to .xlsx |
 
@@ -131,16 +134,18 @@ All endpoints below require an active authenticated session. Unauthenticated req
 | Method | Path | Controller | Allowed Roles | Description |
 |---|---|---|---|---|
 | `POST` | `/api/attachments/upload/{controlId}` | `FileAttachmentController` | Assigned users | Upload file(s) to control |
-| `GET` | `/api/attachments/download/{filename}` | `FileAttachmentController` | Assigned users | Download file |
+| `GET` | `/api/attachments/download/{filename}?controlId=` | `FileAttachmentController` | Users who may read the control (Section 5.4); only a file the control lists | Download file |
 | `GET` | `/api/attachments/view/{filename}` | `FileAttachmentController` | Assigned users | Inline view (PDF, image) |
-| `GET` | `/api/attachments/info/{controlId}` | `FileAttachmentController` | Assigned users | Get attachment metadata |
+| `GET` | `/api/attachments/info/{controlId}` | `FileAttachmentController` | Users who may read the control (Section 5.4) | Get attachment metadata |
 | `DELETE` | `/api/attachments/delete/{controlId}` | `FileAttachmentController` | Uploader in the same workflow stage, or `SOQM_TEAM` | Remove attachment |
 
 #### 3.2.4 Users (`/api/users`, `/api/admin`)
 
 | Method | Path | Controller | Allowed Roles | Description |
 |---|---|---|---|---|
-| `GET` | `/api/users` | `UserController` | All authenticated | List all users (DTO, no passwords) |
+| `GET` | `/api/users` | `UserController` | `SOQM_TEAM`, Admin | List all users (DTO, no passwords) |
+| `GET` | `/api/users/all` | `ControlTabsController` | `SOQM_TEAM`, Admin: every user; others: with `?controlId=` of a control they may read (Section 5.4), only the people assigned to or sharing that control, name and e-mail | Users for the Assignment tab |
+| `GET` | `/api/users/role/{role}` | `ControlTabsController` | `SOQM_TEAM`, Admin | Users by role for the assignment pickers |
 | `GET` | `/api/users/{email}` | `UserController` | All authenticated | Get user by email |
 | `POST` | `/api/users` | `UserController` | `adminAccess=true` | Create new user |
 | `POST` | `/api/users/{id}/access` | `UserController` | `adminAccess=true` | Update user role/access |
@@ -353,21 +358,23 @@ File uploads are handled by `FileAttachmentController` (REST) and stored and ret
 
 ### 7.1 Path Traversal Prevention
 
-`FileStorageService` applies two sanitization functions before constructing any file system path:
+`FileStorageService` sanitizes the names it stores:
 
 ```java
-// Filename sanitization — retains only alphanumeric, dot, underscore, dash
-private String sanitizeFilename(String filename) {
-    return filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+// Filename sanitization on upload — keeps letters and digits of any alphabet, dot, underscore, dash
+private static String sanitizeFilename(String filename) {
+    return filename.replaceAll("[^\\p{L}\\p{N}._-]", "_");
 }
 
-// Folder name sanitization — same character whitelist applied to control subdirectory name
+// Folder name sanitization — applied to the control subdirectory name
 private String sanitizeFolderName(String folder) {
     return folder.replaceAll("[^a-zA-Z0-9._-]", "_");
 }
 ```
 
-Files are stored in isolated, control-specific subdirectories under the path configured by `file.upload.dir`. The subdirectory name is derived from the control's business ID and sanitized prior to use, preventing directory traversal via crafted input.
+Files are stored in isolated, control-specific subdirectories under the path configured by `file.upload.dir`. The subdirectory name is derived from the control's business ID and sanitized prior to use. Files uploaded before control subdirectories were introduced remain in the upload root and are still served when their control lists them.
+
+For download and delete the requested name is checked in the application code itself, independently of the request firewall of Spring Security: a name containing `/`, `\`, `:` or a control character, and the names `.` and `..`, are refused; the control folder must resolve to a direct child of the upload root, and the resolved file must lie directly in that folder. A download is additionally limited to the files the control lists (Section 7.4).
 
 ### 7.2 File Count Limit
 
