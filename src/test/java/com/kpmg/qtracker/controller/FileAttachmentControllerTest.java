@@ -8,6 +8,7 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.FileStorageService;
+import com.kpmg.qtracker.service.PermissionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -52,6 +53,9 @@ class FileAttachmentControllerTest {
 
     @MockBean
     private ControlAttachmentService controlAttachmentService;
+
+    @MockBean
+    private PermissionService permissionService;
 
     @Test
     void uploadDetails_overLimit_returnsBadRequest() throws Exception {

@@ -11,5 +11,7 @@ public interface ControlAttachmentRepository extends JpaRepository<ControlAttach
 
     Optional<ControlAttachment> findByControlIdAndTabAndFileName(Long controlId, String tab, String fileName);
 
+    boolean existsByControlIdAndFileName(Long controlId, String fileName);
+
     void deleteByControlIdAndTabAndFileName(Long controlId, String tab, String fileName);
 }

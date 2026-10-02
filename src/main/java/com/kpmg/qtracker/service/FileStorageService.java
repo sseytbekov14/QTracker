@@ -32,10 +32,7 @@ public class FileStorageService {
         }
 
         // Create upload directory if it doesn't exist
-        String safeFolder = sanitizeFolderName(controlFolder);
-        Path uploadPath = safeFolder == null || safeFolder.isBlank()
-                ? Paths.get(uploadDir)
-                : Paths.get(uploadDir, safeFolder);
+        Path uploadPath = folderPath(controlFolder);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
             System.out.println("📁 Created upload directory: " + uploadPath);
@@ -72,22 +69,10 @@ public class FileStorageService {
     }
 
     public byte[] downloadFile(String filename, String controlFolder) throws IOException {
-        String safeFolder = sanitizeFolderName(controlFolder);
-        Path basePath = Paths.get(uploadDir).toAbsolutePath().normalize();
-        Path filePath = safeFolder == null || safeFolder.isBlank()
-                ? basePath.resolve(filename).normalize()
-                : basePath.resolve(safeFolder).resolve(filename).normalize();
-                
-        if (!filePath.startsWith(basePath)) {
-            throw new SecurityException("Path traversal attempt detected!");
-        }
-        
-        if (!Files.exists(filePath) && safeFolder != null && !safeFolder.isBlank()) {
-            Path fallbackPath = basePath.resolve(filename).normalize();
-            if (!fallbackPath.startsWith(basePath)) {
-                throw new SecurityException("Path traversal attempt detected!");
-            }
-            filePath = fallbackPath;
+        Path filePath = filePath(filename, controlFolder);
+        // Files uploaded before control folders existed lie in the upload root
+        if (!Files.exists(filePath) && hasFolder(controlFolder)) {
+            filePath = filePath(filename, null);
         }
         if (!Files.exists(filePath)) {
             throw new IOException("File not found: " + filename);
@@ -109,16 +94,7 @@ public class FileStorageService {
         if (filename == null || filename.isEmpty()) {
             return;
         }
-        String safeFolder = sanitizeFolderName(controlFolder);
-        Path basePath = Paths.get(uploadDir).toAbsolutePath().normalize();
-        Path filePath = (safeFolder == null || safeFolder.isBlank())
-                ? basePath.resolve(filename).normalize()
-                : basePath.resolve(safeFolder).resolve(filename).normalize();
-                
-        if (!filePath.startsWith(basePath)) {
-            throw new SecurityException("Path traversal attempt detected!");
-        }
-        
+        Path filePath = filePath(filename, controlFolder);
         Files.deleteIfExists(filePath);
         System.out.println("🗑️ File deleted: " + filePath);
     }
@@ -174,5 +150,46 @@ public class FileStorageService {
     private String sanitizeFolderName(String folder) {
         if (folder == null) return null;
         return folder.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    private boolean hasFolder(String controlFolder) {
+        String safeFolder = sanitizeFolderName(controlFolder);
+        return safeFolder != null && !safeFolder.isBlank();
+    }
+
+    /** The control's folder directly under the upload root, or the root itself without a folder. */
+    private Path folderPath(String controlFolder) {
+        Path basePath = Paths.get(uploadDir).toAbsolutePath().normalize();
+        if (!hasFolder(controlFolder)) {
+            return basePath;
+        }
+        Path folder = basePath.resolve(sanitizeFolderName(controlFolder)).normalize();
+        if (!basePath.equals(folder.getParent())) {
+            throw new SecurityException("Path traversal attempt detected!");
+        }
+        return folder;
+    }
+
+    /**
+     * A stored file directly inside its folder. The name is checked as given, without relying on the
+     * request firewall: separators, "." and "..", drive letters and control characters are refused.
+     */
+    private Path filePath(String filename, String controlFolder) {
+        if (!isPlainFileName(filename)) {
+            throw new SecurityException("Path traversal attempt detected!");
+        }
+        Path folder = folderPath(controlFolder);
+        Path filePath = folder.resolve(filename).normalize();
+        if (!folder.equals(filePath.getParent())) {
+            throw new SecurityException("Path traversal attempt detected!");
+        }
+        return filePath;
+    }
+
+    static boolean isPlainFileName(String filename) {
+        if (filename == null || filename.isBlank() || ".".equals(filename) || "..".equals(filename)) {
+            return false;
+        }
+        return filename.chars().noneMatch(c -> c == '/' || c == '\\' || c == ':' || c < 0x20);
     }
 }

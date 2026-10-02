@@ -1353,6 +1353,83 @@ class ApiSecurityMockMvcIT {
         }
     }
 
+    @Test
+    void attachmentInfoAndDownload_participant200_stranger403_unknownControl404() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-DL-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+        MockHttpSession facilitator = login(p.facilitator.getMail());
+        MockHttpSession stranger = login(saveUser("stranger-" + suffix(), "stranger-" + suffix() + "@example.test",
+                "FACILITATOR").getMail());
+        String stored = upload(control, facilitator, "evidence-" + suffix() + ".pdf");
+
+        mockMvc.perform(get("/api/attachments/info/{id}", control.getId()).with(ownAddress()).session(facilitator))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attachmentDetailsPath").value(stored));
+        download(control.getId(), stored, facilitator)
+                .andExpect(status().isOk())
+                .andExpect(content().string("%PDF-1.4 test"));
+
+        mockMvc.perform(get("/api/attachments/info/{id}", control.getId()).with(ownAddress()).session(stranger))
+                .andExpect(status().isForbidden());
+        download(control.getId(), stored, stranger).andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/attachments/info/{id}", UNKNOWN_CONTROL_ID).with(ownAddress()).session(facilitator))
+                .andExpect(status().isNotFound());
+        download(UNKNOWN_CONTROL_ID, stored, facilitator).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void attachmentInfoAndDownload_sharedOnlyUser_403OnDraft_200AfterInitiation() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-DL-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+        String stored = upload(control, login(p.soqm.getMail()), "draft-" + suffix() + ".pdf");
+        MockHttpSession shared = login(shareWith(control, "shared-" + suffix() + "@example.test").getMail());
+
+        mockMvc.perform(get("/api/attachments/info/{id}", control.getId()).with(ownAddress()).session(shared))
+                .andExpect(status().isForbidden());
+        download(control.getId(), stored, shared).andExpect(status().isForbidden());
+
+        moveTo(control, "IN_PROGRESS");
+
+        mockMvc.perform(get("/api/attachments/info/{id}", control.getId()).with(ownAddress()).session(shared))
+                .andExpect(status().isOk());
+        download(control.getId(), stored, shared).andExpect(status().isOk());
+    }
+
+    @Test
+    void download_servesOnlyFilesTheControlLists_includingOldOnesInTheUploadRoot() throws Exception {
+        Participants p = participants();
+        Control mine = createControl("CTRL-DL-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(mine, p);
+        Control other = createControl("CTRL-DL-" + suffix(), p.soqm, "IN_PROGRESS");
+        MockHttpSession facilitator = login(p.facilitator.getMail());
+        String othersFile = upload(other, login(p.soqm.getMail()), "other-" + suffix() + ".pdf");
+
+        // Uploaded before control folders existed: in the upload root, listed on the control
+        String oldFile = "20260115_" + suffix() + "_old.pdf";
+        java.nio.file.Path root = java.nio.file.Files.createDirectories(java.nio.file.Path.of("target", "it-uploads"));
+        java.nio.file.Files.writeString(root.resolve(oldFile), "old file");
+        Control stored = controlRepository.findById(mine.getId()).orElseThrow();
+        stored.setAttachmentDocumentsPath(oldFile);
+        controlRepository.save(stored);
+
+        download(mine.getId(), oldFile, facilitator)
+                .andExpect(status().isOk())
+                .andExpect(content().string("old file"));
+        // Another control's file, asked for through a control the user can read
+        download(mine.getId(), othersFile, facilitator).andExpect(status().isNotFound());
+    }
+
+    private org.springframework.test.web.servlet.ResultActions download(Long controlId, String fileName,
+                                                                       MockHttpSession session) throws Exception {
+        return mockMvc.perform(get("/api/attachments/download/{name}", fileName)
+                .param("controlId", String.valueOf(controlId))
+                .with(ownAddress())
+                .session(session));
+    }
+
     private static final long UNKNOWN_CONTROL_ID = 987_654_321L;
 
     private static int requestAddressCount;

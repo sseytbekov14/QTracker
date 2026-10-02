@@ -10,6 +10,7 @@ import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.FileStorageService;
+import com.kpmg.qtracker.service.PermissionService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,6 +43,7 @@ public class FileAttachmentController {
     private final ControlPermissionService controlPermissionService;
     private final AdminAuditService adminAuditService;
     private final ControlAttachmentService controlAttachmentService;
+    private final PermissionService permissionService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final int MAX_FILES_PER_TAB = 50;
@@ -215,25 +217,17 @@ public class FileAttachmentController {
     public ResponseEntity<byte[]> downloadFile(@PathVariable String filename,
                                                @RequestParam(value = "controlId", required = false) Long controlId,
                                                HttpSession session) {
+        if (controlId == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+        Control control = permissionService.requireReadable(controlId, getCurrentUser(session));
         try {
-            if (controlId == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            String decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8).trim();
+            // Only a file this control lists; the storage then refuses any name that would leave its folder
+            if (!controlAttachmentService.isAttached(control, decodedFilename)) {
+                return ResponseEntity.notFound().build();
             }
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-            }
-            Control control = controlService.findById(controlId)
-                    .orElseThrow(() -> new RuntimeException("Control not found"));
-            if (!controlPermissionService.resolve(control, currentUser).canView()) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-            
-            String decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8);
-            String controlFolder = resolveControlFolder(controlId);
-            byte[] fileContent = controlFolder == null
-                    ? fileStorageService.downloadFile(decodedFilename)
-                    : fileStorageService.downloadFile(decodedFilename, controlFolder);
+            byte[] fileContent = fileStorageService.downloadFile(decodedFilename, resolveControlFolder(control));
             String mimeType = fileStorageService.getMimeType(decodedFilename);
             
             return ResponseEntity.ok()
@@ -293,18 +287,16 @@ public class FileAttachmentController {
      */
     @GetMapping("/info/{controlId}")
     public ResponseEntity<Map<String, Object>> getAttachmentInfo(@PathVariable Long controlId, HttpSession session) {
+        User currentUser = getCurrentUser(session);
+        Control control = permissionService.requireReadable(controlId, currentUser);
         try {
-            Control control = controlService.getControlById(controlId)
-                    .orElseThrow(() -> new RuntimeException("Control not found: " + controlId));
-            
             Map<String, Object> info = new HashMap<>();
             info.put("controlId", controlId);
             info.put("attachmentDetailsPath", control.getAttachmentDetailsPath());
             info.put("attachmentDocumentsPath", control.getAttachmentDocumentsPath());
 
             // Lets the page show the delete button only where the delete endpoint would allow it
-            User currentUser = getCurrentUser(session);
-            ControlPermission permission = currentUser != null ? controlPermissionService.resolve(control, currentUser) : null;
+            ControlPermission permission = controlPermissionService.resolve(control, currentUser);
             info.put("deletableDetails", deletableFiles(control, ControlAttachment.TAB_DETAILS,
                     control.getAttachmentDetailsPath(), currentUser, permission));
             info.put("deletableDocuments", deletableFiles(control, ControlAttachment.TAB_DOCUMENTS,
@@ -363,7 +355,7 @@ public class FileAttachmentController {
             String otherPath = ControlAttachment.TAB_DETAILS.equals(tabLabel)
                     ? control.getAttachmentDocumentsPath()
                     : control.getAttachmentDetailsPath();
-            if (removed && !hasAttachment(otherPath, decodedFilename.trim())) {
+            if (removed && !ControlAttachmentService.isListed(otherPath, decodedFilename.trim())) {
                 try {
                     String controlFolder = resolveControlFolder(control);
                     fileStorageService.deleteFile(decodedFilename, controlFolder);
@@ -399,18 +391,6 @@ public class FileAttachmentController {
             }
         }
         return deletable;
-    }
-
-    private boolean hasAttachment(String storedList, String filename) {
-        if (storedList == null || storedList.isBlank()) {
-            return false;
-        }
-        for (String part : storedList.split(";")) {
-            if (part.trim().equals(filename)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private int countExistingFiles(String storedList) {

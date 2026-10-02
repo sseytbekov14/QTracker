@@ -67,6 +67,30 @@ public class ControlAttachmentService {
                 .isPresent();
     }
 
+    /** Whether the file belongs to the control: on one of its two attachment lists or in its upload records. */
+    public boolean isAttached(Control control, String fileName) {
+        if (control == null || fileName == null || fileName.isBlank()) {
+            return false;
+        }
+        String name = fileName.trim();
+        return isListed(control.getAttachmentDetailsPath(), name)
+                || isListed(control.getAttachmentDocumentsPath(), name)
+                || (control.getId() != null && attachmentRepository.existsByControlIdAndFileName(control.getId(), name));
+    }
+
+    /** Whether a ';'-separated attachment list holds exactly this file name. */
+    public static boolean isListed(String storedList, String fileName) {
+        if (storedList == null || storedList.isBlank() || fileName == null) {
+            return false;
+        }
+        for (String part : storedList.split(";")) {
+            if (part.trim().equals(fileName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Removes the file name from the control's list and its upload record; returns whether it was listed. */
     @Transactional
     public boolean removeFromControl(Control control, String tab, String fileName) {
