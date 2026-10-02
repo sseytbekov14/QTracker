@@ -25,9 +25,6 @@ public interface WorkflowService {
 
     List<WorkflowStepDTO> getWorkflowSteps(Long controlId);
 
-    // Получить контроли ожидающие моего апрува
-    List<Control> getPendingApprovals(String userEmail);
-
     // ★ ТОЛЬКО ОБЪЯВЛЕНИЕ метода, без реализации
     List<WorkflowButtonDTO> getAvailableButtons(Long controlId, String userEmail);
 

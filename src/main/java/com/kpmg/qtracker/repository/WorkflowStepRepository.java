@@ -20,10 +20,6 @@ public interface WorkflowStepRepository extends JpaRepository<WorkflowStep, Long
     @Query("SELECT ws FROM WorkflowStep ws WHERE ws.controlId = :controlId AND ws.status IN ('IN_PROGRESS', 'REVIEW', 'SOQM_HEAD_REVIEW', 'PROCESS_OWNER_REVIEW')")
     Optional<WorkflowStep> findCurrentStep(@Param("controlId") Long controlId);
 
-    // Найти шаги ожидающие апрува пользователя
-    @Query("SELECT ws FROM WorkflowStep ws WHERE ws.assignedToEmail = :userEmail AND ws.status IN ('IN_PROGRESS', 'REVIEW', 'SOQM_HEAD_REVIEW', 'PROCESS_OWNER_REVIEW')")
-    List<WorkflowStep> findPendingStepsByUser(@Param("userEmail") String userEmail);
-
     // Найти шаг по controlId и типу шага
     Optional<WorkflowStep> findByControlIdAndStepType(Long controlId, String stepType);
 

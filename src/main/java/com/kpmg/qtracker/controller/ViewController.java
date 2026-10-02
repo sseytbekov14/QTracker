@@ -75,47 +75,6 @@ public class ViewController {
         return null;
     }
 
-    @GetMapping("/workflow/approvals")
-    public String myApprovals(Model model, HttpSession session) {
-        String redirect = checkAuthAndRedirect(session);
-        if (redirect != null) return redirect;
-
-        User currentUser = getCurrentUser(session);
-
-        // Получаем ожидающие апрувы
-        List<Control> pendingControls = workflowService.getPendingApprovals(currentUser.getMail());
-
-        // Конвертируем в DTO
-        List<PendingApprovalDTO> pendingApprovals = pendingControls.stream()
-                .map(control -> {
-                    PendingApprovalDTO dto = new PendingApprovalDTO();
-                    dto.setControlId(control.getId());
-                    dto.setControlIdNumber(control.getControlId());
-                    dto.setComponent(control.getComponent());
-                    dto.setControlType(control.getControlType());
-                    dto.setControlDescription(control.getControlDescription());
-
-                    // Получаем информацию о текущем шаге
-                    WorkflowStepDTO currentStep = workflowService.getCurrentStep(control.getId());
-                    if (currentStep != null) {
-                        dto.setCurrentStep(currentStep.getStepType().name());
-                        dto.setStepDisplayName(currentStep.getStatus().getDisplayName());
-                        dto.setAssignedAt(currentStep.getAssignedAt());
-                        dto.setAssignedToName(currentStep.getAssignedToName());
-                    }
-
-                    return dto;
-                })
-                .collect(Collectors.toList());
-
-        model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getRole());
-        model.addAttribute("userEmail", currentUser.getMail());
-        model.addAttribute("pendingApprovals", pendingApprovals);
-
-        return "workflow/approvals";
-    }
-
     /** The former Initiation Checklist URL; the Initiate page checks access itself. */
     @GetMapping("/performance/{controlId}")
     public String performanceChecklist(@PathVariable Long controlId) {

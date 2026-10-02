@@ -220,9 +220,13 @@ class ApiSecurityMockMvcIT {
                         .session(session))
                 .andExpect(status().isOk());
 
+        // The former "My Approvals" page and its API are gone
         mockMvc.perform(get("/api/workflow/my-approvals")
                         .session(session))
-                .andExpect(status().isOk());
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/workflow/approvals")
+                        .session(session))
+                .andExpect(status().isNotFound());
     }
 
     @Test

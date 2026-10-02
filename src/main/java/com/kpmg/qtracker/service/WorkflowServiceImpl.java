@@ -413,15 +413,6 @@ public class WorkflowServiceImpl implements WorkflowService {
         }
     }
 
-    @Override
-    public List<Control> getPendingApprovals(String userEmail) {
-        List<WorkflowStep> pendingSteps = workflowStepRepository.findPendingStepsByUser(userEmail);
-        return pendingSteps.stream()
-                .map(step -> controlService.getControlById(step.getControlId()).orElse(null))
-                .filter(control -> control != null)
-                .collect(Collectors.toList());
-    }
-
     // Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ РјРµС‚РѕРґС‹
     private WorkflowStepDTO convertToDTO(WorkflowStep step) {
         WorkflowStepDTO dto = new WorkflowStepDTO();

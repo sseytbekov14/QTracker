@@ -163,38 +163,6 @@ public class WorkflowController {
         workflowHistoryRepository.save(history);
     }
 
-    @GetMapping("/my-approvals")
-    public ResponseEntity<List<PendingApprovalDTO>> getMyPendingApprovals(HttpSession session) {
-        try {
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(401).build();
-            }
-
-            List<Control> pendingControls = workflowService.getPendingApprovals(currentUser.getMail());
-
-            return ResponseEntity.ok(
-                    pendingControls.stream()
-                            .map(this::convertToPendingApprovalDTO)
-                            .collect(Collectors.toList())
-            );
-
-        } catch (Exception e) {
-            log.error("Error getting pending approvals: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().build();
-        }
-    }
-
-    private PendingApprovalDTO convertToPendingApprovalDTO(Control control) {
-        PendingApprovalDTO dto = new PendingApprovalDTO();
-        dto.setControlId(control.getId());
-        dto.setControlIdNumber(control.getControlId());
-        dto.setComponent(control.getComponent());
-        dto.setControlType(control.getControlType());
-        dto.setControlDescription(control.getControlDescription());
-        return dto;
-    }
-
     // ========== SOQM TEAM WORKFLOW ENDPOINTS ==========
     
     @PostMapping("/submit-to-process-owner")
