@@ -1547,7 +1547,7 @@ class ApiSecurityMockMvcIT {
         assertThat(selectedOptions(html, spelling, "js-role")).containsExactly("SoQM Team (not in list)");
         assertThat(selectedOptions(html, comma, "js-role")).containsExactly("FACILITATOR,PROCESS_OWNER (not in list)");
         assertThat(selectedOptions(html, adminRole, "js-secondary-role")).containsExactly("None");
-        assertThat(selectedOptions(html, listed, "js-role")).containsExactly("CONTROL_OPERATOR");
+        assertThat(selectedOptions(html, listed, "js-role")).containsExactly("Control Operator");
         assertThat(selectedOptions(html, listed, "js-secondary-role")).containsExactly("Facilitator (not in list)");
         assertThat(roleSelect(html, adminRole, "js-role"))
                 .contains("value=\"\"", "data-stored-value=\"true\"", "data-stored-text=\"ADMIN\"");
