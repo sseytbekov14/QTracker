@@ -34,13 +34,6 @@ public class UserController {
                 .collect(Collectors.toList()));
     }
 
-    @GetMapping("/users/{email}")
-    public ResponseEntity<UserDTO> getUserByEmail(@PathVariable String email) {
-        return userService.getUserByEmail(email)
-                .map(user -> ResponseEntity.ok(convertToDTO(user)))
-                .orElse(ResponseEntity.notFound().build());
-    }
-
     @PostMapping("/users/{id}/access")
     public ResponseEntity<?> updateUserAccess(@PathVariable Long id,
                                               @RequestParam String role,
