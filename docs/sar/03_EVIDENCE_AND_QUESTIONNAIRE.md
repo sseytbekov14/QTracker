@@ -244,7 +244,7 @@ Account deactivation takes effect on the next HTTP request made by the affected 
 | 2 | No SSO integration active in STAGE | Low | Low | Local BCrypt auth with brute-force protection; no production user credentials in STAGE | Low | Accepted for STAGE only |
 | 3 | Application and database co-located on single server | Low | Medium | PostgreSQL port not externally exposed; Docker internal network only; full DB access requires host-level compromise | Low | Accepted for STAGE |
 | 4 | No external penetration test performed | Medium | Medium | Peer code review; built-in security controls; closed network isolation; pentest required before Production | Medium | Accepted for STAGE; mandatory before Production |
-| 5 | No application-layer file size upload limit | Low | Low | 50-file count limit enforced; Docker volume bounds storage; extension whitelist applied | Low | Accepted for STAGE; remediation prior to Production go-live |
+| 5 | Oversized file uploads | Low | Low | 10 MB per file and 100 MB per request enforced by the application (Document 01, Section 7.6); 50-file count limit; Docker volume bounds storage; extension whitelist applied | Low | Resolved — limit in place |
 | 6 | No container image vulnerability scanning | Low | Low | Adoptium base image actively maintained; images rebuilt on each deployment; Spring BOM version control | Low | Accepted for STAGE; required before Production |
 | 7 | Log retention not formally configured | Low | Low | Logs present in Docker stdout with UUID correlation; formal retention policy to be applied | Low | Accepted for STAGE |
 
@@ -271,7 +271,7 @@ Account deactivation takes effect on the next HTTP request made by the affected 
 | 3 | External penetration test / OWASP Top 10 assessment | Security team | Critical — Pre-Production |
 | 4 | Container image vulnerability scanning (Trivy / GitLab Container Scanning) | DevOps | High — Pre-Production |
 | 5 | OWASP Dependency-Check integration in CI pipeline | Development team | High — Next sprint |
-| 6 | File upload size limit (`spring.servlet.multipart.max-file-size`) | Development team | Medium — Next sprint |
+| 6 | File upload size limit (`spring.servlet.multipart.max-file-size`) | Development team | Completed — 10 MB per file, 100 MB per request |
 | 7 | File content (magic byte) validation | Development team | Medium — Pre-Production |
 | 8 | Log aggregation and SIEM integration | IT Infrastructure | High — Pre-Production |
 | 9 | Formal backup policy documentation and off-site backup verification | Server administrator | High — STAGE + Pre-Production |

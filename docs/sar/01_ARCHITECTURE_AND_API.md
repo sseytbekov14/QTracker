@@ -392,5 +392,5 @@ All file upload and deletion events are persisted to the `admin_audit_log` table
 
 ### 7.6 Known Limitations (STAGE)
 
-- **File size limit:** No application-layer file size cap is currently configured. Noted for remediation prior to Production go-live. Currently mitigated by network isolation and the 50-file count limit.
+- **File size limit:** Each uploaded file is limited to **10 MB** (`file.upload.max-file-size-mb` and `spring.servlet.multipart.max-file-size`, both set from `FILE_UPLOAD_MAX_FILE_SIZE_MB`, default 10) and one upload request to 100 MB (`spring.servlet.multipart.max-request-size`, `FILE_UPLOAD_MAX_REQUEST_SIZE_MB`). A request over these limits is refused while the upload is parsed, before anything is stored, with `413` (`FILE_TOO_LARGE`); `FileAttachmentController` checks the per-file limit once more and answers `400` naming the file.
 - **File content validation:** MIME type is determined by file extension only; magic-byte inspection is not performed. Noted for remediation prior to Production go-live. Currently mitigated by network isolation and the extension whitelist enforced at the MIME-type resolution layer.
