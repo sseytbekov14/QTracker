@@ -208,11 +208,6 @@ public class ControlAssignmentService {
         return EmailList.contains(fieldValue, email);
     }
 
-    // ★ ДОБАВИТЬ метод для получения пользователей по роли
-    public List<User> getUsersByRole(String role) {
-        return userRepository.findByRoleIgnoreCaseOrSecondaryRoleIgnoreCase(role, role);
-    }
-
     // Обновленная валидация
     private void validateUsersHaveRole(List<String> userEmails, String requiredRole, String errorMessage) {
         if (userEmails == null || userEmails.isEmpty()) {
