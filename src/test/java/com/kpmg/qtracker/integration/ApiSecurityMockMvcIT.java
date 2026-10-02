@@ -5,6 +5,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.ControlAttachment;
 import com.kpmg.qtracker.entity.ControlDetails;
+import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.enums.WorkflowActionType;
@@ -14,6 +15,7 @@ import com.kpmg.qtracker.repository.ControlAttachmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
+import com.kpmg.qtracker.repository.NotificationRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.DeadlineOverdue;
@@ -64,6 +66,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
@@ -123,6 +126,9 @@ class ApiSecurityMockMvcIT {
     @Autowired
     private UserService userService;
 
+    @Autowired
+    private NotificationRepository notificationRepository;
+
     @MockitoBean
     private DevUserSeeder devUserSeeder;
 
@@ -133,9 +139,12 @@ class ApiSecurityMockMvcIT {
 
     private final List<Long> createdControlIds = new ArrayList<>();
     private final List<Long> createdUserIds = new ArrayList<>();
+    private final List<Long> createdNotificationIds = new ArrayList<>();
 
     @AfterEach
     void tearDown() {
+        notificationRepository.deleteAllById(createdNotificationIds);
+        createdNotificationIds.clear();
         // controls.created_by references users, so controls go first
         controlRepository.deleteAllById(createdControlIds);
         userRepository.deleteAllById(createdUserIds);
@@ -1516,6 +1525,105 @@ class ApiSecurityMockMvcIT {
             mockMvc.perform(get(path).with(ownAddress()).session(adminSession)).andExpect(status().isOk());
             mockMvc.perform(get(path).with(ownAddress()).session(facilitator)).andExpect(status().isForbidden());
         }
+    }
+
+    @Test
+    void markNotificationRead_ownOne_returnsTheNewUnreadCount() throws Exception {
+        User owner = saveUser("notif-owner", "notif-owner-" + suffix() + "@example.test", "FACILITATOR");
+        Control control = createControl("CTRL-NTF-" + suffix(), owner, "IN_PROGRESS");
+        Notification first = saveNotification(owner, control, "STATUS_CHANGE");
+        saveNotification(owner, control, "STATUS_CHANGE");
+        // Hidden types are not counted on the page, so not in the answer either
+        saveNotification(owner, control, "DRAFT_INITIATE_REMINDER");
+        MockHttpSession session = login(owner.getMail());
+
+        mockMvc.perform(post("/notifications/{id}/read", first.getId()).with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.unread").value(1));
+
+        Notification stored = notificationRepository.findById(first.getId()).orElseThrow();
+        assertThat(stored.getIsRead()).isTrue();
+        assertThat(stored.getReadAt()).isNotNull();
+
+        // Again: nothing changes, same count
+        mockMvc.perform(post("/notifications/{id}/read", first.getId()).with(csrf()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.unread").value(1));
+    }
+
+    @Test
+    void markNotificationRead_someoneElsesOrHiddenOrUnknown_returns404_andChangesNothing() throws Exception {
+        User owner = saveUser("notif-owner", "notif-owner-" + suffix() + "@example.test", "FACILITATOR");
+        User stranger = saveUser("notif-stranger", "notif-stranger-" + suffix() + "@example.test", "FACILITATOR");
+        Control control = createControl("CTRL-NTF-" + suffix(), owner, "IN_PROGRESS");
+        Notification ownersNotification = saveNotification(owner, control, "STATUS_CHANGE");
+        Notification hidden = saveNotification(stranger, control, "DRAFT_INITIATE_REMINDER");
+        MockHttpSession session = login(stranger.getMail());
+
+        for (long id : List.of(ownersNotification.getId(), hidden.getId(), 987_654_321L)) {
+            mockMvc.perform(post("/notifications/{id}/read", id).with(csrf()).session(session))
+                    .andExpect(status().isNotFound());
+        }
+
+        assertThat(notificationRepository.findById(ownersNotification.getId()).orElseThrow().getIsRead()).isFalse();
+        assertThat(notificationRepository.findById(hidden.getId()).orElseThrow().getIsRead()).isFalse();
+    }
+
+    @Test
+    void markNotificationRead_withoutCsrfToken_returns403_withoutLogin_redirectsToLogin() throws Exception {
+        User owner = saveUser("notif-owner", "notif-owner-" + suffix() + "@example.test", "FACILITATOR");
+        Control control = createControl("CTRL-NTF-" + suffix(), owner, "IN_PROGRESS");
+        Notification notification = saveNotification(owner, control, "STATUS_CHANGE");
+        MockHttpSession session = login(owner.getMail());
+
+        mockMvc.perform(post("/notifications/{id}/read", notification.getId()).session(session))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/notifications/{id}/read", notification.getId()).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("**/login"));
+
+        assertThat(notificationRepository.findById(notification.getId()).orElseThrow().getIsRead()).isFalse();
+    }
+
+    @Test
+    void notificationsTab_hasCsrfToken_andMarkAsReadButtonOnlyOnUnreadRows() throws Exception {
+        User owner = saveUser("notif-owner", "notif-owner-" + suffix() + "@example.test", "FACILITATOR");
+        Control control = createControl("CTRL-NTF-" + suffix(), owner, "IN_PROGRESS");
+        Notification unread = saveNotification(owner, control, "STATUS_CHANGE");
+        Notification read = saveNotification(owner, control, "STATUS_CHANGE");
+        read.setIsRead(true);
+        notificationRepository.save(read);
+        MockHttpSession session = login(owner.getMail());
+
+        String html = mockMvc.perform(get("/").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html).contains("<meta name=\"_csrf\"").contains("<meta name=\"_csrf_header\"")
+                .contains("data-unread-count=\"1\"");
+        assertThat(notificationRow(html, unread.getId())).contains("notif-item unread").contains("notif-mark-read");
+        assertThat(notificationRow(html, read.getId())).doesNotContain("unread").doesNotContain("notif-mark-read");
+    }
+
+    /** The markup of one notification row on the dashboard, up to the next row. */
+    private String notificationRow(String html, Long notificationId) {
+        int idAt = html.indexOf("data-notif-id=\"" + notificationId + "\"");
+        assertThat(idAt).isPositive();
+        int nextIdAt = html.indexOf("data-notif-id=", idAt + 1);
+        int end = nextIdAt < 0 ? html.indexOf("notifNoUnread", idAt) : html.lastIndexOf("<div", nextIdAt);
+        return html.substring(html.lastIndexOf("<div", idAt), end);
+    }
+
+    private Notification saveNotification(User user, Control control, String type) {
+        Notification notification = new Notification();
+        notification.setUserId(user.getId());
+        notification.setControlId(control.getId());
+        notification.setType(type);
+        notification.setTitle("Status changed");
+        notification.setMessage("Control " + control.getControlId() + " moved on");
+        Notification saved = notificationRepository.save(notification);
+        createdNotificationIds.add(saved.getId());
+        return saved;
     }
 
     private static final long UNKNOWN_CONTROL_ID = 987_654_321L;

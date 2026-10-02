@@ -18,12 +18,15 @@ import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.kpmg.qtracker.service.WorkflowService;
 import java.time.Instant;
@@ -876,6 +879,25 @@ public class ViewController {
         notificationService.markAllAsRead(currentUser.getId());
 
         return "redirect:/#notifications";
+    }
+
+    /** Marks one own notification as read; the answer carries the new unread count for the badges. */
+    @PostMapping("/notifications/{notificationId}/read")
+    @ResponseBody
+    public ResponseEntity<Map<String, Long>> markNotificationRead(@PathVariable Long notificationId,
+                                                                  HttpSession session) {
+        User currentUser = getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        boolean visible = notificationService.findForUser(notificationId, currentUser.getId())
+                .filter(notif -> !notificationTypeDisplayMapper.isHiddenType(notif.getType()))
+                .isPresent();
+        if (!visible) {
+            return ResponseEntity.notFound().build();
+        }
+        notificationService.markAsRead(notificationId);
+        return ResponseEntity.ok(Map.of("unread", getUnreadCount(currentUser)));
     }
 
     private void applyNotificationDisplay(NotificationItemDTO dto) {

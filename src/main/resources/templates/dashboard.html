@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:if="${_csrf != null}" th:content="${_csrf.headerName}">
     <title>Dashboard - QTracker</title>
     <script>
         (function() {
@@ -385,20 +387,56 @@ body.theme-dark .ac-overdue-flag { background: rgba(200, 16, 46, 0.2); color: #f
     border-radius: 6px;
     overflow: hidden;
 }
+/* Row = link (icon, text, time) + "Mark as read" button for unread rows: a button cannot sit inside a link */
 .notif-item {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--kpmg-gray-100);
+    transition: background 0.1s;
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover { background: #f5f7fa; }
+.notif-link {
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 11px 16px;
-    border-bottom: 1px solid var(--kpmg-gray-100);
     color: inherit;
     text-decoration: none;
-    transition: background 0.1s;
 }
-.notif-item:last-child { border-bottom: none; }
-.notif-item:hover { background: #f0f4fa; color: inherit; text-decoration: none; }
-.notif-item:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: -2px; }
-.notif-item.unread { background: #f5f8fd; }
+.notif-link:hover { color: inherit; text-decoration: none; }
+.notif-link:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: -2px; }
+/* Unread: tinted background, accent stripe on the left, bold text, blue time and dot */
+.notif-item.unread {
+    background: #eef4fc;
+    box-shadow: inset 3px 0 0 var(--kpmg-blue-light);
+}
+.notif-item.unread:hover { background: #e3edf9; }
+.notif-item.unread .notif-msg { font-weight: 700; color: var(--kpmg-gray-800); }
+.notif-item.unread .notif-time { color: var(--kpmg-blue-light); font-weight: 600; }
+/* Read: muted */
+.notif-item:not(.unread) .notif-msg { color: var(--kpmg-gray-600); }
+.notif-item:not(.unread) .notif-icon { opacity: 0.7; }
+.notif-mark-read {
+    width: 30px;
+    height: 30px;
+    margin-right: 12px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 50%;
+    background: var(--kpmg-white);
+    color: var(--kpmg-blue-light);
+    font-size: 1rem;
+}
+.notif-mark-read:hover { background: #e6ecf6; border-color: var(--kpmg-blue-light); }
+.notif-mark-read:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
+.notif-mark-read:disabled { opacity: 0.5; }
 .notif-icon {
     width: 34px;
     height: 34px;
@@ -431,8 +469,8 @@ body.theme-dark .ac-overdue-flag { background: rgba(200, 16, 46, 0.2); color: #f
 .notif-side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .notif-time { font-size: 0.74rem; color: var(--kpmg-gray-600); white-space: nowrap; }
 .notif-unread-dot {
-    width: 8px;
-    height: 8px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
     background: var(--kpmg-blue-light);
 }
@@ -482,6 +520,17 @@ body.theme-dark #pane-notifications .notif-icon { background: rgba(127, 176, 255
     .ac-summary { grid-template-columns: 1fr; }
     .ac-summary-stats { justify-content: flex-start; }
     .pane-header { flex-wrap: wrap; }
+    .notif-link { gap: 10px; padding: 10px 12px; align-items: flex-start; }
+    .notif-icon { width: 30px; height: 30px; font-size: 0.9rem; }
+    .notif-msg {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    .notif-meta { flex-wrap: wrap; }
+    .notif-side { flex-direction: column; align-items: flex-end; gap: 6px; }
+    .notif-mark-read { margin-right: 10px; }
 }
 
 .notif-more {
@@ -1191,17 +1240,18 @@ a.stat-block:focus-visible,
                         <div class="page-header pane-header">
                             <div>
                                 <h1>Notifications</h1>
-                                <p class="subtitle"
+                                <p class="subtitle" id="notifSubtitle"
                                    th:text="${unreadNotifications != null and unreadNotifications > 0} ? (${unreadNotifications} + ' unread') : 'You are all caught up'">
                                     Stay updated</p>
                             </div>
-                            <form method="post" action="/notifications/mark-all-read" class="m-0"
+                            <form method="post" action="/notifications/mark-all-read" class="m-0" id="notifMarkAllForm"
                                   th:if="${unreadNotifications != null and unreadNotifications > 0}">
                                 <button type="submit" class="btn-mark-read"><i class="bi bi-check2-all" aria-hidden="true"></i>Mark all as read</button>
                             </form>
                         </div>
 
-                        <div class="notif-body">
+                        <div class="notif-body" id="notifBody"
+                             th:attr="data-unread-count=${unreadNotifications != null ? unreadNotifications : 0}">
                             <div th:if="${notificationGroups == null or #lists.isEmpty(notificationGroups)}" class="notif-empty">
                                 <i class="bi bi-bell-slash" aria-hidden="true"></i>
                                 <div class="fw-semibold">No notifications yet</div>
@@ -1220,11 +1270,12 @@ a.stat-block:focus-visible,
                                 <div class="notif-group" th:each="group : ${notificationGroups}">
                                     <div class="notif-date-header" th:text="${group.dateLabel}">Date</div>
                                     <div class="notif-list">
-                                        <a th:each="n : ${group.notifications}"
-                                           th:href="@{/notification/{id}(id=${n.id})}"
-                                           class="notif-item"
-                                           th:classappend="${!n.read} ? 'unread' : ''"
-                                           th:with="isReturn=${n.type != null and #strings.startsWith(n.type, 'RETURN')}">
+                                        <div th:each="n : ${group.notifications}"
+                                             class="notif-item"
+                                             th:classappend="${!n.read} ? 'unread' : ''"
+                                             th:attr="data-notif-id=${n.id}"
+                                             th:with="isReturn=${n.type != null and #strings.startsWith(n.type, 'RETURN')}">
+                                        <a class="notif-link" th:href="@{/notification/{id}(id=${n.id})}">
                                             <span class="notif-icon" aria-hidden="true"
                                                   th:classappend="${isReturn} ? 'icon-return' : ${n.badgeClass}">
                                                 <i class="bi" th:classappend="${isReturn} ? 'bi-arrow-return-left'
@@ -1248,6 +1299,11 @@ a.stat-block:focus-visible,
                                                 <span th:if="${!n.read}" class="visually-hidden">Unread</span>
                                             </span>
                                         </a>
+                                        <button type="button" class="notif-mark-read" th:if="${!n.read}"
+                                                title="Mark as read" aria-label="Mark as read">
+                                            <i class="bi bi-check2" aria-hidden="true"></i>
+                                        </button>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="notif-empty notif-empty-filtered" id="notifNoUnread" hidden>
@@ -2086,35 +2142,145 @@ function escapeAttribute(value) {
     return escapeHtml(value);
 }
 
-// Notifications: All / Unread filter (client-side, on the loaded page of notifications)
+// Notifications: All / Unread filter (client-side, on the loaded page of notifications) and Mark as read
 document.addEventListener('DOMContentLoaded', function() {
+    const body = document.getElementById('notifBody');
+    if (!body) {
+        return;
+    }
     const buttons = document.querySelectorAll('[data-notif-filter]');
     const noUnread = document.getElementById('notifNoUnread');
+    let unreadOnly = false;
+    let unreadCount = parseInt(body.dataset.unreadCount, 10) || 0;
+
+    function applyFilter() {
+        let shown = 0;
+        document.querySelectorAll('#pane-notifications .notif-group').forEach(function(group) {
+            let groupShown = 0;
+            group.querySelectorAll('.notif-item').forEach(function(item) {
+                const visible = !unreadOnly || item.classList.contains('unread');
+                item.hidden = !visible;
+                if (visible) {
+                    groupShown++;
+                }
+            });
+            group.hidden = groupShown === 0;
+            shown += groupShown;
+        });
+        if (noUnread) {
+            noUnread.hidden = shown > 0;
+        }
+    }
+
     buttons.forEach(function(button) {
         button.addEventListener('click', function() {
-            const unreadOnly = button.dataset.notifFilter === 'unread';
+            unreadOnly = button.dataset.notifFilter === 'unread';
             buttons.forEach(function(other) {
                 const active = other === button;
                 other.classList.toggle('is-active', active);
                 other.setAttribute('aria-pressed', active ? 'true' : 'false');
             });
-            let shown = 0;
-            document.querySelectorAll('#pane-notifications .notif-group').forEach(function(group) {
-                let groupShown = 0;
-                group.querySelectorAll('.notif-item').forEach(function(item) {
-                    const visible = !unreadOnly || item.classList.contains('unread');
-                    item.hidden = !visible;
-                    if (visible) {
-                        groupShown++;
-                    }
-                });
-                group.hidden = groupShown === 0;
-                shown += groupShown;
-            });
-            if (noUnread) {
-                noUnread.hidden = shown > 0;
+            applyFilter();
+        });
+    });
+
+    // Subtitle, Unread filter badge, Mark all button and the sidebar badge
+    function showUnreadCount(count) {
+        unreadCount = Math.max(0, count);
+        const subtitle = document.getElementById('notifSubtitle');
+        if (subtitle) {
+            subtitle.textContent = unreadCount > 0 ? unreadCount + ' unread' : 'You are all caught up';
+        }
+        const markAll = document.getElementById('notifMarkAllForm');
+        if (markAll) {
+            markAll.hidden = unreadCount === 0;
+        }
+        document.querySelectorAll('.notif-filter-count, #sidebarNotifications .notif-pill').forEach(function(badge) {
+            if (unreadCount === 0) {
+                badge.remove();
+                return;
+            }
+            badge.textContent = unreadCount;
+            if (badge.classList.contains('notif-pill')) {
+                badge.setAttribute('aria-label', unreadCount + ' unread');
             }
         });
+    }
+
+    function showAsRead(item) {
+        item.classList.remove('unread');
+        item.querySelectorAll('.notif-unread-dot, .notif-side .visually-hidden, .notif-mark-read').forEach(function(el) {
+            el.remove();
+        });
+    }
+
+    function readHeaders() {
+        const token = document.querySelector('meta[name="_csrf"]');
+        const header = document.querySelector('meta[name="_csrf_header"]');
+        const headers = { 'Accept': 'application/json' };
+        if (token && header) {
+            headers[header.content] = token.content;
+        }
+        return headers;
+    }
+
+    document.querySelectorAll('#pane-notifications .notif-item').forEach(function(item) {
+        // Opening a notification marks it read on the server: show that now, so Back (page cache) is correct too
+        const link = item.querySelector('.notif-link');
+        function openedUnread(event) {
+            if (event.type === 'auxclick' && event.button !== 1) {
+                return;
+            }
+            if (item.classList.contains('unread')) {
+                showAsRead(item);
+                showUnreadCount(unreadCount - 1);
+            }
+        }
+        link.addEventListener('click', openedUnread);
+        link.addEventListener('auxclick', openedUnread);
+
+        const markRead = item.querySelector('.notif-mark-read');
+        if (!markRead) {
+            return;
+        }
+        markRead.addEventListener('click', function() {
+            // Read before disabling: a disabled button loses focus
+            const hadFocus = document.activeElement === markRead;
+            markRead.disabled = true;
+            fetch('/notifications/' + encodeURIComponent(item.dataset.notifId) + '/read', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: readHeaders()
+            }).then(function(response) {
+                const json = (response.headers.get('Content-Type') || '').indexOf('application/json') !== -1;
+                if (!response.ok || response.redirected || !json) {
+                    throw new Error('Mark as read failed: ' + response.status);
+                }
+                return response.json();
+            }).then(function(result) {
+                showAsRead(item);
+                showUnreadCount(result.unread);
+                applyFilter();
+                if (hadFocus) {
+                    // The button is gone (and under Unread the row too): keep keyboard focus in the list
+                    const target = !item.hidden ? link : Array.prototype.find.call(
+                        document.querySelectorAll('#pane-notifications .notif-item:not([hidden]) .notif-link'),
+                        function(other) { return item.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING; });
+                    if (target) {
+                        target.focus();
+                    }
+                }
+            }).catch(function() {
+                // Session expired or the notification is gone: the reloaded page shows the real state
+                window.location.reload();
+            });
+        });
+    });
+
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            applyFilter();
+        }
     });
 });
 

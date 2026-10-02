@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -393,6 +394,14 @@ public class NotificationService {
         });
     }
     
+    /**
+     * The notification if it belongs to the user; empty when it does not exist or is someone else's
+     */
+    public Optional<Notification> findForUser(Long notificationId, Long userId) {
+        return notificationRepository.findById(notificationId)
+                .filter(notif -> notif.getUserId() != null && notif.getUserId().equals(userId));
+    }
+
     /**
      * Mark all notifications as read for a user
      */
