@@ -12,7 +12,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -79,8 +81,53 @@ class SchedulePreviewParityTest {
         assertThat(mismatches(cases)).as("JS preview vs ControlScheduleCalculator").isEmpty();
     }
 
+    /**
+     * Older spellings still possible in controls.control_frequency. The select shows the option
+     * th:selected in view-control.html maps them to, or the stored value itself as its own option
+     * ("As-required/at least annually"), and the preview reads that; the server reads the stored value.
+     */
+    @Test
+    void preview_matchesTheServer_forOlderStoredSpellings() throws Exception {
+        Map<String, String> shownForStored = new LinkedHashMap<>();
+        shownForStored.put("Annually", "Annual");
+        shownForStored.put("Semi-annually", "Semi Annual");
+        shownForStored.put("Recurring/other", "Recurring");
+        shownForStored.put("As-required/at least annually", "As-required/at least annually");
+
+        List<Case> cases = new ArrayList<>();
+        shownForStored.forEach((stored, shown) -> {
+            for (LocalDate date : DATES) {
+                cases.add(new Case(date, stored, shown));
+            }
+        });
+
+        assertThat(mismatches(cases)).as("JS preview (value shown) vs server (stored value)").isEmpty();
+    }
+
+    /** normalizeControlFrequency reads any spelling as ControlFrequency does, unknown ones included. */
+    @Test
+    void frequencyReading_matchesControlFrequency() throws Exception {
+        List<String> spellings = List.of("Monthly", " monthly ", "QUARTERLY", "Recurring", "Recurring/other",
+                "Recurring monthly", "Ad-hoc", "Ad hoc", "adhoc", "Semi Annual", "Semi-annually", "semiannual",
+                "Semi", "Annual", "Annually", "As-required/at least annually", "Bi-weekly", "Weekly", "", "   ");
+        List<Case> cases = spellings.stream()
+                .map(spelling -> new Case(LocalDate.of(2026, 2, 6), spelling, spelling))
+                .toList();
+        List<Map<String, String>> preview = runPreview(cases);
+
+        List<String> mismatches = new ArrayList<>();
+        for (int i = 0; i < spellings.size(); i++) {
+            String server = ControlFrequency.tryFromValue(spellings.get(i)).map(Enum::name).orElse(null);
+            String js = preview.get(i).get("frequency");
+            String jsAsEnum = js == null ? null : js.toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
+            if (!Objects.equals(server, jsAsEnum)) {
+                mismatches.add(String.format("'%s'  server %s  js %s", spellings.get(i), server, js));
+            }
+        }
+        assertThat(mismatches).as("normalizeControlFrequency vs ControlFrequency.tryFromValue").isEmpty();
+    }
+
     private List<String> mismatches(List<Case> cases) throws Exception {
-        assumeTrue(node != null, "Node.js is not installed; the JS preview cannot run");
         List<Map<String, String>> preview = runPreview(cases);
         ControlScheduleCalculator calculator = new ControlScheduleCalculator();
 
@@ -105,6 +152,7 @@ class SchedulePreviewParityTest {
     }
 
     private List<Map<String, String>> runPreview(List<Case> cases) throws Exception {
+        assumeTrue(node != null, "Node.js is not installed; the JS preview cannot run");
         List<Map<String, String>> input = cases.stream()
                 .map(c -> Map.of("date", c.date().toString(), "frequency", c.shownFrequency()))
                 .toList();

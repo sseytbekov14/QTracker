@@ -1,6 +1,6 @@
 // Runs View Control's own deadline / next-date preview for the cases on stdin.
 // Usage: node schedule-preview.mjs <path to view-control.js>   stdin: [{"date":"2026-01-31","frequency":"Monthly"}]
-// stdout: [{"deadline":"2026-02-07","next":"2026-02-28"}] (null where the preview leaves the field alone)
+// stdout: [{"frequency":"monthly","deadline":"2026-02-07","next":"2026-02-28"}] (null where the preview shows nothing)
 // The functions are cut out of view-control.js as they are, so the test checks the shipped code.
 import { readFileSync } from 'node:fs';
 
@@ -22,7 +22,7 @@ const preview = new Function(
     + extract('normalizeControlFrequency') + '\n'
     + extract('calculateDeadline') + '\n'
     + extract('calculateNextOperationDate') + '\n'
-    + 'return { calculateDeadline, calculateNextOperationDate };')();
+    + 'return { normalizeControlFrequency, calculateDeadline, calculateNextOperationDate };')();
 
 const iso = date => date
     ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -33,6 +33,7 @@ const results = cases.map(({ date, frequency }) => {
     const [y, m, d] = date.split('-').map(Number);
     const operationDate = new Date(y, m - 1, d);
     return {
+        frequency: preview.normalizeControlFrequency(frequency),
         deadline: iso(preview.calculateDeadline(operationDate, frequency)),
         next: iso(preview.calculateNextOperationDate(operationDate, frequency))
     };

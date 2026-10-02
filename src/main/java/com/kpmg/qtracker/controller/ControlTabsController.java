@@ -5,6 +5,7 @@ import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.enums.ControlFrequency;
 import com.kpmg.qtracker.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -124,6 +125,10 @@ public class ControlTabsController {
             String missingField = findMissingAssignmentField(mergedAssignment);
             if (missingField != null) {
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + missingField + " is required");
+            }
+            String frequencyError = findScheduleFrequencyError(control, mergedAssignment);
+            if (frequencyError != null) {
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + frequencyError);
             }
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
@@ -452,6 +457,26 @@ public class ControlTabsController {
         }
         if (assignment.getControlOperationDate() == null) {
             return "Control Operation Date";
+        }
+        return null;
+    }
+
+    /**
+     * saveAssignment calculates the deadline and the next date from the control's frequency, so with an
+     * operation date the frequency must be one it knows; otherwise the save failed with "frequency must
+     * not be null" or "Unsupported frequency". Same check as Save in view-control.js.
+     */
+    private String findScheduleFrequencyError(Control control, ControlAssignmentDTO assignment) {
+        if (assignment.getControlOperationDate() == null) {
+            return null;
+        }
+        String frequency = control != null ? control.getControlFrequency() : null;
+        if (frequency == null || frequency.isBlank()) {
+            return "Control Frequency is required to calculate the Control Operation Deadline";
+        }
+        if (ControlFrequency.tryFromValue(frequency).isEmpty()) {
+            return "Control Frequency \"" + frequency.trim() + "\" is not one of " + ControlFrequency.OFFERED
+                    + ", so the Control Operation Deadline cannot be calculated";
         }
         return null;
     }

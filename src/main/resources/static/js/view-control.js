@@ -2216,6 +2216,21 @@ function renameControlId(newControlId) {
             }
         }
 
+        // The server calculates the deadline from the frequency; one it does not know would refuse the
+        // assignment after the Control tab is already saved
+        const frequencyField = controlForm?.querySelector('[name="controlFrequency"]');
+        const frequency = frequencyField ? String(frequencyField.value || '').trim() : '';
+        if (!firstInvalid && !isLimitedFieldEdit() && frequency && readOperationDate(operationDateField)
+            && !normalizeControlFrequency(frequency)) {
+            frequencyField.classList.add('is-invalid');
+            firstInvalid = {
+                field: frequencyField,
+                title: 'Control Frequency',
+                message: `"${frequency}" is not one of Monthly, Quarterly, Ad-hoc, Recurring, Annual, Semi Annual, `
+                    + 'so the Control Operation Deadline cannot be calculated. Choose one of them.'
+            };
+        }
+
         if (firstInvalid) {
             showMissingFieldMessage(firstInvalid.message, firstInvalid.field, firstInvalid.title);
             return false;
@@ -2223,6 +2238,13 @@ function renameControlId(newControlId) {
 
         return true;
     }
+
+// Without full rights Save sends only the Details fields the user may change
+function isLimitedFieldEdit() {
+    const permissions = window.qtrackerPermissions || {};
+    return !permissions.canEditAll
+        && Boolean(permissions.canEditStepsPerformed || permissions.canEditProcessOwnerComments);
+}
 
 // A reload keeps the #tab hash. Assigning the same URL with a hash would only scroll, not reload.
 function reloadKeepingTab() {
@@ -2237,11 +2259,7 @@ function saveControlChanges() {
         return Promise.reject('Control ID not found');
     }
 
-    const permissions = window.qtrackerPermissions || {};
-    const isLimitedFieldEdit = !permissions.canEditAll
-        && (permissions.canEditStepsPerformed || permissions.canEditProcessOwnerComments);
-
-    if (isLimitedFieldEdit) {
+    if (isLimitedFieldEdit()) {
         console.log('Limited field edit mode: saving Details tab only');
         return saveDetailsData(controlId)
             .then(() => {
@@ -2574,31 +2592,30 @@ function saveDocumentsData(controlId) {
         console.log('Updated calculated dates');
     }
 
+    // Reads the frequency as ControlFrequency.tryFromValue does, in the same order, so an older stored
+    // spelling gives the server's dates ("As-required/at least annually" is Annual there).
+    // null: blank, or not a frequency the server knows.
     function normalizeControlFrequency(controlFrequency) {
-        if (!controlFrequency) {
+        const value = String(controlFrequency || '').trim().toLowerCase();
+        if (!value) {
             return null;
         }
-        const normalized = controlFrequency.toLowerCase().replace(/\s+/g, ' ').trim();
-        const compact = normalized.replace(/[-\s]/g, '');
-
-        if (normalized.includes('recurr')) {
-            return 'recurring';
-        }
-        if (normalized.includes('quarter')) {
-            return 'quarterly';
-        }
-        if (normalized.includes('month')) {
+        if (value.includes('month')) {
             return 'monthly';
         }
-        if ((normalized.includes('ad') && normalized.includes('hoc'))
-            || normalized.includes('as-required')
-            || normalized.includes('at least annually')) {
+        if (value.includes('quarter')) {
+            return 'quarterly';
+        }
+        if (value.includes('recurr')) {
+            return 'recurring';
+        }
+        if (value.includes('ad') && value.includes('hoc')) {
             return 'ad-hoc';
         }
-        if (compact.includes('semiannual')) {
+        if (value.includes('semi')) {
             return 'semi annual';
         }
-        if (normalized.includes('annual') || normalized.includes('annually')) {
+        if (value.includes('annual')) {
             return 'annual';
         }
         return null;
@@ -2678,22 +2695,11 @@ function saveDocumentsData(controlId) {
         const deadline = calculateDeadline(operationDate, controlFrequency);
         const nextOperationDate = calculateNextOperationDate(operationDate, controlFrequency);
 
-        const deadlineInput = document.querySelector('input[name="controlOperationDeadline"]');
-        const nextDateInput = document.querySelector('input[name="nextControlOperationDate"]');
-
-        if (deadlineInput && deadline) {
-            setDateFieldValue(deadlineInput, toIsoDate(deadline));
-            console.log('Set deadline to:', deadlineInput.value);
-        }
-        if (nextDateInput) {
-            if (nextOperationDate) {
-                setDateFieldValue(nextDateInput, toIsoDate(nextOperationDate));
-                console.log('Set next date to:', nextDateInput.value);
-            } else if (normalizeControlFrequency(controlFrequency) === 'ad-hoc') {
-                setDateFieldValue(nextDateInput, '');
-                console.log('Cleared next date for ad-hoc');
-            }
-        }
+        // Empty where there is nothing to show: Ad-hoc has no next date, an unknown frequency neither date
+        setDateFieldValue(document.querySelector('input[name="controlOperationDeadline"]'),
+            deadline ? toIsoDate(deadline) : '');
+        setDateFieldValue(document.querySelector('input[name="nextControlOperationDate"]'),
+            nextOperationDate ? toIsoDate(nextOperationDate) : '');
     }
 
 

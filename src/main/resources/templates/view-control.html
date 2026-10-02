@@ -737,7 +737,8 @@
                                             <option value="">Select Frequency</option>
                                             <option value="Monthly" th:selected="${control.controlFrequency == 'Monthly'}">Monthly</option>
                                             <option value="Quarterly" th:selected="${control.controlFrequency == 'Quarterly'}">Quarterly</option>
-                                            <option value="Ad-hoc" th:selected="${control.controlFrequency == 'Ad-hoc' or control.controlFrequency == 'As-required/at least annually'}">Ad-hoc</option>
+                                            <!--/* "As-required/at least annually" is Annual on the server (ControlFrequency), so it is not shown as Ad-hoc: the select keeps it as its own option */-->
+                                            <option value="Ad-hoc" th:selected="${control.controlFrequency == 'Ad-hoc'}">Ad-hoc</option>
                                             <option value="Recurring" th:selected="${control.controlFrequency == 'Recurring' or control.controlFrequency == 'Recurring/other'}">Recurring</option>
                                             <option value="Annual" th:selected="${control.controlFrequency == 'Annual' or control.controlFrequency == 'Annually'}">Annual</option>
                                             <option value="Semi Annual" th:selected="${control.controlFrequency == 'Semi Annual' or control.controlFrequency == 'Semi-annually'}">Semi Annual</option>
@@ -1704,7 +1705,7 @@
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=4"></script>
-<script src="/js/view-control.js?v=4.7"></script>
+<script src="/js/view-control.js?v=4.8"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {

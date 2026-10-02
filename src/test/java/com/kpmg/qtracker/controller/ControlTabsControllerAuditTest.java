@@ -139,6 +139,7 @@ class ControlTabsControllerAuditTest {
         Control control = new Control();
         control.setId(2L);
         control.setPerformanceStatus("IN_PROGRESS");
+        control.setControlFrequency("Monthly");
         control.setCreatedBy(creator);
 
         ControlAssignmentDTO existingAssignment = new ControlAssignmentDTO();
@@ -209,6 +210,56 @@ class ControlTabsControllerAuditTest {
                         .sessionAttr("currentUser", sessionUser))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("VALIDATION_ERROR: Process Owner is required"));
+
+        verify(controlAssignmentService, never()).saveAssignment(any());
+    }
+
+    @Test
+    void saveControlAssignment_withADate_andNoFrequency_returns400() throws Exception {
+        assertAssignmentRefusedForFrequency(null,
+                "VALIDATION_ERROR: Control Frequency is required to calculate the Control Operation Deadline");
+    }
+
+    @Test
+    void saveControlAssignment_withADate_andAnUnknownFrequency_returns400() throws Exception {
+        assertAssignmentRefusedForFrequency("Bi-weekly",
+                "VALIDATION_ERROR: Control Frequency \"Bi-weekly\" is not one of Monthly, Quarterly, Ad-hoc,"
+                        + " Recurring, Annual, Semi Annual, so the Control Operation Deadline cannot be calculated");
+    }
+
+    private void assertAssignmentRefusedForFrequency(String frequency, String expectedBody) throws Exception {
+        User sessionUser = new User();
+        sessionUser.setMail("soqm@kpmg.com");
+        sessionUser.setRole("SOQM_TEAM");
+
+        Control control = new Control();
+        control.setId(6L);
+        control.setPerformanceStatus("IN_PROGRESS");
+        control.setControlFrequency(frequency);
+
+        ControlAssignmentDTO existingAssignment = new ControlAssignmentDTO();
+        existingAssignment.setControlId(6L);
+        existingAssignment.setFacilitator(List.of("fac@kpmg.com"));
+        existingAssignment.setControlOperator(List.of("op@kpmg.com"));
+        existingAssignment.setSoqmLead(List.of("soqm@kpmg.com"));
+        existingAssignment.setProcessOwner(List.of("po@kpmg.com"));
+
+        ControlAssignmentDTO request = new ControlAssignmentDTO();
+        request.setControlId(6L);
+        request.setControlOperationDate(java.time.LocalDate.of(2026, 11, 20));
+
+        when(controlService.getControlById(6L)).thenReturn(Optional.of(control));
+        when(controlAssignmentService.getAssignmentByControlId(6L)).thenReturn(existingAssignment);
+        when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(existingAssignment)))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
+                        false, false, false, false, true, false));
+
+        mockMvc.perform(post("/api/control-assignment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(expectedBody));
 
         verify(controlAssignmentService, never()).saveAssignment(any());
     }

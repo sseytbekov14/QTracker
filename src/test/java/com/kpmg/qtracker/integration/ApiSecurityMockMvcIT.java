@@ -258,6 +258,25 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
+    void viewControl_showsAsRequiredFrequencyAsStored_notAsAdHoc() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-ASR-" + suffix(), p.soqm, "IN_PROGRESS");
+        // The server reads it as Annual; shown as Ad-hoc the page previewed other dates and Save rewrote it
+        control.setControlFrequency("As-required/at least annually");
+        controlRepository.save(control);
+
+        String html = mockMvc.perform(get("/view-control/{id}", control.getId()).session(login(p.soqm.getMail())))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html).contains("data-stored-value=\"As-required/at least annually\"");
+        // No option is selected, so view-control.js gives the stored value an option of its own
+        String frequencySelect = html.substring(html.indexOf("name=\"controlFrequency\""));
+        frequencySelect = frequencySelect.substring(0, frequencySelect.indexOf("</select>"));
+        assertThat(frequencySelect).doesNotContain("selected");
+    }
+
+    @Test
     void soqm_savingAssignment_storesAndLogsTheServerSchedule_notTheOneSent() throws Exception {
         Participants p = participants();
         Control control = createControl("CTRL-SCH-" + suffix(), p.soqm, "IN_PROGRESS");
