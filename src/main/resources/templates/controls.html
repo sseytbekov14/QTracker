@@ -313,6 +313,14 @@ th[aria-sort="descending"] .sort-btn .bi { opacity: 1; color: var(--kpmg-blue); 
 }
 
 @media (max-width: 767.98px) {
+    /* Four counters do not fit one row on a phone: two by two */
+    .stats-bar { flex-wrap: wrap; }
+    .stats-bar .stat-item { flex: 1 1 50%; border-bottom: 1px solid var(--kpmg-gray-200); }
+    .stats-bar .stat-item:nth-child(2n) { border-right: none; }
+    .stats-bar .stat-item:nth-last-child(-n+2) { border-bottom: none; }
+    /* The table scrolls sideways inside its frame; keep the empty message in the visible part
+       (frame = viewport - 2 x 28px page gutters - borders, minus the cell padding) */
+    .control-table .empty-state { position: sticky; left: 12px; width: calc(100vw - 82px); }
     .search-box, .search-box input, .toolbar-right, .component-select { width: 100%; max-width: none; }
     .controls-toolbar { flex-direction: column; align-items: stretch; }
     .page-header { flex-wrap: wrap; }
