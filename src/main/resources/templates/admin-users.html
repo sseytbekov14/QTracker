@@ -527,6 +527,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 </div>
 
 <script src="/js/vendor/bootstrap.bundle.min.js"></script>
+<script src="/js/app-modal.js?v=4"></script>
 <script th:inline="javascript">
 document.addEventListener('DOMContentLoaded', function() {
     const rows = Array.from(document.querySelectorAll('.admin-user-row'));
@@ -625,7 +626,20 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        statusSelect.addEventListener('change', function() {
+        statusSelect.addEventListener('change', async function() {
+            // Deactivating an active account is asked once; going back to the saved value is not
+            if (statusSelect.value === 'INACTIVE' && originalState.get(userId).enabled) {
+                const name = userName(row);
+                const confirmed = await showConfirmModal({
+                    title: 'Deactivate ' + name + '?',
+                    message: name + ' will be signed out on the next action and cannot sign in until the account '
+                        + 'is active again. This takes effect when you save.',
+                    confirmText: 'Deactivate'
+                });
+                if (!confirmed) {
+                    statusSelect.value = 'ACTIVE';
+                }
+            }
             applyStatusBadge(statusSelect);
             updateRowDirtyState(row);
             updateSaveButtonState();
@@ -633,7 +647,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         if (adminToggle) {
-            adminToggle.addEventListener('change', function() {
+            adminToggle.addEventListener('change', async function() {
+                if (adminToggle.checked && !originalState.get(userId).adminAccess) {
+                    const name = userName(row);
+                    const confirmed = await showConfirmModal({
+                        title: 'Give admin access to ' + name + '?',
+                        message: name + ' will be able to manage users and to view and edit every control, '
+                            + 'drafts included. This takes effect when you save.',
+                        confirmText: 'Give admin access'
+                    });
+                    if (!confirmed) {
+                        adminToggle.checked = false;
+                    }
+                }
                 updateAdminLabel(adminLabel, adminToggle.checked);
                 updateRowDirtyState(row);
                 updateSaveButtonState();
@@ -886,7 +912,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 const created = await response.json();
-                storeFlash('User ' + (created.displayName || created.mail || email) + ' (' + (created.mail || email) + ') created.');
+                const createdMessage = 'User ' + (created.displayName || created.mail || email) + ' (' + (created.mail || email) + ') created.';
+                if (!hasNoPendingChanges()) {
+                    // A reload would drop the unsaved rows
+                    addUserModal.hide();
+                    showClientAlert(createdMessage + ' Save your changes and reload the page to see the user in the list.', 'success');
+                    return;
+                }
+                storeFlash(createdMessage);
                 window.location.reload();
             } catch (error) {
                 showFormError(addUserError, error.message || 'The user could not be created.');
@@ -968,6 +1001,14 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     clientAlert.querySelector('.btn-close').addEventListener('click', hideClientAlert);
+
+    // Leaving the page (sidebar, reload, closing the tab) with unsaved rows asks first
+    window.addEventListener('beforeunload', function(event) {
+        if (!hasNoPendingChanges()) {
+            event.preventDefault();
+            event.returnValue = '';
+        }
+    });
 
     showStoredFlash();
 
