@@ -2,10 +2,17 @@
 ## Document 03: Evidence Package & Security Questionnaire Responses
 ### Sections: 2 (CI/CD & Deployment), 3 (Infrastructure), 10 (Host Security), 12 (Backup & DR), 13 (Security Testing), 14 (Incident Management), 15 (Compliance)
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Prepared for Environment:** STAGE
-**Date:** 2026-07-24
+**Date:** 2026-10-02
 **Classification:** INTERNAL — RESTRICTED
+
+**Revision History**
+
+| Version | Date | Changes |
+|---|---|---|
+| 1.0 | 2026-07-24 | Initial issue |
+| 1.1 | 2026-10-02 | **Q15.1:** risk 5 (file upload size) resolved — 10 MB per file and 100 MB per request are enforced. **Q15.2:** data segregation statement names `PermissionService` (`AuthorizationPolicy` has been removed) and states that reads are not filtered by field. **Q15.3:** item 6 (file upload size limit) completed |
 
 ---
 

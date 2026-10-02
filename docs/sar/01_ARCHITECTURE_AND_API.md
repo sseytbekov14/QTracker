@@ -2,10 +2,17 @@
 ## Document 01: Architecture, API Inventory, Authentication & Session Security
 ### Sections: 1 (Application Overview), 5 (Authentication), 6 (Authorization / RBAC), 7 (Session Management), 8 (File Upload Security)
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Prepared for Environment:** STAGE
-**Date:** 2026-07-24
+**Date:** 2026-10-02
 **Classification:** INTERNAL — RESTRICTED
+
+**Revision History**
+
+| Version | Date | Changes |
+|---|---|---|
+| 1.0 | 2026-07-24 | Initial issue |
+| 1.1 | 2026-10-02 | Brought in line with the application. **3.2:** unauthenticated API requests are redirected to `/login`, not answered with `401`. **3.2.1–3.2.4:** per-control reads (changelog, Details / Assignment / Documents tabs, attachment info and download) follow the read rule of 5.4; `GET /api/users`, `/api/users/all` and `/api/users/role/{role}` listed with their access; removed `GET /api/controls`, `/api/controls/component/{component}`, `/api/workflow/{controlId}/status`, `/api/attachments/view/{filename}`, `/api/users/{email}` (deleted from the application) and `GET /api/controls/{id}` (never existed). **3.2.5:** `/api/roles` and `/api/notifications` deleted from the application; the four placeholder rows replaced by the real workflow transition, initiate, permission and dashboard endpoints. **5.4:** rewritten — one read rule for pages and API (`PermissionService`), and reads are not filtered by field: SoQM Head/Team and Process Owner comments are visible, read-only, to everyone who may read the control (the former statement that they were hidden from Facilitators and Control Operators was not accurate); `AuthorizationPolicy` removed from the application. **7.1:** current filename sanitizer and the path checks on download and delete. **7.4:** download serves only files the control lists. **7.6:** 10 MB per-file upload limit. Diagram sources `02_application_dfd_level1.mmd` and `06_workflow_rbac_state_machine.mmd` updated accordingly; their PNG renderings have not been redrawn yet |
 
 ---
 

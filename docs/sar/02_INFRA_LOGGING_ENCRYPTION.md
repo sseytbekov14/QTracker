@@ -2,10 +2,17 @@
 ## Document 02: Infrastructure, Logging, Encryption & Data Flow
 ### Sections: 4 (Infrastructure), 9 (Logging & Audit), 11 (Encryption)
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Prepared for Environment:** STAGE
-**Date:** 2026-07-24
+**Date:** 2026-10-02
 **Classification:** INTERNAL — RESTRICTED
+
+**Revision History**
+
+| Version | Date | Changes |
+|---|---|---|
+| 1.0 | 2026-07-24 | Initial issue |
+| 1.1 | 2026-10-02 | **3.3:** the service layer of the Level 1 data flow diagram names `PermissionService` instead of `AuthorizationPolicy`, which has been removed from the application |
 
 ---
 
