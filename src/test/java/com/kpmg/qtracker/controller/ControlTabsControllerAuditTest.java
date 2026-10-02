@@ -11,6 +11,7 @@ import com.kpmg.qtracker.service.AdhocNotificationService;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
+import com.kpmg.qtracker.service.PermissionService;
 import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.service.AnnualNotificationService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
@@ -82,6 +83,9 @@ class ControlTabsControllerAuditTest {
     private NotificationService notificationService;
     @MockBean
     private ControlPermissionService controlPermissionService;
+
+    @MockBean
+    private PermissionService permissionService;
 
     @Test
     void saveControlDetails_whenNoChanges_doesNotLogAudit() throws Exception {

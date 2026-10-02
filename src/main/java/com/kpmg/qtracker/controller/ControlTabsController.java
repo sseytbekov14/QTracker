@@ -33,6 +33,7 @@ public class ControlTabsController {
     private final SemiAnnualNotificationService semiAnnualNotificationService;
     private final NotificationService notificationService;
     private final ControlPermissionService controlPermissionService;
+    private final PermissionService permissionService;
 
     @PostMapping("/api/control-details")
     public ResponseEntity<?> saveControlDetails(@Valid @RequestBody ControlDetailsDTO detailsDTO, HttpSession session) {
@@ -232,7 +233,8 @@ public class ControlTabsController {
     }
 
     @GetMapping("/api/control-details")
-    public ResponseEntity<ControlDetailsDTO> getControlDetails(@RequestParam Long controlId) {
+    public ResponseEntity<ControlDetailsDTO> getControlDetails(@RequestParam Long controlId, HttpSession session) {
+        permissionService.requireReadable(controlId, (User) session.getAttribute("currentUser"));
         try {
             ControlDetailsDTO details = controlDetailsService.getDetailsByControlId(controlId);
             return ResponseEntity.ok(details);
@@ -242,7 +244,8 @@ public class ControlTabsController {
     }
 
     @GetMapping("/api/control-assignment")
-    public ResponseEntity<ControlAssignmentDTO> getControlAssignment(@RequestParam Long controlId) {
+    public ResponseEntity<ControlAssignmentDTO> getControlAssignment(@RequestParam Long controlId, HttpSession session) {
+        permissionService.requireReadable(controlId, (User) session.getAttribute("currentUser"));
         try {
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
             return ResponseEntity.ok(assignment);
@@ -252,7 +255,8 @@ public class ControlTabsController {
     }
 
     @GetMapping("/api/control-documents")
-    public ResponseEntity<ControlDocumentsDTO> getControlDocuments(@RequestParam Long controlId) {
+    public ResponseEntity<ControlDocumentsDTO> getControlDocuments(@RequestParam Long controlId, HttpSession session) {
+        permissionService.requireReadable(controlId, (User) session.getAttribute("currentUser"));
         try {
             ControlDocumentsDTO documents = controlDocumentsService.getDocumentsByControlId(controlId);
             return ResponseEntity.ok(documents);

@@ -1298,6 +1298,83 @@ class ApiSecurityMockMvcIT {
                 .doesNotContain(ownControl.getId());
     }
 
+    // ---- Reads of one control follow the View Control rule ----
+
+    private static final List<String> TAB_READS =
+            List.of("/api/control-details", "/api/control-assignment", "/api/control-documents");
+
+    @Test
+    void controlTabReads_participant200_stranger403_unknownControl404() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-TAB-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+        MockHttpSession facilitator = login(p.facilitator.getMail());
+        MockHttpSession stranger = login(saveUser("stranger-" + suffix(), "stranger-" + suffix() + "@example.test",
+                "FACILITATOR").getMail());
+
+        for (String path : TAB_READS) {
+            mockMvc.perform(get(path).param("controlId", String.valueOf(control.getId()))
+                            .with(ownAddress()).session(facilitator))
+                    .andExpect(status().isOk());
+            mockMvc.perform(get(path).param("controlId", String.valueOf(control.getId()))
+                            .with(ownAddress()).session(stranger))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+            mockMvc.perform(get(path).param("controlId", String.valueOf(UNKNOWN_CONTROL_ID))
+                            .with(ownAddress()).session(facilitator))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        }
+        mockMvc.perform(get("/api/control-assignment").param("controlId", String.valueOf(control.getId()))
+                        .with(ownAddress()).session(facilitator))
+                .andExpect(jsonPath("$.processOwner[0]").value(p.owner.getMail()));
+    }
+
+    @Test
+    void controlTabReads_sharedOnlyUser_403OnDraft_200AfterInitiation() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-TAB-" + suffix(), p.soqm, "DRAFT");
+        assign(control, p);
+        User shared = shareWith(control, "shared-" + suffix() + "@example.test");
+        MockHttpSession session = login(shared.getMail());
+
+        for (String path : TAB_READS) {
+            mockMvc.perform(get(path).param("controlId", String.valueOf(control.getId()))
+                            .with(ownAddress()).session(session))
+                    .andExpect(status().isForbidden());
+        }
+
+        moveTo(control, "IN_PROGRESS");
+
+        for (String path : TAB_READS) {
+            mockMvc.perform(get(path).param("controlId", String.valueOf(control.getId()))
+                            .with(ownAddress()).session(session))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    private static final long UNKNOWN_CONTROL_ID = 987_654_321L;
+
+    private static int requestAddressCount;
+
+    /** Each request from its own address: RateLimitingFilter counts requests per address and path group. */
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor ownAddress() {
+        String address = "10.1." + (requestAddressCount / 250) + "." + (1 + requestAddressCount++ % 250);
+        return request -> {
+            request.setRemoteAddr(address);
+            return request;
+        };
+    }
+
+    /** A new user the control is shared with, view only. */
+    private User shareWith(Control control, String mail) {
+        User user = saveUser(mail, mail, "CONTROL_OPERATOR");
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setControlSharedWith(mail);
+        assignmentRepository.save(assignment);
+        return user;
+    }
+
     private void saveHistory(Control control, WorkflowActionType type, String fromStep, String toStep, LocalDate day) {
         WorkflowHistory history = new WorkflowHistory();
         history.setControlId(control.getId());
