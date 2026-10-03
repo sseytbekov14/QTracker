@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<!--
+  CSRF token for scripts. Usage in <head>: <th:block th:replace="~{fragments/csrf :: csrf}"></th:block>
+  csrf.js adds the token header to every same-origin fetch that changes data (POST/PUT/PATCH/DELETE).
+  Forms posted by the browser use th:action instead: Thymeleaf adds the hidden _csrf field to them.
+-->
+<th:block th:fragment="csrf">
+    <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:if="${_csrf != null}" th:content="${_csrf.headerName}">
+    <script src="/js/csrf.js?v=1"></script>
+</th:block>
+</head>
+</html>
