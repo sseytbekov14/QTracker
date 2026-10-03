@@ -1730,6 +1730,32 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
+    void markAllRead_formCarriesCsrfToken_withoutTokenReturns403_withTokenMarksAll() throws Exception {
+        User owner = saveUser("notif-owner", "notif-owner-" + suffix() + "@example.test", "FACILITATOR");
+        Control control = createControl("CTRL-NTF-" + suffix(), owner, "IN_PROGRESS");
+        Notification first = saveNotification(owner, control, "STATUS_CHANGE");
+        Notification second = saveNotification(owner, control, "STATUS_CHANGE");
+        MockHttpSession session = login(owner.getMail());
+
+        String html = mockMvc.perform(get("/").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        int formAt = html.indexOf("id=\"notifMarkAllForm\"");
+        assertThat(formAt).isPositive();
+        assertThat(html.substring(formAt, html.indexOf("</form>", formAt))).contains("name=\"_csrf\"");
+
+        mockMvc.perform(post("/notifications/mark-all-read").session(session))
+                .andExpect(status().isForbidden());
+        assertThat(notificationRepository.findById(first.getId()).orElseThrow().getIsRead()).isFalse();
+
+        mockMvc.perform(post("/notifications/mark-all-read").with(csrf()).session(session))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/#notifications"));
+        assertThat(notificationRepository.findById(first.getId()).orElseThrow().getIsRead()).isTrue();
+        assertThat(notificationRepository.findById(second.getId()).orElseThrow().getIsRead()).isTrue();
+    }
+
+    @Test
     void notificationsTab_hasCsrfToken_andMarkAsReadButtonOnlyOnUnreadRows() throws Exception {
         User owner = saveUser("notif-owner", "notif-owner-" + suffix() + "@example.test", "FACILITATOR");
         Control control = createControl("CTRL-NTF-" + suffix(), owner, "IN_PROGRESS");

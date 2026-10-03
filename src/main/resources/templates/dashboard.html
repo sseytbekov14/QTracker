@@ -1191,7 +1191,7 @@ a.stat-block:focus-visible,
                                    th:text="${unreadNotifications != null and unreadNotifications > 0} ? (${unreadNotifications} + ' unread') : 'You are all caught up'">
                                     Stay updated</p>
                             </div>
-                            <form method="post" action="/notifications/mark-all-read" class="m-0" id="notifMarkAllForm"
+                            <form method="post" th:action="@{/notifications/mark-all-read}" class="m-0" id="notifMarkAllForm"
                                   th:if="${unreadNotifications != null and unreadNotifications > 0}">
                                 <button type="submit" class="btn-mark-read"><i class="bi bi-check2-all" aria-hidden="true"></i>Mark all as read</button>
                             </form>

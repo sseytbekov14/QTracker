@@ -70,9 +70,7 @@ class CsrfTemplateCoverageTest {
             Matcher form = FORM_TAG.matcher(read(template));
             while (form.find()) {
                 String tag = form.group();
-                // Still in SecurityConfig's CSRF ignore list
-                boolean ignoredByServer = tag.contains("action=\"/notifications/mark-all-read\"");
-                if (POST_METHOD.matcher(tag).find() && !tag.contains("th:action") && !ignoredByServer) {
+                if (POST_METHOD.matcher(tag).find() && !tag.contains("th:action")) {
                     missing.add(name(template) + ": " + tag);
                 }
             }

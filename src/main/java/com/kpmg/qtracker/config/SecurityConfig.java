@@ -42,15 +42,14 @@ public class SecurityConfig {
     }
 
     /**
-     * The same CSRF rules for every chain: the token lives in a cookie (so it outlives the session and an expired
-     * session still ends in the login redirect), pages send it as a header (fragments/csrf.html + js/csrf.js)
-     * or as the hidden field Thymeleaf adds to th:action forms.
+     * The same CSRF rules for every chain, with no exceptions: the token lives in a cookie (so it outlives the
+     * session and an expired session still ends in the login redirect), pages send it as a header
+     * (fragments/csrf.html + js/csrf.js) or as the hidden field Thymeleaf adds to th:action forms.
      */
     private void configureCsrf(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .ignoringRequestMatchers("/notifications/mark-all-read"))
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
                 .exceptionHandling(exceptions -> exceptions
                         .accessDeniedHandler(csrfAccessDeniedHandler));
     }
