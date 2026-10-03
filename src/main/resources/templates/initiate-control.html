@@ -240,7 +240,15 @@
         try {
             var response = await fetch('/api/performance/initiate', { method: 'POST', body: body });
             if (!response.ok) {
-                throw new Error((await response.text()) || 'The server did not initiate the control.');
+                var text = await response.text();
+                var message = text;
+                try {
+                    // JSON error bodies (e.g. CSRF_INVALID) carry the readable text in "message"
+                    message = JSON.parse(text).message || text;
+                } catch (e) {
+                    // plain text, e.g. "Required fields are missing: ..."
+                }
+                throw new Error(message || 'The server did not initiate the control.');
             }
             window.location.href = '/performance-cycle/' + button.dataset.controlId + '?status=initiated';
         } catch (error) {

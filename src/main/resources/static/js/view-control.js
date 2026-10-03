@@ -548,7 +548,7 @@ function confirmWorkflowAction() {
 
             } else {
                 const error = await response.text();
-                showErrorMessage('Error: ' + error);
+                showErrorMessage('Error: ' + serverErrorText(error));
             }
 
         } catch (error) {
@@ -1963,7 +1963,7 @@ function renameControlId(newControlId) {
                 return response.json();
             } else {
                 return response.text().then(text => {
-                    throw new Error(text || 'Failed to rename Control ID');
+                    throw new Error(serverErrorText(text) || 'Failed to rename Control ID');
                 });
             }
         });
@@ -3207,7 +3207,19 @@ function saveDocumentsData(controlId) {
 // Save endpoints answer a refused change with "VALIDATION_ERROR: <reason>"; the user sees only the reason.
 // Global, as the save code both inside and outside the IIFE uses it.
 function serverErrorText(text) {
-    return String(text || '').replace(/^\s*VALIDATION_ERROR:\s*/, '');
+    const raw = String(text || '');
+    // JSON error bodies (ErrorResponse, e.g. CSRF_INVALID) carry the readable text in "message"
+    if (raw.trim().startsWith('{')) {
+        try {
+            const json = JSON.parse(raw);
+            if (json && typeof json.message === 'string' && json.message) {
+                return json.message;
+            }
+        } catch (e) {
+            // not JSON after all: show it as it is
+        }
+    }
+    return raw.replace(/^\s*VALIDATION_ERROR:\s*/, '');
 }
 
 // A stored value that none of the select's options carries (older or imported data) gets an option of its
@@ -4576,7 +4588,7 @@ async function confirmCompleteControl() {
     .then(response => {
         if (!response.ok) {
             return response.text().then(text => {
-                throw new Error('Error completing control: ' + text);
+                throw new Error('Error completing control: ' + serverErrorText(text));
             });
         }
         return response.text();

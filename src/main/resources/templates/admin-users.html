@@ -1311,7 +1311,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return 'your session has expired, sign in again';
         }
         if (response.status === 403) {
-            return 'you do not have admin access';
+            // A stale CSRF token (e.g. after signing in again in another tab) is a 403 too, with its own message
+            const json = await response.clone().json().catch(() => null);
+            return json && json.code === 'CSRF_INVALID' ? json.message : 'you do not have admin access';
         }
         let text = '';
         try {
