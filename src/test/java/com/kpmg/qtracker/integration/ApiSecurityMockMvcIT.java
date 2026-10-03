@@ -196,7 +196,7 @@ class ApiSecurityMockMvcIT {
         MockHttpSession session = login(ownerEmail);
 
         // The message proves the 403 comes from the workflow guard, not from the security filters
-        mockMvc.perform(post("/api/workflow/submit-to-control-operator")
+        mockMvc.perform(post("/api/workflow/submit-to-control-operator").with(csrf().asHeader())
                         .param("controlId", String.valueOf(control.getId()))
                         .session(session))
                 .andExpect(status().isForbidden())
@@ -214,7 +214,7 @@ class ApiSecurityMockMvcIT {
                         .session(session))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/controls/{id}/rename-id", control.getId())
+        mockMvc.perform(post("/api/controls/{id}/rename-id", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"newControlId\":\"" + control.getControlId() + "-R\"}")
                         .session(session))
@@ -237,7 +237,7 @@ class ApiSecurityMockMvcIT {
 
         MockHttpSession session = login(p.facilitator.getMail());
 
-        mockMvc.perform(post("/api/control-assignment")
+        mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"controlId\":" + control.getId()
                                 + ",\"processOwner\":[\"" + p.facilitator.getMail() + "\"]}")
@@ -259,7 +259,7 @@ class ApiSecurityMockMvcIT {
 
         MockHttpSession session = login(p.soqm.getMail());
 
-        mockMvc.perform(post("/api/control-assignment")
+        mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"controlId\":" + control.getId()
                                 + ",\"processOwner\":[\"" + newOwner + "\"]}")
@@ -297,7 +297,7 @@ class ApiSecurityMockMvcIT {
 
         // Monthly from 31 January: the next date is the end of February. A browser that rolled the day
         // over would send 3 March; the page's values must not reach the database or the log.
-        mockMvc.perform(post("/api/control-assignment")
+        mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"controlId\":" + control.getId()
                                 + ",\"controlOperationDate\":\"2026-01-31\""
@@ -327,7 +327,7 @@ class ApiSecurityMockMvcIT {
         MockHttpSession session = login(p.facilitator.getMail());
 
         // Same values as stored, with the whitespace a form round-trip may add
-        mockMvc.perform(put("/api/controls/{id}", control.getId())
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlForm(" monthly ", "HR ", "IN_PROGRESS"))
                         .session(session))
@@ -349,7 +349,7 @@ class ApiSecurityMockMvcIT {
         assignment.setControlOperationDeadline(sentinelDeadline);
         assignmentRepository.save(assignment);
 
-        mockMvc.perform(put("/api/controls/{id}", control.getId())
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlForm("Annual", "HR", "IN_PROGRESS"))
                         .session(login(p.facilitator.getMail())))
@@ -370,7 +370,7 @@ class ApiSecurityMockMvcIT {
         Control control = createControl("CTRL-POC-" + suffix(), p.soqm, "PROCESS_OWNER_REVIEW");
         assign(control, p);
 
-        mockMvc.perform(put("/api/controls/{id}", control.getId())
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"processOwnerComments\":\"Checked by PO\"}")
                         .session(login(p.owner.getMail())))
@@ -388,21 +388,21 @@ class ApiSecurityMockMvcIT {
 
         MockHttpSession session = login(p.facilitator.getMail());
 
-        mockMvc.perform(put("/api/controls/{id}", control.getId())
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlForm("Monthly", "GOV", "IN_PROGRESS"))
                         .session(session))
                 .andExpect(status().isForbidden())
                 .andExpect(content().string(containsString("Component can be changed only by SoQM Team")));
 
-        mockMvc.perform(put("/api/controls/{id}", control.getId())
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlForm("Monthly", "HR", "DELETED"))
                         .session(session))
                 .andExpect(status().isForbidden())
                 .andExpect(content().string(containsString("Control Status can be changed only by SoQM Team")));
 
-        mockMvc.perform(put("/api/controls/{id}", control.getId())
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlForm("Quarterly", "HR", "IN_PROGRESS"))
                         .session(session))
@@ -423,7 +423,7 @@ class ApiSecurityMockMvcIT {
 
         MockHttpSession session = login(p.soqm.getMail());
 
-        mockMvc.perform(put("/api/controls/{id}", control.getId())
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlForm("Monthly", "GOV", "IN_PROGRESS"))
                         .session(session))
@@ -529,7 +529,7 @@ class ApiSecurityMockMvcIT {
         mockMvc.perform(get(viewUrl).session(facilitatorSession))
                 .andExpect(status().isOk())
                 .andExpect(content().string(not(containsString("href=\"" + initiateUrl + "\""))));
-        mockMvc.perform(post("/api/performance/initiate")
+        mockMvc.perform(post("/api/performance/initiate").with(csrf().asHeader())
                         .param("controlId", String.valueOf(control.getId()))
                         .param("soqmYear", "1 OCT 2026 - 30 SEP 2027")
                         .session(facilitatorSession))
@@ -646,7 +646,7 @@ class ApiSecurityMockMvcIT {
         Control control = createControl("CTRL-YEAR-BAD-" + suffix(), p.soqm, "DRAFT");
         assign(control, p);
 
-        mockMvc.perform(post("/api/performance/initiate")
+        mockMvc.perform(post("/api/performance/initiate").with(csrf().asHeader())
                         .param("controlId", String.valueOf(control.getId()))
                         .param("soqmYear", "2026-27")
                         .session(login(p.soqm.getMail())))
@@ -668,20 +668,20 @@ class ApiSecurityMockMvcIT {
         String newYear = "1 OCT 2026 - 30 SEP 2027";
 
         MockHttpSession facilitatorSession = login(p.facilitator.getMail());
-        mockMvc.perform(put("/api/controls/{id}", control.getId())
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlFormWithSoqmYear(newYear))
                         .session(facilitatorSession))
                 .andExpect(status().isForbidden())
                 .andExpect(content().string(containsString("SoQM Year can be changed only by SoQM Team")));
-        mockMvc.perform(put("/api/controls/{id}", control.getId())
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlFormWithSoqmYear("1 OCT 2025 - 30 SEP 2026"))
                         .session(facilitatorSession))
                 .andExpect(status().isOk());
 
         MockHttpSession soqmSession = login(p.soqm.getMail());
-        mockMvc.perform(put("/api/controls/{id}", control.getId())
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlFormWithSoqmYear("2031"))
                         .session(soqmSession))
@@ -689,7 +689,7 @@ class ApiSecurityMockMvcIT {
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getSoqmYear())
                 .isEqualTo("1 OCT 2025 - 30 SEP 2026");
 
-        mockMvc.perform(put("/api/controls/{id}", control.getId())
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlFormWithSoqmYear(newYear))
                         .session(soqmSession))
@@ -712,7 +712,7 @@ class ApiSecurityMockMvcIT {
         assign(control, p);
         MockHttpSession session = login(p.soqm.getMail());
 
-        mockMvc.perform(post("/api/performance/auto-save")
+        mockMvc.perform(post("/api/performance/auto-save").with(csrf().asHeader())
                         .param("controlId", String.valueOf(control.getId()))
                         .param("soqmYear", "1 OCT 2026 - 30 SEP 2027")
                         .session(session))
@@ -733,7 +733,7 @@ class ApiSecurityMockMvcIT {
 
         MockHttpSession session = login(p.facilitator.getMail());
 
-        mockMvc.perform(post("/api/control-documents")
+        mockMvc.perform(post("/api/control-documents").with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Available\"}")
                         .session(session))
@@ -752,7 +752,7 @@ class ApiSecurityMockMvcIT {
 
         MockHttpSession session = login(p.soqm.getMail());
 
-        mockMvc.perform(post("/api/control-documents")
+        mockMvc.perform(post("/api/control-documents").with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Available\"}")
                         .session(session))
@@ -786,19 +786,19 @@ class ApiSecurityMockMvcIT {
                 .andExpect(content().string(containsString("data-stored-value=\"Finance\"")));
 
         // While those options stay selected Save sends the fields as null; other fields still change
-        mockMvc.perform(put("/api/controls/{id}", control.getId())
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"controlFrequency\":null,\"controlCategory\":null,\"controlType\":null,"
                                 + "\"component\":\"GOV\",\"operatedBy\":null,\"controlStatus\":null,\"priority\":\"Low\","
                                 + "\"nonAuditServicesApplicability\":null,\"controlDescription\":\"\",\"prp\":\"\"}")
                         .session(session))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/control-details")
+        mockMvc.perform(post("/api/control-details").with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"controlId\":" + control.getId() + ",\"processName\":\"Payroll\",\"homogeneity\":null}")
                         .session(session))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/control-documents")
+        mockMvc.perform(post("/api/control-documents").with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":null}")
                         .session(session))
@@ -826,7 +826,7 @@ class ApiSecurityMockMvcIT {
         soqm.setRole("FACILITATOR");
         userRepository.save(soqm);
 
-        mockMvc.perform(post("/api/controls/{id}/rename-id", control.getId())
+        mockMvc.perform(post("/api/controls/{id}/rename-id", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"newControlId\":\"" + control.getControlId() + "-R\"}")
                         .session(session))
@@ -848,7 +848,7 @@ class ApiSecurityMockMvcIT {
 
         MockHttpSession session = login(p.facilitator.getMail());
 
-        mockMvc.perform(post("/api/workflow/submit-to-control-operator")
+        mockMvc.perform(post("/api/workflow/submit-to-control-operator").with(csrf().asHeader())
                         .param("controlId", String.valueOf(control.getId()))
                         .session(session))
                 .andExpect(status().isInternalServerError());
@@ -865,7 +865,7 @@ class ApiSecurityMockMvcIT {
         MockHttpSession session = login(soqm.getMail());
 
         // Controls are removed only by the soft delete (Control Status = Deleted)
-        mockMvc.perform(delete("/api/controls/{id}", control.getId())
+        mockMvc.perform(delete("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .session(session))
                 .andExpect(status().isMethodNotAllowed());
 
@@ -881,7 +881,7 @@ class ApiSecurityMockMvcIT {
         MockHttpSession session = login(p.operator.getMail());
 
         for (String url : List.of("/api/workflow/approve", "/api/workflow/return")) {
-            mockMvc.perform(post(url)
+            mockMvc.perform(post(url).with(csrf().asHeader())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"controlId\":" + control.getId() + "}")
                             .session(session))
@@ -900,13 +900,13 @@ class ApiSecurityMockMvcIT {
 
         MockHttpSession session = login(p.soqm.getMail());
 
-        mockMvc.perform(post("/api/workflow/initiate")
+        mockMvc.perform(post("/api/workflow/initiate").with(csrf().asHeader())
                         .param("controlId", String.valueOf(control.getId()))
                         .session(session))
                 .andExpect(status().isNotFound());
         // perform-action has no Initiate either: it would skip the required fields and the workflow steps
         for (String action : List.of("INITIATE", "SUBMIT_FOR_REVIEW")) {
-            mockMvc.perform(post("/api/workflow/perform-action")
+            mockMvc.perform(post("/api/workflow/perform-action").with(csrf().asHeader())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"controlId\":" + control.getId() + ",\"action\":\"" + action + "\"}")
                             .session(session))
@@ -916,7 +916,7 @@ class ApiSecurityMockMvcIT {
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
                 .isEqualTo("DRAFT");
 
-        mockMvc.perform(post("/api/performance/initiate")
+        mockMvc.perform(post("/api/performance/initiate").with(csrf().asHeader())
                         .param("controlId", String.valueOf(control.getId()))
                         .param("soqmYear", "1 OCT 2026 - 30 SEP 2027")
                         .session(session))
@@ -935,7 +935,7 @@ class ApiSecurityMockMvcIT {
         assignmentRepository.save(assignment);
         MockHttpSession session = login(p.soqm.getMail());
 
-        mockMvc.perform(post("/api/performance/initiate")
+        mockMvc.perform(post("/api/performance/initiate").with(csrf().asHeader())
                         .param("controlId", String.valueOf(control.getId()))
                         .param("soqmYear", "1 OCT 2026 - 30 SEP 2027")
                         .session(session))
@@ -944,7 +944,7 @@ class ApiSecurityMockMvcIT {
 
         assignment.setProcessOwner(p.owner.getMail());
         assignmentRepository.save(assignment);
-        mockMvc.perform(post("/api/performance/initiate")
+        mockMvc.perform(post("/api/performance/initiate").with(csrf().asHeader())
                         .param("controlId", String.valueOf(control.getId()))
                         .session(session))
                 .andExpect(status().isBadRequest())
@@ -962,7 +962,7 @@ class ApiSecurityMockMvcIT {
         Control control = createControl("CTRL-INIT-WHO-" + suffix(), p.soqm, "DRAFT");
         assign(control, p);
 
-        mockMvc.perform(post("/api/performance/initiate")
+        mockMvc.perform(post("/api/performance/initiate").with(csrf().asHeader())
                         .param("controlId", String.valueOf(control.getId()))
                         .param("soqmYear", "1 OCT 2026 - 30 SEP 2027")
                         .session(login(p.soqm.getMail())))
@@ -994,14 +994,14 @@ class ApiSecurityMockMvcIT {
 
         MockHttpSession session = login(p.soqm.getMail());
 
-        mockMvc.perform(post("/api/workflow/submit-to-process-owner")
+        mockMvc.perform(post("/api/workflow/submit-to-process-owner").with(csrf().asHeader())
                         .param("controlId", String.valueOf(control.getId()))
                         .session(session))
                 .andExpect(status().isBadRequest());
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
                 .isEqualTo("SOQM_HEAD_REVIEW");
 
-        mockMvc.perform(post("/api/workflow/perform-action")
+        mockMvc.perform(post("/api/workflow/perform-action").with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"controlId\":" + control.getId() + ",\"action\":\"SEND_TO_PROCESS_OWNER\"}")
                         .session(session))
@@ -1108,6 +1108,7 @@ class ApiSecurityMockMvcIT {
                 "%PDF-1.4 test".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         String body = mockMvc.perform(multipart("/api/attachments/upload/{id}", control.getId())
                         .file(file)
+                        .with(csrf().asHeader())
                         .session(session))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
@@ -1116,7 +1117,7 @@ class ApiSecurityMockMvcIT {
 
     private org.springframework.test.web.servlet.ResultActions deleteAttachment(Control control, MockHttpSession session,
                                                                                String fileName) throws Exception {
-        return mockMvc.perform(delete("/api/attachments/delete/{id}", control.getId())
+        return mockMvc.perform(delete("/api/attachments/delete/{id}", control.getId()).with(csrf().asHeader())
                 .param("filename", fileName)
                 .param("type", "details")
                 .session(session));
@@ -1566,7 +1567,7 @@ class ApiSecurityMockMvcIT {
             target.setSecondaryRole("Facilitator");
             userRepository.save(target);
 
-            mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(ownAddress()).session(adminSession)
+            mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
                             .param("role", "")
                             .param("secondaryRole", "")
                             .param("adminAccess", "false")
@@ -1587,7 +1588,7 @@ class ApiSecurityMockMvcIT {
         target.setSecondaryRole("FACILITATOR");
         userRepository.save(target);
 
-        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(ownAddress()).session(adminSession)
+        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
                         .param("role", "PROCESS_OWNER")
                         .param("secondaryRole", "NONE")
                         .param("enabled", "true"))
@@ -1601,7 +1602,7 @@ class ApiSecurityMockMvcIT {
         User admin = adminUser();
         MockHttpSession adminSession = login(admin.getMail());
         User target = saveUser("Trail Target", "trail-target-" + suffix() + "@example.test", "FACILITATOR");
-        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(ownAddress()).session(adminSession)
+        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
                         .param("role", "")
                         .param("secondaryRole", "")
                         .param("enabled", "false"))

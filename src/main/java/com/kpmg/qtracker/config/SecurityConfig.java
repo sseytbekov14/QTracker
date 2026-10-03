@@ -1,6 +1,7 @@
 package com.kpmg.qtracker.config;
 
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.security.CsrfAccessDeniedHandler;
 import com.kpmg.qtracker.security.DevAuthenticationProvider;
 import com.kpmg.qtracker.security.LoginAttemptService;
 import com.kpmg.qtracker.security.RateLimitingFilter;
@@ -28,23 +29,37 @@ public class SecurityConfig {
     private final CorrelationIdFilter correlationIdFilter;
     private final RateLimitingFilter rateLimitingFilter;
     private final UserEnabledGuardFilter userEnabledGuardFilter;
+    private final CsrfAccessDeniedHandler csrfAccessDeniedHandler;
 
     public SecurityConfig(CorrelationIdFilter correlationIdFilter,
                           RateLimitingFilter rateLimitingFilter,
-                          UserEnabledGuardFilter userEnabledGuardFilter) {
+                          UserEnabledGuardFilter userEnabledGuardFilter,
+                          CsrfAccessDeniedHandler csrfAccessDeniedHandler) {
         this.correlationIdFilter = correlationIdFilter;
         this.rateLimitingFilter = rateLimitingFilter;
         this.userEnabledGuardFilter = userEnabledGuardFilter;
+        this.csrfAccessDeniedHandler = csrfAccessDeniedHandler;
+    }
+
+    /**
+     * The same CSRF rules for every chain: the token lives in a cookie (so it outlives the session and an expired
+     * session still ends in the login redirect), pages send it as a header (fragments/csrf.html + js/csrf.js)
+     * or as the hidden field Thymeleaf adds to th:action forms.
+     */
+    private void configureCsrf(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .ignoringRequestMatchers("/notifications/mark-all-read"))
+                .exceptionHandling(exceptions -> exceptions
+                        .accessDeniedHandler(csrfAccessDeniedHandler));
     }
 
     @Bean
     @Profile("ssodev")
     public SecurityFilterChain securityFilterChainSso(HttpSecurity http) throws Exception {
+        configureCsrf(http);
         http
-            .csrf(csrf -> csrf
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                .ignoringRequestMatchers("/api/**", "/notifications/mark-all-read")
-            )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/login").permitAll()
@@ -84,11 +99,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChainDev(HttpSecurity http,
                                                       AuthenticationProvider devAuthenticationProvider,
                                                       UserRepository userRepository) throws Exception {
+        configureCsrf(http);
         http
-                .csrf(csrf -> csrf
-                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                    .ignoringRequestMatchers("/api/**", "/notifications/mark-all-read")
-                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/login").permitAll()

@@ -68,7 +68,7 @@ class UserAccessAuditIT {
         userRepository.save(admin);
         User target = saveUser("audit-target-" + suffix() + "@example.test", "FACILITATOR");
 
-        mockMvc.perform(post("/api/users/" + target.getId() + "/access").session(login(admin.getMail()))
+        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).session(login(admin.getMail()))
                         .param("role", "PROCESS_OWNER")
                         .param("secondaryRole", "NONE")
                         .param("enabled", "false"))
