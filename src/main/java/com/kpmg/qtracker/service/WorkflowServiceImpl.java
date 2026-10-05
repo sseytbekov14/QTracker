@@ -157,28 +157,13 @@ public class WorkflowServiceImpl implements WorkflowService {
                         "Mark this control as completed?"
                 ));
 
-                buttons.add(new WorkflowButtonDTO(
-                        "RETURN_TO_FACILITATOR",
-                        "Return to Facilitator",
-                        "btn-warning",
-                        true,
-                        "Please provide reason for returning to Facilitator"
-                ));
-
+                // The Process Owner returns only to the Control Operator (spec 9.4)
                 buttons.add(new WorkflowButtonDTO(
                         "SEND_FOR_REVISION",
-                        "Send for Revision to Control Operator",
-                        "btn-info",
+                        "Return to Control Operator",
+                        "btn-warning",
                         true,
-                        "Please provide revision instructions"
-                ));
-
-                buttons.add(new WorkflowButtonDTO(
-                        "SUBMIT_FOR_SOQM_REVIEW",
-                        "Submit for SoQM Team Review",
-                        "btn-info",
-                        true,
-                        "Submit for additional SOQM review?"
+                        "Please provide the reason for returning to the Control Operator"
                 ));
             }
 

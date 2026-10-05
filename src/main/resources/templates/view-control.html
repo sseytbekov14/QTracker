@@ -1180,14 +1180,14 @@
                                     Complete
                                 </button>
 
-                                <!-- 7. Return to SoQM Team button for PROCESS_OWNER -->
+                                <!-- 7. Return to Control Operator button for PROCESS_OWNER -->
                                 <button type="button"
                                         class="btn btn-warning workflow-submit-btn po-action-btn"
-                                        id="returnToSoqmLeadBtn"
+                                        id="ownerReturnToOperatorBtn"
                                         style="display: none;"
                                         disabled
-                                        title="Return this control to SoQM Team for revision">
-                                    Return for SoQM Team Review
+                                        title="Return this control to the Control Operator for revision">
+                                    Return to Control Operator
                                 </button>
                             </div>
 
@@ -1379,9 +1379,11 @@
                                     Are you sure you want to return this control to the <strong>Facilitator</strong> for revision?
                                 </p>
                                 <div class="mb-3">
-                                    <label for="returnComments" class="form-label">Comments (optional)</label>
-                                    <textarea class="form-control" id="returnComments" rows="3" maxlength="2000"
+                                    <label for="returnComments" class="form-label">Reason for the return <span class="text-danger" aria-hidden="true">*</span></label>
+                                    <textarea class="form-control" id="returnComments" rows="3" maxlength="2000" required
+                                              aria-describedby="returnCommentsError"
                                               placeholder="Provide feedback for the Facilitator..."></textarea>
+                                    <div class="invalid-feedback" id="returnCommentsError">Enter the reason for the return.</div>
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -1434,9 +1436,11 @@
                                     Are you sure you want to return this control to the <strong>Control Operator</strong> for revision?
                                 </p>
                                 <div class="mb-3">
-                                    <label for="returnOperatorComments" class="form-label">Comments (optional)</label>
-                                    <textarea class="form-control" id="returnOperatorComments" rows="3" maxlength="2000"
+                                    <label for="returnOperatorComments" class="form-label">Reason for the return <span class="text-danger" aria-hidden="true">*</span></label>
+                                    <textarea class="form-control" id="returnOperatorComments" rows="3" maxlength="2000" required
+                                              aria-describedby="returnOperatorCommentsError"
                                               placeholder="Provide feedback for the Control Operator..."></textarea>
+                                    <div class="invalid-feedback" id="returnOperatorCommentsError">Enter the reason for the return.</div>
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -1475,36 +1479,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Modal for Return to SoQM Team confirmation -->
-                <div class="modal fade" id="returnSoqmLeadModal" tabindex="-1">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header bg-warning text-dark">
-                                <h5 class="modal-title">Return Control to SoQM Team</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <p class="mb-3">
-                                    Are you sure you want to return this control to the <strong>SoQM Team</strong> for revision?
-                                </p>
-                                <div class="mb-3">
-                                    <label for="returnSoqmLeadComments" class="form-label">Comments (optional)</label>
-                                    <textarea class="form-control" id="returnSoqmLeadComments" rows="3" maxlength="2000"
-                                              placeholder="Provide feedback for the SoQM Team..."></textarea>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                                    Cancel
-                                </button>
-                                <button type="button" class="btn btn-warning" id="confirmReturnSoqmLeadBtn">
-                                    Confirm Return
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -1514,7 +1488,7 @@
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=4"></script>
-<script src="/js/view-control.js?v=5.1"></script>
+<script src="/js/view-control.js?v=5.2"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {
@@ -1531,7 +1505,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitToProcessOwnerBtn = document.getElementById('submitToProcessOwnerBtn');
     const returnToOperatorBtn = document.getElementById('returnToOperatorBtn');
     const completeControlBtn = document.getElementById('completeControlBtn');
-    const returnToSoqmLeadBtn = document.getElementById('returnToSoqmLeadBtn');
+    const ownerReturnToOperatorBtn = document.getElementById('ownerReturnToOperatorBtn');
     
     const editBtn = document.getElementById('editBtn');
     const renameIdBtn = document.getElementById('renameIdBtn');
@@ -1595,15 +1569,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // PROCESS OWNER: Show "Complete" and "Return to SoQM Team" buttons
+    // PROCESS OWNER: Show "Complete" and "Return to Control Operator" buttons
     if (canUseWorkflowActions && isProcessOwner && performanceStatus === 'PROCESS_OWNER_REVIEW') {
         if (completeControlBtn) {
             completeControlBtn.style.display = 'inline-block';
             console.log('   ? Complete button shown for Process Owner');
         }
-        if (returnToSoqmLeadBtn) {
-            returnToSoqmLeadBtn.style.display = 'inline-block';
-            console.log('   ? Return to SoQM Team button shown for Process Owner');
+        if (ownerReturnToOperatorBtn) {
+            ownerReturnToOperatorBtn.style.display = 'inline-block';
         }
 
         // Keep buttons disabled until Process Owner Comments is filled
@@ -1612,7 +1585,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const togglePoBtns = () => {
                 const filled = !!poCommentsField.value.trim();
                 if (completeControlBtn) completeControlBtn.disabled = !filled;
-                if (returnToSoqmLeadBtn) returnToSoqmLeadBtn.disabled = !filled;
+                if (ownerReturnToOperatorBtn) ownerReturnToOperatorBtn.disabled = !filled;
             };
             togglePoBtns();
             poCommentsField.addEventListener('input', togglePoBtns);

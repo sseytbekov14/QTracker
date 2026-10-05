@@ -138,9 +138,15 @@ class WorkflowControllerTransitionGuardTest {
     // ---------- return-to-operator ----------
 
     @Test
-    void returnToOperator_byProcessOwner_isForbidden() throws Exception {
-        givenStatus("SOQM_HEAD_REVIEW").as(Role.PROCESS_OWNER);
+    void returnToOperator_byFacilitator_isForbidden() throws Exception {
+        givenStatus("SOQM_HEAD_REVIEW").as(Role.FACILITATOR);
         call("/api/workflow/return-to-operator").andExpect(status().isForbidden());
+    }
+
+    @Test
+    void returnToOperator_byProcessOwnerBeforeTheirStep_isConflict() throws Exception {
+        givenStatus("SOQM_HEAD_REVIEW").as(Role.PROCESS_OWNER);
+        call("/api/workflow/return-to-operator").andExpect(status().isConflict());
     }
 
     @Test
@@ -149,18 +155,39 @@ class WorkflowControllerTransitionGuardTest {
         call("/api/workflow/return-to-operator").andExpect(status().isConflict());
     }
 
-    // ---------- return-to-soqm-lead ----------
+    // ---------- the Process Owner's return to the Control Operator ----------
 
     @Test
-    void returnToSoqmLead_byControlOperator_isForbidden() throws Exception {
+    void ownerReturnToOperator_byControlOperator_isForbidden() throws Exception {
         givenStatus("PROCESS_OWNER_REVIEW").as(Role.CONTROL_OPERATOR);
-        call("/api/workflow/return-to-soqm-lead").andExpect(status().isForbidden());
+        call("/api/workflow/return-to-operator").andExpect(status().isForbidden());
     }
 
     @Test
-    void returnToSoqmLead_onCompletedControl_isConflict() throws Exception {
+    void ownerReturnToOperator_onCompletedControl_isConflict() throws Exception {
         givenStatus("COMPLETED").as(Role.PROCESS_OWNER);
-        call("/api/workflow/return-to-soqm-lead").andExpect(status().isConflict());
+        call("/api/workflow/return-to-operator").andExpect(status().isConflict());
+    }
+
+    @Test
+    void ownerReturnToOperator_withoutComment_isBadRequest() throws Exception {
+        givenStatus("PROCESS_OWNER_REVIEW").as(Role.PROCESS_OWNER);
+        when(requiredFieldService.getMissingReviewCommentMessage(control)).thenReturn(Optional.empty());
+
+        call("/api/workflow/return-to-operator")
+                .andExpect(status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .string("A comment is required to return the control"));
+        mockMvc.perform(MockMvcRequestBuilders.post("/api/workflow/return-to-operator")
+                        .param("controlId", String.valueOf(CONTROL_ID))
+                        .param("comments", "   ")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returnToSoqmLead_isGone() throws Exception {
+        call("/api/workflow/return-to-soqm-lead").andExpect(status().isNotFound());
     }
 
     // ---------- perform-action ----------
@@ -184,15 +211,41 @@ class WorkflowControllerTransitionGuardTest {
     }
 
     @Test
-    void performAction_ownerReturnToFacilitator_movesControlBackToInProgress() throws Exception {
+    void performAction_processOwnerCannotReturnToFacilitator() throws Exception {
+        givenStatus("PROCESS_OWNER_REVIEW").as(Role.PROCESS_OWNER);
+        performAction("RETURN_TO_FACILITATOR").andExpect(status().isForbidden());
+        performAction("RETURN_TO_SOQM_TEAM").andExpect(status().isBadRequest());
+        performAction("REJECT").andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void performAction_sendForRevision_returnsToTheOperator_asAReturn() throws Exception {
         expectChange = true;
         givenStatus("PROCESS_OWNER_REVIEW").as(Role.PROCESS_OWNER);
         when(performanceService.getPerformanceStatusByControlId(CONTROL_ID)).thenReturn("PROCESS_OWNER_REVIEW");
         when(requiredFieldService.getMissingReviewCommentMessage(control)).thenReturn(Optional.empty());
 
-        performAction("RETURN_TO_FACILITATOR").andExpect(status().isOk());
+        performAction("SEND_FOR_REVISION").andExpect(status().isOk());
 
-        assertThat(control.getPerformanceStatus()).isEqualTo("IN_PROGRESS");
+        assertThat(control.getPerformanceStatus()).isEqualTo("REVIEW");
+        assertThat(control.getReturnToOperatorComment()).isEqualTo("why");
+        org.mockito.ArgumentCaptor<com.kpmg.qtracker.entity.WorkflowHistory> history =
+                org.mockito.ArgumentCaptor.forClass(com.kpmg.qtracker.entity.WorkflowHistory.class);
+        verify(workflowHistoryRepository).save(history.capture());
+        assertThat(history.getValue().getActionType())
+                .isEqualTo(com.kpmg.qtracker.enums.WorkflowActionType.RETURN_TO_OPERATOR);
+    }
+
+    @Test
+    void performAction_returnWithoutComment_isBadRequest() throws Exception {
+        givenStatus("REVIEW").as(Role.CONTROL_OPERATOR);
+        when(requiredFieldService.getMissingReviewCommentMessage(control)).thenReturn(Optional.empty());
+
+        mockMvc.perform(MockMvcRequestBuilders.post("/api/workflow/perform-action")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + CONTROL_ID + ",\"action\":\"RETURN_TO_FACILITATOR\"}")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isBadRequest());
     }
 
     // ---------- helpers ----------

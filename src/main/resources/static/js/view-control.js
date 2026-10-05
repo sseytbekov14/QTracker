@@ -3636,9 +3636,9 @@ document.addEventListener('click', async (event) => {
     const returnToFacilitatorBtn = event.target.closest('#returnToFacilitatorBtn');
     const submitToSoqmLeadBtn = event.target.closest('#submitToSoqmLeadBtn');
     const returnToOperatorBtn = event.target.closest('#returnToOperatorBtn');
-    const returnToSoqmLeadBtn = event.target.closest('#returnToSoqmLeadBtn');
+    const ownerReturnToOperatorBtn = event.target.closest('#ownerReturnToOperatorBtn');
     const sharedSubmitToSoqmBtn = event.target.closest('#sharedSubmitToSoqmBtn');
-    if (!reviewBtn && !processOwnerBtn && !returnToFacilitatorBtn && !submitToSoqmLeadBtn && !returnToOperatorBtn && !returnToSoqmLeadBtn && !sharedSubmitToSoqmBtn) {
+    if (!reviewBtn && !processOwnerBtn && !returnToFacilitatorBtn && !submitToSoqmLeadBtn && !returnToOperatorBtn && !ownerReturnToOperatorBtn && !sharedSubmitToSoqmBtn) {
         return;
     }
 
@@ -3688,7 +3688,8 @@ document.addEventListener('click', async (event) => {
         return;
     }
 
-    if (returnToOperatorBtn) {
+    // SoQM (from SoQM review) and the Process Owner (from Process Owner review) return the same way
+    if (returnToOperatorBtn || ownerReturnToOperatorBtn) {
         console.log('Return to Operator clicked');
         if (!await ensureWorkflowRoleReady()) {
             return;
@@ -3699,18 +3700,6 @@ document.addEventListener('click', async (event) => {
             modal.show();
         }
         return;
-    }
-
-    if (returnToSoqmLeadBtn) {
-        console.log('Return to SoQM Team clicked');
-        if (!await ensureWorkflowRoleReady()) {
-            return;
-        }
-        const modalElement = document.getElementById('returnSoqmLeadModal');
-        if (modalElement) {
-            const modal = new bootstrap.Modal(modalElement);
-            modal.show();
-        }
     }
 
     if (sharedSubmitToSoqmBtn) {
@@ -3732,7 +3721,7 @@ document.addEventListener('submit', (event) => {
         return;
     }
 
-    if (form.querySelector('#submitForReviewBtn, #submitToProcessOwnerBtn, #submitToSoqmLeadBtn, #returnToFacilitatorBtn, #returnToOperatorBtn, #returnToSoqmLeadBtn, #sharedSubmitToSoqmBtn')) {
+    if (form.querySelector('#submitForReviewBtn, #submitToProcessOwnerBtn, #submitToSoqmLeadBtn, #returnToFacilitatorBtn, #returnToOperatorBtn, #ownerReturnToOperatorBtn, #sharedSubmitToSoqmBtn')) {
         event.preventDefault();
     }
 });
@@ -3854,15 +3843,13 @@ async function confirmReturnToFacilitator() {
         return;
     }
 
-    // Get optional comments
-    const commentsElement = document.getElementById('returnComments');
-    const comments = commentsElement ? commentsElement.value.trim() : '';
-
-    // Build request URL with optional comments parameter
-    let url = '/api/workflow/return-to-facilitator?controlId=' + controlId;
-    if (comments) {
-        url += '&comments=' + encodeURIComponent(comments);
+    // Every return needs a reason (the server refuses one without)
+    const comments = requiredReturnComment('returnComments');
+    if (comments === null) {
+        return;
     }
+    const url = '/api/workflow/return-to-facilitator?controlId=' + controlId
+        + '&comments=' + encodeURIComponent(comments);
 
     submitWorkflowActionWithModal({
         url: url,
@@ -4508,12 +4495,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         confirmCompleteControlBtn.addEventListener('click', confirmCompleteControl);
         console.log('вњ… Confirm Complete Control handler added');
     }
-
-    const confirmReturnSoqmLeadBtn = document.getElementById('confirmReturnSoqmLeadBtn');
-    if (confirmReturnSoqmLeadBtn) {
-        confirmReturnSoqmLeadBtn.addEventListener('click', confirmReturnToSoqmLead);
-        console.log('вњ… Confirm Return to SoQM Team handler added');
-    }
 });
 
 async function confirmReturnToOperator() {
@@ -4531,15 +4512,13 @@ async function confirmReturnToOperator() {
         return;
     }
 
-    // Get optional comments
-    const commentsElement = document.getElementById('returnOperatorComments');
-    const comments = commentsElement ? commentsElement.value.trim() : '';
-
-    // Build request URL with optional comments parameter
-    let url = '/api/workflow/return-to-operator?controlId=' + controlId;
-    if (comments) {
-        url += '&comments=' + encodeURIComponent(comments);
+    // Every return needs a reason (the server refuses one without)
+    const comments = requiredReturnComment('returnOperatorComments');
+    if (comments === null) {
+        return;
     }
+    const url = '/api/workflow/return-to-operator?controlId=' + controlId
+        + '&comments=' + encodeURIComponent(comments);
 
     submitWorkflowActionWithModal({
         url: url,
@@ -4626,39 +4605,27 @@ async function confirmCompleteControl() {
     });
 }
 
-async function confirmReturnToSoqmLead() {
-    console.log('рџ” Confirm Return to SoQM Team');
-
-    if (!await ensureWorkflowRoleReady()) {
-        return;
+/**
+ * The return comment from a return modal, trimmed; null (and the field marked) when it is empty.
+ * The mark goes as soon as something is typed.
+ */
+function requiredReturnComment(textareaId) {
+    const field = document.getElementById(textareaId);
+    const value = field ? field.value.trim() : '';
+    if (value) {
+        field.classList.remove('is-invalid');
+        return value;
     }
-    
-    const controlIdElement = document.querySelector('input[name="id"]');
-    const controlId = controlIdElement ? controlIdElement.value : null;
-    
-    if (!controlId) {
-        alert('Error: Control ID not found');
-        return;
+    if (field) {
+        field.classList.add('is-invalid');
+        field.setAttribute('aria-invalid', 'true');
+        field.addEventListener('input', () => {
+            field.classList.remove('is-invalid');
+            field.removeAttribute('aria-invalid');
+        }, { once: true });
+        field.focus();
     }
-
-    // Get optional comments
-    const commentsElement = document.getElementById('returnSoqmLeadComments');
-    const comments = commentsElement ? commentsElement.value.trim() : '';
-
-    // Build request URL with optional comments parameter
-    let url = '/api/workflow/return-to-soqm-lead?controlId=' + controlId;
-    if (comments) {
-        url += '&comments=' + encodeURIComponent(comments);
-    }
-
-    submitWorkflowActionWithModal({
-        url: url,
-        confirmBtnId: 'confirmReturnSoqmLeadBtn',
-        confirmModalId: 'returnSoqmLeadModal',
-        successRedirectUrl: '/controls',
-        successLogMessage: 'Return to SoQM Team success -> showing popup',
-        successTimerMs: 2500
-    });
+    return null;
 }
 
 window.viewControl = viewControl;

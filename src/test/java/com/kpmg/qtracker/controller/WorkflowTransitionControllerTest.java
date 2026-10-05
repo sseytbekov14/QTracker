@@ -127,6 +127,23 @@ class WorkflowTransitionControllerTest {
     }
 
     @Test
+    void returnToFacilitator_withoutComment_isBadRequest_andChangesNothing() throws Exception {
+        Control control = controlInStatus(46L, "REVIEW");
+        User operator = user("operator@kpmg.kz");
+        givenPermission(control, operator, participant(false, true, false, false));
+        when(controlAssignmentRepository.findByControlId(46L)).thenReturn(Optional.of(new ControlAssignment()));
+
+        mockMvc.perform(post("/api/workflow/return-to-facilitator").param("controlId", "46")
+                        .sessionAttr("currentUser", operator))
+                .andExpect(status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .string(org.hamcrest.Matchers.containsString("A comment is required to return the control")));
+
+        verify(controlService, never()).save(any(Control.class));
+        verify(workflowHistoryRepository, never()).save(any());
+    }
+
+    @Test
     void submitToControlOperator_byControlOperator_isForbidden() throws Exception {
         Control control = controlInStatus(42L, "IN_PROGRESS");
         User operator = user("operator@kpmg.kz");

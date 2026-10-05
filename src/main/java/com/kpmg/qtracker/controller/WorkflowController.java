@@ -39,6 +39,9 @@ public class WorkflowController {
     private final ControlPermissionService controlPermissionService;
     private final WorkflowTransitionGuard transitionGuard;
 
+    /** Every return needs a reason (spec 9.4). */
+    static final String RETURN_COMMENT_REQUIRED = "A comment is required to return the control";
+
     @PostMapping("/perform-action")
     @Transactional
     public ResponseEntity<?> performWorkflowAction(@Valid @RequestBody WorkflowActionRequest request,
@@ -69,6 +72,10 @@ public class WorkflowController {
             if (missingComment.isPresent()) {
                 return ResponseEntity.badRequest().body(missingComment.get());
             }
+            WorkflowTransition transition = decision.transition();
+            if (transition.isReturn() && (comment == null || comment.isBlank())) {
+                return ResponseEntity.badRequest().body(RETURN_COMMENT_REQUIRED);
+            }
 
             log.info("Workflow action: {} for control: {} by user: {}",
                     action, controlId, userEmail);
@@ -98,20 +105,16 @@ public class WorkflowController {
             control.setPerformanceStatus(newStatus);
 
             // Save return comments to control
-            if (comment != null && !comment.isEmpty()) {
-                if ("RETURN_TO_FACILITATOR".equals(normalizedAction)) {
-                    control.setReturnToFacilitatorComment(comment);
-                } else if ("SEND_BACK_TO_OPERATOR".equals(normalizedAction)) {
-                    control.setReturnToOperatorComment(comment);
-                } else if ("RETURN_TO_SOQM_TEAM".equals(normalizedAction)) {
-                    control.setReturnToSoqmTeamComment(comment);
-                }
+            if (transition == WorkflowTransition.RETURN_TO_FACILITATOR) {
+                control.setReturnToFacilitatorComment(comment);
+            } else if (transition.isReturn()) {
+                control.setReturnToOperatorComment(comment);
             }
 
             controlService.save(control);
 
             // Создаем запись в истории workflow
-            createWorkflowHistory(controlId, currentUser, action,
+            createWorkflowHistory(controlId, currentUser, action, transition,
                     currentPerformanceStatus, newStatus, comment);
 
             // Send workflow notifications based on transition
@@ -140,7 +143,7 @@ public class WorkflowController {
         }
     }
 
-    private void createWorkflowHistory(Long controlId, User user, String action,
+    private void createWorkflowHistory(Long controlId, User user, String action, WorkflowTransition transition,
                                        String fromStatus, String toStatus, String comment) {
         WorkflowHistory history = new WorkflowHistory();
         history.setControlId(controlId);
@@ -150,13 +153,15 @@ public class WorkflowController {
         history.setToStep(toStatus);
         history.setComments(comment);
 
-        // Устанавливаем тип действия
+        // Устанавливаем тип действия; returns as the dedicated endpoints record them
         WorkflowActionType actionType = WorkflowActionType.COMMENT; // По умолчанию
-        if (action.contains("SUBMIT") || action.contains("SEND") ||
+        if (transition == WorkflowTransition.RETURN_TO_FACILITATOR) {
+            actionType = WorkflowActionType.RETURN_TO_FACILITATOR;
+        } else if (transition.isReturn()) {
+            actionType = WorkflowActionType.RETURN_TO_OPERATOR;
+        } else if (action.contains("SUBMIT") || action.contains("SEND") ||
                 action.contains("COMPLETE") || "INITIATE".equals(action)) {
             actionType = WorkflowActionType.APPROVE;
-        } else if (action.contains("RETURN") || action.contains("SEND_BACK")) {
-            actionType = WorkflowActionType.RETURN;
         }
         history.setActionType(actionType);
 
@@ -230,6 +235,11 @@ public class WorkflowController {
         }
     }
 
+    /**
+     * Back to the Control Operator (spec 9.4): by SoQM from SoQM review, by the Process Owner from
+     * Process Owner review. A comment is required; it is stored on the control, in the history
+     * (RETURN_TO_OPERATOR) and sent to the Control Operator.
+     */
     @PostMapping("/return-to-operator")
     @Transactional
     public ResponseEntity<?> returnToOperator(@RequestParam Long controlId,
@@ -241,7 +251,7 @@ public class WorkflowController {
                 return ResponseEntity.status(401).body("User not authenticated");
             }
 
-            log.info("SoQM Team {} returning control {} to Control Operator", currentUser.getMail(), controlId);
+            log.info("User {} returning control {} to Control Operator", currentUser.getMail(), controlId);
 
             // Get control
             Optional<Control> controlOpt = controlService.getControlById(controlId);
@@ -249,38 +259,38 @@ public class WorkflowController {
                 return ResponseEntity.badRequest().body("Control not found");
             }
             Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.RETURN_TO_OPERATOR);
-            if (restrictedResponse != null) {
-                return restrictedResponse;
+            WorkflowTransitionGuard.Decision decision = transitionGuard.check(
+                    control, controlPermissionService.resolve(control, currentUser),
+                    List.of(WorkflowTransition.RETURN_TO_OPERATOR, WorkflowTransition.OWNER_RETURN_TO_OPERATOR));
+            if (!decision.allowed()) {
+                return ResponseEntity.status(decision.httpStatus()).body(decision.message());
             }
             Optional<String> missingComment = requiredFieldService.getMissingReviewCommentMessage(control);
             if (missingComment.isPresent()) {
                 return ResponseEntity.badRequest().body(missingComment.get());
             }
 
-            // Validate comment length
-            if (comments != null && comments.length() > 2000) {
+            if (comments == null || comments.isBlank()) {
+                return ResponseEntity.badRequest().body(RETURN_COMMENT_REQUIRED);
+            }
+            if (comments.length() > 2000) {
                 return ResponseEntity.badRequest().body("Comment is too long. Maximum 2000 characters allowed.");
             }
 
             // Update control status
             control.setPerformanceStatus("REVIEW");
-            if (comments != null && !comments.isEmpty()) {
-                control.setReturnToOperatorComment(comments);
-            }
+            control.setReturnToOperatorComment(comments);
             controlService.save(control);
 
             // Create workflow history
             WorkflowHistory history = new WorkflowHistory();
             history.setControlId(controlId);
             history.setActionType(WorkflowActionType.RETURN_TO_OPERATOR);
-            history.setFromStep("SOQM_HEAD_REVIEW");
+            history.setFromStep(decision.transition().getFromStatus());
             history.setToStep("REVIEW");
             history.setPerformedByEmail(currentUser.getMail());
             history.setPerformedByName(currentUser.getDisplayName());
-            history.setComments(comments != null && !comments.isEmpty() 
-                ? comments 
-                : "Control returned to Control Operator for revision");
+            history.setComments(comments);
             history.setCreatedAt(LocalDateTime.now(Notification.ZONE));
             workflowHistoryRepository.save(history);
 
@@ -371,89 +381,6 @@ public class WorkflowController {
         }
     }
 
-    @PostMapping("/return-to-soqm-lead")
-    @Transactional
-    public ResponseEntity<?> returnToSoqmLead(@RequestParam Long controlId,
-                                             @RequestParam(required = false) String comments,
-                                             HttpSession session) {
-        try {
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(401).body("User not authenticated");
-            }
-
-            log.info("Process Owner {} returning control {} to SoQM Team", currentUser.getMail(), controlId);
-
-            // Get control
-            Optional<Control> controlOpt = controlService.getControlById(controlId);
-            if (controlOpt.isEmpty()) {
-                return ResponseEntity.badRequest().body("Control not found");
-            }
-            Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.RETURN_TO_SOQM_TEAM);
-            if (restrictedResponse != null) {
-                return restrictedResponse;
-            }
-            Optional<String> missingComment = requiredFieldService.getMissingReviewCommentMessage(control);
-            if (missingComment.isPresent()) {
-                return ResponseEntity.badRequest().body(missingComment.get());
-            }
-
-            // Validate comment length
-            if (comments != null && comments.length() > 2000) {
-                return ResponseEntity.badRequest().body("Comment is too long. Maximum 2000 characters allowed.");
-            }
-
-            // Update control status
-            control.setPerformanceStatus("SOQM_HEAD_REVIEW");
-            if (comments != null && !comments.isEmpty()) {
-                control.setReturnToSoqmTeamComment(comments);
-            }
-            controlService.save(control);
-
-            // Create workflow history
-            WorkflowHistory history = new WorkflowHistory();
-            history.setControlId(controlId);
-            history.setActionType(WorkflowActionType.RETURN);
-            history.setFromStep("PROCESS_OWNER_REVIEW");
-            history.setToStep("SOQM_HEAD_REVIEW");
-            history.setPerformedByEmail(currentUser.getMail());
-            history.setPerformedByName(currentUser.getDisplayName());
-            history.setComments(comments != null && !comments.isEmpty() 
-                ? comments 
-                : "Control returned to SoQM Team for revision");
-            history.setCreatedAt(LocalDateTime.now(Notification.ZONE));
-            workflowHistoryRepository.save(history);
-
-            ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
-            List<String> recipients = new ArrayList<>();
-            if (assignment != null && assignment.getSoqmLead() != null) {
-                recipients.addAll(assignment.getSoqmLead());
-            }
-            String currentEmail = currentUser.getMail();
-            if (currentEmail != null) {
-                recipients.removeIf(email -> email != null && email.equalsIgnoreCase(currentEmail));
-            }
-            notificationService.sendReturnNotifications(
-                    control,
-                    recipients,
-                    currentUser.getRole(),
-                    currentUser.getDisplayName(),
-                    "SoQM Team",
-                    comments,
-                    "RETURN_TO_SOQM_TEAM"
-            );
-
-            log.info("✅ Control {} returned to SoQM Team successfully", controlId);
-            return ResponseEntity.ok("Control returned to SoQM Team");
-
-        } catch (Exception e) {
-            log.error("❌ Error returning control to SoQM Team: {}", e.getMessage(), e);
-            rollbackCurrentTransaction();
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
     @Data
     private static class WorkflowActionRequest {
         private Long controlId;
@@ -498,7 +425,7 @@ public class WorkflowController {
             return;
         }
 
-        if ("SEND_BACK_TO_OPERATOR".equals(normalizedAction)) {
+        if ("SEND_BACK_TO_OPERATOR".equals(normalizedAction) || "SEND_FOR_REVISION".equals(normalizedAction)) {
             notificationService.sendReturnNotifications(
                     control,
                     recipientsWithoutActor(assignmentEmails(control.getId(), "CONTROL_OPERATOR"),
@@ -522,20 +449,6 @@ public class WorkflowController {
                     "Facilitator",
                     firstNonBlank(comment, control.getReturnToFacilitatorComment()),
                     "RETURN_TO_FACILITATOR"
-            );
-            return;
-        }
-
-        if ("RETURN_TO_SOQM_TEAM".equals(normalizedAction)) {
-            notificationService.sendReturnNotifications(
-                    control,
-                    recipientsWithoutActor(assignmentEmails(control.getId(), "SOQM_TEAM"),
-                            currentUser != null ? currentUser.getMail() : null),
-                    currentUser != null ? currentUser.getRole() : null,
-                    currentUser != null ? currentUser.getDisplayName() : null,
-                    "SoQM Team",
-                    firstNonBlank(comment, control.getReturnToSoqmTeamComment()),
-                    "RETURN_TO_SOQM_TEAM"
             );
             return;
         }

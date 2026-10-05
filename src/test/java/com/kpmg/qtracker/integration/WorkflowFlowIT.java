@@ -5,6 +5,8 @@ import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.entity.WorkflowHistory;
+import com.kpmg.qtracker.enums.WorkflowActionType;
 import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
@@ -136,7 +138,8 @@ class WorkflowFlowIT {
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 2);
 
-        mockMvc.perform(workflowPost("/api/workflow/return-to-operator", controlId, soqmLead))
+        mockMvc.perform(workflowPost("/api/workflow/return-to-operator", controlId, soqmLead)
+                        .param("comments", "SoQM: steps need evidence"))
                 .andExpect(status().isOk());
         assertPerformanceStatus(controlId, "REVIEW");
         expectedCounts.put(operator.getMail(), 2);
@@ -157,15 +160,62 @@ class WorkflowFlowIT {
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 5);
 
+        // The Process Owner sends it back to the Control Operator (spec 9.4), with the reason
+        mockMvc.perform(workflowPost("/api/workflow/return-to-operator", controlId, processOwner)
+                        .param("comments", "Owner: the sample is too small"))
+                .andExpect(status().isOk());
+        assertPerformanceStatus(controlId, "REVIEW");
+        expectedCounts.put(operator.getMail(), 3);
+        assertNotificationCounts(controlId, expectedCounts);
+        assertWorkflowHistoryCount(controlId, 6);
+        WorkflowHistory ownerReturn = workflowHistoryRepository.findByControlIdOrderByCreatedAtDesc(controlId).stream()
+                .filter(h -> "PROCESS_OWNER_REVIEW".equals(h.getFromStep()))
+                .findFirst().orElseThrow();
+        assertEquals(WorkflowActionType.RETURN_TO_OPERATOR, ownerReturn.getActionType());
+        assertEquals("REVIEW", ownerReturn.getToStep());
+        assertEquals("Owner: the sample is too small", ownerReturn.getComments());
+        assertEquals("Owner: the sample is too small",
+                controlRepository.findById(controlId).orElseThrow().getReturnToOperatorComment());
+        assertEquals(1L, notificationRepository.findByControlIdOrderByCreatedAtDesc(controlId).stream()
+                .filter(n -> operator.getId().equals(n.getUserId()))
+                .filter(n -> "RETURN_TO_OPERATOR".equals(n.getType()))
+                .filter(n -> n.getMessage() != null && n.getMessage().contains("Owner: the sample is too small"))
+                .count());
+
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-soqm-lead", controlId, operator))
+                .andExpect(status().isOk());
+        expectedCounts.put(soqmLead.getMail(), 3);
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-process-owner", controlId, soqmLead))
+                .andExpect(status().isOk());
+        expectedCounts.put(processOwner.getMail(), 2);
+        assertNotificationCounts(controlId, expectedCounts);
+        assertWorkflowHistoryCount(controlId, 8);
+
         mockMvc.perform(workflowPost("/api/workflow/complete-control", controlId, processOwner))
                 .andExpect(status().isOk());
         assertPerformanceStatus(controlId, "COMPLETED");
         expectedCounts.put(facilitator.getMail(), 1);
-        expectedCounts.put(operator.getMail(), 3);
-        expectedCounts.put(soqmLead.getMail(), 3);
-        // COMPLETED_ALL goes to facilitator, operator and SoQM lead only; the process owner keeps 1
+        expectedCounts.put(operator.getMail(), 4);
+        expectedCounts.put(soqmLead.getMail(), 4);
+        // COMPLETED_ALL goes to facilitator, operator and SoQM lead only; the process owner keeps 2
         assertNotificationCounts(controlId, expectedCounts);
-        assertWorkflowHistoryCount(controlId, 6);
+        assertWorkflowHistoryCount(controlId, 9);
+    }
+
+    @Test
+    void returnsWithoutAComment_areRefused_andChangeNothing() throws Exception {
+        Long controlId = control.getId();
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-control-operator", controlId, facilitator))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(workflowPost("/api/workflow/return-to-facilitator", controlId, operator))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(workflowPost("/api/workflow/return-to-facilitator", controlId, operator)
+                        .param("comments", "  "))
+                .andExpect(status().isBadRequest());
+
+        assertPerformanceStatus(controlId, "REVIEW");
+        assertWorkflowHistoryCount(controlId, 1);
     }
 
     @Test

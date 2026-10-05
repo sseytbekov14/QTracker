@@ -230,18 +230,18 @@ class WorkflowControllerCompletedRecipientsTest {
     }
 
     @Test
-    void returnToSoqmLead_includesCommentInReturnNotification() {
-        Long controlId = 201L;
-        String comment = "Please re-check risk owner mapping";
+    void ownerReturnToOperator_storesComment_recordsTheReturn_andNotifiesTheOperator() {
+        Long controlId = 210L;
+        String comment = "Evidence for March is missing";
 
         Control control = new Control();
         control.setId(controlId);
-        control.setControlId("CTRL-201");
+        control.setControlId("CTRL-210");
         control.setPerformanceStatus("PROCESS_OWNER_REVIEW");
 
         User currentUser = new User();
-        currentUser.setId(3L);
-        currentUser.setMail("owner.current@kpmg.kz");
+        currentUser.setId(4L);
+        currentUser.setMail("po.current@kpmg.kz");
         currentUser.setDisplayName("Process Owner");
         TestUsers.withRole(currentUser, "PROCESS_OWNER");
 
@@ -254,22 +254,31 @@ class WorkflowControllerCompletedRecipientsTest {
         when(workflowHistoryRepository.save(any(WorkflowHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ControlAssignmentDTO assignment = new ControlAssignmentDTO();
-        assignment.setSoqmLead(List.of("soqm@kpmg.kz"));
+        assignment.setControlOperator(List.of("operator@kpmg.kz", "po.current@kpmg.kz"));
         when(controlAssignmentService.getAssignmentByControlId(controlId)).thenReturn(assignment);
 
-        ResponseEntity<?> response = controller.returnToSoqmLead(controlId, comment, session);
+        ResponseEntity<?> response = controller.returnToOperator(controlId, comment, session);
 
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
-        assertThat(control.getReturnToSoqmTeamComment()).isEqualTo(comment);
+        assertThat(control.getPerformanceStatus()).isEqualTo("REVIEW");
+        assertThat(control.getReturnToOperatorComment()).isEqualTo(comment);
 
+        org.mockito.ArgumentCaptor<WorkflowHistory> history = org.mockito.ArgumentCaptor.forClass(WorkflowHistory.class);
+        verify(workflowHistoryRepository).save(history.capture());
+        assertThat(history.getValue().getActionType()).isEqualTo(com.kpmg.qtracker.enums.WorkflowActionType.RETURN_TO_OPERATOR);
+        assertThat(history.getValue().getFromStep()).isEqualTo("PROCESS_OWNER_REVIEW");
+        assertThat(history.getValue().getToStep()).isEqualTo("REVIEW");
+        assertThat(history.getValue().getComments()).isEqualTo(comment);
+
+        // The Process Owner is also an Operator here and does not notify themselves
         verify(notificationService).sendReturnNotifications(
                 eq(control),
-                eq(List.of("soqm@kpmg.kz")),
-                eq("PROCESS_OWNER"),
+                eq(List.of("operator@kpmg.kz")),
+                any(),
                 eq("Process Owner"),
-                eq("SoQM Team"),
+                eq("Control Operator"),
                 eq(comment),
-                eq("RETURN_TO_SOQM_TEAM")
+                eq("RETURN_TO_OPERATOR")
         );
     }
 

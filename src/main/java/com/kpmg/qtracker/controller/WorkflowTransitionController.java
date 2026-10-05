@@ -328,8 +328,11 @@ public class WorkflowTransitionController {
 
             ControlAssignment assignment = assignmentOpt.get();
 
-            // Validate comment length
-            if (comments != null && comments.length() > 2000) {
+            // Every return needs a reason (spec 9.4)
+            if (comments == null || comments.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "A comment is required to return the control"));
+            }
+            if (comments.length() > 2000) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Comment is too long. Maximum 2000 characters allowed."));
             }
 
@@ -337,9 +340,7 @@ public class WorkflowTransitionController {
             
             // Update workflow status back to In Progress
             control.setPerformanceStatus("IN_PROGRESS");
-            if (comments != null && !comments.isEmpty()) {
-                control.setReturnToFacilitatorComment(comments);
-            }
+            control.setReturnToFacilitatorComment(comments);
             controlService.save(control);
 
             // Add workflow history record
@@ -350,7 +351,7 @@ public class WorkflowTransitionController {
             history.setPerformedByName(currentUser.getDisplayName());
             history.setFromStep(previousStatus != null ? previousStatus : "REVIEW");
             history.setToStep("IN_PROGRESS");
-            history.setComments(comments != null && !comments.isEmpty() ? comments : "Control returned to Facilitator for revision");
+            history.setComments(comments);
             workflowHistoryRepository.save(history);
 
             List<String> recipients = new ArrayList<>();

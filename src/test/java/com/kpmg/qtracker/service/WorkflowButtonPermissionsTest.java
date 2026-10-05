@@ -196,7 +196,7 @@ class WorkflowButtonPermissionsTest {
     class ProcessOwnerButtonTests {
 
         @Test
-        @DisplayName("Process Owner видит 4 кнопки при PROCESS_OWNER_REVIEW")
+        @DisplayName("Process Owner видит Complete и возврат к Control Operator при PROCESS_OWNER_REVIEW")
         void processOwnerSeesAllButtonsAtPOReview() {
             setupControl("PROCESS_OWNER_REVIEW");
             setupUserWithRole(PO_EMAIL, "PROCESS_OWNER");
@@ -206,8 +206,7 @@ class WorkflowButtonPermissionsTest {
             List<WorkflowButtonDTO> buttons = workflowService.getAvailableButtons(CONTROL_ID, PO_EMAIL);
 
             assertThat(buttons).extracting(WorkflowButtonDTO::getAction)
-                    .contains("COMPLETE", "RETURN_TO_FACILITATOR",
-                              "SEND_FOR_REVISION", "SUBMIT_FOR_SOQM_REVIEW");
+                    .containsExactly("COMPLETE", "SEND_FOR_REVISION");
         }
 
         @Test

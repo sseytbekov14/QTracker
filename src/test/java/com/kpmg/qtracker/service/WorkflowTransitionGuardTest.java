@@ -111,9 +111,10 @@ class WorkflowTransitionGuardTest {
         assertThat(guard.check(control("REVIEW"),
                 permissionFor(WorkflowTransition.Actor.CONTROL_OPERATOR), candidates).transition())
                 .isEqualTo(WorkflowTransition.RETURN_TO_FACILITATOR);
+        // The Process Owner returns only to the Control Operator
         assertThat(guard.check(control("PROCESS_OWNER_REVIEW"),
-                permissionFor(WorkflowTransition.Actor.PROCESS_OWNER), candidates).transition())
-                .isEqualTo(WorkflowTransition.OWNER_RETURN_TO_FACILITATOR);
+                permissionFor(WorkflowTransition.Actor.PROCESS_OWNER), candidates).httpStatus())
+                .isEqualTo(403);
         // Control Operator cannot use the Process Owner's return path
         assertThat(guard.check(control("PROCESS_OWNER_REVIEW"),
                 permissionFor(WorkflowTransition.Actor.CONTROL_OPERATOR), candidates).httpStatus())
@@ -121,6 +122,31 @@ class WorkflowTransitionGuardTest {
         assertThat(guard.check(control("REVIEW"),
                 permissionFor(WorkflowTransition.Actor.SOQM_TEAM), candidates).httpStatus())
                 .isEqualTo(403);
+    }
+
+    @Test
+    void returnToOperator_resolvesSoqmAndProcessOwnerByStatus() {
+        List<WorkflowTransition> candidates =
+                List.of(WorkflowTransition.RETURN_TO_OPERATOR, WorkflowTransition.OWNER_RETURN_TO_OPERATOR);
+
+        assertThat(guard.check(control("SOQM_HEAD_REVIEW"),
+                permissionFor(WorkflowTransition.Actor.SOQM_TEAM), candidates).transition())
+                .isEqualTo(WorkflowTransition.RETURN_TO_OPERATOR);
+        assertThat(guard.check(control("PROCESS_OWNER_REVIEW"),
+                permissionFor(WorkflowTransition.Actor.PROCESS_OWNER), candidates).transition())
+                .isEqualTo(WorkflowTransition.OWNER_RETURN_TO_OPERATOR);
+        assertThat(guard.check(control("PROCESS_OWNER_REVIEW"),
+                permissionFor(WorkflowTransition.Actor.SOQM_TEAM), candidates).httpStatus())
+                .isEqualTo(409);
+    }
+
+    @Test
+    void returns_areTheThreeOfTheSpec() {
+        assertThat(java.util.Arrays.stream(WorkflowTransition.values()).filter(WorkflowTransition::isReturn))
+                .containsExactlyInAnyOrder(WorkflowTransition.RETURN_TO_FACILITATOR,
+                        WorkflowTransition.RETURN_TO_OPERATOR, WorkflowTransition.OWNER_RETURN_TO_OPERATOR);
+        assertThat(WorkflowTransition.forAction("RETURN_TO_SOQM_TEAM")).isEmpty();
+        assertThat(WorkflowTransition.forAction("REJECT")).isEmpty();
     }
 
     @Test

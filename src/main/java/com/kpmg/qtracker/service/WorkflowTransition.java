@@ -3,6 +3,7 @@ package com.kpmg.qtracker.service;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Allowed workflow transitions: which status a transition starts from, where it leads
@@ -16,9 +17,7 @@ public enum WorkflowTransition {
     RETURN_TO_OPERATOR("Return to Control Operator", Actor.SOQM_TEAM, "SOQM_HEAD_REVIEW", "REVIEW"),
     SUBMIT_TO_PROCESS_OWNER("Submit to Process Owner", Actor.SOQM_TEAM, "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW"),
     COMPLETE("Complete", Actor.PROCESS_OWNER, "PROCESS_OWNER_REVIEW", "COMPLETED"),
-    RETURN_TO_SOQM_TEAM("Return to SoQM Team", Actor.PROCESS_OWNER, "PROCESS_OWNER_REVIEW", "SOQM_HEAD_REVIEW"),
-    OWNER_RETURN_TO_OPERATOR("Send for Revision to Control Operator", Actor.PROCESS_OWNER, "PROCESS_OWNER_REVIEW", "REVIEW"),
-    OWNER_RETURN_TO_FACILITATOR("Return to Facilitator", Actor.PROCESS_OWNER, "PROCESS_OWNER_REVIEW", "IN_PROGRESS"),
+    OWNER_RETURN_TO_OPERATOR("Return to Control Operator", Actor.PROCESS_OWNER, "PROCESS_OWNER_REVIEW", "REVIEW"),
     SHARED_RESUBMIT_TO_SOQM_TEAM("Submit completed control to SoQM Team", Actor.SHARED_VIEWER, "COMPLETED", "SOQM_HEAD_REVIEW");
 
     /** Who may perform a transition, resolved against {@link ControlPermission}. */
@@ -50,15 +49,17 @@ public enum WorkflowTransition {
             Map.entry("SUBMIT_TO_CONTROL_OPERATOR", List.of(SUBMIT_TO_CONTROL_OPERATOR)),
             Map.entry("SUBMIT_FOR_SOQM", List.of(SUBMIT_TO_SOQM_TEAM)),
             Map.entry("SUBMIT_SOQM", List.of(SUBMIT_TO_SOQM_TEAM)),
-            Map.entry("RETURN_TO_FACILITATOR", List.of(RETURN_TO_FACILITATOR, OWNER_RETURN_TO_FACILITATOR)),
+            Map.entry("RETURN_TO_FACILITATOR", List.of(RETURN_TO_FACILITATOR)),
             Map.entry("SEND_TO_PROCESS_OWNER", List.of(SUBMIT_TO_PROCESS_OWNER)),
             Map.entry("SOQM_COMMENT", List.of(SUBMIT_TO_PROCESS_OWNER)),
             Map.entry("SEND_BACK_TO_OPERATOR", List.of(RETURN_TO_OPERATOR)),
             Map.entry("COMPLETE", List.of(COMPLETE)),
-            Map.entry("RETURN_TO_SOQM_TEAM", List.of(RETURN_TO_SOQM_TEAM)),
-            Map.entry("SEND_FOR_REVISION", List.of(OWNER_RETURN_TO_OPERATOR)),
-            Map.entry("REJECT", List.of(OWNER_RETURN_TO_FACILITATOR))
+            Map.entry("SEND_FOR_REVISION", List.of(OWNER_RETURN_TO_OPERATOR))
     );
+
+    /** The returns of spec 9.4; each needs a comment. */
+    private static final Set<WorkflowTransition> RETURNS =
+            Set.of(RETURN_TO_FACILITATOR, RETURN_TO_OPERATOR, OWNER_RETURN_TO_OPERATOR);
 
     private final String label;
     private final Actor actor;
@@ -86,6 +87,11 @@ public enum WorkflowTransition {
 
     public String getTargetStatus() {
         return targetStatus;
+    }
+
+    /** A return to a previous working step: Control Operator to Facilitator, SoQM or Process Owner to Control Operator. */
+    public boolean isReturn() {
+        return RETURNS.contains(this);
     }
 
     /** Candidate transitions for a perform-action name; empty when the action is unknown. */
