@@ -172,6 +172,10 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .status-badge-select.status-active { background-color: #e8f6ee; color: #146c3a; border-color: #b9e2c9; }
 .status-badge-select.status-inactive { background-color: #fbecee; color: #a01025; border-color: #f1c3cb; }
 
+.scope-cell { display: flex; flex-direction: column; gap: 3px; }
+.access-hint { font-size: 0.7rem; line-height: 1.25; color: var(--kpmg-gray-600); max-width: 230px; }
+.read-only-note { margin-bottom: 12px; font-size: 0.85rem; }
+
 .admin-switch-wrap { display: inline-flex; align-items: center; gap: 8px; min-width: 70px; }
 .admin-switch-wrap .form-check-input { margin-top: 0; width: 2.15em; height: 1.1em; cursor: pointer; }
 .admin-switch-wrap .form-check-input:checked { background-color: var(--kpmg-blue); border-color: var(--kpmg-blue); }
@@ -345,6 +349,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     }
     .users-table tbody td:first-child { padding-bottom: 6px; }
     .users-table .compact-select { flex: 0 1 220px; min-width: 0; }
+    .users-table .scope-cell { flex: 0 1 220px; min-width: 0; text-align: right; }
+    .users-table .scope-cell .compact-select { flex: none; }
     .email-cell { min-width: 0; justify-content: flex-end; }
     .email-cell .js-email-text { overflow-wrap: anywhere; text-align: right; }
     .users-table tbody tr.empty-row td { display: block; text-align: center; }
@@ -413,9 +419,9 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                 <div class="page-header">
                     <div>
                         <h1>Admin Panel</h1>
-                        <p class="subtitle">Users, roles and access</p>
+                        <p class="subtitle">Users and access</p>
                     </div>
-                    <div class="header-actions">
+                    <div class="header-actions" th:if="${canManageUsers}">
                         <button type="button" id="openAddUserBtn" class="btn-header">
                             <i class="bi bi-person-plus" aria-hidden="true"></i>Add User
                         </button>
@@ -425,6 +431,10 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     </div>
                 </div>
 
+                <div class="alert alert-info read-only-note" th:unless="${canManageUsers}" role="status">
+                    Your access is read-only: you can see the users and the audit trail, but not change them.
+                </div>
+
                 <!-- Toolbar -->
                 <div class="admin-toolbar">
                     <div class="search-box" role="search">
@@ -432,9 +442,13 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                         <input id="searchUsers" type="search" class="form-control form-control-sm toolbar-control"
                                placeholder="Search name or e-mail…" aria-label="Search users" autocomplete="off">
                     </div>
-                    <select id="filterRole" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by role">
-                        <option value="">All roles</option>
-                        <option th:each="role : ${allowedRoles}" th:value="${role}" th:text="${roleLabels.get(role)}"></option>
+                    <select id="filterLevel" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by level">
+                        <option value="">All levels</option>
+                        <option th:each="level : ${accessLevels}" th:value="${level.name()}" th:text="${level.displayName}">SoQM</option>
+                    </select>
+                    <select id="filterScope" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by scope">
+                        <option value="">All scopes</option>
+                        <option th:each="scope : ${accessScopes}" th:value="${scope.name()}" th:text="${scope.displayName}">All controls</option>
                     </select>
                     <select id="filterStatus" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by status">
                         <option value="">All statuses</option>
@@ -450,8 +464,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                         <tr>
                             <th scope="col">Name</th>
                             <th scope="col">Email</th>
-                            <th scope="col">Role</th>
-                            <th scope="col">Additional Role</th>
+                            <th scope="col">Level</th>
+                            <th scope="col">Scope</th>
                             <th scope="col">Admin Access</th>
                             <th scope="col">Status</th>
                             <th scope="col">Last Login</th>
@@ -473,7 +487,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                             <td data-label="Email">
                                 <div class="email-cell">
                                     <span class="js-email-text" th:text="${user.mail}">user@mail.com</span>
-                                    <button th:if="${user.lastLoginAt == null}"
+                                    <button th:if="${user.lastLoginAt == null and canManageUsers}"
                                             type="button"
                                             class="email-edit-btn js-edit-email-btn"
                                             title="Edit email (possible until the first login)"
@@ -482,35 +496,28 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                     </button>
                                 </div>
                             </td>
-                            <td data-label="Role">
-                                <!-- A stored value the list does not offer gets its own option with an empty value:
-                                     an empty value is saved as "unchanged" until another role is chosen -->
-                                <select class="form-select form-select-sm compact-select js-role" aria-label="Role">
-                                    <option th:unless="${#lists.contains(allowedRoles, user.role)}"
-                                            value="" selected data-stored-value="true"
-                                            th:attr="data-stored-text=${user.role}"
-                                            th:text="${#strings.isEmpty(user.role) ? '(no role)' : user.role + ' (not in list)'}"
-                                            title="Not in the role list; kept until another role is chosen">ADMIN (not in list)</option>
-                                    <option th:each="role : ${allowedRoles}"
-                                            th:value="${role}"
-                                            th:text="${roleLabels.get(role)}"
-                                            th:selected="${role == user.role}"></option>
+                            <td data-label="Level">
+                                <select class="form-select form-select-sm compact-select js-level" aria-label="Level"
+                                        th:disabled="${!canManageUsers}">
+                                    <option th:each="level : ${accessLevels}"
+                                            th:value="${level.name()}"
+                                            th:text="${level.displayName}"
+                                            th:selected="${level == user.accessLevel}">SoQM</option>
                                 </select>
                             </td>
-                            <td data-label="Additional role">
-                                <select class="form-select form-select-sm compact-select js-secondary-role" aria-label="Additional role">
-                                    <option th:value="${noSecondaryRole}"
-                                            th:selected="${#strings.isEmpty(user.secondaryRole)}">None</option>
-                                    <option th:unless="${#strings.isEmpty(user.secondaryRole) or #lists.contains(allowedSecondaryRoles, user.secondaryRole)}"
-                                            value="" selected data-stored-value="true"
-                                            th:attr="data-stored-text=${user.secondaryRole}"
-                                            th:text="${user.secondaryRole + ' (not in list)'}"
-                                            title="Not in the additional role list; kept until another value is chosen">Facilitator (not in list)</option>
-                                    <option th:each="role : ${allowedSecondaryRoles}"
-                                            th:value="${role}"
-                                            th:text="${roleLabels.get(role)}"
-                                            th:selected="${role == user.secondaryRole}"></option>
-                                </select>
+                            <td data-label="Scope">
+                                <!-- SoQM always sees all controls: the page keeps the scope at All and disabled -->
+                                <div class="scope-cell">
+                                    <select class="form-select form-select-sm compact-select js-scope" aria-label="Scope"
+                                            th:disabled="${!canManageUsers}">
+                                        <option th:each="scope : ${accessScopes}"
+                                                th:value="${scope.name()}"
+                                                th:text="${scope.displayName}"
+                                                th:selected="${scope == user.accessScope}">All controls</option>
+                                    </select>
+                                    <!-- What the level, scope and admin flag add up to (filled in by the script) -->
+                                    <div class="access-hint js-access-hint"></div>
+                                </div>
                             </td>
                             <td data-label="Admin access">
                                 <div class="form-check form-switch admin-switch-wrap m-0">
@@ -518,12 +525,14 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                            type="checkbox"
                                            role="switch"
                                            aria-label="Admin access"
-                                           th:checked="${user.adminAccess}">
+                                           th:checked="${user.adminAccess}"
+                                           th:disabled="${!canManageUsers}">
                                     <span class="admin-switch-label js-admin-label" th:text="${user.adminAccess} ? 'Yes' : 'No'">No</span>
                                 </div>
                             </td>
                             <td data-label="Status">
-                                <select class="form-select form-select-sm compact-select js-status status-badge-select" aria-label="Status">
+                                <select class="form-select form-select-sm compact-select js-status status-badge-select" aria-label="Status"
+                                        th:disabled="${!canManageUsers}">
                                     <option value="ACTIVE" th:selected="${user.enabled}">Active</option>
                                     <option value="INACTIVE" th:selected="${!user.enabled}">Inactive</option>
                                 </select>
@@ -557,7 +566,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                             <span id="pageIndicator" class="page-indicator">1 / 1</span>
                             <button type="button" id="nextPageBtn" class="pager-btn" aria-label="Next page">Next</button>
                         </div>
-                        <button type="button" class="save-btn" id="saveAllChanges">Save Changes</button>
+                        <button type="button" class="save-btn" id="saveAllChanges" th:if="${canManageUsers}">Save Changes</button>
                     </div>
                 </div>
 
@@ -636,7 +645,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 document.addEventListener('DOMContentLoaded', function() {
     const rows = Array.from(document.querySelectorAll('.admin-user-row'));
     const searchInput = document.getElementById('searchUsers');
-    const roleFilter = document.getElementById('filterRole');
+    const levelFilter = document.getElementById('filterLevel');
+    const scopeFilter = document.getElementById('filterScope');
     const statusFilter = document.getElementById('filterStatus');
     const saveAllBtn = document.getElementById('saveAllChanges');
     const clientAlert = document.getElementById('clientAlert');
@@ -653,7 +663,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const addUserForm = document.getElementById('addUserForm');
     const addUserEmail = document.getElementById('addUserEmail');
     const addUserName = document.getElementById('addUserName');
-    const addUserRole = document.getElementById('addUserRole');
+    const addUserLevel = document.getElementById('addUserLevel');
+    const addUserScope = document.getElementById('addUserScope');
+    const addUserAccessHint = document.getElementById('addUserAccessHint');
     const addUserAdmin = document.getElementById('addUserAdmin');
     const addUserStatus = document.getElementById('addUserStatus');
     const addUserSaveBtn = document.getElementById('addUserSaveBtn');
@@ -666,9 +678,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const editEmailSaveBtn = document.getElementById('editEmailSaveBtn');
     const editEmailError = document.getElementById('editEmailError');
 
-    // "None" clears the additional role; an empty value (the option of a stored value the list
-    // does not offer) is saved as "unchanged"
-    const NO_SECONDARY_ROLE = /*[[${noSecondaryRole}]]*/ 'NONE';
+    // A read-only admin sees everything here but changes nothing (the server refuses it as well)
+    const CAN_MANAGE = /*[[${canManageUsers}]]*/ true;
+    // What a scope means in the access hint
+    const SCOPE_TEXT = {
+        OWN: 'the controls they are assigned to or shared with',
+        ALL: 'all controls, drafts included',
+        KDN: 'the KDN controls they are assigned to or shared with'
+    };
     // A message that has to survive the reload after Add User
     const FLASH_KEY = 'qtrackerAdminFlash';
     let currentPage = 1;
@@ -684,12 +701,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const originalState = new Map();
 
-    saveAllBtn.disabled = true;
+    if (saveAllBtn) {
+        saveAllBtn.disabled = true;
+    }
 
     rows.forEach(function(row) {
         const userId = row.dataset.userId;
-        const roleSelect = row.querySelector('.js-role');
-        const secondaryRoleSelect = row.querySelector('.js-secondary-role');
+        const levelSelect = row.querySelector('.js-level');
+        const scopeSelect = row.querySelector('.js-scope');
         const adminToggle = row.querySelector('.js-admin-toggle');
         const adminLabel = row.querySelector('.js-admin-label');
         const statusSelect = row.querySelector('.js-status');
@@ -699,36 +718,46 @@ document.addEventListener('DOMContentLoaded', function() {
         const isSelf = Boolean(selfChip);
 
         originalState.set(userId, {
-            role: roleSelect.value,
-            secondaryRole: secondaryRoleSelect ? secondaryRoleSelect.value : '',
+            level: levelSelect.value,
+            scope: scopeSelect.value,
             enabled: statusSelect.value === 'ACTIVE',
             adminAccess: !!adminToggle?.checked
         });
 
         applyStatusBadge(statusSelect);
         updateAdminLabel(adminLabel, !!adminToggle?.checked);
+        syncScopeToLevel(levelSelect, scopeSelect);
+        updateAccessHint(row);
 
-        roleSelect.addEventListener('change', function() {
-            if (secondaryRoleSelect && roleSelect.value && secondaryRoleSelect.value === roleSelect.value) {
-                secondaryRoleSelect.value = NO_SECONDARY_ROLE;
+        let shownLevel = levelSelect.value;
+        levelSelect.addEventListener('change', async function() {
+            // Making someone SoQM is asked once; going back to the saved value is not
+            if (levelSelect.value === 'SOQM' && originalState.get(userId).level !== 'SOQM') {
+                const name = userName(row);
+                const confirmed = await showConfirmModal({
+                    title: 'Make ' + name + ' SoQM?',
+                    message: name + ' will be able to create and edit every control, assign people and perform '
+                        + 'the SoQM steps, and will see all controls, drafts included. This takes effect when you save.',
+                    confirmText: 'Make SoQM'
+                });
+                if (!confirmed) {
+                    levelSelect.value = shownLevel;
+                }
             }
+            shownLevel = levelSelect.value;
+            syncScopeToLevel(levelSelect, scopeSelect);
+            updateAccessHint(row);
             updateRowDirtyState(row);
             updateSaveButtonState();
             renderTablePage();
         });
 
-        if (secondaryRoleSelect) {
-            secondaryRoleSelect.addEventListener('change', function() {
-                if (secondaryRoleSelect.value && secondaryRoleSelect.value === roleSelect.value) {
-                    const original = originalState.get(userId).secondaryRole;
-                    secondaryRoleSelect.value = original !== roleSelect.value ? original : NO_SECONDARY_ROLE;
-                    showClientAlert(userName(row) + ': the additional role must be different from the role.', 'warning');
-                }
-                updateRowDirtyState(row);
-                updateSaveButtonState();
-                renderTablePage();
-            });
-        }
+        scopeSelect.addEventListener('change', function() {
+            updateAccessHint(row);
+            updateRowDirtyState(row);
+            updateSaveButtonState();
+            renderTablePage();
+        });
 
         statusSelect.addEventListener('change', async function() {
             // Deactivating an active account is asked once; going back to the saved value is not
@@ -756,8 +785,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     const name = userName(row);
                     const confirmed = await showConfirmModal({
                         title: 'Give admin access to ' + name + '?',
-                        message: name + ' will be able to manage users and to view and edit every control, '
-                            + 'drafts included. This takes effect when you save.',
+                        message: name + ' will be able to manage users, see the audit trail and view every control, '
+                            + 'drafts included. Admin access changes no control. This takes effect when you save.',
                         confirmText: 'Give admin access'
                     });
                     if (!confirmed) {
@@ -765,6 +794,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
                 updateAdminLabel(adminLabel, adminToggle.checked);
+                updateAccessHint(row);
                 updateRowDirtyState(row);
                 updateSaveButtonState();
             });
@@ -805,6 +835,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 statusSelect.disabled = true;
                 statusSelect.title = 'You cannot deactivate your own account';
                 applyStatusBadge(statusSelect);
+            }
+            const readOnlyOption = levelSelect.querySelector('option[value="READ_ONLY"]');
+            if (readOnlyOption) {
+                readOnlyOption.disabled = true;
+                readOnlyOption.title = 'You cannot make your own access read-only';
             }
         }
 
@@ -876,7 +911,8 @@ document.addEventListener('DOMContentLoaded', function() {
     updateSaveButtonState();
 
     searchInput.addEventListener('input', applyFilters);
-    roleFilter.addEventListener('change', applyFilters);
+    levelFilter.addEventListener('change', applyFilters);
+    scopeFilter.addEventListener('change', applyFilters);
     statusFilter.addEventListener('change', applyFilters);
 
     if (pageSizeSelect) {
@@ -914,8 +950,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const filteredRows = getFilteredRows();
                 const exportRows = filteredRows.map(function(row) {
                     const emailElement = row.children[1];
-                    const roleSelect = row.querySelector('.js-role');
-                    const secondaryRoleSelect = row.querySelector('.js-secondary-role');
+                    const levelSelect = row.querySelector('.js-level');
+                    const scopeSelect = row.querySelector('.js-scope');
                     const adminToggle = row.querySelector('.js-admin-toggle');
                     const statusSelect = row.querySelector('.js-status');
                     const lastLoginElement = row.querySelector('.last-login');
@@ -923,8 +959,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     return {
                         Name: userName(row),
                         Email: emailElement ? emailElement.textContent.trim() : '',
-                        Role: roleExportValue(roleSelect),
-                        AdditionalRole: roleExportValue(secondaryRoleSelect),
+                        Level: selectedText(levelSelect),
+                        Scope: selectedText(scopeSelect),
                         AdminAccess: adminToggle && adminToggle.checked ? 'YES' : 'NO',
                         Status: statusSelect ? statusSelect.value : '',
                         LastLogin: lastLoginElement ? lastLoginElement.textContent.replace(/\s+/g, ' ').trim() : ''
@@ -963,9 +999,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             addUserForm.reset();
-            [addUserEmail, addUserName, addUserRole].forEach(function(field) {
+            [addUserEmail, addUserName, addUserLevel, addUserScope].forEach(function(field) {
                 setFieldError(field, '');
             });
+            syncScopeToLevel(addUserLevel, addUserScope);
+            updateAddUserHint();
             hideFormError(addUserError);
             addUserModal.show();
         });
@@ -978,10 +1016,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (addUserForm) {
-        [addUserEmail, addUserName, addUserRole].forEach(function(field) {
+        [addUserEmail, addUserName, addUserLevel, addUserScope].forEach(function(field) {
             field.addEventListener(field.tagName === 'SELECT' ? 'change' : 'input', function() {
                 setFieldError(field, '');
             });
+        });
+        addUserLevel.addEventListener('change', function() {
+            syncScopeToLevel(addUserLevel, addUserScope);
+            updateAddUserHint();
+        });
+        [addUserScope, addUserAdmin].forEach(function(field) {
+            field.addEventListener('change', updateAddUserHint);
         });
 
         addUserForm.addEventListener('submit', async function(event) {
@@ -991,10 +1036,24 @@ document.addEventListener('DOMContentLoaded', function() {
             const email = addUserEmail.value.trim().toLowerCase();
             const emailProblem = checkEmail(email);
             setFieldError(addUserEmail, emailProblem);
-            setFieldError(addUserRole, addUserRole.value ? '' : 'Role is required');
-            if (emailProblem || !addUserRole.value) {
-                (emailProblem ? addUserEmail : addUserRole).focus();
+            setFieldError(addUserLevel, addUserLevel.value ? '' : 'Level is required');
+            if (emailProblem || !addUserLevel.value) {
+                (emailProblem ? addUserEmail : addUserLevel).focus();
                 return;
+            }
+            // SoQM and admin access are confirmed before the user is created
+            const giveSoqm = addUserLevel.value === 'SOQM';
+            const giveAdmin = addUserAdmin.value === 'YES';
+            if (giveSoqm || giveAdmin) {
+                const confirmed = await showConfirmModal({
+                    title: 'Create ' + email + ' with ' + (giveSoqm && giveAdmin ? 'SoQM and admin access'
+                        : giveSoqm ? 'SoQM access' : 'admin access') + '?',
+                    message: accessSummary(addUserLevel.value, addUserScope.value, giveAdmin),
+                    confirmText: 'Create User'
+                });
+                if (!confirmed) {
+                    return;
+                }
             }
 
             addUserSaveBtn.disabled = true;
@@ -1005,13 +1064,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const response = await postForm('/api/users', 'POST', {
                     email: email,
                     displayName: addUserName.value.trim(),
-                    role: addUserRole.value,
+                    level: addUserLevel.value,
+                    scope: addUserScope.value,
                     adminAccess: String(addUserAdmin.value === 'YES'),
                     enabled: String(addUserStatus.value === 'ACTIVE')
                 });
                 if (!response.ok) {
                     showServerError(await responseMessage(response, 'The user could not be created.'),
-                        { email: addUserEmail, role: addUserRole }, addUserError);
+                        { email: addUserEmail, level: addUserLevel, scope: addUserScope }, addUserError);
                     return;
                 }
 
@@ -1034,7 +1094,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    saveAllBtn.addEventListener('click', async function() {
+    if (saveAllBtn) saveAllBtn.addEventListener('click', async function() {
         const updates = rows.filter(function(row) {
             return row.classList.contains('row-dirty');
         }).map(function(row) {
@@ -1058,14 +1118,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             for (const item of updates) {
                 const name = userName(item.row);
-                if (item.secondaryRole && item.secondaryRole === item.role) {
-                    failed.push(name + ': the additional role must be different from the role');
-                    continue;
-                }
                 try {
                     const response = await postForm('/api/users/' + item.row.dataset.userId + '/access', 'POST', {
-                        role: item.role,
-                        secondaryRole: item.secondaryRole,
+                        level: item.level,
+                        scope: item.scope,
                         enabled: String(item.enabled),
                         adminAccess: String(item.adminAccess)
                     });
@@ -1074,8 +1130,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         continue;
                     }
                     originalState.set(item.row.dataset.userId, {
-                        role: item.role,
-                        secondaryRole: item.secondaryRole,
+                        level: item.level,
+                        scope: item.scope,
                         enabled: item.enabled,
                         adminAccess: item.adminAccess
                     });
@@ -1138,8 +1194,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function getCurrentRowState(row) {
         return {
-            role: row.querySelector('.js-role')?.value || '',
-            secondaryRole: row.querySelector('.js-secondary-role')?.value || '',
+            level: row.querySelector('.js-level')?.value || '',
+            scope: row.querySelector('.js-scope')?.value || '',
             enabled: row.querySelector('.js-status')?.value === 'ACTIVE',
             adminAccess: !!row.querySelector('.js-admin-toggle')?.checked
         };
@@ -1150,8 +1206,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const original = originalState.get(userId);
         const current = getCurrentRowState(row);
         const dirty = !original
-            || original.role !== current.role
-            || original.secondaryRole !== current.secondaryRole
+            || original.level !== current.level
+            || original.scope !== current.scope
             || original.enabled !== current.enabled
             || original.adminAccess !== current.adminAccess;
 
@@ -1165,7 +1221,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateSaveButtonState() {
-        saveAllBtn.disabled = hasNoPendingChanges();
+        if (saveAllBtn) {
+            saveAllBtn.disabled = hasNoPendingChanges();
+        }
     }
 
     function userName(row) {
@@ -1173,16 +1231,63 @@ document.addEventListener('DOMContentLoaded', function() {
         return name ? name.textContent.trim() : '';
     }
 
-    // The value a role select stands for: the stored text for an unlisted value, nothing for "None"
-    function roleExportValue(select) {
+    function selectedText(select) {
         if (!select || select.selectedIndex < 0) {
             return '';
         }
-        const option = select.options[select.selectedIndex];
-        if (option.dataset.storedValue === 'true') {
-            return option.dataset.storedText || '';
+        return select.options[select.selectedIndex].textContent.trim();
+    }
+
+    // SoQM always sees all controls: its scope is All and cannot be changed
+    function syncScopeToLevel(levelSelect, scopeSelect) {
+        if (!levelSelect || !scopeSelect) {
+            return;
         }
-        return option.value === NO_SECONDARY_ROLE ? '' : option.value;
+        if (levelSelect.value === 'SOQM') {
+            scopeSelect.value = 'ALL';
+            scopeSelect.disabled = true;
+            scopeSelect.title = 'SoQM always sees all controls';
+        } else {
+            scopeSelect.disabled = !CAN_MANAGE;
+            scopeSelect.title = '';
+        }
+    }
+
+    // What a level, a scope and the admin flag add up to; the server's AccessPolicy has the same rules
+    function accessSummary(level, scope, admin) {
+        const sees = admin ? 'all controls (admin access)' : (SCOPE_TEXT[scope] || SCOPE_TEXT.OWN);
+        let text;
+        if (level === 'SOQM') {
+            text = 'Creates and edits every control, assigns people and performs the SoQM steps; sees all controls.';
+        } else if (level === 'PARTICIPANT') {
+            text = 'Performs their own steps on the ' + (scope === 'KDN' ? 'KDN ' : '')
+                + 'controls they are assigned to; sees ' + sees + '.';
+        } else if (level === 'READ_ONLY') {
+            text = 'Only views and downloads, changes nothing; sees ' + sees + '.';
+        } else {
+            return '';
+        }
+        if (admin) {
+            text += level === 'READ_ONLY' ? ' Admin Panel and audit, view only.' : ' Manages users in the Admin Panel.';
+        }
+        return text;
+    }
+
+    function updateAccessHint(row) {
+        const hint = row.querySelector('.js-access-hint');
+        if (!hint) {
+            return;
+        }
+        hint.textContent = accessSummary(row.querySelector('.js-level')?.value,
+            row.querySelector('.js-scope')?.value,
+            !!row.querySelector('.js-admin-toggle')?.checked);
+    }
+
+    function updateAddUserHint() {
+        if (addUserAccessHint) {
+            addUserAccessHint.textContent = accessSummary(addUserLevel.value, addUserScope.value,
+                addUserAdmin.value === 'YES');
+        }
     }
 
     function updateAdminLabel(labelElement, checked) {
@@ -1276,10 +1381,11 @@ document.addEventListener('DOMContentLoaded', function() {
         element.classList.add('d-none');
     }
 
-    // A server message about the e-mail or the role goes under that field, anything else above the form
+    // A server message about the e-mail, the level or the scope goes under that field, anything else above the form
     function showServerError(message, fields, formError) {
         const target = /e-?mail/i.test(message) ? fields.email
-            : /role/i.test(message) ? fields.role
+            : /level/i.test(message) ? fields.level
+            : /scope/i.test(message) ? fields.scope
             : null;
         if (target) {
             setFieldError(target, message.charAt(0).toUpperCase() + message.slice(1));
@@ -1313,7 +1419,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (response.status === 403) {
             // A stale CSRF token (e.g. after signing in again in another tab) is a 403 too, with its own message
             const json = await response.clone().json().catch(() => null);
-            return json && json.code === 'CSRF_INVALID' ? json.message : 'you do not have admin access';
+            return json && (json.code === 'CSRF_INVALID' || json.code === 'READ_ONLY')
+                ? json.message : 'you do not have admin access';
         }
         let text = '';
         try {
@@ -1342,22 +1449,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function matchesFilters(row) {
         const q = searchInput.value.trim().toLowerCase();
-        const role = roleFilter.value;
+        const level = levelFilter.value;
+        const scope = scopeFilter.value;
         const status = statusFilter.value;
 
         const nameText = row.querySelector('.user-cell') ? row.querySelector('.user-cell').textContent.toLowerCase() : '';
         const emailText = row.children[1] ? row.children[1].textContent.toLowerCase() : '';
-        const rowRole = row.querySelector('.js-role') ? row.querySelector('.js-role').value : '';
-        const rowSecondaryRole = row.querySelector('.js-secondary-role') ? row.querySelector('.js-secondary-role').value : '';
+        const rowLevel = row.querySelector('.js-level') ? row.querySelector('.js-level').value : '';
+        const rowScope = row.querySelector('.js-scope') ? row.querySelector('.js-scope').value : '';
         const rowEnabled = row.querySelector('.js-status') ? row.querySelector('.js-status').value === 'ACTIVE' : false;
 
         const searchOk = !q || nameText.includes(q) || emailText.includes(q);
-        const roleOk = !role || role === rowRole || role === rowSecondaryRole;
+        const levelOk = !level || level === rowLevel;
+        const scopeOk = !scope || scope === rowScope;
         const statusOk = !status
             || (status === 'ACTIVE' && rowEnabled)
             || (status === 'INACTIVE' && !rowEnabled);
 
-        return searchOk && roleOk && statusOk;
+        return searchOk && levelOk && scopeOk && statusOk;
     }
 
     function getFilteredRows() {
@@ -1451,13 +1560,25 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="form-text" id="addUserName-hint">Leave empty to take the name from the e-mail.</div>
                         <div class="invalid-feedback" id="addUserName-error"></div>
                     </div>
-                    <div class="mb-3">
-                        <label for="addUserRole" class="form-label">Role <span class="required-mark" aria-hidden="true">*</span></label>
-                        <select id="addUserRole" class="form-select" required aria-describedby="addUserRole-error">
-                            <option th:each="role : ${allowedRoles}" th:value="${role}" th:text="${roleLabels.get(role)}"></option>
-                        </select>
-                        <div class="invalid-feedback" id="addUserRole-error"></div>
+                    <div class="row g-2 mb-1">
+                        <div class="col-6">
+                            <label for="addUserLevel" class="form-label">Level <span class="required-mark" aria-hidden="true">*</span></label>
+                            <select id="addUserLevel" class="form-select" required aria-describedby="addUserLevel-error">
+                                <option value="" selected>Choose…</option>
+                                <option th:each="level : ${accessLevels}" th:value="${level.name()}" th:text="${level.displayName}">SoQM</option>
+                            </select>
+                            <div class="invalid-feedback" id="addUserLevel-error"></div>
+                        </div>
+                        <div class="col-6">
+                            <label for="addUserScope" class="form-label">Scope</label>
+                            <select id="addUserScope" class="form-select" aria-describedby="addUserScope-error">
+                                <option th:each="scope : ${accessScopes}" th:value="${scope.name()}" th:text="${scope.displayName}"
+                                        th:selected="${scope.name() == 'OWN'}">Own controls</option>
+                            </select>
+                            <div class="invalid-feedback" id="addUserScope-error"></div>
+                        </div>
                     </div>
+                    <div class="form-text mb-3 js-add-access-hint" id="addUserAccessHint" aria-live="polite"></div>
                     <div class="row g-2">
                         <div class="col-6">
                             <label for="addUserAdmin" class="form-label">Admin Access</label>

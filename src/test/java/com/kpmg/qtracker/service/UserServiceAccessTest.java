@@ -20,8 +20,9 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 /**
- * Admin Panel saves: a blank role or additional role keeps the stored value, also one the lists do not
- * offer, so changing another field of a user never rewrites it.
+ * Admin Panel saves of level, scope, admin access and status: a blank level or scope keeps the stored
+ * one, SoQM always gets scope ALL, the old role columns are never touched, and an admin cannot lock
+ * themselves out.
  */
 @ExtendWith(MockitoExtension.class)
 class UserServiceAccessTest {
@@ -37,12 +38,14 @@ class UserServiceAccessTest {
     @InjectMocks
     private UserService service;
 
-    private User stored(String role, String secondaryRole) {
+    private User stored(AccessLevel level, AccessScope scope) {
         User user = new User();
         user.setId(TARGET_ID);
         user.setMail("target@example.test");
-        user.setRole(role);
-        user.setSecondaryRole(secondaryRole);
+        user.setRole("FACILITATOR");
+        user.setSecondaryRole("PROCESS_OWNER");
+        user.setAccessLevel(level);
+        user.setAccessScope(scope);
         user.setEnabled(true);
         user.setAdminAccess(false);
         when(userRepository.findById(TARGET_ID)).thenReturn(Optional.of(user));
@@ -51,135 +54,72 @@ class UserServiceAccessTest {
     }
 
     @Test
-    void blankRole_keepsAdminRole_whileStatusChanges() {
-        stored("ADMIN", null);
+    void blankLevelAndScope_keepTheStoredOnes_whileStatusChanges() {
+        stored(AccessLevel.PARTICIPANT, AccessScope.KDN);
 
-        User saved = service.updateUserAccess(TARGET_ID, "", "", false, false, ADMIN_ID);
+        User saved = service.updateUserAccess(TARGET_ID, "", null, false, false, ADMIN_ID);
 
-        assertThat(saved.getRole()).isEqualTo("ADMIN");
-        assertThat(saved.getSecondaryRole()).isNull();
+        assertThat(saved.getAccessLevel()).isEqualTo(AccessLevel.PARTICIPANT);
+        assertThat(saved.getAccessScope()).isEqualTo(AccessScope.KDN);
         assertThat(saved.getEnabled()).isFalse();
     }
 
     @Test
-    void blankRole_keepsNonStandardSpelling() {
-        stored("SoQM Team", null);
+    void levelAndScope_areSaved_andTheOldRoleColumnsStayAsTheyWere() {
+        stored(AccessLevel.PARTICIPANT, AccessScope.OWN);
 
-        User saved = service.updateUserAccess(TARGET_ID, null, null, true, true, ADMIN_ID);
+        User saved = service.updateUserAccess(TARGET_ID, "read-only", "all", true, true, ADMIN_ID);
 
-        assertThat(saved.getRole()).isEqualTo("SoQM Team");
+        assertThat(saved.getAccessLevel()).isEqualTo(AccessLevel.READ_ONLY);
+        assertThat(saved.getAccessScope()).isEqualTo(AccessScope.ALL);
         assertThat(saved.getAdminAccess()).isTrue();
-    }
-
-    @Test
-    void blankRole_keepsValueWithComma() {
-        stored("FACILITATOR,PROCESS_OWNER", null);
-
-        User saved = service.updateUserAccess(TARGET_ID, " ", "", false, false, ADMIN_ID);
-
-        assertThat(saved.getRole()).isEqualTo("FACILITATOR,PROCESS_OWNER");
-    }
-
-    @Test
-    void blankAdditionalRole_keepsUnlistedValue_whenRoleChanges() {
-        stored("FACILITATOR", "Soqm_Team");
-
-        User saved = service.updateUserAccess(TARGET_ID, "PROCESS_OWNER", "", false, true, ADMIN_ID);
-
-        assertThat(saved.getRole()).isEqualTo("PROCESS_OWNER");
-        assertThat(saved.getSecondaryRole()).isEqualTo("Soqm_Team");
-    }
-
-    @Test
-    void blankAdditionalRole_keepsValueWithComma() {
-        stored("SOQM_TEAM", "FACILITATOR;CONTROL_OPERATOR");
-
-        User saved = service.updateUserAccess(TARGET_ID, "", "", false, false, ADMIN_ID);
-
-        assertThat(saved.getSecondaryRole()).isEqualTo("FACILITATOR;CONTROL_OPERATOR");
-    }
-
-    @Test
-    void noneClearsAdditionalRole() {
-        stored("ADMIN", "facilitator");
-
-        User saved = service.updateUserAccess(TARGET_ID, "", "NONE", false, true, ADMIN_ID);
-
-        assertThat(saved.getRole()).isEqualTo("ADMIN");
-        assertThat(saved.getSecondaryRole()).isNull();
-    }
-
-    @Test
-    void additionalRoleChange_keepsUnlistedRole() {
-        stored("ADMIN", null);
-
-        User saved = service.updateUserAccess(TARGET_ID, "", "process_owner", false, true, ADMIN_ID);
-
-        assertThat(saved.getRole()).isEqualTo("ADMIN");
+        assertThat(saved.getRole()).isEqualTo("FACILITATOR");
         assertThat(saved.getSecondaryRole()).isEqualTo("PROCESS_OWNER");
     }
 
     @Test
-    void listedValues_areStillValidated() {
-        stored("ADMIN", null);
+    void soqm_alwaysGetsScopeAll_andRefusesAnyOther() {
+        stored(AccessLevel.PARTICIPANT, AccessScope.KDN);
 
-        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "", "KDN", false, true, ADMIN_ID))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Additional role can only be");
-        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "ADMIN", "", false, true, ADMIN_ID))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unsupported role");
+        assertThat(service.updateUserAccess(TARGET_ID, "SOQM", "", false, true, ADMIN_ID).getAccessScope())
+                .isEqualTo(AccessScope.ALL);
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "SOQM", "OWN", false, true, ADMIN_ID))
+                .hasMessage("SoQM always sees all controls: scope must be ALL");
     }
 
     @Test
-    void newRoleEqualToKeptAdditionalRole_isRefused() {
-        stored("CONTROL_OPERATOR", "Facilitator");
+    void leavingSoqm_keepsScopeAll_untilAnotherIsChosen() {
+        stored(AccessLevel.SOQM, AccessScope.ALL);
 
-        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "FACILITATOR", "", false, true, ADMIN_ID))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("must be different");
-    }
+        User saved = service.updateUserAccess(TARGET_ID, "PARTICIPANT", "", false, true, ADMIN_ID);
 
-    @Test
-    void statusChange_doesNotRecheckStoredRoles() {
-        // Old data with the same value twice: the admin can still disable the user
-        stored("FACILITATOR", "FACILITATOR");
-
-        User saved = service.updateUserAccess(TARGET_ID, "", "", false, false, ADMIN_ID);
-
-        assertThat(saved.getEnabled()).isFalse();
-        assertThat(saved.getSecondaryRole()).isEqualTo("FACILITATOR");
-    }
-
-    @Test
-    void listedRoles_areSavedAsBefore() {
-        stored("FACILITATOR", null);
-
-        User saved = service.updateUserAccess(TARGET_ID, "CONTROL_OPERATOR", "PROCESS_OWNER", false, true, ADMIN_ID);
-
-        assertThat(saved.getRole()).isEqualTo("CONTROL_OPERATOR");
-        assertThat(saved.getSecondaryRole()).isEqualTo("PROCESS_OWNER");
-    }
-
-    @Test
-    void roleChange_setsTheMatchingAccessLevelAndScope() {
-        stored("FACILITATOR", null);
-
-        User saved = service.updateUserAccess(TARGET_ID, "SOQM_TEAM", "", false, true, ADMIN_ID);
-
-        assertThat(saved.getAccessLevel()).isEqualTo(AccessLevel.SOQM);
+        assertThat(saved.getAccessLevel()).isEqualTo(AccessLevel.PARTICIPANT);
         assertThat(saved.getAccessScope()).isEqualTo(AccessScope.ALL);
     }
 
     @Test
-    void createUser_setsTheAccessOfItsRole() {
-        when(userRepository.existsByMail("kdn@example.test")).thenReturn(false);
-        when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
+    void unknownLevelOrScope_isRefused() {
+        stored(AccessLevel.PARTICIPANT, AccessScope.OWN);
 
-        User created = service.createUser("kdn@example.test", "KDN User", "KDN", false, true);
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "ADMIN", "", false, true, ADMIN_ID))
+                .hasMessage("Unsupported access level: ADMIN");
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "PARTICIPANT", "TEAM", false, true, ADMIN_ID))
+                .hasMessage("Unsupported scope: TEAM");
+    }
 
-        assertThat(created.getAccessLevel()).isEqualTo(AccessLevel.PARTICIPANT);
-        assertThat(created.getAccessScope()).isEqualTo(AccessScope.KDN);
+    @Test
+    void admin_cannotDisableThemselves_removeTheirAdminAccess_orBecomeReadOnly() {
+        User self = stored(AccessLevel.PARTICIPANT, AccessScope.ALL);
+        self.setAdminAccess(true);
+
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "", "", true, false, TARGET_ID))
+                .hasMessage("You cannot disable your own account or remove your own admin access");
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "", "", false, true, TARGET_ID))
+                .hasMessage("You cannot disable your own account or remove your own admin access");
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "READ_ONLY", "", true, true, TARGET_ID))
+                .hasMessage("You cannot make your own access read-only");
+        assertThat(service.updateUserAccess(TARGET_ID, "SOQM", "", true, true, TARGET_ID).getAccessLevel())
+                .isEqualTo(AccessLevel.SOQM);
     }
 
     @Test
@@ -209,5 +149,7 @@ class UserServiceAccessTest {
                 .hasMessage("Unsupported access level: ADMIN");
         assertThatThrownBy(() -> service.createUser("y@example.test", null, "PARTICIPANT", "MINE", false, true))
                 .hasMessage("Unsupported scope: MINE");
+        assertThatThrownBy(() -> service.createUser("z@example.test", null, " ", "OWN", false, true))
+                .hasMessage("Access level is required");
     }
 }

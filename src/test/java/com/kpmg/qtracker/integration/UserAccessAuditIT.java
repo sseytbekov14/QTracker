@@ -70,8 +70,9 @@ class UserAccessAuditIT {
         User target = saveUser("audit-target-" + suffix() + "@example.test", "FACILITATOR");
 
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).session(login(admin.getMail()))
-                        .param("role", "PROCESS_OWNER")
-                        .param("secondaryRole", "NONE")
+                        .param("level", "READ_ONLY")
+                        .param("scope", "ALL")
+                        .param("adminAccess", "true")
                         .param("enabled", "false"))
                 .andExpect(status().isOk());
 
@@ -79,9 +80,11 @@ class UserAccessAuditIT {
                 .filter(entry -> "USER_ACCESS_UPDATE".equals(entry.getActionType()))
                 .findFirst().orElseThrow();
         assertThat(log.getActionDescription()).isEqualTo(
-                "Changed role from FACILITATOR to PROCESS_OWNER; Changed status from ACTIVE to INACTIVE for " + target.getMail());
-        assertThat(log.getPreviousValues()).isEqualTo("role=FACILITATOR, secondaryRole=null, adminAccess=false, enabled=true");
-        assertThat(log.getNewValues()).isEqualTo("role=PROCESS_OWNER, secondaryRole=null, adminAccess=false, enabled=false");
+                "Changed level from PARTICIPANT to READ_ONLY; Changed scope from OWN to ALL; "
+                        + "Changed admin access from NO to YES; Changed status from ACTIVE to INACTIVE for " + target.getMail());
+        assertThat(log.getChangedFields()).isEqualTo("level,scope,adminAccess,enabled");
+        assertThat(log.getPreviousValues()).isEqualTo("level=PARTICIPANT, scope=OWN, adminAccess=false, enabled=true");
+        assertThat(log.getNewValues()).isEqualTo("level=READ_ONLY, scope=ALL, adminAccess=true, enabled=false");
     }
 
     private User saveUser(String mail, String role) {

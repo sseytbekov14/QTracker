@@ -8,12 +8,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.Arrays;
-import java.util.LinkedHashSet;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -21,20 +19,6 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private static final String DEFAULT_NEW_USER_PASSWORD = "aaa";
-    private static final List<String> ALLOWED_ROLES = List.of(
-            "FACILITATOR",
-            "CONTROL_OPERATOR",
-            "PROCESS_OWNER",
-            "SOQM_TEAM",
-            "KDN"
-    );
-    private static final List<String> ALLOWED_SECONDARY_ROLES = List.of(
-            "FACILITATOR",
-            "CONTROL_OPERATOR",
-            "PROCESS_OWNER"
-    );
-    /** Additional role value that clears it; a blank value keeps the stored one. */
-    public static final String NO_SECONDARY_ROLE = "NONE";
 
     public List<User> getAllUsers() {
         return userRepository.findAll();
@@ -44,8 +28,7 @@ public class UserService {
     public List<User> getUsersOfferedFor(AccessPolicy.Slot slot, boolean kdnControl) {
         return userRepository.findAll().stream()
                 .filter(user -> AccessPolicy.isOfferedFor(AccessPolicy.Subject.of(user), slot, kdnControl))
-                .sorted(java.util.Comparator.comparing(User::getDisplayName,
-                        java.util.Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .sorted(Comparator.comparing(User::getDisplayName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
     }
 
@@ -65,56 +48,29 @@ public class UserService {
         return userRepository.existsByMail(email);
     }
 
-    public List<String> getAllowedRoles() {
-        return ALLOWED_ROLES;
-    }
-
-    public List<String> getAllowedSecondaryRoles() {
-        return ALLOWED_SECONDARY_ROLES;
-    }
-
-    public boolean hasAdminAccess(User user) {
-        return user != null && Boolean.TRUE.equals(user.getAdminAccess());
-    }
-
+    /**
+     * The Admin Panel save of one user. A blank level or scope keeps the stored one; SoQM always gets
+     * scope ALL. Admins cannot disable themselves, remove their own admin access or make themselves
+     * read-only (they would lose the Admin Panel changes). The old role columns are not touched.
+     */
     public User updateUserAccess(Long targetUserId,
-                                 String role,
-                                 String secondaryRole,
+                                 String level,
+                                 String scope,
                                  Boolean adminAccess,
                                  Boolean enabled,
                                  Long actingUserId) {
         User targetUser = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        // A blank role or additional role keeps the stored value as it is, even one outside the lists
-        // (e.g. ADMIN), so saving other fields of a user never rewrites it
-        boolean keepRole = role == null || role.isBlank();
-        boolean keepSecondaryRole = secondaryRole == null || secondaryRole.isBlank();
-        boolean clearSecondaryRole = !keepSecondaryRole && NO_SECONDARY_ROLE.equalsIgnoreCase(secondaryRole.trim());
-        String requestedSecondaryRole = keepSecondaryRole || clearSecondaryRole ? null : secondaryRole;
-
-        String normalizedRole;
-        String normalizedSecondaryRole;
-        if (keepRole) {
-            normalizedRole = targetUser.getRole();
-            normalizedSecondaryRole = requestedSecondaryRole != null ? normalizeSingleRole(requestedSecondaryRole) : null;
+        AccessLevel nextLevel = level == null || level.isBlank()
+                ? storedLevel(targetUser)
+                : AccessLevel.tryFrom(level)
+                        .orElseThrow(() -> new IllegalArgumentException("Unsupported access level: " + level));
+        AccessScope nextScope;
+        if (scope == null || scope.isBlank()) {
+            nextScope = nextLevel == AccessLevel.SOQM ? AccessScope.ALL : storedScope(targetUser);
         } else {
-            Set<String> selectedRoles = normalizeSelectedRoles(role, requestedSecondaryRole);
-            normalizedRole = selectedRoles.stream().findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Role is required"));
-            normalizedSecondaryRole = selectedRoles.stream().skip(1).findFirst().orElse(null);
-        }
-
-        if (normalizedSecondaryRole != null && !ALLOWED_SECONDARY_ROLES.contains(normalizedSecondaryRole)) {
-            throw new IllegalArgumentException("Additional role can only be FACILITATOR, CONTROL_OPERATOR or PROCESS_OWNER");
-        }
-        if (normalizedSecondaryRole == null && keepSecondaryRole) {
-            normalizedSecondaryRole = targetUser.getSecondaryRole();
-        }
-        if (!(keepRole && keepSecondaryRole)
-                && normalizedSecondaryRole != null && !normalizedSecondaryRole.isBlank()
-                && roleKey(normalizedSecondaryRole).equals(roleKey(normalizedRole))) {
-            throw new IllegalArgumentException("Additional role must be different from the primary role");
+            nextScope = resolveScope(nextLevel, scope);
         }
 
         boolean nextAdminAccess = adminAccess != null ? adminAccess : Boolean.TRUE.equals(targetUser.getAdminAccess());
@@ -123,29 +79,15 @@ public class UserService {
         if (selfUpdate && (!nextAdminAccess || !nextEnabled)) {
             throw new IllegalArgumentException("You cannot disable your own account or remove your own admin access");
         }
+        if (selfUpdate && nextLevel == AccessLevel.READ_ONLY) {
+            throw new IllegalArgumentException("You cannot make your own access read-only");
+        }
 
-        targetUser.setRole(normalizedRole);
-        targetUser.setSecondaryRole(normalizedSecondaryRole);
-        applyLegacyRoleAccess(targetUser);
+        targetUser.setAccessLevel(nextLevel);
+        targetUser.setAccessScope(nextScope);
         targetUser.setAdminAccess(nextAdminAccess);
         targetUser.setEnabled(nextEnabled);
         return userRepository.save(targetUser);
-    }
-
-    /** A new user with an old role and the access V6 gives it (the Admin Panel still sends roles). */
-    public User createUser(String email,
-                           String displayName,
-                           String role,
-                           Boolean adminAccess,
-                           Boolean enabled) {
-        String normalizedRole = normalizeRole(role);
-        if (!ALLOWED_ROLES.contains(normalizedRole)) {
-            throw new IllegalArgumentException("Unsupported role: " + role);
-        }
-        LegacyRoleAccess.Access access = LegacyRoleAccess.of(normalizedRole, null);
-        User user = newUser(email, displayName, access.level(), access.scope(), adminAccess, enabled);
-        user.setRole(normalizedRole);
-        return userRepository.save(user);
     }
 
     /**
@@ -158,6 +100,9 @@ public class UserService {
                            String scope,
                            Boolean adminAccess,
                            Boolean enabled) {
+        if (level == null || level.isBlank()) {
+            throw new IllegalArgumentException("Access level is required");
+        }
         AccessLevel accessLevel = AccessLevel.tryFrom(level)
                 .orElseThrow(() -> new IllegalArgumentException("Unsupported access level: " + level));
         AccessScope accessScope = resolveScope(accessLevel, scope);
@@ -175,6 +120,14 @@ public class UserService {
             throw new IllegalArgumentException("SoQM always sees all controls: scope must be ALL");
         }
         return accessScope;
+    }
+
+    private static AccessLevel storedLevel(User user) {
+        return user.getAccessLevel() != null ? user.getAccessLevel() : AccessLevel.READ_ONLY;
+    }
+
+    private static AccessScope storedScope(User user) {
+        return user.getAccessScope() != null ? user.getAccessScope() : AccessScope.OWN;
     }
 
     private User newUser(String email, String displayName, AccessLevel level, AccessScope scope,
@@ -200,13 +153,6 @@ public class UserService {
         user.setEnabled(enabled == null || enabled);
         user.setPassword(passwordEncoder.encode(DEFAULT_NEW_USER_PASSWORD));
         return user;
-    }
-
-    /** Keeps the access level and scope in step with the roles the Admin Panel still edits. */
-    private void applyLegacyRoleAccess(User user) {
-        LegacyRoleAccess.Access access = LegacyRoleAccess.of(user.getRole(), user.getSecondaryRole());
-        user.setAccessLevel(access.level());
-        user.setAccessScope(access.scope());
     }
 
     private String resolveDisplayName(String displayName, String fallbackEmail) {
@@ -271,64 +217,5 @@ public class UserService {
             }
         }
         return builder.length() > 0 ? builder.toString() : email;
-    }
-
-    private String normalizeRole(String role) {
-        if (role == null || role.isBlank()) {
-            throw new IllegalArgumentException("Role is required");
-        }
-        String normalized = role.trim()
-                .replace('-', '_')
-                .replace(' ', '_')
-                .toUpperCase();
-        if (!ALLOWED_ROLES.contains(normalized)) {
-            throw new IllegalArgumentException("Unsupported role: " + role);
-        }
-        return normalized;
-    }
-
-    private String normalizeSingleRole(String source) {
-        Set<String> roles = new LinkedHashSet<>();
-        addNormalizedRoles(roles, source, true);
-        if (roles.size() > 1) {
-            throw new IllegalArgumentException("A user can have at most 2 roles");
-        }
-        return roles.iterator().next();
-    }
-
-    /** Comparison key for stored roles that may not be normalized ("SoQM Team" = "SOQM_TEAM"). */
-    private static String roleKey(String role) {
-        return role == null ? "" : role.trim().replace('-', '_').replace(' ', '_').toUpperCase(Locale.ROOT);
-    }
-
-    private Set<String> normalizeSelectedRoles(String primaryRole, String secondaryRole) {
-        LinkedHashSet<String> normalizedRoles = new LinkedHashSet<>();
-
-        addNormalizedRoles(normalizedRoles, primaryRole, true);
-        addNormalizedRoles(normalizedRoles, secondaryRole, false);
-
-        if (normalizedRoles.isEmpty()) {
-            throw new IllegalArgumentException("Role is required");
-        }
-        if (normalizedRoles.size() > 2) {
-            throw new IllegalArgumentException("A user can have at most 2 roles");
-        }
-
-        return normalizedRoles;
-    }
-
-    private void addNormalizedRoles(Set<String> collector, String source, boolean required) {
-        if (source == null || source.isBlank()) {
-            if (required) {
-                throw new IllegalArgumentException("Role is required");
-            }
-            return;
-        }
-
-        Arrays.stream(source.split("[,;]"))
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .map(this::normalizeRole)
-                .forEach(collector::add);
     }
 }

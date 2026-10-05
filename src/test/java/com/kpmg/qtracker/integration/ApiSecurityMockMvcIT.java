@@ -1280,7 +1280,7 @@ class ApiSecurityMockMvcIT {
 
         assertThat(userRepository.findByMail(" " + lower.toUpperCase() + " ")).map(User::getId).contains(stored.getId());
         assertThat(userRepository.existsByMail(lower)).isTrue();
-        assertThatThrownBy(() -> userService.createUser(lower, "Copy", "FACILITATOR", false, true))
+        assertThatThrownBy(() -> userService.createUser(lower, "Copy", "PARTICIPANT", "OWN", false, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("already exists");
     }
@@ -1633,69 +1633,123 @@ class ApiSecurityMockMvcIT {
                 + ",\"controlOperationDate\":\"2026-11-02\"}";
     }
 
-    // ---- Admin Panel: stored roles the lists do not offer are shown as they are and never rewritten ----
+    // ---- Admin Panel: level, scope and the admin flag ----
 
     @Test
-    void adminPage_unlistedStoredRoles_getTheirOwnSelectedOption() throws Exception {
+    void adminPage_showsLevelAndScope_soqmScopeIsFixed_andTheOldRoleColumnsAreGone() throws Exception {
         MockHttpSession adminSession = login(adminUser().getMail());
-        User adminRole = saveUser("role-admin", "role-admin-" + suffix() + "@example.test", "ADMIN");
-        User spelling = saveUser("role-spelling", "role-spelling-" + suffix() + "@example.test", "SoQM Team");
-        User comma = saveUser("role-comma", "role-comma-" + suffix() + "@example.test", "FACILITATOR,PROCESS_OWNER");
-        User listed = saveUser("role-listed", "role-listed-" + suffix() + "@example.test", "CONTROL_OPERATOR");
-        listed.setSecondaryRole("Facilitator");
-        userRepository.save(listed);
+        User soqm = saveUser("lv-soqm", "lv-soqm-" + suffix() + "@example.test", "SOQM_TEAM");
+        User kdn = saveUser("lv-kdn", "lv-kdn-" + suffix() + "@example.test", "KDN");
+        User readOnly = saveUser("lv-ro", "lv-ro-" + suffix() + "@example.test", "READ_ONLY");
 
         String html = mockMvc.perform(get("/admin/users").session(adminSession))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        assertThat(selectedOptions(html, adminRole, "js-role")).containsExactly("ADMIN (not in list)");
-        assertThat(selectedOptions(html, spelling, "js-role")).containsExactly("SoQM Team (not in list)");
-        assertThat(selectedOptions(html, comma, "js-role")).containsExactly("FACILITATOR,PROCESS_OWNER (not in list)");
-        assertThat(selectedOptions(html, adminRole, "js-secondary-role")).containsExactly("None");
-        assertThat(selectedOptions(html, listed, "js-role")).containsExactly("Control Operator");
-        assertThat(selectedOptions(html, listed, "js-secondary-role")).containsExactly("Facilitator (not in list)");
-        assertThat(roleSelect(html, adminRole, "js-role"))
-                .contains("value=\"\"", "data-stored-value=\"true\"", "data-stored-text=\"ADMIN\"");
-        assertThat(roleSelect(html, adminRole, "js-secondary-role")).contains("value=\"NONE\"");
+        assertThat(html).contains("<th scope=\"col\">Level</th>", "<th scope=\"col\">Scope</th>",
+                "id=\"filterLevel\"", "id=\"filterScope\"");
+        assertThat(html).doesNotContain("Additional Role", "js-role", "js-secondary-role", "(not in list)");
+        assertThat(selectedOptions(html, soqm, "js-level")).containsExactly("SoQM");
+        assertThat(selectedOptions(html, soqm, "js-scope")).containsExactly("All controls");
+        assertThat(selectedOptions(html, kdn, "js-level")).containsExactly("Participant");
+        assertThat(selectedOptions(html, kdn, "js-scope")).containsExactly("KDN controls");
+        assertThat(selectedOptions(html, readOnly, "js-level")).containsExactly("Read only");
+        assertThat(selectedOptions(html, readOnly, "js-scope")).containsExactly("Own controls");
     }
 
     @Test
-    void accessUpdate_blankRoles_keepUnlistedStoredValues() throws Exception {
+    void accessUpdate_setsLevelAndScope_keepsTheOldRoleColumns_andSoqmGetsScopeAll() throws Exception {
         MockHttpSession adminSession = login(adminUser().getMail());
-        for (String storedRole : List.of("ADMIN", "SoQM Team", "FACILITATOR,PROCESS_OWNER")) {
-            User target = saveUser("keep-role", "keep-role-" + suffix() + "@example.test", storedRole);
-            target.setSecondaryRole("Facilitator");
-            userRepository.save(target);
-
-            mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
-                            .param("role", "")
-                            .param("secondaryRole", "")
-                            .param("adminAccess", "false")
-                            .param("enabled", "false"))
-                    .andExpect(status().isOk());
-
-            User saved = userRepository.findById(target.getId()).orElseThrow();
-            assertThat(saved.getRole()).isEqualTo(storedRole);
-            assertThat(saved.getSecondaryRole()).isEqualTo("Facilitator");
-            assertThat(saved.getEnabled()).isFalse();
-        }
-    }
-
-    @Test
-    void accessUpdate_noneClearsAdditionalRole_andAListedRoleReplacesTheStoredOne() throws Exception {
-        MockHttpSession adminSession = login(adminUser().getMail());
-        User target = saveUser("change-role", "change-role-" + suffix() + "@example.test", "ADMIN");
-        target.setSecondaryRole("FACILITATOR");
+        User target = saveUser("lv-target", "lv-target-" + suffix() + "@example.test", "FACILITATOR");
+        target.setSecondaryRole("PROCESS_OWNER");
         userRepository.save(target);
 
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
-                        .param("role", "PROCESS_OWNER")
-                        .param("secondaryRole", "NONE")
+                        .param("level", "PARTICIPANT")
+                        .param("scope", "KDN")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("PROCESS_OWNER"))
-                .andExpect(jsonPath("$.secondaryRole").doesNotExist());
+                .andExpect(jsonPath("$.level").value("PARTICIPANT"))
+                .andExpect(jsonPath("$.scope").value("KDN"))
+                .andExpect(jsonPath("$.role").doesNotExist());
+        User saved = userRepository.findById(target.getId()).orElseThrow();
+        assertThat(saved.getRole()).isEqualTo("FACILITATOR");
+        assertThat(saved.getSecondaryRole()).isEqualTo("PROCESS_OWNER");
+
+        // SoQM always sees everything: a blank scope becomes ALL, any other is refused
+        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
+                        .param("level", "SOQM")
+                        .param("scope", "OWN")
+                        .param("enabled", "true"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("SoQM always sees all controls: scope must be ALL"));
+        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
+                        .param("level", "SOQM")
+                        .param("enabled", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.scope").value("ALL"));
+        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
+                        .param("level", "ADMIN")
+                        .param("enabled", "true"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void addUser_takesLevelAndScope_andNoRole() throws Exception {
+        MockHttpSession adminSession = login(adminUser().getMail());
+        String mail = "new-" + suffix() + "@example.test";
+
+        mockMvc.perform(post("/api/users").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
+                        .param("email", mail)
+                        .param("level", "READ_ONLY")
+                        .param("scope", "ALL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.level").value("READ_ONLY"))
+                .andExpect(jsonPath("$.scope").value("ALL"));
+        User created = userRepository.findByMail(mail).orElseThrow();
+        createdUserIds.add(created.getId());
+        assertThat(created.getRole()).isNull();
+
+        mockMvc.perform(post("/api/users").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
+                        .param("email", "norole-" + suffix() + "@example.test")
+                        .param("role", "FACILITATOR"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Access level is required"));
+    }
+
+    @Test
+    void readOnlyAdmin_seesThePanel_butChangesNothing() throws Exception {
+        User readOnlyAdmin = saveUser("ro-admin", "ro-admin-" + suffix() + "@example.test", "READ_ONLY");
+        readOnlyAdmin.setAdminAccess(true);
+        userRepository.save(readOnlyAdmin);
+        User target = saveUser("ro-target", "ro-target-" + suffix() + "@example.test", "FACILITATOR");
+        MockHttpSession session = login(readOnlyAdmin.getMail());
+
+        String html = mockMvc.perform(get("/admin/users").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(html).contains("Your access is read-only").doesNotContain("id=\"saveAllChanges\"", "id=\"openAddUserBtn\"");
+
+        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(session)
+                        .param("level", "SOQM")
+                        .param("enabled", "true"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("READ_ONLY"));
+        assertThat(userRepository.findById(target.getId()).orElseThrow().getAccessLevel())
+                .isEqualTo(com.kpmg.qtracker.enums.AccessLevel.PARTICIPANT);
+    }
+
+    @Test
+    void admin_cannotMakeThemselvesReadOnly() throws Exception {
+        User admin = adminUser();
+        MockHttpSession session = login(admin.getMail());
+
+        mockMvc.perform(post("/api/users/" + admin.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(session)
+                        .param("level", "READ_ONLY")
+                        .param("adminAccess", "true")
+                        .param("enabled", "true"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("You cannot make your own access read-only"));
     }
 
     @Test
@@ -1704,8 +1758,6 @@ class ApiSecurityMockMvcIT {
         MockHttpSession adminSession = login(admin.getMail());
         User target = saveUser("Trail Target", "trail-target-" + suffix() + "@example.test", "FACILITATOR");
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
-                        .param("role", "")
-                        .param("secondaryRole", "")
                         .param("enabled", "false"))
                 .andExpect(status().isOk());
         String otherType = "VIEW_" + suffix().toUpperCase();
@@ -1753,7 +1805,7 @@ class ApiSecurityMockMvcIT {
         return userRepository.save(admin);
     }
 
-    /** The markup of one row's select (class js-role or js-secondary-role) on the Admin Panel. */
+    /** The markup of one row's select (class js-level or js-scope) on the Admin Panel. */
     private static String roleSelect(String html, User user, String selectClass) {
         int row = html.indexOf("data-user-id=\"" + user.getId() + "\"");
         assertThat(row).as("row of user %s", user.getId()).isPositive();

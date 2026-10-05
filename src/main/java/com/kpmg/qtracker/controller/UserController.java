@@ -34,10 +34,11 @@ public class UserController {
                 .collect(Collectors.toList()));
     }
 
+    /** One user's access from the Admin Panel: level, scope, admin access and status (USER_ACCESS_UPDATE). */
     @PostMapping("/users/{id}/access")
     public ResponseEntity<?> updateUserAccess(@PathVariable Long id,
-                                              @RequestParam(required = false) String role,
-                                              @RequestParam(required = false) String secondaryRole,
+                                              @RequestParam(required = false) String level,
+                                              @RequestParam(required = false) String scope,
                                               @RequestParam(defaultValue = "false") boolean adminAccess,
                                               @RequestParam(defaultValue = "false") boolean enabled,
                                               HttpSession session) {
@@ -45,7 +46,7 @@ public class UserController {
         if (currentUser == null) {
             return ResponseEntity.status(401).body("Unauthorized");
         }
-        if (!userService.hasAdminAccess(currentUser)) {
+        if (!AccessPolicy.canManageUsers(AccessPolicy.Subject.of(currentUser))) {
             return ResponseEntity.status(403).body("Forbidden");
         }
 
@@ -54,7 +55,7 @@ public class UserController {
             User before = accessSnapshot(userService.getUserById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found")));
 
-            User updated = userService.updateUserAccess(id, role, secondaryRole, adminAccess, enabled, currentUser.getId());
+            User updated = userService.updateUserAccess(id, level, scope, adminAccess, enabled, currentUser.getId());
             String description = buildAccessUpdateDescription(before, updated);
 
             adminAuditService.logActionWithChanges(
@@ -62,23 +63,17 @@ public class UserController {
                     currentUser.getDisplayName(),
                     "USER_ACCESS_UPDATE",
                     null,
-                description,
-                        "role,secondaryRole,adminAccess,enabled",
-                "role=" + before.getRole()
-                        + ", secondaryRole=" + before.getSecondaryRole()
-                    + ", adminAccess=" + Boolean.TRUE.equals(before.getAdminAccess())
-                    + ", enabled=" + Boolean.TRUE.equals(before.getEnabled()),
-                    "role=" + updated.getRole()
-                            + ", secondaryRole=" + updated.getSecondaryRole()
-                            + ", adminAccess=" + Boolean.TRUE.equals(updated.getAdminAccess())
-                            + ", enabled=" + Boolean.TRUE.equals(updated.getEnabled())
+                    description,
+                    "level,scope,adminAccess,enabled",
+                    accessValues(before),
+                    accessValues(updated)
             );
 
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("id", updated.getId());
             payload.put("mail", updated.getMail());
-            payload.put("role", updated.getRole());
-            payload.put("secondaryRole", updated.getSecondaryRole());
+            payload.put("level", updated.getAccessLevel());
+            payload.put("scope", updated.getAccessScope());
             payload.put("adminAccess", Boolean.TRUE.equals(updated.getAdminAccess()));
             payload.put("enabled", Boolean.TRUE.equals(updated.getEnabled()));
             return ResponseEntity.ok(payload);
@@ -87,16 +82,12 @@ public class UserController {
         }
     }
 
-    /**
-     * A new user with an access level and scope (the old role is still accepted instead, and then
-     * gives the access V6 derives from it).
-     */
+    /** A new user with an access level and scope (SoQM: scope ALL; a blank scope of anyone else is OWN). */
     @PostMapping("/users")
     public ResponseEntity<?> createUser(@RequestParam String email,
                                         @RequestParam(required = false) String displayName,
                                         @RequestParam(required = false) String level,
                                         @RequestParam(required = false) String scope,
-                                        @RequestParam(required = false) String role,
                                         @RequestParam(defaultValue = "false") boolean adminAccess,
                                         @RequestParam(defaultValue = "true") boolean enabled,
                                         HttpSession session) {
@@ -104,17 +95,12 @@ public class UserController {
         if (currentUser == null) {
             return ResponseEntity.status(401).body("Unauthorized");
         }
-        if (!userService.hasAdminAccess(currentUser)) {
+        if (!AccessPolicy.canManageUsers(AccessPolicy.Subject.of(currentUser))) {
             return ResponseEntity.status(403).body("Forbidden");
         }
 
         try {
-            if ((level == null || level.isBlank()) && (role == null || role.isBlank())) {
-                throw new IllegalArgumentException("Access level is required");
-            }
-            User created = level != null && !level.isBlank()
-                    ? userService.createUser(email, displayName, level, scope, adminAccess, enabled)
-                    : userService.createUser(email, displayName, role, adminAccess, enabled);
+            User created = userService.createUser(email, displayName, level, scope, adminAccess, enabled);
 
             adminAuditService.logActionWithChanges(
                     currentUser.getMail(),
@@ -126,17 +112,13 @@ public class UserController {
                     "-",
                     "mail=" + created.getMail()
                     + ", displayName=" + created.getDisplayName()
-                            + ", level=" + created.getAccessLevel()
-                            + ", scope=" + created.getAccessScope()
-                            + ", adminAccess=" + Boolean.TRUE.equals(created.getAdminAccess())
-                            + ", enabled=" + Boolean.TRUE.equals(created.getEnabled())
+                            + ", " + accessValues(created)
             );
 
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("id", created.getId());
             payload.put("mail", created.getMail());
             payload.put("displayName", created.getDisplayName());
-            payload.put("role", created.getRole());
             payload.put("level", created.getAccessLevel());
             payload.put("scope", created.getAccessScope());
             payload.put("adminAccess", Boolean.TRUE.equals(created.getAdminAccess()));
@@ -155,7 +137,7 @@ public class UserController {
         if (currentUser == null) {
             return ResponseEntity.status(401).body("Unauthorized");
         }
-        if (!userService.hasAdminAccess(currentUser)) {
+        if (!AccessPolicy.canManageUsers(AccessPolicy.Subject.of(currentUser))) {
             return ResponseEntity.status(403).body("Forbidden");
         }
 
@@ -193,11 +175,19 @@ public class UserController {
         User copy = new User();
         copy.setId(user.getId());
         copy.setMail(user.getMail());
-        copy.setRole(user.getRole());
-        copy.setSecondaryRole(user.getSecondaryRole());
+        copy.setAccessLevel(user.getAccessLevel());
+        copy.setAccessScope(user.getAccessScope());
         copy.setAdminAccess(user.getAdminAccess());
         copy.setEnabled(user.getEnabled());
         return copy;
+    }
+
+    /** "level=SOQM, scope=ALL, adminAccess=false, enabled=true" for the audit log. */
+    private static String accessValues(User user) {
+        return "level=" + user.getAccessLevel()
+                + ", scope=" + user.getAccessScope()
+                + ", adminAccess=" + Boolean.TRUE.equals(user.getAdminAccess())
+                + ", enabled=" + Boolean.TRUE.equals(user.getEnabled());
     }
 
     private UserDTO convertToDTO(User user) {
@@ -213,16 +203,11 @@ public class UserController {
     private String buildAccessUpdateDescription(User before, User after) {
         List<String> parts = new ArrayList<>();
 
-        String beforeRole = before.getRole() == null ? "-" : before.getRole();
-        String afterRole = after.getRole() == null ? "-" : after.getRole();
-        if (!beforeRole.equals(afterRole)) {
-            parts.add("Changed role from " + beforeRole + " to " + afterRole);
+        if (before.getAccessLevel() != after.getAccessLevel()) {
+            parts.add("Changed level from " + before.getAccessLevel() + " to " + after.getAccessLevel());
         }
-
-        String beforeSecondaryRole = before.getSecondaryRole() == null ? "-" : before.getSecondaryRole();
-        String afterSecondaryRole = after.getSecondaryRole() == null ? "-" : after.getSecondaryRole();
-        if (!beforeSecondaryRole.equals(afterSecondaryRole)) {
-            parts.add("Changed additional role from " + beforeSecondaryRole + " to " + afterSecondaryRole);
+        if (before.getAccessScope() != after.getAccessScope()) {
+            parts.add("Changed scope from " + before.getAccessScope() + " to " + after.getAccessScope());
         }
 
         boolean beforeAdminAccess = Boolean.TRUE.equals(before.getAdminAccess());

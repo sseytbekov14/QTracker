@@ -1,9 +1,11 @@
 package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.enums.AccessLevel;
+import com.kpmg.qtracker.enums.AccessScope;
+import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.AdminAuditTrail;
 import com.kpmg.qtracker.service.UserService;
-import com.kpmg.qtracker.util.RoleDisplayMapper;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -13,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -32,7 +33,8 @@ public class AdminViewController {
         if (currentUser == null) {
             return "redirect:/login";
         }
-        if (!isAdmin(currentUser)) {
+        AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
+        if (!AccessPolicy.canOpenAdminPanel(subject)) {
             return "redirect:/";
         }
 
@@ -41,10 +43,10 @@ public class AdminViewController {
                 .toList();
 
         model.addAttribute("users", users);
-        model.addAttribute("allowedRoles", userService.getAllowedRoles());
-        model.addAttribute("allowedSecondaryRoles", userService.getAllowedSecondaryRoles());
-        model.addAttribute("noSecondaryRole", UserService.NO_SECONDARY_ROLE);
-        model.addAttribute("roleLabels", roleLabels());
+        model.addAttribute("accessLevels", AccessLevel.values());
+        model.addAttribute("accessScopes", AccessScope.values());
+        // A read-only admin sees the users and the audit trail but changes nothing
+        model.addAttribute("canManageUsers", AccessPolicy.canManageUsers(subject));
         AdminAuditTrail.Trail trail = adminAuditTrail.latest();
         model.addAttribute("auditTrail", trail.entries());
         model.addAttribute("auditCounts", trail.counts());
@@ -61,17 +63,5 @@ public class AdminViewController {
         model.addAttribute("userNames", userNames);
 
         return "admin-users";
-    }
-
-    /** Display names for the role codes the selects offer ("SOQM_TEAM" -> "SoQM Team"). */
-    private Map<String, String> roleLabels() {
-        Map<String, String> labels = new LinkedHashMap<>();
-        userService.getAllowedRoles().forEach(role -> labels.put(role, RoleDisplayMapper.display(role)));
-        userService.getAllowedSecondaryRoles().forEach(role -> labels.put(role, RoleDisplayMapper.display(role)));
-        return labels;
-    }
-
-    private boolean isAdmin(User user) {
-        return userService.hasAdminAccess(user);
     }
 }
