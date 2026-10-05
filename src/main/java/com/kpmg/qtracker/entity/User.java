@@ -1,5 +1,7 @@
 package com.kpmg.qtracker.entity;
 
+import com.kpmg.qtracker.enums.AccessLevel;
+import com.kpmg.qtracker.enums.AccessScope;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -32,6 +34,16 @@ public class User {
 
     @Column(name = "admin_access")
     private Boolean adminAccess = false;
+
+    /** What the user may do; a user saved without one gets the least access. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "access_level", nullable = false, length = 20)
+    private AccessLevel accessLevel = AccessLevel.READ_ONLY;
+
+    /** Which controls the user sees. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "access_scope", nullable = false, length = 20)
+    private AccessScope accessScope = AccessScope.OWN;
 
     @Column(name = "password")
     private String password;

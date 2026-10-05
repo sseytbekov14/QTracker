@@ -144,6 +144,7 @@ class V5ControlAttachmentsMigrationTest {
                 .locations("classpath:db/migration")
                 .baselineOnMigrate(true)
                 .baselineVersion("4")
+                .target("5")
                 .load();
     }
 

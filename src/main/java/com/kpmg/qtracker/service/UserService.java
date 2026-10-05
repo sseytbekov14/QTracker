@@ -120,6 +120,7 @@ public class UserService {
 
         targetUser.setRole(normalizedRole);
         targetUser.setSecondaryRole(normalizedSecondaryRole);
+        applyLegacyRoleAccess(targetUser);
         targetUser.setAdminAccess(nextAdminAccess);
         targetUser.setEnabled(nextEnabled);
         return userRepository.save(targetUser);
@@ -151,10 +152,18 @@ public class UserService {
         user.setMail(normalizedEmail);
         user.setDisplayName(resolveDisplayName(displayName, normalizedEmail));
         user.setRole(normalizedRole);
+        applyLegacyRoleAccess(user);
         user.setAdminAccess(adminAccess != null && adminAccess);
         user.setEnabled(enabled == null || enabled);
         user.setPassword(passwordEncoder.encode(DEFAULT_NEW_USER_PASSWORD));
         return userRepository.save(user);
+    }
+
+    /** Keeps the access level and scope in step with the roles the Admin Panel still edits. */
+    private void applyLegacyRoleAccess(User user) {
+        LegacyRoleAccess.Access access = LegacyRoleAccess.of(user.getRole(), user.getSecondaryRole());
+        user.setAccessLevel(access.level());
+        user.setAccessScope(access.scope());
     }
 
     private String resolveDisplayName(String displayName, String fallbackEmail) {

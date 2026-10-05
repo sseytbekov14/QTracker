@@ -1,6 +1,8 @@
 package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.enums.AccessLevel;
+import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -157,5 +159,26 @@ class UserServiceAccessTest {
 
         assertThat(saved.getRole()).isEqualTo("CONTROL_OPERATOR");
         assertThat(saved.getSecondaryRole()).isEqualTo("PROCESS_OWNER");
+    }
+
+    @Test
+    void roleChange_setsTheMatchingAccessLevelAndScope() {
+        stored("FACILITATOR", null);
+
+        User saved = service.updateUserAccess(TARGET_ID, "SOQM_TEAM", "", false, true, ADMIN_ID);
+
+        assertThat(saved.getAccessLevel()).isEqualTo(AccessLevel.SOQM);
+        assertThat(saved.getAccessScope()).isEqualTo(AccessScope.ALL);
+    }
+
+    @Test
+    void createUser_setsTheAccessOfItsRole() {
+        when(userRepository.existsByMail("kdn@example.test")).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
+
+        User created = service.createUser("kdn@example.test", "KDN User", "KDN", false, true);
+
+        assertThat(created.getAccessLevel()).isEqualTo(AccessLevel.PARTICIPANT);
+        assertThat(created.getAccessScope()).isEqualTo(AccessScope.KDN);
     }
 }
