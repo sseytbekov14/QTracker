@@ -68,7 +68,7 @@ public class WorkflowTransitionController {
 
             ControlAssignment assignment = assignmentOpt.get();
 
-            Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control, currentUser);
+            Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control);
             if (missingField.isPresent()) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "message", missingField.get()));
             }
@@ -147,7 +147,7 @@ public class WorkflowTransitionController {
 
             ControlAssignment assignment = assignmentOpt.get();
 
-            Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control, currentUser);
+            Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control);
             if (missingField.isPresent()) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "message", missingField.get()));
             }
@@ -389,7 +389,7 @@ public class WorkflowTransitionController {
 
     private ResponseEntity<?> denyTransition(Control control, User currentUser, WorkflowTransition transition) {
         WorkflowTransitionGuard.Decision decision = transitionGuard.check(
-                control, currentUser, controlPermissionService.resolve(control, currentUser), transition);
+                control, controlPermissionService.resolve(control, currentUser), transition);
         if (decision.allowed()) {
             return null;
         }

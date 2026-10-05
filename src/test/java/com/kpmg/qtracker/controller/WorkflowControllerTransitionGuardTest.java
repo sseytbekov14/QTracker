@@ -2,6 +2,7 @@ package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlPermission;
@@ -79,6 +80,8 @@ class WorkflowControllerTransitionGuardTest {
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         currentUser = new User();
+
+        currentUser.setAccessLevel(AccessLevel.PARTICIPANT);
         currentUser.setMail("actor@kpmg.kz");
         currentUser.setDisplayName("Actor");
 
@@ -203,8 +206,9 @@ class WorkflowControllerTransitionGuardTest {
 
     private class Given {
         void as(Role role) {
-            ControlPermission permission = new ControlPermission(true, true, Set.of(), true, false,
-                    false, false,
+            // Any SoQM user may perform the SoQM steps: the policy gives them canEditAll
+            ControlPermission permission = new ControlPermission(true, true, Set.of(), true, role == Role.SOQM_TEAM,
+                    false,
                     role == Role.FACILITATOR,
                     role == Role.CONTROL_OPERATOR,
                     role == Role.SOQM_TEAM,

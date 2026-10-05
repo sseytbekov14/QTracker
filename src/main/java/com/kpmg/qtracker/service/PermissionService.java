@@ -50,6 +50,12 @@ public class PermissionService {
         return readAccess(control, user, null);
     }
 
+    /** The Excel export of one completed control ({@link AccessPolicy#canExportCompletedControl}). */
+    public boolean canExportCompletedControl(Control control, User user) {
+        return AccessPolicy.canExportCompletedControl(AccessPolicy.Subject.of(user),
+                controlPermissionService.facts(control, user, null));
+    }
+
     /**
      * For API reads, called before anything is loaded: the control when {@link #readAccess} allows it,
      * otherwise a {@link ControlReadDeniedException} (401 without a user, 404 for an unknown control, 403).

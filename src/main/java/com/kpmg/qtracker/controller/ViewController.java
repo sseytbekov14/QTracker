@@ -99,7 +99,7 @@ public class ViewController {
         if (!permission.canView()) {
             throw new ForbiddenException("You do not have permission to view this control.");
         }
-        if (!transitionGuard.check(control, currentUser, permission, WorkflowTransition.INITIATE).allowed()) {
+        if (!transitionGuard.check(control, permission, WorkflowTransition.INITIATE).allowed()) {
             return "redirect:/view-control/" + id;
         }
 
@@ -910,7 +910,7 @@ public class ViewController {
 
         // A draft links to its Initiate page for whoever the server lets initiate it
         model.addAttribute("canInitiate",
-                transitionGuard.check(control, currentUser, permission, WorkflowTransition.INITIATE).allowed());
+                transitionGuard.check(control, permission, WorkflowTransition.INITIATE).allowed());
         // SoQM Year choices for the Control tab
         model.addAttribute("soqmYearOptions", SoqmYear.options(todayAlmaty));
 
@@ -1049,11 +1049,8 @@ public class ViewController {
             model.addAttribute("lastUpdatedOn", lastUpdatedOn);
             model.addAttribute("historyRows", history.stream().map(this::toHistoryRow).toList());
 
-            // Check if current user is a shared viewer
-            boolean isShared = assignment.getControlSharedWith() != null
-                    && assignment.getControlSharedWith().stream()
-                        .anyMatch(e -> e != null && e.equalsIgnoreCase(currentUser.getMail()));
-            model.addAttribute("isShared", isShared);
+            // The Excel of a completed control: SoQM or a user it is shared with
+            model.addAttribute("canExportCompleted", permissionService.canExportCompletedControl(control, currentUser));
 
             return "performance-cycle";
 

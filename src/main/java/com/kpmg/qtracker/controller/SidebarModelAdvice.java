@@ -1,6 +1,7 @@
 package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
 import com.kpmg.qtracker.util.RoleDisplayMapper;
@@ -65,15 +66,14 @@ public class SidebarModelAdvice {
             return RoleDisplayMapper.display(user.getRole());
         }
 
-        /** SoQM Team can create controls (shows the "New Control" button). */
+        /** SoQM can create controls (shows the "New Control" button). */
         public boolean isSoqm() {
-            String role = user.getRole();
-            return role != null && role.trim().replace('-', '_').replace(' ', '_')
-                    .toUpperCase(java.util.Locale.ROOT).startsWith("SOQM");
+            return AccessPolicy.canCreateControls(AccessPolicy.Subject.of(user));
         }
 
+        /** The Admin Panel link. */
         public boolean isAdmin() {
-            return Boolean.TRUE.equals(user.getAdminAccess());
+            return AccessPolicy.canOpenAdminPanel(AccessPolicy.Subject.of(user));
         }
 
         /** Computed lazily, only when a page actually renders the sidebar. */

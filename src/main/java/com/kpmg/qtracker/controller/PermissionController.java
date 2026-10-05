@@ -44,7 +44,6 @@ public class PermissionController {
             permissions.put("canUseWorkflowActions", permission.canUseWorkflowActions());
             permissions.put("allowedEditableFields", permission.getAllowedEditableFields());
             permissions.put("isSharedViewer", permission.isSharedViewer());
-            permissions.put("isSharedCompleted", permission.isSharedCompleted());
 
             Map<String, Object> response = new HashMap<>();
             response.put("controlId", controlId);

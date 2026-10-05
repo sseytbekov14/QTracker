@@ -684,7 +684,7 @@ class ViewControllerStatusFilterTest {
         when(controlAssignmentService.getAssignmentByControlId(31L)).thenReturn(assignmentDTO);
         when(permissionService.resolve(draftControl, currentUser, assignmentDTO))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
-                        false, false, false, false, true, false));
+                        false, false, false, true, false));
         when(permissionService.readAccess(eq(draftControl), eq(currentUser), any()))
                 .thenReturn(AccessPolicy.ReadAccess.ALLOWED);
 
@@ -724,7 +724,6 @@ class ViewControllerStatusFilterTest {
                         false,
                         false,
                         true,
-                        false,
                         false,
                         false,
                         false,
@@ -790,7 +789,6 @@ class ViewControllerStatusFilterTest {
                         true,
                         java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
                         true,
-                        false,
                         false,
                         false,
                         true,

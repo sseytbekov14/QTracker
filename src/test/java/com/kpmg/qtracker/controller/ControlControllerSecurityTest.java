@@ -6,6 +6,7 @@ import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.dto.ControlDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlAuditChangeService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
@@ -226,6 +227,35 @@ class ControlControllerSecurityTest {
     }
 
     @Test
+    void createControl_whenAdminWithoutSoqmLevel_returns403() throws Exception {
+        User sessionUser = userWithRole("ADMIN");
+        sessionUser.setAdminAccess(true);
+
+        mockMvc.perform(post("/api/controls")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestBody))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Only SoQM can create controls")));
+
+        verify(controlService, never()).createControl(any(Control.class));
+    }
+
+    @Test
+    void createControl_whenReadOnly_isRefusedByTheGeneralCheck() throws Exception {
+        User sessionUser = userWithRole("READ_ONLY");
+
+        mockMvc.perform(post("/api/controls")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestBody))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"code\":\"READ_ONLY\"")));
+
+        verify(controlService, never()).createControl(any(Control.class));
+    }
+
+    @Test
     void createControl_whenUnauthenticated_returns401() throws Exception {
         mockMvc.perform(post("/api/controls")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -265,7 +295,7 @@ class ControlControllerSecurityTest {
         when(controlAssignmentService.getAssignmentByControlId(201L)).thenReturn(new ControlAssignmentDTO());
         when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
-                        false, false, false, false, true, false));
+                        false, false, false, true, false));
 
         mockMvc.perform(put("/api/controls/201")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -301,7 +331,7 @@ class ControlControllerSecurityTest {
         when(controlAssignmentService.getAssignmentByControlId(200L)).thenReturn(new ControlAssignmentDTO());
         when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
-                        false, false, false, false, true, false));
+                        false, false, false, true, false));
 
         mockMvc.perform(put("/api/controls/200")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -338,7 +368,7 @@ class ControlControllerSecurityTest {
         when(controlAssignmentService.getAssignmentByControlId(210L)).thenReturn(new ControlAssignmentDTO());
         when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
-                        false, false, false, false, true, false));
+                        false, false, false, true, false));
 
         mockMvc.perform(put("/api/controls/210")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -405,7 +435,7 @@ class ControlControllerSecurityTest {
         when(controlAssignmentService.getAssignmentByControlId(211L)).thenReturn(new ControlAssignmentDTO());
         when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
-                        false, false, false, false, true, false));
+                        false, false, false, true, false));
 
         mockMvc.perform(put("/api/controls/211")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -500,7 +530,7 @@ class ControlControllerSecurityTest {
 
     private User userWithRole(String role) {
         User user = new User();
-        user.setRole(role);
+        TestUsers.withRole(user, role);
         user.setMail(role.toLowerCase() + "@kpmg.com");
         user.setDisplayName(role + " User");
         return user;

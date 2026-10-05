@@ -4,6 +4,7 @@ import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.dto.DashboardChartDataDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.repository.ControlRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -99,7 +100,7 @@ class DashboardServiceMyScopeTest {
         User user = new User();
         user.setId(id);
         user.setMail(email);
-        user.setRole(role);
+        TestUsers.withRole(user, role);
         return user;
     }
 

@@ -25,10 +25,12 @@ public enum WorkflowTransition {
     public enum Actor {
         FACILITATOR("Facilitator"),
         CONTROL_OPERATOR("Control Operator"),
+        /** Any SoQM user, assigned to the control or not. */
         SOQM_TEAM("SoQM Team"),
         PROCESS_OWNER("Process Owner"),
-        /** SoQM role, admin or the control's creator. */
-        COORDINATOR("SoQM Team or control creator"),
+        /** Any SoQM user (Initiate). */
+        COORDINATOR("SoQM"),
+        /** Nobody: Shared With only views ({@link AccessPolicy#isActor}). */
         SHARED_VIEWER("shared viewer");
 
         private final String displayName;

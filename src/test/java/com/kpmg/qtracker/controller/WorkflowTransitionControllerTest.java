@@ -3,6 +3,8 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.enums.AccessLevel;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.ControlPermission;
@@ -59,8 +61,9 @@ class WorkflowTransitionControllerTest {
     @Test
     void returnToFacilitator_includesCommentInReturnNotification() throws Exception {
         User currentUser = new User();
+        currentUser.setAccessLevel(AccessLevel.PARTICIPANT);
         currentUser.setId(2L);
-        currentUser.setRole("CONTROL_OPERATOR");
+        TestUsers.withRole(currentUser, "CONTROL_OPERATOR");
         currentUser.setMail("operator@kpmg.kz");
         currentUser.setDisplayName("Control Operator");
 
@@ -76,7 +79,7 @@ class WorkflowTransitionControllerTest {
         when(controlService.getControlById(20L)).thenReturn(Optional.of(control));
         when(controlPermissionService.resolve(control, currentUser))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, false,
-                        false, false, false, true, false, false));
+                        false, false, true, false, false));
         when(controlAssignmentRepository.findByControlId(20L)).thenReturn(Optional.of(assignment));
         when(controlService.save(any(Control.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(workflowHistoryRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -99,10 +102,11 @@ class WorkflowTransitionControllerTest {
     }
 
     @Test
-    void sharedCompletedUser_cannotInvokeWorkflowAction() throws Exception {
+    void sharedUser_cannotResubmitACompletedControl() throws Exception {
         User currentUser = new User();
+        currentUser.setAccessLevel(AccessLevel.PARTICIPANT);
         currentUser.setId(3L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("shared@kpmg.kz");
         currentUser.setDisplayName("Shared User");
 
@@ -114,7 +118,7 @@ class WorkflowTransitionControllerTest {
         when(controlPermissionService.resolve(control, currentUser))
                 .thenReturn(new ControlPermission(true, true,
                         java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
-                        false, false, true, true, true, false, false, false));
+                        false, false, true, true, false, false, false));
 
         mockMvc.perform(post("/api/workflow/shared-submit-to-soqm-lead")
                         .param("controlId", "30")
@@ -204,15 +208,17 @@ class WorkflowTransitionControllerTest {
     }
 
     @Test
-    void sharedSubmit_onControlThatIsNotCompleted_isConflict() throws Exception {
-        Control control = controlInStatus(49L, "REVIEW");
+    void sharedSubmit_isForbiddenForEveryone_evenASoqmSharedViewer() throws Exception {
+        Control control = controlInStatus(49L, "COMPLETED");
         User sharedSoqm = user("soqm@kpmg.kz");
         givenPermission(control, sharedSoqm, new ControlPermission(true, true, java.util.Set.of(), true, true,
-                true, false, false, false, true, false));
+                true, false, false, true, false));
 
         mockMvc.perform(post("/api/workflow/shared-submit-to-soqm-lead").param("controlId", "49")
                         .sessionAttr("currentUser", sharedSoqm))
-                .andExpect(status().isConflict());
+                .andExpect(status().isForbidden())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .string(org.hamcrest.Matchers.containsString("can only view it")));
 
         verify(controlService, never()).save(any(Control.class));
     }
@@ -222,7 +228,7 @@ class WorkflowTransitionControllerTest {
         Control control = controlInStatus(50L, "COMPLETED");
         User soqm = user("soqm@kpmg.kz");
         givenPermission(control, soqm, new ControlPermission(true, true, java.util.Set.of(), true, true,
-                false, false, false, false, true, false));
+                false, false, false, true, false));
 
         mockMvc.perform(post("/api/workflow/shared-submit-to-soqm-lead").param("controlId", "50")
                         .sessionAttr("currentUser", soqm))
@@ -241,6 +247,7 @@ class WorkflowTransitionControllerTest {
 
     private User user(String mail) {
         User user = new User();
+        user.setAccessLevel(AccessLevel.PARTICIPANT);
         user.setMail(mail);
         user.setDisplayName(mail);
         return user;
@@ -252,7 +259,7 @@ class WorkflowTransitionControllerTest {
 
     private ControlPermission participant(boolean facilitator, boolean operator, boolean soqm, boolean owner) {
         return new ControlPermission(true, true, java.util.Set.of(), true, false,
-                false, false, facilitator, operator, soqm, owner);
+                false, facilitator, operator, soqm, owner);
     }
 }
 

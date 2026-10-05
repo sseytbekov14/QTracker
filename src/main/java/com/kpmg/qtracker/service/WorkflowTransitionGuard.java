@@ -1,7 +1,6 @@
 package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.Control;
-import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.WorkflowStatus;
 import org.springframework.stereotype.Component;
 
@@ -11,8 +10,8 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Server-side check of a workflow transition: the user must be the participant the
- * transition belongs to (403) and the control must be in the transition's source status (409).
+ * Server-side check of a workflow transition: the user must be the participant the transition belongs
+ * to ({@link AccessPolicy#isActor}, 403) and the control must be in the transition's source status (409).
  */
 @Component
 public class WorkflowTransitionGuard {
@@ -20,8 +19,8 @@ public class WorkflowTransitionGuard {
     public static final int FORBIDDEN = 403;
     public static final int CONFLICT = 409;
 
-    public Decision check(Control control, User user, ControlPermission permission, WorkflowTransition transition) {
-        return check(control, user, permission, List.of(transition));
+    public Decision check(Control control, ControlPermission permission, WorkflowTransition transition) {
+        return check(control, permission, List.of(transition));
     }
 
     /**
@@ -29,26 +28,24 @@ public class WorkflowTransitionGuard {
      * Role is checked before status so users outside the workflow learn nothing about its state.
      */
     public Decision check(Control control,
-                          User user,
                           ControlPermission permission,
                           Collection<WorkflowTransition> candidates) {
         if (control == null || permission == null || !permission.canView()) {
             return Decision.deny(FORBIDDEN, "Forbidden");
         }
         if (!permission.canUseWorkflowActions()) {
-            return Decision.deny(FORBIDDEN, "Workflow actions are disabled for shared users on completed controls");
+            return Decision.deny(FORBIDDEN, "Your access is read-only");
         }
         if (candidates == null || candidates.isEmpty()) {
             return Decision.deny(FORBIDDEN, "Forbidden");
         }
 
         List<WorkflowTransition> permitted = candidates.stream()
-                .filter(transition -> isActor(transition.getActor(), control, user, permission))
+                .filter(transition -> AccessPolicy.isActor(transition.getActor(), permission))
                 .toList();
         WorkflowTransition requested = candidates.iterator().next();
         if (permitted.isEmpty()) {
-            return Decision.deny(FORBIDDEN, "Only the assigned " + requested.getActor().getDisplayName()
-                    + " can perform \"" + requested.getLabel() + "\" on this control");
+            return Decision.deny(FORBIDDEN, notActorMessage(requested));
         }
 
         String status = normalizeStatus(control.getPerformanceStatus());
@@ -62,23 +59,13 @@ public class WorkflowTransitionGuard {
         return Decision.allow(match.get());
     }
 
-    private boolean isActor(WorkflowTransition.Actor actor, Control control, User user, ControlPermission permission) {
-        return switch (actor) {
-            case FACILITATOR -> permission.isFacilitator();
-            case CONTROL_OPERATOR -> permission.isControlOperator();
-            case SOQM_TEAM -> permission.isSoqmLead();
-            case PROCESS_OWNER -> permission.isProcessOwner();
-            case COORDINATOR -> permission.canEditAll() || isCreator(control, user);
-            case SHARED_VIEWER -> permission.isSharedViewer();
+    private String notActorMessage(WorkflowTransition transition) {
+        return switch (transition.getActor()) {
+            case SOQM_TEAM, COORDINATOR -> "Only SoQM can perform \"" + transition.getLabel() + "\" on this control";
+            case SHARED_VIEWER -> "Users the control is shared with can only view it";
+            default -> "Only the assigned " + transition.getActor().getDisplayName()
+                    + " can perform \"" + transition.getLabel() + "\" on this control";
         };
-    }
-
-    private boolean isCreator(Control control, User user) {
-        if (user == null || user.getMail() == null || control.getCreatedBy() == null
-                || control.getCreatedBy().getMail() == null) {
-            return false;
-        }
-        return control.getCreatedBy().getMail().trim().equalsIgnoreCase(user.getMail().trim());
     }
 
     private String normalizeStatus(String status) {

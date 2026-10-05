@@ -59,12 +59,6 @@ public class ControlTabsController {
                         .body("VALIDATION_ERROR: User does not have permission to edit this control");
             }
             ControlDetailsDTO existingDetails = controlDetailsService.getDetailsByControlId(detailsDTO.getControlId());
-            if (permission.isSharedCompleted()) {
-                String validationError = validateSharedCompletedDetailsUpdate(existingDetails, detailsDTO, permission);
-                if (validationError != null) {
-                    return ResponseEntity.status(403).body(validationError);
-                }
-            }
             ControlDetailsDTO mergedDetails = mergeControlDetails(existingDetails, detailsDTO, permission);
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
@@ -350,56 +344,6 @@ public class ControlTabsController {
         } catch (Exception e) {
             System.out.println("⚠️ Failed to log control changes: " + e.getMessage());
         }
-    }
-
-    private String validateSharedCompletedDetailsUpdate(ControlDetailsDTO existing,
-                                                        ControlDetailsDTO incoming,
-                                                        ControlPermission permission) {
-        if (incoming == null || permission == null || !permission.isSharedCompleted()) {
-            return null;
-        }
-        ControlDetailsDTO safeExisting = existing != null ? existing : new ControlDetailsDTO();
-        Set<String> allowed = permission.getAllowedEditableFields();
-
-        if (!allowed.contains(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED)
-                && hasForbiddenChange(incoming.getControlStepsPerformed(), safeExisting.getControlStepsPerformed())) {
-            return sharedCompletedDeniedMessage(permission);
-        }
-        if (!allowed.contains(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS)
-                && hasForbiddenChange(incoming.getProcessOwnerComments(), safeExisting.getProcessOwnerComments())) {
-            return sharedCompletedDeniedMessage(permission);
-        }
-
-        if (hasForbiddenChange(incoming.getProcessName(), safeExisting.getProcessName())
-                || hasForbiddenChange(incoming.getHomogeneity(), safeExisting.getHomogeneity())
-                || hasForbiddenChange(incoming.getReferencesToControl(), safeExisting.getReferencesToControl())
-                || hasForbiddenChange(incoming.getDepartment(), safeExisting.getDepartment())
-                || hasForbiddenChange(incoming.getProcessActivities(), safeExisting.getProcessActivities())
-                || hasForbiddenChange(incoming.getOtherRelatedControls(), safeExisting.getOtherRelatedControls())
-                || hasForbiddenChange(incoming.getItApplications(), safeExisting.getItApplications())
-                || hasForbiddenChange(incoming.getSoqmHeadComments(), safeExisting.getSoqmHeadComments())) {
-            return sharedCompletedDeniedMessage(permission);
-        }
-        return null;
-    }
-
-    private String sharedCompletedDeniedMessage(ControlPermission permission) {
-        Set<String> allowed = permission != null ? permission.getAllowedEditableFields() : Set.of();
-        if (allowed.isEmpty()) {
-            return "VALIDATION_ERROR: Shared users on COMPLETED controls cannot edit fields for this role";
-        }
-        return "VALIDATION_ERROR: Shared users on COMPLETED controls can edit only: " + String.join(", ", allowed);
-    }
-
-    private boolean hasForbiddenChange(String incoming, String existing) {
-        if (incoming == null) {
-            return false;
-        }
-        return !Objects.equals(normalizeString(incoming), normalizeString(existing));
-    }
-
-    private String normalizeString(String value) {
-        return value == null ? "" : value.trim();
     }
 
     private ControlDetailsDTO mergeControlDetails(ControlDetailsDTO existing,

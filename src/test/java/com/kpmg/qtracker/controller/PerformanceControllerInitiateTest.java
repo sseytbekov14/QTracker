@@ -96,7 +96,7 @@ class PerformanceControllerInitiateTest {
     private void givenPermission(boolean soqm) {
         // A facilitator, or a SoQM user who can edit everything
         ControlPermission permission = new ControlPermission(true, true, Set.of(), true, soqm,
-                false, false, !soqm, false, soqm, false);
+                false, !soqm, false, soqm, false);
         when(controlPermissionService.resolve(control, currentUser)).thenReturn(permission);
     }
 }

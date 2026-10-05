@@ -2,6 +2,7 @@ package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlAttachmentService;
 import com.kpmg.qtracker.service.ControlPermission;
@@ -66,10 +67,12 @@ class FileAttachmentControllerTest {
         when(controlService.getControlById(1L)).thenReturn(Optional.of(control));
 
         User user = new User();
+
+        user.setAccessLevel(AccessLevel.PARTICIPANT);
         user.setMail("user@test.com");
         user.setDisplayName("Test User");
         when(controlPermissionService.resolve(any(Control.class), any(User.class)))
-                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false, false));
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false));
 
         MockMultipartFile file = new MockMultipartFile(
                 "attachmentDetails",
@@ -93,10 +96,12 @@ class FileAttachmentControllerTest {
         when(controlService.getControlById(2L)).thenReturn(Optional.of(control));
 
         User user = new User();
+
+        user.setAccessLevel(AccessLevel.PARTICIPANT);
         user.setMail("user@test.com");
         user.setDisplayName("Test User");
         when(controlPermissionService.resolve(any(Control.class), any(User.class)))
-                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false, false));
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false));
 
         MockMultipartFile file = new MockMultipartFile(
                 "attachmentDocuments",
@@ -121,10 +126,12 @@ class FileAttachmentControllerTest {
         when(controlService.updateControl(any(Control.class))).thenReturn(control);
 
         User user = new User();
+
+        user.setAccessLevel(AccessLevel.PARTICIPANT);
         user.setMail("user@test.com");
         user.setDisplayName("Test User");
         when(controlPermissionService.resolve(any(Control.class), any(User.class)))
-                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false, false));
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false));
 
         MockMultipartFile file = new MockMultipartFile(
                 "attachmentDetails",
@@ -161,10 +168,12 @@ class FileAttachmentControllerTest {
         when(controlService.updateControl(any(Control.class))).thenReturn(control);
 
         User user = new User();
+
+        user.setAccessLevel(AccessLevel.PARTICIPANT);
         user.setMail("user@test.com");
         user.setDisplayName("Test User");
         when(controlPermissionService.resolve(any(Control.class), any(User.class)))
-                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false, false));
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false));
         when(controlAttachmentService.canDelete(any(Control.class), eq("DETAILS"), eq("old.txt"), any(User.class), any()))
                 .thenReturn(true);
         when(controlAttachmentService.removeFromControl(any(Control.class), eq("DETAILS"), eq("old.txt"))).thenReturn(true);
@@ -252,8 +261,9 @@ class FileAttachmentControllerTest {
         control.setAttachmentDetailsPath(detailsPath);
         when(controlService.getControlById(id)).thenReturn(Optional.of(control));
         when(controlPermissionService.resolve(any(Control.class), any(User.class)))
-                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false, false));
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false));
         User user = new User();
+        user.setAccessLevel(AccessLevel.PARTICIPANT);
         user.setMail("user@test.com");
         user.setDisplayName("Test User");
         return user;

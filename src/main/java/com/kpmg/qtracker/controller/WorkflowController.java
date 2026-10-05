@@ -61,7 +61,7 @@ public class WorkflowController {
                 return ResponseEntity.badRequest().body("Unsupported workflow action: " + action);
             }
             WorkflowTransitionGuard.Decision decision = transitionGuard.check(
-                    control, currentUser, controlPermissionService.resolve(control, currentUser), candidates);
+                    control, controlPermissionService.resolve(control, currentUser), candidates);
             if (!decision.allowed()) {
                 return ResponseEntity.status(decision.httpStatus()).body(decision.message());
             }
@@ -89,7 +89,7 @@ public class WorkflowController {
                     "SOQM_COMMENT"
             ).contains(normalizedAction);
             if (requiresSteps) {
-                Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control, currentUser);
+                Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control);
                 if (missingField.isPresent()) {
                     return ResponseEntity.badRequest().body(missingField.get());
                 }
@@ -191,7 +191,7 @@ public class WorkflowController {
                 return ResponseEntity.badRequest().body(missingComment.get());
             }
 
-            Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control, currentUser);
+            Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control);
             if (missingField.isPresent()) {
                 return ResponseEntity.badRequest().body(missingField.get());
             }
@@ -637,7 +637,7 @@ public class WorkflowController {
 
     private ResponseEntity<?> denyTransition(Control control, User currentUser, WorkflowTransition transition) {
         WorkflowTransitionGuard.Decision decision = transitionGuard.check(
-                control, currentUser, controlPermissionService.resolve(control, currentUser), transition);
+                control, controlPermissionService.resolve(control, currentUser), transition);
         return decision.allowed() ? null : ResponseEntity.status(decision.httpStatus()).body(decision.message());
     }
 

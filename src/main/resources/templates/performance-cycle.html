@@ -178,7 +178,7 @@
                            th:text="${control.controlDescription}">Description</p>
                     </div>
                     <div class="pc-actions">
-                        <a th:if="${(userRole == 'SOQM_TEAM' or isShared == true) and #strings.equals(status, 'COMPLETED')}"
+                        <a th:if="${canExportCompleted and #strings.equals(status, 'COMPLETED')}"
                            th:href="@{/api/controls/{id}/export/completed(id=${control.id})}"
                            class="btn-pc-secondary">
                             <i class="bi bi-download" aria-hidden="true"></i>Download

@@ -2,7 +2,6 @@ package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlDetails;
-import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,24 +14,19 @@ import java.util.Optional;
 public class WorkflowRequiredFieldService {
     private final ControlDetailsRepository controlDetailsRepository;
 
-    public Optional<String> getMissingFieldMessage(Control control, User user) {
-        if (control == null || user == null) {
-            return Optional.empty();
-        }
-        String role = user.getRole();
-        if (role == null || role.isBlank()) {
+    /**
+     * Control Steps Performed must be filled in to move a control on from In Progress, Review or SoQM review,
+     * whoever does it (one person may hold several fields of a control).
+     */
+    public Optional<String> getMissingFieldMessage(Control control) {
+        if (control == null) {
             return Optional.empty();
         }
         String status = normalizeStatus(control.getPerformanceStatus());
-        ControlDetails details = controlDetailsRepository.findByControlId(control.getId()).orElse(null);
-
-        boolean requiresSteps = (("FACILITATOR".equals(role) || "CONTROL_OPERATOR".equals(role)) && "IN_PROGRESS".equals(status))
-                || (("CONTROL_OPERATOR".equals(role) || "FACILITATOR".equals(role)) && "REVIEW".equals(status))
-                || ("SOQM_TEAM".equals(role) && "SOQM_HEAD_REVIEW".equals(status));
-
-        if (!requiresSteps) {
+        if (!"IN_PROGRESS".equals(status) && !"REVIEW".equals(status) && !"SOQM_HEAD_REVIEW".equals(status)) {
             return Optional.empty();
         }
+        ControlDetails details = controlDetailsRepository.findByControlId(control.getId()).orElse(null);
 
         String value = details != null ? details.getControlStepsPerformed() : null;
         if (value == null || value.trim().isEmpty()) {

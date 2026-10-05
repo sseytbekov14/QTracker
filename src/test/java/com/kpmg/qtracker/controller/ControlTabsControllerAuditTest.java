@@ -7,6 +7,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.service.AdhocNotificationService;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlPermission;
@@ -91,7 +92,7 @@ class ControlTabsControllerAuditTest {
     void saveControlDetails_whenNoChanges_doesNotLogAudit() throws Exception {
         User sessionUser = new User();
         sessionUser.setMail("fac@kpmg.com");
-        sessionUser.setRole("FACILITATOR");
+        TestUsers.withRole(sessionUser, "FACILITATOR");
         sessionUser.setDisplayName("Facilitator One");
 
         Control control = new Control();
@@ -112,7 +113,7 @@ class ControlTabsControllerAuditTest {
         when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(assignmentDTO)))
                 .thenReturn(new ControlPermission(true, true,
                         java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
-                        true, false, false, false, true, false, false, false));
+                        true, false, false, true, false, false, false));
         when(controlDetailsService.getDetailsByControlId(1L)).thenReturn(existingDetails);
         when(controlDetailsService.saveDetails(any(ControlDetailsDTO.class))).thenReturn(new ControlDetails());
 
@@ -134,7 +135,7 @@ class ControlTabsControllerAuditTest {
     void saveControlAssignment_doesNotTriggerImmediateDay0Notifications() throws Exception {
         User sessionUser = new User();
         sessionUser.setMail("soqm@kpmg.com");
-        sessionUser.setRole("SOQM_TEAM");
+        TestUsers.withRole(sessionUser, "SOQM_TEAM");
         sessionUser.setDisplayName("SoQM One");
 
         User creator = new User();
@@ -163,7 +164,7 @@ class ControlTabsControllerAuditTest {
         when(controlAssignmentService.getAssignmentByControlId(2L)).thenReturn(existingAssignment);
         when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(existingAssignment)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(),
-                        true, true, false, false, false, false, true, false));
+                        true, true, false, false, false, true, false));
         when(controlAssignmentService.saveAssignment(any())).thenReturn(new ControlAssignment());
 
         mockMvc.perform(post("/api/control-assignment")
@@ -184,7 +185,7 @@ class ControlTabsControllerAuditTest {
     void saveControlAssignment_whenRequiredRoleCleared_returns400() throws Exception {
         User sessionUser = new User();
         sessionUser.setMail("soqm@kpmg.com");
-        sessionUser.setRole("SOQM_TEAM");
+        TestUsers.withRole(sessionUser, "SOQM_TEAM");
 
         Control control = new Control();
         control.setId(5L);
@@ -206,7 +207,7 @@ class ControlTabsControllerAuditTest {
         when(controlAssignmentService.getAssignmentByControlId(5L)).thenReturn(existingAssignment);
         when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(existingAssignment)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
-                        false, false, false, false, true, false));
+                        false, false, false, true, false));
 
         mockMvc.perform(post("/api/control-assignment")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -234,7 +235,7 @@ class ControlTabsControllerAuditTest {
     private void assertAssignmentRefusedForFrequency(String frequency, String expectedBody) throws Exception {
         User sessionUser = new User();
         sessionUser.setMail("soqm@kpmg.com");
-        sessionUser.setRole("SOQM_TEAM");
+        TestUsers.withRole(sessionUser, "SOQM_TEAM");
 
         Control control = new Control();
         control.setId(6L);
@@ -256,7 +257,7 @@ class ControlTabsControllerAuditTest {
         when(controlAssignmentService.getAssignmentByControlId(6L)).thenReturn(existingAssignment);
         when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(existingAssignment)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
-                        false, false, false, false, true, false));
+                        false, false, false, true, false));
 
         mockMvc.perform(post("/api/control-assignment")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -269,20 +270,18 @@ class ControlTabsControllerAuditTest {
     }
 
     @Test
-    void saveControlDetails_sharedCompletedFacilitator_canUpdateOnlyControlSteps() throws Exception {
+    void saveControlDetails_participantWithTheStepsField_changesOnlyControlSteps() throws Exception {
         User sessionUser = new User();
-        sessionUser.setMail("shared-fac@kpmg.com");
-        sessionUser.setRole("FACILITATOR");
-        sessionUser.setDisplayName("Shared Facilitator");
+        sessionUser.setMail("fac@kpmg.com");
+        TestUsers.withRole(sessionUser, "FACILITATOR");
+        sessionUser.setDisplayName("Facilitator");
 
         Control control = new Control();
         control.setId(3L);
-        control.setPerformanceStatus("COMPLETED");
-        control.setCreatedBy(sessionUser);
+        control.setPerformanceStatus("IN_PROGRESS");
 
         ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
-        assignmentDTO.setFacilitator(List.of("shared-fac@kpmg.com"));
-        assignmentDTO.setControlSharedWith(List.of("shared-fac@kpmg.com"));
+        assignmentDTO.setFacilitator(List.of("fac@kpmg.com"));
 
         ControlDetailsDTO existingDetails = new ControlDetailsDTO();
         existingDetails.setControlId(3L);
@@ -291,14 +290,15 @@ class ControlTabsControllerAuditTest {
 
         ControlDetailsDTO request = new ControlDetailsDTO();
         request.setControlId(3L);
-        request.setControlStepsPerformed("Updated steps by shared user");
+        request.setProcessName("Changed by the Facilitator");
+        request.setControlStepsPerformed("Updated steps");
 
         when(controlService.getControlById(3L)).thenReturn(Optional.of(control));
         when(controlAssignmentService.getAssignmentByControlId(3L)).thenReturn(assignmentDTO);
         when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(assignmentDTO)))
                 .thenReturn(new ControlPermission(true, true,
                         java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
-                        false, false, true, true, true, false, false, false));
+                        true, false, false, true, false, false, false));
         when(controlDetailsService.getDetailsByControlId(3L)).thenReturn(existingDetails);
         when(controlDetailsService.saveDetails(any(ControlDetailsDTO.class))).thenReturn(new ControlDetails());
 
@@ -308,41 +308,36 @@ class ControlTabsControllerAuditTest {
                         .sessionAttr("currentUser", sessionUser))
                 .andExpect(status().isOk());
 
-        verify(controlDetailsService, times(1)).saveDetails(any(ControlDetailsDTO.class));
+        org.mockito.ArgumentCaptor<ControlDetailsDTO> saved = org.mockito.ArgumentCaptor.forClass(ControlDetailsDTO.class);
+        verify(controlDetailsService, times(1)).saveDetails(saved.capture());
+        org.assertj.core.api.Assertions.assertThat(saved.getValue().getControlStepsPerformed()).isEqualTo("Updated steps");
+        org.assertj.core.api.Assertions.assertThat(saved.getValue().getProcessName()).isEqualTo("Original Process");
     }
 
     @Test
-    void saveControlDetails_sharedCompletedFacilitator_cannotUpdateDisallowedFields() throws Exception {
+    void saveControlDetails_sharedViewerOfACompletedControl_isForbidden() throws Exception {
         User sessionUser = new User();
-        sessionUser.setMail("shared-fac2@kpmg.com");
-        sessionUser.setRole("FACILITATOR");
-        sessionUser.setDisplayName("Shared Facilitator 2");
+        sessionUser.setMail("shared-fac@kpmg.com");
+        TestUsers.withRole(sessionUser, "FACILITATOR");
+        sessionUser.setDisplayName("Shared Facilitator");
 
         Control control = new Control();
         control.setId(4L);
         control.setPerformanceStatus("COMPLETED");
-        control.setCreatedBy(sessionUser);
 
         ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
-        assignmentDTO.setFacilitator(List.of("shared-fac2@kpmg.com"));
-        assignmentDTO.setControlSharedWith(List.of("shared-fac2@kpmg.com"));
-
-        ControlDetailsDTO existingDetails = new ControlDetailsDTO();
-        existingDetails.setControlId(4L);
-        existingDetails.setProcessName("Original Process");
-        existingDetails.setControlStepsPerformed("Old steps");
+        assignmentDTO.setControlSharedWith(List.of("shared-fac@kpmg.com"));
 
         ControlDetailsDTO request = new ControlDetailsDTO();
         request.setControlId(4L);
-        request.setProcessName("Changed Process Name");
+        request.setControlStepsPerformed("Steps changed after completion");
 
         when(controlService.getControlById(4L)).thenReturn(Optional.of(control));
         when(controlAssignmentService.getAssignmentByControlId(4L)).thenReturn(assignmentDTO);
+        // What the policy gives a shared viewer: they see the control and change nothing
         when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(assignmentDTO)))
-                .thenReturn(new ControlPermission(true, true,
-                        java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
-                        false, false, true, true, true, false, false, false));
-        when(controlDetailsService.getDetailsByControlId(4L)).thenReturn(existingDetails);
+                .thenReturn(new ControlPermission(true, false, java.util.Set.of(),
+                        true, false, true, false, false, false, false));
 
         mockMvc.perform(post("/api/control-details")
                         .contentType(MediaType.APPLICATION_JSON)

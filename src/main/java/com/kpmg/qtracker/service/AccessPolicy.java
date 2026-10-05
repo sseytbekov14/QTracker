@@ -239,7 +239,6 @@ public final class AccessPolicy {
                 writer,
                 canEditAll,
                 control.shared(),
-                false,
                 actsAsParticipant(subject, control, control.facilitator()),
                 actsAsParticipant(subject, control, control.controlOperator()),
                 canEditAll,

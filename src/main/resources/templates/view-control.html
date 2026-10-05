@@ -1096,8 +1096,8 @@
                         <!-- Left: Home, Changelog, and More (Rename ID) -->
                         <div class="d-flex align-items-center gap-2">
                             <button class="btn btn-outline-secondary" id="changelogBtn"><i class="bi bi-clock-history" aria-hidden="true"></i> Changelog</button>
-                            <!-- Rename ID as dropdown (SOQM_TEAM only) -->
-                            <div class="kpmg-more-menu" id="kpmgMoreMenuWrapper" th:if="${userRole == 'SOQM_TEAM'}">
+                            <!-- Rename ID as dropdown (SoQM only, as the server checks) -->
+                            <div class="kpmg-more-menu" id="kpmgMoreMenuWrapper" th:if="${canEditAll}">
                                 <button class="kpmg-more-menu-btn" id="kpmgMoreMenuBtn" type="button" title="More actions">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                         <circle cx="5"  cy="12" r="2"/>

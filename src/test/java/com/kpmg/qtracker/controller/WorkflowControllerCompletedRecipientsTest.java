@@ -3,6 +3,7 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.ControlAssignmentService;
@@ -88,13 +89,13 @@ class WorkflowControllerCompletedRecipientsTest {
         currentUser.setId(1L);
         currentUser.setMail("owner.current@kpmg.kz");
         currentUser.setDisplayName("Current Owner");
-        currentUser.setRole("PROCESS_OWNER");
+        TestUsers.withRole(currentUser, "PROCESS_OWNER");
 
         when(session.getAttribute("currentUser")).thenReturn(currentUser);
         when(controlService.getControlById(controlId)).thenReturn(Optional.of(control));
         when(controlPermissionService.resolve(control, currentUser))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, false,
-                        false, false, false, false, false, true));
+                        false, false, false, false, true));
         when(controlService.save(any(Control.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(workflowHistoryRepository.save(any(WorkflowHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(controlAssignmentService.getAssignmentByControlId(controlId)).thenReturn(completedAssignment());
@@ -127,13 +128,13 @@ class WorkflowControllerCompletedRecipientsTest {
 
         User currentUser = new User();
         currentUser.setMail("owner.current@kpmg.kz");
-        currentUser.setRole("PROCESS_OWNER");
+        TestUsers.withRole(currentUser, "PROCESS_OWNER");
 
         when(session.getAttribute("currentUser")).thenReturn(currentUser);
         when(controlService.getControlById(controlId)).thenReturn(Optional.of(control));
         when(controlPermissionService.resolve(control, currentUser))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, false,
-                        false, false, false, false, false, true));
+                        false, false, false, false, true));
         when(requiredFieldService.getMissingReviewCommentMessage(control))
                 .thenReturn(Optional.of("Required field is missing: Process Owner Comments"));
 
@@ -192,13 +193,13 @@ class WorkflowControllerCompletedRecipientsTest {
         currentUser.setId(2L);
         currentUser.setMail("soqm.current@kpmg.kz");
         currentUser.setDisplayName("SoQM Reviewer");
-        currentUser.setRole("SOQM_TEAM");
+        TestUsers.withRole(currentUser, "SOQM_TEAM");
 
         when(session.getAttribute("currentUser")).thenReturn(currentUser);
         when(controlService.getControlById(controlId)).thenReturn(Optional.of(control));
         when(controlPermissionService.resolve(control, currentUser))
-                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, false,
-                        false, false, false, false, true, false));
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
+                        false, false, false, true, false));
         when(controlService.save(any(Control.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(workflowHistoryRepository.save(any(WorkflowHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -242,13 +243,13 @@ class WorkflowControllerCompletedRecipientsTest {
         currentUser.setId(3L);
         currentUser.setMail("owner.current@kpmg.kz");
         currentUser.setDisplayName("Process Owner");
-        currentUser.setRole("PROCESS_OWNER");
+        TestUsers.withRole(currentUser, "PROCESS_OWNER");
 
         when(session.getAttribute("currentUser")).thenReturn(currentUser);
         when(controlService.getControlById(controlId)).thenReturn(Optional.of(control));
         when(controlPermissionService.resolve(control, currentUser))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, false,
-                        false, false, false, false, false, true));
+                        false, false, false, false, true));
         when(controlService.save(any(Control.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(workflowHistoryRepository.save(any(WorkflowHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -293,14 +294,14 @@ class WorkflowControllerCompletedRecipientsTest {
         User currentUser = new User();
         currentUser.setMail("shared@kpmg.kz");
         currentUser.setDisplayName("Shared User");
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
 
         when(session.getAttribute("currentUser")).thenReturn(currentUser);
         when(controlService.getControlById(controlId)).thenReturn(Optional.of(control));
         when(controlPermissionService.resolve(control, currentUser))
                 .thenReturn(new ControlPermission(true, true,
                         java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
-                        false, false, true, true, true, false, false, false));
+                        false, false, true, true, false, false, false));
 
         ResponseEntity<?> response = controller.completeControl(controlId, session);
 

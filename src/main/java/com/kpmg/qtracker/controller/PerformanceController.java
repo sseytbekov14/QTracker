@@ -49,7 +49,7 @@ public class PerformanceController {
 
             ControlPermission permission = controlPermissionService.resolve(control, currentUser);
             WorkflowTransitionGuard.Decision decision = transitionGuard.check(
-                    control, currentUser, permission, WorkflowTransition.INITIATE);
+                    control, permission, WorkflowTransition.INITIATE);
             if (!decision.allowed()) {
                 return ResponseEntity.status(decision.httpStatus()).body(decision.message());
             }

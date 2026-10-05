@@ -12,6 +12,7 @@ import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlAuditChangeService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
@@ -127,7 +128,8 @@ public class ControlController {
         if (currentUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        if (!currentUser.getMail().equalsIgnoreCase(email) && !Boolean.TRUE.equals(currentUser.getAdminAccess())) {
+        if (!currentUser.getMail().equalsIgnoreCase(email)
+                && !AccessPolicy.seesAllControls(AccessPolicy.Subject.of(currentUser))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         List<ControlResponseDTO> controls = controlService.getUserControls(email).stream()
@@ -152,9 +154,9 @@ public class ControlController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("success", false, "message", "User not authenticated"));
             }
-            if (!"SOQM_TEAM".equals(currentUser.getRole())) {
+            if (!AccessPolicy.canCreateControls(AccessPolicy.Subject.of(currentUser))) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("success", false, "message", "Only SOQM_TEAM can create controls"));
+                        .body(Map.of("success", false, "message", "Only SoQM can create controls"));
             }
 
             // Проверяем, не пустой ли Control ID
@@ -281,7 +283,7 @@ public class ControlController {
                 response.getWriter().write("User not authenticated");
                 return;
             }
-            if (!"SOQM_TEAM".equals(currentUser.getRole())) {
+            if (!AccessPolicy.canExportAllControls(AccessPolicy.Subject.of(currentUser))) {
                 response.setStatus(HttpStatus.FORBIDDEN.value());
                 response.setContentType("text/plain");
                 response.getWriter().write("Forbidden");
@@ -481,9 +483,6 @@ public class ControlController {
             if (currentUser == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
             }
-            String userRole = currentUser.getRole();
-            boolean userIsAdmin = Boolean.TRUE.equals(currentUser.getAdminAccess());
-            
             Control existingControl = controlService.getControlById(id)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(id);
@@ -491,10 +490,6 @@ public class ControlController {
             if (!permission.canEdit()) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body("VALIDATION_ERROR: User does not have permission to edit this control");
-            }
-            if (permission.isSharedCompleted()) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body("VALIDATION_ERROR: Shared users can edit only allowed fields in Control Details");
             }
             // Fields not sent (null) are left unchanged; a required field sent as blank is rejected
             String missingField = findMissingRequiredField(controlDTO, false);
@@ -528,48 +523,19 @@ public class ControlController {
                 }
             }
 
-            // ============================================
-            // ROLE-BASED FIELD RESTRICTIONS VALIDATION
-            // ============================================
-            // Facilitator/Control Operator CANNOT modify SoQM and Process Owner comments
-            if ("CONTROL_OPERATOR".equals(userRole) || "FACILITATOR".equals(userRole)) {
-                if (controlDTO.getSoqmHeadComments() != null && 
-                    !controlDTO.getSoqmHeadComments().equals(existingControl.getSoqmHeadComments())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: Facilitator/Control Operator cannot modify SoQM Head/Team Comments");
-                }
-                if (controlDTO.getProcessOwnerComments() != null && 
-                    !controlDTO.getProcessOwnerComments().equals(existingControl.getProcessOwnerComments())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: Facilitator/Control Operator cannot modify Process Owner Comments");
-                }
+            // The Process Owner Comments are the Process Owner's: SoQM does not change them here
+            if (permission.canEditAll()
+                    && controlDTO.getProcessOwnerComments() != null
+                    && !controlDTO.getProcessOwnerComments().equals(existingControl.getProcessOwnerComments())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("VALIDATION_ERROR: SoQM cannot modify Process Owner Comments");
             }
-            
-            // SoQM Team CAN modify soqmHeadComments but NOT processOwnerComments
-            if ("SOQM_TEAM".equals(userRole)) {
-                if (controlDTO.getProcessOwnerComments() != null && 
-                    !controlDTO.getProcessOwnerComments().equals(existingControl.getProcessOwnerComments())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: SoQM Team cannot modify Process Owner Comments");
-                }
-            }
-            
-            // Process Owner CAN modify processOwnerComments but NOT soqmHeadComments
-            if ("PROCESS_OWNER".equals(userRole)) {
-                if (controlDTO.getSoqmHeadComments() != null && 
-                    !controlDTO.getSoqmHeadComments().equals(existingControl.getSoqmHeadComments())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: Process Owner cannot modify SoQM Head/Team Comments");
-                }
-            }
-            
-            // ADMIN can modify everything
 
             // Without full edit rights every field checked above is unchanged, so only the Process Owner
             // comment may still differ. A request that changes nothing is not saved: updatedAt, the audit
             // log, a legacy frequency spelling and the schedule stay as they are.
             boolean changesProcessOwnerComments = controlDTO.getProcessOwnerComments() != null
-                    && "PROCESS_OWNER".equals(userRole)
+                    && permission.canEditProcessOwnerComments()
                     && !normalizeValue(controlDTO.getProcessOwnerComments())
                             .equals(normalizeValue(existingControl.getProcessOwnerComments()));
             if (!permission.canEditAll() && !changesProcessOwnerComments) {
@@ -619,13 +585,11 @@ public class ControlController {
             if (controlDTO.getPrp() != null) {
                 existingControl.setPrp(controlDTO.getPrp());
             }
-            // Set role-specific comments
-            if (controlDTO.getSoqmHeadComments() != null
-                    && ("SOQM_TEAM".equals(userRole) || userIsAdmin)) {
+            // The review comments: SoQM's and the Process Owner's (in their step)
+            if (controlDTO.getSoqmHeadComments() != null && permission.canEditAll()) {
                 existingControl.setSoqmHeadComments(controlDTO.getSoqmHeadComments());
             }
-            if (controlDTO.getProcessOwnerComments() != null
-                    && ("PROCESS_OWNER".equals(userRole) || userIsAdmin)) {
+            if (controlDTO.getProcessOwnerComments() != null && permission.canEditProcessOwnerComments()) {
                 existingControl.setProcessOwnerComments(controlDTO.getProcessOwnerComments());
             }
             
@@ -674,14 +638,9 @@ public class ControlController {
             Control control = controlService.getControlById(id)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
 
-            // Allow SOQM_TEAM or users the control is shared with
-            boolean isSoqmLead = "SOQM_TEAM".equals(currentUser.getRole());
-            ControlAssignmentDTO assignmentCheck = controlAssignmentService.getAssignmentByControlId(id);
-            boolean isSharedWith = assignmentCheck != null
-                    && assignmentCheck.getControlSharedWith() != null
-                    && assignmentCheck.getControlSharedWith().stream()
-                        .anyMatch(e -> e != null && e.equalsIgnoreCase(currentUser.getMail()));
-            if (!isSoqmLead && !isSharedWith) {
+            // SoQM, or a user the control is shared with
+            if (!AccessPolicy.canExportCompletedControl(AccessPolicy.Subject.of(currentUser),
+                    controlPermissionService.facts(control, currentUser, null))) {
                 response.setStatus(HttpStatus.FORBIDDEN.value());
                 response.setContentType("text/plain");
                 response.getWriter().write("Forbidden");

@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+/** What one user may do on one control, as {@link AccessPolicy#resolve} works it out. */
 public final class ControlPermission {
     public static final String FIELD_CONTROL_STEPS_PERFORMED = "controlStepsPerformed";
     public static final String FIELD_PROCESS_OWNER_COMMENTS = "processOwnerComments";
@@ -14,7 +15,6 @@ public final class ControlPermission {
     private final boolean canUseWorkflowActions;
     private final boolean canEditAll;
     private final boolean sharedViewer;
-    private final boolean sharedCompleted;
     private final boolean facilitator;
     private final boolean controlOperator;
     private final boolean soqmLead;
@@ -26,7 +26,6 @@ public final class ControlPermission {
                              boolean canUseWorkflowActions,
                              boolean canEditAll,
                              boolean sharedViewer,
-                             boolean sharedCompleted,
                              boolean facilitator,
                              boolean controlOperator,
                              boolean soqmLead,
@@ -39,7 +38,6 @@ public final class ControlPermission {
         this.canUseWorkflowActions = canUseWorkflowActions;
         this.canEditAll = canEditAll;
         this.sharedViewer = sharedViewer;
-        this.sharedCompleted = sharedCompleted;
         this.facilitator = facilitator;
         this.controlOperator = controlOperator;
         this.soqmLead = soqmLead;
@@ -51,7 +49,6 @@ public final class ControlPermission {
                 false,
                 false,
                 Set.of(),
-                false,
                 false,
                 false,
                 false,
@@ -84,10 +81,6 @@ public final class ControlPermission {
 
     public boolean isSharedViewer() {
         return sharedViewer;
-    }
-
-    public boolean isSharedCompleted() {
-        return sharedCompleted;
     }
 
     public boolean isFacilitator() {
