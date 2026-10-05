@@ -4,6 +4,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.repository.NotificationRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.util.RoleDisplayMapper;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -143,7 +144,7 @@ public class NotificationService {
     @Transactional
     public void sendReturnNotifications(Control control,
                                         List<String> recipientEmails,
-                                        String performedByRole,
+                                        String performedByRole,  // the step the actor acted in, e.g. "SoQM Team"
                                         String performedByName,
                                         String returnedToLabel,
                                         String returnComment,
@@ -189,12 +190,13 @@ public class NotificationService {
         }
     }
 
+    /** Who returned the control: their name, else the step they acted in ("Control Operator"), else "User". */
     private String normalizeActorName(String performedByName, String performedByRole) {
         String name = performedByName != null ? performedByName.trim() : "";
         if (!name.isEmpty()) {
             return name;
         }
-        return mapRoleLabel(performedByRole);
+        return performedByRole != null && !performedByRole.isBlank() ? performedByRole.trim() : "User";
     }
 
     private void createNotification(String email,
@@ -205,7 +207,7 @@ public class NotificationService {
             return;
         }
         userRepository.findByMail(email).ifPresent(user -> {
-            String roleLabel = mapRoleLabel(user.getRole());
+            String roleLabel = RoleDisplayMapper.access(user);
             LocalDate templateDate = resolveTemplateDate(control, templateType);
             NotificationTemplateService.NotificationTemplate template =
                     notificationTemplateService.render(
@@ -230,11 +232,11 @@ public class NotificationService {
             if (emailChannel != null) {
                 emailChannel.send(email, template.getSubject(), template.getBody());
             }
-            log.debug("Notification created: controlId={}, userId={}, email={}, role={}, templateType={}, subject={}",
+            log.debug("Notification created: controlId={}, userId={}, email={}, access={}, templateType={}, subject={}",
                     control.getId(),
                     user.getId(),
                     email,
-                    user.getRole(),
+                    user.getAccessLevel(),
                     templateType,
                     template.getSubject());
         });
@@ -260,34 +262,14 @@ public class NotificationService {
             if (emailChannel != null) {
                 emailChannel.send(email, template.getSubject(), template.getBody());
             }
-            log.debug("Notification created: controlId={}, userId={}, email={}, role={}, templateType={}, subject={}",
+            log.debug("Notification created: controlId={}, userId={}, email={}, access={}, templateType={}, subject={}",
                     control.getId(),
                     user.getId(),
                     email,
-                    user.getRole(),
+                    user.getAccessLevel(),
                     template.getNotificationType(),
                     template.getSubject());
         });
-    }
-
-    private String mapRoleLabel(String role) {
-        if (role == null) {
-            return "User";
-        }
-        switch (role) {
-            case "FACILITATOR":
-                return "Facilitator";
-            case "CONTROL_OPERATOR":
-                return "Control Operator";
-            case "SOQM_TEAM":
-                return "SoQM Head/Delegate";
-            case "PROCESS_OWNER":
-                return "Process Owner";
-            case "ADMIN":
-                return "Admin";
-            default:
-                return "User";
-        }
     }
 
     private String buildSubmitTitle(NotificationTemplateService.TemplateType templateType) {

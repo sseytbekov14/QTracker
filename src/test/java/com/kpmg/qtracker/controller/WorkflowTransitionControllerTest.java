@@ -93,7 +93,7 @@ class WorkflowTransitionControllerTest {
         verify(notificationService).sendReturnNotifications(
                 eq(control),
                 eq(java.util.List.of("facilitator@kpmg.kz")),
-                eq("CONTROL_OPERATOR"),
+                eq("Control Operator"),
                 eq("Control Operator"),
                 eq("Facilitator"),
                 eq("Need fixes in control steps"),

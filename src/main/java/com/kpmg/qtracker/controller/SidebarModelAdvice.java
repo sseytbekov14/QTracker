@@ -62,8 +62,9 @@ public class SidebarModelAdvice {
             return initials.length() > 0 ? initials.toString() : "?";
         }
 
+        /** The user's access, e.g. "Participant · KDN" (RoleDisplayMapper). */
         public String getRoleLabel() {
-            return RoleDisplayMapper.display(user.getRole());
+            return RoleDisplayMapper.access(user);
         }
 
         /** SoQM can create controls (shows the "New Control" button). */

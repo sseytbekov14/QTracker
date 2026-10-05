@@ -280,9 +280,9 @@ public class ControlAutoCreationService {
             log.warn("Auto-create: failed to resolve SoQM assignee for control {}", control.getId(), ex);
         }
         if (recipientEmail == null && control.getCreatedBy() != null) {
-            String creatorRole = control.getCreatedBy().getRole();
             String creatorEmail = control.getCreatedBy().getMail();
-            if ("SOQM_TEAM".equals(creatorRole) && creatorEmail != null && !creatorEmail.isBlank()) {
+            if (AccessPolicy.isSoqm(AccessPolicy.Subject.of(control.getCreatedBy()))
+                    && creatorEmail != null && !creatorEmail.isBlank()) {
                 recipientEmail = creatorEmail.trim();
             }
         }

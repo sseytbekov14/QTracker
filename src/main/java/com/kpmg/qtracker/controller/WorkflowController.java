@@ -303,7 +303,7 @@ public class WorkflowController {
             notificationService.sendReturnNotifications(
                     control,
                     recipients,
-                    currentUser.getRole(),
+                    decision.transition().getActor().getDisplayName(),
                     currentUser.getDisplayName(),
                     "Control Operator",
                     comments,
@@ -430,7 +430,7 @@ public class WorkflowController {
                     control,
                     recipientsWithoutActor(assignmentEmails(control.getId(), "CONTROL_OPERATOR"),
                             currentUser != null ? currentUser.getMail() : null),
-                    currentUser != null ? currentUser.getRole() : null,
+                    currentUser != null ? actorLabel(normalizedAction) : null,
                     currentUser != null ? currentUser.getDisplayName() : null,
                     "Control Operator",
                     firstNonBlank(comment, control.getReturnToOperatorComment()),
@@ -444,7 +444,7 @@ public class WorkflowController {
                     control,
                     recipientsWithoutActor(assignmentEmails(control.getId(), "FACILITATOR"),
                             currentUser != null ? currentUser.getMail() : null),
-                    currentUser != null ? currentUser.getRole() : null,
+                    currentUser != null ? actorLabel(normalizedAction) : null,
                     currentUser != null ? currentUser.getDisplayName() : null,
                     "Facilitator",
                     firstNonBlank(comment, control.getReturnToFacilitatorComment()),
@@ -471,6 +471,14 @@ public class WorkflowController {
                     false
             );
         }
+    }
+
+    /** The step a perform-action return is made in, for the return notification. */
+    private String actorLabel(String normalizedAction) {
+        return WorkflowTransition.forAction(normalizedAction).stream()
+                .findFirst()
+                .map(transition -> transition.getActor().getDisplayName())
+                .orElse(null);
     }
 
     private List<String> recipientsWithoutActor(List<String> recipients, String actorEmail) {

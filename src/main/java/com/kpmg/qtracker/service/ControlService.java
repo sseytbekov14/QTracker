@@ -22,6 +22,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import com.kpmg.qtracker.service.WorkflowService; // ✅
 import com.kpmg.qtracker.util.EmailList;
+import com.kpmg.qtracker.util.RoleDisplayMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -536,7 +537,7 @@ public class ControlService implements IControlService {
         dto.setId(user.getId());
         dto.setDisplayName(user.getDisplayName());
         dto.setMail(user.getMail());
-        dto.setTitle(user.getRole());
+        dto.setTitle(RoleDisplayMapper.access(user));
         return dto;
     }
 

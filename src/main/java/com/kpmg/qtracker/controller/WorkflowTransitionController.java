@@ -247,7 +247,7 @@ public class WorkflowTransitionController {
             history.setPerformedByName(currentUser.getDisplayName());
             history.setFromStep(previousStatus);
             history.setToStep("SOQM_HEAD_REVIEW");
-            history.setComments("Shared viewer (" + currentUser.getRole() + ") submitted completed control to SoQM Team for review");
+            history.setComments("Shared viewer submitted completed control to SoQM Team for review");
             workflowHistoryRepository.save(history);
 
             // Notify SoQM Team
@@ -365,7 +365,7 @@ public class WorkflowTransitionController {
             notificationService.sendReturnNotifications(
                     control,
                     recipients,
-                    currentUser.getRole(),
+                    WorkflowTransition.Actor.CONTROL_OPERATOR.getDisplayName(),
                     currentUser.getDisplayName(),
                     "Facilitator",
                     comments,

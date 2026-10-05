@@ -5,6 +5,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.UserService;
+import com.kpmg.qtracker.util.RoleDisplayMapper;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -195,8 +196,8 @@ public class UserController {
         dto.setId(user.getId());
         dto.setDisplayName(user.getDisplayName());
         dto.setMail(user.getMail());
-        dto.setTitle(user.getRole());
-        dto.setRole(user.getRole());
+        dto.setTitle(RoleDisplayMapper.access(user));
+        dto.setRole(String.valueOf(user.getAccessLevel()));
         return dto;
     }
 

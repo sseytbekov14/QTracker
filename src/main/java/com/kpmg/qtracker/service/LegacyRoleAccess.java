@@ -8,9 +8,17 @@ import java.util.Set;
 
 /**
  * The access level and scope for an old role: the users.role / secondary_role values of QTracker and the
- * Role values of the Power Apps user list ("SoQM Team", "SoQM Head", "Master", "KDN", "Read Only").
- * The same rules as the V6 migration backfill; the first that matches wins.
- * The admin_access flag is not a role and is never derived from one.
+ * Role values of the Power Apps user list QT_Users, which the user import maps with it:
+ * <ul>
+ *   <li>SoQM Team, SoQM Head (and any other SOQM role) - SOQM / ALL;</li>
+ *   <li>Master - PARTICIPANT / ALL;</li>
+ *   <li>Facilitator, Control Operator, Process Owner - PARTICIPANT / OWN;</li>
+ *   <li>KDN, in either role column - PARTICIPANT / KDN;</li>
+ *   <li>ADMIN (the seed accounts' role string) - PARTICIPANT / ALL;</li>
+ *   <li>Read Only, a blank or unknown role - READ_ONLY / OWN.</li>
+ * </ul>
+ * The same rules as the V6 migration backfill; the first that matches wins. The admin_access flag is not
+ * a role and is never derived from one: it is given by hand in the Admin Panel.
  */
 public final class LegacyRoleAccess {
 

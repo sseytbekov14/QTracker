@@ -7,6 +7,7 @@ import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.ControlFrequency;
 import com.kpmg.qtracker.service.*;
+import com.kpmg.qtracker.util.RoleDisplayMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -322,8 +323,8 @@ public class ControlTabsController {
         dto.setId(user.getId());
         dto.setDisplayName(user.getDisplayName());
         dto.setMail(user.getMail());
-        dto.setTitle(user.getRole());
-        dto.setRole(user.getRole());
+        dto.setTitle(RoleDisplayMapper.access(user));
+        dto.setRole(String.valueOf(user.getAccessLevel()));
         dto.setEnabled(Boolean.TRUE.equals(user.getEnabled()));
         return dto;
     }
