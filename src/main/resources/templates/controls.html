@@ -373,10 +373,10 @@ th[aria-sort="descending"] .sort-btn .bi { opacity: 1; color: var(--kpmg-blue); 
                 <div class="page-header">
                     <div>
                         <h1 th:text="${componentFilter != null} ? ${componentFilterName} + ' (' + ${componentFilter} + ')' : 'Controls'">Controls</h1>
-                        <p class="subtitle" th:text="${userIsSoqm or userIsAdmin} ? 'All controls in QTracker' : 'Controls assigned to you or shared with you'">Controls</p>
+                        <p class="subtitle" th:text="${userSeesAll} ? 'All controls in QTracker' : 'Controls assigned to you or shared with you'">Controls</p>
                     </div>
                     <button type="button" class="btn-export" id="exportBtn"
-                            th:if="${userIsSoqm}" th:attr="data-user-email=${userEmail}">
+                            th:if="${canExportAll}" th:attr="data-user-email=${userEmail}">
                         <i class="bi bi-download" aria-hidden="true"></i>Export to Excel
                     </button>
                 </div>

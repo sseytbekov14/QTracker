@@ -6,11 +6,9 @@ import com.kpmg.qtracker.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -35,114 +33,36 @@ public class ControlPermissionService {
     }
 
     public ControlPermission resolve(Control control, User user, ControlAssignmentDTO assignment) {
-        if (control == null || user == null) {
+        AccessPolicy.ControlFacts facts = facts(control, user, assignment);
+        if (facts == null) {
             return ControlPermission.denied();
         }
+        return AccessPolicy.resolve(AccessPolicy.Subject.of(user), facts);
+    }
 
+    /** How the user stands on the control (the input of {@link AccessPolicy}); null without a control or user. */
+    public AccessPolicy.ControlFacts facts(Control control, User user, ControlAssignmentDTO assignment) {
+        if (control == null || user == null) {
+            return null;
+        }
         String userEmail = normalizeEmail(user.getMail());
         if (userEmail == null) {
-            return ControlPermission.denied();
+            return null;
         }
-
-        String normalizedRole = normalizeRole(user.getRole());
-        String normalizedSecondaryRole = normalizeRole(user.getSecondaryRole());
-        boolean isKdnRole = "KDN".equals(normalizedRole) || "KDN".equals(normalizedSecondaryRole);
-        boolean isKdnControl = isKdnControl(control);
-
-        if (isKdnRole) {
-            boolean canViewKdn = isKdnControl;
-            return new ControlPermission(
-                canViewKdn,
-                false,
-                Set.of(),
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false
-            );
-        }
-
-        boolean isAdmin = Boolean.TRUE.equals(user.getAdminAccess());
-        boolean isSoqmRole = normalizedRole != null && normalizedRole.startsWith("SOQM");
-        boolean isFacilitatorRole = "FACILITATOR".equals(normalizedRole);
-        boolean isControlOperatorRole = "CONTROL_OPERATOR".equals(normalizedRole);
-        boolean isProcessOwnerRole = "PROCESS_OWNER".equals(normalizedRole);
-        boolean canEditAll = isAdmin || isSoqmRole;
-
         ControlAssignmentDTO resolvedAssignment = assignment != null
                 ? assignment
                 : controlAssignmentService.getAssignmentByControlId(control.getId());
         if (resolvedAssignment == null) {
             resolvedAssignment = new ControlAssignmentDTO();
         }
-
-        boolean isFacilitator = containsEmail(resolvedAssignment.getFacilitator(), userEmail);
-        boolean isControlOperator = containsEmail(resolvedAssignment.getControlOperator(), userEmail);
-        boolean isAssignedSoqmLead = containsEmail(resolvedAssignment.getSoqmLead(), userEmail);
-        boolean isProcessOwner = containsEmail(resolvedAssignment.getProcessOwner(), userEmail);
-        boolean isSharedViewer = containsEmail(resolvedAssignment.getControlSharedWith(), userEmail);
-
-        boolean isCreator = control.getCreatedBy() != null
-                && normalizeEmail(control.getCreatedBy().getMail()) != null
-                && normalizeEmail(control.getCreatedBy().getMail()).equals(userEmail);
-
-        boolean canView = canEditAll
-                || isCreator
-                || isFacilitator
-                || isControlOperator
-                || isAssignedSoqmLead
-                || isProcessOwner
-                || isSharedViewer;
-
-        String status = normalizeStatus(control.getPerformanceStatus());
-        boolean isCompleted = "COMPLETED".equals(status);
-        boolean sharedCompleted = isSharedViewer && isCompleted && !canEditAll;
-
-        Set<String> allowedEditableFields = new LinkedHashSet<>();
-
-        boolean canEditByStatus = (isCreator && "IN_PROGRESS".equals(status))
-                || (isFacilitator && "IN_PROGRESS".equals(status))
-                || (isControlOperator && "REVIEW".equals(status))
-                || (isAssignedSoqmLead && "SOQM_HEAD_REVIEW".equals(status))
-                || (isProcessOwner && "PROCESS_OWNER_REVIEW".equals(status));
-
-        if (canEditByStatus) {
-            if (isFacilitator || isControlOperator) {
-                allowedEditableFields.add(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
-            }
-            if (isProcessOwner) {
-                allowedEditableFields.add(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS);
-            }
-        }
-
-        if (sharedCompleted) {
-            if (isFacilitatorRole || isControlOperatorRole) {
-                allowedEditableFields.add(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
-            } else if (isProcessOwnerRole) {
-                allowedEditableFields.add(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS);
-            }
-        }
-
-        boolean canEdit = canView && (canEditAll || !allowedEditableFields.isEmpty());
-        boolean canUseWorkflowActions = canView && !sharedCompleted;
-
-        return new ControlPermission(
-                canView,
-                canEdit,
-                allowedEditableFields,
-                canUseWorkflowActions,
-                canEditAll,
-                isSharedViewer,
-                sharedCompleted,
-                isFacilitator,
-                isControlOperator,
-                isAssignedSoqmLead || isSoqmRole,
-                isProcessOwner
-        );
+        return new AccessPolicy.ControlFacts(
+                control.getPerformanceStatus(),
+                AccessPolicy.isKdnControl(control.getControlId()),
+                containsEmail(resolvedAssignment.getFacilitator(), userEmail),
+                containsEmail(resolvedAssignment.getControlOperator(), userEmail),
+                containsEmail(resolvedAssignment.getSoqmLead(), userEmail),
+                containsEmail(resolvedAssignment.getProcessOwner(), userEmail),
+                containsEmail(resolvedAssignment.getControlSharedWith(), userEmail));
     }
 
     private boolean containsEmail(List<String> emails, String userEmail) {
@@ -162,29 +82,5 @@ public class ControlPermissionService {
             return null;
         }
         return email.trim().toLowerCase(Locale.ROOT);
-    }
-
-    private String normalizeStatus(String status) {
-        if (status == null || status.isBlank()) {
-            return "DRAFT";
-        }
-        return status.trim().toUpperCase(Locale.ROOT);
-    }
-
-    private String normalizeRole(String role) {
-        if (role == null || role.isBlank()) {
-            return null;
-        }
-        return role.trim()
-                .replace('-', '_')
-                .replace(' ', '_')
-                .toUpperCase(Locale.ROOT);
-    }
-
-    private boolean isKdnControl(Control control) {
-        if (control == null || control.getControlId() == null) {
-            return false;
-        }
-        return control.getControlId().trim().toUpperCase(Locale.ROOT).startsWith("KDN");
     }
 }

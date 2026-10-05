@@ -5,6 +5,7 @@ import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
@@ -274,7 +275,7 @@ class WorkflowFlowIT {
 
     private User saveUser(String role, String mail, String displayName) {
         User user = new User();
-        user.setRole(role);
+        TestUsers.withRole(user, role);
         user.setMail(mail);
         user.setDisplayName(displayName);
         user.setEnabled(true);

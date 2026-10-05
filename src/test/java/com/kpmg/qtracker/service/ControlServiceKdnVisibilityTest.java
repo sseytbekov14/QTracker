@@ -1,10 +1,14 @@
 package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.enums.AccessLevel;
+import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,13 +17,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyIterable;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+/** Control lists through the access policy: scope KDN, scope OWN with drafts, and users who see everything. */
 @ExtendWith(MockitoExtension.class)
 class ControlServiceKdnVisibilityTest {
+
+    private static final String MAIL = "kdn@kpmg.kz";
 
     @Mock
     private ControlRepository controlRepository;
@@ -50,43 +58,82 @@ class ControlServiceKdnVisibilityTest {
     }
 
     @Test
-    void kdnRoleSeesOnlyControlsWithKdnPrefix() {
-        Control kdnControl = new Control();
-        kdnControl.setId(3L);
-        kdnControl.setControlId("KDN-3001");
+    void kdnScope_seesOnlyTheKdnControlsItIsAssignedToOrSharedWith() {
+        Control kdnAssigned = control(3L, "KDN-3001", "IN_PROGRESS");
+        Control hrAssigned = control(4L, "HR-3002", "IN_PROGRESS");
+        Control kdnShared = control(7L, "kdn-7001", "COMPLETED");
+        candidates(List.of(kdnAssigned, hrAssigned, kdnShared),
+                List.of(assignment(3L, MAIL, null), assignment(4L, MAIL, null), assignment(7L, null, MAIL)));
 
-        Control hrControl = new Control();
-        hrControl.setId(4L);
-        hrControl.setControlId("HR-3002");
+        List<Control> visible = controlService.findVisibleControlsForUser(
+                TestUsers.user(MAIL, AccessLevel.PARTICIPANT, AccessScope.KDN, false));
 
-        when(userRepository.findByMail("kdn@kpmg.kz")).thenReturn(Optional.empty());
-        when(controlRepository.findAllByOrderByIdDesc()).thenReturn(List.of(hrControl, kdnControl));
-
-        List<Control> visible = controlService.findVisibleControlsForUser("kdn@kpmg.kz", "KDN");
-
-        assertThat(visible).extracting(Control::getControlId).containsExactly("KDN-3001");
+        assertThat(visible).extracting(Control::getControlId).containsExactly("kdn-7001", "KDN-3001");
     }
 
     @Test
-    void secondaryKdnRoleAlsoGetsKdnOnlyVisibility() {
-        User user = new User();
-        user.setMail("mixed@kpmg.kz");
-        user.setRole("FACILITATOR");
-        user.setSecondaryRole("KDN");
+    void ownScope_seesAssignedAndSharedControls_draftsIncluded() {
+        Control draftAssigned = control(10L, "HR-10", "DRAFT");
+        Control draftShared = control(11L, "HR-11", null);
+        Control running = control(12L, "GOV-12", "REVIEW");
+        candidates(List.of(draftAssigned, draftShared, running),
+                List.of(assignment(10L, MAIL, null), assignment(11L, null, MAIL), assignment(12L, "b" + MAIL, null)));
 
-        Control kdnControl = new Control();
-        kdnControl.setId(5L);
-        kdnControl.setControlId("KDN-5001");
+        List<Control> visible = controlService.findVisibleControlsForUser(
+                TestUsers.user(MAIL, AccessLevel.READ_ONLY, AccessScope.OWN, false));
 
-        Control govControl = new Control();
-        govControl.setId(6L);
-        govControl.setControlId("GOV-5002");
+        // "bkdn@kpmg.kz" contains the address but is someone else
+        assertThat(visible).extracting(Control::getControlId).containsExactly("HR-11", "HR-10");
+    }
 
-        when(userRepository.findByMail("mixed@kpmg.kz")).thenReturn(Optional.of(user));
-        when(controlRepository.findAllByOrderByIdDesc()).thenReturn(List.of(govControl, kdnControl));
+    @Test
+    void soqmAdminsAndScopeAll_seeEveryControl() {
+        Control kdn = control(1L, "KDN-1", "DRAFT");
+        Control hr = control(2L, "HR-2", "COMPLETED");
+        when(controlRepository.findAllByOrderByIdDesc()).thenReturn(List.of(hr, kdn));
 
-        List<Control> visible = controlService.findVisibleControlsForUser("mixed@kpmg.kz", "FACILITATOR");
+        for (User user : List.of(
+                TestUsers.user("soqm@kpmg.kz", AccessLevel.SOQM, AccessScope.ALL, false),
+                TestUsers.user("admin@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, true),
+                TestUsers.user("all@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.ALL, false))) {
+            assertThat(controlService.findVisibleControlsForUser(user))
+                    .as(user.getMail())
+                    .extracting(Control::getControlId)
+                    .containsExactly("HR-2", "KDN-1");
+        }
+    }
 
-        assertThat(visible).extracting(Control::getControlId).containsExactly("KDN-5001");
+    @Test
+    void disabledUser_seesNothing() {
+        User disabled = TestUsers.user("soqm@kpmg.kz", AccessLevel.SOQM, AccessScope.ALL, true);
+        disabled.setEnabled(false);
+        Control control = control(5L, "HR-5", "REVIEW");
+        candidates(List.of(control), List.of(assignment(5L, "soqm@kpmg.kz", null)));
+
+        assertThat(controlService.findVisibleControlsForUser(disabled)).isEmpty();
+    }
+
+    private void candidates(List<Control> controls, List<ControlAssignment> assignments) {
+        List<Long> ids = controls.stream().map(Control::getId).toList();
+        lenient().when(controlAssignmentRepository.findControlIdsByFacilitator(MAIL)).thenReturn(ids);
+        lenient().when(controlAssignmentRepository.findControlIdsByFacilitator("soqm@kpmg.kz")).thenReturn(ids);
+        when(controlAssignmentRepository.findAllById(anyIterable())).thenReturn(assignments);
+        when(controlRepository.findAllById(anyIterable())).thenReturn(controls);
+    }
+
+    private Control control(Long id, String controlId, String status) {
+        Control control = new Control();
+        control.setId(id);
+        control.setControlId(controlId);
+        control.setPerformanceStatus(status);
+        return control;
+    }
+
+    private ControlAssignment assignment(Long controlId, String facilitator, String sharedWith) {
+        ControlAssignment assignment = new ControlAssignment();
+        assignment.setControlId(controlId);
+        assignment.setFacilitator(facilitator);
+        assignment.setControlSharedWith(sharedWith);
+        return assignment;
     }
 }

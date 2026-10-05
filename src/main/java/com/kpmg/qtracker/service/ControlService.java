@@ -97,72 +97,53 @@ public class ControlService implements IControlService {
         return controlRepository.findAllByOrderByIdDesc();
     }
 
+    /**
+     * The controls the user sees ({@link AccessPolicy#canView}): every control for SoQM, admins and
+     * scope ALL; otherwise the ones they are assigned to or shared with, for scope KDN only KDN controls.
+     */
     @Override
-    public List<Control> findVisibleControlsForUser(String userEmail, String userRole) {
-        if (userEmail == null || userEmail.isBlank()) {
+    public List<Control> findVisibleControlsForUser(User user) {
+        if (user == null || user.getMail() == null || user.getMail().isBlank()) {
             return Collections.emptyList();
         }
-        Optional<User> userOpt = userRepository.findByMail(userEmail);
-        boolean isKdnRole = hasRole(userRole, "KDN")
-                || userOpt.map(user -> hasRole(user.getRole(), "KDN") || hasRole(user.getSecondaryRole(), "KDN")).orElse(false);
-
-        if (isKdnRole) {
-            return getAllControls().stream()
-                    .filter(this::isKdnControl)
-                    .collect(Collectors.toList());
-        }
-
-        if (userOpt.isPresent() && Boolean.TRUE.equals(userOpt.get().getAdminAccess())) {
+        AccessPolicy.Subject subject = AccessPolicy.Subject.of(user);
+        if (AccessPolicy.seesAllControls(subject)) {
             return getAllControls();
         }
-        if (isAdminRole(userRole)) {
-            return getAllControls();
-        }
+        String userEmail = user.getMail();
 
         // LIKE finds the address anywhere in a column, including inside another address
-        // (a@kpmg.kz in ba@kpmg.kz), so the candidates are checked for a whole-address match below
-        Set<Long> visibleControlIds = new LinkedHashSet<>();
-        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByFacilitator(userEmail));
-        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByControlOperator(userEmail));
-        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsBySoqmLead(userEmail));
-        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByProcessOwner(userEmail));
-        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByControlSharedWith(userEmail));
-        if (!visibleControlIds.isEmpty()) {
-            Set<Long> assignedIds = controlAssignmentRepository.findAllById(visibleControlIds).stream()
-                    .filter(assignment -> isAssignedOrSharedWith(assignment, userEmail))
-                    .map(ControlAssignment::getControlId)
-                    .collect(Collectors.toSet());
-            visibleControlIds.retainAll(assignedIds);
-        }
-
-        if (visibleControlIds.isEmpty()) {
+        // (a@kpmg.kz in ba@kpmg.kz); the policy below checks whole addresses
+        Set<Long> candidateIds = new LinkedHashSet<>();
+        addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByFacilitator(userEmail));
+        addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlOperator(userEmail));
+        addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsBySoqmLead(userEmail));
+        addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByProcessOwner(userEmail));
+        addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlSharedWith(userEmail));
+        if (candidateIds.isEmpty()) {
             return Collections.emptyList();
         }
 
-        List<Control> visibleControls = controlRepository.findAllById(visibleControlIds);
+        Map<Long, ControlAssignment> assignments = controlAssignmentRepository.findAllById(candidateIds).stream()
+                .collect(Collectors.toMap(ControlAssignment::getControlId, assignment -> assignment, (a, b) -> a));
+        List<Control> visibleControls = controlRepository.findAllById(candidateIds).stream()
+                .filter(control -> AccessPolicy.canView(subject,
+                        facts(control, assignments.get(control.getId()), userEmail)))
+                .collect(Collectors.toList());
         visibleControls.sort(Comparator.comparing(Control::getId, Comparator.nullsLast(Long::compareTo)).reversed());
         return visibleControls;
     }
 
-    private boolean hasRole(String role, String expectedRole) {
-        if (role == null || role.isBlank()) {
-            return false;
-        }
-        return normalizeRole(role).equals(normalizeRole(expectedRole));
-    }
-
-    private String normalizeRole(String role) {
-        return role.trim()
-                .replace('-', '_')
-                .replace(' ', '_')
-                .toUpperCase(Locale.ROOT);
-    }
-
-    private boolean isKdnControl(Control control) {
-        if (control == null || control.getControlId() == null) {
-            return false;
-        }
-        return control.getControlId().trim().toUpperCase(Locale.ROOT).startsWith("KDN");
+    private AccessPolicy.ControlFacts facts(Control control, ControlAssignment assignment, String userEmail) {
+        boolean hasAssignment = assignment != null;
+        return new AccessPolicy.ControlFacts(
+                control.getPerformanceStatus(),
+                AccessPolicy.isKdnControl(control.getControlId()),
+                hasAssignment && EmailList.contains(assignment.getFacilitator(), userEmail),
+                hasAssignment && EmailList.contains(assignment.getControlOperator(), userEmail),
+                hasAssignment && EmailList.contains(assignment.getSoqmLead(), userEmail),
+                hasAssignment && EmailList.contains(assignment.getProcessOwner(), userEmail),
+                hasAssignment && EmailList.contains(assignment.getControlSharedWith(), userEmail));
     }
 
     @Override
@@ -802,25 +783,6 @@ public class ControlService implements IControlService {
             return new ArrayList<>(EmailList.parse(assignment.get().getFacilitator()));
         }
         return new ArrayList<>();
-    }
-
-    private boolean isAdminRole(String userRole) {
-        if (userRole == null) {
-            return false;
-        }
-        String normalized = userRole.trim()
-                .replace('-', '_')
-                .replace(' ', '_')
-                .toUpperCase(java.util.Locale.ROOT);
-        return "ADMIN".equals(normalized) || normalized.startsWith("SOQM");
-    }
-
-    private boolean isAssignedOrSharedWith(ControlAssignment assignment, String userEmail) {
-        return EmailList.contains(assignment.getFacilitator(), userEmail)
-                || EmailList.contains(assignment.getControlOperator(), userEmail)
-                || EmailList.contains(assignment.getSoqmLead(), userEmail)
-                || EmailList.contains(assignment.getProcessOwner(), userEmail)
-                || EmailList.contains(assignment.getControlSharedWith(), userEmail);
     }
 
     private void addVisibleIds(Set<Long> target, List<Long> source) {

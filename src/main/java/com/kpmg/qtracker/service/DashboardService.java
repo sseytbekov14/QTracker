@@ -279,19 +279,14 @@ public class DashboardService {
     }
 
     /**
-     * The controls the user's tiles and Controls list cover, with their deadlines: the visible set,
-     * drafts only for roles that see every control (see {@link ControlScope}).
+     * The controls the user's tiles and Controls list cover, with their deadlines: the controls they see,
+     * drafts included as far as they see them ({@link AccessPolicy#canView}).
      */
     private List<DeadlineRow> visibleDeadlineRows(User currentUser) {
         if (currentUser == null || currentUser.getMail() == null || currentUser.getMail().isBlank()) {
             return Collections.emptyList();
         }
-        boolean includeDrafts = ControlScope.seesAllControls(currentUser);
-        List<Control> controls = safeControls(controlService.findVisibleControlsForUser(
-                        currentUser.getMail(), currentUser.getRole())).stream()
-                .filter(control -> includeDrafts || !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
-                .collect(Collectors.toList());
-        return toDeadlineRows(controls);
+        return toDeadlineRows(safeControls(controlService.findVisibleControlsForUser(currentUser)));
     }
 
     private List<DeadlineRow> toDeadlineRows(List<Control> controls) {
@@ -342,7 +337,7 @@ public class DashboardService {
         if (currentUser == null || currentUser.getMail() == null || currentUser.getMail().isBlank()) {
             return Collections.emptyList();
         }
-        List<Control> candidates = controlService.findVisibleControlsForUser(currentUser.getMail(), currentUser.getRole());
+        List<Control> candidates = controlService.findVisibleControlsForUser(currentUser);
         Predicate<Control> predicate = buildMyScopePredicate(currentUser);
         return safeControls(candidates).stream()
                 .filter(predicate)

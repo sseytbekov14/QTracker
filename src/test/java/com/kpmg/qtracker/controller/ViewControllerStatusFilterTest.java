@@ -5,11 +5,13 @@ import com.kpmg.qtracker.dto.ControlResponseDTO;
 import com.kpmg.qtracker.dto.PerformanceDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.repository.WorkflowStepRepository;
 
+import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
 import com.kpmg.qtracker.service.DashboardService;
@@ -118,7 +120,7 @@ class ViewControllerStatusFilterTest {
     void controls_withStatusFilter_returnsOnlyMatchingStatus() throws Exception {
         User currentUser = new User();
         currentUser.setId(1L);
-        currentUser.setRole("SOQM_TEAM");
+        TestUsers.withRole(currentUser, "SOQM_TEAM");
         currentUser.setMail("soqm@kpmg.kz");
         currentUser.setDisplayName("SoQM User");
 
@@ -154,7 +156,7 @@ class ViewControllerStatusFilterTest {
     void controls_activeScope_forNonSoqm_returnsOnlyAssignedQueueControls() throws Exception {
         User currentUser = new User();
         currentUser.setId(2L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -191,7 +193,7 @@ class ViewControllerStatusFilterTest {
     void controls_overdueFilter_returnsOnlyOverdue() throws Exception {
         User currentUser = new User();
         currentUser.setId(12L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -235,7 +237,7 @@ class ViewControllerStatusFilterTest {
     void controls_setsOverdueFlagForPastDeadline() throws Exception {
         User currentUser = new User();
         currentUser.setId(13L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -272,7 +274,7 @@ class ViewControllerStatusFilterTest {
     void controls_completedAfterDeadline_isClosedLate_notOverdue() throws Exception {
         User currentUser = new User();
         currentUser.setId(14L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -327,7 +329,7 @@ class ViewControllerStatusFilterTest {
     void controls_completedBeforeDeadline_isNotOverdue() throws Exception {
         User currentUser = new User();
         currentUser.setId(15L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -366,7 +368,7 @@ class ViewControllerStatusFilterTest {
     void controls_futureDeadline_isNotOverdue() throws Exception {
         User currentUser = new User();
         currentUser.setId(16L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -400,7 +402,7 @@ class ViewControllerStatusFilterTest {
     void controls_includesSharedControlsWithViewOnlyFlag() throws Exception {
         User currentUser = new User();
         currentUser.setId(20L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("shared@kpmg.kz");
         currentUser.setDisplayName("Shared User");
 
@@ -421,7 +423,7 @@ class ViewControllerStatusFilterTest {
         ControlAssignmentDTO assignmentDTO = new ControlAssignmentDTO();
         assignmentDTO.setControlSharedWith(List.of("shared@kpmg.kz"));
 
-        when(controlService.findVisibleControlsForUser("shared@kpmg.kz", "FACILITATOR"))
+        when(controlService.findVisibleControlsForUser(currentUser))
                 .thenReturn(List.of(sharedControl));
         when(controlService.convertToResponseDTO(sharedControl)).thenReturn(sharedDto);
         when(controlAssignmentService.getAssignmentByControlId(200L)).thenReturn(assignmentDTO);
@@ -443,7 +445,7 @@ class ViewControllerStatusFilterTest {
     void controls_sortNewestFirst_controlsWithoutDatesLast() throws Exception {
         User soqm = new User();
         soqm.setId(90L);
-        soqm.setRole("SOQM_TEAM");
+        TestUsers.withRole(soqm, "SOQM_TEAM");
         soqm.setMail("soqm@kpmg.kz");
         soqm.setDisplayName("SoQM User");
 
@@ -480,10 +482,10 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
-    void controls_allScope_forNonSoqm_excludesDraft() throws Exception {
+    void controls_allScope_listsTheDraftsTheUserSees() throws Exception {
         User currentUser = new User();
         currentUser.setId(3L);
-        currentUser.setRole("CONTROL_OPERATOR");
+        TestUsers.withRole(currentUser, "CONTROL_OPERATOR");
         currentUser.setMail("operator@kpmg.kz");
         currentUser.setDisplayName("Operator User");
 
@@ -520,15 +522,15 @@ class ViewControllerStatusFilterTest {
         List<ControlResponseDTO> controls =
                 (List<ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
 
-        assertThat(controls).hasSize(1);
-        assertThat(controls.get(0).getId()).isEqualTo(21L);
+        // The service returns only the controls the user sees; drafts among them stay in the list
+        assertThat(controls).extracting(ControlResponseDTO::getId).containsExactly(21L, 20L);
     }
 
     @Test
     void controls_completedStatusFilter_returnsOnlyCompleted() throws Exception {
         User currentUser = new User();
         currentUser.setId(14L);
-        currentUser.setRole("CONTROL_OPERATOR");
+        TestUsers.withRole(currentUser, "CONTROL_OPERATOR");
         currentUser.setMail("operator@kpmg.kz");
         currentUser.setDisplayName("Operator User");
 
@@ -572,7 +574,7 @@ class ViewControllerStatusFilterTest {
     void controls_defaultFilter_showsAllVisibleControls() throws Exception {
         User currentUser = new User();
         currentUser.setId(15L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -614,7 +616,7 @@ class ViewControllerStatusFilterTest {
     void actionCentre_nonSoqm_redirectsToTheDashboardTab() throws Exception {
         User currentUser = new User();
         currentUser.setId(7L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("fac@kpmg.kz");
 
         mockMvc.perform(get("/action-centre").sessionAttr("currentUser", currentUser))
@@ -626,7 +628,7 @@ class ViewControllerStatusFilterTest {
     void actionCentre_soqm_redirectsToTheDashboardTab() throws Exception {
         User currentUser = new User();
         currentUser.setId(8L);
-        currentUser.setRole("SOQM_TEAM");
+        TestUsers.withRole(currentUser, "SOQM_TEAM");
         currentUser.setMail("soqm@kpmg.kz");
 
         mockMvc.perform(get("/action-centre").sessionAttr("currentUser", currentUser))
@@ -638,7 +640,7 @@ class ViewControllerStatusFilterTest {
     void viewControl_draft_notVisibleToNonSoqm() throws Exception {
         User currentUser = new User();
         currentUser.setId(4L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -651,8 +653,8 @@ class ViewControllerStatusFilterTest {
         when(controlAssignmentService.getAssignmentByControlId(30L)).thenReturn(assignmentDTO);
         when(permissionService.resolve(draftControl, currentUser, assignmentDTO))
                 .thenReturn(ControlPermission.denied());
-        when(permissionService.readAccess(eq(draftControl), eq(currentUser), any(ControlPermission.class)))
-                .thenReturn(PermissionService.ReadAccess.DENIED);
+        when(permissionService.readAccess(eq(draftControl), eq(currentUser), any()))
+                .thenReturn(AccessPolicy.ReadAccess.DENIED);
 
         mockMvc.perform(get("/view-control/30")
                         .sessionAttr("currentUser", currentUser))
@@ -665,7 +667,7 @@ class ViewControllerStatusFilterTest {
     void viewControl_draft_visibleToSoqm() throws Exception {
         User currentUser = new User();
         currentUser.setId(5L);
-        currentUser.setRole("SOQM_TEAM");
+        TestUsers.withRole(currentUser, "SOQM_TEAM");
         currentUser.setMail("soqm@kpmg.kz");
         currentUser.setDisplayName("SoQM User");
 
@@ -683,8 +685,8 @@ class ViewControllerStatusFilterTest {
         when(permissionService.resolve(draftControl, currentUser, assignmentDTO))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
                         false, false, false, false, true, false));
-        when(permissionService.readAccess(eq(draftControl), eq(currentUser), any(ControlPermission.class)))
-                .thenReturn(PermissionService.ReadAccess.ALLOWED);
+        when(permissionService.readAccess(eq(draftControl), eq(currentUser), any()))
+                .thenReturn(AccessPolicy.ReadAccess.ALLOWED);
 
         mockMvc.perform(get("/view-control/31")
                         .sessionAttr("currentUser", currentUser))
@@ -695,7 +697,7 @@ class ViewControllerStatusFilterTest {
     void viewControl_draft_sharedUser_getsFriendlyNotAvailablePage() throws Exception {
         User currentUser = new User();
         currentUser.setId(32L);
-        currentUser.setRole("CONTROL_OPERATOR");
+        TestUsers.withRole(currentUser, "CONTROL_OPERATOR");
         currentUser.setMail("shared.operator@kpmg.kz");
         currentUser.setDisplayName("Shared Operator");
 
@@ -728,8 +730,8 @@ class ViewControllerStatusFilterTest {
                         false,
                         false
                 ));
-        when(permissionService.readAccess(eq(draftControl), eq(currentUser), any(ControlPermission.class)))
-                .thenReturn(PermissionService.ReadAccess.DRAFT_NOT_INITIATED);
+        when(permissionService.readAccess(eq(draftControl), eq(currentUser), any()))
+                .thenReturn(AccessPolicy.ReadAccess.DRAFT_NOT_INITIATED);
 
         mockMvc.perform(get("/view-control/32")
                         .sessionAttr("currentUser", currentUser))
@@ -744,7 +746,7 @@ class ViewControllerStatusFilterTest {
     void viewControl_notFound_returns404Page() throws Exception {
         User currentUser = new User();
         currentUser.setId(33L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -761,7 +763,7 @@ class ViewControllerStatusFilterTest {
     void viewControl_normalAccess_returnsControlPage() throws Exception {
         User currentUser = new User();
         currentUser.setId(34L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -796,8 +798,8 @@ class ViewControllerStatusFilterTest {
                         false,
                         false
                 ));
-        when(permissionService.readAccess(eq(control), eq(currentUser), any(ControlPermission.class)))
-                .thenReturn(PermissionService.ReadAccess.ALLOWED);
+        when(permissionService.readAccess(eq(control), eq(currentUser), any()))
+                .thenReturn(AccessPolicy.ReadAccess.ALLOWED);
 
         mockMvc.perform(get("/view-control/34")
                         .sessionAttr("currentUser", currentUser))
@@ -815,7 +817,7 @@ class ViewControllerStatusFilterTest {
     void performanceChecklistUrl_redirectsToInitiatePage() throws Exception {
         User currentUser = new User();
         currentUser.setId(22L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
 
         mockMvc.perform(get("/performance/18").sessionAttr("currentUser", currentUser))
@@ -824,10 +826,10 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
-    void dashboard_counters_excludeDraft_forNonSoqm() throws Exception {
+    void dashboard_counters_includeTheDraftsTheUserSees() throws Exception {
         User currentUser = new User();
         currentUser.setId(6L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -851,15 +853,15 @@ class ViewControllerStatusFilterTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        assertThat(result.getModelAndView().getModel().get("totalControls")).isEqualTo(1);
-        assertThat(result.getModelAndView().getModel().get("activeControls")).isEqualTo(1);
+        assertThat(result.getModelAndView().getModel().get("totalControls")).isEqualTo(2);
+        assertThat(result.getModelAndView().getModel().get("activeControls")).isEqualTo(2);
     }
 
     @Test
     void dashboard_activeCountsAllNonCompletedVisibleControls() throws Exception {
         User currentUser = new User();
         currentUser.setId(17L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -892,10 +894,10 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
-    void dashboard_overdueCountsExcludeDraftAndCompleted() throws Exception {
+    void dashboard_overdueCountsTheUsersOverdueDrafts_butNotCompleted() throws Exception {
         User currentUser = new User();
         currentUser.setId(9L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -930,14 +932,14 @@ class ViewControllerStatusFilterTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        assertThat(result.getModelAndView().getModel().get("overdueControls")).isEqualTo(1);
+        assertThat(result.getModelAndView().getModel().get("overdueControls")).isEqualTo(2);
     }
 
     @Test
     void controls_counters_useSameRulesAsListFiltering() throws Exception {
         User currentUser = new User();
         currentUser.setId(16L);
-        currentUser.setRole("ADMIN");
+        TestUsers.withRole(currentUser, "ADMIN");
         currentUser.setMail("admin@kpmg.kz");
         currentUser.setDisplayName("Admin User");
 
@@ -981,7 +983,7 @@ class ViewControllerStatusFilterTest {
     void controls_soqmDelegateSeesAllVisibleIncludingDraft() throws Exception {
         User currentUser = new User();
         currentUser.setId(23L);
-        currentUser.setRole("SOQM_DELEGATE");
+        TestUsers.withRole(currentUser, "SOQM_DELEGATE");
         currentUser.setMail("soqm.delegate@kpmg.kz");
         currentUser.setDisplayName("SoQM Delegate");
 
@@ -1022,7 +1024,7 @@ class ViewControllerStatusFilterTest {
     void componentAll_soqmDelegateCountersUseAllControls() throws Exception {
         User currentUser = new User();
         currentUser.setId(24L);
-        currentUser.setRole("SOQM_DELEGATE");
+        TestUsers.withRole(currentUser, "SOQM_DELEGATE");
         currentUser.setMail("soqm.delegate@kpmg.kz");
         currentUser.setDisplayName("SoQM Delegate");
 
@@ -1075,7 +1077,7 @@ class ViewControllerStatusFilterTest {
     void dashboard_showsControlsAwaitingUserAction_overdueFirst_andSharedSidebar() throws Exception {
         User currentUser = new User();
         currentUser.setId(20L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
 
@@ -1127,7 +1129,7 @@ class ViewControllerStatusFilterTest {
     void dashboard_showsFirstPageOfNotifications_with24hTime_andShowMore() throws Exception {
         User currentUser = new User();
         currentUser.setId(21L);
-        currentUser.setRole("FACILITATOR");
+        TestUsers.withRole(currentUser, "FACILITATOR");
         currentUser.setMail("facilitator@kpmg.kz");
         currentUser.setDisplayName("Facilitator User");
         mockVisibleControls(currentUser, List.of());
@@ -1169,7 +1171,7 @@ class ViewControllerStatusFilterTest {
     void newControl_soqm_rendersFormWithSidebar_othersRedirected() throws Exception {
         User soqm = new User();
         soqm.setId(30L);
-        soqm.setRole("SOQM_TEAM");
+        TestUsers.withRole(soqm, "SOQM_TEAM");
         soqm.setMail("soqm@kpmg.kz");
         soqm.setDisplayName("SoQM User");
 
@@ -1182,7 +1184,7 @@ class ViewControllerStatusFilterTest {
 
         User facilitator = new User();
         facilitator.setId(31L);
-        facilitator.setRole("FACILITATOR");
+        TestUsers.withRole(facilitator, "FACILITATOR");
         facilitator.setMail("facilitator@kpmg.kz");
 
         mockMvc.perform(get("/new-control").sessionAttr("currentUser", facilitator))
@@ -1193,7 +1195,7 @@ class ViewControllerStatusFilterTest {
     void controls_soqmActiveScope_excludesCompleted() throws Exception {
         User soqm = new User();
         soqm.setId(40L);
-        soqm.setRole("SOQM_TEAM");
+        TestUsers.withRole(soqm, "SOQM_TEAM");
         soqm.setMail("soqm@kpmg.kz");
         soqm.setDisplayName("SoQM User");
 
@@ -1221,7 +1223,7 @@ class ViewControllerStatusFilterTest {
     void controls_marksYourTurn_andShowsCurrentAssignee() throws Exception {
         User facilitator = new User();
         facilitator.setId(41L);
-        facilitator.setRole("FACILITATOR");
+        TestUsers.withRole(facilitator, "FACILITATOR");
         facilitator.setMail("facilitator@kpmg.kz");
         facilitator.setDisplayName("Facilitator User");
 
@@ -1250,7 +1252,7 @@ class ViewControllerStatusFilterTest {
     void dashboard_actionCentreSummarisesComponents() throws Exception {
         User soqm = new User();
         soqm.setId(50L);
-        soqm.setRole("SOQM_TEAM");
+        TestUsers.withRole(soqm, "SOQM_TEAM");
         soqm.setMail("soqm@kpmg.kz");
         soqm.setDisplayName("SoQM User");
 
@@ -1295,7 +1297,7 @@ class ViewControllerStatusFilterTest {
     void performanceCycle_showsRealHistory_allPeople_andCurrentStep() throws Exception {
         User soqm = new User();
         soqm.setId(60L);
-        soqm.setRole("SOQM_TEAM");
+        TestUsers.withRole(soqm, "SOQM_TEAM");
         soqm.setMail("soqm@kpmg.kz");
         soqm.setDisplayName("SoQM User");
 
@@ -1309,8 +1311,8 @@ class ViewControllerStatusFilterTest {
         control.setCreatedBy(creator);
         control.setCreatedAt(java.time.LocalDateTime.of(2026, 8, 20, 11, 0));
         when(controlService.getControlById(601L)).thenReturn(java.util.Optional.of(control));
-        when(permissionService.readAccess(eq(control), eq(soqm), any()))
-                .thenReturn(PermissionService.ReadAccess.ALLOWED);
+        when(permissionService.readAccess(eq(control), eq(soqm)))
+                .thenReturn(AccessPolicy.ReadAccess.ALLOWED);
         when(performanceService.buildPerformanceDTO(control)).thenReturn(new PerformanceDTO());
 
         ControlAssignmentDTO assignment = new ControlAssignmentDTO();
@@ -1350,7 +1352,7 @@ class ViewControllerStatusFilterTest {
     void componentPage_redirectsToControlsWithComponentFilter() throws Exception {
         User soqm = new User();
         soqm.setId(70L);
-        soqm.setRole("SOQM_TEAM");
+        TestUsers.withRole(soqm, "SOQM_TEAM");
         soqm.setMail("soqm@kpmg.kz");
 
         mockMvc.perform(get("/component/hr").sessionAttr("currentUser", soqm))
@@ -1366,7 +1368,7 @@ class ViewControllerStatusFilterTest {
     void controls_componentFilter_keepsComponentInStatusLinks() throws Exception {
         User soqm = new User();
         soqm.setId(71L);
-        soqm.setRole("SOQM_TEAM");
+        TestUsers.withRole(soqm, "SOQM_TEAM");
         soqm.setMail("soqm@kpmg.kz");
         soqm.setDisplayName("SoQM User");
 
@@ -1398,7 +1400,7 @@ class ViewControllerStatusFilterTest {
     void unexpectedError_pageShowsOnlyAGeneralText_causeGoesToTheLogWithTheCorrelationId(CapturedOutput output) throws Exception {
         User user = new User();
         user.setId(5L);
-        user.setRole("FACILITATOR");
+        TestUsers.withRole(user, "FACILITATOR");
         user.setMail("fac@kpmg.kz");
         when(notificationService.getUserNotifications(5L))
                 .thenThrow(new IllegalStateException("JDBC failure on table notifications, host db-internal-01"));
@@ -1425,7 +1427,7 @@ class ViewControllerStatusFilterTest {
     void notificationDetail_linksToViewControl_draftToItsAssignmentTab() throws Exception {
         User user = new User();
         user.setId(6L);
-        user.setRole("FACILITATOR");
+        TestUsers.withRole(user, "FACILITATOR");
         user.setMail("fac@kpmg.kz");
         user.setDisplayName("Fac User");
         when(notificationTypeDisplayMapper.map(any(), any()))
@@ -1474,7 +1476,7 @@ class ViewControllerStatusFilterTest {
             controls.add(control);
             when(controlService.convertToResponseDTO(control)).thenReturn(dto);
         }
-        when(controlService.findVisibleControlsForUser(user.getMail(), user.getRole()))
+        when(controlService.findVisibleControlsForUser(user))
                 .thenReturn(controls);
     }
 }

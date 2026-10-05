@@ -49,7 +49,7 @@ class DashboardServiceMyScopeTest {
         Control draftVisible = buildControl(103L, "Recurring", "GOV");
         draftVisible.setPerformanceStatus("DRAFT");
 
-        when(controlService.findVisibleControlsForUser("reviewer@kpmg.kz", "FACILITATOR"))
+        when(controlService.findVisibleControlsForUser(currentUser))
                 .thenReturn(List.of(monthlyVisible, quarterlyNotVisible, annualVisibleById, draftVisible));
         when(controlAssignmentService.getAssignmentByControlId(100L))
                 .thenReturn(assignment(List.of("reviewer@kpmg.kz"), List.of(), List.of(), List.of()));
@@ -77,7 +77,7 @@ class DashboardServiceMyScopeTest {
         Control draftVisible = buildControl(203L, "Recurring", "RAP");
         draftVisible.setPerformanceStatus("DRAFT");
 
-        when(controlService.findVisibleControlsForUser("operator@kpmg.kz", "CONTROL_OPERATOR"))
+        when(controlService.findVisibleControlsForUser(currentUser))
                 .thenReturn(List.of(hrVisible, acVisibleShared, govNotVisible, draftVisible));
         when(controlAssignmentService.getAssignmentByControlId(200L))
                 .thenReturn(assignment(List.of(), List.of("operator@kpmg.kz"), List.of(), List.of()));

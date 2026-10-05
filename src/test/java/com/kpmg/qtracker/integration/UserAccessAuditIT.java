@@ -3,6 +3,7 @@ package com.kpmg.qtracker.integration;
 import com.kpmg.qtracker.config.DevUserSeeder;
 import com.kpmg.qtracker.entity.AdminAuditLog;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.repository.AdminAuditLogRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -87,7 +88,7 @@ class UserAccessAuditIT {
         User user = new User();
         user.setMail(mail);
         user.setDisplayName(mail);
-        user.setRole(role);
+        TestUsers.withRole(user, role);
         user.setEnabled(true);
         user.setPassword(passwordEncoder.encode(PASSWORD));
         return userRepository.save(user);

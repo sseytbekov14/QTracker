@@ -216,14 +216,14 @@ public class ControlTabsController {
     }
 
     /**
-     * SoQM Team and admins get every user, for the assignment pickers. Anyone else gets only the people
+     * SoQM and admins get every user, for the assignment pickers. Anyone else gets only the people
      * on the control they may read, by name and e-mail, so View Control can show who is assigned.
      */
     @GetMapping("/api/users/all")
     public ResponseEntity<List<UserDTO>> getAllUsers(@RequestParam(required = false) Long controlId,
                                                      HttpSession session) {
         User currentUser = (User) session.getAttribute("currentUser");
-        if (ControlScope.seesAllControls(currentUser)) {
+        if (AccessPolicy.canListAllUsers(AccessPolicy.Subject.of(currentUser))) {
             List<UserDTO> users = userService.getAllUsers().stream()
                     .map(this::convertToUserDTO)
                     .toList();
@@ -251,7 +251,7 @@ public class ControlTabsController {
     // Users by role for the assignment pickers, which only SoQM Team and admins can open
     @GetMapping("/api/users/role/{role}")
     public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable String role, HttpSession session) {
-        if (!ControlScope.seesAllControls((User) session.getAttribute("currentUser"))) {
+        if (!AccessPolicy.canListAllUsers(AccessPolicy.Subject.of((User) session.getAttribute("currentUser")))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         List<UserDTO> users = userService.getUsersByRole(role).stream()

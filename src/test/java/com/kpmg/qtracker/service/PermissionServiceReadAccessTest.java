@@ -4,6 +4,7 @@ import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.exception.ControlReadDeniedException;
+import com.kpmg.qtracker.support.TestUsers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,7 +42,7 @@ class PermissionServiceReadAccessTest {
         Control control = control(1L, "IN_PROGRESS", new ControlAssignmentDTO());
 
         assertThat(readAccess(control, user("stranger@kpmg.kz", "FACILITATOR")))
-                .isEqualTo(PermissionService.ReadAccess.DENIED);
+                .isEqualTo(AccessPolicy.ReadAccess.DENIED);
     }
 
     @Test
@@ -51,9 +52,9 @@ class PermissionServiceReadAccessTest {
         User facilitator = user("fac@kpmg.kz", "FACILITATOR");
 
         assertThat(readAccess(control(2L, "DRAFT", assignment), facilitator))
-                .isEqualTo(PermissionService.ReadAccess.ALLOWED);
+                .isEqualTo(AccessPolicy.ReadAccess.ALLOWED);
         assertThat(readAccess(control(3L, "IN_PROGRESS", assignment), facilitator))
-                .isEqualTo(PermissionService.ReadAccess.ALLOWED);
+                .isEqualTo(AccessPolicy.ReadAccess.ALLOWED);
     }
 
     @Test
@@ -63,12 +64,12 @@ class PermissionServiceReadAccessTest {
         User shared = user("shared@kpmg.kz", "CONTROL_OPERATOR");
 
         assertThat(readAccess(control(4L, "DRAFT", assignment), shared))
-                .isEqualTo(PermissionService.ReadAccess.DRAFT_NOT_INITIATED);
+                .isEqualTo(AccessPolicy.ReadAccess.DRAFT_NOT_INITIATED);
         // A control without a performance status is a draft as well
         assertThat(readAccess(control(5L, " ", assignment), shared))
-                .isEqualTo(PermissionService.ReadAccess.DRAFT_NOT_INITIATED);
+                .isEqualTo(AccessPolicy.ReadAccess.DRAFT_NOT_INITIATED);
         assertThat(readAccess(control(6L, "REVIEW", assignment), shared))
-                .isEqualTo(PermissionService.ReadAccess.ALLOWED);
+                .isEqualTo(AccessPolicy.ReadAccess.ALLOWED);
     }
 
     @Test
@@ -78,13 +79,13 @@ class PermissionServiceReadAccessTest {
         assignment.setControlOperator(List.of("op@kpmg.kz"));
 
         assertThat(readAccess(control(7L, "DRAFT", assignment), user("op@kpmg.kz", "CONTROL_OPERATOR")))
-                .isEqualTo(PermissionService.ReadAccess.ALLOWED);
+                .isEqualTo(AccessPolicy.ReadAccess.ALLOWED);
     }
 
     @Test
     void soqm_readsEveryDraft() {
         assertThat(readAccess(control(8L, "DRAFT", new ControlAssignmentDTO()), user("soqm@kpmg.kz", "SOQM_TEAM")))
-                .isEqualTo(PermissionService.ReadAccess.ALLOWED);
+                .isEqualTo(AccessPolicy.ReadAccess.ALLOWED);
     }
 
     @Test
@@ -105,8 +106,8 @@ class PermissionServiceReadAccessTest {
                 HttpStatus.FORBIDDEN);
     }
 
-    private PermissionService.ReadAccess readAccess(Control control, User user) {
-        return permissionService.readAccess(control, user, permissionService.resolve(control, user));
+    private AccessPolicy.ReadAccess readAccess(Control control, User user) {
+        return permissionService.readAccess(control, user);
     }
 
     private void assertRefused(org.assertj.core.api.ThrowableAssert.ThrowingCallable call, HttpStatus status) {
@@ -129,9 +130,6 @@ class PermissionServiceReadAccessTest {
     }
 
     private User user(String mail, String role) {
-        User user = new User();
-        user.setMail(mail);
-        user.setRole(role);
-        return user;
+        return TestUsers.user(mail, role);
     }
 }

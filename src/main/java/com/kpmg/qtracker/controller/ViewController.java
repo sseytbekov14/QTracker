@@ -156,13 +156,16 @@ public class ViewController {
         User currentUser = getCurrentUser(session);
         String userEmail = currentUser.getMail();
         String userRole = currentUser.getRole();
-        boolean userIsAdmin = Boolean.TRUE.equals(currentUser.getAdminAccess());
+        AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", userEmail);
         model.addAttribute("userRole", userRole);
-        model.addAttribute("userIsAdmin", userIsAdmin);
+        model.addAttribute("userIsAdmin", AccessPolicy.canOpenAdminPanel(subject));
+        // The SoQM review queue link and the organisation-wide charts; everyone else gets their own
+        model.addAttribute("userIsSoqm", AccessPolicy.isSoqm(subject));
+        model.addAttribute("organisationCharts", AccessPolicy.seesOrganisationCharts(subject));
 
         // Unread notifications badge
         model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
@@ -172,9 +175,8 @@ public class ViewController {
         for (ControlResponseDTO control : allControls) {
             control.setOverdue(DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), todayAlmaty));
         }
-        // The same controls as the Controls list behind each tile (drafts only for roles that see every control)
-        boolean hideDraftControls = !isGlobalVisibilityRole(userRole, userIsAdmin);
-        ControlCounters dashboardCounters = countControlsVisibleToUser(allControls, hideDraftControls);
+        // The same controls as the Controls list behind each tile, drafts as far as the user sees them
+        ControlCounters dashboardCounters = countControlsVisibleToUser(allControls);
 
         model.addAttribute("totalControls", dashboardCounters.total());
         model.addAttribute("activeControls", dashboardCounters.active());
@@ -184,7 +186,7 @@ public class ViewController {
         // ===== AWAITING MY ACTION =====
         // Controls where the current workflow step belongs to this user; overdue first, then nearest deadline
         List<ControlResponseDTO> actionItems = allControls.stream()
-                .filter(control -> isActiveQueueForUser(control, userEmail))
+                .filter(control -> isMyTurn(subject, userEmail, control))
                 .sorted(Comparator.comparing(ControlResponseDTO::isOverdue).reversed()
                         .thenComparing(ControlResponseDTO::getDeadline,
                                 Comparator.nullsLast(Comparator.naturalOrder())))
@@ -194,36 +196,7 @@ public class ViewController {
         model.addAttribute("actionItemsOverdue", actionItems.stream().filter(ControlResponseDTO::isOverdue).count());
 
         // ===== ACTION CENTRE DATA =====
-        List<ControlResponseDTO> controlsForAction = allControls;
-        Map<String, Long> componentStats = new HashMap<>();
-        String[] allComponentNames = {"HR", "INTR", "M&R", "RAP", "A&C", "I&C", "GOV", "EP", "RER", "TECHR"};
-        for (String c : allComponentNames) {
-            componentStats.put(c, 0L);
-        }
-
-        if (isSoqmRole(userRole)) {
-            for (ControlResponseDTO ctrl : controlsForAction) {
-                String comp = ctrl.getComponent();
-                if (comp != null && !comp.trim().isEmpty() && componentStats.containsKey(comp)) {
-                    componentStats.put(comp, componentStats.get(comp) + 1);
-                }
-            }
-            componentStats.put("All", (long) controlsForAction.size());
-        } else {
-            long nonDraftCount = 0L;
-            for (ControlResponseDTO ctrl : controlsForAction) {
-                String ctrlStatus = normalizeStatus(ctrl.getPerformanceStatus());
-                if ("DRAFT".equals(ctrlStatus)) continue;
-                nonDraftCount++;
-                String comp = ctrl.getComponent();
-                if (comp != null && !comp.trim().isEmpty() && componentStats.containsKey(comp)) {
-                    componentStats.put(comp, componentStats.get(comp) + 1);
-                }
-            }
-            componentStats.put("All", nonDraftCount);
-        }
-        model.addAttribute("componentStats", componentStats);
-        addComponentSummaries(model, allControls, isGlobalVisibilityRole(userRole, userIsAdmin));
+        addComponentSummaries(model, allControls);
 
         // ===== NOTIFICATIONS DATA =====
         // Newest first, NOTIFICATIONS_PAGE_SIZE at a time ("Show more" raises notifLimit).
@@ -261,7 +234,10 @@ public class ViewController {
         User currentUser = getCurrentUser(session);
         String userRole = currentUser.getRole();
         String userEmail = currentUser.getMail();
-        boolean userIsAdmin = Boolean.TRUE.equals(currentUser.getAdminAccess());
+        AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
+        boolean soqm = AccessPolicy.isSoqm(subject);
+        // SoQM, admins and scope ALL: "active" = not completed; everyone else: the controls waiting for them
+        boolean seesAll = AccessPolicy.seesAllControls(subject);
         String normalizedScope = scope == null ? "" : scope.trim().toLowerCase(Locale.ROOT);
         String normalizedStatus = status == null ? "" : status.trim();
         String normalizedFilter = filter == null ? "" : filter.trim();
@@ -281,26 +257,26 @@ public class ViewController {
         if (normalizedScope.isBlank()) {
             if (defaultAllControls) {
                 effectiveScope = "all";
-            } else if (isSoqmRole(userRole)) {
+            } else if (soqm) {
                 effectiveScope = "all";
             } else {
-                effectiveScope = userIsAdmin ? "active" : "mine";
+                effectiveScope = seesAll ? "active" : "mine";
             }
         } else {
             effectiveScope = normalizedScope;
         }
-        if (!isSoqmRole(userRole) && !userIsAdmin) {
+        if (!seesAll) {
             if (!"active".equals(effectiveScope) && !"all".equals(effectiveScope)) {
                 effectiveScope = "active";
             }
         } else {
-            // SoQM / admin: "active" = not completed (was silently turned into "all",
+            // SoQM / admin / scope ALL: "active" = not completed (was silently turned into "all",
             // so the dashboard's Active link showed every control)
             if (!"all".equals(effectiveScope) && !"active".equals(effectiveScope)) {
                 effectiveScope = "all";
             }
         }
-        if (completedFilter && !isSoqmRole(userRole) && !userIsAdmin) {
+        if (completedFilter && !seesAll) {
             effectiveScope = "all";
         }
         
@@ -350,14 +326,14 @@ public class ViewController {
                 int beforeCount = userControlsList.size();
                 // Only apply active queue filter if NO status filter is specified
                 if (statusFilter.isBlank()) {
-                        if (isGlobalVisibilityRole(userRole, userIsAdmin)) {
+                        if (seesAll) {
                         userControlsList = userControlsList.stream()
                                 .filter(control -> control.getPerformanceStatus() == null
                                         || !"COMPLETED".equalsIgnoreCase(control.getPerformanceStatus()))
                                 .collect(Collectors.toList());
                     } else {
                         userControlsList = userControlsList.stream()
-                                .filter(control -> isActiveQueueForUser(control, userEmail))
+                                .filter(control -> isMyTurn(subject, userEmail, control))
                                 .collect(Collectors.toList());
                     }
                 }
@@ -395,31 +371,24 @@ public class ViewController {
             }
         }
         
-        // For non-admin/non-SOQM users, hide DRAFT controls in the controls list.
-        if (!isGlobalVisibilityRole(userRole, userIsAdmin)) {
-            userControlsList = userControlsList.stream()
-                    .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
-                    .collect(Collectors.toList());
-        }
-
         for (ControlResponseDTO control : userControlsList) {
             control.setOverdue(DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), todayAlmaty));
             control.setClosedLate(DeadlineOverdue.isClosedLate(control.getPerformanceStatus(), control.getDeadline(),
                     completedOn(control, completionTimeByControlId)));
         }
 
-        ControlCounters counters = countControlsVisibleToUser(userControlsList, false);
+        ControlCounters counters = countControlsVisibleToUser(userControlsList);
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", userEmail);
         model.addAttribute("userRole", userRole);
-        model.addAttribute("userIsAdmin", userIsAdmin);
-        model.addAttribute("userIsSoqm", isSoqmRole(userRole));
+        model.addAttribute("userSeesAll", seesAll);
+        model.addAttribute("canExportAll", AccessPolicy.canExportAllControls(subject));
         String resolvedControlsFilter = effectiveScope;
-        if (overdueFilter && !isSoqmRole(userRole)) {
+        if (overdueFilter && !soqm) {
             resolvedControlsFilter = "overdue";
-        } else if (completedFilter && !isSoqmRole(userRole)) {
+        } else if (completedFilter && !soqm) {
             resolvedControlsFilter = "completed";
         }
         model.addAttribute("controlsFilter", resolvedControlsFilter);
@@ -432,11 +401,11 @@ public class ViewController {
         model.addAttribute("statusFilter", resolvedStatusFilter);
         model.addAttribute("componentFilter", componentFilter);
         model.addAttribute("componentFilterName", componentFilter != null ? COMPONENT_NAMES.get(componentFilter) : null);
-        addControlsFilterLinks(model, resolvedStatusFilter, resolvedControlsFilter, componentFilter, isSoqmRole(userRole));
+        addControlsFilterLinks(model, resolvedStatusFilter, resolvedControlsFilter, componentFilter);
         model.addAttribute("controls", userControlsList);
         // Controls where the current workflow step is this user's ("Your turn" badge)
         model.addAttribute("actionControlIds", userControlsList.stream()
-                .filter(control -> isActiveQueueForUser(control, userEmail))
+                .filter(control -> isMyTurn(subject, userEmail, control))
                 .map(ControlResponseDTO::getId)
                 .collect(Collectors.toSet()));
         // Not overdue yet, but the deadline is within the next 3 days (Almaty date)
@@ -458,17 +427,16 @@ public class ViewController {
         if (currentUser == null) {
             return new ArrayList<>();
         }
-        String userRole = currentUser.getRole();
         String userEmail = currentUser.getMail();
-        boolean userIsAdmin = Boolean.TRUE.equals(currentUser.getAdminAccess());
-        List<Control> visibleControls = controlService.findVisibleControlsForUser(userEmail, userRole);
+        boolean seesAll = AccessPolicy.seesAllControls(AccessPolicy.Subject.of(currentUser));
+        List<Control> visibleControls = controlService.findVisibleControlsForUser(currentUser);
         Map<Long, ControlResponseDTO> controlMap = new LinkedHashMap<>();
         for (Control control : visibleControls) {
             if (control == null || control.getId() == null) {
                 continue;
             }
             ControlResponseDTO dto = controlService.convertToResponseDTO(control);
-                boolean sharedOnly = !isGlobalVisibilityRole(userRole, userIsAdmin)
+            boolean sharedOnly = !seesAll
                     && isSharedWithUser(control.getId(), userEmail)
                     && !isDirectlyAssignedToUser(dto, userEmail);
             dto.setSharedViewOnly(sharedOnly);
@@ -477,36 +445,12 @@ public class ViewController {
         return new ArrayList<>(controlMap.values());
     }
 
-    private ControlCounters countControlsVisibleToUser(List<ControlResponseDTO> controls, boolean hideDraftControls) {
+    private ControlCounters countControlsVisibleToUser(List<ControlResponseDTO> controls) {
         List<ControlResponseDTO> base = controls == null ? new ArrayList<>() : new ArrayList<>(controls);
-        if (hideDraftControls) {
-            base = base.stream()
-                    .filter(control -> !"DRAFT".equals(normalizeStatus(control.getPerformanceStatus())))
-                    .collect(Collectors.toList());
-        }
         DeadlineOverdue.Counts counts = DeadlineOverdue.count(base,
                 ControlResponseDTO::getPerformanceStatus, ControlResponseDTO::getDeadline, DeadlineOverdue.today(Instant.now()));
         return new ControlCounters(Math.toIntExact(counts.total()), Math.toIntExact(counts.active()),
                 Math.toIntExact(counts.completed()), Math.toIntExact(counts.overdue()));
-    }
-
-    private boolean isSoqmRole(String userRole) {
-        if (userRole == null) {
-            return false;
-        }
-        String normalized = userRole.trim()
-                .replace('-', '_')
-                .replace(' ', '_')
-                .toUpperCase(Locale.ROOT);
-        return normalized.startsWith("SOQM");
-    }
-
-    private boolean isGlobalVisibilityRole(String userRole) {
-        return ControlScope.seesAllControls(userRole, false);
-    }
-
-    private boolean isGlobalVisibilityRole(String userRole, boolean userIsAdmin) {
-        return ControlScope.seesAllControls(userRole, userIsAdmin);
     }
 
     /** A filter link on the Controls page (status chip / component option). */
@@ -540,16 +484,15 @@ public class ViewController {
     }
 
     private void addControlsFilterLinks(Model model, String statusFilter, String controlsFilter,
-                                        String component, boolean soqm) {
+                                        String component) {
         String status = statusFilter == null ? "" : statusFilter;
         boolean activeScope = "active".equals(controlsFilter);
         boolean all = status.isEmpty() && !activeScope;
 
         List<FilterLink> chips = new ArrayList<>();
         chips.add(new FilterLink("All", controlsUrl(null, null, component), all));
-        if (soqm) {
-            chips.add(new FilterLink("Draft", controlsUrl("status", "DRAFT", component), "DRAFT".equals(status)));
-        }
+        // Everyone may see drafts: the ones they work on, or all of them with scope ALL
+        chips.add(new FilterLink("Draft", controlsUrl("status", "DRAFT", component), "DRAFT".equals(status)));
         chips.add(new FilterLink("In Progress", controlsUrl("status", "IN_PROGRESS", component), "IN_PROGRESS".equals(status)));
         chips.add(new FilterLink("Review", controlsUrl("status", "REVIEW", component), "REVIEW".equals(status)));
         chips.add(new FilterLink("SoQM Review", controlsUrl("status", "SOQM_HEAD_REVIEW", component), "SOQM_HEAD_REVIEW".equals(status)));
@@ -609,14 +552,13 @@ public class ViewController {
         COMPONENT_NAMES.put("RAP", "Risk Assessment Process");
     }
 
-    private void addComponentSummaries(Model model, List<ControlResponseDTO> controls, boolean includeDraft) {
+    private void addComponentSummaries(Model model, List<ControlResponseDTO> controls) {
         List<ComponentSummary> summaries = new ArrayList<>();
         long allTotal = 0, allOverdue = 0, allCompleted = 0;
         for (Map.Entry<String, String> component : COMPONENT_NAMES.entrySet()) {
             long total = 0, overdue = 0, completed = 0;
             for (ControlResponseDTO control : controls) {
-                String status = normalizeStatus(control.getPerformanceStatus());
-                if (!component.getKey().equals(control.getComponent()) || (!includeDraft && "DRAFT".equals(status))) {
+                if (!component.getKey().equals(control.getComponent())) {
                     continue;
                 }
                 total++;
@@ -698,27 +640,19 @@ public class ViewController {
         }
     }
 
-    private boolean isActiveQueueForUser(ControlResponseDTO control, String userEmail) {
+    /** "Your turn": the control's current step is the user's ({@link AccessPolicy#isMyTurn}). */
+    private boolean isMyTurn(AccessPolicy.Subject subject, String userEmail, ControlResponseDTO control) {
         if (control == null || userEmail == null) {
             return false;
         }
-        String status = normalizeStatus(control.getPerformanceStatus());
-        if ("COMPLETED".equals(status) || "DRAFT".equals(status)) {
-            return false;
-        }
-        if ("IN_PROGRESS".equals(status)) {
-            return listContains(control.getFacilitators(), userEmail);
-        }
-        if ("REVIEW".equals(status)) {
-            return listContains(control.getControlOperators(), userEmail);
-        }
-        if ("SOQM_HEAD_REVIEW".equals(status)) {
-            return listContains(control.getSoqmLeads(), userEmail);
-        }
-        if ("PROCESS_OWNER_REVIEW".equals(status)) {
-            return listContains(control.getProcessOwners(), userEmail);
-        }
-        return false;
+        return AccessPolicy.isMyTurn(subject, new AccessPolicy.ControlFacts(
+                control.getPerformanceStatus(),
+                AccessPolicy.isKdnControl(control.getControlId()),
+                listContains(control.getFacilitators(), userEmail),
+                listContains(control.getControlOperators(), userEmail),
+                listContains(control.getSoqmLeads(), userEmail),
+                listContains(control.getProcessOwners(), userEmail),
+                false));
     }
 
     private boolean listContains(List<String> items, String value) {
@@ -914,7 +848,7 @@ public class ViewController {
         ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(id);
         ControlPermission permission = permissionService.resolve(control, currentUser, assignment);
 
-        switch (permissionService.readAccess(control, currentUser, permission)) {
+        switch (permissionService.readAccess(control, currentUser, assignment)) {
             case DENIED -> throw new ForbiddenException("You do not have permission to view this control.");
             case DRAFT_NOT_INITIATED -> throw new ControlNotAvailableException(
                     "This control is still in Draft and has not been initiated into the workflow. "
@@ -1022,8 +956,8 @@ public class ViewController {
         if (redirect != null) return redirect;
 
         User currentUser = getCurrentUser(session);
-        // Only SoQM Team can create controls (POST /api/controls enforces the same rule)
-        if (!isSoqmRole(currentUser.getRole())) {
+        // Only SoQM can create controls (POST /api/controls enforces the same rule)
+        if (!AccessPolicy.canCreateControls(AccessPolicy.Subject.of(currentUser))) {
             return "redirect:/";
         }
 
@@ -1053,8 +987,7 @@ public class ViewController {
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + controlId));
 
-            if (permissionService.readAccess(control, currentUser, permissionService.resolve(control, currentUser))
-                    != PermissionService.ReadAccess.ALLOWED) {
+            if (permissionService.readAccess(control, currentUser) != AccessPolicy.ReadAccess.ALLOWED) {
                 redirectAttributes.addFlashAttribute("accessDeniedMessage",
                         "Access revoked — you no longer have permission to view this control.");
                 return "redirect:/controls";

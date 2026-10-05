@@ -1028,7 +1028,7 @@ a.stat-block:focus-visible,
                                 </h2>
                                 <a th:if="${actionItemsTotal > #lists.size(actionItems)}"
                                    class="action-queue-all"
-                                   th:href="${userRole != null and #strings.startsWith(#strings.toUpperCase(#strings.trim(userRole)), 'SOQM')} ? '/controls?status=SOQM_HEAD_REVIEW' : '/controls?scope=active'"
+                                   th:href="${userIsSoqm} ? '/controls?status=SOQM_HEAD_REVIEW' : '/controls?scope=active'"
                                    th:text="'View all (' + ${actionItemsTotal} + ')'">View all</a>
                             </div>
 
@@ -1065,9 +1065,8 @@ a.stat-block:focus-visible,
                             </ul>
                         </section>
 
-                        <div th:if="${userRole != null}"
-                             id="dashboardCharts"
-                             th:attr="data-user-role=${userRole}"
+                        <div id="dashboardCharts"
+                             th:attr="data-organisation-charts=${organisationCharts}"
                              style="padding-top: 4px;">
                             <div class="row g-3">
                                 <div class="col-12 col-lg-6">
@@ -1380,13 +1379,13 @@ function hideSuccessAlert() {
 
 async function initializeAdminDashboardCharts() {
     const dashboardCharts = document.getElementById('dashboardCharts');
-    const userRole = dashboardCharts && dashboardCharts.dataset ? (dashboardCharts.dataset.userRole || '') : '';
-    const normalizedRole = userRole.trim().toUpperCase().replace(/[- ]/g, '_');
-    const isSoqmLead = normalizedRole === 'SOQM_TEAM';
-    const leftChartEndpoint = isSoqmLead
+    // Organisation-wide charts for SoQM (the server decides), charts of the user's own controls for everyone else
+    const organisationCharts = Boolean(dashboardCharts && dashboardCharts.dataset
+        && dashboardCharts.dataset.organisationCharts === 'true');
+    const leftChartEndpoint = organisationCharts
         ? '/api/dashboard/admin/frequency'
         : '/api/dashboard/my/frequency';
-    const rightChartEndpoint = isSoqmLead
+    const rightChartEndpoint = organisationCharts
         ? '/api/dashboard/admin/component-breakdown'
         : '/api/dashboard/my/component';
 

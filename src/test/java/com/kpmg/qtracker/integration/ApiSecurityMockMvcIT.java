@@ -7,6 +7,7 @@ import com.kpmg.qtracker.entity.ControlAttachment;
 import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.enums.WorkflowActionType;
 import com.kpmg.qtracker.repository.AdminAuditLogRepository;
@@ -192,6 +193,10 @@ class ApiSecurityMockMvcIT {
         String ownerEmail = "owner2-" + suffix() + "@example.test";
         User processOwner = saveUser(ownerEmail, ownerEmail, "PROCESS_OWNER");
         Control control = createControl("CTRL-WF-" + suffix(), processOwner, "IN_PROGRESS");
+        // The Process Owner sees the control, but the Facilitator's step is not theirs
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setProcessOwner(ownerEmail);
+        assignmentRepository.save(assignment);
 
         MockHttpSession session = login(ownerEmail);
 
@@ -433,25 +438,32 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
-    void editButtonOnDraft_isRenderedForSoqmAndAdmin_notForFacilitator() throws Exception {
+    void editButtonOnDraft_isRenderedForSoqm_notForAdminOrFacilitator() throws Exception {
         Participants p = participants();
         User admin = saveUser("draft-admin-" + suffix(), "draft-admin-" + suffix() + "@example.test", "ADMIN");
         admin.setAdminAccess(true);
         userRepository.save(admin);
+        User soqmAdmin = saveUser("draft-soqm-admin-" + suffix(), "draft-soqm-admin-" + suffix() + "@example.test",
+                "SOQM_TEAM");
+        soqmAdmin.setAdminAccess(true);
+        userRepository.save(soqmAdmin);
         Control control = createControl("CTRL-DRAFT-EDIT-" + suffix(), p.soqm, "DRAFT");
         assign(control, p);
 
-        for (User viewer : List.of(p.soqm, admin)) {
+        for (User viewer : List.of(p.soqm, soqmAdmin)) {
             mockMvc.perform(get("/view-control/{id}", control.getId()).session(login(viewer.getMail())))
                     .andExpect(status().isOk())
                     .andExpect(content().string(containsString("id=\"editBtn\"")))
                     .andExpect(content().string(containsString("id=\"canEditAll\" value=\"true\"")));
         }
 
-        mockMvc.perform(get("/view-control/{id}", control.getId()).session(login(p.facilitator.getMail())))
-                .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("id=\"editBtn\""))))
-                .andExpect(content().string(containsString("id=\"canEditAll\" value=\"false\"")));
+        // The admin flag shows every control but edits none of them
+        for (User viewer : List.of(admin, p.facilitator)) {
+            mockMvc.perform(get("/view-control/{id}", control.getId()).session(login(viewer.getMail())))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string(not(containsString("id=\"editBtn\""))))
+                    .andExpect(content().string(containsString("id=\"canEditAll\" value=\"false\"")));
+        }
     }
 
     @Test
@@ -823,7 +835,7 @@ class ApiSecurityMockMvcIT {
 
         MockHttpSession session = login(soqm.getMail());
 
-        soqm.setRole("FACILITATOR");
+        TestUsers.withRole(soqm, "FACILITATOR");
         userRepository.save(soqm);
 
         mockMvc.perform(post("/api/controls/{id}/rename-id", control.getId()).with(csrf().asHeader())
@@ -1140,12 +1152,14 @@ class ApiSecurityMockMvcIT {
         Control dueSoon = deadlineControl("CTRL-SOON-" + suffix(), facilitator, "IN_PROGRESS", today.plusDays(2));
         deadlineControl("CTRL-LATER-" + suffix(), facilitator, "IN_PROGRESS", today.plusDays(10));
         deadlineControl("CTRL-DONE-" + suffix(), facilitator, "COMPLETED", today.minusDays(3));
-        deadlineControl("CTRL-DRAFT-" + suffix(), facilitator, "DRAFT", today.minusDays(3));
+        // A draft the Facilitator is assigned to is theirs to see, overdue included
+        Control draft = deadlineControl("CTRL-DRAFT-" + suffix(), facilitator, "DRAFT", today.minusDays(3));
 
         mockMvc.perform(get("/api/dashboard/deadline-countdown").param("days", "3").session(login(mail)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.overdueTotal").value(1))
-                .andExpect(jsonPath("$.overdue.length()").value(1))
+                .andExpect(jsonPath("$.overdueTotal").value(2))
+                .andExpect(jsonPath("$.overdue.length()").value(2))
+                .andExpect(jsonPath("$.overdue[1].id").value(draft.getId()))
                 .andExpect(jsonPath("$.overdue[0].id").value(overdue.getId()))
                 .andExpect(jsonPath("$.overdue[0].overdue").value(true))
                 .andExpect(jsonPath("$.overdue[0].daysOverdue").value(5))
@@ -1195,8 +1209,8 @@ class ApiSecurityMockMvcIT {
         Control othersOverdue = deadlineControl("CTRL-OV-OTHER-" + s, otherFacilitator, "PROCESS_OWNER_REVIEW",
                 today.minusDays(1));
 
-        // Facilitator: their open controls only, drafts hidden
-        assertThat(overdueEverywhere(facilitator)).containsExactly(openOverdue.getId());
+        // Facilitator: the controls they are assigned to, their draft included
+        assertThat(overdueEverywhere(facilitator)).containsExactlyInAnyOrder(openOverdue.getId(), draftOverdue.getId());
 
         // SoQM and admin: every control, drafts included; never a completed one
         for (User viewer : List.of(soqm, admin)) {
@@ -1840,7 +1854,7 @@ class ApiSecurityMockMvcIT {
     private User saveUser(String username, String mail, String role) {
         User user = new User();
         user.setMail(mail);
-        user.setRole(role);
+        TestUsers.withRole(user, role);
         user.setDisplayName(username);
         user.setEnabled(true);
         user.setPassword(passwordEncoder.encode(PASSWORD));

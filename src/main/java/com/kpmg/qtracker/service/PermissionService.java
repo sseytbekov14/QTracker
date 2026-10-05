@@ -14,14 +14,6 @@ public class PermissionService {
     private final ControlPermissionService controlPermissionService;
     private final IControlService controlService;
 
-    /** Whether a user may read a control; see {@link #readAccess}. */
-    public enum ReadAccess {
-        ALLOWED,
-        DENIED,
-        /** A draft the user is only shared with: it opens for them once it is initiated. */
-        DRAFT_NOT_INITIATED
-    }
-
     public ControlPermission resolve(Control control, User user) {
         return controlPermissionService.resolve(control, user);
     }
@@ -43,17 +35,19 @@ public class PermissionService {
     }
 
     /**
-     * The one read rule for a control, for its pages and the API alike: the user must be able to view it,
-     * and a draft stays closed to users it is only shared with.
+     * The one read rule for a control, for its pages and the API alike ({@link AccessPolicy#readAccess}):
+     * the user must see it, and a draft stays closed to users it is only shared with.
      */
-    public ReadAccess readAccess(Control control, User user, ControlPermission permission) {
-        if (control == null || user == null || permission == null || !permission.canView()) {
-            return ReadAccess.DENIED;
+    public AccessPolicy.ReadAccess readAccess(Control control, User user, ControlAssignmentDTO assignment) {
+        AccessPolicy.ControlFacts facts = controlPermissionService.facts(control, user, assignment);
+        if (facts == null) {
+            return AccessPolicy.ReadAccess.DENIED;
         }
-        if (isDraft(control) && isSharedOnly(control, user, permission)) {
-            return ReadAccess.DRAFT_NOT_INITIATED;
-        }
-        return ReadAccess.ALLOWED;
+        return AccessPolicy.readAccess(AccessPolicy.Subject.of(user), facts);
+    }
+
+    public AccessPolicy.ReadAccess readAccess(Control control, User user) {
+        return readAccess(control, user, null);
     }
 
     /**
@@ -68,46 +62,9 @@ public class PermissionService {
         if (control == null) {
             throw ControlReadDeniedException.notFound();
         }
-        if (readAccess(control, user, resolve(control, user)) != ReadAccess.ALLOWED) {
+        if (readAccess(control, user) != AccessPolicy.ReadAccess.ALLOWED) {
             throw ControlReadDeniedException.forbidden();
         }
         return control;
-    }
-
-    public boolean isSharedOnly(Control control, User user) {
-        return isSharedOnly(control, user, resolve(control, user));
-    }
-
-    public boolean isSharedOnly(Control control, User user, ControlPermission permission) {
-        if (control == null || user == null || permission == null) {
-            return false;
-        }
-        if (!permission.isSharedViewer()) {
-            return false;
-        }
-        if (isCreator(control, user)) {
-            return false;
-        }
-        return !(permission.canEditAll()
-                || permission.isFacilitator()
-                || permission.isControlOperator()
-                || permission.isSoqmLead()
-                || permission.isProcessOwner());
-    }
-
-    private boolean isDraft(Control control) {
-        String status = control.getPerformanceStatus();
-        return status == null || status.isBlank() || "DRAFT".equalsIgnoreCase(status.trim());
-    }
-
-    private boolean isCreator(Control control, User user) {
-        if (control.getCreatedBy() == null) {
-            return false;
-        }
-        String creatorEmail = control.getCreatedBy().getMail();
-        String userEmail = user.getMail();
-        return creatorEmail != null
-                && userEmail != null
-                && creatorEmail.equalsIgnoreCase(userEmail);
     }
 }

@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.security.CsrfAccessDeniedHandler;
 import org.springframework.http.HttpMethod;
@@ -239,7 +240,7 @@ class SecurityConfigIntegrationTest {
         User disabledUser = new User();
         disabledUser.setMail("disabled.user@qtracker.local");
         disabledUser.setDisplayName("Disabled User");
-        disabledUser.setRole("SOQM_TEAM");
+        TestUsers.withRole(disabledUser, "SOQM_TEAM");
         disabledUser.setEnabled(false);
         disabledUser.setPassword(passwordEncoder.encode("aaa"));
         userRepository.save(disabledUser);
@@ -257,7 +258,7 @@ class SecurityConfigIntegrationTest {
                 User user = new User();
                 user.setMail("disable.after.login@qtracker.local");
                 user.setDisplayName("Disable After Login");
-                user.setRole("SOQM_TEAM");
+                TestUsers.withRole(user, "SOQM_TEAM");
                 user.setEnabled(true);
                 user.setPassword(passwordEncoder.encode("aaa"));
                 userRepository.save(user);

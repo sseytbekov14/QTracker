@@ -143,8 +143,13 @@ public final class AccessPolicy {
         return isSoqm(subject);
     }
 
-    /** The server export of every control and the organisation-wide dashboard charts. */
+    /** The Excel export of every control (Controls page button and the server export). */
     public static boolean canExportAllControls(Subject subject) {
+        return isSoqm(subject);
+    }
+
+    /** The organisation-wide dashboard charts; everyone else gets charts of their own controls. */
+    public static boolean seesOrganisationCharts(Subject subject) {
         return isSoqm(subject);
     }
 

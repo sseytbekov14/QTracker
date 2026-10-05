@@ -3,7 +3,7 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.dto.UserDTO;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdminAuditService;
-import com.kpmg.qtracker.service.ControlScope;
+import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.UserService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -23,10 +23,10 @@ public class UserController {
     private final UserService userService;
     private final AdminAuditService adminAuditService;
 
-    // Every user: SoQM Team and admins only, like the assignment pickers
+    // Every user: SoQM and admins only, like the assignment pickers
     @GetMapping("/users")
     public ResponseEntity<List<UserDTO>> getAllUsers(HttpSession session) {
-        if (!ControlScope.seesAllControls((User) session.getAttribute("currentUser"))) {
+        if (!AccessPolicy.canListAllUsers(AccessPolicy.Subject.of((User) session.getAttribute("currentUser")))) {
             return ResponseEntity.status(403).build();
         }
         return ResponseEntity.ok(userService.getAllUsers().stream()

@@ -2,13 +2,14 @@ package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.dto.ControlResponseDTO;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.User;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 public interface IControlService {
     List<Control> getAllControls();
-    List<Control> findVisibleControlsForUser(String userEmail, String userRole);
+    List<Control> findVisibleControlsForUser(User user);
     List<Control> getUserControls(String userEmail);
     List<Control> getAllUserControls(String userEmail);
     List<Control> getFacilitatorControls(String userEmail);
