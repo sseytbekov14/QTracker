@@ -87,10 +87,16 @@ public class UserController {
         }
     }
 
+    /**
+     * A new user with an access level and scope (the old role is still accepted instead, and then
+     * gives the access V6 derives from it).
+     */
     @PostMapping("/users")
     public ResponseEntity<?> createUser(@RequestParam String email,
                                         @RequestParam(required = false) String displayName,
-                                        @RequestParam String role,
+                                        @RequestParam(required = false) String level,
+                                        @RequestParam(required = false) String scope,
+                                        @RequestParam(required = false) String role,
                                         @RequestParam(defaultValue = "false") boolean adminAccess,
                                         @RequestParam(defaultValue = "true") boolean enabled,
                                         HttpSession session) {
@@ -103,7 +109,12 @@ public class UserController {
         }
 
         try {
-            User created = userService.createUser(email, displayName, role, adminAccess, enabled);
+            if ((level == null || level.isBlank()) && (role == null || role.isBlank())) {
+                throw new IllegalArgumentException("Access level is required");
+            }
+            User created = level != null && !level.isBlank()
+                    ? userService.createUser(email, displayName, level, scope, adminAccess, enabled)
+                    : userService.createUser(email, displayName, role, adminAccess, enabled);
 
             adminAuditService.logActionWithChanges(
                     currentUser.getMail(),
@@ -111,11 +122,12 @@ public class UserController {
                     "USER_CREATE",
                     null,
                     "Created user " + created.getMail(),
-                "mail,displayName,role,adminAccess,enabled",
+                "mail,displayName,level,scope,adminAccess,enabled",
                     "-",
                     "mail=" + created.getMail()
                     + ", displayName=" + created.getDisplayName()
-                            + ", role=" + created.getRole()
+                            + ", level=" + created.getAccessLevel()
+                            + ", scope=" + created.getAccessScope()
                             + ", adminAccess=" + Boolean.TRUE.equals(created.getAdminAccess())
                             + ", enabled=" + Boolean.TRUE.equals(created.getEnabled())
             );
@@ -125,6 +137,8 @@ public class UserController {
             payload.put("mail", created.getMail());
             payload.put("displayName", created.getDisplayName());
             payload.put("role", created.getRole());
+            payload.put("level", created.getAccessLevel());
+            payload.put("scope", created.getAccessScope());
             payload.put("adminAccess", Boolean.TRUE.equals(created.getAdminAccess()));
             payload.put("enabled", Boolean.TRUE.equals(created.getEnabled()));
             return ResponseEntity.ok(payload);

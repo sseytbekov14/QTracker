@@ -181,4 +181,33 @@ class UserServiceAccessTest {
         assertThat(created.getAccessLevel()).isEqualTo(AccessLevel.PARTICIPANT);
         assertThat(created.getAccessScope()).isEqualTo(AccessScope.KDN);
     }
+
+    @Test
+    void createUser_withLevelAndScope_hasNoOldRole() {
+        when(userRepository.existsByMail("ro@example.test")).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
+
+        User created = service.createUser("ro@example.test", "Viewer", "READ_ONLY", "ALL", false, true);
+
+        assertThat(created.getAccessLevel()).isEqualTo(AccessLevel.READ_ONLY);
+        assertThat(created.getAccessScope()).isEqualTo(AccessScope.ALL);
+        assertThat(created.getRole()).isNull();
+    }
+
+    @Test
+    void createUser_soqmGetsScopeAll_andRefusesAnyOtherScope() {
+        when(userRepository.existsByMail(any())).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
+
+        assertThat(service.createUser("s@example.test", null, "SOQM", null, false, true).getAccessScope())
+                .isEqualTo(AccessScope.ALL);
+        assertThat(service.createUser("p@example.test", null, "PARTICIPANT", "", false, true).getAccessScope())
+                .isEqualTo(AccessScope.OWN);
+        assertThatThrownBy(() -> service.createUser("s2@example.test", null, "SOQM", "KDN", false, true))
+                .hasMessage("SoQM always sees all controls: scope must be ALL");
+        assertThatThrownBy(() -> service.createUser("x@example.test", null, "ADMIN", "ALL", false, true))
+                .hasMessage("Unsupported access level: ADMIN");
+        assertThatThrownBy(() -> service.createUser("y@example.test", null, "PARTICIPANT", "MINE", false, true))
+                .hasMessage("Unsupported scope: MINE");
+    }
 }

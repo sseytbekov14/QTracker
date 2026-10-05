@@ -51,13 +51,13 @@ public class ControlAssignmentService {
                 assignmentDTO.getProcessOwner(),
                 assignmentDTO.getSoqmLead());
         
-        // Обновляем валидацию
-        validateUsersHaveRole(assignmentDTO.getControlOperator(), "CONTROL_OPERATOR",
-                "User must have CONTROL_OPERATOR role to be assigned as Control Operator");
-        validateUsersHaveRole(assignmentDTO.getSoqmLead(), "SOQM_TEAM",
-                "User must have SOQM_TEAM role to be assigned as SOQM Team");
-        validateUsersHaveRole(assignmentDTO.getProcessOwner(), "PROCESS_OWNER",
-                "User must have PROCESS_OWNER role to be assigned as Process Owner");
+        Optional<Control> controlOpt = controlRepository.findById(assignmentDTO.getControlId());
+        boolean kdnControl = controlOpt.map(control -> AccessPolicy.isKdnControl(control.getControlId())).orElse(false);
+        validateAssignees(assignmentDTO.getFacilitator(), AccessPolicy.Slot.FACILITATOR, kdnControl);
+        validateAssignees(assignmentDTO.getControlOperator(), AccessPolicy.Slot.CONTROL_OPERATOR, kdnControl);
+        validateAssignees(assignmentDTO.getSoqmLead(), AccessPolicy.Slot.SOQM_LEAD, kdnControl);
+        validateAssignees(assignmentDTO.getProcessOwner(), AccessPolicy.Slot.PROCESS_OWNER, kdnControl);
+        validateAssignees(assignmentDTO.getControlSharedWith(), AccessPolicy.Slot.SHARED_WITH, kdnControl);
 
         Optional<ControlAssignment> existingAssignment = assignmentRepository.findByControlId(assignmentDTO.getControlId());
         ControlAssignment assignment = existingAssignment.orElse(new ControlAssignment());
@@ -67,7 +67,6 @@ public class ControlAssignmentService {
             operationDate = existingAssignment.get().getControlOperationDate();
         }
 
-        Optional<Control> controlOpt = controlRepository.findById(assignmentDTO.getControlId());
         String frequencyValue = controlOpt.map(Control::getControlFrequency).orElse(null);
 
         LocalDate deadline = null;
@@ -208,27 +207,25 @@ public class ControlAssignmentService {
         return EmailList.contains(fieldValue, email);
     }
 
-    // Обновленная валидация
-    private void validateUsersHaveRole(List<String> userEmails, String requiredRole, String errorMessage) {
-        if (userEmails == null || userEmails.isEmpty()) {
+    /**
+     * Everyone put in an assignment field must be allowed there ({@link AccessPolicy#assignmentRefusal}):
+     * an existing user, a participant in Facilitator / Control Operator / Process Owner, a SoQM user in
+     * SoQM Team / Delegate, nobody read-only except in Shared With, a KDN-scope user only on a KDN control.
+     */
+    private void validateAssignees(List<String> userEmails, AccessPolicy.Slot slot, boolean kdnControl) {
+        if (userEmails == null) {
             return;
         }
-
-        // Facilitator and Control Operator are interchangeable roles
-        Set<String> allowedRoles = new HashSet<>();
-        allowedRoles.add(requiredRole);
-        if ("FACILITATOR".equals(requiredRole) || "CONTROL_OPERATOR".equals(requiredRole)) {
-            allowedRoles.add("FACILITATOR");
-            allowedRoles.add("CONTROL_OPERATOR");
-        }
-
         for (String email : userEmails) {
-            Optional<User> user = userRepository.findByMail(email);
-            boolean hasRole = user.isPresent() && hasAnyRole(user.get(), allowedRoles);
-
-            if (!hasRole) {
-                throw new RuntimeException(errorMessage + ": " + email);
+            if (email == null || email.isBlank()) {
+                continue;
             }
+            AccessPolicy.Subject candidate = userRepository.findByMail(email.trim())
+                    .map(AccessPolicy.Subject::of)
+                    .orElse(null);
+            AccessPolicy.assignmentRefusal(candidate, slot, kdnControl).ifPresent(reason -> {
+                throw new IllegalArgumentException(slot.getLabel() + ": " + email.trim() + " " + reason);
+            });
         }
     }
 

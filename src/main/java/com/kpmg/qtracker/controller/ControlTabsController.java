@@ -143,7 +143,13 @@ public class ControlTabsController {
             collectChange(changedFields, previousValues, newValues, "Control Operation Date",
                     existingAssignment.getControlOperationDate(), mergedAssignment.getControlOperationDate());
 
-            ControlAssignment saved = controlAssignmentService.saveAssignment(mergedAssignment);
+            ControlAssignment saved;
+            try {
+                saved = controlAssignmentService.saveAssignment(mergedAssignment);
+            } catch (IllegalArgumentException refused) {
+                // Someone who may not hold that field (read-only, wrong level, KDN scope on a non-KDN control)
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + refused.getMessage());
+            }
             // The service calculates both from the date and the frequency; the log shows what it stored
             collectChange(changedFields, previousValues, newValues, "Control Operation Deadline",
                     existingAssignment.getControlOperationDeadline(), saved.getControlOperationDeadline());
@@ -242,13 +248,26 @@ public class ControlTabsController {
         return ResponseEntity.ok(new ArrayList<>(people.values()));
     }
 
-    // Users by role for the assignment pickers, which only SoQM Team and admins can open
+    /**
+     * The people an assignment picker offers (FACILITATOR, CONTROL_OPERATOR, SOQM_TEAM, PROCESS_OWNER,
+     * SHARED_WITH): enabled users the field accepts ({@link AccessPolicy#isOfferedFor}); with the control,
+     * KDN-scope users only for a KDN control. Only SoQM assigns people, so only SoQM gets the lists.
+     */
     @GetMapping("/api/users/role/{role}")
-    public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable String role, HttpSession session) {
-        if (!AccessPolicy.canListAllUsers(AccessPolicy.Subject.of((User) session.getAttribute("currentUser")))) {
+    public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable String role,
+                                                        @RequestParam(required = false) Long controlId,
+                                                        HttpSession session) {
+        if (!AccessPolicy.isSoqm(AccessPolicy.Subject.of((User) session.getAttribute("currentUser")))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        List<UserDTO> users = userService.getUsersByRole(role).stream()
+        Optional<AccessPolicy.Slot> slot = AccessPolicy.Slot.forPicker(role);
+        if (slot.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        boolean kdnControl = controlId != null && controlService.getControlById(controlId)
+                .map(control -> AccessPolicy.isKdnControl(control.getControlId()))
+                .orElse(false);
+        List<UserDTO> users = userService.getUsersOfferedFor(slot.get(), kdnControl).stream()
                 .map(this::convertToUserDTO)
                 .toList();
         return ResponseEntity.ok(users);

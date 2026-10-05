@@ -1530,7 +1530,7 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
-    void usersByRole_andUserList_onlySoqmAndAdmins() throws Exception {
+    void pickers_onlySoqm_userList_soqmAndAdmins() throws Exception {
         Participants p = participants();
         User admin = saveUser("admin-" + suffix(), "admin-" + suffix() + "@example.test", "PROCESS_OWNER");
         admin.setAdminAccess(true);
@@ -1539,11 +1539,98 @@ class ApiSecurityMockMvcIT {
         MockHttpSession adminSession = login(admin.getMail());
         MockHttpSession facilitator = login(p.facilitator.getMail());
 
-        for (String path : List.of("/api/users/role/FACILITATOR", "/api/users")) {
-            mockMvc.perform(get(path).with(ownAddress()).session(soqm)).andExpect(status().isOk());
-            mockMvc.perform(get(path).with(ownAddress()).session(adminSession)).andExpect(status().isOk());
-            mockMvc.perform(get(path).with(ownAddress()).session(facilitator)).andExpect(status().isForbidden());
-        }
+        // Only SoQM assigns people, so only SoQM gets the pickers
+        mockMvc.perform(get("/api/users/role/FACILITATOR").with(ownAddress()).session(soqm)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/users/role/FACILITATOR").with(ownAddress()).session(adminSession))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/users/role/FACILITATOR").with(ownAddress()).session(facilitator))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/users/role/AUDITOR").with(ownAddress()).session(soqm))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/users").with(ownAddress()).session(soqm)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/users").with(ownAddress()).session(adminSession)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/users").with(ownAddress()).session(facilitator)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void pickers_offerOnlyThePeopleTheFieldAccepts() throws Exception {
+        String s = suffix();
+        User soqm = saveUser("pk-soqm-" + s, "pk-soqm-" + s + "@example.test", "SOQM_TEAM");
+        User participant = saveUser("pk-part-" + s, "pk-part-" + s + "@example.test", "FACILITATOR");
+        User kdn = saveUser("pk-kdn-" + s, "pk-kdn-" + s + "@example.test", "KDN");
+        User readOnly = saveUser("pk-ro-" + s, "pk-ro-" + s + "@example.test", "READ_ONLY");
+        User disabled = saveUser("pk-off-" + s, "pk-off-" + s + "@example.test", "FACILITATOR");
+        disabled.setEnabled(false);
+        userRepository.save(disabled);
+        Control hr = createControl("CTRL-PK-" + s, soqm, "DRAFT");
+        Control kdnControl = createControl("KDN-PK-" + s, soqm, "DRAFT");
+        MockHttpSession session = login(soqm.getMail());
+
+        String facilitators = picker(session, "FACILITATOR", hr);
+        assertThat(facilitators).contains(participant.getMail())
+                .doesNotContain(soqm.getMail(), kdn.getMail(), readOnly.getMail(), disabled.getMail());
+        assertThat(picker(session, "FACILITATOR", kdnControl)).contains(participant.getMail(), kdn.getMail());
+        assertThat(picker(session, "SOQM_TEAM", hr)).contains(soqm.getMail())
+                .doesNotContain(participant.getMail(), readOnly.getMail());
+        assertThat(picker(session, "SHARED_WITH", hr)).contains(readOnly.getMail(), participant.getMail(), soqm.getMail())
+                .doesNotContain(kdn.getMail(), disabled.getMail());
+    }
+
+    private String picker(MockHttpSession session, String field, Control control) throws Exception {
+        return mockMvc.perform(get("/api/users/role/" + field).param("controlId", String.valueOf(control.getId()))
+                        .with(ownAddress()).session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+    }
+
+    @Test
+    void assignmentSave_refusesPeopleTheFieldDoesNotAccept() throws Exception {
+        String s = suffix();
+        Participants p = participants();
+        User readOnly = saveUser("as-ro-" + s, "as-ro-" + s + "@example.test", "READ_ONLY");
+        User kdn = saveUser("as-kdn-" + s, "as-kdn-" + s + "@example.test", "KDN");
+        Control control = createControl("CTRL-AS-" + s, p.soqm, "DRAFT");
+        control.setControlFrequency("Monthly");
+        controlRepository.save(control);
+        MockHttpSession session = login(p.soqm.getMail());
+
+        assertAssignmentRefused(session, control, readOnly.getMail(), p.operator.getMail(), p.soqm.getMail(),
+                "Facilitator: " + readOnly.getMail() + " has read-only access and cannot be assigned");
+        assertAssignmentRefused(session, control, p.facilitator.getMail(), kdn.getMail(), p.soqm.getMail(),
+                "Control Operator: " + kdn.getMail() + " sees only KDN controls");
+        assertAssignmentRefused(session, control, p.facilitator.getMail(), p.operator.getMail(), p.facilitator.getMail(),
+                "SoQM Team / Delegate: " + p.facilitator.getMail() + " is not a SoQM user");
+
+        // One person may hold several fields; a read-only user may be shared with
+        mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader()).with(ownAddress()).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(assignmentJson(control, p.facilitator.getMail(), p.facilitator.getMail(),
+                                p.soqm.getMail(), readOnly.getMail())))
+                .andExpect(status().isOk());
+        ControlAssignment saved = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assertThat(saved.getControlOperator()).isEqualTo(p.facilitator.getMail());
+        assertThat(saved.getControlSharedWith()).isEqualTo(readOnly.getMail());
+    }
+
+    private void assertAssignmentRefused(MockHttpSession session, Control control, String facilitator,
+                                         String operator, String soqmLead, String message) throws Exception {
+        mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader()).with(ownAddress()).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(assignmentJson(control, facilitator, operator, soqmLead, null)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("VALIDATION_ERROR: " + message)));
+    }
+
+    private String assignmentJson(Control control, String facilitator, String operator, String soqmLead,
+                                  String sharedWith) {
+        return "{\"controlId\":" + control.getId()
+                + ",\"facilitator\":[\"" + facilitator + "\"]"
+                + ",\"controlOperator\":[\"" + operator + "\"]"
+                + ",\"soqmLead\":[\"" + soqmLead + "\"]"
+                + ",\"processOwner\":[\"" + operator + "\"]"
+                + (sharedWith != null ? ",\"controlSharedWith\":[\"" + sharedWith + "\"]" : "")
+                + ",\"controlOperationDate\":\"2026-11-02\"}";
     }
 
     // ---- Admin Panel: stored roles the lists do not offer are shown as they are and never rewritten ----

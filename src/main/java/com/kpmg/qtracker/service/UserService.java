@@ -1,6 +1,8 @@
 package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.enums.AccessLevel;
+import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,9 +40,13 @@ public class UserService {
         return userRepository.findAll();
     }
 
-    public List<User> getUsersByRole(String role) {
-        String normalizedRole = normalizeRole(role);
-        return userRepository.findByRoleIgnoreCaseOrSecondaryRoleIgnoreCase(normalizedRole, normalizedRole);
+    /** Users an assignment field accepts, for its picker ({@link AccessPolicy#isOfferedFor}), by name. */
+    public List<User> getUsersOfferedFor(AccessPolicy.Slot slot, boolean kdnControl) {
+        return userRepository.findAll().stream()
+                .filter(user -> AccessPolicy.isOfferedFor(AccessPolicy.Subject.of(user), slot, kdnControl))
+                .sorted(java.util.Comparator.comparing(User::getDisplayName,
+                        java.util.Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .toList();
     }
 
     public Optional<User> getUserByEmail(String email) {
@@ -126,11 +132,53 @@ public class UserService {
         return userRepository.save(targetUser);
     }
 
+    /** A new user with an old role and the access V6 gives it (the Admin Panel still sends roles). */
     public User createUser(String email,
                            String displayName,
                            String role,
                            Boolean adminAccess,
                            Boolean enabled) {
+        String normalizedRole = normalizeRole(role);
+        if (!ALLOWED_ROLES.contains(normalizedRole)) {
+            throw new IllegalArgumentException("Unsupported role: " + role);
+        }
+        LegacyRoleAccess.Access access = LegacyRoleAccess.of(normalizedRole, null);
+        User user = newUser(email, displayName, access.level(), access.scope(), adminAccess, enabled);
+        user.setRole(normalizedRole);
+        return userRepository.save(user);
+    }
+
+    /**
+     * A new user with an access level and scope; no old role. SoQM always sees every control, so its
+     * scope is ALL (a missing scope of anyone else is OWN).
+     */
+    public User createUser(String email,
+                           String displayName,
+                           String level,
+                           String scope,
+                           Boolean adminAccess,
+                           Boolean enabled) {
+        AccessLevel accessLevel = AccessLevel.tryFrom(level)
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported access level: " + level));
+        AccessScope accessScope = resolveScope(accessLevel, scope);
+        return userRepository.save(newUser(email, displayName, accessLevel, accessScope, adminAccess, enabled));
+    }
+
+    /** The scope for a level: SoQM only ALL; a blank scope means ALL for SoQM and OWN for everyone else. */
+    public static AccessScope resolveScope(AccessLevel level, String scope) {
+        if (scope == null || scope.isBlank()) {
+            return level == AccessLevel.SOQM ? AccessScope.ALL : AccessScope.OWN;
+        }
+        AccessScope accessScope = AccessScope.tryFrom(scope)
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported scope: " + scope));
+        if (level == AccessLevel.SOQM && accessScope != AccessScope.ALL) {
+            throw new IllegalArgumentException("SoQM always sees all controls: scope must be ALL");
+        }
+        return accessScope;
+    }
+
+    private User newUser(String email, String displayName, AccessLevel level, AccessScope scope,
+                         Boolean adminAccess, Boolean enabled) {
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("Email is required");
         }
@@ -143,20 +191,15 @@ public class UserService {
             throw new IllegalArgumentException("User with this email already exists");
         }
 
-        String normalizedRole = normalizeRole(role);
-        if (!ALLOWED_ROLES.contains(normalizedRole)) {
-            throw new IllegalArgumentException("Unsupported role: " + role);
-        }
-
         User user = new User();
         user.setMail(normalizedEmail);
         user.setDisplayName(resolveDisplayName(displayName, normalizedEmail));
-        user.setRole(normalizedRole);
-        applyLegacyRoleAccess(user);
+        user.setAccessLevel(level);
+        user.setAccessScope(scope);
         user.setAdminAccess(adminAccess != null && adminAccess);
         user.setEnabled(enabled == null || enabled);
         user.setPassword(passwordEncoder.encode(DEFAULT_NEW_USER_PASSWORD));
-        return userRepository.save(user);
+        return user;
     }
 
     /** Keeps the access level and scope in step with the roles the Admin Panel still edits. */

@@ -102,6 +102,21 @@ public final class AccessPolicy {
         public String getLabel() {
             return label;
         }
+
+        /** The field a picker asks for ("FACILITATOR", "SOQM_TEAM", "SHARED_WITH", ...). */
+        public static Optional<Slot> forPicker(String key) {
+            if (key == null) {
+                return Optional.empty();
+            }
+            return switch (key.trim().toUpperCase(Locale.ROOT)) {
+                case "FACILITATOR" -> Optional.of(FACILITATOR);
+                case "CONTROL_OPERATOR" -> Optional.of(CONTROL_OPERATOR);
+                case "SOQM_TEAM", "SOQM_LEAD" -> Optional.of(SOQM_LEAD);
+                case "PROCESS_OWNER" -> Optional.of(PROCESS_OWNER);
+                case "SHARED_WITH" -> Optional.of(SHARED_WITH);
+                default -> Optional.empty();
+            };
+        }
     }
 
     /** A KDN control: its Control ID starts with "KDN" (any case). */

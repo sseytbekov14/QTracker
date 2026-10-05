@@ -240,7 +240,9 @@ const viewControl = (function() {
 
     async function loadUsersByRole(role) {
         try {
-            const response = await fetch(`/api/users/role/${role}`);
+            // The people this field accepts; with the control, so KDN-scope users show only on KDN controls
+            const controlId = document.querySelector('input[name="id"]')?.value || '';
+            const response = await fetch(`/api/users/role/${role}?controlId=` + encodeURIComponent(controlId));
             const users = await response.json();
             console.log(`вњ… Р—Р°РіСЂСѓР¶РµРЅРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ СЃ СЂРѕР»СЊСЋ ${role}:`, users.length);
             return users;
@@ -1043,7 +1045,7 @@ function confirmWorkflowAction() {
             if (searchInput) searchInput.value = '';
 
             if (sharedWithUsers.length === 0) {
-                loadAllUsers().then((users) => {
+                loadUsersByRole('SHARED_WITH').then((users) => {
                     sharedWithUsers = onlyActiveUsers(users);
                     displaySharedWithList(sharedWithUsers);
                 });

@@ -3,9 +3,12 @@ package com.kpmg.qtracker.service;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
+import com.kpmg.qtracker.enums.AccessLevel;
+import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.support.TestUsers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -15,10 +18,13 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -108,6 +114,65 @@ class ControlAssignmentServiceTest {
 
         assertThat(dto.getControlSharedWith())
                 .containsExactly("a@kpmg.kz", "b@kpmg.kz", "c@kpmg.kz");
+    }
+
+    @Test
+    void saveAssignment_refusesPeopleTheFieldDoesNotAccept_beforeSavingAnything() {
+        Control control = new Control();
+        control.setId(90L);
+        control.setControlId("HR-90");
+        when(controlRepository.findById(90L)).thenReturn(Optional.of(control));
+        when(userRepository.findByMail("ro@kpmg.kz")).thenReturn(Optional.of(
+                TestUsers.user("ro@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.OWN, false)));
+        when(userRepository.findByMail("kdn@kpmg.kz")).thenReturn(Optional.of(
+                TestUsers.user("kdn@kpmg.kz", AccessLevel.PARTICIPANT, AccessScope.KDN, false)));
+        when(userRepository.findByMail("soqm@kpmg.kz")).thenReturn(Optional.of(
+                TestUsers.user("soqm@kpmg.kz", AccessLevel.SOQM, AccessScope.ALL, false)));
+
+        assertRefused(dto(90L, List.of("ro@kpmg.kz"), null, null), "Facilitator: ro@kpmg.kz has read-only access");
+        assertRefused(dto(90L, List.of("kdn@kpmg.kz"), null, null), "Facilitator: kdn@kpmg.kz sees only KDN controls");
+        assertRefused(dto(90L, List.of("soqm@kpmg.kz"), null, null), "Facilitator: soqm@kpmg.kz is a SoQM user");
+        assertRefused(dto(90L, null, List.of("nobody@kpmg.kz"), null), "SoQM Team / Delegate: nobody@kpmg.kz is not a QTracker user");
+        verify(assignmentRepository, never()).save(any(ControlAssignment.class));
+    }
+
+    @Test
+    void saveAssignment_acceptsAKdnParticipantOnAKdnControl_andAReadOnlySharedUser() {
+        Control control = new Control();
+        control.setId(91L);
+        control.setControlId("KDN-91");
+        when(controlRepository.findById(91L)).thenReturn(Optional.of(control));
+        when(userRepository.findByMail("kdn@kpmg.kz")).thenReturn(Optional.of(
+                TestUsers.user("kdn@kpmg.kz", AccessLevel.PARTICIPANT, AccessScope.KDN, false)));
+        when(userRepository.findByMail("ro@kpmg.kz")).thenReturn(Optional.of(
+                TestUsers.user("ro@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.OWN, false)));
+        when(assignmentRepository.findByControlId(91L)).thenReturn(Optional.empty());
+        when(assignmentRepository.save(any(ControlAssignment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ControlAssignmentDTO dto = dto(91L, List.of("kdn@kpmg.kz"), null, List.of("ro@kpmg.kz"));
+        dto.setControlOperator(List.of("kdn@kpmg.kz"));
+
+        ControlAssignment saved = service.saveAssignment(dto);
+
+        assertThat(saved.getFacilitator()).isEqualTo("kdn@kpmg.kz");
+        assertThat(saved.getControlOperator()).isEqualTo("kdn@kpmg.kz");
+        assertThat(saved.getControlSharedWith()).isEqualTo("ro@kpmg.kz");
+    }
+
+    private ControlAssignmentDTO dto(Long controlId, List<String> facilitator, List<String> soqmLead,
+                                     List<String> sharedWith) {
+        ControlAssignmentDTO dto = new ControlAssignmentDTO();
+        dto.setControlId(controlId);
+        dto.setFacilitator(facilitator);
+        dto.setSoqmLead(soqmLead);
+        dto.setControlSharedWith(sharedWith);
+        return dto;
+    }
+
+    private void assertRefused(ControlAssignmentDTO dto, String message) {
+        assertThatThrownBy(() -> service.saveAssignment(dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith(message);
     }
 
     private void assertNextOperationDateComputed(String frequency,
