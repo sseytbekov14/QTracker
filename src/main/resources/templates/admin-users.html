@@ -682,9 +682,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const CAN_MANAGE = /*[[${canManageUsers}]]*/ true;
     // What a scope means in the access hint
     const SCOPE_TEXT = {
-        OWN: 'the controls they are assigned to or shared with',
-        ALL: 'all controls, drafts included',
-        KDN: 'the KDN controls they are assigned to or shared with'
+        OWN: 'assigned or shared controls',
+        ALL: 'all controls',
+        KDN: 'assigned or shared KDN controls'
     };
     // A message that has to survive the reload after Add User
     const FLASH_KEY = 'qtrackerAdminFlash';
@@ -1253,22 +1253,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // What a level, a scope and the admin flag add up to; the server's AccessPolicy has the same rules
+    // What a level, a scope and the admin flag add up to, in a line or two; the server's AccessPolicy
+    // has the same rules
     function accessSummary(level, scope, admin) {
-        const sees = admin ? 'all controls (admin access)' : (SCOPE_TEXT[scope] || SCOPE_TEXT.OWN);
+        const sees = admin ? 'all controls (admin)' : (SCOPE_TEXT[scope] || SCOPE_TEXT.OWN);
         let text;
         if (level === 'SOQM') {
-            text = 'Creates and edits every control, assigns people and performs the SoQM steps; sees all controls.';
+            text = 'Edits every control, assigns people, SoQM steps. Sees all controls.';
         } else if (level === 'PARTICIPANT') {
-            text = 'Performs their own steps on the ' + (scope === 'KDN' ? 'KDN ' : '')
-                + 'controls they are assigned to; sees ' + sees + '.';
+            text = 'Own steps where assigned' + (scope === 'KDN' ? ' (KDN controls)' : '') + '. Sees ' + sees + '.';
         } else if (level === 'READ_ONLY') {
-            text = 'Only views and downloads, changes nothing; sees ' + sees + '.';
+            text = 'View only. Sees ' + sees + '.';
         } else {
             return '';
         }
         if (admin) {
-            text += level === 'READ_ONLY' ? ' Admin Panel and audit, view only.' : ' Manages users in the Admin Panel.';
+            text += level === 'READ_ONLY' ? ' Admin Panel, view only.' : ' Admin Panel.';
         }
         return text;
     }
