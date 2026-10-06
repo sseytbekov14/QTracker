@@ -1531,7 +1531,7 @@
                             <div class="modal-body">
                                 <p class="soqm-move-now">
                                     Now: <strong th:text="${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">In Progress</strong>.
-                                    As SoQM you can make the step of any role: on to the next status or back to an earlier one.
+                                    <span th:unless="${completedLocked}">As SoQM you can make the step of any role: on to the next status or back to an earlier one.</span>
                                 </p>
                                 <p class="soqm-move-now" th:if="${completedLocked}" id="soqmMoveCompletedNote">
                                     A completed control is locked for everyone. Returning it keeps its values, its deadline
@@ -1550,7 +1550,8 @@
                                                         data-return=${m.returnMove}">
                                         <label class="form-check-label" th:for="${'soqmMoveTarget' + it.index}">
                                             <span class="soqm-move-label" th:text="${m.label}">Submit to Control Operator</span>
-                                            <span class="soqm-move-status" th:text="${m.statusLabel}">Review</span>
+                                            <span class="soqm-move-status" th:text="${m.statusLabel}"
+                                                  th:unless="${#strings.endsWith(m.label, m.statusLabel)}">Review</span>
                                             <span class="soqm-move-behalf" th:if="${m.onBehalf}"
                                                   th:text="${'for the ' + m.actingFor}">for the Facilitator</span>
                                         </label>
