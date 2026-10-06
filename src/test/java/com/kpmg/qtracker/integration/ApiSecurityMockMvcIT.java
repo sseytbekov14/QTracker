@@ -1571,7 +1571,11 @@ class ApiSecurityMockMvcIT {
         String facilitators = picker(session, "FACILITATOR", hr);
         assertThat(facilitators).contains(participant.getMail())
                 .doesNotContain(soqm.getMail(), kdn.getMail(), readOnly.getMail(), disabled.getMail());
-        assertThat(picker(session, "FACILITATOR", kdnControl)).contains(participant.getMail(), kdn.getMail());
+        // A KDN user (read-only) goes in the step fields of a KDN control only, to see it and get its notices
+        assertThat(picker(session, "FACILITATOR", kdnControl)).contains(participant.getMail(), kdn.getMail())
+                .doesNotContain(readOnly.getMail());
+        assertThat(picker(session, "PROCESS_OWNER", kdnControl)).contains(kdn.getMail());
+        assertThat(picker(session, "SOQM_TEAM", kdnControl)).doesNotContain(kdn.getMail());
         assertThat(picker(session, "SOQM_TEAM", hr)).contains(soqm.getMail())
                 .doesNotContain(participant.getMail(), readOnly.getMail());
         assertThat(picker(session, "SHARED_WITH", hr)).contains(readOnly.getMail(), participant.getMail(), soqm.getMail())
@@ -1612,6 +1616,22 @@ class ApiSecurityMockMvcIT {
         ControlAssignment saved = assignmentRepository.findByControlId(control.getId()).orElseThrow();
         assertThat(saved.getControlOperator()).isEqualTo(p.facilitator.getMail());
         assertThat(saved.getControlSharedWith()).isEqualTo(readOnly.getMail());
+
+        // A KDN user may hold the Facilitator, Control Operator and Process Owner fields of a KDN control
+        Control kdnControl = createControl("KDN-AS-" + s, p.soqm, "DRAFT");
+        kdnControl.setControlFrequency("Monthly");
+        controlRepository.save(kdnControl);
+        assertAssignmentRefused(session, kdnControl, readOnly.getMail(), p.operator.getMail(), p.soqm.getMail(),
+                "Facilitator: " + readOnly.getMail() + " has read-only access and cannot be assigned");
+        assertAssignmentRefused(session, kdnControl, kdn.getMail(), kdn.getMail(), kdn.getMail(),
+                "SoQM Team / Delegate: " + kdn.getMail() + " is not a SoQM user");
+        mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader()).with(ownAddress()).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(assignmentJson(kdnControl, kdn.getMail(), kdn.getMail(), p.soqm.getMail(), null)))
+                .andExpect(status().isOk());
+        ControlAssignment kdnSaved = assignmentRepository.findByControlId(kdnControl.getId()).orElseThrow();
+        assertThat(kdnSaved.getFacilitator()).isEqualTo(kdn.getMail());
+        assertThat(kdnSaved.getProcessOwner()).isEqualTo(kdn.getMail());
     }
 
     private void assertAssignmentRefused(MockHttpSession session, Control control, String facilitator,
@@ -1695,8 +1715,8 @@ class ApiSecurityMockMvcIT {
         assertThat(html).doesNotContain("Additional Role", "js-role", "js-secondary-role", "(not in list)");
         assertThat(userRow(html, soqm)).contains("data-level=\"SOQM\"", "data-scope=\"ALL\"",
                 "data-label=\"Level\">SoQM</td>", "data-label=\"Scope\">All controls</td>");
-        assertThat(userRow(html, kdn)).contains("data-level=\"PARTICIPANT\"", "data-scope=\"KDN\"",
-                "data-label=\"Level\">Participant</td>", "data-label=\"Scope\">KDN controls</td>");
+        assertThat(userRow(html, kdn)).contains("data-level=\"READ_ONLY\"", "data-scope=\"KDN\"",
+                "data-label=\"Level\">Read only</td>", "data-label=\"Scope\">KDN controls</td>");
         assertThat(userRow(html, readOnly)).contains("data-level=\"READ_ONLY\"", "data-scope=\"OWN\"",
                 "data-label=\"Level\">Read only</td>", "data-label=\"Scope\">Own controls</td>");
     }
@@ -1758,8 +1778,14 @@ class ApiSecurityMockMvcIT {
                         .param("level", "PARTICIPANT")
                         .param("scope", "KDN")
                         .param("enabled", "true"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("KDN users only view their KDN controls: level must be Read only"));
+        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
+                        .param("level", "READ_ONLY")
+                        .param("scope", "KDN")
+                        .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.level").value("PARTICIPANT"))
+                .andExpect(jsonPath("$.level").value("READ_ONLY"))
                 .andExpect(jsonPath("$.scope").value("KDN"))
                 .andExpect(jsonPath("$.role").doesNotExist());
         User saved = userRepository.findById(target.getId()).orElseThrow();

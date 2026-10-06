@@ -16,7 +16,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Scope KDN: only KDN controls, and of those the ones the user works on or is shared with. */
+/** Scope KDN (always read-only): only KDN controls, and of those the ones the user is listed on or shared with. */
 @ExtendWith(MockitoExtension.class)
 class ControlPermissionServiceKdnTest {
 
@@ -30,7 +30,7 @@ class ControlPermissionServiceKdnTest {
 
     private ControlPermissionService permissionService;
 
-    private final User user = TestUsers.user(MAIL, AccessLevel.PARTICIPANT, AccessScope.KDN, false);
+    private final User user = TestUsers.user(MAIL, AccessLevel.READ_ONLY, AccessScope.KDN, false);
 
     @BeforeEach
     void setUp() {
@@ -47,15 +47,17 @@ class ControlPermissionServiceKdnTest {
     }
 
     @Test
-    void assignedKdnUser_performsTheirStepOnAKdnControl() {
+    void assignedKdnUser_seesTheirKdnControl_butNeitherEditsNorPerformsTheStep() {
         ControlAssignmentDTO assignment = new ControlAssignmentDTO();
         assignment.setFacilitator(List.of(MAIL));
 
         ControlPermission permission = permissionService.resolve(control("KDN-1001", "IN_PROGRESS"), user, assignment);
 
         assertThat(permission.canView()).isTrue();
-        assertThat(permission.isFacilitator()).isTrue();
-        assertThat(permission.getAllowedEditableFields()).containsExactly(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
+        assertThat(permission.isFacilitator()).isFalse();
+        assertThat(permission.canEdit()).isFalse();
+        assertThat(permission.getAllowedEditableFields()).isEmpty();
+        assertThat(permission.canUseWorkflowActions()).isFalse();
         assertThat(permission.canEditAll()).isFalse();
     }
 

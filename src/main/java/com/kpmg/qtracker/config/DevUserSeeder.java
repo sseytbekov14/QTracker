@@ -40,7 +40,7 @@ public class DevUserSeeder implements ApplicationRunner {
 
         // The access kinds that have no old role
         seed("master1@qtracker.local", "Master 1", null, AccessLevel.PARTICIPANT, AccessScope.ALL, false);
-        seed("kdn1@qtracker.local", "KDN 1", "KDN", AccessLevel.PARTICIPANT, AccessScope.KDN, false);
+        seed("kdn1@qtracker.local", "KDN 1", "KDN", AccessLevel.READ_ONLY, AccessScope.KDN, false);
         seed("ro1@qtracker.local", "Read Only 1", null, AccessLevel.READ_ONLY, AccessScope.OWN, false);
         seed("roall1@qtracker.local", "Read Only All 1", null, AccessLevel.READ_ONLY, AccessScope.ALL, false);
     }

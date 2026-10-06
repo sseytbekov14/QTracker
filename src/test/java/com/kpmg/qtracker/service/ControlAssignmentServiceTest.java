@@ -125,7 +125,7 @@ class ControlAssignmentServiceTest {
         when(userRepository.findByMail("ro@kpmg.kz")).thenReturn(Optional.of(
                 TestUsers.user("ro@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.OWN, false)));
         when(userRepository.findByMail("kdn@kpmg.kz")).thenReturn(Optional.of(
-                TestUsers.user("kdn@kpmg.kz", AccessLevel.PARTICIPANT, AccessScope.KDN, false)));
+                TestUsers.user("kdn@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, false)));
         when(userRepository.findByMail("soqm@kpmg.kz")).thenReturn(Optional.of(
                 TestUsers.user("soqm@kpmg.kz", AccessLevel.SOQM, AccessScope.ALL, false)));
 
@@ -137,13 +137,13 @@ class ControlAssignmentServiceTest {
     }
 
     @Test
-    void saveAssignment_acceptsAKdnParticipantOnAKdnControl_andAReadOnlySharedUser() {
+    void saveAssignment_acceptsAKdnUserInTheStepFieldsOfAKdnControl_andAReadOnlySharedUser() {
         Control control = new Control();
         control.setId(91L);
         control.setControlId("KDN-91");
         when(controlRepository.findById(91L)).thenReturn(Optional.of(control));
         when(userRepository.findByMail("kdn@kpmg.kz")).thenReturn(Optional.of(
-                TestUsers.user("kdn@kpmg.kz", AccessLevel.PARTICIPANT, AccessScope.KDN, false)));
+                TestUsers.user("kdn@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, false)));
         when(userRepository.findByMail("ro@kpmg.kz")).thenReturn(Optional.of(
                 TestUsers.user("ro@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.OWN, false)));
         when(assignmentRepository.findByControlId(91L)).thenReturn(Optional.empty());

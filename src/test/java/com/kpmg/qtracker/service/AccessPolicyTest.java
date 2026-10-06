@@ -30,13 +30,13 @@ class AccessPolicyTest {
             Map.entry("SOQM", subject(AccessLevel.SOQM, AccessScope.ALL, false, true)),
             Map.entry("PART", subject(AccessLevel.PARTICIPANT, AccessScope.OWN, false, true)),
             Map.entry("PART_ALL", subject(AccessLevel.PARTICIPANT, AccessScope.ALL, false, true)),
-            Map.entry("KDN", subject(AccessLevel.PARTICIPANT, AccessScope.KDN, false, true)),
+            Map.entry("KDN", subject(AccessLevel.READ_ONLY, AccessScope.KDN, false, true)),
             Map.entry("RO", subject(AccessLevel.READ_ONLY, AccessScope.OWN, false, true)),
             Map.entry("RO_ALL", subject(AccessLevel.READ_ONLY, AccessScope.ALL, false, true)),
             Map.entry("ADMIN_SOQM", subject(AccessLevel.SOQM, AccessScope.ALL, true, true)),
             Map.entry("ADMIN_PART", subject(AccessLevel.PARTICIPANT, AccessScope.OWN, true, true)),
             Map.entry("ADMIN_RO", subject(AccessLevel.READ_ONLY, AccessScope.OWN, true, true)),
-            Map.entry("ADMIN_KDN", subject(AccessLevel.PARTICIPANT, AccessScope.KDN, true, true)),
+            Map.entry("ADMIN_KDN", subject(AccessLevel.READ_ONLY, AccessScope.KDN, true, true)),
             Map.entry("DISABLED_SOQM", subject(AccessLevel.SOQM, AccessScope.ALL, true, false)),
             Map.entry("DISABLED_PART", subject(AccessLevel.PARTICIPANT, AccessScope.OWN, false, false)));
 
@@ -63,13 +63,13 @@ class AccessPolicyTest {
             "SOQM,            true,  true,  true,  false,      false,       true,   true,      true",
             "PART,            true,  false, false, false,      false,       false,  false,     false",
             "PART_ALL,        true,  false, true,  false,      false,       false,  false,     false",
-            "KDN,             true,  false, false, false,      false,       false,  false,     false",
+            "KDN,             false, false, false, false,      false,       false,  false,     false",
             "RO,              false, false, false, false,      false,       false,  false,     false",
             "RO_ALL,          false, false, true,  false,      false,       false,  false,     false",
             "ADMIN_SOQM,      true,  true,  true,  true,       true,        true,   true,      true",
             "ADMIN_PART,      true,  false, true,  true,       true,        false,  false,     true",
             "ADMIN_RO,        false, false, true,  true,       false,       false,  false,     true",
-            "ADMIN_KDN,       true,  false, true,  true,       true,        false,  false,     true",
+            "ADMIN_KDN,       false, false, true,  true,       false,       false,  false,     true",
             "DISABLED_SOQM,   false, false, false, false,      false,       false,  false,     false",
             "NONE,            false, false, false, false,      false,       false,  false,     false",
     })
@@ -162,7 +162,7 @@ class AccessPolicyTest {
             "PART,         COMPLETED,            false, CO+SPLIT,   false, false,   -",
             "PART,         REVIEW,               false, F+CO+SPLIT, true,  false,   controlOperatorReview",
             "PART,         REVIEW,               false, SHARED+SPLIT, false, false, -",
-            "KDN,          REVIEW,               true,  CO+SPLIT,   true,  false,   controlOperatorReview",
+            "KDN,          REVIEW,               true,  CO+SPLIT,   false, false,   -",
             "KDN,          REVIEW,               false, CO+SPLIT,   false, false,   -",
             "RO,           REVIEW,               false, CO+SPLIT,   false, false,   -",
             "ADMIN_RO,     REVIEW,               false, CO+SPLIT,   false, false,   -",
@@ -174,7 +174,7 @@ class AccessPolicyTest {
             "PART,         IN_PROGRESS,          false, SHARED,     false, false,   -",
             "PART_ALL,     IN_PROGRESS,          false, -,          false, false,   -",
             "PART_ALL,     IN_PROGRESS,          false, F,          true,  false,   controlStepsPerformed",
-            "KDN,          IN_PROGRESS,          true,  F,          true,  false,   controlStepsPerformed",
+            "KDN,          IN_PROGRESS,          true,  F,          false, false,   -",
             "KDN,          IN_PROGRESS,          false, F,          false, false,   -",
             "RO,           IN_PROGRESS,          false, F,          false, false,   -",
             "RO,           PROCESS_OWNER_REVIEW, false, PO+SHARED,  false, false,   -",
@@ -243,8 +243,8 @@ class AccessPolicyTest {
             "PART,         COMPLETED,            false, PO+SHARED, SHARED_RESUBMIT_TO_SOQM_TEAM, false",
             "PART_ALL,     IN_PROGRESS,          false, -,        SUBMIT_TO_CONTROL_OPERATOR,    false",
             "PART_ALL,     IN_PROGRESS,          false, F,        SUBMIT_TO_CONTROL_OPERATOR,    true",
-            "KDN,          IN_PROGRESS,          true,  F,        SUBMIT_TO_CONTROL_OPERATOR,    true",
-            "KDN,          PROCESS_OWNER_REVIEW, true,  PO,       COMPLETE,                      true",
+            "KDN,          IN_PROGRESS,          true,  F,        SUBMIT_TO_CONTROL_OPERATOR,    false",
+            "KDN,          PROCESS_OWNER_REVIEW, true,  PO,       COMPLETE,                      false",
             "KDN,          IN_PROGRESS,          true,  SHARED,   SUBMIT_TO_CONTROL_OPERATOR,    false",
             "KDN,          IN_PROGRESS,          false, F,        SUBMIT_TO_CONTROL_OPERATOR,    false",
             "RO,           IN_PROGRESS,          false, F,        SUBMIT_TO_CONTROL_OPERATOR,    false",
@@ -318,7 +318,10 @@ class AccessPolicyTest {
             "PART,        SOQM_LEAD,        false,      false",
             "PART_ALL,    FACILITATOR,      false,      true",
             "KDN,         FACILITATOR,      true,       true",
+            "KDN,         CONTROL_OPERATOR, true,       true",
             "KDN,         PROCESS_OWNER,    true,       true",
+            "KDN,         SOQM_LEAD,        true,       false",
+            "KDN,         CONTROL_OPERATOR, false,      false",
             "KDN,         FACILITATOR,      false,      false",
             "KDN,         SHARED_WITH,      false,      false",
             "KDN,         SHARED_WITH,      true,       true",
@@ -327,7 +330,9 @@ class AccessPolicyTest {
             "RO,          PROCESS_OWNER,    false,      false",
             "RO,          SOQM_LEAD,        false,      false",
             "RO,          SHARED_WITH,      false,      true",
+            "RO,          FACILITATOR,      true,       false",
             "RO_ALL,      FACILITATOR,      false,      false",
+            "RO_ALL,      PROCESS_OWNER,    true,       false",
             "ADMIN_RO,    FACILITATOR,      false,      false",
             "ADMIN_PART,  FACILITATOR,      false,      true",
             "NONE,        SHARED_WITH,      false,      false",
@@ -342,12 +347,48 @@ class AccessPolicyTest {
                 .hasValue("has read-only access and cannot be assigned");
         assertThat(AccessPolicy.assignmentRefusal(who("KDN"), Slot.PROCESS_OWNER, false))
                 .hasValue("sees only KDN controls and cannot be added to this control");
+        assertThat(AccessPolicy.assignmentRefusal(who("RO_ALL"), Slot.PROCESS_OWNER, true))
+                .hasValue("has read-only access and cannot be assigned");
+        assertThat(AccessPolicy.levelScopeRefusal(AccessLevel.PARTICIPANT, AccessScope.KDN))
+                .hasValue("KDN users only view their KDN controls: level must be Read only");
         assertThat(AccessPolicy.assignmentRefusal(who("SOQM"), Slot.PROCESS_OWNER, false))
                 .hasValue("is a SoQM user; Process Owner must be a participant");
         assertThat(AccessPolicy.assignmentRefusal(who("PART"), Slot.SOQM_LEAD, false))
                 .hasValue("is not a SoQM user");
         assertThat(AccessPolicy.assignmentRefusal(null, Slot.FACILITATOR, false))
                 .hasValue("is not a QTracker user");
+    }
+
+    @ParameterizedTest(name = "{0}/{1}")
+    @CsvSource({
+            "SOQM,        ALL,  true",
+            "SOQM,        OWN,  false",
+            "SOQM,        KDN,  false",
+            "PARTICIPANT, OWN,  true",
+            "PARTICIPANT, ALL,  true",
+            "PARTICIPANT, KDN,  false",
+            "READ_ONLY,   OWN,  true",
+            "READ_ONLY,   ALL,  true",
+            "READ_ONLY,   KDN,  true",
+    })
+    void levelAndScope_goTogether(AccessLevel level, AccessScope scope, boolean allowed) {
+        assertThat(AccessPolicy.levelScopeRefusal(level, scope).isEmpty()).isEqualTo(allowed);
+    }
+
+    @Test
+    void kdnUserInAStepField_seesTheControl_butNeitherEditsNorActs() {
+        for (String places : List.of("F", "CO", "PO")) {
+            for (String status : List.of("IN_PROGRESS", "REVIEW", "PROCESS_OWNER_REVIEW")) {
+                ControlFacts c = control(status, true, places);
+                ControlPermission p = AccessPolicy.resolve(who("KDN"), c);
+                assertThat(p.canView()).as(places + " " + status).isTrue();
+                assertThat(p.canEdit()).as(places + " " + status).isFalse();
+                assertThat(p.canUseWorkflowActions()).as(places + " " + status).isFalse();
+                assertThat(AccessPolicy.isMyTurn(who("KDN"), c)).as(places + " " + status).isFalse();
+                assertThat(AccessPolicy.canExportCompletedControl(who("KDN"), c)).isFalse();
+            }
+        }
+        assertThat(AccessPolicy.canView(who("KDN"), control("REVIEW", false, "CO"))).isFalse();
     }
 
     @Test
@@ -379,11 +420,11 @@ class AccessPolicyTest {
     }
 
     @Test
-    void kdnControl_isAControlIdStartingWithKdn() {
-        for (String id : List.of("KDN-01", " kdn/FY26", "Kdn")) {
+    void kdnControl_isAControlIdStartingWithKdnDash() {
+        for (String id : List.of("KDN-CTRL-MF-01/FY26/KZ/Q1", " kdn-01", "Kdn-")) {
             assertThat(AccessPolicy.isKdnControl(id)).as(id).isTrue();
         }
-        for (String id : List.of("HR-KDN-01", "", " ")) {
+        for (String id : List.of("HR-KDN-01", "KDN/FY26", "KDNX-01", "Kdn", "", " ")) {
             assertThat(AccessPolicy.isKdnControl(id)).as(id).isFalse();
         }
         assertThat(AccessPolicy.isKdnControl(null)).isFalse();

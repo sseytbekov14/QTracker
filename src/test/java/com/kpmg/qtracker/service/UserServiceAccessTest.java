@@ -55,11 +55,11 @@ class UserServiceAccessTest {
 
     @Test
     void blankLevelAndScope_keepTheStoredOnes_whileStatusChanges() {
-        stored(AccessLevel.PARTICIPANT, AccessScope.KDN);
+        stored(AccessLevel.READ_ONLY, AccessScope.KDN);
 
         User saved = service.updateUserAccess(TARGET_ID, "", null, false, false, ADMIN_ID);
 
-        assertThat(saved.getAccessLevel()).isEqualTo(AccessLevel.PARTICIPANT);
+        assertThat(saved.getAccessLevel()).isEqualTo(AccessLevel.READ_ONLY);
         assertThat(saved.getAccessScope()).isEqualTo(AccessScope.KDN);
         assertThat(saved.getEnabled()).isFalse();
     }
@@ -79,12 +79,27 @@ class UserServiceAccessTest {
 
     @Test
     void soqm_alwaysGetsScopeAll_andRefusesAnyOther() {
-        stored(AccessLevel.PARTICIPANT, AccessScope.KDN);
+        stored(AccessLevel.READ_ONLY, AccessScope.KDN);
 
         assertThat(service.updateUserAccess(TARGET_ID, "SOQM", "", false, true, ADMIN_ID).getAccessScope())
                 .isEqualTo(AccessScope.ALL);
         assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "SOQM", "OWN", false, true, ADMIN_ID))
                 .hasMessage("SoQM always sees all controls: scope must be ALL");
+    }
+
+    @Test
+    void kdn_isAlwaysReadOnly_whicheverWayTheLevelOrScopeChanges() {
+        stored(AccessLevel.READ_ONLY, AccessScope.KDN);
+        String refusal = "KDN users only view their KDN controls: level must be Read only";
+
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "PARTICIPANT", "", false, true, ADMIN_ID))
+                .hasMessage(refusal);
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "PARTICIPANT", "KDN", false, true, ADMIN_ID))
+                .hasMessage(refusal);
+        assertThat(service.updateUserAccess(TARGET_ID, "PARTICIPANT", "OWN", false, true, ADMIN_ID).getAccessScope())
+                .isEqualTo(AccessScope.OWN);
+        assertThatThrownBy(() -> service.createUser("k@example.test", null, "PARTICIPANT", "KDN", false, true))
+                .hasMessage(refusal);
     }
 
     @Test
@@ -127,12 +142,12 @@ class UserServiceAccessTest {
         stored(AccessLevel.READ_ONLY, AccessScope.OWN);
         when(userRepository.existsByMail("new@example.test")).thenReturn(false);
 
-        User saved = service.updateUser(TARGET_ID, " New@Example.test ", "  Jane Doe ", "PARTICIPANT", "KDN",
+        User saved = service.updateUser(TARGET_ID, " New@Example.test ", "  Jane Doe ", "READ_ONLY", "KDN",
                 false, true, ADMIN_ID);
 
         assertThat(saved.getMail()).isEqualTo("new@example.test");
         assertThat(saved.getDisplayName()).isEqualTo("Jane Doe");
-        assertThat(saved.getAccessLevel()).isEqualTo(AccessLevel.PARTICIPANT);
+        assertThat(saved.getAccessLevel()).isEqualTo(AccessLevel.READ_ONLY);
         assertThat(saved.getAccessScope()).isEqualTo(AccessScope.KDN);
     }
 

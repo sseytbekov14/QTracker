@@ -18,7 +18,7 @@ import java.util.Set;
  *   user, assigned or not); PARTICIPANT performs the Facilitator, Control Operator and Process Owner steps
  *   and edits only where assigned; READ_ONLY never writes.</li>
  *   <li>Scope: OWN = assigned or shared; ALL = every control; KDN = KDN controls the user is assigned to
- *   or shared with. SoQM always sees every control.</li>
+ *   or shared with. SoQM always sees every control; KDN users are always READ_ONLY ({@link #levelScopeRefusal}).</li>
  *   <li>admin_access: Admin Panel, audit and viewing every control; it grants no edit, assignment,
  *   workflow step or creation.</li>
  *   <li>Shared With only views (spec 5.6): no edit, upload or workflow step, also on completed controls.</li>
@@ -128,9 +128,9 @@ public final class AccessPolicy {
         }
     }
 
-    /** A KDN control: its Control ID starts with "KDN" (any case). */
+    /** A KDN control: its Control ID starts with "KDN-" (any case), as IDs of component KDN do. */
     public static boolean isKdnControl(String controlId) {
-        return controlId != null && controlId.trim().toUpperCase(Locale.ROOT).startsWith("KDN");
+        return controlId != null && controlId.trim().toUpperCase(Locale.ROOT).startsWith("KDN-");
     }
 
     // ---------------------------------------------------------------- the user, without a control
@@ -180,6 +180,20 @@ public final class AccessPolicy {
     /** The full user list (assignment pickers, Admin Panel). */
     public static boolean canListAllUsers(Subject subject) {
         return isSoqm(subject) || canOpenAdminPanel(subject);
+    }
+
+    /**
+     * Why a level and a scope cannot go together, or empty when they can: SoQM sees every control (scope
+     * ALL), and KDN users (staff of other countries) only watch their KDN controls, so scope KDN is READ_ONLY.
+     */
+    public static Optional<String> levelScopeRefusal(AccessLevel level, AccessScope scope) {
+        if (level == AccessLevel.SOQM && scope != AccessScope.ALL) {
+            return Optional.of("SoQM always sees all controls: scope must be ALL");
+        }
+        if (scope == AccessScope.KDN && level != AccessLevel.READ_ONLY) {
+            return Optional.of("KDN users only view their KDN controls: level must be Read only");
+        }
+        return Optional.empty();
     }
 
     // ---------------------------------------------------------------- one control
@@ -316,9 +330,12 @@ public final class AccessPolicy {
 
     /**
      * Why a person cannot be put in an assignment field, or empty when they can. Facilitator, Control
-     * Operator and Process Owner take participants, SoQM Team / Delegate takes SoQM users, nobody read-only
-     * is assigned (Shared With takes anyone), and a KDN-scope user goes only on KDN controls.
-     * One person may hold several fields of the same control.
+     * Operator and Process Owner take participants, SoQM Team / Delegate takes SoQM users, Shared With takes
+     * anyone, and a KDN-scope user goes only on KDN controls. Read-only users are not assigned, except a KDN
+     * user in the Facilitator, Control Operator or Process Owner field of a KDN control: there they see the
+     * control and get its notifications, but perform no step (only participants act, {@link #resolve}), so
+     * SoQM moves such a control on for them (TODO: BUSINESS CONFIRMATION: who performs the steps of KDN
+     * controls, presumably SoQM Team). One person may hold several fields of the same control.
      *
      * @param candidate null when there is no QTracker user with that e-mail
      */
@@ -337,7 +354,9 @@ public final class AccessPolicy {
             case FACILITATOR, CONTROL_OPERATOR, PROCESS_OWNER -> switch (candidate.level()) {
                 case PARTICIPANT -> Optional.empty();
                 case SOQM -> Optional.of("is a SoQM user; " + slot.getLabel() + " must be a participant");
-                case READ_ONLY -> Optional.of("has read-only access and cannot be assigned");
+                case READ_ONLY -> candidate.scope() == AccessScope.KDN && kdnControl
+                        ? Optional.empty()
+                        : Optional.of("has read-only access and cannot be assigned");
             };
         };
     }

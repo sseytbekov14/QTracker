@@ -1138,14 +1138,16 @@ document.addEventListener('DOMContentLoaded', function() {
         dirtyNote.hidden = !dirty;
     }
 
-    // SoQM always sees all controls: its scope is All and cannot be changed
+    // SoQM always sees all controls: its scope is All and cannot be changed. KDN users are always
+    // Read only (the server refuses KDN with another level)
     function syncScopeToLevel() {
         const soqm = fields.level.value === 'SOQM';
         if (soqm) {
             fields.scope.value = 'ALL';
         }
         fields.scope.disabled = soqm || dialog.mode === 'view';
-        scopeHint.textContent = soqm ? 'SoQM always sees all controls.' : '';
+        scopeHint.textContent = soqm ? 'SoQM always sees all controls.'
+            : fields.scope.value === 'KDN' ? 'KDN users are always Read only.' : '';
     }
 
     function updateAccessSummary() {
@@ -1166,8 +1168,14 @@ document.addEventListener('DOMContentLoaded', function() {
             : admin ? 'all controls, drafts included (admin access).'
             : (SCOPE_TEXT[scope] || SCOPE_TEXT.OWN) + '.']);
         lines.push(['Edits', level === 'SOQM' ? 'every control: assigns people and performs the SoQM steps.'
-            : level === 'PARTICIPANT' ? 'only the steps they are assigned to' + (scope === 'KDN' ? ' (KDN controls).' : '.')
-            : 'nothing: view only.']);
+            : level === 'PARTICIPANT' ? 'only the steps they are assigned to.'
+            : 'nothing: view only' + (scope === 'KDN' ? '; downloads attachments.' : '.')]);
+        if (scope === 'KDN' && level !== 'SOQM') {
+            lines.push(['Assigned', level === 'READ_ONLY'
+                ? 'as Facilitator, Control Operator or Process Owner of KDN controls only, to see them and get their'
+                    + ' notifications; SoQM performs those steps.'
+                : 'never: KDN users must be Read only.']);
+        }
         if (admin) {
             lines.push(['Admin Panel:', level === 'READ_ONLY' ? 'view only.' : 'manages users and sees the audit trail.']);
         }
@@ -1178,8 +1186,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const field = fields[key];
         field.addEventListener(field.tagName === 'SELECT' || field.type === 'checkbox' ? 'change' : 'input', function() {
             setFieldError(field, '');
-            if (key === 'level') {
+            if (key === 'level' || key === 'scope') {
                 syncScopeToLevel();
+            }
+            if (key === 'level') {
                 setFieldError(fields.scope, '');
             }
             updateAccessSummary();

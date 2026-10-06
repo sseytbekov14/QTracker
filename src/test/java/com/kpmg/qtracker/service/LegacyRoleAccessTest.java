@@ -16,15 +16,15 @@ class LegacyRoleAccessTest {
             "SoQM Team,        -,           SOQM,        ALL",
             "SoQM Head,        -,           SOQM,        ALL",
             "Master,           -,           PARTICIPANT, ALL",
-            "KDN,              -,           PARTICIPANT, KDN",
+            "KDN,              -,           READ_ONLY,   KDN",
             "Read Only,        -,           READ_ONLY,   OWN",
             // QTracker users.role / secondary_role
             "SOQM_TEAM,        -,           SOQM,        ALL",
             "FACILITATOR,      -,           PARTICIPANT, OWN",
             "CONTROL_OPERATOR, FACILITATOR, PARTICIPANT, OWN",
             "Process Owner,    -,           PARTICIPANT, OWN",
-            "FACILITATOR,      KDN,         PARTICIPANT, KDN",
-            "SOQM_TEAM,        KDN,         PARTICIPANT, KDN",
+            "FACILITATOR,      KDN,         READ_ONLY,   KDN",
+            "SOQM_TEAM,        KDN,         READ_ONLY,   KDN",
             "ADMIN,            -,           PARTICIPANT, ALL",
             // No role or one nobody knows: the least access
             "-,                -,           READ_ONLY,   OWN",

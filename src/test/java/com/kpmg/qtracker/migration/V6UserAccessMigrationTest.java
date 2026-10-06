@@ -1,6 +1,5 @@
 package com.kpmg.qtracker.migration;
 
-import com.kpmg.qtracker.service.LegacyRoleAccess;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.output.MigrateResult;
 import org.junit.jupiter.api.AfterEach;
@@ -23,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Runs V6 through Flyway on an H2 users table shaped like V1, with the role values that occur in the
  * databases (normalized and not, both role columns, the seed ADMIN string, values the code never knew).
+ * KDN users come out PARTICIPANT / KDN here; V8 makes them read-only ({@link V8KdnReadOnlyMigrationTest}).
  */
 class V6UserAccessMigrationTest {
 
@@ -101,19 +101,6 @@ class V6UserAccessMigrationTest {
             assertThat(rs.getString(1)).isEqualTo("SOQM_TEAM");
             assertThat(rs.getString(2)).isEqualTo("KDN");
         }
-    }
-
-    @Test
-    void javaMapping_matchesTheBackfill() throws Exception {
-        flyway().migrate();
-
-        Map<String, String> migrated = access();
-        users.forEach((mail, values) -> {
-            LegacyRoleAccess.Access access = LegacyRoleAccess.of(values[0], values[1]);
-            assertThat(migrated.get(mail))
-                    .as(mail)
-                    .startsWith(access.level() + "/" + access.scope() + "/");
-        });
     }
 
     @Test

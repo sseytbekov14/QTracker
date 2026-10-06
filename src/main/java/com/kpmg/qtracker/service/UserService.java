@@ -112,6 +112,10 @@ public class UserService {
         AccessScope nextScope;
         if (scope == null || scope.isBlank()) {
             nextScope = nextLevel == AccessLevel.SOQM ? AccessScope.ALL : storedScope(targetUser);
+            Optional<String> refusal = AccessPolicy.levelScopeRefusal(nextLevel, nextScope);
+            if (refusal.isPresent()) {
+                throw new IllegalArgumentException(refusal.get());
+            }
         } else {
             nextScope = resolveScope(nextLevel, scope);
         }
@@ -157,15 +161,19 @@ public class UserService {
         return userRepository.save(newUser(email, displayName, accessLevel, accessScope, adminAccess, enabled));
     }
 
-    /** The scope for a level: SoQM only ALL; a blank scope means ALL for SoQM and OWN for everyone else. */
+    /**
+     * The scope for a level, as {@link AccessPolicy#levelScopeRefusal} allows it (SoQM only ALL, KDN only
+     * READ_ONLY); a blank scope means ALL for SoQM and OWN for everyone else.
+     */
     public static AccessScope resolveScope(AccessLevel level, String scope) {
         if (scope == null || scope.isBlank()) {
             return level == AccessLevel.SOQM ? AccessScope.ALL : AccessScope.OWN;
         }
         AccessScope accessScope = AccessScope.tryFrom(scope)
                 .orElseThrow(() -> new IllegalArgumentException("Unsupported scope: " + scope));
-        if (level == AccessLevel.SOQM && accessScope != AccessScope.ALL) {
-            throw new IllegalArgumentException("SoQM always sees all controls: scope must be ALL");
+        Optional<String> refusal = AccessPolicy.levelScopeRefusal(level, accessScope);
+        if (refusal.isPresent()) {
+            throw new IllegalArgumentException(refusal.get());
         }
         return accessScope;
     }

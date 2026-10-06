@@ -66,7 +66,7 @@ class ControlServiceKdnVisibilityTest {
                 List.of(assignment(3L, MAIL, null), assignment(4L, MAIL, null), assignment(7L, null, MAIL)));
 
         List<Control> visible = controlService.findVisibleControlsForUser(
-                TestUsers.user(MAIL, AccessLevel.PARTICIPANT, AccessScope.KDN, false));
+                TestUsers.user(MAIL, AccessLevel.READ_ONLY, AccessScope.KDN, false));
 
         assertThat(visible).extracting(Control::getControlId).containsExactly("kdn-7001", "KDN-3001");
     }

@@ -12,6 +12,7 @@ import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.service.DeadlineOverdue;
+import com.kpmg.qtracker.service.FileStorageService;
 import com.kpmg.qtracker.service.SoqmYear;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -104,9 +105,10 @@ class RoleMatrixIT {
             new Who("part-none", "PARTICIPANT/OWN, not assigned", AccessLevel.PARTICIPANT, AccessScope.OWN, false, Place.NONE, false, false, false),
             new Who("part-shared", "PARTICIPANT/OWN, shared only", AccessLevel.PARTICIPANT, AccessScope.OWN, false, Place.SHARED, false, false, false),
             new Who("part-all", "PARTICIPANT/ALL (Master), not assigned", AccessLevel.PARTICIPANT, AccessScope.ALL, false, Place.NONE, false, false, false),
-            new Who("kdn-step", "PARTICIPANT/KDN, assigned, KDN control", AccessLevel.PARTICIPANT, AccessScope.KDN, false, Place.STEP, true, false, false),
-            new Who("kdn-none", "PARTICIPANT/KDN, not assigned, KDN control", AccessLevel.PARTICIPANT, AccessScope.KDN, false, Place.NONE, true, false, false),
-            new Who("kdn-hr", "PARTICIPANT/KDN, assigned, non-KDN control", AccessLevel.PARTICIPANT, AccessScope.KDN, false, Place.STEP, false, false, false),
+            new Who("kdn-step", "READ_ONLY/KDN, in the step field, KDN control", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.STEP, true, false, false),
+            new Who("kdn-shared", "READ_ONLY/KDN, shared only, KDN control", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.SHARED, true, false, false),
+            new Who("kdn-none", "READ_ONLY/KDN, not on it, KDN control", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.NONE, true, false, false),
+            new Who("kdn-hr", "READ_ONLY/KDN, in the step field, non-KDN control (old data)", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.STEP, false, false, false),
             new Who("ro-shared", "READ_ONLY/OWN, shared", AccessLevel.READ_ONLY, AccessScope.OWN, false, Place.SHARED, false, false, false),
             new Who("ro-all", "READ_ONLY/ALL", AccessLevel.READ_ONLY, AccessScope.ALL, false, Place.NONE, false, false, false),
             new Who("admin-soqm", "admin + SOQM", AccessLevel.SOQM, AccessScope.ALL, true, Place.NONE, false, false, false),
@@ -120,7 +122,7 @@ class RoleMatrixIT {
             new Who("anonymous", "not signed in", null, null, false, Place.NONE, false, false, true));
 
     private static final List<String> CONTROL_OPS = List.of(
-            "View page", "Read API", "History", "Save details", "Steps field", "Operator field", "Edit control",
+            "View page", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
             "Assign", "Upload", "Rename ID", "Step", "Return", "Excel (completed)");
 
     private static final List<String> USER_OPS = List.of(
@@ -143,6 +145,9 @@ class RoleMatrixIT {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private FileStorageService fileStorageService;
 
     @MockitoBean
     private DevUserSeeder devUserSeeder;
@@ -245,7 +250,7 @@ class RoleMatrixIT {
         return switch (op) {
             case "View page" -> !sees ? "refused"
                     : "DRAFT".equals(status) && shared && !seesAll ? "not yet" : "ok";
-            case "Read API", "History" -> sees && !("DRAFT".equals(status) && shared && !seesAll) ? "ok" : "refused";
+            case "Read API", "History", "Download" -> sees && !("DRAFT".equals(status) && shared && !seesAll) ? "ok" : "refused";
             case "Save details", "Upload" -> sees && writer && (soqm || participantStep) ? "ok" : "refused";
             case "Steps field" -> sees && writer && stepsField ? "ok" : "refused";
             case "Operator field" -> sees && writer && operatorField ? "ok" : "refused";
@@ -286,6 +291,8 @@ class RoleMatrixIT {
         row.put("View page", page(get("/view-control/{id}", control.getId()), session));
         row.put("Read API", answer(get("/api/control-details").param("controlId", String.valueOf(control.getId())), session));
         row.put("History", answer(get("/api/controls/{id}/changelog", control.getId()), session));
+        row.put("Download", answer(get("/api/attachments/download/{name}", control.getAttachmentDetailsPath())
+                .param("controlId", String.valueOf(control.getId())), session));
         row.put("Excel (completed)", "COMPLETED".equals(status)
                 ? answer(get("/api/controls/{id}/export/completed", control.getId()), session) : "n/a");
         row.put("Save details", answer(post("/api/control-details").with(csrf().asHeader())
@@ -441,7 +448,7 @@ class RoleMatrixIT {
     }
 
     /** A fresh control in the status, with the four standard people and the row's user in their place. */
-    private Control control(Who who, String status) {
+    private Control control(Who who, String status) throws Exception {
         Control control = new Control();
         control.setControlId((who.kdnControl() ? "KDN-RM-" : "HR-RM-") + (++controlCount));
         control.setControlFrequency("Monthly");
@@ -456,6 +463,9 @@ class RoleMatrixIT {
         control.setSoqmYear(SoqmYear.current(today()));
         control.setCreatedBy(soqmLead);
         control.setCreatedAt(LocalDateTime.now());
+        // One stored attachment, for "Download"
+        control.setAttachmentDetailsPath(fileStorageService.saveFile(new MockMultipartFile("file", "evidence.pdf",
+                "application/pdf", "%PDF-1.4 evidence".getBytes(StandardCharsets.UTF_8)), control.getControlId()));
         control = controlRepository.save(control);
 
         User user = users.get(who.key());

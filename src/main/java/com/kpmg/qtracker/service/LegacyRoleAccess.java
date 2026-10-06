@@ -13,12 +13,12 @@ import java.util.Set;
  *   <li>SoQM Team, SoQM Head (and any other SOQM role) - SOQM / ALL;</li>
  *   <li>Master - PARTICIPANT / ALL;</li>
  *   <li>Facilitator, Control Operator, Process Owner - PARTICIPANT / OWN;</li>
- *   <li>KDN, in either role column - PARTICIPANT / KDN;</li>
+ *   <li>KDN, in either role column - READ_ONLY / KDN (KDN users only view their KDN controls);</li>
  *   <li>ADMIN (the seed accounts' role string) - PARTICIPANT / ALL;</li>
  *   <li>Read Only, a blank or unknown role - READ_ONLY / OWN.</li>
  * </ul>
- * The same rules as the V6 migration backfill; the first that matches wins. The admin_access flag is not
- * a role and is never derived from one: it is given by hand in the Admin Panel.
+ * The same rules as the V6 migration backfill, with KDN read-only as V8 makes it; the first that matches wins.
+ * The admin_access flag is not a role and is never derived from one: it is given by hand in the Admin Panel.
  */
 public final class LegacyRoleAccess {
 
@@ -34,7 +34,7 @@ public final class LegacyRoleAccess {
     public static Access of(String role, String secondaryRole) {
         String primary = key(role);
         if ("KDN".equals(primary) || "KDN".equals(key(secondaryRole))) {
-            return new Access(AccessLevel.PARTICIPANT, AccessScope.KDN);
+            return new Access(AccessLevel.READ_ONLY, AccessScope.KDN);
         }
         if (primary.startsWith("SOQM")) {
             return new Access(AccessLevel.SOQM, AccessScope.ALL);
