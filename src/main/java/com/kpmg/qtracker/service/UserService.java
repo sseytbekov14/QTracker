@@ -19,6 +19,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private static final String DEFAULT_NEW_USER_PASSWORD = "aaa";
+    /** The display_name column length. */
+    static final int MAX_NAME_LENGTH = 255;
 
     public List<User> getAllUsers() {
         return userRepository.findAll();
@@ -48,19 +50,60 @@ public class UserService {
         return userRepository.existsByMail(email);
     }
 
-    /**
-     * The Admin Panel save of one user. A blank level or scope keeps the stored one; SoQM always gets
-     * scope ALL. Admins cannot disable themselves, remove their own admin access or make themselves
-     * read-only (they would lose the Admin Panel changes). The old role columns are not touched.
-     */
+    /** The access part of the Admin Panel save (level, scope, admin access, status); see {@link #updateUser}. */
     public User updateUserAccess(Long targetUserId,
                                  String level,
                                  String scope,
                                  Boolean adminAccess,
                                  Boolean enabled,
                                  Long actingUserId) {
+        return updateUser(targetUserId, null, null, level, scope, adminAccess, enabled, actingUserId);
+    }
+
+    /**
+     * The Admin Panel save of one user. Every value is checked before anything changes, so a refused save
+     * changes nothing. A null e-mail or name keeps the stored one; the e-mail changes only before the first
+     * login. A blank level or scope keeps the stored one; SoQM always gets scope ALL. Admins cannot
+     * deactivate themselves, remove their own admin access or make themselves read-only (they would lose
+     * the Admin Panel changes). The old role columns are not touched.
+     */
+    public User updateUser(Long targetUserId,
+                           String email,
+                           String displayName,
+                           String level,
+                           String scope,
+                           Boolean adminAccess,
+                           Boolean enabled,
+                           Long actingUserId) {
         User targetUser = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        String nextMail = targetUser.getMail();
+        if (email != null) {
+            String normalizedEmail = normalizeEmail(email);
+            String currentEmail = targetUser.getMail() == null ? "" : targetUser.getMail().trim().toLowerCase(Locale.ROOT);
+            if (!normalizedEmail.equals(currentEmail)) {
+                if (targetUser.getLastLoginAt() != null) {
+                    throw new IllegalArgumentException("Email can be changed only before the first login");
+                }
+                if (userRepository.existsByMail(normalizedEmail)) {
+                    throw new IllegalArgumentException("User with this email already exists");
+                }
+                nextMail = normalizedEmail;
+            }
+        }
+
+        String nextName = targetUser.getDisplayName();
+        if (displayName != null) {
+            String trimmed = displayName.trim();
+            if (trimmed.isEmpty()) {
+                throw new IllegalArgumentException("Name is required");
+            }
+            if (trimmed.length() > MAX_NAME_LENGTH) {
+                throw new IllegalArgumentException("Name is too long (" + MAX_NAME_LENGTH + " characters at most)");
+            }
+            nextName = trimmed;
+        }
 
         AccessLevel nextLevel = level == null || level.isBlank()
                 ? storedLevel(targetUser)
@@ -76,13 +119,18 @@ public class UserService {
         boolean nextAdminAccess = adminAccess != null ? adminAccess : Boolean.TRUE.equals(targetUser.getAdminAccess());
         boolean nextEnabled = enabled != null ? enabled : Boolean.TRUE.equals(targetUser.getEnabled());
         boolean selfUpdate = actingUserId != null && actingUserId.equals(targetUser.getId());
-        if (selfUpdate && (!nextAdminAccess || !nextEnabled)) {
-            throw new IllegalArgumentException("You cannot disable your own account or remove your own admin access");
+        if (selfUpdate && !nextEnabled) {
+            throw new IllegalArgumentException("You cannot deactivate your own account");
+        }
+        if (selfUpdate && !nextAdminAccess) {
+            throw new IllegalArgumentException("You cannot remove your own admin access");
         }
         if (selfUpdate && nextLevel == AccessLevel.READ_ONLY) {
             throw new IllegalArgumentException("You cannot make your own access read-only");
         }
 
+        targetUser.setMail(nextMail);
+        targetUser.setDisplayName(nextName);
         targetUser.setAccessLevel(nextLevel);
         targetUser.setAccessScope(nextScope);
         targetUser.setAdminAccess(nextAdminAccess);
@@ -132,14 +180,7 @@ public class UserService {
 
     private User newUser(String email, String displayName, AccessLevel level, AccessScope scope,
                          Boolean adminAccess, Boolean enabled) {
-        if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("Email is required");
-        }
-
-        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
-        if (!normalizedEmail.contains("@") || normalizedEmail.startsWith("@") || normalizedEmail.endsWith("@")) {
-            throw new IllegalArgumentException("Email format is invalid");
-        }
+        String normalizedEmail = normalizeEmail(email);
         if (userRepository.existsByMail(normalizedEmail)) {
             throw new IllegalArgumentException("User with this email already exists");
         }
@@ -170,14 +211,7 @@ public class UserService {
             throw new IllegalArgumentException("Email can be changed only before the first login");
         }
 
-        if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("Email is required");
-        }
-
-        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
-        if (!normalizedEmail.contains("@") || normalizedEmail.startsWith("@") || normalizedEmail.endsWith("@")) {
-            throw new IllegalArgumentException("Email format is invalid");
-        }
+        String normalizedEmail = normalizeEmail(email);
 
         String currentEmail = targetUser.getMail() == null ? "" : targetUser.getMail().trim().toLowerCase(Locale.ROOT);
         if (normalizedEmail.equals(currentEmail)) {
@@ -190,6 +224,18 @@ public class UserService {
 
         targetUser.setMail(normalizedEmail);
         return userRepository.save(targetUser);
+    }
+
+    /** The e-mail in lower case, or "Email is required" / "Email format is invalid". */
+    private static String normalizeEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Email is required");
+        }
+        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+        if (!normalizedEmail.contains("@") || normalizedEmail.startsWith("@") || normalizedEmail.endsWith("@")) {
+            throw new IllegalArgumentException("Email format is invalid");
+        }
+        return normalizedEmail;
     }
 
     private String buildDisplayNameFromEmail(String email) {

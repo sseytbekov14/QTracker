@@ -102,7 +102,7 @@ public class AdminAuditTrail {
         return new Trail(entries, counts);
     }
 
-    static Entry entry(AdminAuditLog log) {
+    public static Entry entry(AdminAuditLog log) {
         Group group = Group.of(log.getActionType());
         String changedBy = log.getAdminName() != null && !log.getAdminName().isBlank()
                 ? log.getAdminName() : log.getAdminEmail();

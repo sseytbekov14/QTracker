@@ -1,9 +1,11 @@
 package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.dto.UserDTO;
+import com.kpmg.qtracker.entity.AdminAuditLog;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.AccessPolicy;
+import com.kpmg.qtracker.service.AdminAuditTrail;
 import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.util.RoleDisplayMapper;
 import jakarta.servlet.http.HttpSession;
@@ -11,9 +13,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 
@@ -23,6 +27,9 @@ import java.util.stream.Collectors;
 public class UserController {
     private final UserService userService;
     private final AdminAuditService adminAuditService;
+
+    /** Dates as the Admin Panel shows them. */
+    private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
     // Every user: SoQM and admins only, like the assignment pickers
     @GetMapping("/users")
@@ -35,13 +42,20 @@ public class UserController {
                 .collect(Collectors.toList()));
     }
 
-    /** One user's access from the Admin Panel: level, scope, admin access and status (USER_ACCESS_UPDATE). */
+    /**
+     * The Admin Panel save of one user, in one request: access (level, scope, admin access, status) and,
+     * when sent, the name and the e-mail (the e-mail only before the first login). Nothing changes when a
+     * value is refused. A save that changes something writes one USER_ACCESS_UPDATE entry with the changed
+     * fields before and after; the answer carries the user and that entry for the page.
+     */
     @PostMapping("/users/{id}/access")
     public ResponseEntity<?> updateUserAccess(@PathVariable Long id,
                                               @RequestParam(required = false) String level,
                                               @RequestParam(required = false) String scope,
                                               @RequestParam(defaultValue = "false") boolean adminAccess,
                                               @RequestParam(defaultValue = "false") boolean enabled,
+                                              @RequestParam(required = false) String email,
+                                              @RequestParam(required = false) String displayName,
                                               HttpSession session) {
         User currentUser = (User) session.getAttribute("currentUser");
         if (currentUser == null) {
@@ -53,30 +67,30 @@ public class UserController {
 
         try {
             // The service changes the same managed entity, so the values before the change are copied first
-            User before = accessSnapshot(userService.getUserById(id)
+            User before = snapshot(userService.getUserById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found")));
 
-            User updated = userService.updateUserAccess(id, level, scope, adminAccess, enabled, currentUser.getId());
-            String description = buildAccessUpdateDescription(before, updated);
+            User updated = userService.updateUser(id, email, displayName, level, scope, adminAccess, enabled,
+                    currentUser.getId());
 
-            adminAuditService.logActionWithChanges(
-                    currentUser.getMail(),
-                    currentUser.getDisplayName(),
-                    "USER_ACCESS_UPDATE",
-                    null,
-                    description,
-                    "level,scope,adminAccess,enabled",
-                    accessValues(before),
-                    accessValues(updated)
-            );
+            AdminAuditLog audit = null;
+            Changes changes = changes(before, updated);
+            if (!changes.fields().isEmpty()) {
+                audit = adminAuditService.logActionWithChanges(
+                        currentUser.getMail(),
+                        currentUser.getDisplayName(),
+                        "USER_ACCESS_UPDATE",
+                        null,
+                        String.join("; ", changes.descriptions()) + " for " + updated.getMail(),
+                        String.join(",", changes.fields()),
+                        String.join(", ", changes.before()),
+                        String.join(", ", changes.after())
+                );
+            }
 
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("id", updated.getId());
-            payload.put("mail", updated.getMail());
-            payload.put("level", updated.getAccessLevel());
-            payload.put("scope", updated.getAccessScope());
-            payload.put("adminAccess", Boolean.TRUE.equals(updated.getAdminAccess()));
-            payload.put("enabled", Boolean.TRUE.equals(updated.getEnabled()));
+            Map<String, Object> payload = userPayload(updated);
+            payload.put("changed", !changes.fields().isEmpty());
+            payload.put("audit", auditPayload(audit));
             return ResponseEntity.ok(payload);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(ex.getMessage());
@@ -103,7 +117,7 @@ public class UserController {
         try {
             User created = userService.createUser(email, displayName, level, scope, adminAccess, enabled);
 
-            adminAuditService.logActionWithChanges(
+            AdminAuditLog audit = adminAuditService.logActionWithChanges(
                     currentUser.getMail(),
                     currentUser.getDisplayName(),
                     "USER_CREATE",
@@ -116,14 +130,8 @@ public class UserController {
                             + ", " + accessValues(created)
             );
 
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("id", created.getId());
-            payload.put("mail", created.getMail());
-            payload.put("displayName", created.getDisplayName());
-            payload.put("level", created.getAccessLevel());
-            payload.put("scope", created.getAccessScope());
-            payload.put("adminAccess", Boolean.TRUE.equals(created.getAdminAccess()));
-            payload.put("enabled", Boolean.TRUE.equals(created.getEnabled()));
+            Map<String, Object> payload = userPayload(created);
+            payload.put("audit", auditPayload(audit));
             return ResponseEntity.ok(payload);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(ex.getMessage());
@@ -172,10 +180,11 @@ public class UserController {
     }
 
 
-    private static User accessSnapshot(User user) {
+    private static User snapshot(User user) {
         User copy = new User();
         copy.setId(user.getId());
         copy.setMail(user.getMail());
+        copy.setDisplayName(user.getDisplayName());
         copy.setAccessLevel(user.getAccessLevel());
         copy.setAccessScope(user.getAccessScope());
         copy.setAdminAccess(user.getAdminAccess());
@@ -191,6 +200,78 @@ public class UserController {
                 + ", enabled=" + Boolean.TRUE.equals(user.getEnabled());
     }
 
+    /** What one save changed: field names, the audit sentences, and "field=value" before and after. */
+    private record Changes(List<String> fields, List<String> descriptions, List<String> before, List<String> after) {
+        void add(String field, String description, Object from, Object to) {
+            fields.add(field);
+            descriptions.add(description);
+            before.add(field + "=" + from);
+            after.add(field + "=" + to);
+        }
+    }
+
+    private static Changes changes(User before, User after) {
+        Changes changes = new Changes(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+        if (!Objects.equals(before.getMail(), after.getMail())) {
+            changes.add("mail", "Changed email from " + before.getMail() + " to " + after.getMail(),
+                    before.getMail(), after.getMail());
+        }
+        if (!Objects.equals(before.getDisplayName(), after.getDisplayName())) {
+            changes.add("displayName", "Changed name from " + before.getDisplayName() + " to " + after.getDisplayName(),
+                    before.getDisplayName(), after.getDisplayName());
+        }
+        if (before.getAccessLevel() != after.getAccessLevel()) {
+            changes.add("level", "Changed level from " + before.getAccessLevel() + " to " + after.getAccessLevel(),
+                    before.getAccessLevel(), after.getAccessLevel());
+        }
+        if (before.getAccessScope() != after.getAccessScope()) {
+            changes.add("scope", "Changed scope from " + before.getAccessScope() + " to " + after.getAccessScope(),
+                    before.getAccessScope(), after.getAccessScope());
+        }
+        boolean beforeAdmin = Boolean.TRUE.equals(before.getAdminAccess());
+        boolean afterAdmin = Boolean.TRUE.equals(after.getAdminAccess());
+        if (beforeAdmin != afterAdmin) {
+            changes.add("adminAccess", "Changed admin access from " + yesNo(beforeAdmin) + " to " + yesNo(afterAdmin),
+                    beforeAdmin, afterAdmin);
+        }
+        boolean beforeEnabled = Boolean.TRUE.equals(before.getEnabled());
+        boolean afterEnabled = Boolean.TRUE.equals(after.getEnabled());
+        if (beforeEnabled != afterEnabled) {
+            changes.add("enabled", "Changed status from " + activeInactive(beforeEnabled) + " to "
+                    + activeInactive(afterEnabled), beforeEnabled, afterEnabled);
+        }
+        return changes;
+    }
+
+    /** One user as the Admin Panel row shows it. */
+    private static Map<String, Object> userPayload(User user) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", user.getId());
+        payload.put("mail", user.getMail());
+        payload.put("displayName", user.getDisplayName());
+        payload.put("level", user.getAccessLevel());
+        payload.put("scope", user.getAccessScope());
+        payload.put("adminAccess", Boolean.TRUE.equals(user.getAdminAccess()));
+        payload.put("enabled", Boolean.TRUE.equals(user.getEnabled()));
+        payload.put("lastLoginAt", user.getLastLoginAt() != null ? user.getLastLoginAt().format(DATE_TIME) : null);
+        return payload;
+    }
+
+    /** The new Audit Trail line, as the Admin Panel shows it (null when the entry could not be saved). */
+    private static Map<String, Object> auditPayload(AdminAuditLog log) {
+        if (log == null) {
+            return null;
+        }
+        AdminAuditTrail.Entry entry = AdminAuditTrail.entry(log);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("group", entry.group().name());
+        payload.put("createdAt", entry.createdAt() != null ? entry.createdAt().format(DATE_TIME) : "-");
+        payload.put("changedBy", entry.changedBy());
+        payload.put("action", entry.action());
+        payload.put("target", entry.target());
+        return payload;
+    }
+
     private UserDTO convertToDTO(User user) {
         UserDTO dto = new UserDTO();
         dto.setId(user.getId());
@@ -201,40 +282,11 @@ public class UserController {
         return dto;
     }
 
-    private String buildAccessUpdateDescription(User before, User after) {
-        List<String> parts = new ArrayList<>();
-
-        if (before.getAccessLevel() != after.getAccessLevel()) {
-            parts.add("Changed level from " + before.getAccessLevel() + " to " + after.getAccessLevel());
-        }
-        if (before.getAccessScope() != after.getAccessScope()) {
-            parts.add("Changed scope from " + before.getAccessScope() + " to " + after.getAccessScope());
-        }
-
-        boolean beforeAdminAccess = Boolean.TRUE.equals(before.getAdminAccess());
-        boolean afterAdminAccess = Boolean.TRUE.equals(after.getAdminAccess());
-        if (beforeAdminAccess != afterAdminAccess) {
-            parts.add("Changed admin access from " + yesNo(beforeAdminAccess) + " to " + yesNo(afterAdminAccess));
-        }
-
-        boolean beforeEnabled = Boolean.TRUE.equals(before.getEnabled());
-        boolean afterEnabled = Boolean.TRUE.equals(after.getEnabled());
-        if (beforeEnabled != afterEnabled) {
-            parts.add("Changed status from " + activeInactive(beforeEnabled) + " to " + activeInactive(afterEnabled));
-        }
-
-        if (parts.isEmpty()) {
-            return "No access fields changed for " + after.getMail();
-        }
-
-        return String.join("; ", parts) + " for " + after.getMail();
-    }
-
-    private String yesNo(boolean value) {
+    private static String yesNo(boolean value) {
         return value ? "YES" : "NO";
     }
 
-    private String activeInactive(boolean value) {
+    private static String activeInactive(boolean value) {
         return value ? "ACTIVE" : "INACTIVE";
     }
 }
