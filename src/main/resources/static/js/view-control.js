@@ -2206,7 +2206,8 @@ function renameControlId(newControlId) {
 function isLimitedFieldEdit() {
     const permissions = window.qtrackerPermissions || {};
     return !permissions.canEditAll
-        && Boolean(permissions.canEditStepsPerformed || permissions.canEditProcessOwnerComments);
+        && Boolean(permissions.canEditStepsPerformed || permissions.canEditProcessOwnerComments
+            || permissions.canEditOperatorReview);
 }
 
 // A reload keeps the #tab hash. Assigning the same URL with a hash would only scroll, not reload.
