@@ -7,8 +7,8 @@
     <title th:text="'Control - ' + ${control.controlId}">Control - Sultan</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=13" rel="stylesheet">
-    <link href="/css/view-control.css?v=15" rel="stylesheet">
+    <link href="/css/style.css?v=15" rel="stylesheet">
+    <link href="/css/view-control.css?v=16" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator Program validation styling */
@@ -519,11 +519,20 @@
                 <!-- Workflow progress -->
                 <div class="vc-stepper">
                     <div th:replace="~{fragments/workflow-stepper :: stepper(${workflowStepIndex}, ${facilitatorNames}, ${operatorNames}, ${soqmNames}, ${ownerNames})}"></div>
-                    <p class="vc-turn-hint" th:if="${yourTurn}">
+                    <!-- Your step: the one field it needs (WorkflowRequiredFieldService.stepField), Required / Filled live -->
+                    <p class="vc-turn-hint" id="stepFieldHint" th:if="${yourTurn and stepField != null}"
+                       th:attr="data-step-field=${stepField.field()}">
                         <i class="bi bi-info-circle" aria-hidden="true"></i>
-                        <span>This step is yours — fill in the required fields on the
-                            <a href="#details" class="vc-turn-hint-link" data-vc-tab="details">Details tab</a>,
-                            then use the action buttons at the bottom of the page.</span>
+                        <span>
+                            <strong>Your step:</strong>
+                            <th:block th:text="${stepField.check()} ? 'check' : 'fill'">fill</th:block>
+                            <a href="#details" class="vc-turn-hint-link" data-vc-tab="details"
+                               th:attr="data-vc-field=${stepField.field()}"
+                               th:text="${stepField.label()}">SoQM Head/Team Comments</a>
+                            on the Details tab (press Edit to change it), then
+                            <th:block th:text="${stepField.actions()} + '.'">Send to Process Owner or Return to Operator.</th:block>
+                        </span>
+                        <span class="vc-step-state" id="stepFieldState" aria-live="polite"></span>
                     </p>
                 </div>
 
@@ -733,7 +742,8 @@
 
                                 <div class="row">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label" for="controlStepsPerformed"><span th:text="${stepsLabel}">Control Steps Performed and Results</span><span class="steps-field-owner" th:if="${stepsSplit}">Facilitator</span></label>
+                                        <label class="form-label" for="controlStepsPerformed"><span th:text="${stepsLabel}">Control Steps Performed and Results</span><span class="step-required-mark" aria-hidden="true"
+                                                th:if="${stepField != null and stepField.field() == 'controlStepsPerformed'}"> *</span><span class="steps-field-owner" th:if="${stepsSplit}">Facilitator</span></label>
                                         <textarea class="form-control" id="controlStepsPerformed" name="controlStepsPerformed" rows="8" maxlength="2000"
                                                   placeholder="Describe control steps and results"></textarea>
                                         <div class="required-hint d-none" id="controlStepsSubmitHint">
@@ -745,7 +755,8 @@
                                 <!-- Only when the Facilitator and the Control Operator are different people (ControlStepsFields) -->
                                 <div class="row" id="operatorReviewRow" th:if="${stepsSplit}">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label" for="controlOperatorReview"><span th:text="${operatorReviewLabel}">Control Operator Review and Results</span><span class="steps-field-owner">Control Operator</span></label>
+                                        <label class="form-label" for="controlOperatorReview"><span th:text="${operatorReviewLabel}">Control Operator Review and Results</span><span class="step-required-mark" aria-hidden="true"
+                                                th:if="${stepField != null and stepField.field() == 'controlOperatorReview'}"> *</span><span class="steps-field-owner">Control Operator</span></label>
                                         <textarea class="form-control" id="controlOperatorReview" name="controlOperatorReview" rows="8" maxlength="2000"
                                                   placeholder="Describe your review of the steps and its results"></textarea>
                                         <div class="required-hint d-none" id="operatorReviewSubmitHint">
@@ -756,25 +767,33 @@
 
                                 <div class="row">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label">SoQM Head/Team Comments</label>
+                                        <label class="form-label">SoQM Head/Team Comments<span class="step-required-mark" aria-hidden="true"
+                                                th:if="${stepField != null and stepField.field() == 'soqmHeadComments'}"> *</span></label>
                                         <textarea class="form-control role-restricted-field" 
                                                   id="soqmHeadComments"
                                                   name="soqmHeadComments" 
                                                   rows="8"
                                                   maxlength="2000"
                                                   placeholder="Enter SoQM head/team comments"></textarea>
+                                        <div class="required-hint d-none" id="soqmHeadCommentsStepHint">
+                                            Required for your step: fill it to Send to Process Owner or Return to Operator.
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div class="row">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label">Process Owner Comments</label>
+                                        <label class="form-label">Process Owner Comments<span class="step-required-mark" aria-hidden="true"
+                                                th:if="${stepField != null and stepField.field() == 'processOwnerComments'}"> *</span></label>
                                         <textarea class="form-control role-restricted-field" 
                                                   id="processOwnerComments"
                                                   name="processOwnerComments" 
                                                   rows="8"
                                                   maxlength="2000"
                                                   placeholder="Enter process owner comments"></textarea>
+                                        <div class="required-hint d-none" id="processOwnerCommentsStepHint">
+                                            Required for your step: fill it to Complete or Return to Control Operator.
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1108,7 +1127,14 @@
                             var trigger = event.target.closest ? event.target.closest('[data-vc-tab]') : null;
                             if (!trigger) return;
                             event.preventDefault();
-                            show(trigger.getAttribute('data-vc-tab'));
+                            // A link naming a field (the "Your step" hint) also scrolls to it and focuses it
+                            var fieldName = trigger.getAttribute('data-vc-field');
+                            show(trigger.getAttribute('data-vc-tab'), fieldName ? function () {
+                                var field = document.querySelector('[name="' + fieldName + '"]');
+                                if (!field) return;
+                                field.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                                field.focus({ preventScroll: true });
+                            } : null);
                         });
 
                         window.ViewControlTabs = { show: show, revealField: revealField };
@@ -1514,7 +1540,7 @@
 <script src="/js/vendor/bootstrap.bundle.min.js"></script>
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
-<script src="/js/app-modal.js?v=4"></script>
+<script src="/js/app-modal.js?v=5"></script>
 <script src="/js/view-control.js?v=5.6"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
@@ -1584,6 +1610,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     const filled = !!soqmCommentsField.value.trim();
                     submitToProcessOwnerBtn.disabled = !filled;
                     if (returnToOperatorBtn) returnToOperatorBtn.disabled = !filled;
+                    // A disabled button says what it waits for
+                    submitToProcessOwnerBtn.title = filled ? 'Submit this control to Process Owner for review'
+                        : 'Fill SoQM Head/Team Comments to enable';
+                    if (returnToOperatorBtn) {
+                        returnToOperatorBtn.title = filled ? 'Return this control to Control Operator for revision'
+                            : 'Fill SoQM Head/Team Comments to enable';
+                    }
                 };
                 toggleBtns(); // set initial state based on existing value
                 soqmCommentsField.addEventListener('input', toggleBtns);
@@ -1613,6 +1646,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const filled = !!poCommentsField.value.trim();
                 if (completeControlBtn) completeControlBtn.disabled = !filled;
                 if (ownerReturnToOperatorBtn) ownerReturnToOperatorBtn.disabled = !filled;
+                // A disabled button says what it waits for
+                if (completeControlBtn) {
+                    completeControlBtn.title = filled ? 'Complete this control' : 'Fill Process Owner Comments to enable';
+                }
+                if (ownerReturnToOperatorBtn) {
+                    ownerReturnToOperatorBtn.title = filled ? 'Return this control to the Control Operator for revision'
+                        : 'Fill Process Owner Comments to enable';
+                }
             };
             togglePoBtns();
             poCommentsField.addEventListener('input', togglePoBtns);
@@ -1632,6 +1673,41 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('   ?? Control Operator after submission - hiding edit buttons');
         if (editBtn) editBtn.style.display = 'none';
         if (renameIdBtn) renameIdBtn.style.display = 'none';
+    }
+
+    // ============================================
+    // YOUR STEP: THE FIELD IT NEEDS
+    // ============================================
+    // The field named in the "Your step" hint is red with a note under it until it has a value, for every
+    // role (Facilitator and Operator: Control steps; SoQM: SoQM Head/Team Comments; Process Owner: Process
+    // Owner Comments); the hint shows Required / Filled. The values arrive later (loadDetailsData fires input).
+    const stepHintEl = document.getElementById('stepFieldHint');
+    if (stepHintEl && canUseWorkflowActions) {
+        const stepFieldName = stepHintEl.getAttribute('data-step-field');
+        const stepField = document.querySelector('textarea[name="' + stepFieldName + '"]');
+        const stepState = document.getElementById('stepFieldState');
+        const fieldNote = document.getElementById(
+            stepFieldName === 'controlStepsPerformed' ? 'controlStepsSubmitHint'
+                : stepFieldName === 'controlOperatorReview' ? 'operatorReviewSubmitHint'
+                : stepFieldName + 'StepHint');
+        const updateStepField = () => {
+            const filled = !!(stepField && stepField.value.trim());
+            if (stepField) {
+                stepField.classList.toggle('field-required-error', !filled);
+                stepField.setAttribute('aria-required', 'true');
+            }
+            if (fieldNote) fieldNote.classList.toggle('d-none', filled);
+            if (stepState) {
+                stepState.textContent = filled ? 'Filled' : 'Required';
+                stepState.classList.toggle('is-filled', filled);
+            }
+            stepHintEl.classList.toggle('is-done', filled);
+        };
+        updateStepField();
+        if (stepField) {
+            stepField.addEventListener('input', updateStepField);
+            stepField.addEventListener('change', updateStepField);
+        }
     }
 
     // ============================================

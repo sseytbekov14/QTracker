@@ -113,13 +113,50 @@ class UserServiceAccessTest {
         self.setAdminAccess(true);
 
         assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "", "", true, false, TARGET_ID))
-                .hasMessage("You cannot disable your own account or remove your own admin access");
+                .hasMessage("You cannot deactivate your own account");
         assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "", "", false, true, TARGET_ID))
-                .hasMessage("You cannot disable your own account or remove your own admin access");
+                .hasMessage("You cannot remove your own admin access");
         assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "READ_ONLY", "", true, true, TARGET_ID))
                 .hasMessage("You cannot make your own access read-only");
         assertThat(service.updateUserAccess(TARGET_ID, "SOQM", "", true, true, TARGET_ID).getAccessLevel())
                 .isEqualTo(AccessLevel.SOQM);
+    }
+
+    @Test
+    void updateUser_changesNameEmailAndAccessTogether_beforeTheFirstLogin() {
+        stored(AccessLevel.READ_ONLY, AccessScope.OWN);
+        when(userRepository.existsByMail("new@example.test")).thenReturn(false);
+
+        User saved = service.updateUser(TARGET_ID, " New@Example.test ", "  Jane Doe ", "PARTICIPANT", "KDN",
+                false, true, ADMIN_ID);
+
+        assertThat(saved.getMail()).isEqualTo("new@example.test");
+        assertThat(saved.getDisplayName()).isEqualTo("Jane Doe");
+        assertThat(saved.getAccessLevel()).isEqualTo(AccessLevel.PARTICIPANT);
+        assertThat(saved.getAccessScope()).isEqualTo(AccessScope.KDN);
+    }
+
+    @Test
+    void updateUser_refusedValue_changesNothing() {
+        User user = stored(AccessLevel.READ_ONLY, AccessScope.OWN);
+        user.setDisplayName("Old Name");
+        user.setLastLoginAt(java.time.LocalDateTime.of(2026, 10, 1, 9, 0));
+
+        assertThatThrownBy(() -> service.updateUser(TARGET_ID, "other@example.test", "New Name", "SOQM", "",
+                true, true, ADMIN_ID))
+                .hasMessage("Email can be changed only before the first login");
+        assertThatThrownBy(() -> service.updateUser(TARGET_ID, null, "   ", "SOQM", "", true, true, ADMIN_ID))
+                .hasMessage("Name is required");
+        assertThatThrownBy(() -> service.updateUser(TARGET_ID, null, "x".repeat(256), "SOQM", "", true, true, ADMIN_ID))
+                .hasMessage("Name is too long (255 characters at most)");
+        assertThat(user.getMail()).isEqualTo("target@example.test");
+        assertThat(user.getDisplayName()).isEqualTo("Old Name");
+        assertThat(user.getAccessLevel()).isEqualTo(AccessLevel.READ_ONLY);
+        assertThat(user.getAdminAccess()).isFalse();
+
+        // The same address in another case is no change, also after the first login
+        assertThat(service.updateUser(TARGET_ID, "TARGET@example.test", null, "", "", false, true, ADMIN_ID).getMail())
+                .isEqualTo("target@example.test");
     }
 
     @Test

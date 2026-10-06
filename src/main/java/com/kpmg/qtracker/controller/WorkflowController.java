@@ -294,15 +294,11 @@ public class WorkflowController {
             history.setCreatedAt(LocalDateTime.now(Notification.ZONE));
             workflowHistoryRepository.save(history);
 
-            // Notify Control Operator only
-            List<String> recipients = assignmentEmails(controlId, "CONTROL_OPERATOR");
-            String currentEmail = currentUser.getMail();
-            if (currentEmail != null) {
-                recipients.removeIf(email -> email != null && email.equalsIgnoreCase(currentEmail));
-            }
+            // Notify the Control Operators, the one who returns it included when they are also one
+            // (a Process Owner who is also the Operator): every move to a step a person holds is announced
             notificationService.sendReturnNotifications(
                     control,
-                    recipients,
+                    assignmentEmails(controlId, "CONTROL_OPERATOR"),
                     decision.transition().getActor().getDisplayName(),
                     currentUser.getDisplayName(),
                     "Control Operator",
@@ -428,8 +424,7 @@ public class WorkflowController {
         if ("SEND_BACK_TO_OPERATOR".equals(normalizedAction) || "SEND_FOR_REVISION".equals(normalizedAction)) {
             notificationService.sendReturnNotifications(
                     control,
-                    recipientsWithoutActor(assignmentEmails(control.getId(), "CONTROL_OPERATOR"),
-                            currentUser != null ? currentUser.getMail() : null),
+                    assignmentEmails(control.getId(), "CONTROL_OPERATOR"),
                     currentUser != null ? actorLabel(normalizedAction) : null,
                     currentUser != null ? currentUser.getDisplayName() : null,
                     "Control Operator",
@@ -442,8 +437,7 @@ public class WorkflowController {
         if ("RETURN_TO_FACILITATOR".equals(normalizedAction)) {
             notificationService.sendReturnNotifications(
                     control,
-                    recipientsWithoutActor(assignmentEmails(control.getId(), "FACILITATOR"),
-                            currentUser != null ? currentUser.getMail() : null),
+                    assignmentEmails(control.getId(), "FACILITATOR"),
                     currentUser != null ? actorLabel(normalizedAction) : null,
                     currentUser != null ? currentUser.getDisplayName() : null,
                     "Facilitator",
@@ -479,15 +473,6 @@ public class WorkflowController {
                 .findFirst()
                 .map(transition -> transition.getActor().getDisplayName())
                 .orElse(null);
-    }
-
-    private List<String> recipientsWithoutActor(List<String> recipients, String actorEmail) {
-        if (recipients == null || recipients.isEmpty() || actorEmail == null || actorEmail.isBlank()) {
-            return recipients == null ? List.of() : recipients;
-        }
-        List<String> filtered = new ArrayList<>(recipients);
-        filtered.removeIf(email -> email != null && email.equalsIgnoreCase(actorEmail));
-        return filtered;
     }
 
     private String firstNonBlank(String first, String second) {

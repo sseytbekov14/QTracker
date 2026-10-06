@@ -14,10 +14,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -130,13 +132,7 @@ public class NotificationService {
         if (control == null || recipientEmails == null || recipientEmails.isEmpty()) {
             return;
         }
-        Set<String> unique = new LinkedHashSet<>();
-        for (String email : recipientEmails) {
-            if (email != null && !email.isBlank()) {
-                unique.add(email.trim());
-            }
-        }
-        for (String email : unique) {
+        for (String email : uniqueRecipients(recipientEmails)) {
             createNotification(email, control, templateType, resubmitted);
         }
     }
@@ -162,15 +158,9 @@ public class NotificationService {
                         notificationType
                 );
 
-        Set<String> unique = new LinkedHashSet<>();
-        for (String email : recipientEmails) {
-            if (email != null && !email.isBlank()) {
-                unique.add(email.trim());
-            }
-        }
         // Every return is a separate guarded status change, so each one is announced,
         // even when the same control comes back to the same person within minutes
-        for (String email : unique) {
+        for (String email : uniqueRecipients(recipientEmails)) {
             userRepository.findByMail(email).ifPresent(user -> {
                 Notification notif = new Notification();
                 notif.setUserId(user.getId());
@@ -188,6 +178,20 @@ public class NotificationService {
                 }
             });
         }
+    }
+
+    /**
+     * One notification per person: a person who holds several fields of the control (e.g. Facilitator and
+     * Control Operator) is listed once, also when the fields spell the address in a different case.
+     */
+    private static List<String> uniqueRecipients(List<String> recipientEmails) {
+        Map<String, String> unique = new LinkedHashMap<>();
+        for (String email : recipientEmails) {
+            if (email != null && !email.isBlank()) {
+                unique.putIfAbsent(email.trim().toLowerCase(Locale.ROOT), email.trim());
+            }
+        }
+        return new ArrayList<>(unique.values());
     }
 
     /** Who returned the control: their name, else the step they acted in ("Control Operator"), else "User". */

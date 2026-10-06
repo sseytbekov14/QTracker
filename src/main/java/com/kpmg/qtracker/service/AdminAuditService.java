@@ -48,9 +48,10 @@ public class AdminAuditService {
     }
     
     /**
-     * Log an ADMIN action with field changes
+     * Log an ADMIN action with field changes. Returns the saved entry, or null when it could not be saved
+     * (the action itself is not undone).
      */
-    public void logActionWithChanges(String adminEmail, String adminName, String actionType,
+    public AdminAuditLog logActionWithChanges(String adminEmail, String adminName, String actionType,
                                      Control control, String description,
                                      String changedFields, String previousValues, String newValues) {
         try {
@@ -68,12 +69,14 @@ public class AdminAuditService {
             auditLog.setChangedFields(changedFields);
             auditLog.setPreviousValues(previousValues);
             auditLog.setNewValues(newValues);
-            auditLogRepository.save(auditLog);
+            AdminAuditLog saved = auditLogRepository.save(auditLog);
             
             log.info("ADMIN EDIT LOGGED: {} changed {} on control {}", 
                     adminEmail, changedFields, control != null ? control.getControlId() : "N/A");
+            return saved;
         } catch (Exception e) {
             log.error("Failed to log admin action with changes: {}", e.getMessage(), e);
+            return null;
         }
     }
     

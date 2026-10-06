@@ -1,4 +1,19 @@
 :root {
+    /* KPMG palette; pages that still declare these in their own <style> use the same values */
+    --kpmg-blue: #00338D;
+    --kpmg-blue-light: #005EB8;
+    --kpmg-blue-dark: #002060;
+    --kpmg-gray-50: #f7f8fa;
+    --kpmg-gray-100: #eef0f4;
+    --kpmg-gray-200: #d8dce5;
+    --kpmg-gray-400: #9ba3b5;
+    --kpmg-gray-600: #5c6478;
+    --kpmg-gray-800: #2d3340;
+    --kpmg-white: #ffffff;
+    --kpmg-green: #009a44;
+    --kpmg-red: #c8102e;
+    --kpmg-amber-text: #8a6100;
+
     --app-bg: #f7f8fa;
     --surface-bg: #ffffff;
     --surface-bg-2: #f7f8fa;
@@ -1498,7 +1513,6 @@
     min-width: 0;
 }
 .sidebar-user-name,
-.sidebar-user-role,
 .sidebar-user-email {
     white-space: nowrap;
     overflow: hidden;
@@ -1509,7 +1523,6 @@
     font-size: 0.82rem;
     font-weight: 600;
 }
-.sidebar-user-role,
 .sidebar-user-email {
     color: #9ba3b5;
     font-size: 0.72rem;
@@ -1573,6 +1586,13 @@
 }
 
 /* ── Confirm dialog (window.showConfirmModal in app-modal.js) ── */
+/* Over another open dialog: above it and its backdrop, which the second backdrop dims */
+#appConfirmModal.is-stacked {
+    z-index: 1065;
+}
+.modal-backdrop ~ .modal-backdrop {
+    z-index: 1060;
+}
 .app-confirm-dialog {
     max-width: 420px;
 }

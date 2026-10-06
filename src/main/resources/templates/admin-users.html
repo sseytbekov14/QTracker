@@ -7,25 +7,10 @@
     <title>Admin Panel - QTracker</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=13" rel="stylesheet">
+    <link href="/css/style.css?v=15" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
-:root {
-    --kpmg-blue: #00338D;
-    --kpmg-blue-light: #005EB8;
-    --kpmg-blue-dark: #002060;
-    --kpmg-gray-50: #f7f8fa;
-    --kpmg-gray-100: #eef0f4;
-    --kpmg-gray-200: #d8dce5;
-    --kpmg-gray-400: #9ba3b5;
-    --kpmg-gray-600: #5c6478;
-    --kpmg-gray-800: #2d3340;
-    --kpmg-white: #ffffff;
-    --kpmg-green: #009a44;
-    --kpmg-red: #c8102e;
-    --kpmg-amber-text: #8a6100;
-}
-
+/* Colours come from the tokens in style.css (:root) */
 body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 
 /* Header */
@@ -88,7 +73,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .toolbar-select { width: auto; min-width: 160px; }
 .toolbar-control:focus { border-color: var(--kpmg-blue); box-shadow: 0 0 0 3px rgba(0, 51, 141, 0.12); }
 
-/* Table */
+/* Table: read only; the Edit button of a row opens the user dialog */
 .table-wrapper {
     background: var(--kpmg-white);
     border: 1px solid var(--kpmg-gray-200);
@@ -111,12 +96,15 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     vertical-align: middle;
 }
 .users-table tbody td {
-    padding: 8px 10px;
+    padding: 9px 10px;
     vertical-align: middle;
     color: var(--kpmg-gray-800);
     border-bottom: 1px solid var(--kpmg-gray-100);
 }
 .users-table tbody tr:last-child td { border-bottom: none; }
+/* Just saved: a short highlight */
+.admin-user-row.row-saved td { animation: row-saved 2.4s ease-out; }
+@keyframes row-saved { from { background: #e8f6ee; } to { background: transparent; } }
 .empty-row td { text-align: center; color: var(--kpmg-gray-600); padding: 28px 12px; }
 
 .user-cell { display: flex; align-items: center; gap: 8px; min-width: 150px; }
@@ -146,49 +134,40 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     color: var(--kpmg-blue);
     vertical-align: 1px;
 }
-.email-cell { display: inline-flex; align-items: center; gap: 6px; }
-.email-edit-btn {
+.email-cell { overflow-wrap: anywhere; }
+.no-value { color: var(--kpmg-gray-400); }
+.admin-badge, .status-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.4;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+.admin-badge { background: #e6ecf6; color: var(--kpmg-blue); border-color: #c5d3ea; }
+.status-pill.is-active { background: #e8f6ee; color: #146c3a; border-color: #b9e2c9; }
+.status-pill.is-inactive { background: #fbecee; color: #a01025; border-color: #f1c3cb; }
+.last-login { font-size: 0.76rem; color: var(--kpmg-gray-600); white-space: nowrap; }
+.row-action { text-align: right; width: 1%; white-space: nowrap; }
+.row-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     border: 1px solid var(--kpmg-gray-200);
     border-radius: 4px;
     background: var(--kpmg-white);
-    color: var(--kpmg-gray-600);
-    padding: 1px 6px;
-    line-height: 1.2;
-    font-size: 0.72rem;
+    color: var(--kpmg-blue);
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 3px 10px;
 }
-.email-edit-btn:hover { border-color: var(--kpmg-blue); color: var(--kpmg-blue); }
-.email-edit-btn:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
-
-.compact-select {
-    min-width: 136px;
-    font-size: 0.78rem;
-    border-color: var(--kpmg-gray-200);
-    color: var(--kpmg-gray-800);
-    padding-top: 3px;
-    padding-bottom: 3px;
-}
-.compact-select:focus { border-color: var(--kpmg-blue); box-shadow: 0 0 0 3px rgba(0, 51, 141, 0.12); }
-.status-badge-select { min-width: 104px; font-weight: 600; }
-.status-badge-select.status-active { background-color: #e8f6ee; color: #146c3a; border-color: #b9e2c9; }
-.status-badge-select.status-inactive { background-color: #fbecee; color: #a01025; border-color: #f1c3cb; }
-
-.scope-cell { display: flex; flex-direction: column; gap: 3px; }
-.access-hint { font-size: 0.7rem; line-height: 1.25; color: var(--kpmg-gray-600); max-width: 230px; }
+.row-edit-btn:hover { border-color: var(--kpmg-blue); background: #f0f4fa; }
+.row-edit-btn:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
 .read-only-note { margin-bottom: 12px; font-size: 0.85rem; }
 
-.admin-switch-wrap { display: inline-flex; align-items: center; gap: 8px; min-width: 70px; }
-.admin-switch-wrap .form-check-input { margin-top: 0; width: 2.15em; height: 1.1em; cursor: pointer; }
-.admin-switch-wrap .form-check-input:checked { background-color: var(--kpmg-blue); border-color: var(--kpmg-blue); }
-.admin-switch-wrap .form-check-input:disabled { cursor: not-allowed; opacity: 0.55; }
-.admin-switch-label { font-size: 0.76rem; font-weight: 600; color: var(--kpmg-gray-600); min-width: 24px; }
-
-.last-login { font-size: 0.76rem; color: var(--kpmg-gray-600); white-space: nowrap; }
-
-/* A row with unsaved changes */
-.admin-user-row.row-dirty td { background: #fff8e1; }
-.admin-user-row.row-dirty td:first-child { box-shadow: inset 3px 0 0 #e0a800; }
-
-/* Footer: pagination + save */
+/* Footer: pagination */
 .table-footer {
     display: flex;
     align-items: center;
@@ -214,20 +193,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 }
 .pager-btn:hover:not(:disabled) { border-color: var(--kpmg-blue); color: var(--kpmg-blue); }
 .pager-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pager-btn:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
 .page-indicator { min-width: 48px; text-align: center; font-size: 0.76rem; color: var(--kpmg-gray-600); }
-.footer-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.save-btn {
-    border: none;
-    border-radius: 4px;
-    background: var(--kpmg-blue);
-    color: var(--kpmg-white);
-    font-size: 0.8rem;
-    font-weight: 600;
-    padding: 7px 18px;
-}
-.save-btn:hover:not(:disabled) { background: var(--kpmg-blue-light); }
-.save-btn:disabled { background: var(--kpmg-gray-200); color: var(--kpmg-gray-600); cursor: not-allowed; }
-.save-btn:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
 
 /* Audit trail */
 .audit-card {
@@ -250,7 +217,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     color: var(--kpmg-gray-800);
     text-align: left;
 }
-.audit-toggle:hover { background: #f0f4fa; }
+.audit-toggle:hover { background: var(--hover-bg); }
 .audit-toggle:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: -2px; }
 .audit-toggle .bi-chevron-down { transition: transform 0.15s; color: var(--kpmg-gray-600); }
 .audit-toggle[aria-expanded="true"] .bi-chevron-down { transform: rotate(180deg); }
@@ -271,6 +238,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 }
 .audit-table td { padding: 6px 12px; color: var(--kpmg-gray-800); border-color: var(--kpmg-gray-100); }
 .audit-table td.audit-date { white-space: nowrap; color: var(--kpmg-gray-600); }
+.audit-row.audit-row-new td { animation: row-saved 2.4s ease-out; }
 .audit-filter {
     display: flex;
     align-items: center;
@@ -304,12 +272,85 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .client-alert.d-none { display: none; }
 .client-alert .btn-close { flex-shrink: 0; font-size: 0.7rem; margin-top: 2px; }
 
-/* Dialogs */
-.modal .btn-primary { background-color: var(--kpmg-blue); border-color: var(--kpmg-blue); }
-.modal .btn-primary:hover:not(:disabled) { background-color: var(--kpmg-blue-light); border-color: var(--kpmg-blue-light); }
+/* User dialog: view, edit and create */
+.user-dialog { max-width: 560px; }
+.user-dialog .modal-content { border: none; border-radius: 8px; box-shadow: 0 12px 40px rgba(0, 20, 60, 0.25); }
+.user-dialog .modal-header {
+    align-items: flex-start;
+    background: var(--kpmg-blue);
+    color: var(--kpmg-white);
+    border-bottom: 3px solid var(--kpmg-blue-light);
+    padding: 14px 20px;
+}
+.user-dialog .modal-header .btn-close { filter: invert(1) grayscale(1) brightness(2); margin-top: 0; }
+.user-dialog .modal-header .btn-close:focus-visible { box-shadow: 0 0 0 2px var(--kpmg-white); }
+.user-dialog .modal-title { font-size: 1.05rem; font-weight: 600; margin: 0; overflow-wrap: anywhere; }
+.user-dialog-meta { margin: 3px 0 0; font-size: 0.78rem; color: rgba(255, 255, 255, 0.8); }
+.user-dialog .modal-body { padding: 18px 20px 6px; }
+.user-dialog .form-label { font-size: 0.8rem; font-weight: 600; color: var(--kpmg-gray-800); margin-bottom: 4px; }
+.user-dialog .form-control, .user-dialog .form-select { font-size: 0.86rem; border-color: var(--kpmg-gray-200); color: var(--kpmg-gray-800); }
+.user-dialog .form-control:focus, .user-dialog .form-select:focus,
+.user-dialog .form-check-input:focus { border-color: var(--kpmg-blue); box-shadow: 0 0 0 3px rgba(0, 51, 141, 0.18); }
+.user-dialog .form-control[readonly] { background: var(--kpmg-gray-50); color: var(--kpmg-gray-600); }
+.user-dialog .form-select:disabled { background-color: var(--kpmg-gray-50); color: var(--kpmg-gray-600); }
+.user-dialog .form-text { font-size: 0.74rem; color: var(--kpmg-gray-600); margin-top: 3px; }
+.user-dialog .form-text:empty { display: none; }
+.user-dialog .is-invalid { border-color: var(--kpmg-red) !important; }
+.field-error { font-size: 0.76rem; color: var(--kpmg-red); margin-top: 3px; }
+.field-error:empty { display: none; }
 .required-mark { color: var(--kpmg-red); }
-.modal-note { font-size: 0.82rem; color: var(--kpmg-gray-600); margin-bottom: 12px; overflow-wrap: anywhere; }
-#editEmailCurrent { font-weight: 600; color: var(--kpmg-gray-800); }
+.access-summary {
+    margin: -4px 0 16px;
+    padding: 9px 12px;
+    border-left: 3px solid var(--kpmg-blue-light);
+    background: #f0f4fa;
+    border-radius: 0 4px 4px 0;
+    font-size: 0.78rem;
+    color: var(--kpmg-gray-800);
+}
+.access-summary:empty { display: none; }
+.access-summary p { margin: 0; }
+.access-summary p + p { margin-top: 2px; }
+.access-summary strong { color: var(--kpmg-blue); font-weight: 700; }
+.admin-switch { display: flex; align-items: center; gap: 10px; min-height: 38px; margin: 0; padding: 0; }
+.admin-switch .form-check-input { float: none; margin: 0; width: 2.4em; height: 1.25em; cursor: pointer; }
+.admin-switch .form-check-input:checked { background-color: var(--kpmg-blue); border-color: var(--kpmg-blue); }
+.admin-switch .form-check-input:disabled { cursor: not-allowed; opacity: 0.55; }
+.admin-switch .form-check-input:focus-visible { outline: 2px solid var(--kpmg-blue-light); outline-offset: 2px; }
+.admin-switch-state { font-size: 0.84rem; font-weight: 600; color: var(--kpmg-gray-800); }
+.self-note {
+    display: flex;
+    gap: 8px;
+    margin: 4px 0 12px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: #fff8e1;
+    color: var(--kpmg-amber-text);
+    font-size: 0.76rem;
+}
+.self-note[hidden] { display: none; }
+.form-message {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 9px 12px;
+    font-size: 0.82rem;
+}
+.form-message .btn { flex-shrink: 0; font-size: 0.76rem; padding: 2px 10px; }
+.user-dialog .modal-footer { padding: 10px 20px 14px; border-top: 1px solid var(--kpmg-gray-100); gap: 8px; }
+.user-dialog .modal-footer > * { margin: 0; }
+.dirty-note { margin-right: auto !important; font-size: 0.76rem; font-weight: 600; color: var(--kpmg-amber-text); }
+.dirty-note .bi { margin-right: 5px; font-size: 0.5rem; vertical-align: 2px; }
+.user-dialog .btn { font-size: 0.85rem; font-weight: 600; padding: 7px 18px; border-radius: 4px; }
+.user-dialog .btn-primary { background-color: var(--kpmg-blue); border-color: var(--kpmg-blue); }
+.user-dialog .btn-primary:hover:not(:disabled) { background-color: var(--kpmg-blue-dark); border-color: var(--kpmg-blue-dark); }
+.user-dialog .btn-primary:disabled { background: var(--kpmg-gray-200); border-color: var(--kpmg-gray-200); color: var(--kpmg-gray-600); opacity: 1; }
+.user-dialog .btn-outline-secondary { border-color: #cdd0d6; color: var(--kpmg-gray-800); background: var(--kpmg-white); }
+.user-dialog .btn-outline-secondary:hover { border-color: var(--kpmg-blue); color: var(--kpmg-blue); background: var(--kpmg-white); }
+.user-dialog .btn:focus-visible { outline: 2px solid var(--kpmg-blue-light); outline-offset: 2px; box-shadow: none; }
+.user-dialog .form-message .btn { padding: 2px 10px; font-size: 0.76rem; }
 
 @media (max-width: 767.98px) {
     .page-header { flex-wrap: wrap; padding: 14px 16px; }
@@ -327,16 +368,19 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
         clip: rect(0 0 0 0);
     }
     .users-table, .users-table tbody { display: block; }
-    .users-table tbody tr { display: block; padding: 10px 16px; border-bottom: 1px solid var(--kpmg-gray-200); }
+    .users-table tbody tr { display: block; position: relative; padding: 10px 16px; border-bottom: 1px solid var(--kpmg-gray-200); }
     .users-table tbody tr:last-child { border-bottom: none; }
     .users-table tbody td {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        padding: 4px 0;
+        padding: 3px 0;
         border: none;
-        min-height: 36px;
+        min-height: 28px;
+        text-align: right;
+        background: transparent !important;
+        box-shadow: none !important;
     }
     .users-table tbody td[data-label]::before {
         content: attr(data-label);
@@ -346,19 +390,17 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
         text-transform: uppercase;
         letter-spacing: 0.04em;
         color: var(--kpmg-gray-600);
+        text-align: left;
     }
-    .users-table tbody td:first-child { padding-bottom: 6px; }
-    .users-table .compact-select { flex: 0 1 220px; min-width: 0; }
-    .users-table .scope-cell { flex: 0 1 220px; min-width: 0; text-align: right; }
-    .users-table .scope-cell .compact-select { flex: none; }
-    .email-cell { min-width: 0; justify-content: flex-end; }
-    .email-cell .js-email-text { overflow-wrap: anywhere; text-align: right; }
+    /* The name on top, the Edit button beside it in the top right corner of the card */
+    .users-table tbody td:first-child { padding: 0 84px 6px 0; text-align: left; min-height: 32px; }
+    .users-table tbody td.row-action { position: absolute; top: 10px; right: 16px; width: auto; min-height: 0; padding: 0; }
+    .row-edit-btn { padding: 5px 12px; }
+    .admin-user-row.row-saved { animation: row-saved 2.4s ease-out; }
     .users-table tbody tr.empty-row td { display: block; text-align: center; }
-    .admin-user-row.row-dirty { background: #fff8e1; box-shadow: inset 3px 0 0 #e0a800; }
-    .admin-user-row.row-dirty td { background: transparent; }
-    .admin-user-row.row-dirty td:first-child { box-shadow: none; }
 
     .table-footer { flex-direction: column; align-items: stretch; }
+    .pagination-controls { justify-content: space-between; }
 
     /* Audit entries as stacked lines as well */
     .audit-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -378,8 +420,14 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     }
     .audit-table tbody tr.empty-row td { display: block; text-align: center; }
     .audit-target-name { display: inline; margin-right: 6px; }
-    .footer-right { justify-content: space-between; }
-    .save-btn { width: 100%; padding: 10px 18px; }
+}
+
+/* Phone: the dialog takes the whole screen (modal-fullscreen-sm-down) with the buttons at the bottom */
+@media (max-width: 575.98px) {
+    .user-dialog .modal-content { border-radius: 0; }
+    .user-dialog .modal-footer { flex-wrap: wrap; }
+    .user-dialog .modal-footer .btn { flex: 1 1 0; }
+    .dirty-note { flex-basis: 100%; }
 }
     </style>
 </head>
@@ -457,7 +505,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     </select>
                 </div>
 
-                <!-- Table -->
+                <!-- Table: read only; only the Edit (View) button of a row opens the user dialog -->
                 <div class="table-wrapper">
                     <table class="table users-table">
                         <thead>
@@ -469,104 +517,94 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                             <th scope="col">Admin Access</th>
                             <th scope="col">Status</th>
                             <th scope="col">Last Login</th>
+                            <th scope="col"><span class="visually-hidden">Actions</span></th>
                         </tr>
                         </thead>
                         <tbody id="usersTableBody">
                         <tr th:each="user : ${users}"
                             class="admin-user-row"
-                            th:attr="data-user-id=${user.id}">
-                            <td>
+                            th:with="lastLogin=${user.lastLoginAt != null ? #temporals.format(user.lastLoginAt, 'dd.MM.yyyy HH:mm') : ''},
+                                     isSelf=${session.currentUser != null and user.id == session.currentUser.id}"
+                            th:attr="data-user-id=${user.id},
+                                     data-name=${user.displayName},
+                                     data-email=${user.mail},
+                                     data-level=${user.accessLevel},
+                                     data-scope=${user.accessScope},
+                                     data-admin=${user.adminAccess == true},
+                                     data-enabled=${user.enabled == true},
+                                     data-last-login=${lastLogin},
+                                     data-self=${isSelf}">
+                            <td class="js-name-cell">
                                 <div class="user-cell">
-                                    <span class="avatar" aria-hidden="true" th:text="${user.displayName != null and !#strings.isEmpty(user.displayName)} ? ${#strings.substring(#strings.trim(user.displayName),0,1)} : 'U'">U</span>
+                                    <span class="avatar" aria-hidden="true" th:text="${user.displayName != null and !#strings.isEmpty(#strings.trim(user.displayName))} ? ${#strings.substring(#strings.trim(user.displayName),0,1)} : 'U'">U</span>
                                     <div>
                                         <span class="user-name" th:text="${user.displayName != null ? user.displayName : '-'}">Name</span>
-                                        <span class="self-chip" th:if="${session.currentUser != null and user.id == session.currentUser.id}">You</span>
+                                        <span class="self-chip" th:if="${isSelf}">You</span>
                                     </div>
                                 </div>
                             </td>
-                            <td data-label="Email">
-                                <div class="email-cell">
-                                    <span class="js-email-text" th:text="${user.mail}">user@mail.com</span>
-                                    <button th:if="${user.lastLoginAt == null and canManageUsers}"
-                                            type="button"
-                                            class="email-edit-btn js-edit-email-btn"
-                                            title="Edit email (possible until the first login)"
-                                            aria-label="Edit email">
-                                        <i class="bi bi-pencil" aria-hidden="true"></i>
-                                    </button>
-                                </div>
+                            <td class="email-cell js-email" data-label="Email" th:text="${user.mail}">user@mail.com</td>
+                            <td class="js-level" data-label="Level" th:text="${user.accessLevel != null ? user.accessLevel.displayName : '-'}">SoQM</td>
+                            <td class="js-scope" data-label="Scope" th:text="${user.accessScope != null ? user.accessScope.displayName : '-'}">All controls</td>
+                            <td class="js-admin" data-label="Admin access">
+                                <span class="admin-badge" th:if="${user.adminAccess == true}">Admin</span>
+                                <span class="no-value" th:unless="${user.adminAccess == true}">—</span>
                             </td>
-                            <td data-label="Level">
-                                <select class="form-select form-select-sm compact-select js-level" aria-label="Level"
-                                        th:disabled="${!canManageUsers}">
-                                    <option th:each="level : ${accessLevels}"
-                                            th:value="${level.name()}"
-                                            th:text="${level.displayName}"
-                                            th:selected="${level == user.accessLevel}">SoQM</option>
-                                </select>
+                            <td class="js-status" data-label="Status">
+                                <span class="status-pill"
+                                      th:classappend="${user.enabled == true} ? 'is-active' : 'is-inactive'"
+                                      th:text="${user.enabled == true} ? 'Active' : 'Inactive'">Active</span>
                             </td>
-                            <td data-label="Scope">
-                                <!-- SoQM always sees all controls: the page keeps the scope at All and disabled -->
-                                <div class="scope-cell">
-                                    <select class="form-select form-select-sm compact-select js-scope" aria-label="Scope"
-                                            th:disabled="${!canManageUsers}">
-                                        <option th:each="scope : ${accessScopes}"
-                                                th:value="${scope.name()}"
-                                                th:text="${scope.displayName}"
-                                                th:selected="${scope == user.accessScope}">All controls</option>
-                                    </select>
-                                    <!-- What the level, scope and admin flag add up to (filled in by the script) -->
-                                    <div class="access-hint js-access-hint"></div>
-                                </div>
-                            </td>
-                            <td data-label="Admin access">
-                                <div class="form-check form-switch admin-switch-wrap m-0">
-                                    <input class="form-check-input js-admin-toggle"
-                                           type="checkbox"
-                                           role="switch"
-                                           aria-label="Admin access"
-                                           th:checked="${user.adminAccess}"
-                                           th:disabled="${!canManageUsers}">
-                                    <span class="admin-switch-label js-admin-label" th:text="${user.adminAccess} ? 'Yes' : 'No'">No</span>
-                                </div>
-                            </td>
-                            <td data-label="Status">
-                                <select class="form-select form-select-sm compact-select js-status status-badge-select" aria-label="Status"
-                                        th:disabled="${!canManageUsers}">
-                                    <option value="ACTIVE" th:selected="${user.enabled}">Active</option>
-                                    <option value="INACTIVE" th:selected="${!user.enabled}">Inactive</option>
-                                </select>
-                            </td>
-                            <td class="last-login" data-label="Last login">
-                                <span th:if="${user.lastLoginAt != null}" th:text="${#temporals.format(user.lastLoginAt, 'dd.MM.yyyy HH:mm')}">15.05.2024 14:30</span>
-                                <span th:if="${user.lastLoginAt == null}">-</span>
+                            <td class="last-login js-last-login" data-label="Last login"
+                                th:text="${lastLogin != '' ? lastLogin : '-'}">15.05.2024 14:30</td>
+                            <td class="row-action">
+                                <button type="button" class="row-edit-btn js-open-user"
+                                        th:attr="aria-label=${(canManageUsers ? 'Edit ' : 'View ') + (user.displayName != null ? user.displayName : user.mail)}">
+                                    <i class="bi" th:classappend="${canManageUsers} ? 'bi-pencil' : 'bi-eye'" aria-hidden="true"></i>
+                                    <span th:text="${canManageUsers} ? 'Edit' : 'View'">Edit</span>
+                                </button>
                             </td>
                         </tr>
-                        <tr th:if="${#lists.isEmpty(users)}" class="empty-row">
-                            <td colspan="7">No users found</td>
+                        <tr th:if="${#lists.isEmpty(users)}" id="noUsersServerRow" class="empty-row">
+                            <td colspan="8">No users found</td>
                         </tr>
                         <tr id="noUsersClientRow" class="d-none empty-row">
-                            <td colspan="7">No users match current filters</td>
+                            <td colspan="8">No users match current filters</td>
                         </tr>
                         </tbody>
                     </table>
                 </div>
 
+                <!-- A new row after Add User; the script fills every cell -->
+                <template id="userRowTemplate">
+                    <tr class="admin-user-row">
+                        <td class="js-name-cell"></td>
+                        <td class="email-cell js-email" data-label="Email"></td>
+                        <td class="js-level" data-label="Level"></td>
+                        <td class="js-scope" data-label="Scope"></td>
+                        <td class="js-admin" data-label="Admin access"></td>
+                        <td class="js-status" data-label="Status"></td>
+                        <td class="last-login js-last-login" data-label="Last login"></td>
+                        <td class="row-action">
+                            <button type="button" class="row-edit-btn js-open-user">
+                                <i class="bi bi-pencil" aria-hidden="true"></i><span>Edit</span>
+                            </button>
+                        </td>
+                    </tr>
+                </template>
+
                 <div class="table-footer">
                     <div class="pagination-info" id="paginationInfo" aria-live="polite">Showing 0-0 of 0 users</div>
-                    <div class="footer-right">
-                        <div class="pagination-controls">
-                            <label for="pageSizeSelect">Rows</label>
-                            <select id="pageSizeSelect" class="form-select form-select-sm pagination-size">
-                                <option value="10" selected>10</option>
-                                <option value="25">25</option>
-                                <option value="50">50</option>
-                            </select>
-                            <button type="button" id="prevPageBtn" class="pager-btn" aria-label="Previous page">Prev</button>
-                            <span id="pageIndicator" class="page-indicator">1 / 1</span>
-                            <button type="button" id="nextPageBtn" class="pager-btn" aria-label="Next page">Next</button>
-                        </div>
-                        <button type="button" class="save-btn" id="saveAllChanges" th:if="${canManageUsers}">Save Changes</button>
+                    <div class="pagination-controls">
+                        <label for="pageSizeSelect">Rows</label>
+                        <select id="pageSizeSelect" class="form-select form-select-sm pagination-size">
+                            <option value="10" selected>10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                        </select>
+                        <button type="button" id="prevPageBtn" class="pager-btn" aria-label="Previous page">Prev</button>
+                        <span id="pageIndicator" class="page-indicator">1 / 1</span>
+                        <button type="button" id="nextPageBtn" class="pager-btn" aria-label="Next page">Next</button>
                     </div>
                 </div>
 
@@ -592,10 +630,10 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                     <option th:if="${group.name() != 'OTHER' or auditCounts.get(group) > 0}"
                                             th:value="${group.name()}"
                                             th:selected="${group.name() == 'USER_ACCESS'}"
-                                            th:attr="data-target-label=${group.targetLabel},data-count=${auditCounts.get(group)}"
+                                            th:attr="data-target-label=${group.targetLabel},data-label=${group.label},data-count=${auditCounts.get(group)}"
                                             th:text="${group.label} + ' (' + ${auditCounts.get(group)} + ')'">User access (0)</option>
                                 </th:block>
-                                <option value="ALL" data-target-label="Target"
+                                <option value="ALL" data-target-label="Target" data-label="All events"
                                         th:attr="data-count=${#lists.size(auditTrail)}"
                                         th:text="'All events (' + ${#lists.size(auditTrail)} + ')'">All events (0)</option>
                             </select>
@@ -611,7 +649,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                     <th scope="col" id="auditTargetHeader">Target user</th>
                                 </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="auditTableBody">
                                 <tr th:each="entry : ${auditTrail}" class="audit-row"
                                     th:attr="data-group=${entry.group().name()}"
                                     th:classappend="${entry.group().name() != 'USER_ACCESS'} ? 'd-none'">
@@ -639,16 +677,111 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     </div>
 </div>
 
+<!-- One dialog for a user: view (read-only admin), edit, and create (Add User) -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalTitle" aria-describedby="userModalMeta" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down user-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title" id="userModalTitle">Edit user</h2>
+                    <p class="user-dialog-meta" id="userModalMeta"></p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="userForm" class="modal-body" novalidate>
+                <div id="userFormMessage" class="alert alert-danger form-message d-none" role="alert" tabindex="-1">
+                    <span id="userFormMessageText"></span>
+                    <button type="button" class="btn btn-outline-danger d-none" id="userFormReload">Reload page</button>
+                </div>
+
+                <div class="mb-3">
+                    <label for="userName" class="form-label">Name <span class="required-mark js-name-required" aria-hidden="true">*</span></label>
+                    <input type="text" id="userName" class="form-control" maxlength="255" autocomplete="off"
+                           aria-describedby="userName-hint userName-error">
+                    <div class="form-text" id="userName-hint"></div>
+                    <div class="field-error" id="userName-error" aria-live="polite"></div>
+                </div>
+                <div class="mb-3">
+                    <label for="userEmail" class="form-label">Email <span class="required-mark js-email-required" aria-hidden="true">*</span></label>
+                    <input type="email" id="userEmail" class="form-control" placeholder="name@kpmg.kz" autocomplete="off"
+                           aria-describedby="userEmail-hint userEmail-error">
+                    <div class="form-text" id="userEmail-hint"></div>
+                    <div class="field-error" id="userEmail-error" aria-live="polite"></div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-sm-6">
+                        <label for="userLevel" class="form-label">Level <span class="required-mark js-level-required" aria-hidden="true">*</span></label>
+                        <select id="userLevel" class="form-select" aria-describedby="userLevel-error">
+                            <option value="">Choose…</option>
+                            <option th:each="level : ${accessLevels}" th:value="${level.name()}" th:text="${level.displayName}">SoQM</option>
+                        </select>
+                        <div class="field-error" id="userLevel-error" aria-live="polite"></div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label for="userScope" class="form-label">Scope</label>
+                        <select id="userScope" class="form-select" aria-describedby="userScope-hint userScope-error">
+                            <option th:each="scope : ${accessScopes}" th:value="${scope.name()}" th:text="${scope.displayName}">Own controls</option>
+                        </select>
+                        <div class="form-text" id="userScope-hint"></div>
+                        <div class="field-error" id="userScope-error" aria-live="polite"></div>
+                    </div>
+                </div>
+                <!-- What the level, scope and admin access add up to (filled in by the script) -->
+                <div class="access-summary" id="userAccessSummary" aria-live="polite"></div>
+                <div class="row g-3 mb-3">
+                    <div class="col-sm-6">
+                        <span class="form-label d-inline-block" id="userAdmin-label">Admin access</span>
+                        <div class="form-check form-switch admin-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="userAdmin"
+                                   aria-labelledby="userAdmin-label" aria-describedby="userAdmin-hint userAdmin-error">
+                            <label class="admin-switch-state" for="userAdmin" id="userAdminState">No</label>
+                        </div>
+                        <div class="form-text" id="userAdmin-hint">Manages users and sees the audit trail.</div>
+                        <div class="field-error" id="userAdmin-error" aria-live="polite"></div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label for="userStatus" class="form-label">Status</label>
+                        <select id="userStatus" class="form-select" aria-describedby="userStatus-error">
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                        </select>
+                        <div class="field-error" id="userStatus-error" aria-live="polite"></div>
+                    </div>
+                </div>
+                <p class="self-note" id="userSelfNote" hidden>
+                    <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                    <span>This is your own account: you cannot remove your admin access, make your access read-only or deactivate yourself.</span>
+                </p>
+            </form>
+            <div class="modal-footer">
+                <span class="dirty-note" id="userDirtyNote" hidden><i class="bi bi-circle-fill" aria-hidden="true"></i>Unsaved changes</span>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="userCancelBtn">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="userSaveBtn" form="userForm" disabled>Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="/js/vendor/bootstrap.bundle.min.js"></script>
-<script src="/js/app-modal.js?v=4"></script>
+<script src="/js/app-modal.js?v=5"></script>
 <script th:inline="javascript">
 document.addEventListener('DOMContentLoaded', function() {
-    const rows = Array.from(document.querySelectorAll('.admin-user-row'));
+    // A read-only admin sees everything here but changes nothing (the server refuses it as well)
+    const CAN_MANAGE = /*[[${canManageUsers}]]*/ true;
+    // What a scope means in the access summary
+    const SCOPE_TEXT = {
+        OWN: 'controls assigned to or shared with them',
+        ALL: 'all controls',
+        KDN: 'KDN controls assigned to or shared with them'
+    };
+    const MAX_NAME_LENGTH = 255;
+
+    const tableBody = document.getElementById('usersTableBody');
+    const rowTemplate = document.getElementById('userRowTemplate');
     const searchInput = document.getElementById('searchUsers');
     const levelFilter = document.getElementById('filterLevel');
     const scopeFilter = document.getElementById('filterScope');
     const statusFilter = document.getElementById('filterStatus');
-    const saveAllBtn = document.getElementById('saveAllChanges');
     const clientAlert = document.getElementById('clientAlert');
     const clientAlertText = document.getElementById('clientAlertText');
     const exportUsersBtn = document.getElementById('exportUsersBtn');
@@ -659,693 +792,551 @@ document.addEventListener('DOMContentLoaded', function() {
     const pageIndicator = document.getElementById('pageIndicator');
     const paginationInfo = document.getElementById('paginationInfo');
     const noUsersClientRow = document.getElementById('noUsersClientRow');
-    const addUserModalElement = document.getElementById('addUserModal');
-    const addUserForm = document.getElementById('addUserForm');
-    const addUserEmail = document.getElementById('addUserEmail');
-    const addUserName = document.getElementById('addUserName');
-    const addUserLevel = document.getElementById('addUserLevel');
-    const addUserScope = document.getElementById('addUserScope');
-    const addUserAccessHint = document.getElementById('addUserAccessHint');
-    const addUserAdmin = document.getElementById('addUserAdmin');
-    const addUserStatus = document.getElementById('addUserStatus');
-    const addUserSaveBtn = document.getElementById('addUserSaveBtn');
-    const addUserError = document.getElementById('addUserError');
-    const editEmailModalElement = document.getElementById('editEmailModal');
-    const editEmailForm = document.getElementById('editEmailForm');
-    const editEmailUser = document.getElementById('editEmailUser');
-    const editEmailCurrent = document.getElementById('editEmailCurrent');
-    const editEmailInput = document.getElementById('editEmailInput');
-    const editEmailSaveBtn = document.getElementById('editEmailSaveBtn');
-    const editEmailError = document.getElementById('editEmailError');
+    const auditFilter = document.getElementById('auditFilter');
+    const auditTableBody = document.getElementById('auditTableBody');
 
-    // A read-only admin sees everything here but changes nothing (the server refuses it as well)
-    const CAN_MANAGE = /*[[${canManageUsers}]]*/ true;
-    // What a scope means in the access hint
-    const SCOPE_TEXT = {
-        OWN: 'assigned or shared controls',
-        ALL: 'all controls',
-        KDN: 'assigned or shared KDN controls'
+    const modalEl = document.getElementById('userModal');
+    const form = document.getElementById('userForm');
+    const titleEl = document.getElementById('userModalTitle');
+    const metaEl = document.getElementById('userModalMeta');
+    const formMessage = document.getElementById('userFormMessage');
+    const formMessageText = document.getElementById('userFormMessageText');
+    const reloadBtn = document.getElementById('userFormReload');
+    const fields = {
+        name: document.getElementById('userName'),
+        email: document.getElementById('userEmail'),
+        level: document.getElementById('userLevel'),
+        scope: document.getElementById('userScope'),
+        admin: document.getElementById('userAdmin'),
+        status: document.getElementById('userStatus')
     };
-    // A message that has to survive the reload after Add User
-    const FLASH_KEY = 'qtrackerAdminFlash';
+    const nameHint = document.getElementById('userName-hint');
+    const emailHint = document.getElementById('userEmail-hint');
+    const scopeHint = document.getElementById('userScope-hint');
+    const nameRequiredMark = form.querySelector('.js-name-required');
+    const emailRequiredMark = form.querySelector('.js-email-required');
+    const levelRequiredMark = form.querySelector('.js-level-required');
+    const adminState = document.getElementById('userAdminState');
+    const accessSummaryEl = document.getElementById('userAccessSummary');
+    const selfNote = document.getElementById('userSelfNote');
+    const dirtyNote = document.getElementById('userDirtyNote');
+    const saveBtn = document.getElementById('userSaveBtn');
+    const cancelBtn = document.getElementById('userCancelBtn');
+    const chooseLevelOption = fields.level.querySelector('option[value=""]');
+    const readOnlyLevelOption = fields.level.querySelector('option[value="READ_ONLY"]');
+    const LEVEL_LABELS = optionLabels(fields.level);
+    const SCOPE_LABELS = optionLabels(fields.scope);
+    const userModal = (window.bootstrap && bootstrap.Modal) ? new bootstrap.Modal(modalEl) : null;
+
+    let rows = Array.from(tableBody.querySelectorAll('.admin-user-row'));
     let currentPage = 1;
-    let pageSize = Number(pageSizeSelect?.value || 10);
+    let pageSize = Number(pageSizeSelect.value || 10);
     let alertTimer = null;
-    const addUserModal = (addUserModalElement && window.bootstrap && bootstrap.Modal)
-        ? new bootstrap.Modal(addUserModalElement)
-        : null;
-    const editEmailModal = (editEmailModalElement && window.bootstrap && bootstrap.Modal)
-        ? new bootstrap.Modal(editEmailModalElement)
-        : null;
-    let editEmailContext = null;
+    let reloading = false;
+    // The open dialog: { mode: 'view' | 'edit' | 'create', row, opener, initial, emailEditable, self,
+    // saving, asking, closing }; null while closed
+    let dialog = null;
 
-    const originalState = new Map();
+    rows.forEach(bindRow);
 
-    if (saveAllBtn) {
-        saveAllBtn.disabled = true;
-    }
+    // ---------------------------------------------------------------- table
 
-    rows.forEach(function(row) {
-        const userId = row.dataset.userId;
-        const levelSelect = row.querySelector('.js-level');
-        const scopeSelect = row.querySelector('.js-scope');
-        const adminToggle = row.querySelector('.js-admin-toggle');
-        const adminLabel = row.querySelector('.js-admin-label');
-        const statusSelect = row.querySelector('.js-status');
-        const emailText = row.querySelector('.js-email-text');
-        const editEmailBtn = row.querySelector('.js-edit-email-btn');
-        const selfChip = row.querySelector('.self-chip');
-        const isSelf = Boolean(selfChip);
-
-        originalState.set(userId, {
-            level: levelSelect.value,
-            scope: scopeSelect.value,
-            enabled: statusSelect.value === 'ACTIVE',
-            adminAccess: !!adminToggle?.checked
-        });
-
-        applyStatusBadge(statusSelect);
-        updateAdminLabel(adminLabel, !!adminToggle?.checked);
-        syncScopeToLevel(levelSelect, scopeSelect);
-        updateAccessHint(row);
-
-        let shownLevel = levelSelect.value;
-        levelSelect.addEventListener('change', async function() {
-            // Making someone SoQM is asked once; going back to the saved value is not
-            if (levelSelect.value === 'SOQM' && originalState.get(userId).level !== 'SOQM') {
-                const name = userName(row);
-                const confirmed = await showConfirmModal({
-                    title: 'Make ' + name + ' SoQM?',
-                    message: name + ' will be able to create and edit every control, assign people and perform '
-                        + 'the SoQM steps, and will see all controls, drafts included. This takes effect when you save.',
-                    confirmText: 'Make SoQM'
-                });
-                if (!confirmed) {
-                    levelSelect.value = shownLevel;
-                }
-            }
-            shownLevel = levelSelect.value;
-            syncScopeToLevel(levelSelect, scopeSelect);
-            updateAccessHint(row);
-            updateRowDirtyState(row);
-            updateSaveButtonState();
-            renderTablePage();
-        });
-
-        scopeSelect.addEventListener('change', function() {
-            updateAccessHint(row);
-            updateRowDirtyState(row);
-            updateSaveButtonState();
-            renderTablePage();
-        });
-
-        statusSelect.addEventListener('change', async function() {
-            // Deactivating an active account is asked once; going back to the saved value is not
-            if (statusSelect.value === 'INACTIVE' && originalState.get(userId).enabled) {
-                const name = userName(row);
-                const confirmed = await showConfirmModal({
-                    title: 'Deactivate ' + name + '?',
-                    message: name + ' will be signed out on the next action and cannot sign in until the account '
-                        + 'is active again. This takes effect when you save.',
-                    confirmText: 'Deactivate'
-                });
-                if (!confirmed) {
-                    statusSelect.value = 'ACTIVE';
-                }
-            }
-            applyStatusBadge(statusSelect);
-            updateRowDirtyState(row);
-            updateSaveButtonState();
-            renderTablePage();
-        });
-
-        if (adminToggle) {
-            adminToggle.addEventListener('change', async function() {
-                if (adminToggle.checked && !originalState.get(userId).adminAccess) {
-                    const name = userName(row);
-                    const confirmed = await showConfirmModal({
-                        title: 'Give admin access to ' + name + '?',
-                        message: name + ' will be able to manage users, see the audit trail and view every control, '
-                            + 'drafts included. Admin access changes no control. This takes effect when you save.',
-                        confirmText: 'Give admin access'
-                    });
-                    if (!confirmed) {
-                        adminToggle.checked = false;
-                    }
-                }
-                updateAdminLabel(adminLabel, adminToggle.checked);
-                updateAccessHint(row);
-                updateRowDirtyState(row);
-                updateSaveButtonState();
-            });
-        }
-
-        if (editEmailBtn && emailText) {
-            editEmailBtn.addEventListener('click', function() {
-                if (!editEmailModal) {
-                    showClientAlert('The Edit Email dialog could not be opened. Reload the page and try again.', 'danger');
-                    return;
-                }
-
-                const currentEmail = emailText.textContent.trim();
-                editEmailContext = {
-                    userId: userId,
-                    emailText: emailText,
-                    currentEmail: currentEmail
-                };
-
-                editEmailUser.textContent = userName(row);
-                editEmailCurrent.textContent = currentEmail;
-                editEmailInput.value = currentEmail;
-                setFieldError(editEmailInput, '');
-                hideFormError(editEmailError);
-                editEmailModal.show();
-            });
-        }
-
-        if (isSelf) {
-            if (adminToggle) {
-                adminToggle.checked = true;
-                adminToggle.disabled = true;
-                adminToggle.title = 'You cannot remove your own admin access';
-                updateAdminLabel(adminLabel, true);
-            }
-            if (statusSelect) {
-                statusSelect.value = 'ACTIVE';
-                statusSelect.disabled = true;
-                statusSelect.title = 'You cannot deactivate your own account';
-                applyStatusBadge(statusSelect);
-            }
-            const readOnlyOption = levelSelect.querySelector('option[value="READ_ONLY"]');
-            if (readOnlyOption) {
-                readOnlyOption.disabled = true;
-                readOnlyOption.title = 'You cannot make your own access read-only';
-            }
-        }
-
-        updateRowDirtyState(row);
-    });
-
-    if (editEmailModalElement) {
-        editEmailModalElement.addEventListener('shown.bs.modal', function() {
-            editEmailInput.focus();
-            editEmailInput.select();
-        });
-        editEmailModalElement.addEventListener('hidden.bs.modal', function() {
-            editEmailContext = null;
-            setFieldError(editEmailInput, '');
-            hideFormError(editEmailError);
+    // Only the row's Edit (View) button opens the dialog: a click elsewhere on a row or card does nothing
+    function bindRow(row) {
+        row.querySelector('.js-open-user').addEventListener('click', function(event) {
+            openDialog(CAN_MANAGE ? 'edit' : 'view', row, event.currentTarget);
         });
     }
 
-    if (editEmailForm) {
-        editEmailInput.addEventListener('input', function() {
-            setFieldError(editEmailInput, '');
-        });
-
-        editEmailForm.addEventListener('submit', async function(event) {
-            event.preventDefault();
-            if (!editEmailContext) {
-                return;
-            }
-            hideFormError(editEmailError);
-
-            const nextEmail = editEmailInput.value.trim().toLowerCase();
-            const emailProblem = checkEmail(nextEmail);
-            if (emailProblem) {
-                setFieldError(editEmailInput, emailProblem);
-                editEmailInput.focus();
-                return;
-            }
-            if (nextEmail === editEmailContext.currentEmail.toLowerCase()) {
-                setFieldError(editEmailInput, 'This is the current e-mail. Enter a new one.');
-                editEmailInput.focus();
-                return;
-            }
-
-            editEmailSaveBtn.disabled = true;
-            const oldLabel = editEmailSaveBtn.textContent;
-            editEmailSaveBtn.textContent = 'Saving...';
-            try {
-                const response = await postForm('/api/admin/users/' + editEmailContext.userId + '/email', 'PUT', { email: nextEmail });
-                if (!response.ok) {
-                    showServerError(await responseMessage(response, 'The e-mail could not be changed.'),
-                        { email: editEmailInput }, editEmailError);
-                    return;
-                }
-
-                const payload = await response.json();
-                editEmailContext.emailText.textContent = payload.mail || nextEmail;
-                editEmailModal.hide();
-                showClientAlert('E-mail changed to ' + (payload.mail || nextEmail) + '.', 'success');
-                renderTablePage();
-            } catch (error) {
-                showFormError(editEmailError, error.message || 'The e-mail could not be changed.');
-            } finally {
-                editEmailSaveBtn.disabled = false;
-                editEmailSaveBtn.textContent = oldLabel;
-            }
-        });
+    function rowUser(row) {
+        return {
+            name: row.dataset.name || '',
+            email: row.dataset.email || '',
+            level: row.dataset.level || '',
+            scope: row.dataset.scope || 'OWN',
+            admin: row.dataset.admin === 'true',
+            enabled: row.dataset.enabled === 'true',
+            lastLogin: row.dataset.lastLogin || '',
+            self: row.dataset.self === 'true'
+        };
     }
 
-    updateSaveButtonState();
+    // Every cell is rebuilt from the saved user, so a row from the server and a new one look the same
+    function fillRow(row, user) {
+        const name = user.displayName || '';
+        row.dataset.userId = user.id;
+        row.dataset.name = name;
+        row.dataset.email = user.mail || '';
+        row.dataset.level = user.level || '';
+        row.dataset.scope = user.scope || '';
+        row.dataset.admin = String(Boolean(user.adminAccess));
+        row.dataset.enabled = String(Boolean(user.enabled));
+        row.dataset.lastLogin = user.lastLoginAt || '';
+        if (!row.dataset.self) {
+            row.dataset.self = 'false';
+        }
+
+        row.querySelector('.js-name-cell').replaceChildren(element('div', 'user-cell', null, [
+            element('span', 'avatar', name.trim() ? name.trim().charAt(0) : 'U', null, { 'aria-hidden': 'true' }),
+            element('div', null, null, [
+                element('span', 'user-name', name || '-'),
+                row.dataset.self === 'true' ? element('span', 'self-chip', 'You') : null
+            ])
+        ]));
+        row.querySelector('.js-email').textContent = user.mail || '';
+        row.querySelector('.js-level').textContent = LEVEL_LABELS[user.level] || user.level || '-';
+        row.querySelector('.js-scope').textContent = SCOPE_LABELS[user.scope] || user.scope || '-';
+        row.querySelector('.js-admin').replaceChildren(user.adminAccess
+            ? element('span', 'admin-badge', 'Admin')
+            : element('span', 'no-value', '—'));
+        row.querySelector('.js-status').replaceChildren(element('span',
+            'status-pill ' + (user.enabled ? 'is-active' : 'is-inactive'), user.enabled ? 'Active' : 'Inactive'));
+        row.querySelector('.js-last-login').textContent = user.lastLoginAt || '-';
+        row.querySelector('.js-open-user').setAttribute('aria-label',
+            (CAN_MANAGE ? 'Edit ' : 'View ') + (name || user.mail || 'user'));
+    }
+
+    // A new user goes where the name sorts, as the server lists them
+    function addRow(user) {
+        const row = rowTemplate.content.querySelector('tr').cloneNode(true);
+        row.dataset.self = 'false';
+        fillRow(row, user);
+        const key = (user.displayName || '').toLowerCase();
+        const next = rows.find(function(other) {
+            return (other.dataset.name || '').toLowerCase().localeCompare(key) > 0;
+        });
+        tableBody.insertBefore(row, next || noUsersClientRow);
+        const serverEmptyRow = document.getElementById('noUsersServerRow');
+        if (serverEmptyRow) {
+            serverEmptyRow.remove();
+        }
+        rows = Array.from(tableBody.querySelectorAll('.admin-user-row'));
+        bindRow(row);
+        return row;
+    }
+
+    function flashRow(row) {
+        row.classList.remove('row-saved');
+        void row.offsetWidth;
+        row.classList.add('row-saved');
+    }
+
+    function matchesFilters(row) {
+        const q = searchInput.value.trim().toLowerCase();
+        const searchOk = !q
+            || (row.dataset.name || '').toLowerCase().includes(q)
+            || (row.dataset.email || '').toLowerCase().includes(q);
+        const levelOk = !levelFilter.value || levelFilter.value === row.dataset.level;
+        const scopeOk = !scopeFilter.value || scopeFilter.value === row.dataset.scope;
+        const statusOk = !statusFilter.value
+            || (statusFilter.value === 'ACTIVE') === (row.dataset.enabled === 'true');
+        return searchOk && levelOk && scopeOk && statusOk;
+    }
+
+    function getFilteredRows() {
+        return rows.filter(matchesFilters);
+    }
+
+    function applyFilters() {
+        currentPage = 1;
+        renderTablePage();
+    }
+
+    function renderTablePage() {
+        const filteredRows = getFilteredRows();
+        const totalItems = filteredRows.length;
+        const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+        if (currentPage > totalPages) {
+            currentPage = totalPages;
+        }
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const pageRows = filteredRows.slice(startIndex, endIndex);
+
+        rows.forEach(function(row) {
+            row.style.display = 'none';
+        });
+        pageRows.forEach(function(row) {
+            row.style.display = '';
+        });
+        noUsersClientRow.classList.toggle('d-none', totalItems > 0 || rows.length === 0);
+
+        const from = totalItems === 0 ? 0 : startIndex + 1;
+        const to = totalItems === 0 ? 0 : Math.min(endIndex, totalItems);
+        paginationInfo.textContent = 'Showing ' + from + '-' + to + ' of ' + totalItems + ' users';
+        pageIndicator.textContent = currentPage + ' / ' + totalPages;
+        prevPageBtn.disabled = currentPage <= 1;
+        nextPageBtn.disabled = currentPage >= totalPages;
+    }
+
+    // Shows the page a row is on with the current filters; false when the filters hide it
+    function showRowPage(row) {
+        const index = getFilteredRows().indexOf(row);
+        if (index < 0) {
+            renderTablePage();
+            return false;
+        }
+        currentPage = Math.floor(index / pageSize) + 1;
+        renderTablePage();
+        return true;
+    }
 
     searchInput.addEventListener('input', applyFilters);
     levelFilter.addEventListener('change', applyFilters);
     scopeFilter.addEventListener('change', applyFilters);
     statusFilter.addEventListener('change', applyFilters);
-
-    if (pageSizeSelect) {
-        pageSizeSelect.addEventListener('change', function() {
-            pageSize = Number(pageSizeSelect.value || 10);
-            currentPage = 1;
+    pageSizeSelect.addEventListener('change', function() {
+        pageSize = Number(pageSizeSelect.value || 10);
+        currentPage = 1;
+        renderTablePage();
+    });
+    prevPageBtn.addEventListener('click', function() {
+        if (currentPage > 1) {
+            currentPage -= 1;
             renderTablePage();
-        });
-    }
+        }
+    });
+    nextPageBtn.addEventListener('click', function() {
+        currentPage += 1;
+        renderTablePage();
+    });
 
-    if (prevPageBtn) {
-        prevPageBtn.addEventListener('click', function() {
-            if (currentPage > 1) {
-                currentPage -= 1;
-                renderTablePage();
+    if (exportUsersBtn) exportUsersBtn.addEventListener('click', async function() {
+        try {
+            await loadSheetJS();
+            const exportRows = getFilteredRows().map(function(row) {
+                const user = rowUser(row);
+                return {
+                    Name: user.name,
+                    Email: user.email,
+                    Level: LEVEL_LABELS[user.level] || user.level,
+                    Scope: SCOPE_LABELS[user.scope] || user.scope,
+                    AdminAccess: user.admin ? 'YES' : 'NO',
+                    Status: user.enabled ? 'ACTIVE' : 'INACTIVE',
+                    LastLogin: user.lastLogin || '-'
+                };
+            });
+            if (exportRows.length === 0) {
+                showClientAlert('No users to export with the current filters.', 'warning');
+                return;
             }
-        });
-    }
 
-    if (nextPageBtn) {
-        nextPageBtn.addEventListener('click', function() {
-            const total = getTotalPages();
-            if (currentPage < total) {
-                currentPage += 1;
-                renderTablePage();
-            }
-        });
-    }
-
-    if (exportUsersBtn) {
-        exportUsersBtn.addEventListener('click', async function() {
-            try {
-                await loadSheetJS();
-
-                const filteredRows = getFilteredRows();
-                const exportRows = filteredRows.map(function(row) {
-                    const emailElement = row.children[1];
-                    const levelSelect = row.querySelector('.js-level');
-                    const scopeSelect = row.querySelector('.js-scope');
-                    const adminToggle = row.querySelector('.js-admin-toggle');
-                    const statusSelect = row.querySelector('.js-status');
-                    const lastLoginElement = row.querySelector('.last-login');
-
-                    return {
-                        Name: userName(row),
-                        Email: emailElement ? emailElement.textContent.trim() : '',
-                        Level: selectedText(levelSelect),
-                        Scope: selectedText(scopeSelect),
-                        AdminAccess: adminToggle && adminToggle.checked ? 'YES' : 'NO',
-                        Status: statusSelect ? statusSelect.value : '',
-                        LastLogin: lastLoginElement ? lastLoginElement.textContent.replace(/\s+/g, ' ').trim() : ''
-                    };
-                });
-
-                if (exportRows.length === 0) {
-                    showClientAlert('No users to export with the current filters.', 'warning');
-                    return;
-                }
-
-                const worksheet = XLSX.utils.json_to_sheet(exportRows);
-                const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
-
-                const now = new Date();
-                const stamp = now.getFullYear().toString()
-                    + String(now.getMonth() + 1).padStart(2, '0')
-                    + String(now.getDate()).padStart(2, '0')
-                    + '-'
-                    + String(now.getHours()).padStart(2, '0')
-                    + String(now.getMinutes()).padStart(2, '0');
-
-                XLSX.writeFile(workbook, 'qtracker-users-' + stamp + '.xlsx');
-                showClientAlert('Exported ' + exportRows.length + (exportRows.length === 1 ? ' user.' : ' users.'), 'success');
-            } catch (error) {
-                showClientAlert('Export failed: ' + (error.message || 'unknown error'), 'danger');
-            }
-        });
-    }
+            const worksheet = XLSX.utils.json_to_sheet(exportRows);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
+            const now = new Date();
+            const stamp = now.getFullYear().toString()
+                + String(now.getMonth() + 1).padStart(2, '0')
+                + String(now.getDate()).padStart(2, '0')
+                + '-'
+                + String(now.getHours()).padStart(2, '0')
+                + String(now.getMinutes()).padStart(2, '0');
+            XLSX.writeFile(workbook, 'qtracker-users-' + stamp + '.xlsx');
+            showClientAlert('Exported ' + exportRows.length + (exportRows.length === 1 ? ' user.' : ' users.'), 'success');
+        } catch (error) {
+            showClientAlert('Export failed: ' + (error.message || 'unknown error'), 'danger');
+        }
+    });
 
     if (openAddUserBtn) {
         openAddUserBtn.addEventListener('click', function() {
-            if (!addUserModal) {
-                showClientAlert('The Add User dialog could not be opened. Reload the page and try again.', 'danger');
-                return;
-            }
-            addUserForm.reset();
-            [addUserEmail, addUserName, addUserLevel, addUserScope].forEach(function(field) {
-                setFieldError(field, '');
-            });
-            syncScopeToLevel(addUserLevel, addUserScope);
-            updateAddUserHint();
-            hideFormError(addUserError);
-            addUserModal.show();
+            openDialog('create', null, openAddUserBtn);
         });
     }
 
-    if (addUserModalElement) {
-        addUserModalElement.addEventListener('shown.bs.modal', function() {
-            addUserEmail.focus();
-        });
-    }
+    // ---------------------------------------------------------------- the user dialog
 
-    if (addUserForm) {
-        [addUserEmail, addUserName, addUserLevel, addUserScope].forEach(function(field) {
-            field.addEventListener(field.tagName === 'SELECT' ? 'change' : 'input', function() {
-                setFieldError(field, '');
-            });
-        });
-        addUserLevel.addEventListener('change', function() {
-            syncScopeToLevel(addUserLevel, addUserScope);
-            updateAddUserHint();
-        });
-        [addUserScope, addUserAdmin].forEach(function(field) {
-            field.addEventListener('change', updateAddUserHint);
-        });
-
-        addUserForm.addEventListener('submit', async function(event) {
-            event.preventDefault();
-            hideFormError(addUserError);
-
-            const email = addUserEmail.value.trim().toLowerCase();
-            const emailProblem = checkEmail(email);
-            setFieldError(addUserEmail, emailProblem);
-            setFieldError(addUserLevel, addUserLevel.value ? '' : 'Level is required');
-            if (emailProblem || !addUserLevel.value) {
-                (emailProblem ? addUserEmail : addUserLevel).focus();
-                return;
-            }
-            // SoQM and admin access are confirmed before the user is created
-            const giveSoqm = addUserLevel.value === 'SOQM';
-            const giveAdmin = addUserAdmin.value === 'YES';
-            if (giveSoqm || giveAdmin) {
-                const confirmed = await showConfirmModal({
-                    title: 'Create ' + email + ' with ' + (giveSoqm && giveAdmin ? 'SoQM and admin access'
-                        : giveSoqm ? 'SoQM access' : 'admin access') + '?',
-                    message: accessSummary(addUserLevel.value, addUserScope.value, giveAdmin),
-                    confirmText: 'Create User'
-                });
-                if (!confirmed) {
-                    return;
-                }
-            }
-
-            addUserSaveBtn.disabled = true;
-            const oldLabel = addUserSaveBtn.textContent;
-            addUserSaveBtn.textContent = 'Creating...';
-
-            try {
-                const response = await postForm('/api/users', 'POST', {
-                    email: email,
-                    displayName: addUserName.value.trim(),
-                    level: addUserLevel.value,
-                    scope: addUserScope.value,
-                    adminAccess: String(addUserAdmin.value === 'YES'),
-                    enabled: String(addUserStatus.value === 'ACTIVE')
-                });
-                if (!response.ok) {
-                    showServerError(await responseMessage(response, 'The user could not be created.'),
-                        { email: addUserEmail, level: addUserLevel, scope: addUserScope }, addUserError);
-                    return;
-                }
-
-                const created = await response.json();
-                const createdMessage = 'User ' + (created.displayName || created.mail || email) + ' (' + (created.mail || email) + ') created.';
-                if (!hasNoPendingChanges()) {
-                    // A reload would drop the unsaved rows
-                    addUserModal.hide();
-                    showClientAlert(createdMessage + ' Save your changes and reload the page to see the user in the list.', 'success');
-                    return;
-                }
-                storeFlash(createdMessage);
-                window.location.reload();
-            } catch (error) {
-                showFormError(addUserError, error.message || 'The user could not be created.');
-            } finally {
-                addUserSaveBtn.disabled = false;
-                addUserSaveBtn.textContent = oldLabel;
-            }
-        });
-    }
-
-    if (saveAllBtn) saveAllBtn.addEventListener('click', async function() {
-        const updates = rows.filter(function(row) {
-            return row.classList.contains('row-dirty');
-        }).map(function(row) {
-            const state = getCurrentRowState(row);
-            state.row = row;
-            return state;
-        });
-
-        if (updates.length === 0) {
-            showClientAlert('No changes to save.', 'warning');
+    function openDialog(mode, row, opener) {
+        if (!userModal) {
+            showClientAlert('The user dialog could not be opened. Reload the page and try again.', 'danger');
             return;
         }
-
-        saveAllBtn.disabled = true;
-        const originalLabel = saveAllBtn.textContent;
-        saveAllBtn.textContent = 'Saving...';
-
-        // Every changed row is sent, also after a failed one; the failed rows stay marked
-        const saved = [];
-        const failed = [];
-        try {
-            for (const item of updates) {
-                const name = userName(item.row);
-                try {
-                    const response = await postForm('/api/users/' + item.row.dataset.userId + '/access', 'POST', {
-                        level: item.level,
-                        scope: item.scope,
-                        enabled: String(item.enabled),
-                        adminAccess: String(item.adminAccess)
-                    });
-                    if (!response.ok) {
-                        failed.push(name + ': ' + await responseMessage(response, 'not saved'));
-                        continue;
-                    }
-                    originalState.set(item.row.dataset.userId, {
-                        level: item.level,
-                        scope: item.scope,
-                        enabled: item.enabled,
-                        adminAccess: item.adminAccess
-                    });
-                    updateRowDirtyState(item.row);
-                    saved.push(name);
-                } catch (error) {
-                    failed.push(name + ': ' + (error.message || 'not saved'));
-                    if (error.sessionExpired) {
-                        break;
-                    }
-                }
-            }
-        } finally {
-            saveAllBtn.textContent = originalLabel;
-            updateSaveButtonState();
+        if (dialog) {
+            return;
         }
+        const user = row ? rowUser(row) : {
+            name: '', email: '', level: '', scope: 'OWN', admin: false, enabled: true, lastLogin: '', self: false
+        };
+        const readOnly = mode === 'view';
+        dialog = {
+            mode: mode,
+            row: row,
+            opener: opener,
+            self: user.self,
+            emailEditable: !readOnly && (mode === 'create' || !user.lastLogin),
+            saving: false,
+            asking: false,
+            closing: false
+        };
 
-        if (failed.length === 0) {
-            showClientAlert(saved.length === 1
-                ? 'Changes saved for ' + saved[0] + '.'
-                : 'Changes saved for ' + saved.length + ' users.', 'success');
-        } else {
-            showClientAlert('Not saved — ' + failed.join('; ') + '.'
-                + (saved.length ? ' Saved: ' + saved.join(', ') + '.' : '')
-                + ' Rows not saved stay highlighted.', 'danger');
-        }
-    });
+        clearErrors();
+        titleEl.textContent = mode === 'create' ? 'Add user'
+            : (readOnly ? 'User: ' : 'Edit user: ') + (user.name || user.email);
+        metaEl.textContent = mode === 'create' ? 'The user can sign in once the account is active.'
+            : user.lastLogin ? 'Last login: ' + user.lastLogin : 'Has not signed in yet';
 
-    clientAlert.querySelector('.btn-close').addEventListener('click', hideClientAlert);
+        fields.name.value = user.name;
+        fields.email.value = user.email;
+        chooseLevelOption.hidden = mode !== 'create';
+        chooseLevelOption.disabled = mode !== 'create';
+        fields.level.value = user.level;
+        fields.scope.value = user.scope;
+        fields.admin.checked = user.admin;
+        fields.status.value = user.enabled ? 'ACTIVE' : 'INACTIVE';
 
-    // Leaving the page (sidebar, reload, closing the tab) with unsaved rows asks first
-    window.addEventListener('beforeunload', function(event) {
-        if (!hasNoPendingChanges()) {
-            event.preventDefault();
-            event.returnValue = '';
-        }
-    });
+        fields.name.readOnly = readOnly;
+        fields.email.readOnly = !dialog.emailEditable;
+        fields.level.disabled = readOnly;
+        fields.admin.disabled = readOnly || user.self;
+        fields.status.disabled = readOnly || user.self;
+        readOnlyLevelOption.disabled = user.self;
+        nameRequiredMark.hidden = mode === 'create' || readOnly;
+        emailRequiredMark.hidden = !dialog.emailEditable;
+        levelRequiredMark.hidden = readOnly;
+        nameHint.textContent = mode === 'create' ? 'Leave empty to take the name from the e-mail.' : '';
+        emailHint.textContent = mode === 'create' ? 'The user signs in with this address.'
+            : readOnly ? ''
+            : dialog.emailEditable ? 'Can be changed until the first sign-in.'
+            : 'Cannot be changed: the user has already signed in.';
+        selfNote.hidden = !user.self || readOnly;
 
-    showStoredFlash();
+        saveBtn.hidden = readOnly;
+        saveBtn.textContent = mode === 'create' ? 'Create user' : 'Save';
+        cancelBtn.textContent = readOnly ? 'Close' : 'Cancel';
 
-    // Audit Trail: one event type at a time, user access first
-    const auditFilter = document.getElementById('auditFilter');
-    if (auditFilter) {
-        auditFilter.addEventListener('change', function() {
-            const group = auditFilter.value;
-            const option = auditFilter.options[auditFilter.selectedIndex];
-            let shown = 0;
-            document.querySelectorAll('.audit-row').forEach(function(row) {
-                const visible = group === 'ALL' || row.dataset.group === group;
-                row.classList.toggle('d-none', !visible);
-                if (visible) {
-                    shown += 1;
-                }
-            });
-            document.getElementById('auditEmptyRow').classList.toggle('d-none', shown > 0);
-            document.getElementById('auditTargetHeader').textContent = option.dataset.targetLabel || 'Target';
-            document.getElementById('auditCount').textContent = shown + (shown === 1 ? ' record' : ' records');
-        });
+        syncScopeToLevel();
+        updateAccessSummary();
+        dialog.initial = currentValues();
+        updateDirtyState();
+        userModal.show();
     }
 
-    function getCurrentRowState(row) {
+    function currentValues() {
         return {
-            level: row.querySelector('.js-level')?.value || '',
-            scope: row.querySelector('.js-scope')?.value || '',
-            enabled: row.querySelector('.js-status')?.value === 'ACTIVE',
-            adminAccess: !!row.querySelector('.js-admin-toggle')?.checked
+            name: fields.name.value.trim(),
+            email: fields.email.value.trim().toLowerCase(),
+            level: fields.level.value,
+            scope: fields.scope.value,
+            admin: fields.admin.checked,
+            enabled: fields.status.value === 'ACTIVE'
         };
     }
 
-    function updateRowDirtyState(row) {
-        const userId = row.dataset.userId;
-        const original = originalState.get(userId);
-        const current = getCurrentRowState(row);
-        const dirty = !original
-            || original.level !== current.level
-            || original.scope !== current.scope
-            || original.enabled !== current.enabled
-            || original.adminAccess !== current.adminAccess;
-
-        row.classList.toggle('row-dirty', dirty);
-    }
-
-    function hasNoPendingChanges() {
-        return !rows.some(function(row) {
-            return row.classList.contains('row-dirty');
+    function isDirty() {
+        if (!dialog || dialog.mode === 'view' || !dialog.initial) {
+            return false;
+        }
+        const now = currentValues();
+        return Object.keys(now).some(function(key) {
+            return now[key] !== dialog.initial[key];
         });
     }
 
-    function updateSaveButtonState() {
-        if (saveAllBtn) {
-            saveAllBtn.disabled = hasNoPendingChanges();
-        }
-    }
-
-    function userName(row) {
-        const name = row.querySelector('.user-name');
-        return name ? name.textContent.trim() : '';
-    }
-
-    function selectedText(select) {
-        if (!select || select.selectedIndex < 0) {
-            return '';
-        }
-        return select.options[select.selectedIndex].textContent.trim();
+    function updateDirtyState() {
+        const dirty = isDirty();
+        saveBtn.disabled = !dirty || Boolean(dialog && dialog.saving);
+        dirtyNote.hidden = !dirty;
     }
 
     // SoQM always sees all controls: its scope is All and cannot be changed
-    function syncScopeToLevel(levelSelect, scopeSelect) {
-        if (!levelSelect || !scopeSelect) {
-            return;
+    function syncScopeToLevel() {
+        const soqm = fields.level.value === 'SOQM';
+        if (soqm) {
+            fields.scope.value = 'ALL';
         }
-        if (levelSelect.value === 'SOQM') {
-            scopeSelect.value = 'ALL';
-            scopeSelect.disabled = true;
-            scopeSelect.title = 'SoQM always sees all controls';
-        } else {
-            scopeSelect.disabled = !CAN_MANAGE;
-            scopeSelect.title = '';
-        }
+        fields.scope.disabled = soqm || dialog.mode === 'view';
+        scopeHint.textContent = soqm ? 'SoQM always sees all controls.' : '';
     }
 
-    // What a level, a scope and the admin flag add up to, in a line or two; the server's AccessPolicy
-    // has the same rules
+    function updateAccessSummary() {
+        adminState.textContent = fields.admin.checked ? 'Yes' : 'No';
+        accessSummaryEl.replaceChildren();
+        accessSummary(fields.level.value, fields.scope.value, fields.admin.checked).forEach(function(line) {
+            accessSummaryEl.appendChild(element('p', null, null, [element('strong', null, line[0]), ' ' + line[1]]));
+        });
+    }
+
+    // What a level, a scope and admin access add up to; the server's AccessPolicy has the same rules
     function accessSummary(level, scope, admin) {
-        const sees = admin ? 'all controls (admin)' : (SCOPE_TEXT[scope] || SCOPE_TEXT.OWN);
-        let text;
-        if (level === 'SOQM') {
-            text = 'Edits every control, assigns people, SoQM steps. Sees all controls.';
-        } else if (level === 'PARTICIPANT') {
-            text = 'Own steps where assigned' + (scope === 'KDN' ? ' (KDN controls)' : '') + '. Sees ' + sees + '.';
-        } else if (level === 'READ_ONLY') {
-            text = 'View only. Sees ' + sees + '.';
-        } else {
-            return '';
+        if (!level) {
+            return [];
         }
+        const lines = [];
+        lines.push(['Sees', level === 'SOQM' ? 'all controls, drafts included.'
+            : admin ? 'all controls, drafts included (admin access).'
+            : (SCOPE_TEXT[scope] || SCOPE_TEXT.OWN) + '.']);
+        lines.push(['Edits', level === 'SOQM' ? 'every control: assigns people and performs the SoQM steps.'
+            : level === 'PARTICIPANT' ? 'only the steps they are assigned to' + (scope === 'KDN' ? ' (KDN controls).' : '.')
+            : 'nothing: view only.']);
         if (admin) {
-            text += level === 'READ_ONLY' ? ' Admin Panel, view only.' : ' Admin Panel.';
+            lines.push(['Admin Panel:', level === 'READ_ONLY' ? 'view only.' : 'manages users and sees the audit trail.']);
         }
-        return text;
+        return lines;
     }
 
-    function updateAccessHint(row) {
-        const hint = row.querySelector('.js-access-hint');
-        if (!hint) {
+    Object.keys(fields).forEach(function(key) {
+        const field = fields[key];
+        field.addEventListener(field.tagName === 'SELECT' || field.type === 'checkbox' ? 'change' : 'input', function() {
+            setFieldError(field, '');
+            if (key === 'level') {
+                syncScopeToLevel();
+                setFieldError(fields.scope, '');
+            }
+            updateAccessSummary();
+            updateDirtyState();
+        });
+    });
+
+    modalEl.addEventListener('shown.bs.modal', function() {
+        focusFirstField();
+    });
+
+    // Closing with unsaved changes (Cancel, the cross, Esc, a click outside) asks first
+    modalEl.addEventListener('hide.bs.modal', function(event) {
+        if (!dialog) {
             return;
         }
-        hint.textContent = accessSummary(row.querySelector('.js-level')?.value,
-            row.querySelector('.js-scope')?.value,
-            !!row.querySelector('.js-admin-toggle')?.checked);
-    }
-
-    function updateAddUserHint() {
-        if (addUserAccessHint) {
-            addUserAccessHint.textContent = accessSummary(addUserLevel.value, addUserScope.value,
-                addUserAdmin.value === 'YES');
-        }
-    }
-
-    function updateAdminLabel(labelElement, checked) {
-        if (!labelElement) {
+        if (dialog.saving) {
+            event.preventDefault();
             return;
         }
-        labelElement.textContent = checked ? 'Yes' : 'No';
-    }
-
-    function applyStatusBadge(selectElement) {
-        if (!selectElement) {
+        if (dialog.closing || !isDirty()) {
             return;
         }
-        selectElement.classList.remove('status-active', 'status-inactive');
-        if (selectElement.value === 'ACTIVE') {
-            selectElement.classList.add('status-active');
+        event.preventDefault();
+        askToDiscard();
+    });
+
+    modalEl.addEventListener('hidden.bs.modal', function() {
+        const opener = dialog ? dialog.opener : null;
+        dialog = null;
+        clearErrors();
+        if (opener && document.body.contains(opener) && opener.offsetParent !== null) {
+            opener.focus();
+        }
+    });
+
+    async function askToDiscard() {
+        if (dialog.asking) {
+            return;
+        }
+        dialog.asking = true;
+        const discard = await showConfirmModal({
+            title: 'Discard unsaved changes?',
+            message: dialog.mode === 'create'
+                ? 'The new user has not been created yet.'
+                : 'Your changes to ' + (dialog.initial.name || dialog.initial.email) + ' have not been saved.',
+            confirmText: 'Discard changes',
+            cancelText: 'Keep editing'
+        });
+        if (!dialog) {
+            return;
+        }
+        dialog.asking = false;
+        if (discard) {
+            dialog.closing = true;
+            userModal.hide();
         } else {
-            selectElement.classList.add('status-inactive');
+            focusFirstField();
         }
     }
 
-    // Page message: success and info close by themselves, warnings and errors stay until closed
-    function showClientAlert(message, type) {
-        const kind = type || 'info';
-        clearTimeout(alertTimer);
-        clientAlert.classList.remove('d-none', 'alert-success', 'alert-warning', 'alert-danger', 'alert-info');
-        clientAlert.classList.add('alert-' + kind);
-        clientAlert.setAttribute('role', kind === 'danger' ? 'alert' : 'status');
-        clientAlertText.textContent = message;
-        if (kind === 'success' || kind === 'info') {
-            alertTimer = setTimeout(hideClientAlert, 5000);
+    // Keyboard focus stays in the dialog (also after a confirm dialog over it has closed)
+    modalEl.addEventListener('keydown', function(event) {
+        if (event.key !== 'Tab') {
+            return;
         }
+        const focusable = focusableInDialog();
+        if (focusable.length === 0) {
+            return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === modalEl)) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    });
+    document.addEventListener('focusin', function(event) {
+        if (!dialog || dialog.asking || !modalEl.classList.contains('show')
+                || document.querySelector('#appConfirmModal.show') || modalEl.contains(event.target)
+                || clientAlert.contains(event.target)) {
+            return;
+        }
+        focusFirstField();
+    });
+
+    function focusableInDialog() {
+        return Array.from(modalEl.querySelectorAll('button, input, select, [tabindex]:not([tabindex="-1"])'))
+            .filter(function(item) {
+                return !item.disabled && !item.hidden && item.offsetParent !== null;
+            });
     }
 
-    function hideClientAlert() {
-        clearTimeout(alertTimer);
-        clientAlert.classList.add('d-none');
+    // Add User starts at the e-mail; an existing user's dialog takes the focus itself, not a field, so that
+    // typing by accident changes nothing (Tab goes on to the fields)
+    function focusFirstField() {
+        if (!dialog) {
+            return;
+        }
+        (dialog.mode === 'create' ? fields.email : modalEl).focus();
     }
 
-    function storeFlash(message) {
-        try {
-            sessionStorage.setItem(FLASH_KEY, message);
-        } catch (error) {
-            // Storage may be blocked; the new user is visible in the list anyway
+    form.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        if (!dialog || dialog.mode === 'view' || dialog.saving || dialog.asking || !isDirty()) {
+            return;
         }
-    }
+        hideFormMessage();
+        const values = currentValues();
+        if (!checkValues(values)) {
+            return;
+        }
 
-    function showStoredFlash() {
-        let message = null;
-        try {
-            message = sessionStorage.getItem(FLASH_KEY);
-            sessionStorage.removeItem(FLASH_KEY);
-        } catch (error) {
-            message = null;
+        // Admin access, SoQM and deactivating are confirmed before anything is sent
+        const risk = riskyChanges(values);
+        if (risk) {
+            dialog.asking = true;
+            const confirmed = await showConfirmModal(risk);
+            if (!dialog) {
+                return;
+            }
+            dialog.asking = false;
+            if (!confirmed) {
+                risk.field.focus();
+                return;
+            }
         }
-        if (message) {
-            showClientAlert(message, 'success');
+        await save(values);
+    });
+
+    function checkValues(values) {
+        const problems = [];
+        if (dialog.mode !== 'create' && !values.name) {
+            problems.push([fields.name, 'Name is required']);
         }
+        if (values.name.length > MAX_NAME_LENGTH) {
+            problems.push([fields.name, 'Name is too long (' + MAX_NAME_LENGTH + ' characters at most)']);
+        }
+        if (dialog.emailEditable) {
+            const emailProblem = checkEmail(values.email);
+            if (emailProblem) {
+                problems.push([fields.email, emailProblem]);
+            }
+        }
+        if (!values.level) {
+            problems.push([fields.level, 'Level is required']);
+        }
+        problems.forEach(function(problem) {
+            setFieldError(problem[0], problem[1]);
+        });
+        if (problems.length) {
+            problems[0][0].focus();
+        }
+        return problems.length === 0;
     }
 
     // Same rule as the server (one "@" with text on both sides), plus no spaces
@@ -1359,45 +1350,229 @@ document.addEventListener('DOMContentLoaded', function() {
         return '';
     }
 
-    function setFieldError(field, message) {
-        if (!field) {
+    // The confirm dialog for the changes that give more access or lock someone out; null when none
+    function riskyChanges(values) {
+        const before = dialog.initial;
+        const create = dialog.mode === 'create';
+        const who = values.name || values.email || 'this user';
+        const changes = [];
+        if (values.level === 'SOQM' && before.level !== 'SOQM') {
+            changes.push({
+                field: fields.level,
+                title: create ? 'Create ' + who + ' as SoQM?' : 'Make ' + who + ' SoQM?',
+                text: who + ' will create and edit every control, assign people and perform the SoQM steps, '
+                    + 'and will see all controls, drafts included.',
+                ok: create ? 'Create user' : 'Make SoQM'
+            });
+        }
+        if (values.admin && !before.admin) {
+            changes.push({
+                field: fields.admin,
+                title: create ? 'Create ' + who + ' with admin access?' : 'Give admin access to ' + who + '?',
+                text: who + ' will manage users, see the audit trail and view every control, drafts included.',
+                ok: create ? 'Create user' : 'Give admin access'
+            });
+        }
+        if (!create && !values.enabled && before.enabled) {
+            changes.push({
+                field: fields.status,
+                title: 'Deactivate ' + who + '?',
+                text: who + ' will be signed out on the next action and cannot sign in until the account is active again.',
+                ok: 'Deactivate'
+            });
+        }
+        if (changes.length === 0) {
+            return null;
+        }
+        if (changes.length === 1) {
+            return {
+                title: changes[0].title,
+                message: changes[0].text,
+                confirmText: changes[0].ok,
+                field: changes[0].field
+            };
+        }
+        return {
+            title: create ? 'Create ' + who + ' with this access?' : 'Save these changes to ' + who + '?',
+            message: changes.map(function(change) {
+                return change.text;
+            }).join(' '),
+            confirmText: create ? 'Create user' : 'Save changes',
+            field: changes[0].field
+        };
+    }
+
+    async function save(values) {
+        const create = dialog.mode === 'create';
+        const label = saveBtn.textContent;
+        dialog.saving = true;
+        updateDirtyState();
+        saveBtn.textContent = create ? 'Creating…' : 'Saving…';
+        try {
+            const params = {
+                displayName: values.name,
+                level: values.level,
+                scope: values.scope,
+                adminAccess: String(values.admin),
+                enabled: String(values.enabled)
+            };
+            if (dialog.emailEditable) {
+                params.email = values.email;
+            }
+            const url = create ? '/api/users' : '/api/users/' + dialog.row.dataset.userId + '/access';
+            const response = await postForm(url, params);
+            if (!response.ok) {
+                showSaveProblem(await responseProblem(response));
+                return;
+            }
+
+            const user = await response.json();
+            let row = dialog.row;
+            let message;
+            if (create) {
+                row = addRow(user);
+                message = 'User ' + (user.displayName || user.mail) + ' (' + user.mail + ') created.';
+            } else {
+                fillRow(row, user);
+                message = user.changed === false ? 'Nothing to save: no value changed.'
+                    : 'Changes saved for ' + (user.displayName || user.mail) + '.';
+            }
+            if (user.audit) {
+                addAuditRow(user.audit);
+            }
+            const visible = showRowPage(row);
+            if (visible) {
+                flashRow(row);
+            } else {
+                message += ' The current filters hide the row.';
+            }
+
+            dialog.opener = visible ? row.querySelector('.js-open-user') : (create ? openAddUserBtn : null);
+            dialog.saving = false;
+            dialog.closing = true;
+            userModal.hide();
+            showClientAlert(message, 'success');
+        } catch (error) {
+            showSaveProblem(error.sessionExpired
+                ? { message: 'Your session has expired. Reload the page and sign in again.', reload: true }
+                : { message: 'The server could not be reached. Your values are kept: check the connection and try again.' });
+        } finally {
+            if (dialog && !dialog.closing) {
+                dialog.saving = false;
+                saveBtn.textContent = label;
+                updateDirtyState();
+            }
+        }
+    }
+
+    // A refused value goes under its field; anything else (and the "reload" cases) above the form
+    function showSaveProblem(problem) {
+        const field = problem.reload ? null : fieldForMessage(problem.message);
+        if (field && !field.disabled && !field.readOnly) {
+            setFieldError(field, problem.message);
+            field.focus();
             return;
         }
+        formMessageText.textContent = problem.message;
+        reloadBtn.classList.toggle('d-none', !problem.reload);
+        formMessage.classList.remove('d-none');
+        (problem.reload ? reloadBtn : formMessage).focus();
+    }
+
+    // The server's messages (UserService) name the value they refuse
+    function fieldForMessage(message) {
+        if (/e-?mail/i.test(message)) {
+            return fields.email;
+        }
+        if (/^name/i.test(message)) {
+            return fields.name;
+        }
+        if (/admin access/i.test(message)) {
+            return fields.admin;
+        }
+        if (/deactivate/i.test(message)) {
+            return fields.status;
+        }
+        if (/scope/i.test(message)) {
+            return fields.scope;
+        }
+        if (/level|read-only/i.test(message)) {
+            return fields.level;
+        }
+        return null;
+    }
+
+    // What went wrong, in words for the admin: { message, reload }
+    async function responseProblem(response) {
+        if (response.status === 401) {
+            return { message: 'Your session has expired. Reload the page and sign in again.', reload: true };
+        }
+        const text = (await response.text().catch(function() {
+            return '';
+        })).trim();
+        let json = null;
+        if (text.startsWith('{')) {
+            try {
+                json = JSON.parse(text);
+            } catch (error) {
+                json = null;
+            }
+        }
+        if (response.status === 403) {
+            // A stale CSRF token (e.g. after signing in again in another tab) is a 403 with its own message
+            if (json && json.code === 'CSRF_INVALID') {
+                return { message: json.message || 'This page is out of date. Reload the page and try again.', reload: true };
+            }
+            if (json && json.code === 'READ_ONLY' && json.message) {
+                return { message: json.message, reload: true };
+            }
+            return {
+                message: 'Only admins who may change users can do this. Your access may have changed: reload the page.',
+                reload: true
+            };
+        }
+        if (response.status === 400) {
+            const message = json ? (json.message || json.error || '') : text;
+            if (message && !message.startsWith('<')) {
+                return { message: message.charAt(0).toUpperCase() + message.slice(1) };
+            }
+        }
+        return {
+            message: 'The server could not save the changes (error ' + response.status + '). '
+                + 'Your values are kept: try again, and reload the page if it keeps failing.'
+        };
+    }
+
+    function setFieldError(field, message) {
         const feedback = document.getElementById(field.id + '-error');
-        field.classList.toggle('is-invalid', !!message);
+        field.classList.toggle('is-invalid', Boolean(message));
         field.setAttribute('aria-invalid', message ? 'true' : 'false');
         if (feedback) {
             feedback.textContent = message || '';
         }
     }
 
-    function showFormError(element, message) {
-        element.textContent = message.charAt(0).toUpperCase() + message.slice(1);
-        element.classList.remove('d-none');
+    function clearErrors() {
+        Object.keys(fields).forEach(function(key) {
+            setFieldError(fields[key], '');
+        });
+        hideFormMessage();
     }
 
-    function hideFormError(element) {
-        element.textContent = '';
-        element.classList.add('d-none');
+    function hideFormMessage() {
+        formMessageText.textContent = '';
+        formMessage.classList.add('d-none');
+        reloadBtn.classList.add('d-none');
     }
 
-    // A server message about the e-mail, the level or the scope goes under that field, anything else above the form
-    function showServerError(message, fields, formError) {
-        const target = /e-?mail/i.test(message) ? fields.email
-            : /level/i.test(message) ? fields.level
-            : /scope/i.test(message) ? fields.scope
-            : null;
-        if (target) {
-            setFieldError(target, message.charAt(0).toUpperCase() + message.slice(1));
-            target.focus();
-        } else {
-            showFormError(formError, message);
-        }
-    }
+    reloadBtn.addEventListener('click', function() {
+        reloading = true;
+        window.location.reload();
+    });
 
-    async function postForm(url, method, values) {
+    async function postForm(url, values) {
         const response = await fetch(url, {
-            method: method,
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
             },
@@ -1412,112 +1587,111 @@ document.addEventListener('DOMContentLoaded', function() {
         return response;
     }
 
-    async function responseMessage(response, fallback) {
-        if (response.status === 401) {
-            return 'your session has expired, sign in again';
-        }
-        if (response.status === 403) {
-            // A stale CSRF token (e.g. after signing in again in another tab) is a 403 too, with its own message
-            const json = await response.clone().json().catch(() => null);
-            return json && (json.code === 'CSRF_INVALID' || json.code === 'READ_ONLY')
-                ? json.message : 'you do not have admin access';
-        }
-        let text = '';
-        try {
-            text = (await response.text()).trim();
-        } catch (error) {
-            text = '';
-        }
-        if (text.startsWith('{')) {
-            try {
-                const json = JSON.parse(text);
-                text = json.message || json.error || '';
-            } catch (error) {
-                text = '';
+    // ---------------------------------------------------------------- audit trail
+
+    function applyAuditFilter() {
+        const group = auditFilter.value;
+        const option = auditFilter.options[auditFilter.selectedIndex];
+        let shown = 0;
+        auditTableBody.querySelectorAll('.audit-row').forEach(function(row) {
+            const visible = group === 'ALL' || row.dataset.group === group;
+            row.classList.toggle('d-none', !visible);
+            if (visible) {
+                shown += 1;
             }
-        }
-        if (!text || text.startsWith('<')) {
-            return fallback;
-        }
-        return text;
-    }
-
-    function applyFilters() {
-        currentPage = 1;
-        renderTablePage();
-    }
-
-    function matchesFilters(row) {
-        const q = searchInput.value.trim().toLowerCase();
-        const level = levelFilter.value;
-        const scope = scopeFilter.value;
-        const status = statusFilter.value;
-
-        const nameText = row.querySelector('.user-cell') ? row.querySelector('.user-cell').textContent.toLowerCase() : '';
-        const emailText = row.children[1] ? row.children[1].textContent.toLowerCase() : '';
-        const rowLevel = row.querySelector('.js-level') ? row.querySelector('.js-level').value : '';
-        const rowScope = row.querySelector('.js-scope') ? row.querySelector('.js-scope').value : '';
-        const rowEnabled = row.querySelector('.js-status') ? row.querySelector('.js-status').value === 'ACTIVE' : false;
-
-        const searchOk = !q || nameText.includes(q) || emailText.includes(q);
-        const levelOk = !level || level === rowLevel;
-        const scopeOk = !scope || scope === rowScope;
-        const statusOk = !status
-            || (status === 'ACTIVE' && rowEnabled)
-            || (status === 'INACTIVE' && !rowEnabled);
-
-        return searchOk && levelOk && scopeOk && statusOk;
-    }
-
-    function getFilteredRows() {
-        return rows.filter(matchesFilters);
-    }
-
-    function getTotalPages() {
-        const totalItems = getFilteredRows().length;
-        return Math.max(1, Math.ceil(totalItems / pageSize));
-    }
-
-    function renderTablePage() {
-        const filteredRows = getFilteredRows();
-        const totalItems = filteredRows.length;
-        const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-
-        if (currentPage > totalPages) {
-            currentPage = totalPages;
-        }
-
-        const startIndex = (currentPage - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        const pageRows = filteredRows.slice(startIndex, endIndex);
-
-        rows.forEach(function(row) {
-            row.style.display = 'none';
         });
+        document.getElementById('auditEmptyRow').classList.toggle('d-none', shown > 0);
+        document.getElementById('auditTargetHeader').textContent = option.dataset.targetLabel || 'Target';
+        document.getElementById('auditCount').textContent = shown + (shown === 1 ? ' record' : ' records');
+    }
 
-        pageRows.forEach(function(row) {
-            row.style.display = '';
+    // The entry the save just wrote, on top of the trail without a reload
+    function addAuditRow(audit) {
+        const owner = rows.find(function(row) {
+            return (row.dataset.email || '').toLowerCase() === (audit.target || '').toLowerCase();
         });
+        const row = element('tr', 'audit-row audit-row-new', null, [
+            element('td', 'audit-date', audit.createdAt || '-', null, { 'data-label': 'Date/Time' }),
+            element('td', null, audit.changedBy || '-', null, { 'data-label': 'Changed by' }),
+            element('td', null, audit.action || '-', null, { 'data-label': 'Action' }),
+            element('td', null, null, [
+                owner && owner.dataset.name ? element('span', 'audit-target-name', owner.dataset.name) : null,
+                element('span', 'audit-target-mail', audit.target || '-')
+            ], { 'data-label': 'Target user' })
+        ]);
+        row.dataset.group = audit.group;
+        auditTableBody.insertBefore(row, auditTableBody.firstChild);
+        [audit.group, 'ALL'].forEach(function(value) {
+            const option = auditFilter.querySelector('option[value="' + value + '"]');
+            if (option) {
+                const count = Number(option.dataset.count || 0) + 1;
+                option.dataset.count = count;
+                option.textContent = option.dataset.label + ' (' + count + ')';
+            }
+        });
+        applyAuditFilter();
+    }
 
-        if (noUsersClientRow) {
-            noUsersClientRow.classList.toggle('d-none', totalItems > 0);
-        }
+    auditFilter.addEventListener('change', applyAuditFilter);
 
-        if (paginationInfo) {
-            const from = totalItems === 0 ? 0 : (startIndex + 1);
-            const to = totalItems === 0 ? 0 : Math.min(endIndex, totalItems);
-            paginationInfo.textContent = 'Showing ' + from + '-' + to + ' of ' + totalItems + ' users';
-        }
+    // ---------------------------------------------------------------- page message and helpers
 
-        if (pageIndicator) {
-            pageIndicator.textContent = currentPage + ' / ' + totalPages;
+    // Page message: success and info close by themselves, warnings and errors stay until closed
+    function showClientAlert(message, type) {
+        const kind = type || 'info';
+        clearTimeout(alertTimer);
+        clientAlert.classList.remove('d-none', 'alert-success', 'alert-warning', 'alert-danger', 'alert-info');
+        clientAlert.classList.add('alert-' + kind);
+        clientAlert.setAttribute('role', kind === 'danger' ? 'alert' : 'status');
+        clientAlertText.textContent = message;
+        if (kind === 'success' || kind === 'info') {
+            alertTimer = setTimeout(hideClientAlert, 6000);
         }
-        if (prevPageBtn) {
-            prevPageBtn.disabled = currentPage <= 1;
+    }
+
+    function hideClientAlert() {
+        clearTimeout(alertTimer);
+        clientAlert.classList.add('d-none');
+    }
+
+    clientAlert.querySelector('.btn-close').addEventListener('click', hideClientAlert);
+
+    // Leaving the page (sidebar, reload, closing the tab) with unsaved changes in the dialog asks first
+    window.addEventListener('beforeunload', function(event) {
+        if (!reloading && isDirty()) {
+            event.preventDefault();
+            event.returnValue = '';
         }
-        if (nextPageBtn) {
-            nextPageBtn.disabled = currentPage >= totalPages;
+    });
+
+    function optionLabels(select) {
+        const labels = {};
+        Array.from(select.options).forEach(function(option) {
+            if (option.value) {
+                labels[option.value] = option.textContent.trim();
+            }
+        });
+        return labels;
+    }
+
+    // A small DOM builder: text is always set as text, never as HTML
+    function element(tag, className, text, children, attributes) {
+        const node = document.createElement(tag);
+        if (className) {
+            node.className = className;
         }
+        if (text !== null && text !== undefined) {
+            node.textContent = text;
+        }
+        (children || []).forEach(function(child) {
+            if (child !== null && child !== undefined) {
+                node.append(child);
+            }
+        });
+        Object.keys(attributes || {}).forEach(function(name) {
+            node.setAttribute(name, attributes[name]);
+        });
+        return node;
     }
 
     function loadSheetJS() {
@@ -1537,101 +1711,5 @@ document.addEventListener('DOMContentLoaded', function() {
     renderTablePage();
 });
 </script>
-<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form id="addUserForm" novalidate>
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addUserTitle">Add User</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="addUserError" class="alert alert-danger d-none mb-3" role="alert"></div>
-                    <div class="mb-3">
-                        <label for="addUserEmail" class="form-label">Email <span class="required-mark" aria-hidden="true">*</span></label>
-                        <input type="email" id="addUserEmail" class="form-control" placeholder="new.user@kpmg.kz"
-                               autocomplete="off" required aria-describedby="addUserEmail-error">
-                        <div class="invalid-feedback" id="addUserEmail-error"></div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="addUserName" class="form-label">Name</label>
-                        <input type="text" id="addUserName" class="form-control" placeholder="John Smith"
-                               autocomplete="off" aria-describedby="addUserName-hint addUserName-error">
-                        <div class="form-text" id="addUserName-hint">Leave empty to take the name from the e-mail.</div>
-                        <div class="invalid-feedback" id="addUserName-error"></div>
-                    </div>
-                    <div class="row g-2 mb-1">
-                        <div class="col-6">
-                            <label for="addUserLevel" class="form-label">Level <span class="required-mark" aria-hidden="true">*</span></label>
-                            <select id="addUserLevel" class="form-select" required aria-describedby="addUserLevel-error">
-                                <option value="" selected>Choose…</option>
-                                <option th:each="level : ${accessLevels}" th:value="${level.name()}" th:text="${level.displayName}">SoQM</option>
-                            </select>
-                            <div class="invalid-feedback" id="addUserLevel-error"></div>
-                        </div>
-                        <div class="col-6">
-                            <label for="addUserScope" class="form-label">Scope</label>
-                            <select id="addUserScope" class="form-select" aria-describedby="addUserScope-error">
-                                <option th:each="scope : ${accessScopes}" th:value="${scope.name()}" th:text="${scope.displayName}"
-                                        th:selected="${scope.name() == 'OWN'}">Own controls</option>
-                            </select>
-                            <div class="invalid-feedback" id="addUserScope-error"></div>
-                        </div>
-                    </div>
-                    <div class="form-text mb-3 js-add-access-hint" id="addUserAccessHint" aria-live="polite"></div>
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <label for="addUserAdmin" class="form-label">Admin Access</label>
-                            <select id="addUserAdmin" class="form-select">
-                                <option value="NO" selected>No</option>
-                                <option value="YES">Yes</option>
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label for="addUserStatus" class="form-label">Status</label>
-                            <select id="addUserStatus" class="form-select">
-                                <option value="ACTIVE" selected>Active</option>
-                                <option value="INACTIVE">Inactive</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="addUserSaveBtn">Create User</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-<div class="modal fade" id="editEmailModal" tabindex="-1" aria-labelledby="editEmailTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form id="editEmailForm" novalidate>
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editEmailTitle">Edit Email</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="editEmailError" class="alert alert-danger d-none mb-3" role="alert"></div>
-                    <p class="modal-note">
-                        <span id="editEmailUser">User</span> has not signed in yet, so the e-mail can still be changed.
-                        Current: <span id="editEmailCurrent">-</span>
-                    </p>
-                    <div class="mb-1">
-                        <label for="editEmailInput" class="form-label">New Email <span class="required-mark" aria-hidden="true">*</span></label>
-                        <input type="email" id="editEmailInput" class="form-control" placeholder="new.user@kpmg.kz"
-                               autocomplete="off" required aria-describedby="editEmailInput-error">
-                        <div class="invalid-feedback" id="editEmailInput-error"></div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="editEmailSaveBtn">Save Email</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 </body>
 </html>

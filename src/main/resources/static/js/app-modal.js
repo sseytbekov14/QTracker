@@ -226,6 +226,11 @@
             okBtn.classList.toggle('is-primary', isPrimary);
             iconEl.classList.toggle('is-primary', isPrimary);
 
+            // Asked over another open dialog (e.g. a form before it saves): shown above it, and when this one
+            // closes Bootstrap's own clean-up must not unlock the page under the dialog that stays open
+            const underlying = document.querySelector('.modal.show:not(#appConfirmModal)');
+            modalEl.classList.toggle('is-stacked', Boolean(underlying));
+
             const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
             let confirmed = false;
             okBtn.onclick = () => {
@@ -234,7 +239,12 @@
             };
             // Safe default: focus the cancelling button
             modalEl.addEventListener('shown.bs.modal', () => cancelBtn.focus(), { once: true });
-            modalEl.addEventListener('hidden.bs.modal', () => resolve(confirmed), { once: true });
+            modalEl.addEventListener('hidden.bs.modal', () => {
+                if (underlying && underlying.classList.contains('show')) {
+                    document.body.classList.add('modal-open');
+                }
+                resolve(confirmed);
+            }, { once: true });
             modal.show();
         });
     };

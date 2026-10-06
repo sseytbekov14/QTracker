@@ -83,6 +83,27 @@ class NotificationServiceTest {
     }
 
     @Test
+    void sendTemplateNotifications_samePersonInTwoFieldsInAnotherCase_isNotifiedOnce() {
+        Control control = controlWithId(18L);
+        User both = userWithId(3L, "both@example.test", "FACILITATOR");
+
+        when(userRepository.findByMail("both@example.test")).thenReturn(Optional.of(both));
+        stubTemplate();
+        when(emailChannelProvider.getIfAvailable()).thenReturn(null);
+
+        // Completed goes to the Facilitator and the Operator; the Operator field spells the address in capitals
+        notificationService.sendTemplateNotifications(
+                control,
+                List.of("both@example.test", "BOTH@Example.test "),
+                NotificationTemplateService.TemplateType.COMPLETED_ALL,
+                false
+        );
+
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+        verify(userRepository, times(1)).findByMail("both@example.test");
+    }
+
+    @Test
     void sendTemplateNotifications_whenEmailDisabled_doesNotInvokeEmailChannel() {
         Control control = controlWithId(11L);
         User userA = userWithId(3L, "usera@example.test", "FACILITATOR");

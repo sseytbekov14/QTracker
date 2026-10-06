@@ -358,10 +358,8 @@ public class WorkflowTransitionController {
             if (assignment.getFacilitator() != null && !assignment.getFacilitator().isBlank()) {
                 recipients.addAll(splitRecipients(assignment.getFacilitator()));
             }
-            String currentEmail = currentUser.getMail();
-            if (currentEmail != null) {
-                recipients.removeIf(email -> email.equalsIgnoreCase(currentEmail));
-            }
+            // The one who returns it is told as well when they are also a Facilitator of the control:
+            // every move to a step a person holds is announced to them, as a submit is
             notificationService.sendReturnNotifications(
                     control,
                     recipients,

@@ -22,6 +22,43 @@ public class WorkflowRequiredFieldService {
             + ControlStepsFields.OPERATOR_REVIEW_LABEL;
 
     /**
+     * The Details field a step needs before its actions go through (the checks below), for the "Your step" hint
+     * on View Control. {@code check}: the field was filled at an earlier step and is only reviewed here.
+     */
+    public record StepField(String field, String label, boolean check, String actions) {
+    }
+
+    /** The field of the step a control in this status is at, with one steps field; empty for Draft and Completed. */
+    public static Optional<StepField> stepField(String performanceStatus) {
+        return stepField(performanceStatus, false);
+    }
+
+    /**
+     * As {@link #stepField(String)}; when the Facilitator and the Control Operator are different people
+     * ({@link ControlStepsFields}) the Review step needs the Operator's own field, the one Submit to SoQM checks.
+     */
+    public static Optional<StepField> stepField(String performanceStatus, boolean stepsSplit) {
+        String status = performanceStatus == null ? "" : performanceStatus.trim().toUpperCase(Locale.ROOT);
+        if (stepsSplit && "REVIEW".equals(status)) {
+            return Optional.of(new StepField(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW,
+                    ControlStepsFields.OPERATOR_REVIEW_LABEL, false,
+                    "Submit for SoQM Team Review or Return to Facilitator"));
+        }
+        return switch (status) {
+            case "IN_PROGRESS" -> Optional.of(new StepField("controlStepsPerformed",
+                    ControlStepsFields.STEPS_LABEL, false, "Submit for Review"));
+            case "REVIEW" -> Optional.of(new StepField("controlStepsPerformed",
+                    ControlStepsFields.STEPS_LABEL, true,
+                    "Submit for SoQM Team Review or Return to Facilitator"));
+            case "SOQM_HEAD_REVIEW" -> Optional.of(new StepField("soqmHeadComments",
+                    "SoQM Head/Team Comments", false, "Send to Process Owner or Return to Operator"));
+            case "PROCESS_OWNER_REVIEW" -> Optional.of(new StepField("processOwnerComments",
+                    "Process Owner Comments", false, "Complete or Return to Control Operator"));
+            default -> Optional.empty();
+        };
+    }
+
+    /**
      * Control Steps Performed must be filled in to move a control on from In Progress, Review or SoQM review,
      * whoever does it (one person may hold several fields of a control). From Review (Submit to SoQM Team)
      * a control whose Facilitator and Control Operator are different people also needs Control Operator
