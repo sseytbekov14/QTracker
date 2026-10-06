@@ -872,6 +872,10 @@ public class ViewController {
         model.addAttribute("canUseWorkflowActions", permission.canUseWorkflowActions());
         model.addAttribute("allowedEditableFields", permission.getAllowedEditableFields());
         model.addAttribute("allowedEditableFieldsCsv", String.join(",", permission.getAllowedEditableFields()));
+        // One steps field or two (ControlStepsFields): the second is not rendered for one person
+        model.addAttribute("stepsSplit", permission.isStepsSplit());
+        model.addAttribute("stepsLabel", ControlStepsFields.STEPS_LABEL);
+        model.addAttribute("operatorReviewLabel", ControlStepsFields.OPERATOR_REVIEW_LABEL);
 
         boolean hasSharedSubmitted = false;
         if (permission.isSharedViewer()) {

@@ -120,8 +120,19 @@
         }
 
         textarea[name="controlStepsPerformed"][disabled],
-        textarea[name="controlStepsPerformed"][readonly] {
+        textarea[name="controlStepsPerformed"][readonly],
+        textarea[name="controlOperatorReview"][disabled],
+        textarea[name="controlOperatorReview"][readonly] {
             background-color: #f7f8fa !important;
+        }
+
+        /* Who fills a steps field in, when the Facilitator and the Control Operator are different people */
+        .steps-field-owner {
+            color: var(--text-muted, #6c757d);
+            font-size: 0.8125rem;
+            font-weight: 400;
+            margin-left: 0.375rem;
+            white-space: nowrap;
         }
         
         .role-restricted-label {
@@ -436,6 +447,7 @@
 <input type="hidden" id="isSharedViewer" th:value="${isSharedViewer}">
 <input type="hidden" id="canUseWorkflowActions" th:value="${canUseWorkflowActions}">
 <input type="hidden" id="allowedEditableFields" th:value="${allowedEditableFieldsCsv}">
+<input type="hidden" id="stepsSplit" th:value="${stepsSplit}">
 
 <div class="container-fluid">
     <div class="row">
@@ -715,10 +727,22 @@
 
                                 <div class="row">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label">Control steps performed and results</label>
-                                        <textarea class="form-control" name="controlStepsPerformed" rows="8" maxlength="2000"
+                                        <label class="form-label" for="controlStepsPerformed"><span th:text="${stepsLabel}">Control Steps Performed and Results</span><span class="steps-field-owner" th:if="${stepsSplit}">Facilitator</span></label>
+                                        <textarea class="form-control" id="controlStepsPerformed" name="controlStepsPerformed" rows="8" maxlength="2000"
                                                   placeholder="Describe control steps and results"></textarea>
                                         <div class="required-hint d-none" id="controlStepsSubmitHint">
+                                            This field is required before submission.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Only when the Facilitator and the Control Operator are different people (ControlStepsFields) -->
+                                <div class="row" id="operatorReviewRow" th:if="${stepsSplit}">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label" for="controlOperatorReview"><span th:text="${operatorReviewLabel}">Control Operator Review and Results</span><span class="steps-field-owner">Control Operator</span></label>
+                                        <textarea class="form-control" id="controlOperatorReview" name="controlOperatorReview" rows="8" maxlength="2000"
+                                                  placeholder="Describe your review of the steps and its results"></textarea>
+                                        <div class="required-hint d-none" id="operatorReviewSubmitHint">
                                             This field is required before submission.
                                         </div>
                                     </div>
@@ -1485,7 +1509,7 @@
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=4"></script>
-<script src="/js/view-control.js?v=5.3"></script>
+<script src="/js/view-control.js?v=5.4"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {
@@ -1607,40 +1631,38 @@ document.addEventListener('DOMContentLoaded', function() {
     // ============================================
     // CONTROL STEPS REQUIRED BEFORE SUBMIT ACTIONS
     // ============================================
+    // The field each submit needs: the Facilitator's steps field; for the Control Operator the same field,
+    // or their own Control Operator Review and Results when the two are different people (#stepsSplit)
+    const stepsSplit = document.getElementById('stepsSplit')?.value === 'true';
     const controlSteps = document.querySelector('textarea[name="controlStepsPerformed"]');
-    const controlStepsHint = document.getElementById('controlStepsSubmitHint');
-    const submitButtons = [];
+    const operatorReview = document.querySelector('textarea[name="controlOperatorReview"]');
+    const stepsLabel = document.querySelector('label[for="controlStepsPerformed"] span')?.textContent || 'Control Steps Performed and Results';
+    const reviewLabel = document.querySelector('label[for="controlOperatorReview"] span')?.textContent || 'Control Operator Review and Results';
+    const submitRequirements = [];
 
     if (canUseWorkflowActions && isFacilitator && performanceStatus === 'IN_PROGRESS') {
-        submitButtons.push(submitToOperatorBtn);
+        submitRequirements.push({ btn: submitToOperatorBtn, field: controlSteps,
+            hint: document.getElementById('controlStepsSubmitHint'), label: stepsLabel });
     }
     if (canUseWorkflowActions && isControlOperator && performanceStatus === 'REVIEW') {
-        submitButtons.push(document.getElementById('submitToSoqmLeadBtn'));
+        submitRequirements.push(stepsSplit
+            ? { btn: document.getElementById('submitToSoqmLeadBtn'), field: operatorReview,
+                hint: document.getElementById('operatorReviewSubmitHint'), label: reviewLabel }
+            : { btn: document.getElementById('submitToSoqmLeadBtn'), field: controlSteps,
+                hint: document.getElementById('controlStepsSubmitHint'), label: stepsLabel });
     }
 
-    if (submitButtons.length > 0) {
-        console.log('?? Control steps submission validation for buttons:', submitButtons.length);
-
-        function isControlStepsFilled() {
-            if (!controlSteps) {
-                console.warn('?? controlStepsPerformed element not found');
-                return false;
-            }
-            const filled = controlSteps.value && controlSteps.value.trim().length > 0;
-            console.log('   isControlStepsFilled:', filled, '(value length:', (controlSteps.value || '').length + ')');
-            return filled;
-        }
-
+    if (submitRequirements.length > 0) {
         function updateSubmitButtons() {
-            const isFilled = isControlStepsFilled();
-            submitButtons.forEach(btn => {
+            submitRequirements.forEach(({ btn, field, hint, label }) => {
                 if (!btn) return;
+                const isFilled = Boolean(field && field.value && field.value.trim().length > 0);
                 if (isFilled) {
-                    if (controlSteps) {
-                        controlSteps.classList.remove('field-required-error');
+                    if (field) {
+                        field.classList.remove('field-required-error');
                     }
-                    if (controlStepsHint) {
-                        controlStepsHint.classList.add('d-none');
+                    if (hint) {
+                        hint.classList.add('d-none');
                     }
                     btn.disabled = false;
                     btn.removeAttribute('disabled');
@@ -1649,16 +1671,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     btn.style.opacity = '1';
                     btn.style.pointerEvents = 'auto';
                 } else {
-                    if (controlSteps) {
-                        controlSteps.classList.add('field-required-error');
+                    if (field) {
+                        field.classList.add('field-required-error');
                     }
-                    if (controlStepsHint) {
-                        controlStepsHint.classList.remove('d-none');
+                    if (hint) {
+                        hint.classList.remove('d-none');
                     }
                     btn.disabled = true;
                     btn.setAttribute('disabled', 'disabled');
-                    btn.setAttribute('data-original-title', btn.title);
-                    btn.title = 'Fill Control steps performed and results to enable submission';
+                    if (!btn.hasAttribute('data-original-title')) {
+                        btn.setAttribute('data-original-title', btn.title);
+                    }
+                    btn.title = 'Fill ' + label + ' to enable submission';
                     btn.style.cursor = 'not-allowed';
                     btn.style.opacity = '0.5';
                     btn.style.pointerEvents = 'none';
@@ -1668,11 +1692,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         updateSubmitButtons();
 
-        if (controlSteps) {
-            controlSteps.addEventListener('input', updateSubmitButtons);
-            controlSteps.addEventListener('change', updateSubmitButtons);
-            controlSteps.addEventListener('blur', updateSubmitButtons);
-        }
+        new Set(submitRequirements.map(requirement => requirement.field).filter(Boolean)).forEach(field => {
+            field.addEventListener('input', updateSubmitButtons);
+            field.addEventListener('change', updateSubmitButtons);
+            field.addEventListener('blur', updateSubmitButtons);
+        });
     }
 
     // ============================================
@@ -1764,25 +1788,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
         console.log('?? Status-based restriction:', { statusValue, normalizedStatus, isEditMode });
 
-        if ((canEditAll || canEditStepsPerformed) && isEditMode) {
-            controlStepsField.disabled = false;
-            controlStepsField.readOnly = false;
-            controlStepsField.removeAttribute('disabled');
-            controlStepsField.removeAttribute('readonly');
-            controlStepsField.style.cursor = '';
-            controlStepsField.style.backgroundColor = '';
-            controlStepsField.style.color = '';
-            controlStepsField.style.borderColor = '';
-            return;
+        // Control Operator Review and Results exists only while the two fields are split
+        const canEditOperatorReview = Boolean(window.qtrackerPermissions && window.qtrackerPermissions.canEditOperatorReview);
+        setStepsFieldEditable(controlStepsField, (canEditAll || canEditStepsPerformed) && isEditMode);
+        setStepsFieldEditable(document.querySelector('textarea[name="controlOperatorReview"]'),
+            (canEditAll || canEditOperatorReview) && isEditMode);
+
+        function setStepsFieldEditable(field, editable) {
+            if (!field) {
+                return;
+            }
+            if (editable) {
+                field.disabled = false;
+                field.readOnly = false;
+                field.removeAttribute('disabled');
+                field.removeAttribute('readonly');
+                field.style.cursor = '';
+                field.style.backgroundColor = '';
+                field.style.color = '';
+                field.style.borderColor = '';
+                return;
+            }
+            field.disabled = true;
+            field.readOnly = true;
+            field.setAttribute('disabled', 'disabled');
+            field.setAttribute('readonly', 'readonly');
+            field.style.cursor = 'not-allowed';
+            field.style.backgroundColor = restrictedBackground;
+            field.style.color = restrictedText;
+            field.style.borderColor = restrictedBorder;
         }
-        controlStepsField.disabled = true;
-        controlStepsField.readOnly = true;
-        controlStepsField.setAttribute('disabled', 'disabled');
-        controlStepsField.setAttribute('readonly', 'readonly');
-        controlStepsField.style.cursor = 'not-allowed';
-        controlStepsField.style.backgroundColor = restrictedBackground;
-        controlStepsField.style.color = restrictedText;
-        controlStepsField.style.borderColor = restrictedBorder;
     }
 
     // Apply restrictions on page load

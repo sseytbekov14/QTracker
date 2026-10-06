@@ -370,7 +370,69 @@ class StepsFieldSplitIT {
         assertValues(onePerson, "Steps again", "Line 1\r\nLine 2");
     }
 
+    // ------------------------------------------------------------------ View Control
+
+    @Test
+    void viewControl_onePerson_rendersOneField_namedByTheConstant() throws Exception {
+        Control control = control("REVIEW", fac.getMail(), fac.getMail(), "Steps", "Kept from before");
+
+        String page = page(control, login(fac));
+
+        assertThat(page).contains("name=\"controlStepsPerformed\"")
+                .contains(">" + ControlStepsFields.STEPS_LABEL + "<")
+                .contains("id=\"stepsSplit\" value=\"false\"")
+                .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed\"")
+                // the page script names the field; the markup has neither the row nor the textarea
+                .doesNotContain("id=\"operatorReviewRow\"")
+                .doesNotContain("id=\"controlOperatorReview\"")
+                .doesNotContain(">" + ControlStepsFields.OPERATOR_REVIEW_LABEL + "<")
+                .doesNotContain("class=\"steps-field-owner\"");
+    }
+
+    @Test
+    void viewControl_differentPeople_rendersBothFields_forEveryoneWhoSeesIt_editableOnlyByTheStepsOwner() throws Exception {
+        Control control = control("REVIEW", fac.getMail(), op.getMail(), "Steps", "Review");
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setControlSharedWith(sharedUser.getMail());
+        assignmentRepository.save(assignment);
+
+        String operatorPage = page(control, login(op));
+        assertThat(operatorPage).contains("name=\"controlStepsPerformed\"")
+                .contains("id=\"controlOperatorReview\"")
+                .contains(">" + ControlStepsFields.OPERATOR_REVIEW_LABEL + "<")
+                .contains("<span class=\"steps-field-owner\">Facilitator</span>")
+                .contains("<span class=\"steps-field-owner\">Control Operator</span>")
+                .contains("id=\"operatorReviewSubmitHint\"")
+                .contains("id=\"stepsSplit\" value=\"true\"")
+                .contains("id=\"allowedEditableFields\" value=\"controlOperatorReview\"");
+
+        for (User reader : List.of(fac, sharedUser, po)) {
+            assertThat(page(control, login(reader))).as(reader.getMail())
+                    .contains("id=\"controlOperatorReview\"")
+                    .contains("id=\"allowedEditableFields\" value=\"\"");
+        }
+        assertThat(page(control, login(soqm))).contains("id=\"controlOperatorReview\"")
+                .contains("id=\"canEditAll\" value=\"true\"");
+    }
+
+    @Test
+    void viewControl_differentPeople_facilitatorInProgress_editsOnlyTheStepsField() throws Exception {
+        Control control = control("IN_PROGRESS", fac.getMail(), op.getMail(), null, null);
+
+        assertThat(page(control, login(fac)))
+                .contains("id=\"controlOperatorReview\"")
+                .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed\"");
+        assertThat(page(control, login(op)))
+                .contains("id=\"allowedEditableFields\" value=\"\"");
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    private String page(Control control, MockHttpSession session) throws Exception {
+        MvcResult result = perform(get("/view-control/{id}", control.getId()), session);
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        return result.getResponse().getContentAsString();
+    }
 
     private int save(Control control, MockHttpSession session, String field, String value) throws Exception {
         return saveResult(control, session, field, value).getResponse().getStatus();
