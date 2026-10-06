@@ -30,6 +30,5 @@ public interface IControlService {
     ControlResponseDTO convertToResponseDTO(Control control);
     Optional<Control> findById(Long id);
     List<String> getFacilitatorsForControl(Long controlId);
-    boolean hasReachedUserStage(Long controlId, String userRole);
 
 }

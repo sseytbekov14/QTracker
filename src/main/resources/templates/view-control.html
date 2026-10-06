@@ -427,7 +427,6 @@
 })();
 </script>
 
-<input type="hidden" id="currentUserRole" th:value="${userRole}">
 <input type="hidden" id="canEditAll" th:value="${canEditAll}">
 <input type="hidden" id="currentPerformanceStatus" name="performanceStatus" th:value="${performanceStatus}">
 <input type="hidden" id="isFacilitator" th:value="${isFacilitator}">
@@ -733,7 +732,6 @@
                                                   name="soqmHeadComments" 
                                                   rows="8"
                                                   maxlength="2000"
-                                                  data-allowed-roles="SOQM_TEAM,ADMIN"
                                                   placeholder="Enter SoQM head/team comments"></textarea>
                                     </div>
                                 </div>
@@ -746,7 +744,6 @@
                                                   name="processOwnerComments" 
                                                   rows="8"
                                                   maxlength="2000"
-                                                  data-allowed-roles="PROCESS_OWNER,ADMIN"
                                                   placeholder="Enter process owner comments"></textarea>
                                     </div>
                                 </div>
@@ -1488,7 +1485,7 @@
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=4"></script>
-<script src="/js/view-control.js?v=5.2"></script>
+<script src="/js/view-control.js?v=5.3"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {
@@ -1682,14 +1679,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // ROLE-BASED FIELD RESTRICTIONS
     // ============================================
     function applyRoleBasedRestrictions() {
-        const currentUserRole = document.getElementById('currentUserRole')?.value || 'UNKNOWN';
         const restrictedFields = document.querySelectorAll('.role-restricted-field');
         const canEditAll = Boolean(window.qtrackerPermissions && window.qtrackerPermissions.canEditAll);
         const canEditProcessOwnerComments = Boolean(window.qtrackerPermissions && window.qtrackerPermissions.canEditProcessOwnerComments);
         const editNavPanel = document.getElementById('editNavPanel');
         const isEditMode = editNavPanel && !editNavPanel.classList.contains('d-none');
         
-        console.log('?? Applying role-based restrictions for role:', currentUserRole);
+        console.log('?? Applying field restrictions from the permissions');
 
         const themeStyles = getComputedStyle(document.body);
         const restrictedBackground = themeStyles.getPropertyValue('--surface-bg-2').trim() || '#f7f8fa';
@@ -1722,7 +1718,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     label.classList.add('role-restricted-label');
                 }
                 
-                console.log(`   ?? RESTRICTED: ${fieldName} is read-only for ${currentUserRole}`);
+                console.log(`   ?? RESTRICTED: ${fieldName} is read-only`);
             } else {
                 // Enable field for this role
                 field.disabled = false;
@@ -1739,7 +1735,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     label.classList.remove('role-restricted-label');
                 }
                 
-                console.log(`   ? ALLOWED: ${fieldName} is editable for ${currentUserRole}`);
+                console.log(`   ? ALLOWED: ${fieldName} is editable`);
             }
         });
     }

@@ -797,36 +797,4 @@ public class ControlService implements IControlService {
         }
     }
 
-    /**
-     * Check if control has reached user's workflow stage
-     * @param controlId Control ID
-     * @param userRole User role (FACILITATOR, CONTROL_OPERATOR, SOQM_TEAM, PROCESS_OWNER)
-     * @return true if control reached that workflow stage
-     */
-    public boolean hasReachedUserStage(Long controlId, String userRole) {
-        String stageName = mapRoleToStageName(userRole);
-        if (stageName == null) {
-            return false; // Unknown role
-        }
-        return workflowService.hasReachedStage(controlId, stageName);
-    }
-
-    /**
-     * Map user role to workflow stage name
-     */
-    private String mapRoleToStageName(String userRole) {
-        if (userRole == null) return null;
-        switch (userRole.toUpperCase()) {
-            case "FACILITATOR":
-                return "IN_PROGRESS";
-            case "CONTROL_OPERATOR":
-                return "REVIEW";
-            case "SOQM_TEAM":
-                return "SOQM_HEAD_REVIEW";
-            case "PROCESS_OWNER":
-                return "PROCESS_OWNER_REVIEW";
-            default:
-                return null;
-        }
-    }
 }

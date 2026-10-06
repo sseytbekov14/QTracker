@@ -145,68 +145,6 @@ public class ControlAssignmentService {
         });
     }
 
-    // Методы проверки ролей — Facilitator and Control Operator are interchangeable
-    public boolean isUserControlOperator(Long controlId, String userEmail) {
-        Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && hasAnyRole(user.get(), Set.of("CONTROL_OPERATOR", "FACILITATOR"));
-    }
-
-    public boolean isUserSoqmLead(Long controlId, String userEmail) {
-        Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && hasAnyRole(user.get(), Set.of("SOQM_TEAM"));
-    }
-
-    public boolean isUserProcessOwner(Long controlId, String userEmail) {
-        Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && hasAnyRole(user.get(), Set.of("PROCESS_OWNER"));
-    }
-
-    public List<String> getUserRolesForControl(Long controlId, String userEmail) {
-        List<String> roles = new ArrayList<>();
-        Optional<User> user = userRepository.findByMail(userEmail);
-
-        if (user.isPresent()) {
-            if (Boolean.TRUE.equals(user.get().getAdminAccess())) {
-                roles.add("ADMIN");
-                return roles;
-            }
-            if (hasAnyRole(user.get(), Set.of("SOQM_TEAM"))) {
-                roles.add("SOQM_TEAM");
-                return roles;
-            }
-        }
-
-        // Check assignment-based roles for this specific control
-        Optional<ControlAssignment> assignmentOpt = assignmentRepository.findByControlId(controlId);
-        if (assignmentOpt.isPresent()) {
-            ControlAssignment assignment = assignmentOpt.get();
-
-            if (containsEmail(assignment.getFacilitator(), userEmail)) {
-                roles.add("FACILITATOR");
-            }
-            if (containsEmail(assignment.getControlOperator(), userEmail)) {
-                roles.add("CONTROL_OPERATOR");
-            }
-            if (containsEmail(assignment.getProcessOwner(), userEmail)) {
-                roles.add("PROCESS_OWNER");
-            }
-            if (containsEmail(assignment.getSoqmLead(), userEmail)) {
-                roles.add("SOQM_TEAM");
-            }
-        }
-
-        // Fallback: if no assignment-based roles found, use global role
-        if (roles.isEmpty() && user.isPresent()) {
-            addUserRoles(roles, user.get());
-        }
-
-        return roles;
-    }
-
-    private boolean containsEmail(String fieldValue, String email) {
-        return EmailList.contains(fieldValue, email);
-    }
-
     /**
      * Everyone put in an assignment field must be allowed there ({@link AccessPolicy#assignmentRefusal}):
      * an existing user, a participant in Facilitator / Control Operator / Process Owner, a SoQM user in
@@ -234,35 +172,6 @@ public class ControlAssignmentService {
             return "";
         }
         return String.join(",", list);
-    }
-
-    private boolean hasAnyRole(User user, Set<String> expectedRoles) {
-        if (user == null || expectedRoles == null || expectedRoles.isEmpty()) {
-            return false;
-        }
-        return getUserRoles(user).stream().anyMatch(expectedRoles::contains);
-    }
-
-    private Set<String> getUserRoles(User user) {
-        Set<String> roles = new LinkedHashSet<>();
-        if (user.getRole() != null && !user.getRole().isBlank()) {
-            roles.add(user.getRole().trim().toUpperCase());
-        }
-        if (user.getSecondaryRole() != null && !user.getSecondaryRole().isBlank()) {
-            roles.add(user.getSecondaryRole().trim().toUpperCase());
-        }
-        return roles;
-    }
-
-    private void addUserRoles(List<String> target, User user) {
-        if (user == null) {
-            return;
-        }
-        for (String role : getUserRoles(user)) {
-            if (!target.contains(role)) {
-                target.add(role);
-            }
-        }
     }
 
     private List<String> convertStringToList(String str) {

@@ -118,7 +118,8 @@ class SecurityConfigIntegrationTest {
         MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
         assertThat(session).isNotNull();
         assertThat(session.getAttribute("currentUser")).isNotNull();
-        assertThat(session.getAttribute("userRole")).isEqualTo("SOQM_TEAM");
+        assertThat(((User) session.getAttribute("currentUser")).getAccessLevel())
+                .isEqualTo(com.kpmg.qtracker.enums.AccessLevel.SOQM);
     }
 
     @Test

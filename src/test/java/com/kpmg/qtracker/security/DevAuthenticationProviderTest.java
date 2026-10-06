@@ -53,7 +53,7 @@ class DevAuthenticationProviderTest {
                         "soqm1@qtracker.local",
                         passwordEncoder.encode("aaa"),
                         true,
-                        Set.of("SOQM_TEAM")
+                        Set.of("SOQM")
                 )));
 
         Authentication authentication = provider.authenticate(
@@ -64,7 +64,7 @@ class DevAuthenticationProviderTest {
         assertThat(authentication.getPrincipal()).isInstanceOf(UserPrincipal.class);
         assertThat(authentication.getAuthorities())
                 .extracting("authority")
-                .containsExactly("ROLE_SOQM_TEAM");
+                .containsExactly("ROLE_SOQM");
         verify(loginAttemptService).recordSuccess("soqm1@qtracker.local");
     }
 

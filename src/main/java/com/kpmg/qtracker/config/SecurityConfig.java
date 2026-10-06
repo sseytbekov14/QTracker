@@ -134,7 +134,6 @@ public class SecurityConfig {
                             if (authentication.getPrincipal() instanceof UserPrincipal principal) {
                                 userRepository.findById(principal.getId()).ifPresent(sessionUser -> {
                                     request.getSession(true).setAttribute("currentUser", sessionUser);
-                                    request.getSession().setAttribute("userRole", sessionUser.getRole());
                                 });
                             }
                             response.sendRedirect("/");

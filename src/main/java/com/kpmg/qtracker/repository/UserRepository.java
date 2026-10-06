@@ -23,5 +23,4 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<User> findByRole(String role);
 
-    List<User> findByRoleIgnoreCaseOrSecondaryRoleIgnoreCase(String role, String secondaryRole);
 }

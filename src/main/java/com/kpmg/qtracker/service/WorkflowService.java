@@ -7,7 +7,6 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.WorkflowStatus;
 
 import java.util.List;
-import java.util.Map;
 
 public interface WorkflowService {
 
@@ -20,8 +19,6 @@ public interface WorkflowService {
 
     // Получить текущий статус workflow
     WorkflowStatus getCurrentWorkflowStatus(Long controlId);
-
-    Map<String, Boolean> getUserPermissions(Long controlId, String userEmail);
 
     List<WorkflowStepDTO> getWorkflowSteps(Long controlId);
 

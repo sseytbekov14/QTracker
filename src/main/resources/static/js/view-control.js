@@ -83,13 +83,14 @@ const viewControl = (function() {
                 allowedEditableFields: allowedEditableFields
             };
         } catch (error) {
-            console.warn('Permissions fetch failed, falling back to role check:', error);
+            console.warn('Permissions fetch failed, falling back to the flags of the page:', error);
             fullEditEnabled = hasFullEditRights();
-            const roleValue = document.getElementById('currentUserRole')?.value || '';
-            canEditStepsPerformed = roleValue === 'FACILITATOR' || roleValue === 'CONTROL_OPERATOR';
-            canEditProcessOwnerComments = (document.getElementById('currentUserRole')?.value || '') === 'PROCESS_OWNER';
+            // The same permission the server rendered the page with
+            allowedEditableFields = (document.getElementById('allowedEditableFields')?.value || '')
+                .split(',').map(field => field.trim()).filter(Boolean);
+            canEditStepsPerformed = allowedEditableFields.includes('controlStepsPerformed');
+            canEditProcessOwnerComments = allowedEditableFields.includes('processOwnerComments');
             canUseWorkflowActions = document.getElementById('canUseWorkflowActions')?.value !== 'false';
-            allowedEditableFields = [];
             stepsPerformedEditOnly = canEditStepsPerformed && !fullEditEnabled;
             processOwnerCommentsEditOnly = canEditProcessOwnerComments
                 && !fullEditEnabled
@@ -262,85 +263,6 @@ const viewControl = (function() {
     // Workflow variables
     let currentWorkflowAction = null;
     let currentWorkflowRequiresComment = false;
-
-// Global function for showing workflow buttons by status and role
-window.showWorkflowButtonsByStatusAndRole = function(status, userRole) {
-    if (!areWorkflowActionsAllowed()) {
-        hideWorkflowActionsUi();
-        return;
-    }
-    console.log('рџ” Р“Р›РћР‘РђР›Р¬РќРђРЇ Р¤РЈРќРљР¦РРЇ: РџРћРљРђР— РљРќРћРџРћРљ');
-    console.log('   РЎС‚Р°С‚СѓСЃ:', status);
-    console.log('   Р РѕР»СЊ:', userRole);
-
-    const container = document.getElementById('workflow-buttons-container');
-    if (!container) {
-        console.error('вќЊ РљРѕРЅС‚РµР№РЅРµСЂ РЅРµ РЅР°Р№РґРµРЅ');
-        return;
-    }
-
-    const buttons = container.querySelectorAll('.workflow-btn');
-    console.log(`   РќР°Р№РґРµРЅРѕ РєРЅРѕРїРѕРє: ${buttons.length}`);
-
-    // РџРѕРєР°Р·С‹РІР°РµРј РІСЃРµ РєРЅРѕРїРєРё РґР»СЏ СѓРєР°Р·Р°РЅРЅРѕР№ СЂРѕР»Рё
-    buttons.forEach(btn => {
-        if (btn.dataset.role === userRole) {
-            btn.style.display = 'inline-block';
-            btn.disabled = false;
-            btn.removeAttribute('disabled');
-            console.log(`   вњ… РџРѕРєР°Р·С‹РІР°РµРј: "${btn.textContent.trim()}"`);
-        } else {
-            btn.style.display = 'none';
-        }
-    });
-
-    container.style.display = 'inline-flex';
-
-    console.log('вњ… РљРЅРѕРїРєРё РґРѕР»Р¶РЅС‹ Р±С‹С‚СЊ РІРёРґРЅС‹!');
-};
-
-// РЎРѕР·РґР°РґРёРј РїСЂРѕСЃС‚СѓСЋ РіР»РѕР±Р°Р»СЊРЅСѓСЋ С„СѓРЅРєС†РёСЋ
-window.showAllWorkflowButtons = function() {
-    if (!areWorkflowActionsAllowed()) {
-        hideWorkflowActionsUi();
-        return;
-    }
-    console.log('=== РџРћРљРђР— Р’РЎР•РҐ РљРќРћРџРћРљ ===');
-
-    // РџРѕР»СѓС‡Р°РµРј РґР°РЅРЅС‹Рµ
-    const userRole = document.getElementById('currentUserRole').value;
-    const status = document.getElementById('currentPerformanceStatus').value;
-
-    console.log('Р’Р°С€Р° СЂРѕР»СЊ:', userRole);
-    console.log('РЎС‚Р°С‚СѓСЃ:', status);
-
-    // РќР°С…РѕРґРёРј РІСЃРµ РєРЅРѕРїРєРё
-    const buttons = document.querySelectorAll('.workflow-btn');
-    console.log(`РќР°Р№РґРµРЅРѕ РєРЅРѕРїРѕРє: ${buttons.length}`);
-
-    // РџРѕРєР°Р·С‹РІР°РµРј РІСЃРµ РєРЅРѕРїРєРё РґР»СЏ РІР°С€РµР№ СЂРѕР»Рё
-    let visibleCount = 0;
-    buttons.forEach(btn => {
-        if (btn.dataset.role === userRole) {
-            btn.style.display = 'inline-block';
-            btn.disabled = false;
-            btn.removeAttribute('disabled');
-            visibleCount++;
-            console.log(`вњ… "${btn.textContent.trim()}" - РџРћРљРђР—РђРќРћ`);
-        } else {
-            btn.style.display = 'none';
-        }
-    });
-
-    // РџРѕРєР°Р·С‹РІР°РµРј РєРѕРЅС‚РµР№РЅРµСЂ Р±РµР· СЂР°РјРєРё
-    const container = document.getElementById('workflow-buttons-container');
-    if (container && areWorkflowActionsAllowed()) {
-        container.style.display = 'inline-flex';
-    }
-
-    console.log(`рџЋ‰ РџРѕРєР°Р·Р°РЅРѕ ${visibleCount} РєРЅРѕРїРѕРє РґР»СЏ ${userRole}`);
-    console.log('=== РљРћРќР•Р¦ ===');
-};
 
     // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ workflow РєРЅРѕРїРѕРє (РґРѕР±Р°РІРёС‚СЊ РІ init РјРµС‚РѕРґ)
 function handleWorkflowButtonClick(event) {
@@ -3029,50 +2951,10 @@ function saveDocumentsData(controlId) {
             });
 
             // ========== WORKFLOW INITIALIZATION ==========
-            console.log('=== WORKFLOW INITIALIZATION ===');
-
-            // РџРѕР»СѓС‡Р°РµРј Р·РЅР°С‡РµРЅРёСЏ РёР· СЃРєСЂС‹С‚С‹С… РїРѕР»РµР№
-            const userRoleElement = document.getElementById('currentUserRole');
-            const statusElement = document.getElementById('currentPerformanceStatus');
-            const controlIdElement = document.querySelector('input[name="id"]');
-
-            console.log('User Role value:', userRoleElement?.value);
-            console.log('Status value:', statusElement?.value);
-            console.log('Control ID value:', controlIdElement?.value);
-
-            // РџСЂРѕРІРµСЂСЏРµРј workflow РєРѕРЅС‚РµР№РЅРµСЂ
-            const workflowContainer = document.getElementById('workflow-buttons-container');
-            console.log('Workflow container exists:', !!workflowContainer);
-
-            if (workflowContainer) {
-                const buttons = workflowContainer.querySelectorAll('.workflow-btn');
-                console.log(`Found ${buttons.length} workflow buttons`);
-            }
-
-            // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј workflow РєРЅРѕРїРєРё РµСЃР»Рё РµСЃС‚СЊ РґР°РЅРЅС‹Рµ
-            const userRole = userRoleElement?.value;
-            const performanceStatus = statusElement?.value;
-            const controlIdValue = controlIdElement?.value;
-
+            // The step buttons come from the server's permission flags (page script); hide them all
+            // when the user may not act on this control
             if (!areWorkflowActionsAllowed()) {
                 hideWorkflowActionsUi();
-            } else if (userRole && performanceStatus && controlIdValue) {
-                console.log('рџ”„ Initializing workflow buttons...');
-                console.log(`   User Role: "${userRole}"`);
-                console.log(`   Status: "${performanceStatus}"`);
-                console.log(`   Control ID: "${controlIdValue}"`);
-
-                // в…в…в…в… Р’Р«Р—РћР’ Р¤РЈРќРљР¦РР РџРћРљРђР—Рђ РљРќРћРџРћРљ в…в…в…в…
-                showWorkflowButtonsByStatusAndRole(performanceStatus, userRole);
-
-                // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё РєР»РёРєРѕРІ
-                document.querySelectorAll('.workflow-btn').forEach(btn => {
-                    btn.addEventListener('click', handleWorkflowButtonClick);
-                });
-
-                console.log('вњ… Workflow buttons initialized');
-            } else {
-                console.warn('вљ пёЏ Cannot init workflow buttons: missing data');
             }
 
             // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРє РґР»СЏ РєРЅРѕРїРєРё Confirm РІ РјРѕРґР°Р»РєРµ workflow
@@ -3102,7 +2984,6 @@ function saveDocumentsData(controlId) {
                     hideWorkflowActionsUi();
                     return;
                 }
-                const currentUserRole = document.getElementById('currentUserRole')?.value;
                 const currentStatus = document.getElementById('currentPerformanceStatus')?.value;
                 const workflowStatusInput = document.querySelector('input[name="performanceStatus"]');
                 const workflowStatus = workflowStatusInput ? workflowStatusInput.value : '';
@@ -3111,7 +2992,7 @@ function saveDocumentsData(controlId) {
                 const isSoqmLeadFlag = document.getElementById('isSoqmLead')?.value === 'true';
                 const isProcessOwnerFlag = document.getElementById('isProcessOwner')?.value === 'true';
 
-                console.log('Final check - Role:', currentUserRole, 'Performance Status:', currentStatus, 'Workflow Status:', workflowStatus);
+                console.log('Final check - Performance Status:', currentStatus, 'Workflow Status:', workflowStatus);
                 console.log('Is Facilitator for this control:', isFacilitatorFlag);
                 console.log('Is Control Operator for this control:', isControlOperatorFlag);
                 console.log('Is SoQM Team for this control:', isSoqmLeadFlag);

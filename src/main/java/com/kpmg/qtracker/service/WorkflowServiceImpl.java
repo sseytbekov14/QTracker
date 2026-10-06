@@ -24,6 +24,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     private final ControlService controlService;
     private final UserService userService;
     private final NotificationService notificationService;
+    private final ControlPermissionService controlPermissionService;
 
     @Override
     @Transactional
@@ -75,19 +76,15 @@ public class WorkflowServiceImpl implements WorkflowService {
                 performanceStatus = control.getPerformanceStatus();
             }
 
-            // РџРѕР»СѓС‡Р°РµРј СЂРѕР»СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
             Optional<User> userOpt = userService.getUserByEmail(userEmail);
-            if (userOpt.isEmpty()) {
-                return buttons; // РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ
+            if (userOpt.isEmpty() || control == null) {
+                return buttons;
             }
 
-            String userRole = userOpt.get().getRole();
+            // The same rule as the server check of each step (AccessPolicy.isActor)
+            ControlPermission permission = controlPermissionService.resolve(control, userOpt.get());
 
-            // Get assignment-based roles for this specific control
-            List<String> userRolesForControl = controlAssignmentService.getUserRolesForControl(controlId, userEmail);
-
-            // ★ Buttons for FACILITATOR (check assignment, not just global role)
-            boolean actAsFacilitator = userRolesForControl.contains("FACILITATOR");
+            boolean actAsFacilitator = AccessPolicy.isActor(WorkflowTransition.Actor.FACILITATOR, permission);
             if (actAsFacilitator && WorkflowStatus.IN_PROGRESS.name().equals(performanceStatus)) {
                 buttons.add(new WorkflowButtonDTO(
                         "SUBMIT_FOR_REVIEW",
@@ -98,8 +95,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                 ));
             }
 
-            // ★ Buttons for CONTROL_OPERATOR (check assignment, not just global role)
-            boolean actAsControlOperator = userRolesForControl.contains("CONTROL_OPERATOR");
+            boolean actAsControlOperator = AccessPolicy.isActor(WorkflowTransition.Actor.CONTROL_OPERATOR, permission);
             if (actAsControlOperator && WorkflowStatus.REVIEW.name().equals(performanceStatus)) {
                 buttons.add(new WorkflowButtonDTO(
                         "SUBMIT_FOR_SOQM",
@@ -118,8 +114,8 @@ public class WorkflowServiceImpl implements WorkflowService {
                 ));
             }
 
-            // ★ Buttons for SOQM_TEAM (check assignment or global role)
-            boolean actAsSoqmLead = userRolesForControl.contains("SOQM_TEAM");
+            // Any SoQM user performs the SoQM steps
+            boolean actAsSoqmLead = AccessPolicy.isActor(WorkflowTransition.Actor.SOQM_TEAM, permission);
             if (actAsSoqmLead && WorkflowStatus.SOQM_HEAD_REVIEW.name().equals(performanceStatus)) {
                 buttons.add(new WorkflowButtonDTO(
                         "SEND_TO_PROCESS_OWNER",
@@ -146,8 +142,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                 ));
             }
 
-            // ★ Buttons for PROCESS_OWNER (check assignment, not just global role)
-            boolean actAsProcessOwner = userRolesForControl.contains("PROCESS_OWNER");
+            boolean actAsProcessOwner = AccessPolicy.isActor(WorkflowTransition.Actor.PROCESS_OWNER, permission);
             if (actAsProcessOwner && WorkflowStatus.PROCESS_OWNER_REVIEW.name().equals(performanceStatus)) {
                 buttons.add(new WorkflowButtonDTO(
                         "COMPLETE",
@@ -259,143 +254,6 @@ public class WorkflowServiceImpl implements WorkflowService {
                 .stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
-    }
-
-    @Override
-    public Map<String, Boolean> getUserPermissions(Long controlId, String userEmail) {
-        Map<String, Boolean> permissions = new HashMap<>();
-
-        try {
-            // в… Check if user is ADMIN first - admins have full permissions
-            List<String> userRoles = controlAssignmentService.getUserRolesForControl(controlId, userEmail);
-            boolean isAdmin = userRoles.contains("ADMIN");
-            
-            if (isAdmin) {
-                // ADMIN has all permissions
-                permissions.put("canEdit", true);
-                permissions.put("canComment", true);
-                permissions.put("canApprove", true);
-                permissions.put("canReturn", true);
-                permissions.put("canView", true);
-                permissions.put("canEditAll", true);
-                permissions.put("isAdmin", true);
-                permissions.put("isFacilitator", false);
-                permissions.put("isControlOperator", false);
-                permissions.put("isSoqmLead", false);
-                permissions.put("isSoqmRole", false);
-                permissions.put("isProcessOwner", false);
-                permissions.put("isOnCurrentStep", false);
-                permissions.put("canEditStepsPerformed", false);
-                permissions.put("canEditProcessOwnerComments", false);
-                return permissions;
-            }
-            
-            // 1. РџРѕР»СѓС‡Р°РµРј С‚РµРєСѓС‰РёР№ СЃС‚Р°С‚СѓСЃ Рё С€Р°Рі
-            WorkflowStatus currentStatus = getCurrentWorkflowStatus(controlId);
-            WorkflowStepDTO currentStep = getCurrentStep(controlId);
-
-            // 2. РџСЂРѕРІРµСЂСЏРµРј СЂРѕР»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РґР»СЏ СЌС‚РѕРіРѕ РєРѕРЅС‚СЂРѕР»СЏ
-            boolean isFacilitator = userRoles.contains("FACILITATOR");
-            boolean isControlOperator = userRoles.contains("CONTROL_OPERATOR");
-            boolean isSoqmLead = userRoles.contains("SOQM_TEAM");
-            boolean isProcessOwner = userRoles.contains("PROCESS_OWNER");
-            boolean isSoqmRole = userService.getUserByEmail(userEmail)
-                    .map(user -> "SOQM_TEAM".equals(user.getRole()))
-                    .orElse(false);
-
-            // 3. РџСЂРѕРІРµСЂСЏРµРј РЅР°Р·РЅР°С‡РµРЅ Р»Рё РЅР° С‚РµРєСѓС‰РёР№ С€Р°Рі
-            boolean isOnCurrentStep = currentStep != null &&
-                    userEmail.equals(currentStep.getAssignedToEmail());
-
-            // 4. Edit control fields
-            boolean canEditAll = isSoqmRole;
-            permissions.put("canEdit", canEditAll); // Boolean
-
-            // 5. Add comments
-            permissions.put("canComment", isOnCurrentStep); // Boolean
-
-            // 6. Approve
-            permissions.put("canApprove", isOnCurrentStep); // Boolean
-
-            // 7. Return
-            boolean canReturn = isOnCurrentStep && canUserReturnFromStep(
-                    currentStep != null ? currentStep.getStepType() : null,
-                    userEmail,
-                    controlId
-            );
-            permissions.put("canReturn", canReturn); // Boolean
-
-            // 8. View all data
-            permissions.put("canView", true); // Boolean
-            permissions.put("canEditAll", canEditAll); // Boolean
-            // Check if user is shared viewer for COMPLETED controls
-            boolean isSharedCompleted = false;
-            {
-                ControlAssignmentDTO sharedAssignment = controlAssignmentService.getAssignmentByControlId(controlId);
-                if (sharedAssignment != null && sharedAssignment.getControlSharedWith() != null) {
-                    isSharedCompleted = sharedAssignment.getControlSharedWith().stream()
-                            .anyMatch(e -> e != null && e.equalsIgnoreCase(userEmail));
-                }
-                Control sharedControl = controlService.getControlById(controlId).orElse(null);
-                isSharedCompleted = isSharedCompleted
-                        && sharedControl != null
-                        && "COMPLETED".equals(sharedControl.getPerformanceStatus());
-            }
-
-            boolean canEditSteps = ((isFacilitator || isControlOperator) && !canEditAll)
-                    || (isSharedCompleted && (isFacilitator || isControlOperator));
-            boolean canEditPOComments = (isProcessOwner && !canEditAll)
-                    || (isSharedCompleted && isProcessOwner);
-
-            permissions.put("canEditStepsPerformed", canEditSteps); // Boolean
-            permissions.put("canEditProcessOwnerComments", canEditPOComments); // Boolean
-
-            // 9. Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ - С‚РѕР¶Рµ Boolean!
-            permissions.put("isAdmin", false); // Boolean
-            permissions.put("isFacilitator", isFacilitator); // Boolean
-            permissions.put("isControlOperator", isControlOperator); // Boolean
-            permissions.put("isSoqmLead", isSoqmLead); // Boolean
-            permissions.put("isSoqmRole", isSoqmRole); // Boolean
-            permissions.put("isProcessOwner", isProcessOwner); // Boolean
-            permissions.put("isOnCurrentStep", isOnCurrentStep); // Boolean
-
-            if (currentStep != null) {
-                permissions.put("currentStep", true);
-            }
-
-        } catch (Exception e) {
-            log.error("Error calculating permissions: {}", e.getMessage(), e);
-            // Р’РѕР·РІСЂР°С‰Р°РµРј РґРµС„РѕР»С‚РЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ РїСЂРё РѕС€РёР±РєРµ
-            permissions.put("canEdit", false);
-            permissions.put("canComment", false);
-            permissions.put("canApprove", false);
-            permissions.put("canReturn", false);
-            permissions.put("canView", true);
-        }
-
-        return permissions;
-    }
-
-    // в… РќРћР’Р«Р™ РњР•РўРћР”: РџСЂРѕРІРµСЂРєР° РјРѕР¶РµС‚ Р»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РІРѕР·РІСЂР°С‰Р°С‚СЊ СЃ С‚РµРєСѓС‰РµРіРѕ С€Р°РіР°
-    private boolean canUserReturnFromStep(WorkflowStepType currentStepType,
-                                          String userEmail,
-                                          Long controlId) {
-        switch (currentStepType) {
-            case CONTROL_OPERATOR:
-                // Control Operator РјРѕР¶РµС‚ РІРѕР·РІСЂР°С‰Р°С‚СЊ С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕРЅ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ Control Operator
-                return controlAssignmentService.isUserControlOperator(controlId, userEmail);
-
-            case SOQM_TEAM:
-                // SOQM Team РјРѕР¶РµС‚ РІРѕР·РІСЂР°С‰Р°С‚СЊ С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕРЅ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ SOQM Team
-                return controlAssignmentService.isUserSoqmLead(controlId, userEmail);
-
-            case PROCESS_OWNER:
-                // Process Owner РјРѕР¶РµС‚ РІРѕР·РІСЂР°С‰Р°С‚СЊ С‚РѕР»СЊРєРѕ РµСЃР»Рё РѕРЅ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ Process Owner
-                return controlAssignmentService.isUserProcessOwner(controlId, userEmail);
-
-            default:
-                return false;
-        }
     }
 
     // Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ РјРµС‚РѕРґС‹

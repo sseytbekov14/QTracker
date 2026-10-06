@@ -111,9 +111,7 @@ public class ViewController {
         LocalDate todayAlmaty = DeadlineOverdue.today(Instant.now());
 
         model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", currentUser.getMail());
-        model.addAttribute("userRole", currentUser.getRole());
         model.addAttribute("control", control);
         model.addAttribute("initiationRows", rows);
         model.addAttribute("initiationReady", InitiationReadiness.isReady(items));
@@ -155,13 +153,10 @@ public class ViewController {
 
         User currentUser = getCurrentUser(session);
         String userEmail = currentUser.getMail();
-        String userRole = currentUser.getRole();
         AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
 
         model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", userEmail);
-        model.addAttribute("userRole", userRole);
         model.addAttribute("userIsAdmin", AccessPolicy.canOpenAdminPanel(subject));
         // The SoQM review queue link and the organisation-wide charts; everyone else gets their own
         model.addAttribute("userIsSoqm", AccessPolicy.isSoqm(subject));
@@ -232,7 +227,6 @@ public class ViewController {
         if (redirect != null) return redirect;
 
         User currentUser = getCurrentUser(session);
-        String userRole = currentUser.getRole();
         String userEmail = currentUser.getMail();
         AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
         boolean soqm = AccessPolicy.isSoqm(subject);
@@ -380,9 +374,7 @@ public class ViewController {
         ControlCounters counters = countControlsVisibleToUser(userControlsList);
 
         model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", userEmail);
-        model.addAttribute("userRole", userRole);
         model.addAttribute("userSeesAll", seesAll);
         model.addAttribute("canExportAll", AccessPolicy.canExportAllControls(subject));
         String resolvedControlsFilter = effectiveScope;
@@ -867,9 +859,7 @@ public class ViewController {
         boolean readOnly = !permission.canEdit();
 
         model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", userEmail);
-        model.addAttribute("userRole", currentUser.getRole());
         model.addAttribute("control", control);
         model.addAttribute("performanceStatus", performanceStatus);
         model.addAttribute("readOnly", readOnly);
@@ -962,7 +952,6 @@ public class ViewController {
         }
 
         model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getRole());
         model.addAttribute("userEmail", currentUser.getMail());
 
         return "new-control";
@@ -1028,9 +1017,7 @@ public class ViewController {
 
             // 6. Model
             model.addAttribute("userName", currentUser.getDisplayName());
-            model.addAttribute("userTitle", currentUser.getRole());
             model.addAttribute("userEmail", currentUser.getMail());
-            model.addAttribute("userRole", currentUser.getRole());
             model.addAttribute("controlId", control.getControlId());
             model.addAttribute("control", control);
 
