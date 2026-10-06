@@ -143,11 +143,14 @@ const viewControl = (function() {
         return `${formId}:${name}:${index}`;
     }
 
+    // A stored address may differ in case or spaces from the user's (old data, imports): the same person,
+    // as the server compares them (EmailList)
     function findUserByEmail(email) {
-        if (!email) {
+        const wanted = String(email || '').trim().toLowerCase();
+        if (!wanted) {
             return null;
         }
-        return allUsers.find(user => user && user.mail === email) || null;
+        return allUsers.find(user => user && String(user.mail || '').trim().toLowerCase() === wanted) || null;
     }
 
     function captureEditModeSnapshot() {
@@ -1163,7 +1166,7 @@ function confirmWorkflowAction() {
 
                     // Facilitator
                     if (assignmentData.facilitator && Array.isArray(assignmentData.facilitator) && assignmentData.facilitator.length > 0) {
-                        const user = allUsers.find(u => u.mail === assignmentData.facilitator[0]);
+                        const user = findUserByEmail(assignmentData.facilitator[0]);
                         if (user) {
                             selectUser(user);
                         }
@@ -1171,7 +1174,7 @@ function confirmWorkflowAction() {
 
                     // Control Operator
                     if (assignmentData.controlOperator && Array.isArray(assignmentData.controlOperator) && assignmentData.controlOperator.length > 0) {
-                        const user = allUsers.find(u => u.mail === assignmentData.controlOperator[0]);
+                        const user = findUserByEmail(assignmentData.controlOperator[0]);
                         if (user) {
                             selectControlOperator(user);
                         }
@@ -1179,7 +1182,7 @@ function confirmWorkflowAction() {
 
                     // SoQM Team
                     if (assignmentData.soqmLead && Array.isArray(assignmentData.soqmLead) && assignmentData.soqmLead.length > 0) {
-                        const user = allUsers.find(u => u.mail === assignmentData.soqmLead[0]);
+                        const user = findUserByEmail(assignmentData.soqmLead[0]);
                         if (user) {
                             selectSoqmLead(user);
                         }
@@ -1187,7 +1190,7 @@ function confirmWorkflowAction() {
 
                     // Process Owner
                     if (assignmentData.processOwner && Array.isArray(assignmentData.processOwner) && assignmentData.processOwner.length > 0) {
-                        const user = allUsers.find(u => u.mail === assignmentData.processOwner[0]);
+                        const user = findUserByEmail(assignmentData.processOwner[0]);
                         if (user) {
                             selectProcessOwner(user);
                         }
@@ -1197,7 +1200,7 @@ function confirmWorkflowAction() {
                     if (assignmentData.controlSharedWith && Array.isArray(assignmentData.controlSharedWith) && assignmentData.controlSharedWith.length > 0) {
                         selectedSharedWithUsers = [];
                         assignmentData.controlSharedWith.forEach(email => {
-                            const user = allUsers.find(u => u.mail === email);
+                            const user = findUserByEmail(email);
                             if (user) {
                                 selectedSharedWithUsers.push(user);
                             }
