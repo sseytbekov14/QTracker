@@ -374,7 +374,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
         clip: rect(0 0 0 0);
     }
     .users-table, .users-table tbody { display: block; }
-    .users-table tbody tr { display: block; padding: 10px 16px; border-bottom: 1px solid var(--kpmg-gray-200); }
+    .users-table tbody tr { display: block; position: relative; padding: 10px 16px; border-bottom: 1px solid var(--kpmg-gray-200); }
     .users-table tbody tr:last-child { border-bottom: none; }
     .users-table tbody td {
         display: flex;
@@ -398,8 +398,10 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
         color: var(--kpmg-gray-600);
         text-align: left;
     }
-    .users-table tbody td:first-child { padding-bottom: 6px; text-align: left; }
-    .users-table tbody td.row-action { width: auto; justify-content: flex-end; padding-top: 6px; }
+    /* The name on top, the Edit button beside it in the top right corner of the card */
+    .users-table tbody td:first-child { padding: 0 84px 6px 0; text-align: left; min-height: 32px; }
+    .users-table tbody td.row-action { position: absolute; top: 10px; right: 16px; width: auto; min-height: 0; padding: 0; }
+    .row-edit-btn { padding: 5px 12px; }
     .admin-user-row:hover { background: var(--hover-bg); }
     .admin-user-row:focus-visible { background: #eef4fc; box-shadow: inset 3px 0 0 var(--kpmg-blue-light); }
     .admin-user-row.row-saved { animation: row-saved 2.4s ease-out; }
