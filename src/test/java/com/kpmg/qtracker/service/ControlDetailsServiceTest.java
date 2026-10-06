@@ -41,4 +41,32 @@ class ControlDetailsServiceTest {
 
         assertThat(saved.getHomogeneity()).isEqualTo("Homogenous");
     }
+
+    @Test
+    void operatorReview_isSavedAndRead_besideTheStepsField_andNullKeepsIt() {
+        Long controlId = 11L;
+        ControlDetails existing = new ControlDetails();
+        existing.setControlId(controlId);
+        existing.setControlStepsPerformed("Facilitator steps");
+        existing.setControlOperatorReview("Operator review");
+
+        when(repository.findByControlId(controlId)).thenReturn(Optional.of(existing));
+        when(repository.save(any(ControlDetails.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ControlDetailsDTO onlySteps = new ControlDetailsDTO();
+        onlySteps.setControlId(controlId);
+        onlySteps.setControlStepsPerformed("Facilitator steps, again");
+        ControlDetails saved = service.saveDetails(onlySteps);
+
+        assertThat(saved.getControlStepsPerformed()).isEqualTo("Facilitator steps, again");
+        assertThat(saved.getControlOperatorReview()).isEqualTo("Operator review");
+
+        ControlDetailsDTO review = new ControlDetailsDTO();
+        review.setControlId(controlId);
+        review.setControlOperatorReview("Operator review, again");
+        service.saveDetails(review);
+
+        assertThat(service.getDetailsByControlId(controlId).getControlOperatorReview()).isEqualTo("Operator review, again");
+        assertThat(service.getDetailsByControlId(controlId).getControlStepsPerformed()).isEqualTo("Facilitator steps, again");
+    }
 }

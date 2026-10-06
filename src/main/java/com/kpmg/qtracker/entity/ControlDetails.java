@@ -26,6 +26,10 @@ public class ControlDetails {
     @Column(length = 2000)
     private String controlStepsPerformed;
 
+    /** Control Operator Review and Results: written only when the Facilitator and the Operator differ (ControlStepsFields). */
+    @Column(name = "control_operator_review", length = 2000)
+    private String controlOperatorReview;
+
     @Column(name = "soqm_head_comments", length = 2000)
     private String soqmHeadComments;
 
