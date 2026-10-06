@@ -4,7 +4,6 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
-import com.kpmg.qtracker.util.RoleDisplayMapper;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -60,11 +59,6 @@ public class SidebarModelAdvice {
                 }
             }
             return initials.length() > 0 ? initials.toString() : "?";
-        }
-
-        /** The user's access, e.g. "Participant · KDN" (RoleDisplayMapper). */
-        public String getRoleLabel() {
-            return RoleDisplayMapper.access(user);
         }
 
         /** SoQM can create controls (shows the "New Control" button). */

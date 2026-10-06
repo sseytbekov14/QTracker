@@ -7,7 +7,7 @@
     <title>Admin Panel - QTracker</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=14" rel="stylesheet">
+    <link href="/css/style.css?v=15" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
 /* Colours come from the tokens in style.css (:root) */
@@ -73,7 +73,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .toolbar-select { width: auto; min-width: 160px; }
 .toolbar-control:focus { border-color: var(--kpmg-blue); box-shadow: 0 0 0 3px rgba(0, 51, 141, 0.12); }
 
-/* Table: read only; a row opens the user dialog */
+/* Table: read only; the Edit button of a row opens the user dialog */
 .table-wrapper {
     background: var(--kpmg-white);
     border: 1px solid var(--kpmg-gray-200);
@@ -102,12 +102,6 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     border-bottom: 1px solid var(--kpmg-gray-100);
 }
 .users-table tbody tr:last-child td { border-bottom: none; }
-.admin-user-row { cursor: pointer; }
-.admin-user-row:hover td { background: var(--hover-bg); }
-.admin-user-row:focus { outline: none; }
-.admin-user-row:focus-visible td { background: #eef4fc; box-shadow: inset 0 2px 0 var(--kpmg-blue-light), inset 0 -2px 0 var(--kpmg-blue-light); }
-.admin-user-row:focus-visible td:first-child { box-shadow: inset 2px 2px 0 var(--kpmg-blue-light), inset 0 -2px 0 var(--kpmg-blue-light); }
-.admin-user-row:focus-visible td:last-child { box-shadow: inset -2px 2px 0 var(--kpmg-blue-light), inset 0 -2px 0 var(--kpmg-blue-light); }
 /* Just saved: a short highlight */
 .admin-user-row.row-saved td { animation: row-saved 2.4s ease-out; }
 @keyframes row-saved { from { background: #e8f6ee; } to { background: transparent; } }
@@ -402,8 +396,6 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     .users-table tbody td:first-child { padding: 0 84px 6px 0; text-align: left; min-height: 32px; }
     .users-table tbody td.row-action { position: absolute; top: 10px; right: 16px; width: auto; min-height: 0; padding: 0; }
     .row-edit-btn { padding: 5px 12px; }
-    .admin-user-row:hover { background: var(--hover-bg); }
-    .admin-user-row:focus-visible { background: #eef4fc; box-shadow: inset 3px 0 0 var(--kpmg-blue-light); }
     .admin-user-row.row-saved { animation: row-saved 2.4s ease-out; }
     .users-table tbody tr.empty-row td { display: block; text-align: center; }
 
@@ -513,7 +505,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     </select>
                 </div>
 
-                <!-- Table: read only; a row (click, Enter) or its button opens the user dialog -->
+                <!-- Table: read only; only the Edit (View) button of a row opens the user dialog -->
                 <div class="table-wrapper">
                     <table class="table users-table">
                         <thead>
@@ -531,7 +523,6 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                         <tbody id="usersTableBody">
                         <tr th:each="user : ${users}"
                             class="admin-user-row"
-                            tabindex="0"
                             th:with="lastLogin=${user.lastLoginAt != null ? #temporals.format(user.lastLoginAt, 'dd.MM.yyyy HH:mm') : ''},
                                      isSelf=${session.currentUser != null and user.id == session.currentUser.id}"
                             th:attr="data-user-id=${user.id},
@@ -586,7 +577,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 
                 <!-- A new row after Add User; the script fills every cell -->
                 <template id="userRowTemplate">
-                    <tr class="admin-user-row" tabindex="0">
+                    <tr class="admin-user-row">
                         <td class="js-name-cell"></td>
                         <td class="email-cell js-email" data-label="Email"></td>
                         <td class="js-level" data-label="Level"></td>
@@ -850,20 +841,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ---------------------------------------------------------------- table
 
+    // Only the row's Edit (View) button opens the dialog: a click elsewhere on a row or card does nothing
     function bindRow(row) {
-        row.addEventListener('click', function(event) {
-            // The row's own button opens the dialog itself; selecting text in a row is not a click on it
-            if (event.target.closest('button, a') || String(window.getSelection ? window.getSelection() : '').length) {
-                return;
-            }
-            openDialog(CAN_MANAGE ? 'edit' : 'view', row, row);
-        });
-        row.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter' && event.target === row) {
-                event.preventDefault();
-                openDialog(CAN_MANAGE ? 'edit' : 'view', row, row);
-            }
-        });
         row.querySelector('.js-open-user').addEventListener('click', function(event) {
             openDialog(CAN_MANAGE ? 'edit' : 'view', row, event.currentTarget);
         });
@@ -1273,7 +1252,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === modalEl)) {
             event.preventDefault();
             last.focus();
         } else if (!event.shiftKey && document.activeElement === last) {
@@ -1297,14 +1276,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
+    // Add User starts at the e-mail; an existing user's dialog takes the focus itself, not a field, so that
+    // typing by accident changes nothing (Tab goes on to the fields)
     function focusFirstField() {
         if (!dialog) {
             return;
         }
-        const first = dialog.mode === 'create' ? fields.email
-            : dialog.mode === 'view' ? cancelBtn
-            : fields.name;
-        first.focus();
+        (dialog.mode === 'create' ? fields.email : modalEl).focus();
     }
 
     form.addEventListener('submit', async function(event) {
@@ -1469,7 +1447,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 message += ' The current filters hide the row.';
             }
 
-            dialog.opener = visible ? row : (create ? openAddUserBtn : null);
+            dialog.opener = visible ? row.querySelector('.js-open-user') : (create ? openAddUserBtn : null);
             dialog.saving = false;
             dialog.closing = true;
             userModal.hide();

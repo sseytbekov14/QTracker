@@ -1111,8 +1111,9 @@ class ViewControllerStatusFilterTest {
                 .andExpect(content().string(containsString("href=\"/view-control/202\"")))
                 .andExpect(content().string(not(containsString("href=\"/view-control/203\""))))
                 .andExpect(content().string(containsString("href=\"/controls\"")))
-                // The sidebar shows the access, not the old role
-                .andExpect(content().string(containsString(">Participant<")))
+                // The sidebar shows the name and the e-mail, no access line under the name
+                .andExpect(content().string(not(containsString("sidebar-user-role"))))
+                .andExpect(content().string(not(containsString(">Participant<"))))
                 .andExpect(content().string(containsString("class=\"sidebar-avatar\" aria-hidden=\"true\">FU<")))
                 .andExpect(content().string(not(containsString("sidebar-new-control"))))
                 .andReturn();

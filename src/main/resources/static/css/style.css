@@ -1513,7 +1513,6 @@
     min-width: 0;
 }
 .sidebar-user-name,
-.sidebar-user-role,
 .sidebar-user-email {
     white-space: nowrap;
     overflow: hidden;
@@ -1524,7 +1523,6 @@
     font-size: 0.82rem;
     font-weight: 600;
 }
-.sidebar-user-role,
 .sidebar-user-email {
     color: #9ba3b5;
     font-size: 0.72rem;

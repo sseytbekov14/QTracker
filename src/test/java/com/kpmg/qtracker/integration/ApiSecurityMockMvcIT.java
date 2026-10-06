@@ -1674,16 +1674,17 @@ class ApiSecurityMockMvcIT {
         // The CSRF token for the dialog's requests is in the head
         String head = html.substring(0, html.indexOf("</head>"));
         assertThat(head).contains("<meta name=\"_csrf\"", "<meta name=\"_csrf_header\"", "/js/csrf.js");
-        assertThat(html).contains("/js/app-modal.js?v=5", "/css/style.css?v=14");
+        assertThat(html).contains("/js/app-modal.js?v=5", "/css/style.css?v=15");
 
         // Rows show values only; nothing is edited in the table and there is no page-wide save
         assertThat(html).doesNotContain("id=\"saveAllChanges\"", "js-admin-toggle", "compact-select",
                 "id=\"editEmailModal\"", "id=\"addUserModal\"", "row-dirty");
         String freshRow = userRow(html, fresh);
         // No last login: the attribute is left out, so the dialog lets the e-mail change
-        assertThat(freshRow).contains("tabindex=\"0\"", "data-enabled=\"true\"",
+        // Only the Edit button opens the dialog: the row itself is not focusable
+        assertThat(freshRow).contains("data-enabled=\"true\"",
                 "data-admin=\"false\"", "data-self=\"false\"", "class=\"status-pill is-active\"",
-                "aria-label=\"Edit dlg-fresh\"").doesNotContain("data-last-login", "<select", "<input");
+                "aria-label=\"Edit dlg-fresh\"").doesNotContain("data-last-login", "<select", "<input", "tabindex");
         assertThat(userRow(html, signedIn)).contains("data-last-login=\"01.10.2026 09:30\"", "data-enabled=\"false\"",
                 "status-pill is-inactive", ">01.10.2026 09:30</td>");
         assertThat(userRow(html, admin)).contains("data-self=\"true\"", "data-admin=\"true\"",
