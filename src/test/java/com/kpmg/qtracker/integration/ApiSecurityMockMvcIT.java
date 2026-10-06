@@ -1649,12 +1649,57 @@ class ApiSecurityMockMvcIT {
         assertThat(html).contains("<th scope=\"col\">Level</th>", "<th scope=\"col\">Scope</th>",
                 "id=\"filterLevel\"", "id=\"filterScope\"");
         assertThat(html).doesNotContain("Additional Role", "js-role", "js-secondary-role", "(not in list)");
-        assertThat(selectedOptions(html, soqm, "js-level")).containsExactly("SoQM");
-        assertThat(selectedOptions(html, soqm, "js-scope")).containsExactly("All controls");
-        assertThat(selectedOptions(html, kdn, "js-level")).containsExactly("Participant");
-        assertThat(selectedOptions(html, kdn, "js-scope")).containsExactly("KDN controls");
-        assertThat(selectedOptions(html, readOnly, "js-level")).containsExactly("Read only");
-        assertThat(selectedOptions(html, readOnly, "js-scope")).containsExactly("Own controls");
+        assertThat(userRow(html, soqm)).contains("data-level=\"SOQM\"", "data-scope=\"ALL\"",
+                "data-label=\"Level\">SoQM</td>", "data-label=\"Scope\">All controls</td>");
+        assertThat(userRow(html, kdn)).contains("data-level=\"PARTICIPANT\"", "data-scope=\"KDN\"",
+                "data-label=\"Level\">Participant</td>", "data-label=\"Scope\">KDN controls</td>");
+        assertThat(userRow(html, readOnly)).contains("data-level=\"READ_ONLY\"", "data-scope=\"OWN\"",
+                "data-label=\"Level\">Read only</td>", "data-label=\"Scope\">Own controls</td>");
+    }
+
+    @Test
+    void adminPage_isAReadOnlyTable_andOneLabelledUserDialog() throws Exception {
+        User admin = adminUser();
+        MockHttpSession adminSession = login(admin.getMail());
+        User fresh = saveUser("dlg-fresh", "dlg-fresh-" + suffix() + "@example.test", "FACILITATOR");
+        User signedIn = saveUser("dlg-signed", "dlg-signed-" + suffix() + "@example.test", "FACILITATOR");
+        signedIn.setLastLoginAt(java.time.LocalDateTime.of(2026, 10, 1, 9, 30));
+        signedIn.setEnabled(false);
+        userRepository.save(signedIn);
+
+        String html = mockMvc.perform(get("/admin/users").session(adminSession))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        // The CSRF token for the dialog's requests is in the head
+        String head = html.substring(0, html.indexOf("</head>"));
+        assertThat(head).contains("<meta name=\"_csrf\"", "<meta name=\"_csrf_header\"", "/js/csrf.js");
+        assertThat(html).contains("/js/app-modal.js?v=5", "/css/style.css?v=14");
+
+        // Rows show values only; nothing is edited in the table and there is no page-wide save
+        assertThat(html).doesNotContain("id=\"saveAllChanges\"", "js-admin-toggle", "compact-select",
+                "id=\"editEmailModal\"", "id=\"addUserModal\"", "row-dirty");
+        String freshRow = userRow(html, fresh);
+        // No last login: the attribute is left out, so the dialog lets the e-mail change
+        assertThat(freshRow).contains("tabindex=\"0\"", "data-enabled=\"true\"",
+                "data-admin=\"false\"", "data-self=\"false\"", "class=\"status-pill is-active\"",
+                "aria-label=\"Edit dlg-fresh\"").doesNotContain("data-last-login", "<select", "<input");
+        assertThat(userRow(html, signedIn)).contains("data-last-login=\"01.10.2026 09:30\"", "data-enabled=\"false\"",
+                "status-pill is-inactive", ">01.10.2026 09:30</td>");
+        assertThat(userRow(html, admin)).contains("data-self=\"true\"", "data-admin=\"true\"",
+                "<span class=\"admin-badge\">Admin</span>", "<span class=\"self-chip\">You</span>");
+
+        // One dialog: titled, every field labelled, full screen on a phone
+        String dialog = html.substring(html.indexOf("id=\"userModal\""), html.indexOf("</form>", html.indexOf("id=\"userModal\"")));
+        assertThat(dialog).contains("aria-labelledby=\"userModalTitle\"", "id=\"userModalTitle\"",
+                "modal-fullscreen-sm-down",
+                "<label for=\"userName\"", "<label for=\"userEmail\"", "<label for=\"userLevel\"",
+                "<label for=\"userScope\"", "<label for=\"userStatus\"",
+                "id=\"userAdmin-label\"", "aria-labelledby=\"userAdmin-label\"", "role=\"switch\"",
+                "aria-describedby=\"userEmail-hint userEmail-error\"", "id=\"userAccessSummary\"",
+                "id=\"userFormMessage\"", "id=\"userFormReload\"");
+        assertThat(html).contains("id=\"userSaveBtn\" form=\"userForm\" disabled", "id=\"userRowTemplate\"",
+                "id=\"openAddUserBtn\"");
     }
 
     @Test
@@ -1728,7 +1773,10 @@ class ApiSecurityMockMvcIT {
         String html = mockMvc.perform(get("/admin/users").session(session))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        assertThat(html).contains("Your access is read-only").doesNotContain("id=\"saveAllChanges\"", "id=\"openAddUserBtn\"");
+        assertThat(html).contains("Your access is read-only").doesNotContain("id=\"saveAllChanges\"", "id=\"openAddUserBtn\"",
+                "id=\"exportUsersBtn\"");
+        // The dialog opens to look only
+        assertThat(userRow(html, target)).contains("aria-label=\"View ro-target\"", "<span>View</span>");
 
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(session)
                         .param("level", "SOQM")
@@ -1805,23 +1853,11 @@ class ApiSecurityMockMvcIT {
         return userRepository.save(admin);
     }
 
-    /** The markup of one row's select (class js-level or js-scope) on the Admin Panel. */
-    private static String roleSelect(String html, User user, String selectClass) {
+    /** The markup of one user's row on the Admin Panel. */
+    private static String userRow(String html, User user) {
         int row = html.indexOf("data-user-id=\"" + user.getId() + "\"");
         assertThat(row).as("row of user %s", user.getId()).isPositive();
-        int select = html.indexOf(selectClass, row);
-        return html.substring(select, html.indexOf("</select>", select));
-    }
-
-    private static List<String> selectedOptions(String html, User user, String selectClass) {
-        List<String> texts = new ArrayList<>();
-        java.util.regex.Matcher option = java.util.regex.Pattern
-                .compile("<option[^>]*\\sselected[^>]*>([^<]*)</option>")
-                .matcher(roleSelect(html, user, selectClass));
-        while (option.find()) {
-            texts.add(org.springframework.web.util.HtmlUtils.htmlUnescape(option.group(1)).trim());
-        }
-        return texts;
+        return html.substring(html.lastIndexOf("<tr", row), html.indexOf("</tr>", row));
     }
 
     @Test
