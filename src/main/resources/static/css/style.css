@@ -1527,6 +1527,19 @@
     color: #9ba3b5;
     font-size: 0.72rem;
 }
+/* The user's role (SoQM Team, User, KDN) under the e-mail */
+.sidebar-user-role {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 1px 8px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #e3e8f2;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
 .sidebar-logout {
     display: flex;
     align-items: center;

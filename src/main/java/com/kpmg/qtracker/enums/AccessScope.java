@@ -5,8 +5,8 @@ import java.util.Optional;
 
 /** Which controls a user sees (users.access_scope). What they may do there is {@link AccessLevel}. */
 public enum AccessScope {
-    /** The controls they are assigned to or that are shared with them. */
-    OWN("Own controls"),
+    /** The controls they are assigned to, that are shared with them or that they created. */
+    OWN("My controls"),
     /** Every control, drafts included. */
     ALL("All controls"),
     /** Only KDN controls, and of those only the ones they are assigned to or that are shared with them. */

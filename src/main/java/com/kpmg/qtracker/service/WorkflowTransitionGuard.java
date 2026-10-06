@@ -80,7 +80,7 @@ public class WorkflowTransitionGuard {
         }
         if (!permission.isSoqmLead() && !permission.isFacilitator() && !permission.isControlOperator()
                 && !permission.isProcessOwner()) {
-            return Decision.deny(FORBIDDEN, "Only SoQM or the participant whose step it is can move this control");
+            return Decision.deny(FORBIDDEN, "Only SoQM Team or the person assigned to this step can move this control");
         }
         return Decision.deny(CONFLICT, "The control cannot be moved from " + WorkflowMove.displayStatus(status)
                 + " to " + WorkflowMove.displayStatus(target) + " by you");
@@ -98,7 +98,7 @@ public class WorkflowTransitionGuard {
 
     private String notActorMessage(WorkflowTransition transition) {
         return switch (transition.getActor()) {
-            case SOQM_TEAM, COORDINATOR -> "Only SoQM can perform \"" + transition.getLabel() + "\" on this control";
+            case SOQM_TEAM, COORDINATOR -> "Only SoQM Team can perform \"" + transition.getLabel() + "\" on this control";
             default -> "Only the assigned " + transition.getActor().getDisplayName()
                     + " or SoQM can perform \"" + transition.getLabel() + "\" on this control";
         };

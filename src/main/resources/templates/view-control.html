@@ -7,7 +7,7 @@
     <title th:text="'Control - ' + ${control.controlId}">Control - Sultan</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=15" rel="stylesheet">
+    <link href="/css/style.css?v=16" rel="stylesheet">
     <link href="/css/view-control.css?v=17" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
@@ -1250,7 +1250,7 @@
                                         th:if="${!#lists.isEmpty(soqmMoves)}"
                                         data-bs-toggle="modal"
                                         data-bs-target="#soqmMoveModal"
-                                        title="Move this control on or back for any role">
+                                        title="Move this control on or back for any Control role">
                                     Move / Return&hellip;
                                 </button>
                             </div>
@@ -1537,7 +1537,7 @@
                             <div class="modal-body">
                                 <p class="soqm-move-now">
                                     Now: <strong th:text="${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">In Progress</strong>.
-                                    <span th:unless="${completedLocked}">As SoQM you can make the step of any role: on to the next status or back to an earlier one.</span>
+                                    <span th:unless="${completedLocked}">As SoQM Team you can make the step of any Control role: on to the next status or back to an earlier one.</span>
                                 </p>
                                 <p class="soqm-move-now" th:if="${completedLocked}" id="soqmMoveCompletedNote">
                                     A completed control is locked for everyone. Returning it keeps its values, its deadline
@@ -1570,7 +1570,7 @@
                                     <textarea class="form-control" id="soqmMoveComment" rows="3" maxlength="2000"
                                               aria-describedby="soqmMoveCommentError"
                                               placeholder="Why the control moves, for the history and the notification"></textarea>
-                                    <div class="invalid-feedback" id="soqmMoveCommentError">Enter a comment: a return and a step made for another role need one.</div>
+                                    <div class="invalid-feedback" id="soqmMoveCommentError">Enter a comment: a return and a step made for a Control role need one.</div>
                                 </div>
                                 <div class="text-danger small mt-2 d-none" id="soqmMoveError" role="alert"></div>
                             </div>
@@ -1615,7 +1615,7 @@
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
-<script src="/js/view-control.js?v=5.9"></script>
+<script src="/js/view-control.js?v=6.0"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows

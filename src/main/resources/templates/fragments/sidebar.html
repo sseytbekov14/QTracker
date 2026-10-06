@@ -20,6 +20,8 @@
             <div class="sidebar-user-info">
                 <div class="sidebar-user-name" th:text="${sidebar.name}" th:title="${sidebar.name}">Full Name</div>
                 <div class="sidebar-user-email" th:text="${sidebar.email}" th:title="${sidebar.email}">email@kpmg.kz</div>
+                <span class="sidebar-user-role" th:text="${sidebar.role}"
+                      th:attr="aria-label=${'Role: ' + sidebar.role}">User</span>
             </div>
         </div>
 

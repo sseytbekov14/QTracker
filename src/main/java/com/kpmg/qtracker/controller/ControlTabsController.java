@@ -330,7 +330,7 @@ public class ControlTabsController {
         dto.setDisplayName(user.getDisplayName());
         dto.setMail(user.getMail());
         dto.setTitle(RoleDisplayMapper.access(user));
-        dto.setRole(String.valueOf(user.getAccessLevel()));
+        dto.setRole(AccessPolicy.Profile.of(user).role().name());
         dto.setEnabled(Boolean.TRUE.equals(user.getEnabled()));
         return dto;
     }

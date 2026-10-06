@@ -4,16 +4,17 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * What a user may do (users.access_level). Which controls they see is {@link AccessScope};
- * the Admin Panel is the separate admin_access flag.
+ * What a user may do (users.access_level). Which controls they see is {@link AccessScope}. People see it as
+ * the role SoQM Team or, for a User, the Access Edit or Read Only ({@code AccessPolicy.Profile}); the display
+ * names follow those words.
  */
 public enum AccessLevel {
     /** SoQM Head or Delegate: creates and edits controls, assigns people, performs the SoQM steps. Always scope ALL. */
-    SOQM("SoQM"),
+    SOQM("SoQM Team"),
     /** Performs the Facilitator, Control Operator and Process Owner steps of the controls they are assigned to. */
-    PARTICIPANT("Participant"),
+    PARTICIPANT("Edit"),
     /** Views, reads the history and downloads attachments; never writes. */
-    READ_ONLY("Read only");
+    READ_ONLY("Read Only");
 
     private final String displayName;
 

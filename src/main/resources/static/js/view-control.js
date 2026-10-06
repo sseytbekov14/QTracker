@@ -4121,7 +4121,7 @@ function buildChangelogCard(entry) {
         if (entry.onBehalf) {
             const behalfLine = document.createElement('div');
             behalfLine.className = 'changelog-workflow-on-behalf';
-            behalfLine.textContent = 'On behalf of the ' + (entry.actedAs || 'assigned participant')
+            behalfLine.textContent = 'On behalf of the ' + (entry.actedAs || 'assigned person')
                 + (entry.assignedPerformer ? ' (assigned: ' + entry.assignedPerformer + ')' : '');
             workflowBlock.appendChild(behalfLine);
         }

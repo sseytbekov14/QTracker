@@ -118,7 +118,7 @@ class WorkflowTransitionGuardTest {
                 permissionFor(WorkflowTransition.Actor.SOQM_TEAM), WorkflowTransition.INITIATE);
 
         assertThat(participant.httpStatus()).isEqualTo(403);
-        assertThat(participant.message()).isEqualTo("Only SoQM can perform \"Initiate\" on this control");
+        assertThat(participant.message()).isEqualTo("Only SoQM Team can perform \"Initiate\" on this control");
         assertThat(soqm.allowed()).isTrue();
     }
 

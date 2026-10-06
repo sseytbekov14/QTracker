@@ -4,6 +4,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
+import com.kpmg.qtracker.util.RoleDisplayMapper;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -42,6 +43,11 @@ public class SidebarModelAdvice {
 
         public String getEmail() {
             return user.getMail();
+        }
+
+        /** The role: SoQM Team, User or KDN. */
+        public String getRole() {
+            return RoleDisplayMapper.role(user);
         }
 
         /** Up to two initials for the avatar: "SoQM Team 1" -> "ST", fallback to the e-mail. */

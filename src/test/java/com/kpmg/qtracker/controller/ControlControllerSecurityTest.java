@@ -239,7 +239,7 @@ class ControlControllerSecurityTest {
                         .content(objectMapper.writeValueAsString(requestBody))
                         .sessionAttr("currentUser", sessionUser))
                 .andExpect(status().isForbidden())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Only SoQM can create controls")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Only SoQM Team can create controls")));
 
         verify(controlService, never()).createControl(any(Control.class));
     }

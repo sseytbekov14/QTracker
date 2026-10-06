@@ -1493,7 +1493,7 @@ class ApiSecurityMockMvcIT {
         String everyone = mockMvc.perform(get("/api/users/all").with(ownAddress()).session(login(p.soqm.getMail())))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        assertThat(everyone).contains(stranger.getMail(), "\"title\":\"User · My controls · Edit\"")
+        assertThat(everyone).contains(stranger.getMail(), "\"title\":\"User · My controls · Edit\"", "\"role\":\"USER\"")
                 .doesNotContain("Participant");
 
         MockHttpSession facilitator = login(p.facilitator.getMail());
