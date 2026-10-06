@@ -21,6 +21,7 @@ import com.kpmg.qtracker.service.ControlDocumentsService;
 import com.kpmg.qtracker.service.ControlHistoryService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
+import com.kpmg.qtracker.service.ControlStepsFields;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
 import com.kpmg.qtracker.service.PermissionService;
@@ -722,7 +723,12 @@ public class ControlController {
                 rowNum = addRow(sheet, rowNum, "Process Activities", details.getProcessActivities());
                 rowNum = addRow(sheet, rowNum, "Other Related Controls", details.getOtherRelatedControls());
                 rowNum = addRow(sheet, rowNum, "IT Applications", details.getItApplications());
-                rowNum = addRow(sheet, rowNum, "Control Steps Performed and Results", details.getControlStepsPerformed());
+                rowNum = addRow(sheet, rowNum, ControlStepsFields.STEPS_LABEL, details.getControlStepsPerformed());
+                // As on View Control: the Operator's own field only when the Facilitator and the Operator differ
+                if (assignment != null
+                        && ControlStepsFields.split(assignment.getFacilitator(), assignment.getControlOperator())) {
+                    rowNum = addRow(sheet, rowNum, ControlStepsFields.OPERATOR_REVIEW_LABEL, details.getControlOperatorReview());
+                }
             }
 
             if (documents != null) {

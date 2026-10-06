@@ -29,10 +29,17 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import java.io.ByteArrayInputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -424,6 +431,36 @@ class StepsFieldSplitIT {
                 .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed\"");
         assertThat(page(control, login(op)))
                 .contains("id=\"allowedEditableFields\" value=\"\"");
+    }
+
+    // ------------------------------------------------------------------ Excel
+
+    @Test
+    void completedExport_hasTheOperatorFieldOnlyWhenFacilitatorAndOperatorDiffer() throws Exception {
+        MockHttpSession soqmSession = login(soqm);
+
+        Map<String, String> split = exportRows(control("COMPLETED", fac.getMail(), op.getMail(), "Steps", "Review"), soqmSession);
+        assertThat(split).containsEntry(ControlStepsFields.STEPS_LABEL, "Steps")
+                .containsEntry(ControlStepsFields.OPERATOR_REVIEW_LABEL, "Review");
+        assertThat(new ArrayList<>(split.keySet()).indexOf(ControlStepsFields.OPERATOR_REVIEW_LABEL))
+                .isEqualTo(new ArrayList<>(split.keySet()).indexOf(ControlStepsFields.STEPS_LABEL) + 1);
+
+        Map<String, String> onePerson = exportRows(control("COMPLETED", fac.getMail(), fac.getMail(), "Steps", "Kept from before"), soqmSession);
+        assertThat(onePerson).containsEntry(ControlStepsFields.STEPS_LABEL, "Steps")
+                .doesNotContainKey(ControlStepsFields.OPERATOR_REVIEW_LABEL);
+    }
+
+    private Map<String, String> exportRows(Control control, MockHttpSession session) throws Exception {
+        MvcResult result = perform(get("/api/controls/{id}/export/completed", control.getId()), session);
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        Map<String, String> rows = new LinkedHashMap<>();
+        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(result.getResponse().getContentAsByteArray()))) {
+            for (Row row : workbook.getSheetAt(0)) {
+                rows.put(row.getCell(0).getStringCellValue(),
+                        row.getCell(1) != null ? row.getCell(1).getStringCellValue() : null);
+            }
+        }
+        return rows;
     }
 
     // ------------------------------------------------------------------ helpers
