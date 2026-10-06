@@ -548,6 +548,43 @@ class AccessPolicyTest {
         }
     }
 
+    @ParameterizedTest(name = "{0} {1} {2} -> {3}")
+    @CsvSource({
+            // user,     status,           places,  notice
+            "SOQM,       IN_PROGRESS,      -,       NONE",
+            "SOQM,       COMPLETED,        -,       NONE",
+            "PART,       IN_PROGRESS,      F,       NONE",
+            // Assigned, not their step now: no notice (the step hint and the stepper say whose step it is)
+            "PART,       REVIEW,           F,       NONE",
+            "PART,       IN_PROGRESS,      SHARED,  NOT_ASSIGNED",
+            "PART,       IN_PROGRESS,      CREATOR, NOT_ASSIGNED",
+            "PART_ALL,   IN_PROGRESS,      -,       NOT_ASSIGNED",
+            "PART_ALL,   PROCESS_OWNER_REVIEW, PO,  NONE",
+            "RO,         IN_PROGRESS,      SHARED,  READ_ONLY",
+            "RO_ALL,     IN_PROGRESS,      -,       READ_ONLY",
+            "RO_ALL,     IN_PROGRESS,      F,       READ_ONLY",
+            "PART,       IN_PROGRESS,      -,       NONE",
+    })
+    void notice_saysWhyThePageHasNoButtons(String user, String status, String places, AccessPolicy.Notice notice) {
+        Subject s = who(user);
+        ControlFacts c = control(status, false, places);
+        ControlPermission p = AccessPolicy.resolve(s, c);
+        assertThat(AccessPolicy.notice(s, p)).isEqualTo(notice);
+        if (notice != AccessPolicy.Notice.NONE) {
+            // A notice means the server refuses every change and step on this control
+            assertThat(p.canEdit()).isFalse();
+            assertThat(p.isFacilitator() || p.isControlOperator() || p.isProcessOwner() || p.isSoqmLead()).isFalse();
+            assertThat(AccessPolicy.move(p, status, "REVIEW")).isEmpty();
+        }
+    }
+
+    @Test
+    void notice_forKdn_isReadOnly_alsoInTheStepFields() {
+        Subject kdn = who("KDN");
+        ControlFacts c = control("REVIEW", true, "CO");
+        assertThat(AccessPolicy.notice(kdn, AccessPolicy.resolve(kdn, c))).isEqualTo(AccessPolicy.Notice.READ_ONLY);
+    }
+
     @Test
     void allControlsEdit_seesEverything_butEditsAndStepsOnlyWhereAssigned() {
         Subject allEdit = who("PART_ALL");

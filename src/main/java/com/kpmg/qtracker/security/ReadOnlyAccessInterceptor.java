@@ -28,7 +28,8 @@ import java.util.Set;
 public class ReadOnlyAccessInterceptor implements HandlerInterceptor {
 
     public static final String CODE = "READ_ONLY";
-    public static final String MESSAGE = "Your access is read-only.";
+    public static final String MESSAGE =
+            "You have read-only access: you can view and download, but not change anything.";
 
     private static final Logger logger = LoggerFactory.getLogger(ReadOnlyAccessInterceptor.class);
     private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS", "TRACE");

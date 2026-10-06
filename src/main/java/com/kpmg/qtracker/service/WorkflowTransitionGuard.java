@@ -91,7 +91,7 @@ public class WorkflowTransitionGuard {
             return Decision.deny(FORBIDDEN, "Forbidden");
         }
         if (!permission.canUseWorkflowActions()) {
-            return Decision.deny(FORBIDDEN, "Your access is read-only");
+            return Decision.deny(FORBIDDEN, "You have read-only access to this control");
         }
         return null;
     }

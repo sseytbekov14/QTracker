@@ -428,6 +428,28 @@ public final class AccessPolicy {
                 locked);
     }
 
+    /**
+     * The calm notice on a control's page for someone who sees it but may not change it, so the page shows no
+     * button the server would refuse: READ_ONLY for Read Only and KDN (no edit, no step anywhere), NOT_ASSIGNED
+     * for a User with Edit who is in none of the Facilitator, Control Operator or Process Owner fields (seeing a
+     * control - All controls, shared, creator - gives no edit and no step). SoQM Team and assigned people: NONE.
+     */
+    public enum Notice { NONE, READ_ONLY, NOT_ASSIGNED }
+
+    public static Notice notice(Subject subject, ControlPermission permission) {
+        if (permission == null || !permission.canView()) {
+            return Notice.NONE;
+        }
+        if (!mayWrite(subject) || !permission.canUseWorkflowActions()) {
+            return Notice.READ_ONLY;
+        }
+        if (isSoqm(subject)) {
+            return Notice.NONE;
+        }
+        boolean assigned = permission.isFacilitator() || permission.isControlOperator() || permission.isProcessOwner();
+        return assigned ? Notice.NONE : Notice.NOT_ASSIGNED;
+    }
+
     /** Renaming the Control ID: SoQM, on any control it sees, a completed one included (not an edit of it). */
     public static boolean canRenameId(ControlPermission permission) {
         return permission != null && permission.canView() && permission.canUseWorkflowActions()

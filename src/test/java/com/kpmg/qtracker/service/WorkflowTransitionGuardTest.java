@@ -107,7 +107,7 @@ class WorkflowTransitionGuardTest {
                 control("IN_PROGRESS"), readOnly, WorkflowTransition.SUBMIT_TO_CONTROL_OPERATOR);
 
         assertThat(decision.httpStatus()).isEqualTo(403);
-        assertThat(decision.message()).isEqualTo("Your access is read-only");
+        assertThat(decision.message()).isEqualTo("You have read-only access to this control");
     }
 
     @Test
@@ -190,7 +190,7 @@ class WorkflowTransitionGuardTest {
                 .isEqualTo(403);
         assertThat(guard.checkMove(control("IN_PROGRESS"), admin, "REVIEW").httpStatus()).isEqualTo(403);
         assertThat(guard.checkMove(control("IN_PROGRESS"), readOnlySoqmFlag, "REVIEW").message())
-                .isEqualTo("Your access is read-only");
+                .isEqualTo("You have read-only access to this control");
     }
 
     @Test

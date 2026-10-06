@@ -7,7 +7,7 @@
     <title th:text="'Control - ' + ${control.controlId}">Control - Sultan</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=16" rel="stylesheet">
+    <link href="/css/style.css?v=17" rel="stylesheet">
     <link href="/css/view-control.css?v=17" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
@@ -357,6 +357,13 @@
             to   { opacity: 1; transform: translateX(0); }
         }
         /* Footer button hierarchy */
+        /* Who may only look (the access notice is shown): no upload zones and no "remove" on Shared With chips,
+           which the server would refuse anyway (AccessPolicy.notice) */
+        body:has(#accessBanner) .kpmg-upload-zone,
+        body:has(#accessBanner) #assignment-tab .badge .btn-close {
+            display: none;
+        }
+
         #editBtn {
             background: #00338D;
             border-color: #00338D;
@@ -534,6 +541,19 @@
                         </span>
                         <span class="vc-step-state" id="stepFieldState" aria-live="polite"></span>
                     </p>
+                </div>
+
+                <!-- Who may only look: a calm notice instead of buttons the server would refuse (AccessPolicy.notice) -->
+                <div class="access-banner" id="accessBanner" role="status" th:if="${accessNotice != 'NONE'}"
+                     th:attr="data-notice=${accessNotice}">
+                    <i class="bi" th:classappend="${accessNotice == 'READ_ONLY'} ? 'bi-eye' : 'bi-person-dash'" aria-hidden="true"></i>
+                    <div>
+                        <p class="access-banner-title" th:text="${accessNotice == 'READ_ONLY'} ? 'You have read-only access to this control'
+                            : 'You are not assigned to this control'">You have read-only access to this control</p>
+                        <p class="access-banner-text" th:text="${accessNotice == 'READ_ONLY'}
+                            ? 'You can view it, read its history and download its documents. Editing and workflow steps are not available to you.'
+                            : 'You can view it. Only the people assigned to it edit it and perform its steps; ask SoQM Team if you should be one of them.'">Text</p>
+                    </div>
                 </div>
 
                 <ul class="nav nav-tabs" id="controlTabs">
@@ -1173,7 +1193,8 @@
                         <!-- Right: Workflow buttons + Back + Edit (primary) -->
                         <div class="d-flex align-items-center gap-2">
                             <!-- Workflow buttons -->
-                            <div id="workflow-buttons-container" class="d-inline-flex align-items-center gap-2">
+                            <div id="workflow-buttons-container" class="d-inline-flex align-items-center gap-2"
+                                 th:if="${accessNotice == 'NONE'}">
                                 <!-- 1. Submit to Control Operator button for FACILITATOR -->
                                 <button type="button"
                                         class="btn btn-primary workflow-submit-btn"

@@ -1527,6 +1527,23 @@
     color: #9ba3b5;
     font-size: 0.72rem;
 }
+/* View Control: a calm notice for who may only look at a control (read-only access, not assigned) */
+.access-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 12px 0 4px;
+    padding: 10px 14px;
+    border: 1px solid #c5d3ea;
+    border-left: 4px solid var(--kpmg-blue);
+    border-radius: 6px;
+    background: #f0f4fa;
+    color: var(--kpmg-gray-800);
+}
+.access-banner .bi { flex-shrink: 0; font-size: 1.05rem; line-height: 1.3; color: var(--kpmg-blue); }
+.access-banner-title { margin: 0; font-size: 0.86rem; font-weight: 700; }
+.access-banner-text { margin: 2px 0 0; font-size: 0.78rem; color: var(--kpmg-gray-600); }
+
 /* The user's role (SoQM Team, User, KDN) under the e-mail */
 .sidebar-user-role {
     display: inline-block;

@@ -134,9 +134,14 @@ class RoleMatrixIT {
             new Who("anonymous", "not signed in", null, null, Place.NONE, false, false, true));
 
     private static final List<String> CONTROL_OPS = List.of(
-            "View page", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
+            "View page", "Notice", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
             "Assign", "Upload", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)");
+
+    /** The operations that change a control: none may pass where the page shows a notice. */
+    private static final List<String> WRITES = List.of("Save details", "Steps field", "Operator field", "Edit control",
+            "Assign", "Upload", "Rename ID", "Rename ±KDN", "Step", "Return",
+            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review");
 
     /** The working statuses in order; "Move to X" is POST /api/workflow/move, a return when X is earlier. */
     private static final List<String> WORKING = List.of(
@@ -212,7 +217,7 @@ class RoleMatrixIT {
                 for (String op : CONTROL_OPS) {
                     String actual = row.get(op);
                     String expected = expectedControlOp(who, status, op);
-                    boolean matches = expected.equals("ok") == actual.equals("ok")
+                    boolean matches = "Notice".equals(op) ? expected.equals(actual) : expected.equals("ok") == actual.equals("ok")
                             && (!expected.equals("not yet") || actual.equals("not yet"))
                             && !actual.startsWith("5") && expected.equals("400") == actual.equals("400");
                     if (!matches) {
@@ -221,6 +226,14 @@ class RoleMatrixIT {
                     report.append(" | ").append(matches ? "" : "‼ ").append(actual);
                 }
                 report.append(" |\n");
+                String notice = row.get("Notice");
+                if ("READ_ONLY".equals(notice) || "NOT_ASSIGNED".equals(notice)) {
+                    for (String write : WRITES) {
+                        if ("ok".equals(row.get(write))) {
+                            mismatches.add(status + " | " + who.label() + " | notice " + notice + " but " + write + " is allowed");
+                        }
+                    }
+                }
             }
         }
 
@@ -283,6 +296,11 @@ class RoleMatrixIT {
         boolean operatorField = split && (soqmEdits || (actsInStep && "REVIEW".equals(status) && inCO));
 
         return switch (op) {
+            // The page's notice (no buttons the server refuses): Read Only and KDN everywhere, a User with Edit
+            // in no Control role field "not assigned", nobody else; "-" when the page does not open
+            case "Notice" -> !sees || ("DRAFT".equals(status) && shared && !seesAll) ? "-"
+                    : !writer ? "READ_ONLY"
+                    : soqm || listed ? "NONE" : "NOT_ASSIGNED";
             case "View page" -> !sees ? "refused"
                     : "DRAFT".equals(status) && shared && !seesAll ? "not yet" : "ok";
             case "Read API", "History", "Download" -> sees && !("DRAFT".equals(status) && shared && !seesAll) ? "ok" : "refused";
@@ -344,6 +362,7 @@ class RoleMatrixIT {
 
         Control control = control(who, status);
         row.put("View page", page(get("/view-control/{id}", control.getId()), session));
+        row.put("Notice", notice(control, session));
         row.put("Read API", answer(get("/api/control-details").param("controlId", String.valueOf(control.getId())), session));
         row.put("History", answer(get("/api/controls/{id}/changelog", control.getId()), session));
         row.put("Download", answer(get("/api/attachments/download/{name}", control.getAttachmentDetailsPath())
@@ -437,6 +456,26 @@ class RoleMatrixIT {
                 .param("access", "EDIT")
                 .param("enabled", "true"), session));
         return row;
+    }
+
+    /**
+     * The notice of the control's page; with one, the page has neither the Edit button nor the workflow
+     * buttons ("buttons!" in the cell when it does).
+     */
+    private String notice(Control control, MockHttpSession session) throws Exception {
+        MvcResult result = perform(get("/view-control/{id}", control.getId()), session);
+        ModelAndView mav = result.getModelAndView();
+        if (result.getResponse().getStatus() != 200 || mav == null || !"view-control".equals(mav.getViewName())) {
+            return "-";
+        }
+        String notice = String.valueOf(mav.getModel().get("accessNotice"));
+        String html = result.getResponse().getContentAsString();
+        boolean buttons = html.contains("id=\"editBtn\"") || html.contains("id=\"workflow-buttons-container\"");
+        boolean banner = html.contains("id=\"accessBanner\"");
+        if (!"NONE".equals(notice) && (buttons || !banner)) {
+            return notice + " buttons!";
+        }
+        return notice;
     }
 
     private String page(MockHttpServletRequestBuilder request, MockHttpSession session) throws Exception {

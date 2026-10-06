@@ -49,7 +49,7 @@ class ReadOnlyAccessInterceptorTest {
         assertThat(response.getStatus()).isEqualTo(403);
         assertThat(response.getContentAsString())
                 .contains("\"code\":\"READ_ONLY\"")
-                .contains("\"message\":\"Your access is read-only.\"")
+                .contains("\"message\":\"You have read-only access: you can view and download, but not change anything.\"")
                 .contains("\"correlationId\":\"cid-1\"");
     }
 

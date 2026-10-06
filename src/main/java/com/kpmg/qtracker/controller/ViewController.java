@@ -877,6 +877,9 @@ public class ViewController {
         model.addAttribute("stepsLabel", ControlStepsFields.STEPS_LABEL);
         model.addAttribute("operatorReviewLabel", ControlStepsFields.OPERATOR_REVIEW_LABEL);
 
+        // Read Only / KDN, or a User with Edit who is not assigned: a notice instead of buttons the server refuses
+        model.addAttribute("accessNotice", AccessPolicy.notice(AccessPolicy.Subject.of(currentUser), permission).name());
+
         // Rename ID: SoQM, also on a completed control, which nobody edits otherwise (AccessPolicy.isLocked)
         model.addAttribute("canRenameId", AccessPolicy.canRenameId(permission));
         model.addAttribute("completedLocked", permission.isLocked());
