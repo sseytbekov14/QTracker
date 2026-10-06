@@ -877,11 +877,9 @@ public class ViewController {
         model.addAttribute("stepsLabel", ControlStepsFields.STEPS_LABEL);
         model.addAttribute("operatorReviewLabel", ControlStepsFields.OPERATOR_REVIEW_LABEL);
 
-        boolean hasSharedSubmitted = false;
-        if (permission.isSharedViewer()) {
-            hasSharedSubmitted = workflowHistoryRepository.hasSharedSubmitted(id, userEmail);
-        }
-        model.addAttribute("hasSharedSubmitted", hasSharedSubmitted);
+        // Rename ID: SoQM, also on a completed control, which nobody edits otherwise (AccessPolicy.isLocked)
+        model.addAttribute("canRenameId", AccessPolicy.canRenameId(permission));
+        model.addAttribute("completedLocked", permission.isLocked());
 
         // Header summary + workflow stepper
         String normalizedStatus = normalizeStatus(performanceStatus);

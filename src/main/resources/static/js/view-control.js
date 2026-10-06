@@ -3576,8 +3576,7 @@ document.addEventListener('click', async (event) => {
     const submitToSoqmLeadBtn = event.target.closest('#submitToSoqmLeadBtn');
     const returnToOperatorBtn = event.target.closest('#returnToOperatorBtn');
     const ownerReturnToOperatorBtn = event.target.closest('#ownerReturnToOperatorBtn');
-    const sharedSubmitToSoqmBtn = event.target.closest('#sharedSubmitToSoqmBtn');
-    if (!reviewBtn && !processOwnerBtn && !returnToFacilitatorBtn && !submitToSoqmLeadBtn && !returnToOperatorBtn && !ownerReturnToOperatorBtn && !sharedSubmitToSoqmBtn) {
+    if (!reviewBtn && !processOwnerBtn && !returnToFacilitatorBtn && !submitToSoqmLeadBtn && !returnToOperatorBtn && !ownerReturnToOperatorBtn) {
         return;
     }
 
@@ -3640,18 +3639,6 @@ document.addEventListener('click', async (event) => {
         }
         return;
     }
-
-    if (sharedSubmitToSoqmBtn) {
-        console.log('Shared Submit for SoQM Team clicked');
-        if (!await ensureWorkflowRoleReady()) {
-            return;
-        }
-        const modalElement = document.getElementById('sharedSubmitSoqmModal');
-        if (modalElement) {
-            const modal = new bootstrap.Modal(modalElement);
-            modal.show();
-        }
-    }
 });
 
 document.addEventListener('submit', (event) => {
@@ -3660,7 +3647,7 @@ document.addEventListener('submit', (event) => {
         return;
     }
 
-    if (form.querySelector('#submitForReviewBtn, #submitToProcessOwnerBtn, #submitToSoqmLeadBtn, #returnToFacilitatorBtn, #returnToOperatorBtn, #ownerReturnToOperatorBtn, #sharedSubmitToSoqmBtn')) {
+    if (form.querySelector('#submitForReviewBtn, #submitToProcessOwnerBtn, #submitToSoqmLeadBtn, #returnToFacilitatorBtn, #returnToOperatorBtn, #ownerReturnToOperatorBtn')) {
         event.preventDefault();
     }
 });
@@ -3736,32 +3723,6 @@ async function confirmSubmitToSoqmLead() {
         confirmModalId: 'submitSoqmLeadModal',
         successRedirectUrl: '/',
         successLogMessage: 'Submit for SoQM Team Review success -> showing popup',
-        successTimerMs: 2500
-    });
-}
-
-// ========== SHARED SUBMIT TO SoQM Team (Shared viewer в†’ SoQM Team from COMPLETED) ==========
-async function confirmSharedSubmitToSoqmLead() {
-    console.log('рџ” Confirm Shared Submit to SoQM Team');
-
-    if (!await ensureWorkflowRoleReady()) {
-        return;
-    }
-
-    const controlIdElement = document.querySelector('input[name="id"]');
-    const controlId = controlIdElement ? controlIdElement.value : null;
-
-    if (!controlId) {
-        alert('Error: Control ID not found');
-        return;
-    }
-
-    submitWorkflowActionWithModal({
-        url: '/api/workflow/shared-submit-to-soqm-lead?controlId=' + controlId,
-        confirmBtnId: 'confirmSharedSubmitSoqmBtn',
-        confirmModalId: 'sharedSubmitSoqmModal',
-        successRedirectUrl: '/',
-        successLogMessage: 'Shared Submit for SoQM Team success -> showing popup',
         successTimerMs: 2500
     });
 }
@@ -4413,12 +4374,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (confirmSubmitSoqmLeadBtn) {
         confirmSubmitSoqmLeadBtn.addEventListener('click', confirmSubmitToSoqmLead);
         console.log('вњ… Confirm Submit to SoQM Team handler added');
-    }
-
-    const confirmSharedSubmitSoqmBtn = document.getElementById('confirmSharedSubmitSoqmBtn');
-    if (confirmSharedSubmitSoqmBtn) {
-        confirmSharedSubmitSoqmBtn.addEventListener('click', confirmSharedSubmitToSoqmLead);
-        console.log('вњ… Confirm Shared Submit to SoQM Team handler added');
     }
 
     const confirmReturnFacilitatorBtn = document.getElementById('confirmReturnFacilitatorBtn');

@@ -111,6 +111,14 @@ public class WorkflowMoveService {
         }
 
         control.setPerformanceStatus(move.to());
+        // A completed control returned (decision 4) keeps its values and deadline; it is marked until it is
+        // completed again, so no overdue notice goes out for it meanwhile (TODO: BUSINESS CONFIRMATION: a new
+        // deadline for the correction)
+        if ("COMPLETED".equals(move.from())) {
+            control.setReopenedAt(LocalDateTime.now(Notification.ZONE));
+        } else if ("COMPLETED".equals(move.to())) {
+            control.setReopenedAt(null);
+        }
         if (move.isReturn() && "IN_PROGRESS".equals(move.to())) {
             control.setReturnToFacilitatorComment(trimmedComment);
         } else if (move.isReturn() && "REVIEW".equals(move.to())) {
@@ -225,7 +233,6 @@ public class WorkflowMoveService {
             case CONTROL_OPERATOR -> assignment.getControlOperator();
             case SOQM_TEAM, COORDINATOR -> assignment.getSoqmLead();
             case PROCESS_OWNER -> assignment.getProcessOwner();
-            case SHARED_VIEWER -> List.of();
         };
         Set<String> unique = new LinkedHashSet<>();
         addAll(unique, people);

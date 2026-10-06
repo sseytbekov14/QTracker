@@ -106,7 +106,8 @@ public class ControlController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
             Control control = controlService.findById(id).orElseThrow(() -> new RuntimeException("Control not found"));
-            if (!controlPermissionService.resolve(control, currentUser).canEditAll()) {
+            // Renaming is SoQM's, also on a completed control (not an edit of its content)
+            if (!AccessPolicy.canRenameId(controlPermissionService.resolve(control, currentUser))) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not authorized to rename controls");
             }
             
@@ -490,7 +491,7 @@ public class ControlController {
             ControlPermission permission = controlPermissionService.resolve(existingControl, currentUser, assignment);
             if (!permission.canEdit()) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body("VALIDATION_ERROR: User does not have permission to edit this control");
+                        .body("VALIDATION_ERROR: " + permission.editRefusal("User does not have permission to edit this control"));
             }
             // Fields not sent (null) are left unchanged; a required field sent as blank is rejected
             String missingField = findMissingRequiredField(controlDTO, false);

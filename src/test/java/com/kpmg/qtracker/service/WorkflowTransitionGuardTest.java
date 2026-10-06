@@ -19,7 +19,7 @@ class WorkflowTransitionGuardTest {
     private final WorkflowTransitionGuard guard = new WorkflowTransitionGuard();
 
     @ParameterizedTest
-    @EnumSource(value = WorkflowTransition.class, names = "SHARED_RESUBMIT_TO_SOQM_TEAM", mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(WorkflowTransition.class)
     void assignedActorInSourceStatus_isAllowed(WorkflowTransition transition) {
         WorkflowTransitionGuard.Decision decision = guard.check(
                 control(transition.getFromStatus()), permissionFor(transition.getActor()), transition);
@@ -47,7 +47,7 @@ class WorkflowTransitionGuardTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = WorkflowTransition.class, names = "SHARED_RESUBMIT_TO_SOQM_TEAM", mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(WorkflowTransition.class)
     void assignedActorInAnyOtherStatus_getsConflict(WorkflowTransition transition) {
         STATUSES.stream()
                 .filter(status -> !status.equals(transition.getFromStatus()))
@@ -74,12 +74,28 @@ class WorkflowTransitionGuardTest {
     }
 
     @Test
-    void sharedUser_performsNoTransition_noteventheSharedResubmit() {
-        WorkflowTransitionGuard.Decision decision = guard.check(control("COMPLETED"),
-                permissionFor(WorkflowTransition.Actor.SHARED_VIEWER), WorkflowTransition.SHARED_RESUBMIT_TO_SOQM_TEAM);
+    void sharedUser_performsNoTransition_andCannotReturnACompletedControl() {
+        ControlPermission shared = permission(false, false, false, false, false, true);
+        for (WorkflowTransition transition : WorkflowTransition.values()) {
+            assertThat(guard.check(control(transition.getFromStatus()), shared, transition).httpStatus())
+                    .as(transition.name()).isEqualTo(403);
+        }
+        assertThat(guard.checkMove(control("COMPLETED"), shared, "SOQM_HEAD_REVIEW").httpStatus()).isEqualTo(403);
+    }
 
-        assertThat(decision.httpStatus()).isEqualTo(403);
-        assertThat(decision.message()).isEqualTo("Users the control is shared with can only view it");
+    @Test
+    void soqm_returnsACompletedControlToEveryEarlierStatus_asTheirOwnStep() {
+        for (String target : List.of("IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW")) {
+            WorkflowTransitionGuard.Decision decision = guard.checkMove(control("COMPLETED"),
+                    permissionFor(WorkflowTransition.Actor.SOQM_TEAM), target);
+            assertThat(decision.allowed()).as(target).isTrue();
+            assertThat(decision.move().isReturn()).as(target).isTrue();
+            assertThat(decision.move().onBehalf()).as(target).isFalse();
+            assertThat(decision.move().commentRequired()).as(target).isTrue();
+        }
+        // The Process Owner who completed it does not reopen it
+        assertThat(guard.checkMove(control("COMPLETED"), permissionFor(WorkflowTransition.Actor.PROCESS_OWNER),
+                "PROCESS_OWNER_REVIEW").httpStatus()).isEqualTo(409);
     }
 
     @Test
@@ -151,8 +167,7 @@ class WorkflowTransitionGuardTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = WorkflowTransition.class, names = {"INITIATE", "SHARED_RESUBMIT_TO_SOQM_TEAM"},
-            mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(value = WorkflowTransition.class, names = "INITIATE", mode = EnumSource.Mode.EXCLUDE)
     void soqm_performsEveryStep_onBehalfOfTheParticipantWhoseStepItIs(WorkflowTransition transition) {
         WorkflowTransitionGuard.Decision decision = guard.check(control(transition.getFromStatus()),
                 permissionFor(WorkflowTransition.Actor.SOQM_TEAM), transition);
@@ -249,7 +264,6 @@ class WorkflowTransitionGuardTest {
             // Any SoQM user performs the SoQM steps and Initiate
             case SOQM_TEAM, COORDINATOR -> permission(false, false, true, false, true, false);
             case PROCESS_OWNER -> permission(false, false, false, true, false, false);
-            case SHARED_VIEWER -> permission(false, false, false, false, false, true);
         };
     }
 

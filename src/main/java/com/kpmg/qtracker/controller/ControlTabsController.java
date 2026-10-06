@@ -57,7 +57,7 @@ public class ControlTabsController {
             ControlPermission permission = controlPermissionService.resolve(control, currentUser, assignment);
             if (!permission.canEdit()) {
                 return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: User does not have permission to edit this control");
+                        .body("VALIDATION_ERROR: " + permission.editRefusal("User does not have permission to edit this control"));
             }
             ControlDetailsDTO existingDetails = controlDetailsService.getDetailsByControlId(detailsDTO.getControlId());
             String stepsRefusal = stepsFieldRefusal(existingDetails, detailsDTO, permission);
@@ -122,7 +122,7 @@ public class ControlTabsController {
             // Participants must not reassign roles (e.g. appoint themselves Process Owner and complete alone)
             if (!permission.canEditAll()) {
                 return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: Only SoQM Team can change control assignment");
+                        .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Team can change control assignment"));
             }
             ControlAssignmentDTO mergedAssignment = mergeControlAssignment(existingAssignment, assignmentDTO);
             String missingField = findMissingAssignmentField(mergedAssignment);
@@ -203,7 +203,7 @@ public class ControlTabsController {
             // SoQM Development Materials belong to the SoQM Team, not to the stage participants
             if (!permission.canEditAll()) {
                 return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: Only SoQM Team can change SoQM Development Materials");
+                        .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Team can change SoQM Development Materials"));
             }
             ControlDocumentsDTO existingDocuments = controlDocumentsService.getDocumentsByControlId(documentsDTO.getControlId());
             ControlDocumentsDTO mergedDocuments = mergeControlDocuments(existingDocuments, documentsDTO);

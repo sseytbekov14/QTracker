@@ -81,7 +81,7 @@ public class FileAttachmentController {
             ControlPermission permission = controlPermissionService.resolve(control, currentUser);
             if (!permission.canEdit()) {
                 response.put("success", false);
-                response.put("message", "You do not have permission to attach files to this control");
+                response.put("message", permission.editRefusal("You do not have permission to attach files to this control"));
                 return ResponseEntity.status(403).body(response);
             }
             
@@ -296,7 +296,8 @@ public class FileAttachmentController {
             ControlPermission permission = controlPermissionService.resolve(control, currentUser);
             if (!controlAttachmentService.canDelete(control, tabLabel, decodedFilename.trim(), currentUser, permission)) {
                 response.put("success", false);
-                response.put("message", "Only the user who uploaded this file (in the same workflow stage) or SoQM Team can delete it");
+                response.put("message", permission.editRefusal(
+                        "Only the user who uploaded this file (in the same workflow stage) or SoQM Team can delete it"));
                 return ResponseEntity.status(403).body(response);
             }
 

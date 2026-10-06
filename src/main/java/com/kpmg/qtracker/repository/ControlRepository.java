@@ -56,6 +56,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
                    c.process_owner              AS "processOwner"
             FROM controls c
             WHERE c.performance_status NOT IN ('COMPLETED')
+              AND c.reopened_at IS NULL
             """, nativeQuery = true)
     List<ReminderControlProjection> findAllForReminders();
 
@@ -111,6 +112,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
             FROM controls c
             WHERE LOWER(c.control_frequency) = 'monthly'
               AND c.control_operation_deadline IS NOT NULL
+              AND c.reopened_at IS NULL
             """, nativeQuery = true)
     List<ReminderControlProjection> findMonthlyOverdueCandidates();
 
@@ -166,6 +168,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
             FROM controls c
             WHERE LOWER(c.control_frequency) = 'quarterly'
               AND c.control_operation_deadline IS NOT NULL
+              AND c.reopened_at IS NULL
             """, nativeQuery = true)
     List<ReminderControlProjection> findQuarterlyOverdueCandidates();
 
@@ -221,6 +224,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
             FROM controls c
             WHERE LOWER(c.control_frequency) = 'recurring'
               AND c.control_operation_deadline IS NOT NULL
+              AND c.reopened_at IS NULL
             """, nativeQuery = true)
     List<ReminderControlProjection> findRecurringOverdueCandidates();
 
@@ -276,6 +280,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
             FROM controls c
             WHERE LOWER(c.control_frequency) = 'ad-hoc'
               AND c.control_operation_deadline IS NOT NULL
+              AND c.reopened_at IS NULL
             """, nativeQuery = true)
     List<ReminderControlProjection> findAdhocOverdueCandidates();
 
@@ -339,6 +344,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
             FROM controls c
             WHERE LOWER(c.control_frequency) IN ('annual', 'semi annual')
               AND c.control_operation_deadline IS NOT NULL
+              AND c.reopened_at IS NULL
             """, nativeQuery = true)
     List<ReminderControlProjection> findAnnualSemiOverdueCandidates();
 }

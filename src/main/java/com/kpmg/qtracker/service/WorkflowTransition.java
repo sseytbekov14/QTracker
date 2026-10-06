@@ -17,8 +17,7 @@ public enum WorkflowTransition {
     RETURN_TO_OPERATOR("Return to Control Operator", Actor.SOQM_TEAM, "SOQM_HEAD_REVIEW", "REVIEW"),
     SUBMIT_TO_PROCESS_OWNER("Submit to Process Owner", Actor.SOQM_TEAM, "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW"),
     COMPLETE("Complete", Actor.PROCESS_OWNER, "PROCESS_OWNER_REVIEW", "COMPLETED"),
-    OWNER_RETURN_TO_OPERATOR("Return to Control Operator", Actor.PROCESS_OWNER, "PROCESS_OWNER_REVIEW", "REVIEW"),
-    SHARED_RESUBMIT_TO_SOQM_TEAM("Submit completed control to SoQM Team", Actor.SHARED_VIEWER, "COMPLETED", "SOQM_HEAD_REVIEW");
+    OWNER_RETURN_TO_OPERATOR("Return to Control Operator", Actor.PROCESS_OWNER, "PROCESS_OWNER_REVIEW", "REVIEW");
 
     /** Who may perform a transition, resolved against {@link ControlPermission}. */
     public enum Actor {
@@ -28,9 +27,7 @@ public enum WorkflowTransition {
         SOQM_TEAM("SoQM Team"),
         PROCESS_OWNER("Process Owner"),
         /** Any SoQM user (Initiate). */
-        COORDINATOR("SoQM"),
-        /** Nobody: Shared With only views ({@link AccessPolicy#isActor}). */
-        SHARED_VIEWER("shared viewer");
+        COORDINATOR("SoQM");
 
         private final String displayName;
 

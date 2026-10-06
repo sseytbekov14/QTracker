@@ -99,7 +99,6 @@ public class WorkflowTransitionGuard {
     private String notActorMessage(WorkflowTransition transition) {
         return switch (transition.getActor()) {
             case SOQM_TEAM, COORDINATOR -> "Only SoQM can perform \"" + transition.getLabel() + "\" on this control";
-            case SHARED_VIEWER -> "Users the control is shared with can only view it";
             default -> "Only the assigned " + transition.getActor().getDisplayName()
                     + " or SoQM can perform \"" + transition.getLabel() + "\" on this control";
         };

@@ -22,6 +22,7 @@ public final class ControlPermission {
     private final boolean soqmLead;
     private final boolean processOwner;
     private final boolean stepsSplit;
+    private final boolean locked;
 
     public ControlPermission(boolean canView,
                              boolean canEdit,
@@ -49,6 +50,26 @@ public final class ControlPermission {
                              boolean soqmLead,
                              boolean processOwner,
                              boolean stepsSplit) {
+        this(canView, canEdit, allowedEditableFields, canUseWorkflowActions, canEditAll, sharedViewer,
+                facilitator, controlOperator, soqmLead, processOwner, stepsSplit, false);
+    }
+
+    /**
+     * @param soqmLead the user is SoQM: performs the SoQM steps, acts for the others, renames, reopens
+     * @param locked   a completed control: nobody edits it ({@link AccessPolicy#isLocked})
+     */
+    public ControlPermission(boolean canView,
+                             boolean canEdit,
+                             Set<String> allowedEditableFields,
+                             boolean canUseWorkflowActions,
+                             boolean canEditAll,
+                             boolean sharedViewer,
+                             boolean facilitator,
+                             boolean controlOperator,
+                             boolean soqmLead,
+                             boolean processOwner,
+                             boolean stepsSplit,
+                             boolean locked) {
         this.canView = canView;
         this.canEdit = canEdit;
         this.allowedEditableFields = Collections.unmodifiableSet(
@@ -62,6 +83,7 @@ public final class ControlPermission {
         this.soqmLead = soqmLead;
         this.processOwner = processOwner;
         this.stepsSplit = stepsSplit;
+        this.locked = locked;
     }
 
     public static ControlPermission denied() {
@@ -125,6 +147,16 @@ public final class ControlPermission {
 
     public boolean canEditOperatorReview() {
         return allowedEditableFields.contains(FIELD_CONTROL_OPERATOR_REVIEW);
+    }
+
+    /** A completed control: no edit by anyone until SoQM returns it ({@link AccessPolicy#LOCKED_MESSAGE}). */
+    public boolean isLocked() {
+        return locked;
+    }
+
+    /** Why the user may not change the control: the completed-control rule first, else the given message. */
+    public String editRefusal(String otherwise) {
+        return locked && canView ? AccessPolicy.LOCKED_MESSAGE : otherwise;
     }
 
     /** Two steps fields: the Facilitator's and Control Operator Review and Results. */

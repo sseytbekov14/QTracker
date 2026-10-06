@@ -123,7 +123,18 @@ class RoleMatrixIT {
 
     private static final List<String> CONTROL_OPS = List.of(
             "View page", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
-            "Assign", "Upload", "Rename ID", "Step", "Return", "Return to In Progress", "Excel (completed)");
+            "Assign", "Upload", "Rename ID", "Step", "Return", "Move to In Progress", "Move to Review",
+            "Move to SoQM review", "Move to PO review", "Excel (completed)");
+
+    /** The working statuses in order; "Move to X" is POST /api/workflow/move, a return when X is earlier. */
+    private static final List<String> WORKING = List.of(
+            "IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW", "COMPLETED");
+
+    private static final Map<String, String> BACK_TO = Map.of(
+            "Move to In Progress", "IN_PROGRESS",
+            "Move to Review", "REVIEW",
+            "Move to SoQM review", "SOQM_HEAD_REVIEW",
+            "Move to PO review", "PROCESS_OWNER_REVIEW");
 
     private static final List<String> USER_OPS = List.of(
             "Create control", "Export button", "Assignment picker", "Admin Panel", "Admin Panel change");
@@ -235,6 +246,8 @@ class RoleMatrixIT {
         boolean inScope = who.scope() == AccessScope.KDN ? who.kdnControl() && own : who.scope() == AccessScope.ALL || own;
         boolean sees = active && (seesAll || inScope);
         boolean writer = active && who.level() != AccessLevel.READ_ONLY;
+        // A completed control is locked for everyone, SoQM included (decision 4); renaming is not an edit
+        boolean soqmEdits = soqm && !"COMPLETED".equals(status);
         // A participant acts in the field they are listed in, on a control within their scope
         boolean actsInStep = writer && who.level() == AccessLevel.PARTICIPANT && listed
                 && (who.scope() != AccessScope.KDN || who.kdnControl());
@@ -243,18 +256,19 @@ class RoleMatrixIT {
         // Steps fields: one person -> one field, written by whoever's step it is; different people -> the
         // Facilitator's field in In Progress, the Control Operator's own field in Review; SoQM writes both
         boolean split = stepsSplit(who);
-        boolean stepsField = soqm || (actsInStep && (("IN_PROGRESS".equals(status) && inF)
+        boolean stepsField = soqmEdits || (actsInStep && (("IN_PROGRESS".equals(status) && inF)
                 || ("REVIEW".equals(status) && inCO && !split)));
-        boolean operatorField = split && (soqm || (actsInStep && "REVIEW".equals(status) && inCO));
+        boolean operatorField = split && (soqmEdits || (actsInStep && "REVIEW".equals(status) && inCO));
 
         return switch (op) {
             case "View page" -> !sees ? "refused"
                     : "DRAFT".equals(status) && shared && !seesAll ? "not yet" : "ok";
             case "Read API", "History", "Download" -> sees && !("DRAFT".equals(status) && shared && !seesAll) ? "ok" : "refused";
-            case "Save details", "Upload" -> sees && writer && (soqm || participantStep) ? "ok" : "refused";
+            case "Save details", "Upload" -> sees && writer && (soqmEdits || participantStep) ? "ok" : "refused";
             case "Steps field" -> sees && writer && stepsField ? "ok" : "refused";
             case "Operator field" -> sees && writer && operatorField ? "ok" : "refused";
-            case "Edit control", "Assign", "Rename ID" -> soqm ? "ok" : "refused";
+            case "Edit control", "Assign" -> soqmEdits ? "ok" : "refused";
+            case "Rename ID" -> soqm ? "ok" : "refused";
             // SoQM performs every step, the participants' ones on their behalf (decision 3); an admin
             // without level SOQM and read-only users none
             case "Step" -> switch (status) {
@@ -267,13 +281,20 @@ class RoleMatrixIT {
                 case "SOQM_HEAD_REVIEW" -> soqm ? "ok" : "refused";
                 default -> "refused";
             };
-            // Back to In Progress in one move: SoQM from any later working status, the Control Operator
-            // from Review (their own return)
-            case "Return to In Progress" -> switch (status) {
-                case "REVIEW" -> participantStep || soqm ? "ok" : "refused";
-                case "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW" -> soqm ? "ok" : "refused";
-                default -> "refused";
-            };
+            // Back to any earlier working status in one move: SoQM from every later status, Completed included
+            // (decision 4); a participant only their own return (Control Operator to In Progress, Process
+            // Owner to Review). On to the next status: whoever performs that step ("Step"); never further
+            case "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review" -> {
+                String target = BACK_TO.get(op);
+                int from = WORKING.indexOf(status);
+                int to = WORKING.indexOf(target);
+                boolean ownReturn = participantStep && (("REVIEW".equals(status) && "IN_PROGRESS".equals(target))
+                        || ("PROCESS_OWNER_REVIEW".equals(status) && "REVIEW".equals(target)));
+                if (from >= 0 && to < from) {
+                    yield soqm || ownReturn ? "ok" : "refused";
+                }
+                yield from >= 0 && to == from + 1 ? expectedControlOp(who, status, "Step") : "refused";
+            }
             case "Excel (completed)" -> "COMPLETED".equals(status) && sees && (soqm || shared) ? "ok" : "refused";
             default -> throw new IllegalArgumentException(op);
         };
@@ -327,8 +348,10 @@ class RoleMatrixIT {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"newControlId\":\"" + control.getControlId() + "-R\"}"), session));
 
-        // With a comment: SoQM needs one when it makes a participant's step
-        row.put("Step", answer(step(status, control(who, status)).param("comments", "Moved on by " + who.key()), session));
+        // With a comment: SoQM needs one when it makes a participant's step. A completed control has no next
+        // step (the old shared resubmit is gone; SoQM returns it, "Back to ...")
+        row.put("Step", "COMPLETED".equals(status) ? "n/a"
+                : answer(step(status, control(who, status)).param("comments", "Moved on by " + who.key()), session));
         String returnUrl = switch (status) {
             case "REVIEW" -> "/api/workflow/return-to-facilitator";
             // Elsewhere there is no return: trying one must change nothing
@@ -337,10 +360,12 @@ class RoleMatrixIT {
         row.put("Return", answer(post(returnUrl).with(csrf().asHeader())
                 .param("controlId", String.valueOf(control(who, status).getId()))
                 .param("comments", "Returned by " + who.key()), session));
-        row.put("Return to In Progress", answer(post("/api/workflow/move").with(csrf().asHeader())
-                .param("controlId", String.valueOf(control(who, status).getId()))
-                .param("targetStatus", "IN_PROGRESS")
-                .param("comments", "Back to the Facilitator, by " + who.key()), session));
+        for (Map.Entry<String, String> back : BACK_TO.entrySet()) {
+            row.put(back.getKey(), answer(post("/api/workflow/move").with(csrf().asHeader())
+                    .param("controlId", String.valueOf(control(who, status).getId()))
+                    .param("targetStatus", back.getValue())
+                    .param("comments", "Back by " + who.key()), session));
+        }
         return reorder(row, CONTROL_OPS);
     }
 
@@ -353,9 +378,7 @@ class RoleMatrixIT {
             case "IN_PROGRESS" -> post("/api/workflow/submit-to-control-operator").with(csrf().asHeader()).param("controlId", id);
             case "REVIEW" -> post("/api/workflow/submit-to-soqm-lead").with(csrf().asHeader()).param("controlId", id);
             case "SOQM_HEAD_REVIEW" -> post("/api/workflow/submit-to-process-owner").with(csrf().asHeader()).param("controlId", id);
-            case "PROCESS_OWNER_REVIEW" -> post("/api/workflow/complete-control").with(csrf().asHeader()).param("controlId", id);
-            // The only step from Completed: Shared With sending it back to SoQM
-            default -> post("/api/workflow/shared-submit-to-soqm-lead").with(csrf().asHeader()).param("controlId", id);
+            default -> post("/api/workflow/complete-control").with(csrf().asHeader()).param("controlId", id);
         };
     }
 

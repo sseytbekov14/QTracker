@@ -1172,7 +1172,8 @@ document.addEventListener('DOMContentLoaded', function() {
             : 'nothing: view only' + (scope === 'KDN' ? '; downloads attachments.' : '.')]);
         if (level === 'SOQM') {
             lines.push(['Steps', 'moves any control on or back for any role, with a comment when it returns it or'
-                + ' acts for another role; the history marks it "on behalf".']);
+                + ' acts for another role; the history marks it "on behalf". A completed control is locked for'
+                + ' everyone: SoQM returns it to an earlier step to change it.']);
         }
         if (scope === 'KDN' && level !== 'SOQM') {
             lines.push(['Assigned', level === 'READ_ONLY'

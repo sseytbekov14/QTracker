@@ -26,6 +26,8 @@ import java.util.Set;
  *   <li>admin_access: Admin Panel, audit and viewing every control; it grants no edit, assignment,
  *   workflow step or creation.</li>
  *   <li>Shared With only views (spec 5.6): no edit, upload or workflow step, also on completed controls.</li>
+ *   <li>A completed control is locked for everyone, SoQM included (spec 9.5, {@link #isLocked}): SoQM returns it
+ *   to an earlier status first (business decision 4). Renaming its Control ID stays SoQM's.</li>
  * </ul>
  */
 public final class AccessPolicy {
@@ -83,6 +85,10 @@ public final class AccessPolicy {
 
         public boolean draft() {
             return "DRAFT".equals(status);
+        }
+
+        public boolean completed() {
+            return "COMPLETED".equals(status);
         }
 
         /** Only in Shared With. */
@@ -271,6 +277,18 @@ public final class AccessPolicy {
         return fields;
     }
 
+    /**
+     * The one rule for completed controls (spec 9.5, business decision 4): nobody edits one, SoQM included -
+     * no field, assignment, document or attachment change. SoQM returns it to an earlier status first
+     * ({@link #soqmTargets}); renaming its Control ID is not an edit of its content and stays allowed.
+     */
+    public static boolean isLocked(ControlFacts control) {
+        return control != null && control.completed();
+    }
+
+    public static final String LOCKED_MESSAGE =
+            "A completed control cannot be changed: SoQM returns it to an earlier step first";
+
     /** Everything the user may do on the control. */
     public static ControlPermission resolve(Subject subject, ControlFacts control) {
         boolean canView = canView(subject, control);
@@ -278,8 +296,10 @@ public final class AccessPolicy {
             return ControlPermission.denied();
         }
         boolean writer = mayWrite(subject);
-        boolean canEditAll = isSoqm(subject);
-        Set<String> fields = participantFields(subject, control);
+        boolean soqm = isSoqm(subject);
+        boolean locked = isLocked(control);
+        boolean canEditAll = soqm && !locked;
+        Set<String> fields = locked ? Set.of() : participantFields(subject, control);
         return new ControlPermission(
                 true,
                 canEditAll || !fields.isEmpty(),
@@ -289,9 +309,16 @@ public final class AccessPolicy {
                 control.shared(),
                 actsAsParticipant(subject, control, control.facilitator()),
                 actsAsParticipant(subject, control, control.controlOperator()),
-                canEditAll,
+                soqm,
                 actsAsParticipant(subject, control, control.processOwner()),
-                control.stepsSplit());
+                control.stepsSplit(),
+                locked);
+    }
+
+    /** Renaming the Control ID: SoQM, on any control it sees, a completed one included (not an edit of it). */
+    public static boolean canRenameId(ControlPermission permission) {
+        return permission != null && permission.canView() && permission.canUseWorkflowActions()
+                && permission.isSoqmLead();
     }
 
     /**
@@ -308,7 +335,6 @@ public final class AccessPolicy {
             case CONTROL_OPERATOR -> permission.isControlOperator();
             case SOQM_TEAM, COORDINATOR -> permission.isSoqmLead();
             case PROCESS_OWNER -> permission.isProcessOwner();
-            case SHARED_VIEWER -> false;
         };
     }
 
@@ -366,16 +392,18 @@ public final class AccessPolicy {
     /**
      * Where SoQM may move a control in this status: on to the next status, or back to any earlier working
      * status (In Progress at the earliest; Draft is never a target). A draft moves on only through Initiate,
-     * which has its own page; a completed control is not moved.
+     * which has its own page; a completed control only goes back (business decision 4), with its values kept.
      */
     public static List<String> soqmTargets(String status) {
         String from = normalizeStatus(status);
         int index = WORKFLOW_ORDER.indexOf(from);
-        if (index < 0 || "COMPLETED".equals(from)) {
+        if (index < 0) {
             return List.of();
         }
         List<String> targets = new ArrayList<>();
-        targets.add(WORKFLOW_ORDER.get(index + 1));
+        if (index + 1 < WORKFLOW_ORDER.size()) {
+            targets.add(WORKFLOW_ORDER.get(index + 1));
+        }
         targets.addAll(WORKFLOW_ORDER.subList(0, index));
         return targets;
     }
@@ -411,11 +439,10 @@ public final class AccessPolicy {
         return Optional.empty();
     }
 
-    /** The named transition from one status to another (not Initiate, not the closed shared resubmit). */
+    /** The named transition from one status to another (not Initiate, which has its own page). */
     private static Optional<WorkflowTransition> standardTransition(String from, String to) {
         for (WorkflowTransition transition : WorkflowTransition.values()) {
             if (transition != WorkflowTransition.INITIATE
-                    && transition.getActor() != WorkflowTransition.Actor.SHARED_VIEWER
                     && transition.getFromStatus().equals(from)
                     && transition.getTargetStatus().equals(to)) {
                 return Optional.of(transition);

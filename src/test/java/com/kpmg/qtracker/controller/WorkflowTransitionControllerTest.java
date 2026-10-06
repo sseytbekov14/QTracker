@@ -116,28 +116,11 @@ class WorkflowTransitionControllerTest {
     }
 
     @Test
-    void sharedUser_cannotResubmitACompletedControl() throws Exception {
-        User currentUser = new User();
-        currentUser.setAccessLevel(AccessLevel.PARTICIPANT);
-        currentUser.setId(3L);
-        TestUsers.withRole(currentUser, "FACILITATOR");
-        currentUser.setMail("shared@kpmg.kz");
-        currentUser.setDisplayName("Shared User");
-
-        Control control = new Control();
-        control.setId(30L);
-        control.setPerformanceStatus("COMPLETED");
-
-        when(controlService.getControlById(30L)).thenReturn(Optional.of(control));
-        when(controlPermissionService.resolve(control, currentUser))
-                .thenReturn(new ControlPermission(true, true,
-                        java.util.Set.of(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED),
-                        false, false, true, true, false, false, false));
-
+    void sharedSubmit_isGone_soqmReturnsACompletedControlThroughMove() throws Exception {
         mockMvc.perform(post("/api/workflow/shared-submit-to-soqm-lead")
                         .param("controlId", "30")
-                        .sessionAttr("currentUser", currentUser))
-                .andExpect(status().isForbidden());
+                        .sessionAttr("currentUser", user("shared@kpmg.kz")))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -236,36 +219,6 @@ class WorkflowTransitionControllerTest {
         verify(controlService, never()).save(any(Control.class));
         verify(notificationService, never())
                 .sendReturnNotifications(any(), anyList(), any(), any(), any(), any(), any());
-    }
-
-    @Test
-    void sharedSubmit_isForbiddenForEveryone_evenASoqmSharedViewer() throws Exception {
-        Control control = controlInStatus(49L, "COMPLETED");
-        User sharedSoqm = user("soqm@kpmg.kz");
-        givenPermission(control, sharedSoqm, new ControlPermission(true, true, java.util.Set.of(), true, true,
-                true, false, false, true, false));
-
-        mockMvc.perform(post("/api/workflow/shared-submit-to-soqm-lead").param("controlId", "49")
-                        .sessionAttr("currentUser", sharedSoqm))
-                .andExpect(status().isForbidden())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
-                        .string(org.hamcrest.Matchers.containsString("can only view it")));
-
-        verify(controlService, never()).save(any(Control.class));
-    }
-
-    @Test
-    void sharedSubmit_byUserWhoIsNotSharedViewer_isForbidden() throws Exception {
-        Control control = controlInStatus(50L, "COMPLETED");
-        User soqm = user("soqm@kpmg.kz");
-        givenPermission(control, soqm, new ControlPermission(true, true, java.util.Set.of(), true, true,
-                false, false, false, true, false));
-
-        mockMvc.perform(post("/api/workflow/shared-submit-to-soqm-lead").param("controlId", "50")
-                        .sessionAttr("currentUser", soqm))
-                .andExpect(status().isForbidden());
-
-        verify(controlService, never()).save(any(Control.class));
     }
 
     private Control controlInStatus(Long id, String status) {
