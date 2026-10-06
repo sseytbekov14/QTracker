@@ -136,7 +136,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 }
 .email-cell { overflow-wrap: anywhere; }
 .no-value { color: var(--kpmg-gray-400); }
-.admin-badge, .status-pill {
+.status-pill {
     display: inline-block;
     padding: 2px 8px;
     border-radius: 10px;
@@ -146,7 +146,6 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     white-space: nowrap;
     border: 1px solid transparent;
 }
-.admin-badge { background: #e6ecf6; color: var(--kpmg-blue); border-color: #c5d3ea; }
 .status-pill.is-active { background: #e8f6ee; color: #146c3a; border-color: #b9e2c9; }
 .status-pill.is-inactive { background: #fbecee; color: #a01025; border-color: #f1c3cb; }
 .last-login { font-size: 0.76rem; color: var(--kpmg-gray-600); white-space: nowrap; }
@@ -165,7 +164,6 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 }
 .row-edit-btn:hover { border-color: var(--kpmg-blue); background: #f0f4fa; }
 .row-edit-btn:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
-.read-only-note { margin-bottom: 12px; font-size: 0.85rem; }
 
 /* Footer: pagination */
 .table-footer {
@@ -312,23 +310,6 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .access-summary p { margin: 0; }
 .access-summary p + p { margin-top: 2px; }
 .access-summary strong { color: var(--kpmg-blue); font-weight: 700; }
-.admin-switch { display: flex; align-items: center; gap: 10px; min-height: 38px; margin: 0; padding: 0; }
-.admin-switch .form-check-input { float: none; margin: 0; width: 2.4em; height: 1.25em; cursor: pointer; }
-.admin-switch .form-check-input:checked { background-color: var(--kpmg-blue); border-color: var(--kpmg-blue); }
-.admin-switch .form-check-input:disabled { cursor: not-allowed; opacity: 0.55; }
-.admin-switch .form-check-input:focus-visible { outline: 2px solid var(--kpmg-blue-light); outline-offset: 2px; }
-.admin-switch-state { font-size: 0.84rem; font-weight: 600; color: var(--kpmg-gray-800); }
-.self-note {
-    display: flex;
-    gap: 8px;
-    margin: 4px 0 12px;
-    padding: 8px 12px;
-    border-radius: 4px;
-    background: #fff8e1;
-    color: var(--kpmg-amber-text);
-    font-size: 0.76rem;
-}
-.self-note[hidden] { display: none; }
 .form-message {
     display: flex;
     align-items: flex-start;
@@ -351,6 +332,77 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .user-dialog .btn-outline-secondary:hover { border-color: var(--kpmg-blue); color: var(--kpmg-blue); background: var(--kpmg-white); }
 .user-dialog .btn:focus-visible { outline: 2px solid var(--kpmg-blue-light); outline-offset: 2px; box-shadow: none; }
 .user-dialog .form-message .btn { padding: 2px 10px; font-size: 0.76rem; }
+
+
+/* Role badges: one colour per role */
+.role-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.4;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+.role-badge.is-soqm_team { background: #e6ecf6; color: var(--kpmg-blue); border-color: #c5d3ea; }
+.role-badge.is-user { background: #eef1f4; color: #3d4652; border-color: #d5dae1; }
+.role-badge.is-kdn { background: #f3ecfa; color: #5b2a86; border-color: #dccbee; }
+.access-cell { color: var(--kpmg-gray-800); }
+
+/* Empty table: no users, nothing matches, or the list could not be loaded */
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.empty-state .bi { font-size: 1.3rem; color: var(--kpmg-red); }
+.empty-title { margin: 0; font-weight: 600; color: var(--kpmg-gray-800); }
+.empty-text { margin: 0 0 6px; font-size: 0.78rem; color: var(--kpmg-gray-600); }
+.empty-state .btn { font-size: 0.76rem; }
+
+/* User dialog: Visibility and Access as two choices each */
+.choice-group { border: 0; padding: 0; margin: 0; min-width: 0; }
+.choice-group legend { float: none; width: auto; padding: 0; }
+.choice-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 9px 11px;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 6px;
+    background: var(--kpmg-white);
+    cursor: pointer;
+}
+.choice:hover { border-color: var(--kpmg-blue); }
+.choice:has(input:checked) { border-color: var(--kpmg-blue); background: #f0f4fa; box-shadow: inset 0 0 0 1px var(--kpmg-blue); }
+.choice .form-check-input { flex-shrink: 0; margin: 2px 0 0; }
+.choice .form-check-input:checked { background-color: var(--kpmg-blue); border-color: var(--kpmg-blue); }
+.choice .form-check-input:focus-visible { outline: 2px solid var(--kpmg-blue-light); outline-offset: 2px; box-shadow: none; }
+.choice-text { display: flex; flex-direction: column; }
+.choice-title { font-size: 0.85rem; font-weight: 600; color: var(--kpmg-gray-800); }
+.choice-note { font-size: 0.73rem; color: var(--kpmg-gray-600); }
+.choice-group.is-invalid .choice { border-color: var(--kpmg-red); }
+.field-reason { font-size: 0.74rem; color: var(--kpmg-amber-text); margin-top: 3px; }
+.field-reason:empty { display: none; }
+
+/* SoQM Team and KDN: what the role can do (read only) */
+.role-info {
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 6px;
+    background: var(--kpmg-gray-50);
+}
+.role-info[hidden] { display: none; }
+.role-info-title { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; color: var(--kpmg-gray-800); }
+.role-info-list { margin: 0 0 8px; padding-left: 18px; font-size: 0.78rem; color: var(--kpmg-gray-800); }
+.role-info-list li + li { margin-top: 2px; }
+.role-fixed { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; font-size: 0.78rem; }
+.role-fixed:empty { display: none; }
+.role-fixed dt { font-weight: 600; color: var(--kpmg-gray-600); }
+.role-fixed dd { margin: 0; }
+.fixed-value { font-weight: 600; color: var(--kpmg-gray-800); margin-right: 6px; }
+.fixed-reason { color: var(--kpmg-gray-600); }
+.summary-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--kpmg-gray-600); }
+.summary-hint { color: var(--kpmg-gray-800); }
 
 @media (max-width: 767.98px) {
     .page-header { flex-wrap: wrap; padding: 14px 16px; }
@@ -428,6 +480,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     .user-dialog .modal-footer { flex-wrap: wrap; }
     .user-dialog .modal-footer .btn { flex: 1 1 0; }
     .dirty-note { flex-basis: 100%; }
+    .choice-options { grid-template-columns: 1fr; }
 }
     </style>
 </head>
@@ -479,24 +532,24 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     </div>
                 </div>
 
-                <div class="alert alert-info read-only-note" th:unless="${canManageUsers}" role="status">
-                    Your access is read-only: you can see the users and the audit trail, but not change them.
-                </div>
-
                 <!-- Toolbar -->
-                <div class="admin-toolbar">
-                    <div class="search-box" role="search">
+                <div class="admin-toolbar" role="search" aria-label="Find users">
+                    <div class="search-box">
                         <i class="bi bi-search" aria-hidden="true"></i>
                         <input id="searchUsers" type="search" class="form-control form-control-sm toolbar-control"
-                               placeholder="Search name or e-mail…" aria-label="Search users" autocomplete="off">
+                               placeholder="Search name or e-mail…" aria-label="Search users by name or e-mail" autocomplete="off">
                     </div>
-                    <select id="filterLevel" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by level">
-                        <option value="">All levels</option>
-                        <option th:each="level : ${accessLevels}" th:value="${level.name()}" th:text="${level.displayName}">SoQM</option>
+                    <select id="filterRole" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by role">
+                        <option value="">All roles</option>
+                        <option th:each="role : ${roles}" th:value="${role.name()}" th:text="${role.displayName}">SoQM Team</option>
                     </select>
-                    <select id="filterScope" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by scope">
-                        <option value="">All scopes</option>
-                        <option th:each="scope : ${accessScopes}" th:value="${scope.name()}" th:text="${scope.displayName}">All controls</option>
+                    <select id="filterVisibility" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by visibility">
+                        <option value="">Any visibility</option>
+                        <option th:each="visibility : ${visibilities}" th:value="${visibility.name()}" th:text="${visibility.displayName}">My controls</option>
+                    </select>
+                    <select id="filterAccess" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by access">
+                        <option value="">Any access</option>
+                        <option th:each="right : ${accessRights}" th:value="${right.name()}" th:text="${right.displayName}">Edit</option>
                     </select>
                     <select id="filterStatus" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by status">
                         <option value="">All statuses</option>
@@ -505,71 +558,89 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     </select>
                 </div>
 
-                <!-- Table: read only; only the Edit (View) button of a row opens the user dialog -->
+                <!-- Table: read only; only the Edit button of a row opens the user dialog -->
                 <div class="table-wrapper">
                     <table class="table users-table">
+                        <caption class="visually-hidden">Users, their role and access</caption>
                         <thead>
                         <tr>
                             <th scope="col">Name</th>
                             <th scope="col">Email</th>
-                            <th scope="col">Level</th>
-                            <th scope="col">Scope</th>
-                            <th scope="col">Admin Access</th>
+                            <th scope="col">Role</th>
+                            <th scope="col">Access</th>
                             <th scope="col">Status</th>
                             <th scope="col">Last Login</th>
                             <th scope="col"><span class="visually-hidden">Actions</span></th>
                         </tr>
                         </thead>
                         <tbody id="usersTableBody">
-                        <tr th:each="user : ${users}"
+                        <tr th:each="row : ${rows}"
                             class="admin-user-row"
-                            th:with="lastLogin=${user.lastLoginAt != null ? #temporals.format(user.lastLoginAt, 'dd.MM.yyyy HH:mm') : ''},
-                                     isSelf=${session.currentUser != null and user.id == session.currentUser.id}"
+                            th:with="user=${row.user()}"
                             th:attr="data-user-id=${user.id},
                                      data-name=${user.displayName},
                                      data-email=${user.mail},
-                                     data-level=${user.accessLevel},
-                                     data-scope=${user.accessScope},
-                                     data-admin=${user.adminAccess == true},
+                                     data-role=${row.role()},
+                                     data-visibility=${row.visibility()},
+                                     data-access=${row.access()},
                                      data-enabled=${user.enabled == true},
-                                     data-last-login=${lastLogin},
-                                     data-self=${isSelf}">
+                                     data-last-login=${row.lastLogin()},
+                                     data-self=${row.self()}">
                             <td class="js-name-cell">
                                 <div class="user-cell">
                                     <span class="avatar" aria-hidden="true" th:text="${user.displayName != null and !#strings.isEmpty(#strings.trim(user.displayName))} ? ${#strings.substring(#strings.trim(user.displayName),0,1)} : 'U'">U</span>
                                     <div>
                                         <span class="user-name" th:text="${user.displayName != null ? user.displayName : '-'}">Name</span>
-                                        <span class="self-chip" th:if="${isSelf}">You</span>
+                                        <span class="self-chip" th:if="${row.self()}">You</span>
                                     </div>
                                 </div>
                             </td>
                             <td class="email-cell js-email" data-label="Email" th:text="${user.mail}">user@mail.com</td>
-                            <td class="js-level" data-label="Level" th:text="${user.accessLevel != null ? user.accessLevel.displayName : '-'}">SoQM</td>
-                            <td class="js-scope" data-label="Scope" th:text="${user.accessScope != null ? user.accessScope.displayName : '-'}">All controls</td>
-                            <td class="js-admin" data-label="Admin access">
-                                <span class="admin-badge" th:if="${user.adminAccess == true}">Admin</span>
-                                <span class="no-value" th:unless="${user.adminAccess == true}">—</span>
+                            <td class="js-role" data-label="Role">
+                                <span class="role-badge" th:classappend="'is-' + ${#strings.toLowerCase(row.role())}"
+                                      th:text="${row.profile().role().displayName}">User</span>
                             </td>
+                            <td class="access-cell js-access" data-label="Access" th:text="${row.summary()}">User · My controls · Read Only</td>
                             <td class="js-status" data-label="Status">
                                 <span class="status-pill"
                                       th:classappend="${user.enabled == true} ? 'is-active' : 'is-inactive'"
                                       th:text="${user.enabled == true} ? 'Active' : 'Inactive'">Active</span>
                             </td>
                             <td class="last-login js-last-login" data-label="Last login"
-                                th:text="${lastLogin != '' ? lastLogin : '-'}">15.05.2024 14:30</td>
+                                th:text="${row.lastLogin() != '' ? row.lastLogin() : '-'}">15.05.2024 14:30</td>
                             <td class="row-action">
                                 <button type="button" class="row-edit-btn js-open-user"
-                                        th:attr="aria-label=${(canManageUsers ? 'Edit ' : 'View ') + (user.displayName != null ? user.displayName : user.mail)}">
-                                    <i class="bi" th:classappend="${canManageUsers} ? 'bi-pencil' : 'bi-eye'" aria-hidden="true"></i>
-                                    <span th:text="${canManageUsers} ? 'Edit' : 'View'">Edit</span>
+                                        th:attr="aria-label=${'Edit ' + (user.displayName != null ? user.displayName : user.mail)}">
+                                    <i class="bi bi-pencil" aria-hidden="true"></i><span>Edit</span>
                                 </button>
                             </td>
                         </tr>
-                        <tr th:if="${#lists.isEmpty(users)}" id="noUsersServerRow" class="empty-row">
-                            <td colspan="8">No users found</td>
+                        <tr th:if="${usersLoadError}" id="usersLoadErrorRow" class="empty-row is-error">
+                            <td colspan="7">
+                                <div class="empty-state" role="alert">
+                                    <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                                    <p class="empty-title">The users could not be loaded.</p>
+                                    <p class="empty-text">Reload the page. If it keeps failing, the database may be unavailable: try again later.</p>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary js-reload">Reload page</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr th:if="${!usersLoadError and #lists.isEmpty(rows)}" id="noUsersServerRow" class="empty-row">
+                            <td colspan="7">
+                                <div class="empty-state">
+                                    <p class="empty-title">No users yet.</p>
+                                    <p class="empty-text">Add the first user with Add User.</p>
+                                </div>
+                            </td>
                         </tr>
                         <tr id="noUsersClientRow" class="d-none empty-row">
-                            <td colspan="8">No users match current filters</td>
+                            <td colspan="7">
+                                <div class="empty-state" role="status">
+                                    <p class="empty-title" id="noUsersClientTitle">No users match the filters.</p>
+                                    <p class="empty-text">Check the spelling or clear the search and filters.</p>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="clearFiltersBtn">Clear search and filters</button>
+                                </div>
+                            </td>
                         </tr>
                         </tbody>
                     </table>
@@ -580,9 +651,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     <tr class="admin-user-row">
                         <td class="js-name-cell"></td>
                         <td class="email-cell js-email" data-label="Email"></td>
-                        <td class="js-level" data-label="Level"></td>
-                        <td class="js-scope" data-label="Scope"></td>
-                        <td class="js-admin" data-label="Admin access"></td>
+                        <td class="js-role" data-label="Role"></td>
+                        <td class="access-cell js-access" data-label="Access"></td>
                         <td class="js-status" data-label="Status"></td>
                         <td class="last-login js-last-login" data-label="Last login"></td>
                         <td class="row-action">
@@ -677,9 +747,9 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     </div>
 </div>
 
-<!-- One dialog for a user: view (read-only admin), edit, and create (Add User) -->
+<!-- One dialog for a user: edit, and create (Add User) -->
 <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalTitle" aria-describedby="userModalMeta" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down user-dialog">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down user-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <div>
@@ -708,50 +778,65 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     <div class="form-text" id="userEmail-hint"></div>
                     <div class="field-error" id="userEmail-error" aria-live="polite"></div>
                 </div>
-                <div class="row g-3 mb-3">
-                    <div class="col-sm-6">
-                        <label for="userLevel" class="form-label">Level <span class="required-mark js-level-required" aria-hidden="true">*</span></label>
-                        <select id="userLevel" class="form-select" aria-describedby="userLevel-error">
-                            <option value="">Choose…</option>
-                            <option th:each="level : ${accessLevels}" th:value="${level.name()}" th:text="${level.displayName}">SoQM</option>
-                        </select>
-                        <div class="field-error" id="userLevel-error" aria-live="polite"></div>
-                    </div>
-                    <div class="col-sm-6">
-                        <label for="userScope" class="form-label">Scope</label>
-                        <select id="userScope" class="form-select" aria-describedby="userScope-hint userScope-error">
-                            <option th:each="scope : ${accessScopes}" th:value="${scope.name()}" th:text="${scope.displayName}">Own controls</option>
-                        </select>
-                        <div class="form-text" id="userScope-hint"></div>
-                        <div class="field-error" id="userScope-error" aria-live="polite"></div>
-                    </div>
+                <div class="mb-3">
+                    <label for="userRole" class="form-label">Role <span class="required-mark" aria-hidden="true">*</span></label>
+                    <select id="userRole" class="form-select" aria-describedby="userRole-reason userRole-error" required>
+                        <option value="">Choose a role…</option>
+                        <option th:each="role : ${roles}" th:value="${role.name()}" th:text="${role.displayName}">SoQM Team</option>
+                    </select>
+                    <div class="field-reason" id="userRole-reason"></div>
+                    <div class="field-error" id="userRole-error" aria-live="polite"></div>
                 </div>
-                <!-- What the level, scope and admin access add up to (filled in by the script) -->
-                <div class="access-summary" id="userAccessSummary" aria-live="polite"></div>
-                <div class="row g-3 mb-3">
-                    <div class="col-sm-6">
-                        <span class="form-label d-inline-block" id="userAdmin-label">Admin access</span>
-                        <div class="form-check form-switch admin-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="userAdmin"
-                                   aria-labelledby="userAdmin-label" aria-describedby="userAdmin-hint userAdmin-error">
-                            <label class="admin-switch-state" for="userAdmin" id="userAdminState">No</label>
+
+                <!-- Visibility and Access: only for the role User -->
+                <div id="userChoices" class="user-choices" hidden>
+                    <fieldset class="choice-group mb-3" id="userVisibility" aria-describedby="userVisibility-error">
+                        <legend class="form-label">Visibility</legend>
+                        <div class="choice-options">
+                            <label class="choice" th:each="visibility : ${visibilities}">
+                                <input type="radio" name="userVisibility" class="form-check-input" th:value="${visibility.name()}">
+                                <span class="choice-text">
+                                    <span class="choice-title" th:text="${visibility.displayName}">My controls</span>
+                                    <span class="choice-note" th:text="${visibility.name() == 'ALL'} ? 'Every control, drafts included' : 'Assigned, shared or created'">Assigned, shared or created</span>
+                                </span>
+                            </label>
                         </div>
-                        <div class="form-text" id="userAdmin-hint">Manages users and sees the audit trail.</div>
-                        <div class="field-error" id="userAdmin-error" aria-live="polite"></div>
-                    </div>
-                    <div class="col-sm-6">
-                        <label for="userStatus" class="form-label">Status</label>
-                        <select id="userStatus" class="form-select" aria-describedby="userStatus-error">
-                            <option value="ACTIVE">Active</option>
-                            <option value="INACTIVE">Inactive</option>
-                        </select>
-                        <div class="field-error" id="userStatus-error" aria-live="polite"></div>
-                    </div>
+                        <div class="field-error" id="userVisibility-error" aria-live="polite"></div>
+                    </fieldset>
+                    <fieldset class="choice-group mb-3" id="userAccess" aria-describedby="userAccess-error">
+                        <legend class="form-label">Access</legend>
+                        <div class="choice-options">
+                            <label class="choice" th:each="right : ${accessRights}">
+                                <input type="radio" name="userAccess" class="form-check-input" th:value="${right.name()}">
+                                <span class="choice-text">
+                                    <span class="choice-title" th:text="${right.displayName}">Edit</span>
+                                    <span class="choice-note" th:text="${right.name() == 'EDIT'} ? 'Steps and edits where assigned' : 'Views and downloads only'">Views and downloads only</span>
+                                </span>
+                            </label>
+                        </div>
+                        <div class="field-error" id="userAccess-error" aria-live="polite"></div>
+                    </fieldset>
                 </div>
-                <p class="self-note" id="userSelfNote" hidden>
-                    <i class="bi bi-shield-lock" aria-hidden="true"></i>
-                    <span>This is your own account: you cannot remove your admin access, make your access read-only or deactivate yourself.</span>
-                </p>
+
+                <!-- SoQM Team and KDN: what the role can do, and the values it fixes (read only) -->
+                <section id="userRoleInfo" class="role-info" aria-labelledby="userRoleInfo-title" hidden>
+                    <h3 class="role-info-title" id="userRoleInfo-title">What this role can do</h3>
+                    <ul class="role-info-list" id="userRoleInfo-list"></ul>
+                    <dl class="role-fixed" id="userRoleInfo-fixed"></dl>
+                </section>
+
+                <!-- The access the chosen values add up to, kept up to date (filled in by the script) -->
+                <div class="access-summary" id="userAccessSummary" aria-live="polite"></div>
+
+                <div class="mb-3">
+                    <label for="userStatus" class="form-label">Status</label>
+                    <select id="userStatus" class="form-select" aria-describedby="userStatus-reason userStatus-error">
+                        <option value="ACTIVE">Active</option>
+                        <option value="INACTIVE">Inactive</option>
+                    </select>
+                    <div class="field-reason" id="userStatus-reason"></div>
+                    <div class="field-error" id="userStatus-error" aria-live="polite"></div>
+                </div>
             </form>
             <div class="modal-footer">
                 <span class="dirty-note" id="userDirtyNote" hidden><i class="bi bi-circle-fill" aria-hidden="true"></i>Unsaved changes</span>
@@ -766,22 +851,21 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 <script src="/js/app-modal.js?v=5"></script>
 <script th:inline="javascript">
 document.addEventListener('DOMContentLoaded', function() {
-    // A read-only admin sees everything here but changes nothing (the server refuses it as well)
-    const CAN_MANAGE = /*[[${canManageUsers}]]*/ true;
-    // What a scope means in the access summary
-    const SCOPE_TEXT = {
-        OWN: 'controls assigned to or shared with them',
-        ALL: 'all controls',
-        KDN: 'KDN controls assigned to or shared with them'
-    };
+    // The words of the roles come from the server (RoleDisplayMapper), so the page and the server agree
+    const ACCESS_HINTS = /*[[${accessHints}]]*/ {};
+    const ROLE_CAN_DO = /*[[${roleCanDo}]]*/ {};
+    const ROLE_FIXED = /*[[${roleFixedValues}]]*/ {};
     const MAX_NAME_LENGTH = 255;
+    const SEPARATOR = ' · ';
 
     const tableBody = document.getElementById('usersTableBody');
     const rowTemplate = document.getElementById('userRowTemplate');
     const searchInput = document.getElementById('searchUsers');
-    const levelFilter = document.getElementById('filterLevel');
-    const scopeFilter = document.getElementById('filterScope');
+    const roleFilter = document.getElementById('filterRole');
+    const visibilityFilter = document.getElementById('filterVisibility');
+    const accessFilter = document.getElementById('filterAccess');
     const statusFilter = document.getElementById('filterStatus');
+    const filterControls = [searchInput, roleFilter, visibilityFilter, accessFilter, statusFilter];
     const clientAlert = document.getElementById('clientAlert');
     const clientAlertText = document.getElementById('clientAlertText');
     const exportUsersBtn = document.getElementById('exportUsersBtn');
@@ -792,6 +876,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const pageIndicator = document.getElementById('pageIndicator');
     const paginationInfo = document.getElementById('paginationInfo');
     const noUsersClientRow = document.getElementById('noUsersClientRow');
+    const noUsersClientTitle = document.getElementById('noUsersClientTitle');
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
     const auditFilter = document.getElementById('auditFilter');
     const auditTableBody = document.getElementById('auditTableBody');
 
@@ -805,27 +891,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const fields = {
         name: document.getElementById('userName'),
         email: document.getElementById('userEmail'),
-        level: document.getElementById('userLevel'),
-        scope: document.getElementById('userScope'),
-        admin: document.getElementById('userAdmin'),
+        role: document.getElementById('userRole'),
+        visibility: document.getElementById('userVisibility'),
+        access: document.getElementById('userAccess'),
         status: document.getElementById('userStatus')
     };
+    const visibilityRadios = Array.from(form.querySelectorAll('input[name="userVisibility"]'));
+    const accessRadios = Array.from(form.querySelectorAll('input[name="userAccess"]'));
+    const choicesEl = document.getElementById('userChoices');
+    const roleInfoEl = document.getElementById('userRoleInfo');
+    const roleInfoList = document.getElementById('userRoleInfo-list');
+    const roleInfoFixed = document.getElementById('userRoleInfo-fixed');
+    const roleReason = document.getElementById('userRole-reason');
+    const statusReason = document.getElementById('userStatus-reason');
     const nameHint = document.getElementById('userName-hint');
     const emailHint = document.getElementById('userEmail-hint');
-    const scopeHint = document.getElementById('userScope-hint');
     const nameRequiredMark = form.querySelector('.js-name-required');
     const emailRequiredMark = form.querySelector('.js-email-required');
-    const levelRequiredMark = form.querySelector('.js-level-required');
-    const adminState = document.getElementById('userAdminState');
     const accessSummaryEl = document.getElementById('userAccessSummary');
-    const selfNote = document.getElementById('userSelfNote');
     const dirtyNote = document.getElementById('userDirtyNote');
     const saveBtn = document.getElementById('userSaveBtn');
-    const cancelBtn = document.getElementById('userCancelBtn');
-    const chooseLevelOption = fields.level.querySelector('option[value=""]');
-    const readOnlyLevelOption = fields.level.querySelector('option[value="READ_ONLY"]');
-    const LEVEL_LABELS = optionLabels(fields.level);
-    const SCOPE_LABELS = optionLabels(fields.scope);
+    const chooseRoleOption = fields.role.querySelector('option[value=""]');
+    const inactiveOption = fields.status.querySelector('option[value="INACTIVE"]');
+    const ROLE_LABELS = optionLabels(fields.role);
+    const VISIBILITY_LABELS = radioLabels(visibilityRadios);
+    const ACCESS_LABELS = radioLabels(accessRadios);
     const userModal = (window.bootstrap && bootstrap.Modal) ? new bootstrap.Modal(modalEl) : null;
 
     let rows = Array.from(tableBody.querySelectorAll('.admin-user-row'));
@@ -833,18 +923,39 @@ document.addEventListener('DOMContentLoaded', function() {
     let pageSize = Number(pageSizeSelect.value || 10);
     let alertTimer = null;
     let reloading = false;
-    // The open dialog: { mode: 'view' | 'edit' | 'create', row, opener, initial, emailEditable, self,
-    // saving, asking, closing }; null while closed
+    // The open dialog: { mode: 'edit' | 'create', row, opener, initial, user, emailEditable, self,
+    // lastSoqm, saving, asking, closing }; null while closed
     let dialog = null;
 
     rows.forEach(bindRow);
+    document.querySelectorAll('.js-reload').forEach(function(button) {
+        button.addEventListener('click', function() {
+            reloading = true;
+            window.location.reload();
+        });
+    });
+
+    // ---------------------------------------------------------------- access words
+
+    // "SoQM Team", "User · My controls · Edit", "KDN", as RoleDisplayMapper.summary
+    function summaryOf(user) {
+        if (user.role !== 'USER') {
+            return ROLE_LABELS[user.role] || user.role || '-';
+        }
+        return ROLE_LABELS.USER + SEPARATOR + (VISIBILITY_LABELS[user.visibility] || '-')
+            + SEPARATOR + (ACCESS_LABELS[user.access] || '-');
+    }
+
+    function hintOf(user) {
+        return ACCESS_HINTS[user.role === 'USER' ? 'USER/' + user.visibility + '/' + user.access : user.role] || '';
+    }
 
     // ---------------------------------------------------------------- table
 
-    // Only the row's Edit (View) button opens the dialog: a click elsewhere on a row or card does nothing
+    // Only the row's Edit button opens the dialog: a click elsewhere on a row or card does nothing
     function bindRow(row) {
         row.querySelector('.js-open-user').addEventListener('click', function(event) {
-            openDialog(CAN_MANAGE ? 'edit' : 'view', row, event.currentTarget);
+            openDialog('edit', row, event.currentTarget);
         });
     }
 
@@ -852,13 +963,17 @@ document.addEventListener('DOMContentLoaded', function() {
         return {
             name: row.dataset.name || '',
             email: row.dataset.email || '',
-            level: row.dataset.level || '',
-            scope: row.dataset.scope || 'OWN',
-            admin: row.dataset.admin === 'true',
+            role: row.dataset.role || '',
+            visibility: row.dataset.visibility || '',
+            access: row.dataset.access || '',
             enabled: row.dataset.enabled === 'true',
             lastLogin: row.dataset.lastLogin || '',
             self: row.dataset.self === 'true'
         };
+    }
+
+    function roleBadge(role) {
+        return element('span', 'role-badge is-' + String(role || '').toLowerCase(), ROLE_LABELS[role] || role || '-');
     }
 
     // Every cell is rebuilt from the saved user, so a row from the server and a new one look the same
@@ -867,9 +982,9 @@ document.addEventListener('DOMContentLoaded', function() {
         row.dataset.userId = user.id;
         row.dataset.name = name;
         row.dataset.email = user.mail || '';
-        row.dataset.level = user.level || '';
-        row.dataset.scope = user.scope || '';
-        row.dataset.admin = String(Boolean(user.adminAccess));
+        row.dataset.role = user.role || '';
+        row.dataset.visibility = user.visibility || '';
+        row.dataset.access = user.access || '';
         row.dataset.enabled = String(Boolean(user.enabled));
         row.dataset.lastLogin = user.lastLoginAt || '';
         if (!row.dataset.self) {
@@ -884,16 +999,12 @@ document.addEventListener('DOMContentLoaded', function() {
             ])
         ]));
         row.querySelector('.js-email').textContent = user.mail || '';
-        row.querySelector('.js-level').textContent = LEVEL_LABELS[user.level] || user.level || '-';
-        row.querySelector('.js-scope').textContent = SCOPE_LABELS[user.scope] || user.scope || '-';
-        row.querySelector('.js-admin').replaceChildren(user.adminAccess
-            ? element('span', 'admin-badge', 'Admin')
-            : element('span', 'no-value', '—'));
+        row.querySelector('.js-role').replaceChildren(roleBadge(user.role));
+        row.querySelector('.js-access').textContent = user.summary || summaryOf(rowUser(row));
         row.querySelector('.js-status').replaceChildren(element('span',
             'status-pill ' + (user.enabled ? 'is-active' : 'is-inactive'), user.enabled ? 'Active' : 'Inactive'));
         row.querySelector('.js-last-login').textContent = user.lastLoginAt || '-';
-        row.querySelector('.js-open-user').setAttribute('aria-label',
-            (CAN_MANAGE ? 'Edit ' : 'View ') + (name || user.mail || 'user'));
+        row.querySelector('.js-open-user').setAttribute('aria-label', 'Edit ' + (name || user.mail || 'user'));
     }
 
     // A new user goes where the name sorts, as the server lists them
@@ -921,16 +1032,18 @@ document.addEventListener('DOMContentLoaded', function() {
         row.classList.add('row-saved');
     }
 
+    // Visibility and Access belong to Users: filtering by them shows Users only
     function matchesFilters(row) {
         const q = searchInput.value.trim().toLowerCase();
         const searchOk = !q
             || (row.dataset.name || '').toLowerCase().includes(q)
             || (row.dataset.email || '').toLowerCase().includes(q);
-        const levelOk = !levelFilter.value || levelFilter.value === row.dataset.level;
-        const scopeOk = !scopeFilter.value || scopeFilter.value === row.dataset.scope;
+        const roleOk = !roleFilter.value || roleFilter.value === row.dataset.role;
+        const visibilityOk = !visibilityFilter.value || visibilityFilter.value === row.dataset.visibility;
+        const accessOk = !accessFilter.value || accessFilter.value === row.dataset.access;
         const statusOk = !statusFilter.value
             || (statusFilter.value === 'ACTIVE') === (row.dataset.enabled === 'true');
-        return searchOk && levelOk && scopeOk && statusOk;
+        return searchOk && roleOk && visibilityOk && accessOk && statusOk;
     }
 
     function getFilteredRows() {
@@ -959,6 +1072,8 @@ document.addEventListener('DOMContentLoaded', function() {
         pageRows.forEach(function(row) {
             row.style.display = '';
         });
+        const q = searchInput.value.trim();
+        noUsersClientTitle.textContent = q ? 'No users match “' + q + '”.' : 'No users match the filters.';
         noUsersClientRow.classList.toggle('d-none', totalItems > 0 || rows.length === 0);
 
         const from = totalItems === 0 ? 0 : startIndex + 1;
@@ -982,9 +1097,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     searchInput.addEventListener('input', applyFilters);
-    levelFilter.addEventListener('change', applyFilters);
-    scopeFilter.addEventListener('change', applyFilters);
-    statusFilter.addEventListener('change', applyFilters);
+    [roleFilter, visibilityFilter, accessFilter, statusFilter].forEach(function(select) {
+        select.addEventListener('change', applyFilters);
+    });
+    clearFiltersBtn.addEventListener('click', function() {
+        filterControls.forEach(function(control) {
+            control.value = '';
+        });
+        applyFilters();
+        searchInput.focus();
+    });
     pageSizeSelect.addEventListener('change', function() {
         pageSize = Number(pageSizeSelect.value || 10);
         currentPage = 1;
@@ -1009,10 +1131,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 return {
                     Name: user.name,
                     Email: user.email,
-                    Level: LEVEL_LABELS[user.level] || user.level,
-                    Scope: SCOPE_LABELS[user.scope] || user.scope,
-                    AdminAccess: user.admin ? 'YES' : 'NO',
-                    Status: user.enabled ? 'ACTIVE' : 'INACTIVE',
+                    Role: ROLE_LABELS[user.role] || user.role,
+                    Visibility: user.role === 'USER' ? VISIBILITY_LABELS[user.visibility] : '',
+                    Access: user.role === 'USER' ? ACCESS_LABELS[user.access] : '',
+                    Status: user.enabled ? 'Active' : 'Inactive',
                     LastLogin: user.lastLogin || '-'
                 };
             });
@@ -1046,6 +1168,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ---------------------------------------------------------------- the user dialog
 
+    // Active SoQM Team members on the page; the last one keeps the role and the account (the server checks too)
+    function activeSoqmCount() {
+        return rows.filter(function(row) {
+            return row.dataset.role === 'SOQM_TEAM' && row.dataset.enabled === 'true';
+        }).length;
+    }
+
     function openDialog(mode, row, opener) {
         if (!userModal) {
             showClientAlert('The user dialog could not be opened. Reload the page and try again.', 'danger');
@@ -1055,75 +1184,95 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         const user = row ? rowUser(row) : {
-            name: '', email: '', level: '', scope: 'OWN', admin: false, enabled: true, lastLogin: '', self: false
+            name: '', email: '', role: '', visibility: '', access: '', enabled: true, lastLogin: '', self: false
         };
-        const readOnly = mode === 'view';
+        const create = mode === 'create';
         dialog = {
             mode: mode,
             row: row,
             opener: opener,
+            user: user,
             self: user.self,
-            emailEditable: !readOnly && (mode === 'create' || !user.lastLogin),
+            lastSoqm: !create && user.role === 'SOQM_TEAM' && user.enabled && activeSoqmCount() <= 1,
+            emailEditable: create || !user.lastLogin,
             saving: false,
             asking: false,
             closing: false
         };
 
         clearErrors();
-        titleEl.textContent = mode === 'create' ? 'Add user'
-            : (readOnly ? 'User: ' : 'Edit user: ') + (user.name || user.email);
-        metaEl.textContent = mode === 'create' ? 'The user can sign in once the account is active.'
+        titleEl.textContent = create ? 'Add user' : 'Edit user: ' + (user.name || user.email);
+        metaEl.textContent = create ? 'The user can sign in once the account is active.'
             : user.lastLogin ? 'Last login: ' + user.lastLogin : 'Has not signed in yet';
 
         fields.name.value = user.name;
         fields.email.value = user.email;
-        chooseLevelOption.hidden = mode !== 'create';
-        chooseLevelOption.disabled = mode !== 'create';
-        fields.level.value = user.level;
-        fields.scope.value = user.scope;
-        fields.admin.checked = user.admin;
+        chooseRoleOption.hidden = !create;
+        chooseRoleOption.disabled = !create;
+        fields.role.value = user.role;
+        setRadio(visibilityRadios, user.visibility);
+        setRadio(accessRadios, user.access);
         fields.status.value = user.enabled ? 'ACTIVE' : 'INACTIVE';
 
-        fields.name.readOnly = readOnly;
         fields.email.readOnly = !dialog.emailEditable;
-        fields.level.disabled = readOnly;
-        fields.admin.disabled = readOnly || user.self;
-        fields.status.disabled = readOnly || user.self;
-        readOnlyLevelOption.disabled = user.self;
-        nameRequiredMark.hidden = mode === 'create' || readOnly;
+        nameRequiredMark.hidden = create;
         emailRequiredMark.hidden = !dialog.emailEditable;
-        levelRequiredMark.hidden = readOnly;
-        nameHint.textContent = mode === 'create' ? 'Leave empty to take the name from the e-mail.' : '';
-        emailHint.textContent = mode === 'create' ? 'The user signs in with this address.'
-            : readOnly ? ''
+        nameHint.textContent = create ? 'Leave empty to take the name from the e-mail.' : '';
+        emailHint.textContent = create ? 'The user signs in with this address.'
             : dialog.emailEditable ? 'Can be changed until the first sign-in.'
             : 'Cannot be changed: the user has already signed in.';
-        selfNote.hidden = !user.self || readOnly;
 
-        saveBtn.hidden = readOnly;
-        saveBtn.textContent = mode === 'create' ? 'Create user' : 'Save';
-        cancelBtn.textContent = readOnly ? 'Close' : 'Cancel';
+        // What cannot be chosen is disabled, with the reason next to it
+        const roleLocked = dialog.self;
+        fields.role.disabled = roleLocked;
+        Array.from(fields.role.options).forEach(function(option) {
+            option.disabled = option.value === '' ? !create
+                : dialog.lastSoqm && option.value !== 'SOQM_TEAM';
+        });
+        roleReason.textContent = dialog.self ? 'You cannot change your own role.'
+            : dialog.lastSoqm ? 'This is the last active SoQM Team member: make someone else SoQM Team first.'
+            : '';
+        const statusLocked = dialog.self || dialog.lastSoqm;
+        inactiveOption.disabled = statusLocked && user.enabled;
+        fields.status.disabled = dialog.self;
+        statusReason.textContent = dialog.self ? 'You cannot deactivate your own account.'
+            : dialog.lastSoqm ? 'The last active SoQM Team member cannot be deactivated.'
+            : '';
 
-        syncScopeToLevel();
-        updateAccessSummary();
+        saveBtn.textContent = create ? 'Create user' : 'Save';
+        syncRoleFields(false);
         dialog.initial = currentValues();
         updateDirtyState();
         userModal.show();
     }
 
+    function setRadio(radios, value) {
+        radios.forEach(function(radio) {
+            radio.checked = radio.value === value;
+        });
+    }
+
+    function radioValue(radios) {
+        const checked = radios.find(function(radio) {
+            return radio.checked;
+        });
+        return checked ? checked.value : '';
+    }
+
     function currentValues() {
+        const role = fields.role.value;
         return {
             name: fields.name.value.trim(),
             email: fields.email.value.trim().toLowerCase(),
-            level: fields.level.value,
-            scope: fields.scope.value,
-            admin: fields.admin.checked,
+            role: role,
+            visibility: role === 'USER' ? radioValue(visibilityRadios) : '',
+            access: role === 'USER' ? radioValue(accessRadios) : '',
             enabled: fields.status.value === 'ACTIVE'
         };
     }
 
     function isDirty() {
-        if (!dialog || dialog.mode === 'view' || !dialog.initial) {
+        if (!dialog || !dialog.initial) {
             return false;
         }
         const now = currentValues();
@@ -1138,66 +1287,59 @@ document.addEventListener('DOMContentLoaded', function() {
         dirtyNote.hidden = !dirty;
     }
 
-    // SoQM always sees all controls: its scope is All and cannot be changed. KDN users are always
-    // Read only (the server refuses KDN with another level)
-    function syncScopeToLevel() {
-        const soqm = fields.level.value === 'SOQM';
-        if (soqm) {
-            fields.scope.value = 'ALL';
+    // Visibility and Access show only for a User; someone who becomes User starts at My controls and Read
+    // Only (a User who was one when the dialog opened gets their values back). SoQM Team and KDN show what
+    // the role can do and the values it fixes instead.
+    function syncRoleFields(roleChanged) {
+        const role = fields.role.value;
+        const user = role === 'USER';
+        choicesEl.hidden = !user;
+        if (user && (roleChanged || !radioValue(visibilityRadios) || !radioValue(accessRadios))) {
+            const wasUser = dialog && dialog.user.role === 'USER';
+            setRadio(visibilityRadios, wasUser ? dialog.user.visibility : 'MY');
+            setRadio(accessRadios, wasUser ? dialog.user.access : 'READ_ONLY');
         }
-        fields.scope.disabled = soqm || dialog.mode === 'view';
-        scopeHint.textContent = soqm ? 'SoQM always sees all controls.'
-            : fields.scope.value === 'KDN' ? 'KDN users are always Read only.' : '';
+
+        const canDo = ROLE_CAN_DO[role] || [];
+        const fixed = ROLE_FIXED[role] || [];
+        roleInfoEl.hidden = !role || user;
+        roleInfoList.replaceChildren.apply(roleInfoList, canDo.map(function(line) {
+            return element('li', null, line);
+        }));
+        const fixedItems = [];
+        fixed.forEach(function(value) {
+            fixedItems.push(element('dt', null, value.label));
+            fixedItems.push(element('dd', null, null, [
+                element('span', 'fixed-value', value.value),
+                element('span', 'fixed-reason', value.reason)
+            ]));
+        });
+        roleInfoFixed.replaceChildren.apply(roleInfoFixed, fixedItems);
+        updateAccessSummary();
     }
 
     function updateAccessSummary() {
-        adminState.textContent = fields.admin.checked ? 'Yes' : 'No';
+        const values = currentValues();
         accessSummaryEl.replaceChildren();
-        accessSummary(fields.level.value, fields.scope.value, fields.admin.checked).forEach(function(line) {
-            accessSummaryEl.appendChild(element('p', null, null, [element('strong', null, line[0]), ' ' + line[1]]));
-        });
-    }
-
-    // What a level, a scope and admin access add up to; the server's AccessPolicy has the same rules
-    function accessSummary(level, scope, admin) {
-        if (!level) {
-            return [];
+        if (!values.role) {
+            return;
         }
-        const lines = [];
-        lines.push(['Sees', level === 'SOQM' ? 'all controls, drafts included.'
-            : admin ? 'all controls, drafts included (admin access).'
-            : (SCOPE_TEXT[scope] || SCOPE_TEXT.OWN) + '.']);
-        lines.push(['Edits', level === 'SOQM' ? 'every control: assigns people and performs the SoQM steps.'
-            : level === 'PARTICIPANT' ? 'only the steps they are assigned to.'
-            : 'nothing: view only' + (scope === 'KDN' ? '; downloads attachments.' : '.')]);
-        if (level === 'SOQM') {
-            lines.push(['Steps', 'moves any control on or back for any role, with a comment when it returns it or'
-                + ' acts for another role; the history marks it "on behalf". A completed control is locked for'
-                + ' everyone: SoQM returns it to an earlier step to change it.']);
-        }
-        if (scope === 'KDN' && level !== 'SOQM') {
-            lines.push(['Assigned', level === 'READ_ONLY'
-                ? 'as Facilitator, Control Operator or Process Owner of KDN controls only, to see them and get their'
-                    + ' notifications; SoQM performs those steps.'
-                : 'never: KDN users must be Read only.']);
-        }
-        if (admin) {
-            lines.push(['Admin Panel:', level === 'READ_ONLY' ? 'view only.' : 'manages users and sees the audit trail.']);
-        }
-        return lines;
+        accessSummaryEl.appendChild(element('p', 'summary-line', null, [
+            element('span', 'summary-label', 'Access'), ' ',
+            element('strong', null, summaryOf(values))
+        ]));
+        accessSummaryEl.appendChild(element('p', 'summary-hint', hintOf(values)));
     }
 
     Object.keys(fields).forEach(function(key) {
         const field = fields[key];
-        field.addEventListener(field.tagName === 'SELECT' || field.type === 'checkbox' ? 'change' : 'input', function() {
+        field.addEventListener(field.tagName === 'INPUT' ? 'input' : 'change', function() {
             setFieldError(field, '');
-            if (key === 'level' || key === 'scope') {
-                syncScopeToLevel();
+            if (key === 'role') {
+                syncRoleFields(true);
+            } else {
+                updateAccessSummary();
             }
-            if (key === 'level') {
-                setFieldError(fields.scope, '');
-            }
-            updateAccessSummary();
             updateDirtyState();
         });
     });
@@ -1239,8 +1381,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const discard = await showConfirmModal({
             title: 'Discard unsaved changes?',
             message: dialog.mode === 'create'
-                ? 'The new user has not been created yet.'
-                : 'Your changes to ' + (dialog.initial.name || dialog.initial.email) + ' have not been saved.',
+                ? 'The new user has not been created yet: what you entered will be lost.'
+                : 'Your changes to ' + (dialog.initial.name || dialog.initial.email) + ' have not been saved and will be lost.',
             confirmText: 'Discard changes',
             cancelText: 'Keep editing'
         });
@@ -1302,7 +1444,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     form.addEventListener('submit', async function(event) {
         event.preventDefault();
-        if (!dialog || dialog.mode === 'view' || dialog.saving || dialog.asking || !isDirty()) {
+        if (!dialog || dialog.saving || dialog.asking || !isDirty()) {
             return;
         }
         hideFormMessage();
@@ -1311,7 +1453,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Admin access, SoQM and deactivating are confirmed before anything is sent
+        // SoQM Team, All controls with Edit and deactivating are confirmed before anything is sent
         const risk = riskyChanges(values);
         if (risk) {
             dialog.asking = true;
@@ -1321,12 +1463,23 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             dialog.asking = false;
             if (!confirmed) {
-                risk.field.focus();
+                focusField(risk.field);
                 return;
             }
         }
         await save(values);
     });
+
+    function focusField(field) {
+        if (field.tagName === 'FIELDSET') {
+            const radio = field.querySelector('input:checked') || field.querySelector('input');
+            if (radio) {
+                radio.focus();
+            }
+            return;
+        }
+        field.focus();
+    }
 
     function checkValues(values) {
         const problems = [];
@@ -1342,14 +1495,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 problems.push([fields.email, emailProblem]);
             }
         }
-        if (!values.level) {
-            problems.push([fields.level, 'Level is required']);
+        if (!values.role) {
+            problems.push([fields.role, 'Choose a role']);
+        }
+        if (values.role === 'USER' && !values.visibility) {
+            problems.push([fields.visibility, 'Choose what the user sees']);
+        }
+        if (values.role === 'USER' && !values.access) {
+            problems.push([fields.access, 'Choose Edit or Read Only']);
         }
         problems.forEach(function(problem) {
             setFieldError(problem[0], problem[1]);
         });
         if (problems.length) {
-            problems[0][0].focus();
+            focusField(problems[0][0]);
         }
         return problems.length === 0;
     }
@@ -1365,27 +1524,30 @@ document.addEventListener('DOMContentLoaded', function() {
         return '';
     }
 
-    // The confirm dialog for the changes that give more access or lock someone out; null when none
+    // The confirm dialog for the changes that give the most access or lock someone out; null when none
     function riskyChanges(values) {
         const before = dialog.initial;
         const create = dialog.mode === 'create';
         const who = values.name || values.email || 'this user';
         const changes = [];
-        if (values.level === 'SOQM' && before.level !== 'SOQM') {
+        if (values.role === 'SOQM_TEAM' && before.role !== 'SOQM_TEAM') {
             changes.push({
-                field: fields.level,
-                title: create ? 'Create ' + who + ' as SoQM?' : 'Make ' + who + ' SoQM?',
-                text: who + ' will create and edit every control, assign people and perform the SoQM steps, '
-                    + 'and will see all controls, drafts included.',
-                ok: create ? 'Create user' : 'Make SoQM'
+                field: fields.role,
+                title: create ? 'Create ' + who + ' as SoQM Team?' : 'Make ' + who + ' SoQM Team?',
+                text: who + ' will see every control, drafts included, edit any control, assign people, move'
+                    + ' controls on or back for any Control role, and manage users and the audit trail in the Admin Panel.',
+                ok: create ? 'Create SoQM Team user' : 'Make SoQM Team'
             });
         }
-        if (values.admin && !before.admin) {
+        const allEdit = values.role === 'USER' && values.visibility === 'ALL' && values.access === 'EDIT';
+        const wasAllEdit = before.role === 'USER' && before.visibility === 'ALL' && before.access === 'EDIT';
+        if (allEdit && !wasAllEdit) {
             changes.push({
-                field: fields.admin,
-                title: create ? 'Create ' + who + ' with admin access?' : 'Give admin access to ' + who + '?',
-                text: who + ' will manage users, see the audit trail and view every control, drafts included.',
-                ok: create ? 'Create user' : 'Give admin access'
+                field: fields.visibility,
+                title: create ? 'Create ' + who + ' with All controls and Edit?' : 'Give ' + who + ' All controls and Edit?',
+                text: who + ' will see every control, drafts included, and will edit and perform the steps of the'
+                    + ' controls they are assigned to (not the others).',
+                ok: create ? 'Create user' : 'Give All controls and Edit'
             });
         }
         if (!create && !values.enabled && before.enabled) {
@@ -1426,11 +1588,13 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const params = {
                 displayName: values.name,
-                level: values.level,
-                scope: values.scope,
-                adminAccess: String(values.admin),
+                role: values.role,
                 enabled: String(values.enabled)
             };
+            if (values.role === 'USER') {
+                params.visibility = values.visibility;
+                params.access = values.access;
+            }
             if (dialog.emailEditable) {
                 params.email = values.email;
             }
@@ -1446,7 +1610,7 @@ document.addEventListener('DOMContentLoaded', function() {
             let message;
             if (create) {
                 row = addRow(user);
-                message = 'User ' + (user.displayName || user.mail) + ' (' + user.mail + ') created.';
+                message = 'User ' + (user.displayName || user.mail) + ' (' + user.mail + ') created as ' + user.summary + '.';
             } else {
                 fillRow(row, user);
                 message = user.changed === false ? 'Nothing to save: no value changed.'
@@ -1483,9 +1647,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // A refused value goes under its field; anything else (and the "reload" cases) above the form
     function showSaveProblem(problem) {
         const field = problem.reload ? null : fieldForMessage(problem.message);
-        if (field && !field.disabled && !field.readOnly) {
+        if (field && !field.disabled && !field.readOnly && !field.hidden && !(field.closest('[hidden]'))) {
             setFieldError(field, problem.message);
-            field.focus();
+            focusField(field);
             return;
         }
         formMessageText.textContent = problem.message;
@@ -1502,17 +1666,17 @@ document.addEventListener('DOMContentLoaded', function() {
         if (/^name/i.test(message)) {
             return fields.name;
         }
-        if (/admin access/i.test(message)) {
-            return fields.admin;
-        }
-        if (/deactivate/i.test(message)) {
+        if (/deactivat/i.test(message)) {
             return fields.status;
         }
-        if (/scope/i.test(message)) {
-            return fields.scope;
+        if (/visibility/i.test(message)) {
+            return fields.visibility;
         }
-        if (/level|read-only/i.test(message)) {
-            return fields.level;
+        if (/\brole\b/i.test(message)) {
+            return fields.role;
+        }
+        if (/access/i.test(message)) {
+            return fields.access;
         }
         return null;
     }
@@ -1538,11 +1702,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (json && json.code === 'CSRF_INVALID') {
                 return { message: json.message || 'This page is out of date. Reload the page and try again.', reload: true };
             }
-            if (json && json.code === 'READ_ONLY' && json.message) {
-                return { message: json.message, reload: true };
-            }
             return {
-                message: 'Only admins who may change users can do this. Your access may have changed: reload the page.',
+                message: 'Only SoQM Team can change users. Your role may have changed: reload the page.',
                 reload: true
             };
         }
@@ -1561,7 +1722,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function setFieldError(field, message) {
         const feedback = document.getElementById(field.id + '-error');
         field.classList.toggle('is-invalid', Boolean(message));
-        field.setAttribute('aria-invalid', message ? 'true' : 'false');
+        if (field.tagName === 'FIELDSET') {
+            field.querySelectorAll('input').forEach(function(input) {
+                input.setAttribute('aria-invalid', message ? 'true' : 'false');
+            });
+        } else {
+            field.setAttribute('aria-invalid', message ? 'true' : 'false');
+        }
         if (feedback) {
             feedback.textContent = message || '';
         }
@@ -1685,6 +1852,15 @@ document.addEventListener('DOMContentLoaded', function() {
             if (option.value) {
                 labels[option.value] = option.textContent.trim();
             }
+        });
+        return labels;
+    }
+
+    function radioLabels(radios) {
+        const labels = {};
+        radios.forEach(function(radio) {
+            const title = radio.closest('label').querySelector('.choice-title');
+            labels[radio.value] = title ? title.textContent.trim() : radio.value;
         });
         return labels;
     }

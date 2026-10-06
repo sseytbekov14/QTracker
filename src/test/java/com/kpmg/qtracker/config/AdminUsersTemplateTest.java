@@ -39,14 +39,23 @@ class AdminUsersTemplateTest {
         while (field.find()) {
             String tag = field.group();
             Matcher id = ID.matcher(tag);
-            boolean named = tag.contains("aria-label=") || tag.contains("aria-labelledby=")
+            // A field inside its <label> (the Visibility and Access choices) is named by it
+            String before = dialog.substring(0, field.start());
+            boolean wrapped = before.lastIndexOf("<label") > before.lastIndexOf("</label>");
+            boolean named = wrapped || tag.contains("aria-label=") || tag.contains("aria-labelledby=")
                     || (id.find() && labelled.contains(id.group(1)));
             if (!named) {
                 unnamed.add(tag);
             }
         }
         assertThat(unnamed).as("dialog fields without a label").isEmpty();
-        assertThat(labelled).contains("userName", "userEmail", "userLevel", "userScope", "userStatus");
+        assertThat(labelled).contains("userName", "userEmail", "userRole", "userStatus");
+        // Visibility and Access are groups with a legend; SoQM Team and KDN get "What this role can do"
+        assertThat(dialog).contains("<fieldset class=\"choice-group mb-3\" id=\"userVisibility\"",
+                "<legend class=\"form-label\">Visibility</legend>",
+                "<fieldset class=\"choice-group mb-3\" id=\"userAccess\"", "<legend class=\"form-label\">Access</legend>",
+                "What this role can do", "id=\"userRole-reason\"", "id=\"userStatus-reason\"");
+        assertThat(html).doesNotContain("Administrator", "Admin access", "userAdmin", "Participant", "Level", "Scope");
         assertThat(dialog).contains("aria-labelledby=\"userModalTitle\"", "<h2 class=\"modal-title\" id=\"userModalTitle\"");
     }
 

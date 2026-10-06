@@ -1281,7 +1281,7 @@ class ApiSecurityMockMvcIT {
 
         assertThat(userRepository.findByMail(" " + lower.toUpperCase() + " ")).map(User::getId).contains(stored.getId());
         assertThat(userRepository.existsByMail(lower)).isTrue();
-        assertThatThrownBy(() -> userService.createUser(lower, "Copy", "PARTICIPANT", "OWN", true))
+        assertThatThrownBy(() -> userService.createUser(lower, "Copy", "USER", "MY", "EDIT", true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("already exists");
     }
@@ -1480,7 +1480,7 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isOk());
     }
 
-    // ---- User lists: everyone for SoQM Team and admins, the control's people by name and e-mail for others ----
+    // ---- User lists: everyone for SoQM Team, the control's people by name and e-mail for others ----
 
     @Test
     void usersAll_soqmGetsEveryone_othersOnlyThePeopleOnAControlTheyRead() throws Exception {
@@ -1493,7 +1493,8 @@ class ApiSecurityMockMvcIT {
         String everyone = mockMvc.perform(get("/api/users/all").with(ownAddress()).session(login(p.soqm.getMail())))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        assertThat(everyone).contains(stranger.getMail(), "\"role\":\"PARTICIPANT\"", "\"title\":\"Participant\"");
+        assertThat(everyone).contains(stranger.getMail(), "\"title\":\"User · My controls · Edit\"")
+                .doesNotContain("Participant");
 
         MockHttpSession facilitator = login(p.facilitator.getMail());
         mockMvc.perform(get("/api/users/all").param("controlId", String.valueOf(control.getId()))
@@ -1697,28 +1698,43 @@ class ApiSecurityMockMvcIT {
         }
     }
 
-    // ---- Admin Panel: level, scope and the admin flag ----
+    // ---- Admin Panel: roles (SoQM Team, User with Visibility and Access, KDN) ----
 
     @Test
-    void adminPage_showsLevelAndScope_soqmScopeIsFixed_andTheOldRoleColumnsAreGone() throws Exception {
+    void adminPage_showsRoleBadgeAndAccessOnOneLine_withRoleVisibilityAccessFilters() throws Exception {
         MockHttpSession adminSession = login(adminUser().getMail());
         User soqm = saveUser("lv-soqm", "lv-soqm-" + suffix() + "@example.test", "SOQM_TEAM");
         User kdn = saveUser("lv-kdn", "lv-kdn-" + suffix() + "@example.test", "KDN");
         User readOnly = saveUser("lv-ro", "lv-ro-" + suffix() + "@example.test", "READ_ONLY");
+        User allEdit = saveUser("lv-all", "lv-all-" + suffix() + "@example.test", "FACILITATOR");
+        allEdit.setAccessScope(com.kpmg.qtracker.enums.AccessScope.ALL);
+        userRepository.save(allEdit);
 
         String html = mockMvc.perform(get("/admin/users").session(adminSession))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        assertThat(html).contains("<th scope=\"col\">Level</th>", "<th scope=\"col\">Scope</th>",
-                "id=\"filterLevel\"", "id=\"filterScope\"");
-        assertThat(html).doesNotContain("Additional Role", "js-role", "js-secondary-role", "(not in list)");
-        assertThat(userRow(html, soqm)).contains("data-level=\"SOQM\"", "data-scope=\"ALL\"",
-                "data-label=\"Level\">SoQM</td>", "data-label=\"Scope\">All controls</td>");
-        assertThat(userRow(html, kdn)).contains("data-level=\"READ_ONLY\"", "data-scope=\"KDN\"",
-                "data-label=\"Level\">Read only</td>", "data-label=\"Scope\">KDN controls</td>");
-        assertThat(userRow(html, readOnly)).contains("data-level=\"READ_ONLY\"", "data-scope=\"OWN\"",
-                "data-label=\"Level\">Read only</td>", "data-label=\"Scope\">Own controls</td>");
+        assertThat(html).contains("<th scope=\"col\">Name</th>", "<th scope=\"col\">Email</th>",
+                "<th scope=\"col\">Role</th>", "<th scope=\"col\">Access</th>", "<th scope=\"col\">Status</th>",
+                "<th scope=\"col\">Last Login</th>",
+                "id=\"filterRole\"", "id=\"filterVisibility\"", "id=\"filterAccess\"", "id=\"filterStatus\"",
+                "id=\"searchUsers\"", "id=\"clearFiltersBtn\"");
+        assertThat(html).doesNotContain("<th scope=\"col\">Level</th>", "<th scope=\"col\">Scope</th>",
+                "Admin Access", "Administrator", "Participant", "Additional Role", "js-secondary-role", "(not in list)");
+        // SoQM Team and KDN have no Visibility and Access of their own (Thymeleaf drops the empty attributes)
+        assertThat(userRow(html, soqm)).contains("data-role=\"SOQM_TEAM\"",
+                "<span class=\"role-badge is-soqm_team\">SoQM Team</span>", "data-label=\"Access\">SoQM Team</td>")
+                .doesNotContain("data-visibility=\"MY\"", "data-visibility=\"ALL\"", "data-access=\"EDIT\"");
+        assertThat(userRow(html, kdn)).contains("data-role=\"KDN\"",
+                "<span class=\"role-badge is-kdn\">KDN</span>", "data-label=\"Access\">KDN</td>");
+        assertThat(userRow(html, readOnly)).contains("data-role=\"USER\"", "data-visibility=\"MY\"",
+                "data-access=\"READ_ONLY\"", "<span class=\"role-badge is-user\">User</span>",
+                "data-label=\"Access\">User · My controls · Read Only</td>");
+        assertThat(userRow(html, allEdit)).contains("data-visibility=\"ALL\"", "data-access=\"EDIT\"",
+                "data-label=\"Access\">User · All controls · Edit</td>");
+        // Every combination's hint and what SoQM Team and KDN can do reach the dialog script
+        assertThat(html).containsPattern("USER\\\\?/ALL\\\\?/EDIT")
+                .contains("What this role can do", "KDN users have read-only access.");
     }
 
     @Test
@@ -1738,110 +1754,128 @@ class ApiSecurityMockMvcIT {
         // The CSRF token for the dialog's requests is in the head
         String head = html.substring(0, html.indexOf("</head>"));
         assertThat(head).contains("<meta name=\"_csrf\"", "<meta name=\"_csrf_header\"", "/js/csrf.js");
-        assertThat(html).contains("/js/app-modal.js?v=5", "/css/style.css?v=15");
+        assertThat(html).contains("/js/app-modal.js?v=5", "/css/style.css?v=");
 
         // Rows show values only; nothing is edited in the table and there is no page-wide save
         assertThat(html).doesNotContain("id=\"saveAllChanges\"", "js-admin-toggle", "compact-select",
-                "id=\"editEmailModal\"", "id=\"addUserModal\"", "row-dirty");
+                "id=\"editEmailModal\"", "id=\"addUserModal\"", "row-dirty", "Your access is read-only");
         String freshRow = userRow(html, fresh);
         // No last login: the attribute is left out, so the dialog lets the e-mail change
         // Only the Edit button opens the dialog: the row itself is not focusable
-        assertThat(freshRow).contains("data-enabled=\"true\"",
-                "data-admin=\"false\"", "data-self=\"false\"", "class=\"status-pill is-active\"",
-                "aria-label=\"Edit dlg-fresh\"").doesNotContain("data-last-login", "<select", "<input", "tabindex");
+        assertThat(freshRow).contains("data-enabled=\"true\"", "data-self=\"false\"", "class=\"status-pill is-active\"",
+                "aria-label=\"Edit dlg-fresh\"").doesNotContain("data-last-login", "data-admin", "<select", "<input", "tabindex");
         assertThat(userRow(html, signedIn)).contains("data-last-login=\"01.10.2026 09:30\"", "data-enabled=\"false\"",
                 "status-pill is-inactive", ">01.10.2026 09:30</td>");
-        assertThat(userRow(html, admin)).contains("data-self=\"true\"", "data-admin=\"true\"",
-                "<span class=\"admin-badge\">Admin</span>", "<span class=\"self-chip\">You</span>");
+        assertThat(userRow(html, admin)).contains("data-self=\"true\"", "data-role=\"SOQM_TEAM\"",
+                "<span class=\"self-chip\">You</span>");
 
         // One dialog: titled, every field labelled, full screen on a phone
         String dialog = html.substring(html.indexOf("id=\"userModal\""), html.indexOf("</form>", html.indexOf("id=\"userModal\"")));
         assertThat(dialog).contains("aria-labelledby=\"userModalTitle\"", "id=\"userModalTitle\"",
                 "modal-fullscreen-sm-down",
-                "<label for=\"userName\"", "<label for=\"userEmail\"", "<label for=\"userLevel\"",
-                "<label for=\"userScope\"", "<label for=\"userStatus\"",
-                "id=\"userAdmin-label\"", "aria-labelledby=\"userAdmin-label\"", "role=\"switch\"",
+                "<label for=\"userName\"", "<label for=\"userEmail\"", "<label for=\"userRole\"",
+                "<label for=\"userStatus\"", "<legend class=\"form-label\">Visibility</legend>",
+                "<legend class=\"form-label\">Access</legend>", "id=\"userRoleInfo\"",
                 "aria-describedby=\"userEmail-hint userEmail-error\"", "id=\"userAccessSummary\"",
                 "id=\"userFormMessage\"", "id=\"userFormReload\"");
+        assertThat(dialog).doesNotContain("userAdmin", "role=\"switch\"", "userLevel", "userScope");
         assertThat(html).contains("id=\"userSaveBtn\" form=\"userForm\" disabled", "id=\"userRowTemplate\"",
                 "id=\"openAddUserBtn\"");
     }
 
     @Test
-    void accessUpdate_setsLevelAndScope_keepsTheOldRoleColumns_andSoqmGetsScopeAll() throws Exception {
+    void accessUpdate_byRole_keepsTheOldRoleColumns_andAllowsEveryUserCombination() throws Exception {
         MockHttpSession adminSession = login(adminUser().getMail());
         User target = saveUser("lv-target", "lv-target-" + suffix() + "@example.test", "FACILITATOR");
         target.setSecondaryRole("PROCESS_OWNER");
         userRepository.save(target);
 
+        for (String[] combination : new String[][]{
+                {"ALL", "EDIT", "PARTICIPANT", "ALL"}, {"ALL", "READ_ONLY", "READ_ONLY", "ALL"},
+                {"MY", "READ_ONLY", "READ_ONLY", "OWN"}, {"MY", "EDIT", "PARTICIPANT", "OWN"}}) {
+            mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
+                            .param("role", "USER")
+                            .param("visibility", combination[0])
+                            .param("access", combination[1])
+                            .param("enabled", "true"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.role").value("USER"))
+                    .andExpect(jsonPath("$.visibility").value(combination[0]))
+                    .andExpect(jsonPath("$.access").value(combination[1]));
+            User saved = userRepository.findById(target.getId()).orElseThrow();
+            assertThat(saved.getAccessLevel().name() + "/" + saved.getAccessScope().name())
+                    .isEqualTo(combination[2] + "/" + combination[3]);
+        }
+
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
-                        .param("level", "PARTICIPANT")
-                        .param("scope", "KDN")
-                        .param("enabled", "true"))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string("KDN users have read-only access"));
-        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
-                        .param("level", "READ_ONLY")
-                        .param("scope", "KDN")
+                        .param("role", "KDN")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.level").value("READ_ONLY"))
-                .andExpect(jsonPath("$.scope").value("KDN"))
-                .andExpect(jsonPath("$.role").doesNotExist());
+                .andExpect(jsonPath("$.role").value("KDN"))
+                .andExpect(jsonPath("$.summary").value("KDN"))
+                .andExpect(jsonPath("$.visibility").doesNotExist());
         User saved = userRepository.findById(target.getId()).orElseThrow();
         assertThat(saved.getRole()).isEqualTo("FACILITATOR");
         assertThat(saved.getSecondaryRole()).isEqualTo("PROCESS_OWNER");
+        assertThat(saved.getAccessScope()).isEqualTo(com.kpmg.qtracker.enums.AccessScope.KDN);
 
-        // SoQM always sees everything: a blank scope becomes ALL, any other is refused
+        // KDN back to User starts at My controls, Read Only
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
-                        .param("level", "SOQM")
-                        .param("scope", "OWN")
-                        .param("enabled", "true"))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string("SoQM Team always sees all controls"));
-        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
-                        .param("level", "SOQM")
+                        .param("role", "USER")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.scope").value("ALL"));
+                .andExpect(jsonPath("$.summary").value("User · My controls · Read Only"));
+
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
-                        .param("level", "ADMIN")
+                        .param("role", "KDN")
+                        .param("access", "EDIT")
+                        .param("enabled", "true"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Visibility and Access apply only to the role User"));
+        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
+                        .param("role", "SOQM_TEAM")
+                        .param("enabled", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary").value("SoQM Team"));
+        assertThat(userRepository.findById(target.getId()).orElseThrow().getAdminAccess()).isTrue();
+        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
+                        .param("role", "MASTER")
                         .param("enabled", "true"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void addUser_takesLevelAndScope_andNoRole() throws Exception {
+    void addUser_byRole_aNewUserStartsAtMyControlsAndReadOnly() throws Exception {
         MockHttpSession adminSession = login(adminUser().getMail());
         String mail = "new-" + suffix() + "@example.test";
 
         mockMvc.perform(post("/api/users").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
                         .param("email", mail)
-                        .param("level", "READ_ONLY")
-                        .param("scope", "ALL"))
+                        .param("role", "USER"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.level").value("READ_ONLY"))
-                .andExpect(jsonPath("$.scope").value("ALL"));
+                .andExpect(jsonPath("$.visibility").value("MY"))
+                .andExpect(jsonPath("$.access").value("READ_ONLY"))
+                .andExpect(jsonPath("$.audit.action").value("Created user"));
         User created = userRepository.findByMail(mail).orElseThrow();
         createdUserIds.add(created.getId());
         assertThat(created.getRole()).isNull();
+        assertThat(created.getAccessLevel()).isEqualTo(com.kpmg.qtracker.enums.AccessLevel.READ_ONLY);
 
         mockMvc.perform(post("/api/users").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
-                        .param("email", "norole-" + suffix() + "@example.test")
-                        .param("role", "FACILITATOR"))
+                        .param("email", "norole-" + suffix() + "@example.test"))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Access level is required"));
+                .andExpect(content().string("Role is required"));
     }
 
     @Test
     void userAndKdn_cannotOpenTheAdminPanel_orChangeUsers() throws Exception {
         User target = saveUser("np-target", "np-target-" + suffix() + "@example.test", "FACILITATOR");
-        User flaggedUser = saveUser("np-flag", "np-flag-" + suffix() + "@example.test", "PROCESS_OWNER");
+        User allEdit = saveUser("np-all", "np-all-" + suffix() + "@example.test", "PROCESS_OWNER");
         // User, All controls, Edit: the widest User still has no Admin Panel
-        flaggedUser.setAccessScope(com.kpmg.qtracker.enums.AccessScope.ALL);
-        userRepository.save(flaggedUser);
+        allEdit.setAccessScope(com.kpmg.qtracker.enums.AccessScope.ALL);
+        userRepository.save(allEdit);
         List<User> outsiders = List.of(
-                flaggedUser,
+                allEdit,
                 saveUser("np-ro", "np-ro-" + suffix() + "@example.test", "READ_ONLY"),
                 saveUser("np-kdn", "np-kdn-" + suffix() + "@example.test", "KDN"));
 
@@ -1855,29 +1889,39 @@ class ApiSecurityMockMvcIT {
             assertThat(home).as(outsider.getMail()).doesNotContain("href=\"/admin/users\"");
             mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress())
                             .session(session)
-                            .param("level", "SOQM")
+                            .param("role", "SOQM_TEAM")
                             .param("enabled", "true"))
                     .andExpect(status().isForbidden());
             mockMvc.perform(post("/api/users").with(csrf().asHeader()).with(ownAddress()).session(session)
                             .param("email", "np-new-" + suffix() + "@example.test")
-                            .param("level", "SOQM"))
+                            .param("role", "SOQM_TEAM"))
                     .andExpect(status().isForbidden());
+            mockMvc.perform(get("/api/users").with(ownAddress()).session(session)).andExpect(status().isForbidden());
         }
         assertThat(userRepository.findById(target.getId()).orElseThrow().getAccessLevel())
                 .isEqualTo(com.kpmg.qtracker.enums.AccessLevel.PARTICIPANT);
     }
 
     @Test
-    void soqmTeam_cannotChangeTheirOwnRole() throws Exception {
+    void soqmTeam_cannotChangeTheirOwnRole_orDeactivateThemselves() throws Exception {
         User admin = adminUser();
         MockHttpSession session = login(admin.getMail());
 
         mockMvc.perform(post("/api/users/" + admin.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(session)
-                        .param("level", "READ_ONLY")
-                        .param("scope", "ALL")
+                        .param("role", "USER")
+                        .param("visibility", "ALL")
+                        .param("access", "EDIT")
                         .param("enabled", "true"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("You cannot change your own role"));
+        mockMvc.perform(post("/api/users/" + admin.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(session)
+                        .param("role", "SOQM_TEAM")
+                        .param("enabled", "false"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("You cannot deactivate your own account"));
+        User stored = userRepository.findById(admin.getId()).orElseThrow();
+        assertThat(stored.getAccessLevel()).isEqualTo(com.kpmg.qtracker.enums.AccessLevel.SOQM);
+        assertThat(stored.getEnabled()).isTrue();
     }
 
     @Test
@@ -1905,7 +1949,7 @@ class ApiSecurityMockMvcIT {
         int row = html.indexOf(target.getMail() + "</span>", html.indexOf("auditTargetHeader"));
         assertThat(row).as("audit row naming the target user").isPositive();
         String userRow = html.substring(html.lastIndexOf("<tr", row), html.indexOf("</tr>", row));
-        assertThat(userRow).contains("data-group=\"USER_ACCESS\"", "Changed status from ACTIVE to INACTIVE</td>",
+        assertThat(userRow).contains("data-group=\"USER_ACCESS\"", "Changed status from Active to Inactive</td>",
                 "Trail Target").doesNotContain("d-none");
         int otherRow = html.indexOf("Viewed " + otherType);
         assertThat(html.substring(html.lastIndexOf("<tr", otherRow), otherRow))

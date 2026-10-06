@@ -1,6 +1,7 @@
 package com.kpmg.qtracker.repository;
 
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.enums.AccessLevel;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,5 +23,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEntraOid(String entraOid);
 
     List<User> findByRole(String role);
+
+    /** Active users of a level (the last active SoQM Team member keeps the role and the account). */
+    @Query("SELECT COUNT(u) FROM User u WHERE u.accessLevel = :level AND u.enabled = true")
+    long countActiveByAccessLevel(@Param("level") AccessLevel level);
 
 }

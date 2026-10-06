@@ -432,8 +432,9 @@ class RoleMatrixIT {
         MvcResult adminPage = perform(get("/admin/users"), session);
         row.put("Admin Panel", adminPage.getResponse().getStatus() == 200 ? "ok" : outcome(adminPage));
         row.put("Admin Panel change", answer(post("/api/users/{id}/access", adminTarget.getId()).with(csrf().asHeader())
-                .param("level", "PARTICIPANT")
-                .param("scope", "OWN")
+                .param("role", "USER")
+                .param("visibility", "MY")
+                .param("access", "EDIT")
                 .param("enabled", "true"), session));
         return row;
     }

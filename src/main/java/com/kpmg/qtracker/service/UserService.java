@@ -2,7 +2,9 @@ package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
-import com.kpmg.qtracker.enums.AccessScope;
+import com.kpmg.qtracker.enums.AccessRight;
+import com.kpmg.qtracker.enums.UserRole;
+import com.kpmg.qtracker.enums.Visibility;
 import com.kpmg.qtracker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -50,27 +52,22 @@ public class UserService {
         return userRepository.existsByMail(email);
     }
 
-    /** The access part of the Admin Panel save (level, scope, status); see {@link #updateUser}. */
-    public User updateUserAccess(Long targetUserId,
-                                 String level,
-                                 String scope,
-                                 Boolean enabled,
-                                 Long actingUserId) {
-        return updateUser(targetUserId, null, null, level, scope, enabled, actingUserId);
-    }
-
     /**
      * The Admin Panel save of one user. Every value is checked before anything changes, so a refused save
      * changes nothing. A null e-mail or name keeps the stored one; the e-mail changes only before the first
-     * login. A blank level or scope keeps the stored one; SoQM always gets scope ALL. SoQM Team cannot
-     * deactivate themselves or leave SoQM Team (they would lose the Admin Panel). The admin_access flag
-     * follows the level (User entity); the old role columns are not touched.
+     * login. A blank role keeps the stored one; for the role User a blank Visibility or Access keeps the
+     * stored one, or, for someone becoming User, starts at My controls and Read Only. Every combination of
+     * Visibility and Access is allowed. Refused: changing one's own role or deactivating oneself, and taking
+     * the role or the account of the last active SoQM Team member (nobody could open the Admin Panel then).
+     * The stored level, scope and admin_access follow the role ({@link AccessPolicy.Profile}); the old role
+     * columns are not touched.
      */
     public User updateUser(Long targetUserId,
                            String email,
                            String displayName,
-                           String level,
-                           String scope,
+                           String role,
+                           String visibility,
+                           String access,
                            Boolean enabled,
                            Long actingUserId) {
         User targetUser = userRepository.findById(targetUserId)
@@ -103,84 +100,104 @@ public class UserService {
             nextName = trimmed;
         }
 
-        AccessLevel nextLevel = level == null || level.isBlank()
-                ? storedLevel(targetUser)
-                : AccessLevel.tryFrom(level)
-                        .orElseThrow(() -> new IllegalArgumentException("Unsupported access level: " + level));
-        AccessScope nextScope;
-        if (scope == null || scope.isBlank()) {
-            nextScope = nextLevel == AccessLevel.SOQM ? AccessScope.ALL : storedScope(targetUser);
-            Optional<String> refusal = AccessPolicy.levelScopeRefusal(nextLevel, nextScope);
-            if (refusal.isPresent()) {
-                throw new IllegalArgumentException(refusal.get());
-            }
-        } else {
-            nextScope = resolveScope(nextLevel, scope);
-        }
+        AccessPolicy.Profile current = AccessPolicy.Profile.of(targetUser);
+        AccessPolicy.Profile next = profile(role, visibility, access, current);
+        boolean enabledNow = Boolean.TRUE.equals(targetUser.getEnabled());
+        boolean nextEnabled = enabled != null ? enabled : enabledNow;
 
-        boolean nextEnabled = enabled != null ? enabled : Boolean.TRUE.equals(targetUser.getEnabled());
         boolean selfUpdate = actingUserId != null && actingUserId.equals(targetUser.getId());
+        if (selfUpdate && next.role() != current.role()) {
+            throw new IllegalArgumentException("You cannot change your own role");
+        }
         if (selfUpdate && !nextEnabled) {
             throw new IllegalArgumentException("You cannot deactivate your own account");
         }
-        if (selfUpdate && nextLevel != storedLevel(targetUser)) {
-            throw new IllegalArgumentException("You cannot change your own role");
+        boolean lastActiveSoqm = current.role() == UserRole.SOQM_TEAM && enabledNow
+                && userRepository.countActiveByAccessLevel(AccessLevel.SOQM) <= 1;
+        if (lastActiveSoqm && next.role() != UserRole.SOQM_TEAM) {
+            throw new IllegalArgumentException(LAST_SOQM_ROLE);
+        }
+        if (lastActiveSoqm && !nextEnabled) {
+            throw new IllegalArgumentException(LAST_SOQM_DEACTIVATE);
         }
 
         targetUser.setMail(nextMail);
         targetUser.setDisplayName(nextName);
-        targetUser.setAccessLevel(nextLevel);
-        targetUser.setAccessScope(nextScope);
-        targetUser.setAdminAccess(AccessPolicy.Profile.of(nextLevel, nextScope).adminAccess());
+        apply(targetUser, next);
         targetUser.setEnabled(nextEnabled);
         return userRepository.save(targetUser);
     }
 
+    static final String LAST_SOQM_ROLE =
+            "This is the last active SoQM Team member: their role cannot change until someone else is SoQM Team";
+    static final String LAST_SOQM_DEACTIVATE =
+            "This is the last active SoQM Team member: they cannot be deactivated until someone else is SoQM Team";
+
     /**
-     * A new user with an access level and scope; no old role. SoQM always sees every control, so its
-     * scope is ALL (a missing scope of anyone else is OWN).
+     * A new user with a role; no old role. A User without Visibility or Access starts at My controls and
+     * Read Only.
      */
     public User createUser(String email,
                            String displayName,
-                           String level,
-                           String scope,
+                           String role,
+                           String visibility,
+                           String access,
                            Boolean enabled) {
-        if (level == null || level.isBlank()) {
-            throw new IllegalArgumentException("Access level is required");
+        if (role == null || role.isBlank()) {
+            throw new IllegalArgumentException("Role is required");
         }
-        AccessLevel accessLevel = AccessLevel.tryFrom(level)
-                .orElseThrow(() -> new IllegalArgumentException("Unsupported access level: " + level));
-        AccessScope accessScope = resolveScope(accessLevel, scope);
-        return userRepository.save(newUser(email, displayName, accessLevel, accessScope, enabled));
+        AccessPolicy.Profile profile = profile(role, visibility, access, null);
+        return userRepository.save(newUser(email, displayName, profile, enabled));
     }
 
     /**
-     * The scope for a level, as {@link AccessPolicy#levelScopeRefusal} allows it (SoQM only ALL, KDN only
-     * READ_ONLY); a blank scope means ALL for SoQM and OWN for everyone else.
+     * The profile the Admin Panel asks for. A blank role keeps {@code current}; Visibility and Access belong
+     * to the role User only (refused with another role); for a User a blank one keeps the current value,
+     * or, for a new User or someone becoming User, starts at My controls and Read Only.
      */
-    public static AccessScope resolveScope(AccessLevel level, String scope) {
-        if (scope == null || scope.isBlank()) {
-            return level == AccessLevel.SOQM ? AccessScope.ALL : AccessScope.OWN;
+    static AccessPolicy.Profile profile(String role, String visibility, String access, AccessPolicy.Profile current) {
+        UserRole nextRole;
+        if (role == null || role.isBlank()) {
+            if (current == null) {
+                throw new IllegalArgumentException("Role is required");
+            }
+            nextRole = current.role();
+        } else {
+            nextRole = UserRole.tryFrom(role)
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown role: " + role));
         }
-        AccessScope accessScope = AccessScope.tryFrom(scope)
-                .orElseThrow(() -> new IllegalArgumentException("Unsupported scope: " + scope));
-        Optional<String> refusal = AccessPolicy.levelScopeRefusal(level, accessScope);
+        boolean blankVisibility = visibility == null || visibility.isBlank();
+        boolean blankAccess = access == null || access.isBlank();
+        if (nextRole != UserRole.USER) {
+            if (!blankVisibility || !blankAccess) {
+                throw new IllegalArgumentException("Visibility and Access apply only to the role User");
+            }
+            return new AccessPolicy.Profile(nextRole, null, null);
+        }
+        boolean stayingUser = current != null && current.role() == UserRole.USER;
+        Visibility nextVisibility = blankVisibility
+                ? (stayingUser ? current.visibility() : null)
+                : Visibility.tryFrom(visibility)
+                        .orElseThrow(() -> new IllegalArgumentException("Unknown visibility: " + visibility));
+        AccessRight nextAccess = blankAccess
+                ? (stayingUser ? current.access() : null)
+                : AccessRight.tryFrom(access)
+                        .orElseThrow(() -> new IllegalArgumentException("Unknown access: " + access));
+        return AccessPolicy.Profile.user(nextVisibility, nextAccess);
+    }
+
+    /** Stores a profile as level, scope and the admin_access flag that follows it. */
+    private static void apply(User user, AccessPolicy.Profile profile) {
+        Optional<String> refusal = AccessPolicy.levelScopeRefusal(profile.level(), profile.scope());
         if (refusal.isPresent()) {
-            throw new IllegalArgumentException(refusal.get());
+            throw new IllegalStateException(refusal.get());
         }
-        return accessScope;
+        user.setAccessLevel(profile.level());
+        user.setAccessScope(profile.scope());
+        user.setAdminAccess(profile.adminAccess());
     }
 
-    private static AccessLevel storedLevel(User user) {
-        return user.getAccessLevel() != null ? user.getAccessLevel() : AccessLevel.READ_ONLY;
-    }
-
-    private static AccessScope storedScope(User user) {
-        return user.getAccessScope() != null ? user.getAccessScope() : AccessScope.OWN;
-    }
-
-    private User newUser(String email, String displayName, AccessLevel level, AccessScope scope,
-                         Boolean enabled) {
+    private User newUser(String email, String displayName, AccessPolicy.Profile profile, Boolean enabled) {
         String normalizedEmail = normalizeEmail(email);
         if (userRepository.existsByMail(normalizedEmail)) {
             throw new IllegalArgumentException("User with this email already exists");
@@ -189,9 +206,7 @@ public class UserService {
         User user = new User();
         user.setMail(normalizedEmail);
         user.setDisplayName(resolveDisplayName(displayName, normalizedEmail));
-        user.setAccessLevel(level);
-        user.setAccessScope(scope);
-        user.setAdminAccess(AccessPolicy.Profile.of(level, scope).adminAccess());
+        apply(user, profile);
         user.setEnabled(enabled == null || enabled);
         user.setPassword(passwordEncoder.encode(DEFAULT_NEW_USER_PASSWORD));
         return user;

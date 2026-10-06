@@ -43,15 +43,17 @@ public class UserController {
     }
 
     /**
-     * The Admin Panel save of one user, in one request: access (level, scope, admin access, status) and,
-     * when sent, the name and the e-mail (the e-mail only before the first login). Nothing changes when a
-     * value is refused. A save that changes something writes one USER_ACCESS_UPDATE entry with the changed
-     * fields before and after; the answer carries the user and that entry for the page.
+     * The Admin Panel save of one user, in one request: the role (with Visibility and Access for a User),
+     * the status and, when sent, the name and the e-mail (the e-mail only before the first login). Nothing
+     * changes when a value is refused ({@link UserService#updateUser}). A save that changes something writes
+     * one USER_ACCESS_UPDATE entry with the changed fields before and after; the answer carries the user and
+     * that entry for the page.
      */
     @PostMapping("/users/{id}/access")
     public ResponseEntity<?> updateUserAccess(@PathVariable Long id,
-                                              @RequestParam(required = false) String level,
-                                              @RequestParam(required = false) String scope,
+                                              @RequestParam(required = false) String role,
+                                              @RequestParam(required = false) String visibility,
+                                              @RequestParam(required = false) String access,
                                               @RequestParam(defaultValue = "false") boolean enabled,
                                               @RequestParam(required = false) String email,
                                               @RequestParam(required = false) String displayName,
@@ -69,7 +71,7 @@ public class UserController {
             User before = snapshot(userService.getUserById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found")));
 
-            User updated = userService.updateUser(id, email, displayName, level, scope, enabled,
+            User updated = userService.updateUser(id, email, displayName, role, visibility, access, enabled,
                     currentUser.getId());
 
             AdminAuditLog audit = null;
@@ -96,12 +98,13 @@ public class UserController {
         }
     }
 
-    /** A new user with an access level and scope (SoQM: scope ALL; a blank scope of anyone else is OWN). */
+    /** A new user with a role; a User without Visibility or Access starts at My controls and Read Only. */
     @PostMapping("/users")
     public ResponseEntity<?> createUser(@RequestParam String email,
                                         @RequestParam(required = false) String displayName,
-                                        @RequestParam(required = false) String level,
-                                        @RequestParam(required = false) String scope,
+                                        @RequestParam(required = false) String role,
+                                        @RequestParam(required = false) String visibility,
+                                        @RequestParam(required = false) String access,
                                         @RequestParam(defaultValue = "true") boolean enabled,
                                         HttpSession session) {
         User currentUser = (User) session.getAttribute("currentUser");
@@ -113,7 +116,7 @@ public class UserController {
         }
 
         try {
-            User created = userService.createUser(email, displayName, level, scope, enabled);
+            User created = userService.createUser(email, displayName, role, visibility, access, enabled);
 
             AdminAuditLog audit = adminAuditService.logActionWithChanges(
                     currentUser.getMail(),
@@ -121,7 +124,7 @@ public class UserController {
                     "USER_CREATE",
                     null,
                     "Created user " + created.getMail(),
-                "mail,displayName,level,scope,adminAccess,enabled",
+                "mail,displayName,role,enabled",
                     "-",
                     "mail=" + created.getMail()
                     + ", displayName=" + created.getDisplayName()
@@ -185,16 +188,13 @@ public class UserController {
         copy.setDisplayName(user.getDisplayName());
         copy.setAccessLevel(user.getAccessLevel());
         copy.setAccessScope(user.getAccessScope());
-        copy.setAdminAccess(user.getAdminAccess());
         copy.setEnabled(user.getEnabled());
         return copy;
     }
 
-    /** "level=SOQM, scope=ALL, adminAccess=false, enabled=true" for the audit log. */
+    /** "role=User · My controls · Read Only, enabled=true" for the audit log. */
     private static String accessValues(User user) {
-        return "level=" + user.getAccessLevel()
-                + ", scope=" + user.getAccessScope()
-                + ", adminAccess=" + Boolean.TRUE.equals(user.getAdminAccess())
+        return "role=" + RoleDisplayMapper.access(user)
                 + ", enabled=" + Boolean.TRUE.equals(user.getEnabled());
     }
 
@@ -208,6 +208,11 @@ public class UserController {
         }
     }
 
+    /**
+     * The changes in the words of the Admin Panel. A new role is one change from the whole access before to
+     * the whole access after ("User · My controls · Edit" to "SoQM Team"); a User who stays User has their
+     * Visibility and Access changes listed one by one.
+     */
     private static Changes changes(User before, User after) {
         Changes changes = new Changes(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
         if (!Objects.equals(before.getMail(), after.getMail())) {
@@ -218,25 +223,29 @@ public class UserController {
             changes.add("displayName", "Changed name from " + before.getDisplayName() + " to " + after.getDisplayName(),
                     before.getDisplayName(), after.getDisplayName());
         }
-        if (before.getAccessLevel() != after.getAccessLevel()) {
-            changes.add("level", "Changed level from " + before.getAccessLevel() + " to " + after.getAccessLevel(),
-                    before.getAccessLevel(), after.getAccessLevel());
-        }
-        if (before.getAccessScope() != after.getAccessScope()) {
-            changes.add("scope", "Changed scope from " + before.getAccessScope() + " to " + after.getAccessScope(),
-                    before.getAccessScope(), after.getAccessScope());
-        }
-        boolean beforeAdmin = Boolean.TRUE.equals(before.getAdminAccess());
-        boolean afterAdmin = Boolean.TRUE.equals(after.getAdminAccess());
-        if (beforeAdmin != afterAdmin) {
-            changes.add("adminAccess", "Changed admin access from " + yesNo(beforeAdmin) + " to " + yesNo(afterAdmin),
-                    beforeAdmin, afterAdmin);
+        AccessPolicy.Profile from = AccessPolicy.Profile.of(before);
+        AccessPolicy.Profile to = AccessPolicy.Profile.of(after);
+        if (from.role() != to.role()) {
+            String fromText = RoleDisplayMapper.summary(from);
+            String toText = RoleDisplayMapper.summary(to);
+            changes.add("role", "Changed role from " + fromText + " to " + toText, fromText, toText);
+        } else {
+            if (from.visibility() != to.visibility()) {
+                String fromText = from.visibility().getDisplayName();
+                String toText = to.visibility().getDisplayName();
+                changes.add("visibility", "Changed visibility from " + fromText + " to " + toText, fromText, toText);
+            }
+            if (from.access() != to.access()) {
+                String fromText = from.access().getDisplayName();
+                String toText = to.access().getDisplayName();
+                changes.add("access", "Changed access from " + fromText + " to " + toText, fromText, toText);
+            }
         }
         boolean beforeEnabled = Boolean.TRUE.equals(before.getEnabled());
         boolean afterEnabled = Boolean.TRUE.equals(after.getEnabled());
         if (beforeEnabled != afterEnabled) {
             changes.add("enabled", "Changed status from " + activeInactive(beforeEnabled) + " to "
-                    + activeInactive(afterEnabled), beforeEnabled, afterEnabled);
+                    + activeInactive(afterEnabled), activeInactive(beforeEnabled), activeInactive(afterEnabled));
         }
         return changes;
     }
@@ -247,9 +256,11 @@ public class UserController {
         payload.put("id", user.getId());
         payload.put("mail", user.getMail());
         payload.put("displayName", user.getDisplayName());
-        payload.put("level", user.getAccessLevel());
-        payload.put("scope", user.getAccessScope());
-        payload.put("adminAccess", Boolean.TRUE.equals(user.getAdminAccess()));
+        AccessPolicy.Profile profile = AccessPolicy.Profile.of(user);
+        payload.put("role", profile.role());
+        payload.put("visibility", profile.visibility());
+        payload.put("access", profile.access());
+        payload.put("summary", RoleDisplayMapper.summary(profile));
         payload.put("enabled", Boolean.TRUE.equals(user.getEnabled()));
         payload.put("lastLoginAt", user.getLastLoginAt() != null ? user.getLastLoginAt().format(DATE_TIME) : null);
         return payload;
@@ -276,15 +287,11 @@ public class UserController {
         dto.setDisplayName(user.getDisplayName());
         dto.setMail(user.getMail());
         dto.setTitle(RoleDisplayMapper.access(user));
-        dto.setRole(String.valueOf(user.getAccessLevel()));
+        dto.setRole(AccessPolicy.Profile.of(user).role().name());
         return dto;
     }
 
-    private static String yesNo(boolean value) {
-        return value ? "YES" : "NO";
-    }
-
     private static String activeInactive(boolean value) {
-        return value ? "ACTIVE" : "INACTIVE";
+        return value ? "Active" : "Inactive";
     }
 }
