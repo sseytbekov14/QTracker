@@ -49,6 +49,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1631,6 +1632,46 @@ class ApiSecurityMockMvcIT {
                 + ",\"processOwner\":[\"" + operator + "\"]"
                 + (sharedWith != null ? ",\"controlSharedWith\":[\"" + sharedWith + "\"]" : "")
                 + ",\"controlOperationDate\":\"2026-11-02\"}";
+    }
+
+    // ---- View Control: the field each step needs ----
+
+    @Test
+    void viewControl_namesTheFieldOfTheStep_toTheOneWhoseStepItIs_only() throws Exception {
+        Participants p = participants();
+        Map<String, User> actorOf = Map.of(
+                "IN_PROGRESS", p.facilitator, "REVIEW", p.operator,
+                "SOQM_HEAD_REVIEW", p.soqm, "PROCESS_OWNER_REVIEW", p.owner);
+        Map<String, String> fieldOf = Map.of(
+                "IN_PROGRESS", "controlStepsPerformed", "REVIEW", "controlStepsPerformed",
+                "SOQM_HEAD_REVIEW", "soqmHeadComments", "PROCESS_OWNER_REVIEW", "processOwnerComments");
+        Map<String, String> labelOf = Map.of(
+                "controlStepsPerformed", "Control steps performed and results",
+                "soqmHeadComments", "SoQM Head/Team Comments",
+                "processOwnerComments", "Process Owner Comments");
+
+        for (String status : actorOf.keySet()) {
+            Control control = createControl("CTRL-STEP-" + suffix(), p.soqm, status);
+            assign(control, p);
+            for (User viewer : List.of(p.facilitator, p.operator, p.soqm, p.owner)) {
+                String html = mockMvc.perform(get("/view-control/{id}", control.getId()).session(login(viewer.getMail())))
+                        .andExpect(status().isOk())
+                        .andReturn().getResponse().getContentAsString();
+                if (viewer == actorOf.get(status)) {
+                    String field = fieldOf.get(status);
+                    assertThat(html).as("%s at %s", viewer.getMail(), status)
+                            .contains("id=\"stepFieldHint\"", "data-step-field=\"" + field + "\"",
+                                    "data-vc-field=\"" + field + "\">" + labelOf.get(field) + "</a>");
+                    // Only that field's label gets the step mark
+                    assertThat(html.split("class=\"step-required-mark\"", -1)).hasSize(2);
+                    assertThat(html).containsPattern(java.util.regex.Pattern.quote(labelOf.get(field))
+                            + "<span class=\"step-required-mark\"");
+                } else {
+                    assertThat(html).as("%s at %s", viewer.getMail(), status)
+                            .doesNotContain("id=\"stepFieldHint\"", "class=\"step-required-mark\"");
+                }
+            }
+        }
     }
 
     // ---- Admin Panel: level, scope and the admin flag ----

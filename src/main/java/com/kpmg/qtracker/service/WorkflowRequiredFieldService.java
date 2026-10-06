@@ -15,6 +15,30 @@ public class WorkflowRequiredFieldService {
     private final ControlDetailsRepository controlDetailsRepository;
 
     /**
+     * The Details field a step needs before its actions go through (the checks below), for the "Your step" hint
+     * on View Control. {@code check}: the field was filled at an earlier step and is only reviewed here.
+     */
+    public record StepField(String field, String label, boolean check, String actions) {
+    }
+
+    /** The field of the step a control in this status is at; empty for Draft and Completed. */
+    public static Optional<StepField> stepField(String performanceStatus) {
+        String status = performanceStatus == null ? "" : performanceStatus.trim().toUpperCase(Locale.ROOT);
+        return switch (status) {
+            case "IN_PROGRESS" -> Optional.of(new StepField("controlStepsPerformed",
+                    "Control steps performed and results", false, "Submit for Review"));
+            case "REVIEW" -> Optional.of(new StepField("controlStepsPerformed",
+                    "Control steps performed and results", true,
+                    "Submit for SoQM Team Review or Return to Facilitator"));
+            case "SOQM_HEAD_REVIEW" -> Optional.of(new StepField("soqmHeadComments",
+                    "SoQM Head/Team Comments", false, "Send to Process Owner or Return to Operator"));
+            case "PROCESS_OWNER_REVIEW" -> Optional.of(new StepField("processOwnerComments",
+                    "Process Owner Comments", false, "Complete or Return to Control Operator"));
+            default -> Optional.empty();
+        };
+    }
+
+    /**
      * Control Steps Performed must be filled in to move a control on from In Progress, Review or SoQM review,
      * whoever does it (one person may hold several fields of a control).
      */

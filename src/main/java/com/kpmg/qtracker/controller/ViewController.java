@@ -897,6 +897,9 @@ public class ViewController {
                         || ("SOQM_HEAD_REVIEW".equals(normalizedStatus) && permission.isSoqmLead())
                         || ("PROCESS_OWNER_REVIEW".equals(normalizedStatus) && permission.isProcessOwner()));
         model.addAttribute("yourTurn", yourTurn);
+        // The field the user's step needs, named in the "Your step" hint and marked on the Details tab
+        model.addAttribute("stepField", yourTurn
+                ? WorkflowRequiredFieldService.stepField(normalizedStatus).orElse(null) : null);
 
         // A draft links to its Initiate page for whoever the server lets initiate it
         model.addAttribute("canInitiate",

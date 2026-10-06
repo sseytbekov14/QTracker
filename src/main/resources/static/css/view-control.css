@@ -140,6 +140,28 @@
     text-decoration: underline;
 }
 .vc-turn-hint-link:hover { color: inherit; text-decoration: none; }
+/* Required / Filled state of the field the step needs; the hint turns green once it is filled */
+.vc-step-state {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: #fbecee;
+    color: #a01025;
+    border: 1px solid #f1c3cb;
+}
+.vc-step-state:empty { display: none; }
+.vc-step-state.is-filled { background: #e8f6ee; color: #146c3a; border-color: #b9e2c9; }
+.vc-turn-hint.is-done { background: #eef7f1; color: #146c3a; }
+.step-required-mark { color: #dc3545; font-weight: 700; }
+/* Phone: the text takes the width, the Required / Filled state goes under it */
+@media (max-width: 575.98px) {
+    .vc-turn-hint { flex-wrap: wrap; align-items: flex-start; }
+    .vc-turn-hint > span:not(.vc-step-state) { flex: 1 1 calc(100% - 24px); min-width: 0; }
+    .vc-step-state { margin-left: 20px; }
+}
 
 /* Edit mode without full rights: why Assignment / SoQM Development Materials stay read-only */
 .vc-soqm-only-note {
