@@ -72,9 +72,7 @@ class UserAccessAuditIT {
 
     @Test
     void accessUpdate_auditRecordsTheValuesBeforeAndAfter() throws Exception {
-        User admin = saveUser("audit-admin-" + suffix() + "@example.test", "PROCESS_OWNER");
-        admin.setAdminAccess(true);
-        userRepository.save(admin);
+        User admin = saveAdmin();
         User target = saveUser("audit-target-" + suffix() + "@example.test", "FACILITATOR");
 
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).session(login(admin.getMail()))
@@ -89,10 +87,10 @@ class UserAccessAuditIT {
                 .findFirst().orElseThrow();
         assertThat(log.getActionDescription()).isEqualTo(
                 "Changed level from PARTICIPANT to READ_ONLY; Changed scope from OWN to ALL; "
-                        + "Changed admin access from NO to YES; Changed status from ACTIVE to INACTIVE for " + target.getMail());
-        assertThat(log.getChangedFields()).isEqualTo("level,scope,adminAccess,enabled");
-        assertThat(log.getPreviousValues()).isEqualTo("level=PARTICIPANT, scope=OWN, adminAccess=false, enabled=true");
-        assertThat(log.getNewValues()).isEqualTo("level=READ_ONLY, scope=ALL, adminAccess=true, enabled=false");
+                        + "Changed status from ACTIVE to INACTIVE for " + target.getMail());
+        assertThat(log.getChangedFields()).isEqualTo("level,scope,enabled");
+        assertThat(log.getPreviousValues()).isEqualTo("level=PARTICIPANT, scope=OWN, enabled=true");
+        assertThat(log.getNewValues()).isEqualTo("level=READ_ONLY, scope=ALL, enabled=false");
     }
 
     @Test
@@ -118,15 +116,16 @@ class UserAccessAuditIT {
                 .andExpect(jsonPath("$.audit.target").value(newMail))
                 .andExpect(jsonPath("$.audit.action").value("Changed email from " + target.getMail() + " to " + newMail
                         + "; Changed name from " + target.getDisplayName() + " to Renamed User"
-                        + "; Changed level from PARTICIPANT to SOQM; Changed scope from OWN to ALL"));
+                        + "; Changed level from PARTICIPANT to SOQM; Changed scope from OWN to ALL"
+                        + "; Changed admin access from NO to YES"));
 
         List<AdminAuditLog> entries = accessEntries(admin);
         assertThat(entries).hasSize(1);
-        assertThat(entries.get(0).getChangedFields()).isEqualTo("mail,displayName,level,scope");
+        assertThat(entries.get(0).getChangedFields()).isEqualTo("mail,displayName,level,scope,adminAccess");
         assertThat(entries.get(0).getPreviousValues()).isEqualTo("mail=" + target.getMail()
-                + ", displayName=" + target.getDisplayName() + ", level=PARTICIPANT, scope=OWN");
+                + ", displayName=" + target.getDisplayName() + ", level=PARTICIPANT, scope=OWN, adminAccess=false");
         assertThat(entries.get(0).getNewValues()).isEqualTo("mail=" + newMail
-                + ", displayName=Renamed User, level=SOQM, scope=ALL");
+                + ", displayName=Renamed User, level=SOQM, scope=ALL, adminAccess=true");
 
         // The entry is on the Audit Trail of the next page load as well
         String html = mockMvc.perform(get("/admin/users").session(session))
@@ -178,14 +177,14 @@ class UserAccessAuditIT {
         User admin = saveAdmin();
         MockHttpSession session = login(admin.getMail());
 
-        assertSelfSaveRefused(session, admin, "PARTICIPANT", "true", "false", "You cannot deactivate your own account");
-        assertSelfSaveRefused(session, admin, "PARTICIPANT", "false", "true", "You cannot remove your own admin access");
-        assertSelfSaveRefused(session, admin, "READ_ONLY", "true", "true", "You cannot make your own access read-only");
+        assertSelfSaveRefused(session, admin, "SOQM", "true", "false", "You cannot deactivate your own account");
+        assertSelfSaveRefused(session, admin, "PARTICIPANT", "false", "true", "You cannot change your own role");
+        assertSelfSaveRefused(session, admin, "READ_ONLY", "true", "true", "You cannot change your own role");
 
         User stored = userRepository.findById(admin.getId()).orElseThrow();
         assertThat(stored.getEnabled()).isTrue();
         assertThat(stored.getAdminAccess()).isTrue();
-        assertThat(stored.getAccessLevel()).isEqualTo(AccessLevel.PARTICIPANT);
+        assertThat(stored.getAccessLevel()).isEqualTo(AccessLevel.SOQM);
         assertThat(accessEntries(admin)).isEmpty();
     }
 
@@ -226,10 +225,9 @@ class UserAccessAuditIT {
                 .toList();
     }
 
+    /** The Admin Panel belongs to SoQM Team. */
     private User saveAdmin() {
-        User admin = saveUser("audit-admin-" + suffix() + "@example.test", "PROCESS_OWNER");
-        admin.setAdminAccess(true);
-        return userRepository.save(admin);
+        return saveUser("audit-admin-" + suffix() + "@example.test", "SOQM_TEAM");
     }
 
     private User saveUser(String mail, String role) {

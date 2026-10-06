@@ -105,6 +105,10 @@ class V8KdnReadOnlyMigrationTest {
 
         Map<String, String> migrated = access();
         users.forEach((mail, values) -> {
+            if (LegacyRoleAccess.excludedFromImport(values[0])) {
+                // Master: V6 gave it PARTICIPANT / ALL; the import leaves it out since 2026-10-07
+                return;
+            }
             LegacyRoleAccess.Access access = LegacyRoleAccess.of(values[0], values[1]);
             assertThat(migrated.get(mail)).as(mail).isEqualTo(access.level() + "/" + access.scope());
         });

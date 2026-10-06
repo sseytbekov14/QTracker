@@ -57,7 +57,7 @@ class UserServiceAccessTest {
     void blankLevelAndScope_keepTheStoredOnes_whileStatusChanges() {
         stored(AccessLevel.READ_ONLY, AccessScope.KDN);
 
-        User saved = service.updateUserAccess(TARGET_ID, "", null, false, false, ADMIN_ID);
+        User saved = service.updateUserAccess(TARGET_ID, "", null, false, ADMIN_ID);
 
         assertThat(saved.getAccessLevel()).isEqualTo(AccessLevel.READ_ONLY);
         assertThat(saved.getAccessScope()).isEqualTo(AccessScope.KDN);
@@ -68,11 +68,12 @@ class UserServiceAccessTest {
     void levelAndScope_areSaved_andTheOldRoleColumnsStayAsTheyWere() {
         stored(AccessLevel.PARTICIPANT, AccessScope.OWN);
 
-        User saved = service.updateUserAccess(TARGET_ID, "read-only", "all", true, true, ADMIN_ID);
+        User saved = service.updateUserAccess(TARGET_ID, "read-only", "all", true, ADMIN_ID);
 
         assertThat(saved.getAccessLevel()).isEqualTo(AccessLevel.READ_ONLY);
         assertThat(saved.getAccessScope()).isEqualTo(AccessScope.ALL);
-        assertThat(saved.getAdminAccess()).isTrue();
+        // The admin flag follows the level: SoQM Team only
+        assertThat(saved.getAdminAccess()).isFalse();
         assertThat(saved.getRole()).isEqualTo("FACILITATOR");
         assertThat(saved.getSecondaryRole()).isEqualTo("PROCESS_OWNER");
     }
@@ -81,24 +82,24 @@ class UserServiceAccessTest {
     void soqm_alwaysGetsScopeAll_andRefusesAnyOther() {
         stored(AccessLevel.READ_ONLY, AccessScope.KDN);
 
-        assertThat(service.updateUserAccess(TARGET_ID, "SOQM", "", false, true, ADMIN_ID).getAccessScope())
+        assertThat(service.updateUserAccess(TARGET_ID, "SOQM", "", true, ADMIN_ID).getAccessScope())
                 .isEqualTo(AccessScope.ALL);
-        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "SOQM", "OWN", false, true, ADMIN_ID))
-                .hasMessage("SoQM always sees all controls: scope must be ALL");
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "SOQM", "OWN", true, ADMIN_ID))
+                .hasMessage("SoQM Team always sees all controls");
     }
 
     @Test
     void kdn_isAlwaysReadOnly_whicheverWayTheLevelOrScopeChanges() {
         stored(AccessLevel.READ_ONLY, AccessScope.KDN);
-        String refusal = "KDN users only view their KDN controls: level must be Read only";
+        String refusal = "KDN users have read-only access";
 
-        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "PARTICIPANT", "", false, true, ADMIN_ID))
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "PARTICIPANT", "", true, ADMIN_ID))
                 .hasMessage(refusal);
-        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "PARTICIPANT", "KDN", false, true, ADMIN_ID))
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "PARTICIPANT", "KDN", true, ADMIN_ID))
                 .hasMessage(refusal);
-        assertThat(service.updateUserAccess(TARGET_ID, "PARTICIPANT", "OWN", false, true, ADMIN_ID).getAccessScope())
+        assertThat(service.updateUserAccess(TARGET_ID, "PARTICIPANT", "OWN", true, ADMIN_ID).getAccessScope())
                 .isEqualTo(AccessScope.OWN);
-        assertThatThrownBy(() -> service.createUser("k@example.test", null, "PARTICIPANT", "KDN", false, true))
+        assertThatThrownBy(() -> service.createUser("k@example.test", null, "PARTICIPANT", "KDN", true))
                 .hasMessage(refusal);
     }
 
@@ -106,7 +107,7 @@ class UserServiceAccessTest {
     void leavingSoqm_keepsScopeAll_untilAnotherIsChosen() {
         stored(AccessLevel.SOQM, AccessScope.ALL);
 
-        User saved = service.updateUserAccess(TARGET_ID, "PARTICIPANT", "", false, true, ADMIN_ID);
+        User saved = service.updateUserAccess(TARGET_ID, "PARTICIPANT", "", true, ADMIN_ID);
 
         assertThat(saved.getAccessLevel()).isEqualTo(AccessLevel.PARTICIPANT);
         assertThat(saved.getAccessScope()).isEqualTo(AccessScope.ALL);
@@ -116,24 +117,21 @@ class UserServiceAccessTest {
     void unknownLevelOrScope_isRefused() {
         stored(AccessLevel.PARTICIPANT, AccessScope.OWN);
 
-        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "ADMIN", "", false, true, ADMIN_ID))
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "ADMIN", "", true, ADMIN_ID))
                 .hasMessage("Unsupported access level: ADMIN");
-        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "PARTICIPANT", "TEAM", false, true, ADMIN_ID))
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "PARTICIPANT", "TEAM", true, ADMIN_ID))
                 .hasMessage("Unsupported scope: TEAM");
     }
 
     @Test
-    void admin_cannotDisableThemselves_removeTheirAdminAccess_orBecomeReadOnly() {
-        User self = stored(AccessLevel.PARTICIPANT, AccessScope.ALL);
-        self.setAdminAccess(true);
+    void soqmTeam_cannotDisableThemselves_orChangeTheirOwnRole() {
+        stored(AccessLevel.SOQM, AccessScope.ALL);
 
-        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "", "", true, false, TARGET_ID))
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "", "", false, TARGET_ID))
                 .hasMessage("You cannot deactivate your own account");
-        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "", "", false, true, TARGET_ID))
-                .hasMessage("You cannot remove your own admin access");
-        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "READ_ONLY", "", true, true, TARGET_ID))
-                .hasMessage("You cannot make your own access read-only");
-        assertThat(service.updateUserAccess(TARGET_ID, "SOQM", "", true, true, TARGET_ID).getAccessLevel())
+        assertThatThrownBy(() -> service.updateUserAccess(TARGET_ID, "PARTICIPANT", "ALL", true, TARGET_ID))
+                .hasMessage("You cannot change your own role");
+        assertThat(service.updateUserAccess(TARGET_ID, "SOQM", "", true, TARGET_ID).getAccessLevel())
                 .isEqualTo(AccessLevel.SOQM);
     }
 
@@ -142,8 +140,7 @@ class UserServiceAccessTest {
         stored(AccessLevel.READ_ONLY, AccessScope.OWN);
         when(userRepository.existsByMail("new@example.test")).thenReturn(false);
 
-        User saved = service.updateUser(TARGET_ID, " New@Example.test ", "  Jane Doe ", "READ_ONLY", "KDN",
-                false, true, ADMIN_ID);
+        User saved = service.updateUser(TARGET_ID, " New@Example.test ", "  Jane Doe ", "READ_ONLY", "KDN", true, ADMIN_ID);
 
         assertThat(saved.getMail()).isEqualTo("new@example.test");
         assertThat(saved.getDisplayName()).isEqualTo("Jane Doe");
@@ -157,12 +154,11 @@ class UserServiceAccessTest {
         user.setDisplayName("Old Name");
         user.setLastLoginAt(java.time.LocalDateTime.of(2026, 10, 1, 9, 0));
 
-        assertThatThrownBy(() -> service.updateUser(TARGET_ID, "other@example.test", "New Name", "SOQM", "",
-                true, true, ADMIN_ID))
+        assertThatThrownBy(() -> service.updateUser(TARGET_ID, "other@example.test", "New Name", "SOQM", "", true, ADMIN_ID))
                 .hasMessage("Email can be changed only before the first login");
-        assertThatThrownBy(() -> service.updateUser(TARGET_ID, null, "   ", "SOQM", "", true, true, ADMIN_ID))
+        assertThatThrownBy(() -> service.updateUser(TARGET_ID, null, "   ", "SOQM", "", true, ADMIN_ID))
                 .hasMessage("Name is required");
-        assertThatThrownBy(() -> service.updateUser(TARGET_ID, null, "x".repeat(256), "SOQM", "", true, true, ADMIN_ID))
+        assertThatThrownBy(() -> service.updateUser(TARGET_ID, null, "x".repeat(256), "SOQM", "", true, ADMIN_ID))
                 .hasMessage("Name is too long (255 characters at most)");
         assertThat(user.getMail()).isEqualTo("target@example.test");
         assertThat(user.getDisplayName()).isEqualTo("Old Name");
@@ -170,7 +166,7 @@ class UserServiceAccessTest {
         assertThat(user.getAdminAccess()).isFalse();
 
         // The same address in another case is no change, also after the first login
-        assertThat(service.updateUser(TARGET_ID, "TARGET@example.test", null, "", "", false, true, ADMIN_ID).getMail())
+        assertThat(service.updateUser(TARGET_ID, "TARGET@example.test", null, "", "", true, ADMIN_ID).getMail())
                 .isEqualTo("target@example.test");
     }
 
@@ -179,7 +175,7 @@ class UserServiceAccessTest {
         when(userRepository.existsByMail("ro@example.test")).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
 
-        User created = service.createUser("ro@example.test", "Viewer", "READ_ONLY", "ALL", false, true);
+        User created = service.createUser("ro@example.test", "Viewer", "READ_ONLY", "ALL", true);
 
         assertThat(created.getAccessLevel()).isEqualTo(AccessLevel.READ_ONLY);
         assertThat(created.getAccessScope()).isEqualTo(AccessScope.ALL);
@@ -191,17 +187,17 @@ class UserServiceAccessTest {
         when(userRepository.existsByMail(any())).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
 
-        assertThat(service.createUser("s@example.test", null, "SOQM", null, false, true).getAccessScope())
+        assertThat(service.createUser("s@example.test", null, "SOQM", null, true).getAccessScope())
                 .isEqualTo(AccessScope.ALL);
-        assertThat(service.createUser("p@example.test", null, "PARTICIPANT", "", false, true).getAccessScope())
+        assertThat(service.createUser("p@example.test", null, "PARTICIPANT", "", true).getAccessScope())
                 .isEqualTo(AccessScope.OWN);
-        assertThatThrownBy(() -> service.createUser("s2@example.test", null, "SOQM", "KDN", false, true))
-                .hasMessage("SoQM always sees all controls: scope must be ALL");
-        assertThatThrownBy(() -> service.createUser("x@example.test", null, "ADMIN", "ALL", false, true))
+        assertThatThrownBy(() -> service.createUser("s2@example.test", null, "SOQM", "KDN", true))
+                .hasMessage("SoQM Team always sees all controls");
+        assertThatThrownBy(() -> service.createUser("x@example.test", null, "ADMIN", "ALL", true))
                 .hasMessage("Unsupported access level: ADMIN");
-        assertThatThrownBy(() -> service.createUser("y@example.test", null, "PARTICIPANT", "MINE", false, true))
+        assertThatThrownBy(() -> service.createUser("y@example.test", null, "PARTICIPANT", "MINE", true))
                 .hasMessage("Unsupported scope: MINE");
-        assertThatThrownBy(() -> service.createUser("z@example.test", null, " ", "OWN", false, true))
+        assertThatThrownBy(() -> service.createUser("z@example.test", null, " ", "OWN", true))
                 .hasMessage("Access level is required");
     }
 }

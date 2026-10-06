@@ -1281,7 +1281,7 @@ class ApiSecurityMockMvcIT {
 
         assertThat(userRepository.findByMail(" " + lower.toUpperCase() + " ")).map(User::getId).contains(stored.getId());
         assertThat(userRepository.existsByMail(lower)).isTrue();
-        assertThatThrownBy(() -> userService.createUser(lower, "Copy", "PARTICIPANT", "OWN", false, true))
+        assertThatThrownBy(() -> userService.createUser(lower, "Copy", "PARTICIPANT", "OWN", true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("already exists");
     }
@@ -1531,7 +1531,7 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
-    void pickers_onlySoqm_userList_soqmAndAdmins() throws Exception {
+    void pickers_andUserList_onlySoqmTeam_anOldAdminFlagGivesNothing() throws Exception {
         Participants p = participants();
         User admin = saveUser("admin-" + suffix(), "admin-" + suffix() + "@example.test", "PROCESS_OWNER");
         admin.setAdminAccess(true);
@@ -1550,7 +1550,7 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isBadRequest());
 
         mockMvc.perform(get("/api/users").with(ownAddress()).session(soqm)).andExpect(status().isOk());
-        mockMvc.perform(get("/api/users").with(ownAddress()).session(adminSession)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/users").with(ownAddress()).session(adminSession)).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/users").with(ownAddress()).session(facilitator)).andExpect(status().isForbidden());
     }
 
@@ -1601,11 +1601,11 @@ class ApiSecurityMockMvcIT {
         MockHttpSession session = login(p.soqm.getMail());
 
         assertAssignmentRefused(session, control, readOnly.getMail(), p.operator.getMail(), p.soqm.getMail(),
-                "Facilitator: " + readOnly.getMail() + " has read-only access and cannot be assigned");
+                "Facilitator: " + readOnly.getMail() + " has Read Only access and cannot be assigned");
         assertAssignmentRefused(session, control, p.facilitator.getMail(), kdn.getMail(), p.soqm.getMail(),
                 "Control Operator: " + kdn.getMail() + " sees only KDN controls");
         assertAssignmentRefused(session, control, p.facilitator.getMail(), p.operator.getMail(), p.facilitator.getMail(),
-                "SoQM Team / Delegate: " + p.facilitator.getMail() + " is not a SoQM user");
+                "SoQM Team / Delegate: " + p.facilitator.getMail() + " is not SoQM Team");
 
         // One person may hold several fields; a read-only user may be shared with
         mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader()).with(ownAddress()).session(session)
@@ -1622,9 +1622,9 @@ class ApiSecurityMockMvcIT {
         kdnControl.setControlFrequency("Monthly");
         controlRepository.save(kdnControl);
         assertAssignmentRefused(session, kdnControl, readOnly.getMail(), p.operator.getMail(), p.soqm.getMail(),
-                "Facilitator: " + readOnly.getMail() + " has read-only access and cannot be assigned");
+                "Facilitator: " + readOnly.getMail() + " has Read Only access and cannot be assigned");
         assertAssignmentRefused(session, kdnControl, kdn.getMail(), kdn.getMail(), kdn.getMail(),
-                "SoQM Team / Delegate: " + kdn.getMail() + " is not a SoQM user");
+                "SoQM Team / Delegate: " + kdn.getMail() + " is not SoQM Team");
         mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader()).with(ownAddress()).session(session)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(assignmentJson(kdnControl, kdn.getMail(), kdn.getMail(), p.soqm.getMail(), null)))
@@ -1779,7 +1779,7 @@ class ApiSecurityMockMvcIT {
                         .param("scope", "KDN")
                         .param("enabled", "true"))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("KDN users only view their KDN controls: level must be Read only"));
+                .andExpect(content().string("KDN users have read-only access"));
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
                         .param("level", "READ_ONLY")
                         .param("scope", "KDN")
@@ -1798,7 +1798,7 @@ class ApiSecurityMockMvcIT {
                         .param("scope", "OWN")
                         .param("enabled", "true"))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("SoQM always sees all controls: scope must be ALL"));
+                .andExpect(content().string("SoQM Team always sees all controls"));
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
                         .param("level", "SOQM")
                         .param("enabled", "true"))
@@ -1834,41 +1834,50 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
-    void readOnlyAdmin_seesThePanel_butChangesNothing() throws Exception {
-        User readOnlyAdmin = saveUser("ro-admin", "ro-admin-" + suffix() + "@example.test", "READ_ONLY");
-        readOnlyAdmin.setAdminAccess(true);
-        userRepository.save(readOnlyAdmin);
-        User target = saveUser("ro-target", "ro-target-" + suffix() + "@example.test", "FACILITATOR");
-        MockHttpSession session = login(readOnlyAdmin.getMail());
+    void userAndKdn_cannotOpenTheAdminPanel_orChangeUsers() throws Exception {
+        User target = saveUser("np-target", "np-target-" + suffix() + "@example.test", "FACILITATOR");
+        User flaggedUser = saveUser("np-flag", "np-flag-" + suffix() + "@example.test", "PROCESS_OWNER");
+        // User, All controls, Edit: the widest User still has no Admin Panel
+        flaggedUser.setAccessScope(com.kpmg.qtracker.enums.AccessScope.ALL);
+        userRepository.save(flaggedUser);
+        List<User> outsiders = List.of(
+                flaggedUser,
+                saveUser("np-ro", "np-ro-" + suffix() + "@example.test", "READ_ONLY"),
+                saveUser("np-kdn", "np-kdn-" + suffix() + "@example.test", "KDN"));
 
-        String html = mockMvc.perform(get("/admin/users").session(session))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        assertThat(html).contains("Your access is read-only").doesNotContain("id=\"saveAllChanges\"", "id=\"openAddUserBtn\"",
-                "id=\"exportUsersBtn\"");
-        // The dialog opens to look only
-        assertThat(userRow(html, target)).contains("aria-label=\"View ro-target\"", "<span>View</span>");
-
-        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(session)
-                        .param("level", "SOQM")
-                        .param("enabled", "true"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("READ_ONLY"));
+        for (User outsider : outsiders) {
+            MockHttpSession session = login(outsider.getMail());
+            mockMvc.perform(get("/admin/users").session(session))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl("/"));
+            String home = mockMvc.perform(get("/").session(session))
+                    .andReturn().getResponse().getContentAsString();
+            assertThat(home).as(outsider.getMail()).doesNotContain("href=\"/admin/users\"");
+            mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress())
+                            .session(session)
+                            .param("level", "SOQM")
+                            .param("enabled", "true"))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(post("/api/users").with(csrf().asHeader()).with(ownAddress()).session(session)
+                            .param("email", "np-new-" + suffix() + "@example.test")
+                            .param("level", "SOQM"))
+                    .andExpect(status().isForbidden());
+        }
         assertThat(userRepository.findById(target.getId()).orElseThrow().getAccessLevel())
                 .isEqualTo(com.kpmg.qtracker.enums.AccessLevel.PARTICIPANT);
     }
 
     @Test
-    void admin_cannotMakeThemselvesReadOnly() throws Exception {
+    void soqmTeam_cannotChangeTheirOwnRole() throws Exception {
         User admin = adminUser();
         MockHttpSession session = login(admin.getMail());
 
         mockMvc.perform(post("/api/users/" + admin.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(session)
                         .param("level", "READ_ONLY")
-                        .param("adminAccess", "true")
+                        .param("scope", "ALL")
                         .param("enabled", "true"))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("You cannot make your own access read-only"));
+                .andExpect(content().string("You cannot change your own role"));
     }
 
     @Test
@@ -1918,10 +1927,9 @@ class ApiSecurityMockMvcIT {
         assertThat(unchanged.getEnabled()).isTrue();
     }
 
+    /** The Admin Panel belongs to SoQM Team. */
     private User adminUser() {
-        User admin = saveUser("panel-admin", "panel-admin-" + suffix() + "@example.test", "PROCESS_OWNER");
-        admin.setAdminAccess(true);
-        return userRepository.save(admin);
+        return saveUser("panel-admin", "panel-admin-" + suffix() + "@example.test", "SOQM_TEAM");
     }
 
     /** The markup of one user's row on the Admin Panel. */

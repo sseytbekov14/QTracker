@@ -5,7 +5,6 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
@@ -100,8 +99,8 @@ public class ControlService implements IControlService {
     }
 
     /**
-     * The controls the user sees ({@link AccessPolicy#canView}): every control for SoQM, admins and
-     * scope ALL; otherwise the ones they are assigned to or shared with, for scope KDN only KDN controls.
+     * The controls the user sees ({@link AccessPolicy#canView}): every control for SoQM Team and All
+     * controls; otherwise the ones they are assigned to, shared with or created, for KDN only KDN controls.
      */
     @Override
     public List<Control> findVisibleControlsForUser(User user) {
@@ -122,11 +121,9 @@ public class ControlService implements IControlService {
         addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsBySoqmLead(userEmail));
         addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByProcessOwner(userEmail));
         addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlSharedWith(userEmail));
-        if (subject.scope() == AccessScope.KDN) {
-            // A KDN user also sees the KDN controls they created
-            controlRepository.findByCreatedByMailOrderByCreatedAtDesc(userEmail)
-                    .forEach(control -> candidateIds.add(control.getId()));
-        }
+        // My controls and KDN also cover the controls the user created
+        controlRepository.findByCreatedByMailOrderByCreatedAtDesc(userEmail)
+                .forEach(control -> candidateIds.add(control.getId()));
         if (candidateIds.isEmpty()) {
             return Collections.emptyList();
         }

@@ -2,7 +2,10 @@ package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
+import com.kpmg.qtracker.enums.AccessRight;
 import com.kpmg.qtracker.enums.AccessScope;
+import com.kpmg.qtracker.enums.UserRole;
+import com.kpmg.qtracker.enums.Visibility;
 import com.kpmg.qtracker.service.AccessPolicy.ControlFacts;
 import com.kpmg.qtracker.service.AccessPolicy.ReadAccess;
 import com.kpmg.qtracker.service.AccessPolicy.Slot;
@@ -28,21 +31,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AccessPolicyTest {
 
     private static final Map<String, Subject> SUBJECTS = Map.ofEntries(
-            Map.entry("SOQM", subject(AccessLevel.SOQM, AccessScope.ALL, false, true)),
-            Map.entry("PART", subject(AccessLevel.PARTICIPANT, AccessScope.OWN, false, true)),
-            Map.entry("PART_ALL", subject(AccessLevel.PARTICIPANT, AccessScope.ALL, false, true)),
-            Map.entry("KDN", subject(AccessLevel.READ_ONLY, AccessScope.KDN, false, true)),
-            Map.entry("RO", subject(AccessLevel.READ_ONLY, AccessScope.OWN, false, true)),
-            Map.entry("RO_ALL", subject(AccessLevel.READ_ONLY, AccessScope.ALL, false, true)),
-            Map.entry("ADMIN_SOQM", subject(AccessLevel.SOQM, AccessScope.ALL, true, true)),
-            Map.entry("ADMIN_PART", subject(AccessLevel.PARTICIPANT, AccessScope.OWN, true, true)),
-            Map.entry("ADMIN_RO", subject(AccessLevel.READ_ONLY, AccessScope.OWN, true, true)),
-            Map.entry("ADMIN_KDN", subject(AccessLevel.READ_ONLY, AccessScope.KDN, true, true)),
-            Map.entry("DISABLED_SOQM", subject(AccessLevel.SOQM, AccessScope.ALL, true, false)),
-            Map.entry("DISABLED_PART", subject(AccessLevel.PARTICIPANT, AccessScope.OWN, false, false)));
+            Map.entry("SOQM", subject(AccessLevel.SOQM, AccessScope.ALL, true)),
+            Map.entry("PART", subject(AccessLevel.PARTICIPANT, AccessScope.OWN, true)),
+            Map.entry("PART_ALL", subject(AccessLevel.PARTICIPANT, AccessScope.ALL, true)),
+            Map.entry("KDN", subject(AccessLevel.READ_ONLY, AccessScope.KDN, true)),
+            Map.entry("RO", subject(AccessLevel.READ_ONLY, AccessScope.OWN, true)),
+            Map.entry("RO_ALL", subject(AccessLevel.READ_ONLY, AccessScope.ALL, true)),
+            Map.entry("DISABLED_SOQM", subject(AccessLevel.SOQM, AccessScope.ALL, false)),
+            Map.entry("DISABLED_PART", subject(AccessLevel.PARTICIPANT, AccessScope.OWN, false)));
 
-    private static Subject subject(AccessLevel level, AccessScope scope, boolean admin, boolean enabled) {
-        return new Subject(level, scope, admin, enabled);
+    private static Subject subject(AccessLevel level, AccessScope scope, boolean enabled) {
+        return new Subject(level, scope, enabled);
     }
 
     private static Subject who(String key) {
@@ -64,16 +63,12 @@ class AccessPolicyTest {
     @ParameterizedTest(name = "{0}")
     @CsvSource({
             // user,          write, soqm,  all,   adminPanel, manageUsers, create, exportAll, allUsers
-            "SOQM,            true,  true,  true,  false,      false,       true,   true,      true",
+            "SOQM,            true,  true,  true,  true,       true,        true,   true,      true",
             "PART,            true,  false, false, false,      false,       false,  false,     false",
             "PART_ALL,        true,  false, true,  false,      false,       false,  false,     false",
             "KDN,             false, false, false, false,      false,       false,  false,     false",
             "RO,              false, false, false, false,      false,       false,  false,     false",
             "RO_ALL,          false, false, true,  false,      false,       false,  false,     false",
-            "ADMIN_SOQM,      true,  true,  true,  true,       true,        true,   true,      true",
-            "ADMIN_PART,      true,  false, true,  true,       true,        false,  false,     true",
-            "ADMIN_RO,        false, false, true,  true,       false,       false,  false,     true",
-            "ADMIN_KDN,       false, false, true,  true,       false,       false,  false,     true",
             "DISABLED_SOQM,   false, false, false, false,      false,       false,  false,     false",
             "NONE,            false, false, false, false,      false,       false,  false,     false",
     })
@@ -119,18 +114,14 @@ class AccessPolicyTest {
             "KDN,          REVIEW,               true,  CREATOR, true,  ALLOWED",
             "KDN,          DRAFT,                true,  CREATOR, true,  ALLOWED",
             "KDN,          REVIEW,               false, CREATOR, false, DENIED",
-            "RO,           REVIEW,               false, CREATOR, false, DENIED",
-            "PART,         REVIEW,               false, CREATOR, false, DENIED",
+            "RO,           REVIEW,               false, CREATOR, true,  ALLOWED",
+            "PART,         REVIEW,               false, CREATOR, true,  ALLOWED",
             "RO,           COMPLETED,            false, SHARED,  true,  ALLOWED",
             "RO,           DRAFT,                false, SHARED,  true,  DRAFT_NOT_INITIATED",
             "RO,           COMPLETED,            false, -,       false, DENIED",
             "RO,           IN_PROGRESS,          false, F,       true,  ALLOWED",
             "RO_ALL,       DRAFT,                false, -,       true,  ALLOWED",
             "RO_ALL,       PROCESS_OWNER_REVIEW, true,  -,       true,  ALLOWED",
-            "ADMIN_PART,   DRAFT,                false, -,       true,  ALLOWED",
-            "ADMIN_RO,     REVIEW,               true,  -,       true,  ALLOWED",
-            "ADMIN_KDN,    REVIEW,               false, -,       true,  ALLOWED",
-            "ADMIN_SOQM,   DRAFT,                false, SHARED,  true,  ALLOWED",
             "DISABLED_SOQM, IN_PROGRESS,         false, -,       false, DENIED",
             "DISABLED_PART, IN_PROGRESS,         false, F,       false, DENIED",
             "NONE,         COMPLETED,            false, -,       false, DENIED",
@@ -158,7 +149,6 @@ class AccessPolicyTest {
             "SOQM,         DRAFT,                false, -,          true,  true,    -",
             // A completed control is locked for everyone, SoQM included (decision 4)
             "SOQM,         COMPLETED,            false, -,          false, false,   -",
-            "ADMIN_SOQM,   COMPLETED,            false, -,          false, false,   -",
             "SOQM,         IN_PROGRESS,          true,  -,          true,  true,    -",
             "PART,         IN_PROGRESS,          false, F,          true,  false,   controlStepsPerformed",
             "PART,         REVIEW,               false, F,          false, false,   -",
@@ -177,7 +167,6 @@ class AccessPolicyTest {
             "KDN,          REVIEW,               true,  CO+SPLIT,   false, false,   -",
             "KDN,          REVIEW,               false, CO+SPLIT,   false, false,   -",
             "RO,           REVIEW,               false, CO+SPLIT,   false, false,   -",
-            "ADMIN_RO,     REVIEW,               false, CO+SPLIT,   false, false,   -",
             "SOQM,         REVIEW,               false, SPLIT,      true,  true,    -",
             "PART,         SOQM_HEAD_REVIEW,     false, CO+SOQM,    false, false,   -",
             "PART,         PROCESS_OWNER_REVIEW, false, PO,         true,  false,   processOwnerComments",
@@ -191,11 +180,6 @@ class AccessPolicyTest {
             "RO,           IN_PROGRESS,          false, F,          false, false,   -",
             "RO,           PROCESS_OWNER_REVIEW, false, PO+SHARED,  false, false,   -",
             "RO_ALL,       REVIEW,               false, -,          false, false,   -",
-            "ADMIN_PART,   IN_PROGRESS,          false, -,          false, false,   -",
-            "ADMIN_PART,   IN_PROGRESS,          false, F,          true,  false,   controlStepsPerformed",
-            "ADMIN_RO,     IN_PROGRESS,          false, F,          false, false,   -",
-            "ADMIN_KDN,    IN_PROGRESS,          false, F,          false, false,   -",
-            "ADMIN_SOQM,   REVIEW,               false, -,          true,  true,    -",
             "DISABLED_SOQM, REVIEW,              false, -,          false, false,   -",
             "NONE,         REVIEW,               false, -,          false, false,   -",
     })
@@ -223,7 +207,6 @@ class AccessPolicyTest {
             "PART,       REVIEW,      F+SPLIT,      false, false",
             "PART,       REVIEW,      SHARED+SPLIT, false, false",
             "RO_ALL,     REVIEW,      SPLIT,        false, false",
-            "ADMIN_PART, REVIEW,      SPLIT,        false, false",
     })
     void whoWritesEachStepsField(String user, String status, String places, boolean steps, boolean review) {
         ControlPermission p = AccessPolicy.resolve(who(user), control(status, false, places));
@@ -260,12 +243,6 @@ class AccessPolicyTest {
             "RO,           IN_PROGRESS,          false, F,        SUBMIT_TO_CONTROL_OPERATOR,    false",
             "RO,           PROCESS_OWNER_REVIEW, false, PO,       COMPLETE,                      false",
             "RO_ALL,       DRAFT,                false, -,        INITIATE,                      false",
-            "ADMIN_PART,   DRAFT,                false, -,        INITIATE,                      false",
-            "ADMIN_PART,   SOQM_HEAD_REVIEW,     false, -,        SUBMIT_TO_PROCESS_OWNER,       false",
-            "ADMIN_PART,   IN_PROGRESS,          false, F,        SUBMIT_TO_CONTROL_OPERATOR,    true",
-            "ADMIN_RO,     SOQM_HEAD_REVIEW,     false, -,        RETURN_TO_OPERATOR,            false",
-            "ADMIN_RO,     IN_PROGRESS,          false, F,        SUBMIT_TO_CONTROL_OPERATOR,    false",
-            "ADMIN_SOQM,   DRAFT,                false, -,        INITIATE,                      true",
             "DISABLED_SOQM, DRAFT,               false, -,        INITIATE,                      false",
             "DISABLED_PART, IN_PROGRESS,         false, F,        SUBMIT_TO_CONTROL_OPERATOR,    false",
             "NONE,         IN_PROGRESS,          false, F,        SUBMIT_TO_CONTROL_OPERATOR,    false",
@@ -298,16 +275,12 @@ class AccessPolicyTest {
             "SOQM,       COMPLETED,            IN_PROGRESS,          -,      true,    false,    true",
             "SOQM,       COMPLETED,            DRAFT,                -,      false,   false,    false",
             "PART,       COMPLETED,            PROCESS_OWNER_REVIEW, PO,     false,   false,    false",
-            "ADMIN_PART, COMPLETED,            IN_PROGRESS,          -,      false,   false,    false",
             "RO_ALL,     COMPLETED,            IN_PROGRESS,          -,      false,   false,    false",
-            "ADMIN_SOQM, REVIEW,               IN_PROGRESS,          -,      true,    true,     true",
             "PART,       IN_PROGRESS,          REVIEW,               F,      true,    false,    false",
             "PART,       REVIEW,               IN_PROGRESS,          CO,     true,    false,    true",
             "PART,       PROCESS_OWNER_REVIEW, REVIEW,               PO,     true,    false,    true",
             "PART,       PROCESS_OWNER_REVIEW, IN_PROGRESS,          PO,     false,   false,    false",
             "PART,       REVIEW,               SOQM_HEAD_REVIEW,     F,      false,   false,    false",
-            "ADMIN_PART, IN_PROGRESS,          REVIEW,               -,      false,   false,    false",
-            "ADMIN_RO,   IN_PROGRESS,          REVIEW,               -,      false,   false,    false",
             "RO_ALL,     IN_PROGRESS,          REVIEW,               -,      false,   false,    false",
             "KDN,        IN_PROGRESS,          REVIEW,               F,      false,   false,    false",
             "DISABLED_SOQM, IN_PROGRESS,       REVIEW,               -,      false,   false,    false",
@@ -326,7 +299,7 @@ class AccessPolicyTest {
 
     @Test
     void completedControl_isLockedForEveryone_butSoqmStillRenamesAndReturnsIt() {
-        for (String user : List.of("SOQM", "ADMIN_SOQM", "PART", "PART_ALL", "RO_ALL", "ADMIN_PART")) {
+        for (String user : List.of("SOQM", "PART", "PART_ALL", "RO_ALL")) {
             ControlPermission p = AccessPolicy.resolve(who(user), control("COMPLETED", false, "F+CO+PO+SHARED"));
             assertThat(p.isLocked()).as(user).isTrue();
             assertThat(p.canEdit()).as(user).isFalse();
@@ -338,7 +311,7 @@ class AccessPolicyTest {
         assertThat(AccessPolicy.canRenameId(soqm)).isTrue();
         assertThat(soqm.isSoqmLead()).isTrue();
         assertThat(AccessPolicy.canRenameId(AccessPolicy.resolve(who("PART"), control("COMPLETED", false, "PO")))).isFalse();
-        assertThat(AccessPolicy.canRenameId(AccessPolicy.resolve(who("ADMIN_PART"), control("REVIEW", false, "-")))).isFalse();
+        assertThat(AccessPolicy.canRenameId(AccessPolicy.resolve(who("PART_ALL"), control("REVIEW", false, "-")))).isFalse();
         // Not completed: not locked, SoQM edits
         ControlPermission review = AccessPolicy.resolve(who("SOQM"), control("PROCESS_OWNER_REVIEW", false, "-"));
         assertThat(review.isLocked()).isFalse();
@@ -372,7 +345,6 @@ class AccessPolicyTest {
             "PART,       DRAFT,                F,     false",
             "PART,       COMPLETED,            PO,    false",
             "RO,         IN_PROGRESS,          F,     false",
-            "ADMIN_RO,   REVIEW,               CO,    false",
             "DISABLED_PART, IN_PROGRESS,       F,     false",
     })
     void myTurn(String user, String status, String places, boolean expected) {
@@ -387,7 +359,6 @@ class AccessPolicyTest {
             "RO,         SHARED, true",
             "RO_ALL,     -,      false",
             "PART_ALL,   -,      false",
-            "ADMIN_PART, -,      false",
             "DISABLED_SOQM, -,   false",
     })
     void completedControlExport(String user, String places, boolean expected) {
@@ -427,8 +398,6 @@ class AccessPolicyTest {
             "RO,          FACILITATOR,      true,       false",
             "RO_ALL,      FACILITATOR,      false,      false",
             "RO_ALL,      PROCESS_OWNER,    true,       false",
-            "ADMIN_RO,    FACILITATOR,      false,      false",
-            "ADMIN_PART,  FACILITATOR,      false,      true",
             "NONE,        SHARED_WITH,      false,      false",
     })
     void assignment(String candidate, Slot slot, boolean kdnControl, boolean allowed) {
@@ -438,17 +407,17 @@ class AccessPolicyTest {
     @Test
     void assignmentRefusal_saysWhy() {
         assertThat(AccessPolicy.assignmentRefusal(who("RO"), Slot.FACILITATOR, false))
-                .hasValue("has read-only access and cannot be assigned");
+                .hasValue("has Read Only access and cannot be assigned");
         assertThat(AccessPolicy.assignmentRefusal(who("KDN"), Slot.PROCESS_OWNER, false))
                 .hasValue("sees only KDN controls and cannot be added to this control");
         assertThat(AccessPolicy.assignmentRefusal(who("RO_ALL"), Slot.PROCESS_OWNER, true))
-                .hasValue("has read-only access and cannot be assigned");
+                .hasValue("has Read Only access and cannot be assigned");
         assertThat(AccessPolicy.levelScopeRefusal(AccessLevel.PARTICIPANT, AccessScope.KDN))
-                .hasValue("KDN users only view their KDN controls: level must be Read only");
+                .hasValue("KDN users have read-only access");
         assertThat(AccessPolicy.assignmentRefusal(who("SOQM"), Slot.PROCESS_OWNER, false))
-                .hasValue("is a SoQM user; Process Owner must be a participant");
+                .hasValue("is SoQM Team; Process Owner takes a User with Edit access");
         assertThat(AccessPolicy.assignmentRefusal(who("PART"), Slot.SOQM_LEAD, false))
-                .hasValue("is not a SoQM user");
+                .hasValue("is not SoQM Team");
         assertThat(AccessPolicy.assignmentRefusal(null, Slot.FACILITATOR, false))
                 .hasValue("is not a QTracker user");
     }
@@ -496,21 +465,102 @@ class AccessPolicyTest {
     // ------------------------------------------------------------------ inputs
 
     @Test
-    void subjectOfUser_readsLevelScopeAndFlags_andDefaultsToTheLeastAccess() {
+    void subjectOfUser_readsLevelScopeAndStatus_andDefaultsToTheLeastAccess() {
         User user = new User();
         user.setAccessLevel(AccessLevel.SOQM);
         user.setAccessScope(AccessScope.ALL);
-        user.setAdminAccess(true);
+        user.setAdminAccess(false);
         user.setEnabled(true);
-        assertThat(Subject.of(user)).isEqualTo(subject(AccessLevel.SOQM, AccessScope.ALL, true, true));
+        assertThat(Subject.of(user)).isEqualTo(subject(AccessLevel.SOQM, AccessScope.ALL, true));
 
         User bare = new User();
         bare.setAccessLevel(null);
         bare.setAccessScope(null);
         bare.setAdminAccess(null);
         bare.setEnabled(null);
-        assertThat(Subject.of(bare)).isEqualTo(subject(AccessLevel.READ_ONLY, AccessScope.OWN, false, false));
+        assertThat(Subject.of(bare)).isEqualTo(subject(AccessLevel.READ_ONLY, AccessScope.OWN, false));
         assertThat(Subject.of(null)).isNull();
+    }
+
+    @Test
+    void adminAccess_isTheLevel_notTheStoredFlag() {
+        User flaggedUser = new User();
+        flaggedUser.setAccessLevel(AccessLevel.PARTICIPANT);
+        flaggedUser.setAccessScope(AccessScope.ALL);
+        flaggedUser.setAdminAccess(true);
+        flaggedUser.setEnabled(true);
+        Subject flagged = Subject.of(flaggedUser);
+        assertThat(AccessPolicy.hasAdminAccess(flagged)).isFalse();
+        assertThat(AccessPolicy.canOpenAdminPanel(flagged)).isFalse();
+        assertThat(AccessPolicy.canManageUsers(flagged)).isFalse();
+        assertThat(AccessPolicy.hasAdminAccess(who("SOQM"))).isTrue();
+        for (String user : List.of("PART", "PART_ALL", "RO", "RO_ALL", "KDN", "DISABLED_SOQM", "NONE")) {
+            assertThat(AccessPolicy.hasAdminAccess(who(user))).as(user).isFalse();
+        }
+    }
+
+    // ------------------------------------------------------------------ roles as people see them
+
+    @ParameterizedTest(name = "{0} {1} -> {2} {3} {4}")
+    @CsvSource(nullValues = "-", value = {
+            // level,     scope, role,      visibility, access
+            "SOQM,        ALL,   SOQM_TEAM, -,          -",
+            "PARTICIPANT, OWN,   USER,      MY,         EDIT",
+            "PARTICIPANT, ALL,   USER,      ALL,        EDIT",
+            "READ_ONLY,   OWN,   USER,      MY,         READ_ONLY",
+            "READ_ONLY,   ALL,   USER,      ALL,        READ_ONLY",
+            "READ_ONLY,   KDN,   KDN,       -,          -",
+            "-,           -,     USER,      MY,         READ_ONLY",
+    })
+    void profile_mapsTheStoredLevelAndScope_bothWays(AccessLevel level, AccessScope scope, UserRole role,
+                                                     Visibility visibility, AccessRight access) {
+        AccessPolicy.Profile profile = AccessPolicy.Profile.of(level, scope);
+        assertThat(profile).isEqualTo(new AccessPolicy.Profile(role, visibility, access));
+        if (level != null) {
+            assertThat(profile.level()).isEqualTo(level);
+            assertThat(profile.scope()).isEqualTo(scope);
+            assertThat(AccessPolicy.levelScopeRefusal(profile.level(), profile.scope())).isEmpty();
+        }
+        assertThat(profile.adminAccess()).isEqualTo(role == UserRole.SOQM_TEAM);
+    }
+
+    @Test
+    void profile_newUserStartsWithMyControlsAndReadOnly_andOtherRolesHaveNeither() {
+        assertThat(AccessPolicy.Profile.user(null, null))
+                .isEqualTo(new AccessPolicy.Profile(UserRole.USER, Visibility.MY, AccessRight.READ_ONLY));
+        assertThat(AccessPolicy.Profile.user(null, null).level()).isEqualTo(AccessLevel.READ_ONLY);
+        assertThat(AccessPolicy.Profile.user(null, null).scope()).isEqualTo(AccessScope.OWN);
+        AccessPolicy.Profile soqm = new AccessPolicy.Profile(UserRole.SOQM_TEAM, Visibility.MY, AccessRight.READ_ONLY);
+        assertThat(soqm.visibility()).isNull();
+        assertThat(soqm.access()).isNull();
+        assertThat(new AccessPolicy.Profile(UserRole.KDN, Visibility.ALL, AccessRight.EDIT).level())
+                .isEqualTo(AccessLevel.READ_ONLY);
+    }
+
+    @Test
+    void everyUserCombination_isAllowed() {
+        for (Visibility visibility : Visibility.values()) {
+            for (AccessRight access : AccessRight.values()) {
+                AccessPolicy.Profile profile = AccessPolicy.Profile.user(visibility, access);
+                assertThat(AccessPolicy.levelScopeRefusal(profile.level(), profile.scope()))
+                        .as(visibility + " " + access).isEmpty();
+            }
+        }
+    }
+
+    @Test
+    void allControlsEdit_seesEverything_butEditsAndStepsOnlyWhereAssigned() {
+        Subject allEdit = who("PART_ALL");
+        for (String status : List.of("DRAFT", "IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW", "COMPLETED")) {
+            ControlFacts notOnIt = control(status, false, "-");
+            assertThat(AccessPolicy.canView(allEdit, notOnIt)).as(status).isTrue();
+            assertThat(AccessPolicy.resolve(allEdit, notOnIt).canEdit()).as(status).isFalse();
+            assertThat(AccessPolicy.isMyTurn(allEdit, notOnIt)).as(status).isFalse();
+            ControlFacts shared = control(status, false, "SHARED");
+            assertThat(AccessPolicy.resolve(allEdit, shared).canEdit()).as(status + " shared").isFalse();
+        }
+        assertThat(AccessPolicy.resolve(allEdit, control("IN_PROGRESS", false, "F")).canEdit()).isTrue();
+        assertThat(AccessPolicy.isMyTurn(allEdit, control("IN_PROGRESS", false, "F"))).isTrue();
     }
 
     @ParameterizedTest(name = "[{0}]")

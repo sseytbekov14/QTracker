@@ -123,20 +123,37 @@ class ControlServiceKdnVisibilityTest {
     }
 
     @Test
-    void soqmAdminsAndScopeAll_seeEveryControl() {
+    void soqmTeamAndAllControls_seeEveryControl_butAnOldAdminFlagGivesNothing() {
         Control kdn = control(1L, "KDN-1", "DRAFT");
         Control hr = control(2L, "HR-2", "COMPLETED");
         when(controlRepository.findAllByOrderByIdDesc()).thenReturn(List.of(hr, kdn));
 
         for (User user : List.of(
                 TestUsers.user("soqm@kpmg.kz", AccessLevel.SOQM, AccessScope.ALL, false),
-                TestUsers.user("admin@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, true),
-                TestUsers.user("all@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.ALL, false))) {
+                TestUsers.user("all@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.ALL, false),
+                TestUsers.user("alledit@kpmg.kz", AccessLevel.PARTICIPANT, AccessScope.ALL, false))) {
             assertThat(controlService.findVisibleControlsForUser(user))
                     .as(user.getMail())
                     .extracting(Control::getControlId)
                     .containsExactly("HR-2", "KDN-1");
         }
+        // The stored admin flag of a KDN user (before V11) does not open every control
+        assertThat(controlService.findVisibleControlsForUser(
+                TestUsers.user("admin@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, true))).isEmpty();
+    }
+
+    @Test
+    void myControls_alsoSeeTheControlsTheUserCreated() {
+        User creator = TestUsers.user(MAIL, AccessLevel.PARTICIPANT, AccessScope.OWN, false);
+        creator.setId(78L);
+        Control created = control(22L, "HR-22", "REVIEW");
+        created.setCreatedBy(creator);
+        when(controlRepository.findByCreatedByMailOrderByCreatedAtDesc(MAIL)).thenReturn(List.of(created));
+        when(controlAssignmentRepository.findAllById(anyIterable())).thenReturn(List.of());
+        when(controlRepository.findAllById(anyIterable())).thenReturn(List.of(created));
+
+        assertThat(controlService.findVisibleControlsForUser(creator))
+                .extracting(Control::getControlId).containsExactly("HR-22");
     }
 
     @Test

@@ -2,7 +2,10 @@ package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
+import com.kpmg.qtracker.enums.AccessRight;
 import com.kpmg.qtracker.enums.AccessScope;
+import com.kpmg.qtracker.enums.UserRole;
+import com.kpmg.qtracker.enums.Visibility;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -21,11 +24,14 @@ import java.util.Set;
  *   user, assigned or not) and moves a control on or back for any other role ({@link #move}); PARTICIPANT
  *   performs the Facilitator, Control Operator and Process Owner steps and edits only where assigned;
  *   READ_ONLY never writes.</li>
- *   <li>Scope: OWN = assigned or shared; ALL = every control; KDN = KDN controls the user is assigned to,
- *   shared with or created. SoQM always sees every control; KDN users are always READ_ONLY
+ *   <li>Scope: OWN = assigned, shared or created; ALL = every control; KDN = KDN controls the user is
+ *   assigned to, shared with or created. SoQM always sees every control; KDN users are always READ_ONLY
  *   ({@link #levelScopeRefusal}).</li>
- *   <li>admin_access: Admin Panel, audit and viewing every control; it grants no edit, assignment,
- *   workflow step or creation.</li>
+ *   <li>People see this as a role ({@link Profile}): SoQM Team = SOQM / ALL; User = Visibility (My controls =
+ *   OWN, All controls = ALL) and Access (Edit = PARTICIPANT, Read Only = READ_ONLY), every combination
+ *   allowed; KDN = READ_ONLY / KDN.</li>
+ *   <li>The Admin Panel (users and audit) is SoQM Team's and only theirs ({@link #hasAdminAccess}); the
+ *   stored admin_access flag follows the level and decides nothing.</li>
  *   <li>Shared With only views (spec 5.6): no edit, upload or workflow step, also on completed controls.</li>
  *   <li>A completed control is locked for everyone, SoQM included (spec 9.5, {@link #isLocked}): SoQM returns it
  *   to an earlier status first (business decision 4). Renaming its Control ID stays SoQM's.</li>
@@ -37,7 +43,7 @@ public final class AccessPolicy {
     }
 
     /** The user as the rules see them; a missing level or scope counts as the least access. */
-    public record Subject(AccessLevel level, AccessScope scope, boolean admin, boolean enabled) {
+    public record Subject(AccessLevel level, AccessScope scope, boolean enabled) {
 
         public Subject {
             level = level != null ? level : AccessLevel.READ_ONLY;
@@ -49,8 +55,83 @@ public final class AccessPolicy {
             if (user == null) {
                 return null;
             }
-            return new Subject(user.getAccessLevel(), user.getAccessScope(),
-                    Boolean.TRUE.equals(user.getAdminAccess()), Boolean.TRUE.equals(user.getEnabled()));
+            return new Subject(user.getAccessLevel(), user.getAccessScope(), Boolean.TRUE.equals(user.getEnabled()));
+        }
+    }
+
+    /**
+     * A user's access as people see and set it: the role, and for the role User their Visibility and Access
+     * (null for SoQM Team and KDN). The one mapping between the roles and the stored level and scope.
+     */
+    public record Profile(UserRole role, Visibility visibility, AccessRight access) {
+
+        public Profile {
+            if (role == null) {
+                throw new IllegalArgumentException("Role is required");
+            }
+            if (role != UserRole.USER) {
+                visibility = null;
+                access = null;
+            } else {
+                // A new User starts with the least access: My controls, Read Only
+                visibility = visibility != null ? visibility : Visibility.MY;
+                access = access != null ? access : AccessRight.READ_ONLY;
+            }
+        }
+
+        public static Profile soqmTeam() {
+            return new Profile(UserRole.SOQM_TEAM, null, null);
+        }
+
+        public static Profile kdn() {
+            return new Profile(UserRole.KDN, null, null);
+        }
+
+        public static Profile user(Visibility visibility, AccessRight access) {
+            return new Profile(UserRole.USER, visibility, access);
+        }
+
+        /** The profile of a stored level and scope; a missing one counts as the least access. */
+        public static Profile of(AccessLevel level, AccessScope scope) {
+            AccessLevel shownLevel = level != null ? level : AccessLevel.READ_ONLY;
+            AccessScope shownScope = scope != null ? scope : AccessScope.OWN;
+            if (shownLevel == AccessLevel.SOQM) {
+                return soqmTeam();
+            }
+            if (shownScope == AccessScope.KDN) {
+                return kdn();
+            }
+            return user(shownScope == AccessScope.ALL ? Visibility.ALL : Visibility.MY,
+                    shownLevel == AccessLevel.PARTICIPANT ? AccessRight.EDIT : AccessRight.READ_ONLY);
+        }
+
+        public static Profile of(User user) {
+            return user == null ? of((AccessLevel) null, null) : of(user.getAccessLevel(), user.getAccessScope());
+        }
+
+        public static Profile of(Subject subject) {
+            return subject == null ? of((AccessLevel) null, null) : of(subject.level(), subject.scope());
+        }
+
+        public AccessLevel level() {
+            return switch (role) {
+                case SOQM_TEAM -> AccessLevel.SOQM;
+                case KDN -> AccessLevel.READ_ONLY;
+                case USER -> access == AccessRight.EDIT ? AccessLevel.PARTICIPANT : AccessLevel.READ_ONLY;
+            };
+        }
+
+        public AccessScope scope() {
+            return switch (role) {
+                case SOQM_TEAM -> AccessScope.ALL;
+                case KDN -> AccessScope.KDN;
+                case USER -> visibility == Visibility.ALL ? AccessScope.ALL : AccessScope.OWN;
+            };
+        }
+
+        /** The stored admin_access flag: SoQM Team, and only SoQM Team ({@link #hasAdminAccess}). */
+        public boolean adminAccess() {
+            return role == UserRole.SOQM_TEAM;
         }
     }
 
@@ -58,7 +139,7 @@ public final class AccessPolicy {
      * A control as one user stands on it: its workflow status, whether it is a KDN control, in which
      * assignment fields the user is listed, whether Control Steps Performed is split in two because the
      * Facilitator and the Control Operator are different people ({@link ControlStepsFields}), and whether the
-     * user created it (counted only for scope KDN). A blank status is a draft, as everywhere else.
+     * user created it (it sees the control, but acts only where assigned). A blank status is a draft, as everywhere else.
      */
     public record ControlFacts(String status,
                                boolean kdn,
@@ -180,19 +261,26 @@ public final class AccessPolicy {
         return active(subject) && subject.level() == AccessLevel.SOQM;
     }
 
-    /** Every control, drafts included: SoQM, admins and scope ALL. */
+    /** Every control, drafts included: SoQM Team and All controls. */
     public static boolean seesAllControls(Subject subject) {
-        return active(subject)
-                && (subject.level() == AccessLevel.SOQM || subject.admin() || subject.scope() == AccessScope.ALL);
+        return active(subject) && (subject.level() == AccessLevel.SOQM || subject.scope() == AccessScope.ALL);
+    }
+
+    /**
+     * The Admin Panel, its users and the audit trail: every SoQM Team member and only them (the stored
+     * admin_access flag decides nothing). The one place this rule lives.
+     */
+    public static boolean hasAdminAccess(Subject subject) {
+        return isSoqm(subject);
     }
 
     public static boolean canOpenAdminPanel(Subject subject) {
-        return active(subject) && subject.admin();
+        return hasAdminAccess(subject);
     }
 
-    /** Changing users in the Admin Panel; a read-only admin only looks. */
+    /** Changing users in the Admin Panel: whoever opens it. */
     public static boolean canManageUsers(Subject subject) {
-        return canOpenAdminPanel(subject) && mayWrite(subject);
+        return hasAdminAccess(subject);
     }
 
     public static boolean canCreateControls(Subject subject) {
@@ -211,7 +299,7 @@ public final class AccessPolicy {
 
     /** The full user list (assignment pickers, Admin Panel). */
     public static boolean canListAllUsers(Subject subject) {
-        return isSoqm(subject) || canOpenAdminPanel(subject);
+        return isSoqm(subject);
     }
 
     /**
@@ -220,10 +308,10 @@ public final class AccessPolicy {
      */
     public static Optional<String> levelScopeRefusal(AccessLevel level, AccessScope scope) {
         if (level == AccessLevel.SOQM && scope != AccessScope.ALL) {
-            return Optional.of("SoQM always sees all controls: scope must be ALL");
+            return Optional.of("SoQM Team always sees all controls");
         }
         if (scope == AccessScope.KDN && level != AccessLevel.READ_ONLY) {
-            return Optional.of("KDN users only view their KDN controls: level must be Read only");
+            return Optional.of("KDN users have read-only access");
         }
         return Optional.empty();
     }
@@ -232,25 +320,25 @@ public final class AccessPolicy {
 
     /**
      * Whether the user sees the control, in lists and on its pages. This is also the one rule for drafts:
-     * SoQM, admins and scope ALL see every draft (TODO: BUSINESS CONFIRMATION: whether READ_ONLY with scope
-     * ALL should see drafts); scope OWN and KDN see a draft only when assigned or shared.
+     * SoQM Team and All controls see every draft, Read Only included (decision of 2026-10-07); My controls
+     * and KDN see a draft only when assigned, shared or its creator.
      */
     public static boolean canView(Subject subject, ControlFacts control) {
         if (!active(subject) || control == null) {
             return false;
         }
-        return subject.level() == AccessLevel.SOQM || subject.admin() || inScope(subject, control);
+        return subject.level() == AccessLevel.SOQM || inScope(subject, control);
     }
 
     /**
-     * The control is within the user's scope; the admin flag does not count here. A KDN user also sees the
-     * KDN controls they created (business decision 2; with scope OWN creating a control gives nothing).
+     * The control is within the user's scope: assigned, shared or its creator (My controls, and KDN on KDN
+     * controls only), or every control (All controls).
      */
     private static boolean inScope(Subject subject, ControlFacts control) {
-        boolean own = control.assigned() || control.shared();
+        boolean own = control.assigned() || control.shared() || control.creator();
         return switch (subject.scope()) {
             case ALL -> true;
-            case KDN -> control.kdn() && (own || control.creator());
+            case KDN -> control.kdn() && own;
             case OWN -> own;
         };
     }
@@ -270,8 +358,8 @@ public final class AccessPolicy {
     }
 
     /**
-     * A participant acts in a field they are listed in, on a control within their scope (KDN scope: KDN
-     * controls only); seeing it through the admin flag is not enough.
+     * A participant (User with Edit) acts in a field they are listed in, on a control within their scope:
+     * seeing every control (All controls) gives no step and no edit where they are not assigned.
      */
     private static boolean actsAsParticipant(Subject subject, ControlFacts control, boolean listed) {
         return listed && active(subject) && subject.level() == AccessLevel.PARTICIPANT && inScope(subject, control);
@@ -405,8 +493,8 @@ public final class AccessPolicy {
 
     /**
      * SoQM performs the step of a Facilitator, Control Operator or Process Owner in their place (business
-     * decision 3: SoQM Head, Team and Delegate move a control on or back for any role). An admin without level
-     * SOQM, a read-only user and Shared With do not.
+     * decision 3: SoQM Head, Team and Delegate move a control on or back for any role). A User, KDN and Shared With
+     * do not.
      */
     public static boolean actsOnBehalf(WorkflowTransition.Actor actor, ControlPermission permission) {
         return actor != null && PARTICIPANT_STEPS.contains(actor)
@@ -523,13 +611,13 @@ public final class AccessPolicy {
             case SHARED_WITH -> Optional.empty();
             case SOQM_LEAD -> candidate.level() == AccessLevel.SOQM
                     ? Optional.empty()
-                    : Optional.of("is not a SoQM user");
+                    : Optional.of("is not SoQM Team");
             case FACILITATOR, CONTROL_OPERATOR, PROCESS_OWNER -> switch (candidate.level()) {
                 case PARTICIPANT -> Optional.empty();
-                case SOQM -> Optional.of("is a SoQM user; " + slot.getLabel() + " must be a participant");
+                case SOQM -> Optional.of("is SoQM Team; " + slot.getLabel() + " takes a User with Edit access");
                 case READ_ONLY -> candidate.scope() == AccessScope.KDN && kdnControl
                         ? Optional.empty()
-                        : Optional.of("has read-only access and cannot be assigned");
+                        : Optional.of("has Read Only access and cannot be assigned");
             };
         };
     }

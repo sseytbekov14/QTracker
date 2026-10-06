@@ -50,29 +50,27 @@ public class UserService {
         return userRepository.existsByMail(email);
     }
 
-    /** The access part of the Admin Panel save (level, scope, admin access, status); see {@link #updateUser}. */
+    /** The access part of the Admin Panel save (level, scope, status); see {@link #updateUser}. */
     public User updateUserAccess(Long targetUserId,
                                  String level,
                                  String scope,
-                                 Boolean adminAccess,
                                  Boolean enabled,
                                  Long actingUserId) {
-        return updateUser(targetUserId, null, null, level, scope, adminAccess, enabled, actingUserId);
+        return updateUser(targetUserId, null, null, level, scope, enabled, actingUserId);
     }
 
     /**
      * The Admin Panel save of one user. Every value is checked before anything changes, so a refused save
      * changes nothing. A null e-mail or name keeps the stored one; the e-mail changes only before the first
-     * login. A blank level or scope keeps the stored one; SoQM always gets scope ALL. Admins cannot
-     * deactivate themselves, remove their own admin access or make themselves read-only (they would lose
-     * the Admin Panel changes). The old role columns are not touched.
+     * login. A blank level or scope keeps the stored one; SoQM always gets scope ALL. SoQM Team cannot
+     * deactivate themselves or leave SoQM Team (they would lose the Admin Panel). The admin_access flag
+     * follows the level (User entity); the old role columns are not touched.
      */
     public User updateUser(Long targetUserId,
                            String email,
                            String displayName,
                            String level,
                            String scope,
-                           Boolean adminAccess,
                            Boolean enabled,
                            Long actingUserId) {
         User targetUser = userRepository.findById(targetUserId)
@@ -120,24 +118,20 @@ public class UserService {
             nextScope = resolveScope(nextLevel, scope);
         }
 
-        boolean nextAdminAccess = adminAccess != null ? adminAccess : Boolean.TRUE.equals(targetUser.getAdminAccess());
         boolean nextEnabled = enabled != null ? enabled : Boolean.TRUE.equals(targetUser.getEnabled());
         boolean selfUpdate = actingUserId != null && actingUserId.equals(targetUser.getId());
         if (selfUpdate && !nextEnabled) {
             throw new IllegalArgumentException("You cannot deactivate your own account");
         }
-        if (selfUpdate && !nextAdminAccess) {
-            throw new IllegalArgumentException("You cannot remove your own admin access");
-        }
-        if (selfUpdate && nextLevel == AccessLevel.READ_ONLY) {
-            throw new IllegalArgumentException("You cannot make your own access read-only");
+        if (selfUpdate && nextLevel != storedLevel(targetUser)) {
+            throw new IllegalArgumentException("You cannot change your own role");
         }
 
         targetUser.setMail(nextMail);
         targetUser.setDisplayName(nextName);
         targetUser.setAccessLevel(nextLevel);
         targetUser.setAccessScope(nextScope);
-        targetUser.setAdminAccess(nextAdminAccess);
+        targetUser.setAdminAccess(AccessPolicy.Profile.of(nextLevel, nextScope).adminAccess());
         targetUser.setEnabled(nextEnabled);
         return userRepository.save(targetUser);
     }
@@ -150,7 +144,6 @@ public class UserService {
                            String displayName,
                            String level,
                            String scope,
-                           Boolean adminAccess,
                            Boolean enabled) {
         if (level == null || level.isBlank()) {
             throw new IllegalArgumentException("Access level is required");
@@ -158,7 +151,7 @@ public class UserService {
         AccessLevel accessLevel = AccessLevel.tryFrom(level)
                 .orElseThrow(() -> new IllegalArgumentException("Unsupported access level: " + level));
         AccessScope accessScope = resolveScope(accessLevel, scope);
-        return userRepository.save(newUser(email, displayName, accessLevel, accessScope, adminAccess, enabled));
+        return userRepository.save(newUser(email, displayName, accessLevel, accessScope, enabled));
     }
 
     /**
@@ -187,7 +180,7 @@ public class UserService {
     }
 
     private User newUser(String email, String displayName, AccessLevel level, AccessScope scope,
-                         Boolean adminAccess, Boolean enabled) {
+                         Boolean enabled) {
         String normalizedEmail = normalizeEmail(email);
         if (userRepository.existsByMail(normalizedEmail)) {
             throw new IllegalArgumentException("User with this email already exists");
@@ -198,7 +191,7 @@ public class UserService {
         user.setDisplayName(resolveDisplayName(displayName, normalizedEmail));
         user.setAccessLevel(level);
         user.setAccessScope(scope);
-        user.setAdminAccess(adminAccess != null && adminAccess);
+        user.setAdminAccess(AccessPolicy.Profile.of(level, scope).adminAccess());
         user.setEnabled(enabled == null || enabled);
         user.setPassword(passwordEncoder.encode(DEFAULT_NEW_USER_PASSWORD));
         return user;

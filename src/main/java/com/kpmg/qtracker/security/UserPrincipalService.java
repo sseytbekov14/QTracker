@@ -2,6 +2,7 @@ package com.kpmg.qtracker.security;
 
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
+import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,11 +33,11 @@ public class UserPrincipalService {
                 .map(userRecord -> new UserPrincipal(userRecord.id(), userRecord.email(), userRecord.roles()));
     }
 
-    /** Authorities: the access level (SOQM, PARTICIPANT, READ_ONLY) and ADMIN for the admin flag. */
+    /** Authorities: the access level (SOQM, PARTICIPANT, READ_ONLY) and ADMIN for the Admin Panel (SoQM Team). */
     private UserRecord toUserRecord(User user) {
         Set<String> roles = new LinkedHashSet<>();
         roles.add(String.valueOf(user.getAccessLevel() != null ? user.getAccessLevel() : AccessLevel.READ_ONLY));
-        if (Boolean.TRUE.equals(user.getAdminAccess())) {
+        if (AccessPolicy.hasAdminAccess(AccessPolicy.Subject.of(user))) {
             roles.add("ADMIN");
         }
 

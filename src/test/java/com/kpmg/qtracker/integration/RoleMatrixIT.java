@@ -92,37 +92,46 @@ class RoleMatrixIT {
         OPERATOR,
         /** The only Facilitator and the only Control Operator: one person, one steps field. */
         BOTH,
-        /** Not on the control, but its creator (counts only for scope KDN). */
+        /** Not on the control, but its creator (My controls and KDN see it, decision of 2026-10-07). */
         CREATOR
     }
 
-    /** One row of the matrix: a kind of user. */
-    record Who(String key, String label, AccessLevel level, AccessScope scope, boolean admin, Place place,
+    /** One row of the matrix: a kind of user, by role (SoQM Team, User with Visibility and Access, KDN). */
+    record Who(String key, String label, AccessLevel level, AccessScope scope, Place place,
                boolean kdnControl, boolean disabled, boolean anonymous) {
     }
 
+    private static final AccessLevel EDIT = AccessLevel.PARTICIPANT;
+    private static final AccessLevel READ = AccessLevel.READ_ONLY;
+    private static final AccessScope MY = AccessScope.OWN;
+    private static final AccessScope ALL = AccessScope.ALL;
+
     private static final List<Who> PEOPLE = List.of(
-            new Who("soqm", "SOQM", AccessLevel.SOQM, AccessScope.ALL, false, Place.NONE, false, false, false),
-            new Who("part-step", "PARTICIPANT/OWN, assigned", AccessLevel.PARTICIPANT, AccessScope.OWN, false, Place.STEP, false, false, false),
-            new Who("part-none", "PARTICIPANT/OWN, not assigned", AccessLevel.PARTICIPANT, AccessScope.OWN, false, Place.NONE, false, false, false),
-            new Who("part-shared", "PARTICIPANT/OWN, shared only", AccessLevel.PARTICIPANT, AccessScope.OWN, false, Place.SHARED, false, false, false),
-            new Who("part-all", "PARTICIPANT/ALL (Master), not assigned", AccessLevel.PARTICIPANT, AccessScope.ALL, false, Place.NONE, false, false, false),
-            new Who("kdn-step", "READ_ONLY/KDN, in the step field, KDN control", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.STEP, true, false, false),
-            new Who("kdn-shared", "READ_ONLY/KDN, shared only, KDN control", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.SHARED, true, false, false),
-            new Who("kdn-creator", "READ_ONLY/KDN, creator only, KDN control", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.CREATOR, true, false, false),
-            new Who("kdn-none", "READ_ONLY/KDN, not on it, KDN control", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.NONE, true, false, false),
-            new Who("kdn-hr", "READ_ONLY/KDN, in the step field, non-KDN control (old data)", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.STEP, false, false, false),
-            new Who("ro-shared", "READ_ONLY/OWN, shared", AccessLevel.READ_ONLY, AccessScope.OWN, false, Place.SHARED, false, false, false),
-            new Who("ro-all", "READ_ONLY/ALL", AccessLevel.READ_ONLY, AccessScope.ALL, false, Place.NONE, false, false, false),
-            new Who("admin-soqm", "admin + SOQM", AccessLevel.SOQM, AccessScope.ALL, true, Place.NONE, false, false, false),
-            new Who("admin-part", "admin + PARTICIPANT/OWN, not assigned", AccessLevel.PARTICIPANT, AccessScope.OWN, true, Place.NONE, false, false, false),
-            new Who("admin-ro", "admin + READ_ONLY/OWN", AccessLevel.READ_ONLY, AccessScope.OWN, true, Place.NONE, false, false, false),
-            new Who("disabled", "PARTICIPANT/OWN, assigned, disabled", AccessLevel.PARTICIPANT, AccessScope.OWN, false, Place.STEP, false, true, false),
-            new Who("part-fac", "PARTICIPANT/OWN, Facilitator (F and CO differ)", AccessLevel.PARTICIPANT, AccessScope.OWN, false, Place.FACILITATOR, false, false, false),
-            new Who("part-op", "PARTICIPANT/OWN, Control Operator (F and CO differ)", AccessLevel.PARTICIPANT, AccessScope.OWN, false, Place.OPERATOR, false, false, false),
-            new Who("part-both", "PARTICIPANT/OWN, Facilitator and Control Operator (one person)", AccessLevel.PARTICIPANT, AccessScope.OWN, false, Place.BOTH, false, false, false),
-            new Who("ro-op", "READ_ONLY/OWN, Control Operator (old data)", AccessLevel.READ_ONLY, AccessScope.OWN, false, Place.OPERATOR, false, false, false),
-            new Who("anonymous", "not signed in", null, null, false, Place.NONE, false, false, true));
+            new Who("soqm", "SoQM Team", AccessLevel.SOQM, ALL, Place.NONE, false, false, false),
+            new Who("part-step", "User · My controls · Edit, assigned", EDIT, MY, Place.STEP, false, false, false),
+            new Who("part-none", "User · My controls · Edit, not on it", EDIT, MY, Place.NONE, false, false, false),
+            new Who("part-shared", "User · My controls · Edit, shared only", EDIT, MY, Place.SHARED, false, false, false),
+            new Who("part-creator", "User · My controls · Edit, creator only", EDIT, MY, Place.CREATOR, false, false, false),
+            new Who("all-step", "User · All controls · Edit, assigned", EDIT, ALL, Place.STEP, false, false, false),
+            new Who("all-none", "User · All controls · Edit, not on it", EDIT, ALL, Place.NONE, false, false, false),
+            new Who("all-shared", "User · All controls · Edit, shared only", EDIT, ALL, Place.SHARED, false, false, false),
+            new Who("kdn-step", "KDN, in the step field, KDN control", READ, AccessScope.KDN, Place.STEP, true, false, false),
+            new Who("kdn-shared", "KDN, shared only, KDN control", READ, AccessScope.KDN, Place.SHARED, true, false, false),
+            new Who("kdn-creator", "KDN, creator only, KDN control", READ, AccessScope.KDN, Place.CREATOR, true, false, false),
+            new Who("kdn-none", "KDN, not on it, KDN control", READ, AccessScope.KDN, Place.NONE, true, false, false),
+            new Who("kdn-hr", "KDN, in the step field, non-KDN control (old data)", READ, AccessScope.KDN, Place.STEP, false, false, false),
+            new Who("ro-shared", "User · My controls · Read Only, shared", READ, MY, Place.SHARED, false, false, false),
+            new Who("ro-creator", "User · My controls · Read Only, creator only", READ, MY, Place.CREATOR, false, false, false),
+            new Who("ro-none", "User · My controls · Read Only, not on it", READ, MY, Place.NONE, false, false, false),
+            new Who("ro-all", "User · All controls · Read Only, not on it", READ, ALL, Place.NONE, false, false, false),
+            new Who("ro-all-step", "User · All controls · Read Only, in the step field (old data)", READ, ALL, Place.STEP, false, false, false),
+            new Who("ro-all-shared", "User · All controls · Read Only, shared", READ, ALL, Place.SHARED, false, false, false),
+            new Who("disabled", "User · My controls · Edit, assigned, disabled", EDIT, MY, Place.STEP, false, true, false),
+            new Who("part-fac", "User · My controls · Edit, Facilitator (F and CO differ)", EDIT, MY, Place.FACILITATOR, false, false, false),
+            new Who("part-op", "User · My controls · Edit, Control Operator (F and CO differ)", EDIT, MY, Place.OPERATOR, false, false, false),
+            new Who("part-both", "User · My controls · Edit, Facilitator and Control Operator (one person)", EDIT, MY, Place.BOTH, false, false, false),
+            new Who("ro-op", "User · My controls · Read Only, Control Operator (old data)", READ, MY, Place.OPERATOR, false, false, false),
+            new Who("anonymous", "not signed in", null, null, Place.NONE, false, false, true));
 
     private static final List<String> CONTROL_OPS = List.of(
             "View page", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
@@ -245,22 +254,23 @@ class RoleMatrixIT {
     private static String expectedControlOp(Who who, String status, String op) {
         boolean active = !who.anonymous() && !who.disabled();
         boolean soqm = active && who.level() == AccessLevel.SOQM;
-        boolean seesAll = active && (soqm || who.admin() || who.scope() == AccessScope.ALL);
+        // SoQM Team and All controls see every control, drafts included (Read Only as well)
+        boolean seesAll = active && (soqm || who.scope() == AccessScope.ALL);
         boolean inF = inFacilitator(who, status);
         boolean inCO = inOperator(who, status);
         boolean inPO = inProcessOwner(who, status);
         boolean listed = inF || inCO || inPO;
         boolean shared = who.place() == Place.SHARED;
         boolean own = listed || shared;
-        // A KDN user also sees the KDN controls they created (decision 2)
+        // My controls = assigned, shared or creator; KDN the same, on KDN controls only
         boolean creator = who.place() == Place.CREATOR;
         boolean inScope = who.scope() == AccessScope.KDN ? who.kdnControl() && (own || creator)
-                : who.scope() == AccessScope.ALL || own;
+                : who.scope() == AccessScope.ALL || own || creator;
         boolean sees = active && (seesAll || inScope);
         boolean writer = active && who.level() != AccessLevel.READ_ONLY;
         // A completed control is locked for everyone, SoQM included (decision 4); renaming is not an edit
         boolean soqmEdits = soqm && !"COMPLETED".equals(status);
-        // A participant acts in the field they are listed in, on a control within their scope
+        // A User with Edit acts only in the field they are listed in (also with All controls)
         boolean actsInStep = writer && who.level() == AccessLevel.PARTICIPANT && listed
                 && (who.scope() != AccessScope.KDN || who.kdnControl());
         boolean participantStep = actsInStep && (("IN_PROGRESS".equals(status) && inF)
@@ -284,8 +294,8 @@ class RoleMatrixIT {
             // "KDN" appearing in or going from the ID changes who sees the control: SoQM gives a comment
             case "Rename ±KDN, no comment" -> soqm ? "400" : "refused";
             case "Rename ±KDN" -> soqm ? "ok" : "refused";
-            // SoQM performs every step, the participants' ones on their behalf (decision 3); an admin
-            // without level SOQM and read-only users none
+            // SoQM Team performs every step, the Control roles' ones on their behalf (decision 3); Read
+            // Only and KDN none
             case "Step" -> switch (status) {
                 case "DRAFT", "SOQM_HEAD_REVIEW" -> soqm ? "ok" : "refused";
                 case "IN_PROGRESS", "REVIEW", "PROCESS_OWNER_REVIEW" -> participantStep || soqm ? "ok" : "refused";
@@ -320,8 +330,8 @@ class RoleMatrixIT {
         boolean soqm = active && who.level() == AccessLevel.SOQM;
         return switch (op) {
             case "Create control", "Export button", "Assignment picker" -> soqm;
-            case "Admin Panel" -> active && who.admin();
-            case "Admin Panel change" -> active && who.admin() && who.level() != AccessLevel.READ_ONLY;
+            // Admin Panel, users and audit: SoQM Team and only SoQM Team
+            case "Admin Panel", "Admin Panel change" -> soqm;
             default -> throw new IllegalArgumentException(op);
         };
     }
@@ -486,17 +496,17 @@ class RoleMatrixIT {
     // ------------------------------------------------------------------ data
 
     private void setUpPeople() throws Exception {
-        facilitator = saveUser("rm-fac", AccessLevel.PARTICIPANT, AccessScope.OWN, false);
-        operator = saveUser("rm-op", AccessLevel.PARTICIPANT, AccessScope.OWN, false);
-        soqmLead = saveUser("rm-soqm-lead", AccessLevel.SOQM, AccessScope.ALL, false);
-        owner = saveUser("rm-po", AccessLevel.PARTICIPANT, AccessScope.OWN, false);
-        adminTarget = saveUser("rm-admin-target", AccessLevel.PARTICIPANT, AccessScope.OWN, false);
+        facilitator = saveUser("rm-fac", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        operator = saveUser("rm-op", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        soqmLead = saveUser("rm-soqm-lead", AccessLevel.SOQM, AccessScope.ALL);
+        owner = saveUser("rm-po", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        adminTarget = saveUser("rm-admin-target", AccessLevel.PARTICIPANT, AccessScope.OWN);
 
         for (Who who : PEOPLE) {
             if (who.anonymous()) {
                 continue;
             }
-            User user = saveUser("rm-" + who.key(), who.level(), who.scope(), who.admin());
+            User user = saveUser("rm-" + who.key(), who.level(), who.scope());
             users.put(who.key(), user);
             sessions.put(who.key(), login(user.getMail()));
             if (who.disabled()) {
@@ -600,13 +610,12 @@ class RoleMatrixIT {
         };
     }
 
-    private User saveUser(String name, AccessLevel level, AccessScope scope, boolean admin) {
+    private User saveUser(String name, AccessLevel level, AccessScope scope) {
         User user = new User();
         user.setMail(name + "@matrix.test");
         user.setDisplayName(name);
         user.setAccessLevel(level);
         user.setAccessScope(scope);
-        user.setAdminAccess(admin);
         user.setEnabled(true);
         user.setPassword(passwordEncoder.encode(PASSWORD));
         return userRepository.save(user);

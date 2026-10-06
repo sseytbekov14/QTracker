@@ -52,7 +52,6 @@ public class UserController {
     public ResponseEntity<?> updateUserAccess(@PathVariable Long id,
                                               @RequestParam(required = false) String level,
                                               @RequestParam(required = false) String scope,
-                                              @RequestParam(defaultValue = "false") boolean adminAccess,
                                               @RequestParam(defaultValue = "false") boolean enabled,
                                               @RequestParam(required = false) String email,
                                               @RequestParam(required = false) String displayName,
@@ -70,7 +69,7 @@ public class UserController {
             User before = snapshot(userService.getUserById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found")));
 
-            User updated = userService.updateUser(id, email, displayName, level, scope, adminAccess, enabled,
+            User updated = userService.updateUser(id, email, displayName, level, scope, enabled,
                     currentUser.getId());
 
             AdminAuditLog audit = null;
@@ -103,7 +102,6 @@ public class UserController {
                                         @RequestParam(required = false) String displayName,
                                         @RequestParam(required = false) String level,
                                         @RequestParam(required = false) String scope,
-                                        @RequestParam(defaultValue = "false") boolean adminAccess,
                                         @RequestParam(defaultValue = "true") boolean enabled,
                                         HttpSession session) {
         User currentUser = (User) session.getAttribute("currentUser");
@@ -115,7 +113,7 @@ public class UserController {
         }
 
         try {
-            User created = userService.createUser(email, displayName, level, scope, adminAccess, enabled);
+            User created = userService.createUser(email, displayName, level, scope, enabled);
 
             AdminAuditLog audit = adminAuditService.logActionWithChanges(
                     currentUser.getMail(),

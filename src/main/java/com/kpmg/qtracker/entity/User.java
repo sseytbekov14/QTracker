@@ -2,6 +2,7 @@ package com.kpmg.qtracker.entity;
 
 import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.enums.AccessScope;
+import com.kpmg.qtracker.service.AccessPolicy;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -32,6 +33,10 @@ public class User {
 
     private Boolean enabled = true;
 
+    /**
+     * Stored for reports and old tooling only: it follows the level on every save (SoQM Team = true, see
+     * {@code AccessPolicy.Profile#adminAccess}); the Admin Panel is decided by the level alone.
+     */
     @Column(name = "admin_access")
     private Boolean adminAccess = false;
 
@@ -59,5 +64,15 @@ public class User {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
         }
+        syncAdminAccess();
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        syncAdminAccess();
+    }
+
+    private void syncAdminAccess() {
+        adminAccess = AccessPolicy.Profile.of(accessLevel, accessScope).adminAccess();
     }
 }
