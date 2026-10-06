@@ -172,18 +172,73 @@ class ControlPermissionServiceBusinessTest {
     class ControlOperatorTests {
 
         @Test
-        @DisplayName("Control Operator может редактировать Steps Performed при статусе REVIEW")
-        void controlOperatorCanEditStepsAtReviewStatus() {
+        @DisplayName("Control Operator, другой человек, чем Facilitator, на REVIEW пишет только своё поле")
+        void controlOperatorWritesOwnReviewFieldAtReviewStatus() {
             User user = makeUser(CO_EMAIL, "CONTROL_OPERATOR", false);
             Control control = makeControl(1L, "HR-001", "REVIEW");
             ControlAssignmentDTO assignment = assignmentWithControlOperator(CO_EMAIL);
+            assignment.setFacilitator(List.of(FAC_EMAIL));
 
             ControlPermission perm = permissionService.resolve(control, user, assignment);
 
             assertThat(perm.canView()).isTrue();
             assertThat(perm.canEdit()).isTrue();
+            assertThat(perm.isStepsSplit()).isTrue();
             assertThat(perm.getAllowedEditableFields())
-                    .contains(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
+                    .containsExactly(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW);
+            assertThat(perm.canWriteOperatorReview()).isTrue();
+            assertThat(perm.canWriteStepsPerformed()).isFalse();
+        }
+
+        @Test
+        @DisplayName("Facilitator и Control Operator — один человек: на REVIEW одно поле Steps Performed")
+        void samePersonInBothSlots_writesTheOneStepsFieldAtReview() {
+            User user = makeUser(CO_EMAIL, "CONTROL_OPERATOR", false);
+            Control control = makeControl(1L, "HR-001", "REVIEW");
+            ControlAssignmentDTO assignment = assignmentWithControlOperator(CO_EMAIL);
+            // the same person, spelled differently, next to a second Facilitator
+            assignment.setFacilitator(List.of(FAC_EMAIL, " Operator@Test.com "));
+
+            ControlPermission perm = permissionService.resolve(control, user, assignment);
+
+            assertThat(perm.isStepsSplit()).isFalse();
+            assertThat(perm.getAllowedEditableFields())
+                    .containsExactly(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
+            assertThat(perm.canWriteOperatorReview()).isFalse();
+        }
+
+        @Test
+        @DisplayName("Несколько Control Operator: любой из них пишет поле оператора")
+        void anyOfSeveralOperatorsWritesTheReviewField() {
+            User second = makeUser("second-op@test.com", "CONTROL_OPERATOR", false);
+            Control control = makeControl(1L, "HR-001", "REVIEW");
+            ControlAssignmentDTO assignment = new ControlAssignmentDTO();
+            assignment.setFacilitator(List.of(FAC_EMAIL));
+            assignment.setControlOperator(List.of(CO_EMAIL, "second-op@test.com"));
+
+            ControlPermission perm = permissionService.resolve(control, second, assignment);
+
+            assertThat(perm.getAllowedEditableFields())
+                    .containsExactly(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW);
+        }
+
+        @Test
+        @DisplayName("SoQM в режиме «разные люди» правит оба поля, в режиме «один человек» — только первое")
+        void soqmWritesBothStepsFields_onlyWhileSplit() {
+            User soqm = makeUser(SOQM_EMAIL, "SOQM_TEAM", false);
+            Control control = makeControl(1L, "HR-001", "SOQM_HEAD_REVIEW");
+            ControlAssignmentDTO split = assignmentWithControlOperator(CO_EMAIL);
+            split.setFacilitator(List.of(FAC_EMAIL));
+            ControlAssignmentDTO onePerson = assignmentWithControlOperator(FAC_EMAIL);
+            onePerson.setFacilitator(List.of(FAC_EMAIL));
+
+            ControlPermission splitPerm = permissionService.resolve(control, soqm, split);
+            ControlPermission onePerm = permissionService.resolve(control, soqm, onePerson);
+
+            assertThat(splitPerm.canWriteStepsPerformed()).isTrue();
+            assertThat(splitPerm.canWriteOperatorReview()).isTrue();
+            assertThat(onePerm.canWriteStepsPerformed()).isTrue();
+            assertThat(onePerm.canWriteOperatorReview()).isFalse();
         }
 
         @Test

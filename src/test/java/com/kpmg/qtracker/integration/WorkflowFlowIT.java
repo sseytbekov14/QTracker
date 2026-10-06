@@ -94,6 +94,8 @@ class WorkflowFlowIT {
         ControlDetails details = new ControlDetails();
         details.setControlId(control.getId());
         details.setControlStepsPerformed("Steps performed");
+        // Facilitator and Control Operator are different people: Submit to SoQM needs the Operator's field too
+        details.setControlOperatorReview("Operator review");
         details.setSoqmHeadComments("SoQM comments");
         details.setProcessOwnerComments("Process owner comments");
         controlDetailsRepository.save(details);

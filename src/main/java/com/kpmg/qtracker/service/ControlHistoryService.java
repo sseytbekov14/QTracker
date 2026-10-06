@@ -213,6 +213,12 @@ public class ControlHistoryService {
                 return "SoQM Head/Team Comments";
             case "process_owner_comments":
                 return "Process Owner Comments";
+            case ControlStepsFields.STEPS_LABEL:
+            case "control_steps_performed":
+                return ControlStepsFields.STEPS_LABEL;
+            case ControlStepsFields.OPERATOR_REVIEW_LABEL:
+            case "control_operator_review":
+                return ControlStepsFields.OPERATOR_REVIEW_LABEL;
             default:
                 return humanizeFieldLabel(field);
         }

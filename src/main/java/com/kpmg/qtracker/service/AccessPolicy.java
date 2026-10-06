@@ -48,8 +48,10 @@ public final class AccessPolicy {
     }
 
     /**
-     * A control as one user stands on it: its workflow status, whether it is a KDN control, and in which
-     * assignment fields the user is listed. A blank status is a draft, as everywhere else.
+     * A control as one user stands on it: its workflow status, whether it is a KDN control, in which
+     * assignment fields the user is listed, and whether Control Steps Performed is split in two because the
+     * Facilitator and the Control Operator are different people ({@link ControlStepsFields}). A blank status
+     * is a draft, as everywhere else.
      */
     public record ControlFacts(String status,
                                boolean kdn,
@@ -57,10 +59,17 @@ public final class AccessPolicy {
                                boolean controlOperator,
                                boolean soqmLead,
                                boolean processOwner,
-                               boolean shared) {
+                               boolean shared,
+                               boolean stepsSplit) {
 
         public ControlFacts {
             status = status == null || status.isBlank() ? "DRAFT" : status.trim().toUpperCase(Locale.ROOT);
+        }
+
+        /** Where the steps fields do not matter (visibility, "your turn"): one steps field. */
+        public ControlFacts(String status, boolean kdn, boolean facilitator, boolean controlOperator,
+                            boolean soqmLead, boolean processOwner, boolean shared) {
+            this(status, kdn, facilitator, controlOperator, soqmLead, processOwner, shared, false);
         }
 
         /** Listed in one of the four workflow fields (Shared With is not an assignment). */
@@ -220,17 +229,23 @@ public final class AccessPolicy {
     }
 
     /**
-     * Fields a participant may change: Control Steps Performed while the step is theirs (Facilitator in
-     * In Progress, Control Operator in Review), Process Owner Comments in Process Owner Review.
+     * Fields a participant may change while the step is theirs: the Facilitator Control Steps Performed in
+     * In Progress; the Control Operator in Review the same field, or, when the Facilitator and the Operator
+     * are different people, only Control Operator Review and Results; the Process Owner Process Owner
+     * Comments in Process Owner Review.
      */
     public static Set<String> participantFields(Subject subject, ControlFacts control) {
         Set<String> fields = new LinkedHashSet<>();
         if (control == null || !mayWrite(subject)) {
             return fields;
         }
-        if (("IN_PROGRESS".equals(control.status()) && actsAsParticipant(subject, control, control.facilitator()))
-                || ("REVIEW".equals(control.status()) && actsAsParticipant(subject, control, control.controlOperator()))) {
+        if ("IN_PROGRESS".equals(control.status()) && actsAsParticipant(subject, control, control.facilitator())) {
             fields.add(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
+        }
+        if ("REVIEW".equals(control.status()) && actsAsParticipant(subject, control, control.controlOperator())) {
+            fields.add(control.stepsSplit()
+                    ? ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW
+                    : ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
         }
         if ("PROCESS_OWNER_REVIEW".equals(control.status()) && actsAsParticipant(subject, control, control.processOwner())) {
             fields.add(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS);
@@ -257,7 +272,8 @@ public final class AccessPolicy {
                 actsAsParticipant(subject, control, control.facilitator()),
                 actsAsParticipant(subject, control, control.controlOperator()),
                 canEditAll,
-                actsAsParticipant(subject, control, control.processOwner()));
+                actsAsParticipant(subject, control, control.processOwner()),
+                control.stepsSplit());
     }
 
     /**

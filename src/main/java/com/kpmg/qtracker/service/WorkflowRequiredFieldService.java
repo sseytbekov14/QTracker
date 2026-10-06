@@ -1,7 +1,9 @@
 package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.ControlDetails;
+import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -13,10 +15,17 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class WorkflowRequiredFieldService {
     private final ControlDetailsRepository controlDetailsRepository;
+    private final ControlAssignmentRepository controlAssignmentRepository;
+
+    public static final String MISSING_STEPS = "Required field is missing: Control steps performed and results";
+    public static final String MISSING_OPERATOR_REVIEW = "Required field is missing: "
+            + ControlStepsFields.OPERATOR_REVIEW_LABEL;
 
     /**
      * Control Steps Performed must be filled in to move a control on from In Progress, Review or SoQM review,
-     * whoever does it (one person may hold several fields of a control).
+     * whoever does it (one person may hold several fields of a control). From Review (Submit to SoQM Team)
+     * a control whose Facilitator and Control Operator are different people also needs Control Operator
+     * Review and Results ({@link ControlStepsFields}); the other steps require nothing new.
      */
     public Optional<String> getMissingFieldMessage(Control control) {
         if (control == null) {
@@ -30,10 +39,26 @@ public class WorkflowRequiredFieldService {
 
         String value = details != null ? details.getControlStepsPerformed() : null;
         if (value == null || value.trim().isEmpty()) {
-            return Optional.of("Required field is missing: Control steps performed and results");
+            return Optional.of(MISSING_STEPS);
+        }
+        if ("REVIEW".equals(status) && stepsSplit(control)) {
+            String review = details != null ? details.getControlOperatorReview() : null;
+            if (review == null || review.trim().isEmpty()) {
+                return Optional.of(MISSING_OPERATOR_REVIEW);
+            }
         }
 
         return Optional.empty();
+    }
+
+    /** Whether the control has two steps fields, by its assignment as stored now. */
+    public boolean stepsSplit(Control control) {
+        if (control == null || control.getId() == null) {
+            return false;
+        }
+        ControlAssignment assignment = controlAssignmentRepository.findByControlId(control.getId()).orElse(null);
+        return assignment != null
+                && ControlStepsFields.split(assignment.getFacilitator(), assignment.getControlOperator());
     }
 
     /**

@@ -48,10 +48,11 @@ class AccessPolicyTest {
         return "NONE".equals(key) ? null : SUBJECTS.get(key);
     }
 
+    /** "SPLIT" among the places: the Facilitator and the Control Operator are different people. */
     private static ControlFacts control(String status, boolean kdn, String places) {
         Set<String> p = "-".equals(places) ? Set.of() : Arrays.stream(places.split("\\+")).collect(Collectors.toSet());
         return new ControlFacts(status, kdn, p.contains("F"), p.contains("CO"), p.contains("SOQM"),
-                p.contains("PO"), p.contains("SHARED"));
+                p.contains("PO"), p.contains("SHARED"), p.contains("SPLIT"));
     }
 
     // ------------------------------------------------------------------ the user alone
@@ -152,6 +153,20 @@ class AccessPolicyTest {
             "PART,         DRAFT,                false, F,          false, false,   -",
             "PART,         REVIEW,               false, CO,         true,  false,   controlStepsPerformed",
             "PART,         REVIEW,               false, F+CO,       true,  false,   controlStepsPerformed",
+            // Facilitator and Control Operator are different people: one field each, each on its own step
+            "PART,         IN_PROGRESS,          false, F+SPLIT,    true,  false,   controlStepsPerformed",
+            "PART,         REVIEW,               false, F+SPLIT,    false, false,   -",
+            "PART,         REVIEW,               false, CO+SPLIT,   true,  false,   controlOperatorReview",
+            "PART,         IN_PROGRESS,          false, CO+SPLIT,   false, false,   -",
+            "PART,         SOQM_HEAD_REVIEW,     false, CO+SPLIT,   false, false,   -",
+            "PART,         COMPLETED,            false, CO+SPLIT,   false, false,   -",
+            "PART,         REVIEW,               false, F+CO+SPLIT, true,  false,   controlOperatorReview",
+            "PART,         REVIEW,               false, SHARED+SPLIT, false, false, -",
+            "KDN,          REVIEW,               true,  CO+SPLIT,   true,  false,   controlOperatorReview",
+            "KDN,          REVIEW,               false, CO+SPLIT,   false, false,   -",
+            "RO,           REVIEW,               false, CO+SPLIT,   false, false,   -",
+            "ADMIN_RO,     REVIEW,               false, CO+SPLIT,   false, false,   -",
+            "SOQM,         REVIEW,               false, SPLIT,      true,  true,    -",
             "PART,         SOQM_HEAD_REVIEW,     false, CO+SOQM,    false, false,   -",
             "PART,         PROCESS_OWNER_REVIEW, false, PO,         true,  false,   processOwnerComments",
             "PART,         COMPLETED,            false, F+CO+PO,    false, false,   -",
@@ -180,6 +195,28 @@ class AccessPolicyTest {
         assertThat(p.getAllowedEditableFields())
                 .as("fields")
                 .isEqualTo("-".equals(fields) ? Set.of() : Set.of(fields.split("\\+")));
+        assertThat(p.isStepsSplit()).as("stepsSplit").isEqualTo(p.canView() && places.contains("SPLIT"));
+    }
+
+    @ParameterizedTest(name = "{0} {1} {2}")
+    @CsvSource({
+            // user,     status,      places,       steps field, operator review field
+            "SOQM,       REVIEW,      SPLIT,        true,  true",
+            "SOQM,       REVIEW,      -,            true,  false",
+            "SOQM,       COMPLETED,   SPLIT,        true,  true",
+            "PART,       IN_PROGRESS, F+SPLIT,      true,  false",
+            "PART,       IN_PROGRESS, F,            true,  false",
+            "PART,       REVIEW,      CO+SPLIT,     false, true",
+            "PART,       REVIEW,      CO,           true,  false",
+            "PART,       REVIEW,      F+SPLIT,      false, false",
+            "PART,       REVIEW,      SHARED+SPLIT, false, false",
+            "RO_ALL,     REVIEW,      SPLIT,        false, false",
+            "ADMIN_PART, REVIEW,      SPLIT,        false, false",
+    })
+    void whoWritesEachStepsField(String user, String status, String places, boolean steps, boolean review) {
+        ControlPermission p = AccessPolicy.resolve(who(user), control(status, false, places));
+        assertThat(p.canWriteStepsPerformed()).as("Control Steps Performed").isEqualTo(steps);
+        assertThat(p.canWriteOperatorReview()).as("Control Operator Review").isEqualTo(review);
     }
 
     // ------------------------------------------------------------------ workflow steps

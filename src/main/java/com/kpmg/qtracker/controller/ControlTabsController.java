@@ -60,6 +60,10 @@ public class ControlTabsController {
                         .body("VALIDATION_ERROR: User does not have permission to edit this control");
             }
             ControlDetailsDTO existingDetails = controlDetailsService.getDetailsByControlId(detailsDTO.getControlId());
+            String stepsRefusal = stepsFieldRefusal(existingDetails, detailsDTO, permission);
+            if (stepsRefusal != null) {
+                return ResponseEntity.status(403).body("VALIDATION_ERROR: " + stepsRefusal);
+            }
             ControlDetailsDTO mergedDetails = mergeControlDetails(existingDetails, detailsDTO, permission);
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
@@ -79,8 +83,10 @@ public class ControlTabsController {
                     existingDetails.getOtherRelatedControls(), mergedDetails.getOtherRelatedControls());
             collectChange(changedFields, previousValues, newValues, "IT Applications",
                     existingDetails.getItApplications(), mergedDetails.getItApplications());
-            collectChange(changedFields, previousValues, newValues, "Control Steps Performed and Results",
+            collectChange(changedFields, previousValues, newValues, ControlStepsFields.STEPS_LABEL,
                     existingDetails.getControlStepsPerformed(), mergedDetails.getControlStepsPerformed());
+            collectChange(changedFields, previousValues, newValues, ControlStepsFields.OPERATOR_REVIEW_LABEL,
+                    existingDetails.getControlOperatorReview(), mergedDetails.getControlOperatorReview());
             collectChange(changedFields, previousValues, newValues, "SoQM Head/Team Comments",
                     existingDetails.getSoqmHeadComments(), mergedDetails.getSoqmHeadComments());
             collectChange(changedFields, previousValues, newValues, "Process Owner Comments",
@@ -376,7 +382,8 @@ public class ControlTabsController {
         merged.setControlId(controlId);
 
         boolean allowAll = permission != null && permission.canEditAll();
-        boolean allowSteps = permission != null && permission.canEditStepsPerformed();
+        boolean allowSteps = permission != null && permission.canWriteStepsPerformed();
+        boolean allowOperatorReview = permission != null && permission.canWriteOperatorReview();
         boolean allowProcessOwner = permission != null && permission.canEditProcessOwnerComments();
 
         merged.setProcessName(resolveString(existing != null ? existing.getProcessName() : null,
@@ -395,13 +402,48 @@ public class ControlTabsController {
                 incoming != null ? incoming.getItApplications() : null, allowAll));
 
         merged.setControlStepsPerformed(resolveString(existing != null ? existing.getControlStepsPerformed() : null,
-                incoming != null ? incoming.getControlStepsPerformed() : null, allowAll || allowSteps));
+                incoming != null ? incoming.getControlStepsPerformed() : null, allowSteps));
+        merged.setControlOperatorReview(resolveString(existing != null ? existing.getControlOperatorReview() : null,
+                incoming != null ? incoming.getControlOperatorReview() : null, allowOperatorReview));
         merged.setProcessOwnerComments(resolveString(existing != null ? existing.getProcessOwnerComments() : null,
                 incoming != null ? incoming.getProcessOwnerComments() : null, allowAll || allowProcessOwner));
         merged.setSoqmHeadComments(resolveString(existing != null ? existing.getSoqmHeadComments() : null,
                 incoming != null ? incoming.getSoqmHeadComments() : null, allowAll));
 
         return merged;
+    }
+
+    /**
+     * Why a save may not change a steps field, or null. Other fields the user may not change are kept as
+     * stored, but the two steps fields belong to one step each, so changing the other one is refused (the
+     * page never sends that: view-control.js sends null for every field the user cannot change).
+     */
+    static String stepsFieldRefusal(ControlDetailsDTO existing, ControlDetailsDTO incoming, ControlPermission permission) {
+        if (incoming == null || permission == null) {
+            return null;
+        }
+        if (changes(existing != null ? existing.getControlStepsPerformed() : null, incoming.getControlStepsPerformed())
+                && !permission.canWriteStepsPerformed()) {
+            return ControlStepsFields.STEPS_LABEL + (permission.isStepsSplit()
+                    ? " is filled in by the Facilitator while the control is In Progress"
+                    : " is filled in by the Facilitator (In Progress) or the Control Operator (Review)");
+        }
+        if (changes(existing != null ? existing.getControlOperatorReview() : null, incoming.getControlOperatorReview())
+                && !permission.canWriteOperatorReview()) {
+            return ControlStepsFields.OPERATOR_REVIEW_LABEL + (permission.isStepsSplit()
+                    ? " is filled in by the Control Operator while the control is in Review"
+                    : " is used only when the Facilitator and the Control Operator are different people");
+        }
+        return null;
+    }
+
+    /** A value sent (not null) that differs from the stored one; line breaks as a textarea sends them, ends trimmed. */
+    private static boolean changes(String stored, String incoming) {
+        return incoming != null && !comparableText(incoming).equals(comparableText(stored));
+    }
+
+    private static String comparableText(String value) {
+        return value == null ? "" : value.replace("\r\n", "\n").trim();
     }
 
     private ControlDocumentsDTO mergeControlDocuments(ControlDocumentsDTO existing,

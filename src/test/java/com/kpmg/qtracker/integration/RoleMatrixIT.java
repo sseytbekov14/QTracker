@@ -39,7 +39,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -85,7 +84,13 @@ class RoleMatrixIT {
         /** In the field whose step the status is (Facilitator, Control Operator or Process Owner). */
         STEP,
         /** Only in Shared With. */
-        SHARED
+        SHARED,
+        /** In Facilitator at every status, next to a Control Operator who is someone else (two steps fields). */
+        FACILITATOR,
+        /** In Control Operator at every status, next to a Facilitator who is someone else (two steps fields). */
+        OPERATOR,
+        /** The only Facilitator and the only Control Operator: one person, one steps field. */
+        BOTH
     }
 
     /** One row of the matrix: a kind of user. */
@@ -108,11 +113,15 @@ class RoleMatrixIT {
             new Who("admin-part", "admin + PARTICIPANT/OWN, not assigned", AccessLevel.PARTICIPANT, AccessScope.OWN, true, Place.NONE, false, false, false),
             new Who("admin-ro", "admin + READ_ONLY/OWN", AccessLevel.READ_ONLY, AccessScope.OWN, true, Place.NONE, false, false, false),
             new Who("disabled", "PARTICIPANT/OWN, assigned, disabled", AccessLevel.PARTICIPANT, AccessScope.OWN, false, Place.STEP, false, true, false),
+            new Who("part-fac", "PARTICIPANT/OWN, Facilitator (F and CO differ)", AccessLevel.PARTICIPANT, AccessScope.OWN, false, Place.FACILITATOR, false, false, false),
+            new Who("part-op", "PARTICIPANT/OWN, Control Operator (F and CO differ)", AccessLevel.PARTICIPANT, AccessScope.OWN, false, Place.OPERATOR, false, false, false),
+            new Who("part-both", "PARTICIPANT/OWN, Facilitator and Control Operator (one person)", AccessLevel.PARTICIPANT, AccessScope.OWN, false, Place.BOTH, false, false, false),
+            new Who("ro-op", "READ_ONLY/OWN, Control Operator (old data)", AccessLevel.READ_ONLY, AccessScope.OWN, false, Place.OPERATOR, false, false, false),
             new Who("anonymous", "not signed in", null, null, false, Place.NONE, false, false, true));
 
     private static final List<String> CONTROL_OPS = List.of(
-            "View page", "Read API", "History", "Save details", "Edit control", "Assign", "Upload",
-            "Rename ID", "Step", "Return", "Excel (completed)");
+            "View page", "Read API", "History", "Save details", "Steps field", "Operator field", "Edit control",
+            "Assign", "Upload", "Rename ID", "Step", "Return", "Excel (completed)");
 
     private static final List<String> USER_OPS = List.of(
             "Create control", "Export button", "Assignment picker", "Admin Panel", "Admin Panel change");
@@ -212,7 +221,10 @@ class RoleMatrixIT {
         boolean active = !who.anonymous() && !who.disabled();
         boolean soqm = active && who.level() == AccessLevel.SOQM;
         boolean seesAll = active && (soqm || who.admin() || who.scope() == AccessScope.ALL);
-        boolean listed = who.place() == Place.STEP;
+        boolean inF = inFacilitator(who, status);
+        boolean inCO = inOperator(who, status);
+        boolean inPO = inProcessOwner(who, status);
+        boolean listed = inF || inCO || inPO;
         boolean shared = who.place() == Place.SHARED;
         boolean own = listed || shared;
         boolean inScope = who.scope() == AccessScope.KDN ? who.kdnControl() && own : who.scope() == AccessScope.ALL || own;
@@ -221,13 +233,22 @@ class RoleMatrixIT {
         // A participant acts in the field they are listed in, on a control within their scope
         boolean actsInStep = writer && who.level() == AccessLevel.PARTICIPANT && listed
                 && (who.scope() != AccessScope.KDN || who.kdnControl());
-        boolean participantStep = actsInStep && Set.of("IN_PROGRESS", "REVIEW", "PROCESS_OWNER_REVIEW").contains(status);
+        boolean participantStep = actsInStep && (("IN_PROGRESS".equals(status) && inF)
+                || ("REVIEW".equals(status) && inCO) || ("PROCESS_OWNER_REVIEW".equals(status) && inPO));
+        // Steps fields: one person -> one field, written by whoever's step it is; different people -> the
+        // Facilitator's field in In Progress, the Control Operator's own field in Review; SoQM writes both
+        boolean split = stepsSplit(who);
+        boolean stepsField = soqm || (actsInStep && (("IN_PROGRESS".equals(status) && inF)
+                || ("REVIEW".equals(status) && inCO && !split)));
+        boolean operatorField = split && (soqm || (actsInStep && "REVIEW".equals(status) && inCO));
 
         return switch (op) {
             case "View page" -> !sees ? "refused"
                     : "DRAFT".equals(status) && shared && !seesAll ? "not yet" : "ok";
             case "Read API", "History" -> sees && !("DRAFT".equals(status) && shared && !seesAll) ? "ok" : "refused";
             case "Save details", "Upload" -> sees && writer && (soqm || participantStep) ? "ok" : "refused";
+            case "Steps field" -> sees && writer && stepsField ? "ok" : "refused";
+            case "Operator field" -> sees && writer && operatorField ? "ok" : "refused";
             case "Edit control", "Assign", "Rename ID" -> soqm ? "ok" : "refused";
             case "Step" -> switch (status) {
                 case "DRAFT", "SOQM_HEAD_REVIEW" -> soqm ? "ok" : "refused";
@@ -269,7 +290,13 @@ class RoleMatrixIT {
                 ? answer(get("/api/controls/{id}/export/completed", control.getId()), session) : "n/a");
         row.put("Save details", answer(post("/api/control-details").with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlId\":" + control.getId() + ",\"" + stepFieldOf(who, status) + "\":\"Saved by " + who.key() + "\"}"), session));
+        row.put("Steps field", answer(post("/api/control-details").with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlId\":" + control.getId() + ",\"controlStepsPerformed\":\"Steps by " + who.key() + "\"}"), session));
+        row.put("Operator field", answer(post("/api/control-details").with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlId\":" + control.getId() + ",\"controlOperatorReview\":\"Review by " + who.key() + "\"}"), session));
         row.put("Edit control", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlDescription\":\"Changed by " + who.key() + "\"}"), session));
@@ -433,17 +460,16 @@ class RoleMatrixIT {
 
         User user = users.get(who.key());
         String mail = user != null ? user.getMail() : null;
-        String stepField = switch (status) {
-            case "REVIEW" -> "CO";
-            case "PROCESS_OWNER_REVIEW", "COMPLETED" -> "PO";
-            default -> "F";
-        };
-        boolean listed = who.place() == Place.STEP && mail != null;
         ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
-        assignment.setFacilitator(facilitator.getMail() + (listed && stepField.equals("F") ? "," + mail : ""));
-        assignment.setControlOperator(operator.getMail() + (listed && stepField.equals("CO") ? "," + mail : ""));
+        if (who.place() == Place.BOTH && mail != null) {
+            assignment.setFacilitator(mail);
+            assignment.setControlOperator(mail);
+        } else {
+            assignment.setFacilitator(facilitator.getMail() + (mail != null && inFacilitator(who, status) ? "," + mail : ""));
+            assignment.setControlOperator(operator.getMail() + (mail != null && inOperator(who, status) ? "," + mail : ""));
+        }
         assignment.setSoqmLead(soqmLead.getMail());
-        assignment.setProcessOwner(owner.getMail() + (listed && stepField.equals("PO") ? "," + mail : ""));
+        assignment.setProcessOwner(owner.getMail() + (mail != null && inProcessOwner(who, status) ? "," + mail : ""));
         assignment.setControlSharedWith(who.place() == Place.SHARED && mail != null ? mail : null);
         assignment.setControlOperationDate(today().plusDays(10));
         assignment.setControlOperationDeadline(today().plusDays(17));
@@ -451,10 +477,54 @@ class RoleMatrixIT {
 
         ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();
         details.setControlStepsPerformed("Steps performed");
+        details.setControlOperatorReview("Operator review");
         details.setSoqmHeadComments("SoQM comments");
         details.setProcessOwnerComments("Process Owner comments");
         detailsRepository.save(details);
         return control;
+    }
+
+    /** The field whose step the status is, for Place.STEP (Facilitator, Control Operator or Process Owner). */
+    private static String stepSlot(String status) {
+        return switch (status) {
+            case "REVIEW" -> "CO";
+            case "PROCESS_OWNER_REVIEW", "COMPLETED" -> "PO";
+            default -> "F";
+        };
+    }
+
+    private static boolean inFacilitator(Who who, String status) {
+        return switch (who.place()) {
+            case STEP -> "F".equals(stepSlot(status));
+            case FACILITATOR, BOTH -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean inOperator(Who who, String status) {
+        return switch (who.place()) {
+            case STEP -> "CO".equals(stepSlot(status));
+            case OPERATOR, BOTH -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean inProcessOwner(Who who, String status) {
+        return who.place() == Place.STEP && "PO".equals(stepSlot(status));
+    }
+
+    /** Every control has a Facilitator and a Control Operator who differ, except the one-person row's. */
+    private static boolean stepsSplit(Who who) {
+        return who.place() != Place.BOTH;
+    }
+
+    /** The Details field the holder of the current step writes ("Save details"). */
+    private static String stepFieldOf(Who who, String status) {
+        return switch (status) {
+            case "REVIEW" -> stepsSplit(who) ? "controlOperatorReview" : "controlStepsPerformed";
+            case "PROCESS_OWNER_REVIEW" -> "processOwnerComments";
+            default -> "controlStepsPerformed";
+        };
     }
 
     private User saveUser(String name, AccessLevel level, AccessScope scope, boolean admin) {

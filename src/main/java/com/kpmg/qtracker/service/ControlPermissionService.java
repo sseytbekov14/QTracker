@@ -62,7 +62,8 @@ public class ControlPermissionService {
                 containsEmail(resolvedAssignment.getControlOperator(), userEmail),
                 containsEmail(resolvedAssignment.getSoqmLead(), userEmail),
                 containsEmail(resolvedAssignment.getProcessOwner(), userEmail),
-                containsEmail(resolvedAssignment.getControlSharedWith(), userEmail));
+                containsEmail(resolvedAssignment.getControlSharedWith(), userEmail),
+                ControlStepsFields.split(resolvedAssignment.getFacilitator(), resolvedAssignment.getControlOperator()));
     }
 
     private boolean containsEmail(List<String> emails, String userEmail) {
