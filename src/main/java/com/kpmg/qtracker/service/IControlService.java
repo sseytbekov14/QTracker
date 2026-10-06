@@ -17,7 +17,6 @@ public interface IControlService {
     List<Control> getProcessOwnerControls(String userEmail);
     List<Control> getSoqmLeadControls(String userEmail);
     boolean isControlIdUnique(String controlId);
-    Control renameControlId(Long controlId, String newControlId);
     List<ControlResponseDTO> getUserControlsDTO(String userEmail);
     List<ControlResponseDTO> getFacilitatorControlsDTO(String userEmail);
     Control createControl(Control control);

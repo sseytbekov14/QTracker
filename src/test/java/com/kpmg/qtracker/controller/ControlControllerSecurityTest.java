@@ -95,6 +95,9 @@ class ControlControllerSecurityTest {
     @MockBean
     private StatusDisplayMapper statusDisplayMapper;
 
+    @MockBean
+    private com.kpmg.qtracker.service.ControlRenameService controlRenameService;
+
     private ControlDTO requestBody;
 
     @BeforeEach

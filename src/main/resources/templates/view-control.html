@@ -1289,6 +1289,12 @@
                                     <div class="form-text">Control ID must be unique across the system</div>
                                     <div id="controlIdError" class="text-danger mt-1" style="display: none;"></div>
                                 </div>
+                                <div class="mb-0">
+                                    <label for="renameComment" class="form-label">Comment</label>
+                                    <textarea class="form-control" id="renameComment" rows="2" maxlength="1000"
+                                              placeholder="Why the Control ID changes"></textarea>
+                                    <div class="form-text">Required when the new ID makes this a KDN control or stops it being one: KDN users then gain or lose access.</div>
+                                </div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -1609,7 +1615,7 @@
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
-<script src="/js/view-control.js?v=5.8"></script>
+<script src="/js/view-control.js?v=5.9"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows

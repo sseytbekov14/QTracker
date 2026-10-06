@@ -126,8 +126,8 @@ class RoleMatrixIT {
 
     private static final List<String> CONTROL_OPS = List.of(
             "View page", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
-            "Assign", "Upload", "Rename ID", "Step", "Return", "Move to In Progress", "Move to Review",
-            "Move to SoQM review", "Move to PO review", "Excel (completed)");
+            "Assign", "Upload", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
+            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)");
 
     /** The working statuses in order; "Move to X" is POST /api/workflow/move, a return when X is earlier. */
     private static final List<String> WORKING = List.of(
@@ -138,6 +138,12 @@ class RoleMatrixIT {
             "Move to Review", "REVIEW",
             "Move to SoQM review", "SOQM_HEAD_REVIEW",
             "Move to PO review", "PROCESS_OWNER_REVIEW");
+
+    /**
+     * A KDN control is one with "KDN" anywhere in its Control ID, in any case: the KDN rows' controls take
+     * these forms in turn; the other controls are "HR-RM-n".
+     */
+    private static final List<String> KDN_ID_FORMS = List.of("KDN-RM-%d", "KDNRM%d", "X-KDN-RM-%d", "kdn-rm-%d");
 
     private static final List<String> USER_OPS = List.of(
             "Create control", "Export button", "Assignment picker", "Admin Panel", "Admin Panel change");
@@ -199,7 +205,7 @@ class RoleMatrixIT {
                     String expected = expectedControlOp(who, status, op);
                     boolean matches = expected.equals("ok") == actual.equals("ok")
                             && (!expected.equals("not yet") || actual.equals("not yet"))
-                            && !actual.startsWith("5") && !actual.equals("400");
+                            && !actual.startsWith("5") && expected.equals("400") == actual.equals("400");
                     if (!matches) {
                         mismatches.add(status + " | " + who.label() + " | " + op + ": expected " + expected + ", got " + actual);
                     }
@@ -275,6 +281,9 @@ class RoleMatrixIT {
             case "Operator field" -> sees && writer && operatorField ? "ok" : "refused";
             case "Edit control", "Assign" -> soqmEdits ? "ok" : "refused";
             case "Rename ID" -> soqm ? "ok" : "refused";
+            // "KDN" appearing in or going from the ID changes who sees the control: SoQM gives a comment
+            case "Rename ±KDN, no comment" -> soqm ? "400" : "refused";
+            case "Rename ±KDN" -> soqm ? "ok" : "refused";
             // SoQM performs every step, the participants' ones on their behalf (decision 3); an admin
             // without level SOQM and read-only users none
             case "Step" -> switch (status) {
@@ -353,6 +362,14 @@ class RoleMatrixIT {
         row.put("Rename ID", answer(post("/api/controls/{id}/rename-id", control.getId()).with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"newControlId\":\"" + control.getControlId() + "-R\"}"), session));
+        // From a KDN ID to one without "KDN", or the other way round
+        String flipped = who.kdnControl() ? "HR-RN-" + control.getId() : "KDN-RN-" + control.getId();
+        row.put("Rename ±KDN, no comment", answer(post("/api/controls/{id}/rename-id", control.getId()).with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"newControlId\":\"" + flipped + "\"}"), session));
+        row.put("Rename ±KDN", answer(post("/api/controls/{id}/rename-id", control.getId()).with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"newControlId\":\"" + flipped + "\",\"comment\":\"Renamed by " + who.key() + "\"}"), session));
 
         // With a comment: SoQM needs one when it makes a participant's step. A completed control has no next
         // step (the old shared resubmit is gone; SoQM returns it, "Back to ...")
@@ -493,7 +510,10 @@ class RoleMatrixIT {
     /** A fresh control in the status, with the four standard people and the row's user in their place. */
     private Control control(Who who, String status) throws Exception {
         Control control = new Control();
-        control.setControlId((who.kdnControl() ? "KDN-RM-" : "HR-RM-") + (++controlCount));
+        ++controlCount;
+        control.setControlId(who.kdnControl()
+                ? String.format(KDN_ID_FORMS.get(controlCount % KDN_ID_FORMS.size()), controlCount)
+                : "HR-RM-" + controlCount);
         control.setControlFrequency("Monthly");
         control.setControlCategory("Manual");
         control.setControlType("Preventive");

@@ -21,6 +21,7 @@ import com.kpmg.qtracker.service.ControlDocumentsService;
 import com.kpmg.qtracker.service.ControlHistoryService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
+import com.kpmg.qtracker.service.ControlRenameService;
 import com.kpmg.qtracker.service.ControlStepsFields;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
@@ -68,6 +69,7 @@ public class ControlController {
     private final PermissionService permissionService;
     private final StatusDisplayMapper statusDisplayMapper;
     private final com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;
+    private final ControlRenameService controlRenameService;
     private static final Logger logger = LoggerFactory.getLogger(ControlController.class);
 
     /**
@@ -116,7 +118,8 @@ public class ControlController {
                 return ResponseEntity.badRequest().body("Control ID cannot be empty");
             }
 
-            Control updatedControl = controlService.renameControlId(id, newControlId);
+            // A rename that makes the control a KDN control or stops it being one needs a comment
+            Control updatedControl = controlRenameService.rename(id, newControlId, request.get("comment"), currentUser);
             return ResponseEntity.ok(updatedControl);
 
         } catch (Exception e) {

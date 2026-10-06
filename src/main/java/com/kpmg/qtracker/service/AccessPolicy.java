@@ -86,6 +86,12 @@ public final class AccessPolicy {
             this(status, kdn, facilitator, controlOperator, soqmLead, processOwner, shared, false, false);
         }
 
+        /** The same control with another KDN mark (its Control ID renamed). */
+        public ControlFacts withKdn(boolean kdnControl) {
+            return new ControlFacts(status, kdnControl, facilitator, controlOperator, soqmLead, processOwner, shared,
+                    stepsSplit, creator);
+        }
+
         /** Listed in one of the four workflow fields (Shared With is not an assignment). */
         public boolean assigned() {
             return facilitator || controlOperator || soqmLead || processOwner;
@@ -146,9 +152,17 @@ public final class AccessPolicy {
         }
     }
 
-    /** A KDN control: its Control ID starts with "KDN-" (any case), as IDs of component KDN do. */
+    /**
+     * A KDN control: "KDN" anywhere in its Control ID, in any case (KDN-001, KDN001, X-KDN-12, kdn-5), as
+     * the Power Apps KDN grid filtered (business decision, 2026-10-07). The only place this rule lives.
+     */
     public static boolean isKdnControl(String controlId) {
-        return controlId != null && controlId.trim().toUpperCase(Locale.ROOT).startsWith("KDN-");
+        return controlId != null && controlId.trim().toUpperCase(Locale.ROOT).contains("KDN");
+    }
+
+    /** Renaming the Control ID from one to the other makes the control a KDN control or stops it being one. */
+    public static boolean renameChangesKdn(String oldControlId, String newControlId) {
+        return isKdnControl(oldControlId) != isKdnControl(newControlId);
     }
 
     // ---------------------------------------------------------------- the user, without a control

@@ -1912,7 +1912,7 @@ function saveControlData(controlId) {
             });
     }
 
-function renameControlId(newControlId) {
+function renameControlId(newControlId, comment) {
         const controlPrimaryKey = document.querySelector('input[name="id"]').value;
         console.log('Primary key to rename:', controlPrimaryKey);
         console.log('New control_id value:', newControlId);
@@ -1920,7 +1920,7 @@ function renameControlId(newControlId) {
         return fetch('/api/controls/' + controlPrimaryKey + '/rename-id', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ newControlId: newControlId })
+            body: JSON.stringify({ newControlId: newControlId, comment: comment })
         })
         .then(response => {
             if (response.ok) {
@@ -2839,6 +2839,10 @@ function saveDocumentsData(controlId) {
                 const originalControlId = currentControlId.trim();
 
                 newControlIdInput.value = currentControlId;
+                const renameCommentInput = document.getElementById('renameComment');
+                if (renameCommentInput) {
+                    renameCommentInput.value = '';
+                }
                 controlIdError.style.display = 'none';
                 controlIdError.textContent = '';
 
@@ -2910,7 +2914,9 @@ function saveDocumentsData(controlId) {
                             throw new Error('Control ID already exists. Please choose a different ID.');
                         }
 
-                        const updatedControl = await renameControlId(newControlId);
+                        // The server asks for a comment when the new ID makes the control a KDN control or stops it being one
+                        const renameComment = renameCommentInput ? renameCommentInput.value.trim() : '';
+                        const updatedControl = await renameControlId(newControlId, renameComment);
 
                         document.title = 'Control - ' + updatedControl.controlId;
 

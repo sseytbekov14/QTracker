@@ -313,6 +313,8 @@ public class ControlHistoryService {
                 return "Attachment Removed" + tabSuffix;
             case "ATTACHMENT_REPLACED":
                 return "Attachment Replaced" + tabSuffix;
+            case ControlRenameService.AUDIT_ACTION:
+                return "Rename Control ID";
             default:
                 return "Edit Control";
         }

@@ -83,6 +83,9 @@ class ControlControllerExportExcelTest {
     @MockBean
     private StatusDisplayMapper statusDisplayMapper;
 
+    @MockBean
+    private com.kpmg.qtracker.service.ControlRenameService controlRenameService;
+
     @Test
     void exportExcel_includesExpectedHeadersAndOrder() throws Exception {
         User currentUser = user("SoQM User");

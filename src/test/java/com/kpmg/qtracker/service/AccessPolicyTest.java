@@ -10,6 +10,7 @@ import com.kpmg.qtracker.service.AccessPolicy.Subject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -512,14 +513,54 @@ class AccessPolicyTest {
         assertThat(Subject.of(null)).isNull();
     }
 
+    @ParameterizedTest(name = "[{0}]")
+    @ValueSource(strings = {"KDN-001", "KDN001", "X-KDN-12", "kdn-5", "Kdn", "HR-CTRL-MF-1/FY26/kDn",
+            "  KDN-001  ", "\tkdn-5\n", "KDN/FY26", "KDNX-01", "HR-KDN-01"})
+    void kdnControl_hasKdnAnywhereInItsId_inAnyCase(String id) {
+        assertThat(AccessPolicy.isKdnControl(id)).isTrue();
+    }
+
+    @ParameterizedTest(name = "[{0}]")
+    @ValueSource(strings = {"HR-CTRL-MF-1/FY26/Central", "KD-N-01", "K DN-01", "KD", "DN", "", " ", "\t"})
+    void kdnControl_notWithoutKdnInItsId(String id) {
+        assertThat(AccessPolicy.isKdnControl(id)).isFalse();
+    }
+
     @Test
-    void kdnControl_isAControlIdStartingWithKdnDash() {
-        for (String id : List.of("KDN-CTRL-MF-01/FY26/KZ/Q1", " kdn-01", "Kdn-")) {
-            assertThat(AccessPolicy.isKdnControl(id)).as(id).isTrue();
-        }
-        for (String id : List.of("HR-KDN-01", "KDN/FY26", "KDNX-01", "Kdn", "", " ")) {
-            assertThat(AccessPolicy.isKdnControl(id)).as(id).isFalse();
-        }
+    void kdnControl_notForNoId() {
         assertThat(AccessPolicy.isKdnControl(null)).isFalse();
+    }
+
+    @Test
+    void renameChangesKdn_whenKdnAppearsOrGoes() {
+        assertThat(AccessPolicy.renameChangesKdn("HR-1", "HR-KDN-1")).isTrue();
+        assertThat(AccessPolicy.renameChangesKdn("kdn-5", "HR-5")).isTrue();
+        assertThat(AccessPolicy.renameChangesKdn(null, "KDN001")).isTrue();
+        assertThat(AccessPolicy.renameChangesKdn("KDN-1", "x-kdn-1")).isFalse();
+        assertThat(AccessPolicy.renameChangesKdn("HR-1", "HR-2")).isFalse();
+        assertThat(AccessPolicy.renameChangesKdn("", null)).isFalse();
+    }
+
+    @Test
+    void kdnUser_seesAndIsAssignedOnEveryIdWithKdn_onlyThere() {
+        for (String id : List.of("KDN-001", "KDN001", "X-KDN-12", "kdn-5", " KDN-7 ")) {
+            boolean kdn = AccessPolicy.isKdnControl(id);
+            assertThat(AccessPolicy.canView(who("KDN"), control("REVIEW", kdn, "F"))).as(id).isTrue();
+            assertThat(AccessPolicy.canView(who("KDN"), control("REVIEW", kdn, "SHARED"))).as(id).isTrue();
+            for (Slot slot : List.of(Slot.FACILITATOR, Slot.CONTROL_OPERATOR, Slot.PROCESS_OWNER, Slot.SHARED_WITH)) {
+                assertThat(AccessPolicy.assignmentRefusal(who("KDN"), slot, kdn)).as(id + " " + slot).isEmpty();
+            }
+            assertThat(AccessPolicy.assignmentRefusal(who("KDN"), Slot.SOQM_LEAD, kdn)).as(id).isPresent();
+        }
+        for (String id : Arrays.asList("HR-001", "KD-N-1", "", null)) {
+            boolean kdn = AccessPolicy.isKdnControl(id);
+            assertThat(AccessPolicy.canView(who("KDN"), control("REVIEW", kdn, "F"))).as(id).isFalse();
+            for (Slot slot : Slot.values()) {
+                assertThat(AccessPolicy.assignmentRefusal(who("KDN"), slot, kdn)).as(id + " " + slot)
+                        .hasValueSatisfying(reason -> assertThat(reason).isNotBlank());
+            }
+            // the others are not affected by the KDN mark
+            assertThat(AccessPolicy.canView(who("PART"), control("REVIEW", kdn, "F"))).as(id).isTrue();
+        }
     }
 }

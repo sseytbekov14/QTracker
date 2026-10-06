@@ -72,6 +72,26 @@ class ControlServiceKdnVisibilityTest {
     }
 
     @Test
+    void kdnScope_seesEveryIdWithKdnAnywhere_inAnyCase() {
+        List<Control> controls = List.of(
+                control(31L, "KDN-001", "IN_PROGRESS"),
+                control(32L, "KDN001", "REVIEW"),
+                control(33L, "X-KDN-12", "COMPLETED"),
+                control(34L, "kdn-5", "DRAFT"),
+                control(35L, "  KDN-35  ", "REVIEW"),
+                control(36L, "HR-36", "REVIEW"),
+                control(37L, "KD-N-37", "REVIEW"),
+                control(38L, "", "REVIEW"),
+                control(39L, null, "REVIEW"));
+        candidates(controls, controls.stream().map(c -> assignment(c.getId(), MAIL, null)).toList());
+
+        List<Control> visible = controlService.findVisibleControlsForUser(
+                TestUsers.user(MAIL, AccessLevel.READ_ONLY, AccessScope.KDN, false));
+
+        assertThat(visible).extracting(Control::getId).containsExactly(35L, 34L, 33L, 32L, 31L);
+    }
+
+    @Test
     void kdnScope_alsoSeesTheKdnControlsItCreated_butNotOthersItCreated() {
         User kdnUser = TestUsers.user(MAIL, AccessLevel.READ_ONLY, AccessScope.KDN, false);
         kdnUser.setId(77L);

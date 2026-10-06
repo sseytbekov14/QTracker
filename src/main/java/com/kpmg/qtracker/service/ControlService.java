@@ -203,22 +203,6 @@ public class ControlService implements IControlService {
         return existingControl.isEmpty();
     }
 
-    public Control renameControlId(Long id, String newControlId) {
-        Control control = controlRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
-
-        if (control.getControlId().equals(newControlId)) {
-            return control;
-        }
-
-        if (controlRepository.existsByControlId(newControlId)) {
-            throw new RuntimeException("Control ID '" + newControlId + "' already exists. Please choose a different ID.");
-        }
-
-        control.setControlId(newControlId);
-        return controlRepository.save(control);
-    }
-
     @Override
     public List<ControlResponseDTO> getUserControlsDTO(String userEmail) {
         List<Control> controls = controlRepository.findByCreatedByMailOrderByCreatedAtDesc(userEmail);

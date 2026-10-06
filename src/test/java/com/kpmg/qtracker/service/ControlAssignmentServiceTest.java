@@ -11,6 +11,8 @@ import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.support.TestUsers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -24,6 +26,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -157,6 +160,30 @@ class ControlAssignmentServiceTest {
         assertThat(saved.getFacilitator()).isEqualTo("kdn@kpmg.kz");
         assertThat(saved.getControlOperator()).isEqualTo("kdn@kpmg.kz");
         assertThat(saved.getControlSharedWith()).isEqualTo("ro@kpmg.kz");
+    }
+
+    @ParameterizedTest(name = "[{0}] KDN control: {1}")
+    @CsvSource(value = {
+            "KDN-001|true", "KDN001|true", "X-KDN-12|true", "kdn-5|true", "'  KDN-9  '|true",
+            "HR-001|false", "KD-N-1|false", "''|false"}, delimiter = '|')
+    void saveAssignment_kdnUserInAStepField_onlyWhereTheIdHasKdn(String controlId, boolean kdnControl) {
+        Control control = new Control();
+        control.setId(92L);
+        control.setControlId(controlId);
+        when(controlRepository.findById(92L)).thenReturn(Optional.of(control));
+        when(userRepository.findByMail("kdn@kpmg.kz")).thenReturn(Optional.of(
+                TestUsers.user("kdn@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, false)));
+        lenient().when(assignmentRepository.findByControlId(92L)).thenReturn(Optional.empty());
+        lenient().when(assignmentRepository.save(any(ControlAssignment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ControlAssignmentDTO dto = dto(92L, null, null, null);
+        dto.setProcessOwner(List.of("kdn@kpmg.kz"));
+        if (kdnControl) {
+            assertThat(service.saveAssignment(dto).getProcessOwner()).isEqualTo("kdn@kpmg.kz");
+        } else {
+            assertRefused(dto, "Process Owner: kdn@kpmg.kz sees only KDN controls");
+            verify(assignmentRepository, never()).save(any(ControlAssignment.class));
+        }
     }
 
     private ControlAssignmentDTO dto(Long controlId, List<String> facilitator, List<String> soqmLead,
