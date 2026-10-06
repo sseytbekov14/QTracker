@@ -5,6 +5,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
@@ -121,6 +122,11 @@ public class ControlService implements IControlService {
         addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsBySoqmLead(userEmail));
         addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByProcessOwner(userEmail));
         addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlSharedWith(userEmail));
+        if (subject.scope() == AccessScope.KDN) {
+            // A KDN user also sees the KDN controls they created
+            controlRepository.findByCreatedByMailOrderByCreatedAtDesc(userEmail)
+                    .forEach(control -> candidateIds.add(control.getId()));
+        }
         if (candidateIds.isEmpty()) {
             return Collections.emptyList();
         }
@@ -129,14 +135,15 @@ public class ControlService implements IControlService {
                 .collect(Collectors.toMap(ControlAssignment::getControlId, assignment -> assignment, (a, b) -> a));
         List<Control> visibleControls = controlRepository.findAllById(candidateIds).stream()
                 .filter(control -> AccessPolicy.canView(subject,
-                        facts(control, assignments.get(control.getId()), userEmail)))
+                        facts(control, assignments.get(control.getId()), user)))
                 .collect(Collectors.toList());
         visibleControls.sort(Comparator.comparing(Control::getId, Comparator.nullsLast(Long::compareTo)).reversed());
         return visibleControls;
     }
 
-    private AccessPolicy.ControlFacts facts(Control control, ControlAssignment assignment, String userEmail) {
+    private AccessPolicy.ControlFacts facts(Control control, ControlAssignment assignment, User user) {
         boolean hasAssignment = assignment != null;
+        String userEmail = user.getMail();
         return new AccessPolicy.ControlFacts(
                 control.getPerformanceStatus(),
                 AccessPolicy.isKdnControl(control.getControlId()),
@@ -144,7 +151,9 @@ public class ControlService implements IControlService {
                 hasAssignment && EmailList.contains(assignment.getControlOperator(), userEmail),
                 hasAssignment && EmailList.contains(assignment.getSoqmLead(), userEmail),
                 hasAssignment && EmailList.contains(assignment.getProcessOwner(), userEmail),
-                hasAssignment && EmailList.contains(assignment.getControlSharedWith(), userEmail));
+                hasAssignment && EmailList.contains(assignment.getControlSharedWith(), userEmail),
+                false,
+                ControlPermissionService.isCreator(control, user));
     }
 
     @Override

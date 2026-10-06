@@ -63,7 +63,21 @@ public class ControlPermissionService {
                 containsEmail(resolvedAssignment.getSoqmLead(), userEmail),
                 containsEmail(resolvedAssignment.getProcessOwner(), userEmail),
                 containsEmail(resolvedAssignment.getControlSharedWith(), userEmail),
-                ControlStepsFields.split(resolvedAssignment.getFacilitator(), resolvedAssignment.getControlOperator()));
+                ControlStepsFields.split(resolvedAssignment.getFacilitator(), resolvedAssignment.getControlOperator()),
+                isCreator(control, user));
+    }
+
+    /** The user created the control (Control.createdBy, by id, else by e-mail ignoring case). */
+    public static boolean isCreator(Control control, User user) {
+        User creator = control != null ? control.getCreatedBy() : null;
+        if (creator == null || user == null) {
+            return false;
+        }
+        if (creator.getId() != null && creator.getId().equals(user.getId())) {
+            return true;
+        }
+        return creator.getMail() != null && user.getMail() != null
+                && creator.getMail().trim().equalsIgnoreCase(user.getMail().trim());
     }
 
     private boolean containsEmail(List<String> emails, String userEmail) {

@@ -91,7 +91,9 @@ class RoleMatrixIT {
         /** In Control Operator at every status, next to a Facilitator who is someone else (two steps fields). */
         OPERATOR,
         /** The only Facilitator and the only Control Operator: one person, one steps field. */
-        BOTH
+        BOTH,
+        /** Not on the control, but its creator (counts only for scope KDN). */
+        CREATOR
     }
 
     /** One row of the matrix: a kind of user. */
@@ -107,6 +109,7 @@ class RoleMatrixIT {
             new Who("part-all", "PARTICIPANT/ALL (Master), not assigned", AccessLevel.PARTICIPANT, AccessScope.ALL, false, Place.NONE, false, false, false),
             new Who("kdn-step", "READ_ONLY/KDN, in the step field, KDN control", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.STEP, true, false, false),
             new Who("kdn-shared", "READ_ONLY/KDN, shared only, KDN control", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.SHARED, true, false, false),
+            new Who("kdn-creator", "READ_ONLY/KDN, creator only, KDN control", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.CREATOR, true, false, false),
             new Who("kdn-none", "READ_ONLY/KDN, not on it, KDN control", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.NONE, true, false, false),
             new Who("kdn-hr", "READ_ONLY/KDN, in the step field, non-KDN control (old data)", AccessLevel.READ_ONLY, AccessScope.KDN, false, Place.STEP, false, false, false),
             new Who("ro-shared", "READ_ONLY/OWN, shared", AccessLevel.READ_ONLY, AccessScope.OWN, false, Place.SHARED, false, false, false),
@@ -243,7 +246,10 @@ class RoleMatrixIT {
         boolean listed = inF || inCO || inPO;
         boolean shared = who.place() == Place.SHARED;
         boolean own = listed || shared;
-        boolean inScope = who.scope() == AccessScope.KDN ? who.kdnControl() && own : who.scope() == AccessScope.ALL || own;
+        // A KDN user also sees the KDN controls they created (decision 2)
+        boolean creator = who.place() == Place.CREATOR;
+        boolean inScope = who.scope() == AccessScope.KDN ? who.kdnControl() && (own || creator)
+                : who.scope() == AccessScope.ALL || own;
         boolean sees = active && (seesAll || inScope);
         boolean writer = active && who.level() != AccessLevel.READ_ONLY;
         // A completed control is locked for everyone, SoQM included (decision 4); renaming is not an edit
@@ -498,7 +504,7 @@ class RoleMatrixIT {
         control.setControlStatus("ACTIVE");
         control.setPerformanceStatus(status);
         control.setSoqmYear(SoqmYear.current(today()));
-        control.setCreatedBy(soqmLead);
+        control.setCreatedBy(who.place() == Place.CREATOR && users.get(who.key()) != null ? users.get(who.key()) : soqmLead);
         control.setCreatedAt(LocalDateTime.now());
         // One stored attachment, for "Download"
         control.setAttachmentDetailsPath(fileStorageService.saveFile(new MockMultipartFile("file", "evidence.pdf",

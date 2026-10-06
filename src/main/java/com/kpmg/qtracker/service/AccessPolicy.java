@@ -21,8 +21,9 @@ import java.util.Set;
  *   user, assigned or not) and moves a control on or back for any other role ({@link #move}); PARTICIPANT
  *   performs the Facilitator, Control Operator and Process Owner steps and edits only where assigned;
  *   READ_ONLY never writes.</li>
- *   <li>Scope: OWN = assigned or shared; ALL = every control; KDN = KDN controls the user is assigned to
- *   or shared with. SoQM always sees every control; KDN users are always READ_ONLY ({@link #levelScopeRefusal}).</li>
+ *   <li>Scope: OWN = assigned or shared; ALL = every control; KDN = KDN controls the user is assigned to,
+ *   shared with or created. SoQM always sees every control; KDN users are always READ_ONLY
+ *   ({@link #levelScopeRefusal}).</li>
  *   <li>admin_access: Admin Panel, audit and viewing every control; it grants no edit, assignment,
  *   workflow step or creation.</li>
  *   <li>Shared With only views (spec 5.6): no edit, upload or workflow step, also on completed controls.</li>
@@ -55,9 +56,9 @@ public final class AccessPolicy {
 
     /**
      * A control as one user stands on it: its workflow status, whether it is a KDN control, in which
-     * assignment fields the user is listed, and whether Control Steps Performed is split in two because the
-     * Facilitator and the Control Operator are different people ({@link ControlStepsFields}). A blank status
-     * is a draft, as everywhere else.
+     * assignment fields the user is listed, whether Control Steps Performed is split in two because the
+     * Facilitator and the Control Operator are different people ({@link ControlStepsFields}), and whether the
+     * user created it (counted only for scope KDN). A blank status is a draft, as everywhere else.
      */
     public record ControlFacts(String status,
                                boolean kdn,
@@ -66,16 +67,23 @@ public final class AccessPolicy {
                                boolean soqmLead,
                                boolean processOwner,
                                boolean shared,
-                               boolean stepsSplit) {
+                               boolean stepsSplit,
+                               boolean creator) {
 
         public ControlFacts {
             status = status == null || status.isBlank() ? "DRAFT" : status.trim().toUpperCase(Locale.ROOT);
         }
 
+        /** Not the creator, or where that does not matter. */
+        public ControlFacts(String status, boolean kdn, boolean facilitator, boolean controlOperator,
+                            boolean soqmLead, boolean processOwner, boolean shared, boolean stepsSplit) {
+            this(status, kdn, facilitator, controlOperator, soqmLead, processOwner, shared, stepsSplit, false);
+        }
+
         /** Where the steps fields do not matter (visibility, "your turn"): one steps field. */
         public ControlFacts(String status, boolean kdn, boolean facilitator, boolean controlOperator,
                             boolean soqmLead, boolean processOwner, boolean shared) {
-            this(status, kdn, facilitator, controlOperator, soqmLead, processOwner, shared, false);
+            this(status, kdn, facilitator, controlOperator, soqmLead, processOwner, shared, false, false);
         }
 
         /** Listed in one of the four workflow fields (Shared With is not an assignment). */
@@ -220,12 +228,15 @@ public final class AccessPolicy {
         return subject.level() == AccessLevel.SOQM || subject.admin() || inScope(subject, control);
     }
 
-    /** The control is within the user's scope; the admin flag does not count here. */
+    /**
+     * The control is within the user's scope; the admin flag does not count here. A KDN user also sees the
+     * KDN controls they created (business decision 2; with scope OWN creating a control gives nothing).
+     */
     private static boolean inScope(Subject subject, ControlFacts control) {
         boolean own = control.assigned() || control.shared();
         return switch (subject.scope()) {
             case ALL -> true;
-            case KDN -> control.kdn() && own;
+            case KDN -> control.kdn() && (own || control.creator());
             case OWN -> own;
         };
     }

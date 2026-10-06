@@ -72,6 +72,22 @@ class ControlServiceKdnVisibilityTest {
     }
 
     @Test
+    void kdnScope_alsoSeesTheKdnControlsItCreated_butNotOthersItCreated() {
+        User kdnUser = TestUsers.user(MAIL, AccessLevel.READ_ONLY, AccessScope.KDN, false);
+        kdnUser.setId(77L);
+        Control kdnCreated = control(20L, "KDN-20", "REVIEW");
+        kdnCreated.setCreatedBy(kdnUser);
+        Control hrCreated = control(21L, "HR-21", "REVIEW");
+        hrCreated.setCreatedBy(kdnUser);
+        when(controlRepository.findByCreatedByMailOrderByCreatedAtDesc(MAIL)).thenReturn(List.of(kdnCreated, hrCreated));
+        when(controlAssignmentRepository.findAllById(anyIterable())).thenReturn(List.of());
+        when(controlRepository.findAllById(anyIterable())).thenReturn(List.of(kdnCreated, hrCreated));
+
+        assertThat(controlService.findVisibleControlsForUser(kdnUser))
+                .extracting(Control::getControlId).containsExactly("KDN-20");
+    }
+
+    @Test
     void ownScope_seesAssignedAndSharedControls_draftsIncluded() {
         Control draftAssigned = control(10L, "HR-10", "DRAFT");
         Control draftShared = control(11L, "HR-11", null);

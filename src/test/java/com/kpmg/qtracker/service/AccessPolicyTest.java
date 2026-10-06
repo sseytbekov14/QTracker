@@ -48,11 +48,14 @@ class AccessPolicyTest {
         return "NONE".equals(key) ? null : SUBJECTS.get(key);
     }
 
-    /** "SPLIT" among the places: the Facilitator and the Control Operator are different people. */
+    /**
+     * "SPLIT" among the places: the Facilitator and the Control Operator are different people; "CREATOR": the
+     * user created the control.
+     */
     private static ControlFacts control(String status, boolean kdn, String places) {
         Set<String> p = "-".equals(places) ? Set.of() : Arrays.stream(places.split("\\+")).collect(Collectors.toSet());
         return new ControlFacts(status, kdn, p.contains("F"), p.contains("CO"), p.contains("SOQM"),
-                p.contains("PO"), p.contains("SHARED"), p.contains("SPLIT"));
+                p.contains("PO"), p.contains("SHARED"), p.contains("SPLIT"), p.contains("CREATOR"));
     }
 
     // ------------------------------------------------------------------ the user alone
@@ -111,6 +114,12 @@ class AccessPolicyTest {
             "KDN,          REVIEW,               true,  -,       false, DENIED",
             "KDN,          REVIEW,               false, CO,      false, DENIED",
             "KDN,          COMPLETED,            false, SHARED,  false, DENIED",
+            // A KDN user sees the KDN controls they created; with scope OWN creating gives nothing
+            "KDN,          REVIEW,               true,  CREATOR, true,  ALLOWED",
+            "KDN,          DRAFT,                true,  CREATOR, true,  ALLOWED",
+            "KDN,          REVIEW,               false, CREATOR, false, DENIED",
+            "RO,           REVIEW,               false, CREATOR, false, DENIED",
+            "PART,         REVIEW,               false, CREATOR, false, DENIED",
             "RO,           COMPLETED,            false, SHARED,  true,  ALLOWED",
             "RO,           DRAFT,                false, SHARED,  true,  DRAFT_NOT_INITIATED",
             "RO,           COMPLETED,            false, -,       false, DENIED",
