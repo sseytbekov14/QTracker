@@ -7,11 +7,11 @@ import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
+import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlService;
-import com.kpmg.qtracker.service.IPerformanceService;
 import com.kpmg.qtracker.service.NotificationService;
+import com.kpmg.qtracker.service.WorkflowMoveService;
 import com.kpmg.qtracker.service.WorkflowRequiredFieldService;
-import com.kpmg.qtracker.service.WorkflowService;
 import com.kpmg.qtracker.service.WorkflowTransitionGuard;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,10 +43,6 @@ class WorkflowControllerTransitionGuardTest {
     private static final long CONTROL_ID = 500L;
 
     @Mock
-    private WorkflowService workflowService;
-    @Mock
-    private IPerformanceService performanceService;
-    @Mock
     private ControlService controlService;
     @Mock
     private ControlAssignmentService controlAssignmentService;
@@ -58,6 +54,8 @@ class WorkflowControllerTransitionGuardTest {
     private WorkflowRequiredFieldService requiredFieldService;
     @Mock
     private ControlPermissionService controlPermissionService;
+    @Mock
+    private AdminAuditService adminAuditService;
 
     private MockMvc mockMvc;
     private User currentUser;
@@ -66,17 +64,9 @@ class WorkflowControllerTransitionGuardTest {
 
     @BeforeEach
     void setUp() {
-        WorkflowController controller = new WorkflowController(
-                workflowService,
-                performanceService,
-                controlService,
-                controlAssignmentService,
-                workflowHistoryRepository,
-                notificationService,
-                requiredFieldService,
-                controlPermissionService,
-                new WorkflowTransitionGuard()
-        );
+        WorkflowController controller = new WorkflowController(controlService, new WorkflowMoveService(controlService,
+                controlAssignmentService, controlPermissionService, new WorkflowTransitionGuard(), requiredFieldService,
+                workflowHistoryRepository, notificationService, adminAuditService));
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         currentUser = new User();
@@ -104,8 +94,17 @@ class WorkflowControllerTransitionGuardTest {
     // ---------- complete-control ----------
 
     @Test
-    void completeControl_bySoqmTeam_isForbidden() throws Exception {
+    void completeControl_bySoqmTeam_forTheProcessOwner_needsAComment() throws Exception {
         givenStatus("PROCESS_OWNER_REVIEW").as(Role.SOQM_TEAM);
+        call("/api/workflow/complete-control")
+                .andExpect(status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .string("A comment is required when SoQM acts for the Process Owner"));
+    }
+
+    @Test
+    void completeControl_byAFacilitator_isForbidden() throws Exception {
+        givenStatus("PROCESS_OWNER_REVIEW").as(Role.FACILITATOR);
         call("/api/workflow/complete-control").andExpect(status().isForbidden());
     }
 
@@ -150,9 +149,12 @@ class WorkflowControllerTransitionGuardTest {
     }
 
     @Test
-    void returnToOperator_bySoqmTeamFromProcessOwnerReview_isConflict() throws Exception {
+    void returnToOperator_bySoqmTeamFromProcessOwnerReview_isTheProcessOwnersReturn_andNeedsAComment() throws Exception {
         givenStatus("PROCESS_OWNER_REVIEW").as(Role.SOQM_TEAM);
-        call("/api/workflow/return-to-operator").andExpect(status().isConflict());
+        call("/api/workflow/return-to-operator")
+                .andExpect(status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .string("A comment is required to return the control"));
     }
 
     // ---------- the Process Owner's return to the Control Operator ----------
@@ -222,7 +224,6 @@ class WorkflowControllerTransitionGuardTest {
     void performAction_sendForRevision_returnsToTheOperator_asAReturn() throws Exception {
         expectChange = true;
         givenStatus("PROCESS_OWNER_REVIEW").as(Role.PROCESS_OWNER);
-        when(performanceService.getPerformanceStatusByControlId(CONTROL_ID)).thenReturn("PROCESS_OWNER_REVIEW");
         when(requiredFieldService.getMissingReviewCommentMessage(control)).thenReturn(Optional.empty());
 
         performAction("SEND_FOR_REVISION").andExpect(status().isOk());
@@ -259,7 +260,7 @@ class WorkflowControllerTransitionGuardTest {
 
     private class Given {
         void as(Role role) {
-            // Any SoQM user may perform the SoQM steps: the policy gives them canEditAll
+            // Any SoQM user may perform the SoQM steps (and act for the others): the policy gives them soqmLead
             ControlPermission permission = new ControlPermission(true, true, Set.of(), true, role == Role.SOQM_TEAM,
                     false,
                     role == Role.FACILITATOR,

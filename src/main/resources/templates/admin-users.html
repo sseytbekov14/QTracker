@@ -1170,6 +1170,10 @@ document.addEventListener('DOMContentLoaded', function() {
         lines.push(['Edits', level === 'SOQM' ? 'every control: assigns people and performs the SoQM steps.'
             : level === 'PARTICIPANT' ? 'only the steps they are assigned to.'
             : 'nothing: view only' + (scope === 'KDN' ? '; downloads attachments.' : '.')]);
+        if (level === 'SOQM') {
+            lines.push(['Steps', 'moves any control on or back for any role, with a comment when it returns it or'
+                + ' acts for another role; the history marks it "on behalf".']);
+        }
         if (scope === 'KDN' && level !== 'SOQM') {
             lines.push(['Assigned', level === 'READ_ONLY'
                 ? 'as Facilitator, Control Operator or Process Owner of KDN controls only, to see them and get their'

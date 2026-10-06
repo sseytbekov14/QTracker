@@ -1,11 +1,7 @@
 package com.kpmg.qtracker.controller;
 
-import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.*;
-import com.kpmg.qtracker.enums.*;
-import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.*;
-import com.kpmg.qtracker.service.NotificationTemplateService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
@@ -18,10 +14,7 @@ import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/workflow")
@@ -29,18 +22,11 @@ import java.util.stream.Collectors;
 @Slf4j
 public class WorkflowController {
 
-    private final WorkflowService workflowService;
-    private final IPerformanceService performanceService;
     private final ControlService controlService;
-    private final ControlAssignmentService controlAssignmentService;
-    private final WorkflowHistoryRepository workflowHistoryRepository;
-    private final NotificationService notificationService;
-    private final WorkflowRequiredFieldService requiredFieldService;
-    private final ControlPermissionService controlPermissionService;
-    private final WorkflowTransitionGuard transitionGuard;
+    private final WorkflowMoveService workflowMoveService;
 
     /** Every return needs a reason (spec 9.4). */
-    static final String RETURN_COMMENT_REQUIRED = "A comment is required to return the control";
+    static final String RETURN_COMMENT_REQUIRED = WorkflowMoveService.RETURN_COMMENT_REQUIRED;
 
     @PostMapping("/perform-action")
     @Transactional
@@ -52,76 +38,19 @@ public class WorkflowController {
                 return ResponseEntity.status(401).body("User not authenticated");
             }
 
-            String userEmail = currentUser.getMail();
-            Long controlId = request.getControlId();
-            String action = request.getAction();
-            String comment = request.getComment();
-
-            Control control = controlService.getControlById(controlId)
+            Control control = controlService.getControlById(request.getControlId())
                     .orElseThrow(() -> new RuntimeException("Control not found"));
-            List<WorkflowTransition> candidates = WorkflowTransition.forAction(action);
+            List<WorkflowTransition> candidates = WorkflowTransition.forAction(request.getAction());
             if (candidates.isEmpty()) {
-                return ResponseEntity.badRequest().body("Unsupported workflow action: " + action);
+                return ResponseEntity.badRequest().body("Unsupported workflow action: " + request.getAction());
             }
-            WorkflowTransitionGuard.Decision decision = transitionGuard.check(
-                    control, controlPermissionService.resolve(control, currentUser), candidates);
-            if (!decision.allowed()) {
-                return ResponseEntity.status(decision.httpStatus()).body(decision.message());
-            }
-            Optional<String> missingComment = requiredFieldService.getMissingReviewCommentMessage(control);
-            if (missingComment.isPresent()) {
-                return ResponseEntity.badRequest().body(missingComment.get());
-            }
-            WorkflowTransition transition = decision.transition();
-            if (transition.isReturn() && (comment == null || comment.isBlank())) {
-                return ResponseEntity.badRequest().body(RETURN_COMMENT_REQUIRED);
-            }
-
             log.info("Workflow action: {} for control: {} by user: {}",
-                    action, controlId, userEmail);
-
-            // Получаем текущий performance статус
-            String currentPerformanceStatus = performanceService.getPerformanceStatusByControlId(controlId);
-            log.info("Current performance status: {}", currentPerformanceStatus);
-
-            String newStatus = decision.transition().getTargetStatus();
-
-            String normalizedAction = action.trim().toUpperCase(Locale.ROOT);
-            boolean requiresSteps = Set.of(
-                    "SUBMIT_FOR_REVIEW",
-                    "SUBMIT_TO_CONTROL_OPERATOR",
-                    "SUBMIT_FOR_SOQM",
-                    "SUBMIT_SOQM",
-                    "SEND_TO_PROCESS_OWNER",
-                    "SOQM_COMMENT"
-            ).contains(normalizedAction);
-            if (requiresSteps) {
-                Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control);
-                if (missingField.isPresent()) {
-                    return ResponseEntity.badRequest().body(missingField.get());
-                }
+                    request.getAction(), request.getControlId(), currentUser.getMail());
+            WorkflowMoveService.Outcome outcome =
+                    workflowMoveService.perform(control, currentUser, candidates, request.getComment());
+            if (!outcome.ok()) {
+                return ResponseEntity.status(outcome.httpStatus()).body(outcome.message());
             }
-
-            control.setPerformanceStatus(newStatus);
-
-            // Save return comments to control
-            if (transition == WorkflowTransition.RETURN_TO_FACILITATOR) {
-                control.setReturnToFacilitatorComment(comment);
-            } else if (transition.isReturn()) {
-                control.setReturnToOperatorComment(comment);
-            }
-
-            controlService.save(control);
-
-            // Создаем запись в истории workflow
-            createWorkflowHistory(controlId, currentUser, action, transition,
-                    currentPerformanceStatus, newStatus, comment);
-
-            // Send workflow notifications based on transition
-            sendWorkflowNotifications(control, action, currentPerformanceStatus, newStatus, currentUser, comment);
-
-            log.info("Workflow action completed successfully. New status: {}", newStatus);
-
             return ResponseEntity.ok().build();
 
         } catch (Exception e) {
@@ -131,113 +60,20 @@ public class WorkflowController {
         }
     }
 
-    private String getCurrentStepFromStatus(String status) {
-        switch (status) {
-            case "DRAFT": return "FACILITATOR";
-            case "IN_PROGRESS": return "FACILITATOR";
-            case "REVIEW": return "CONTROL_OPERATOR";
-            case "SOQM_HEAD_REVIEW": return "SOQM_TEAM";
-            case "PROCESS_OWNER_REVIEW": return "PROCESS_OWNER";
-            case "COMPLETED": return "COMPLETED";
-            default: return "UNKNOWN";
-        }
-    }
-
-    private void createWorkflowHistory(Long controlId, User user, String action, WorkflowTransition transition,
-                                       String fromStatus, String toStatus, String comment) {
-        WorkflowHistory history = new WorkflowHistory();
-        history.setControlId(controlId);
-        history.setPerformedByEmail(user.getMail());
-        history.setPerformedByName(user.getDisplayName());
-        history.setFromStep(fromStatus);
-        history.setToStep(toStatus);
-        history.setComments(comment);
-
-        // Устанавливаем тип действия; returns as the dedicated endpoints record them
-        WorkflowActionType actionType = WorkflowActionType.COMMENT; // По умолчанию
-        if (transition == WorkflowTransition.RETURN_TO_FACILITATOR) {
-            actionType = WorkflowActionType.RETURN_TO_FACILITATOR;
-        } else if (transition.isReturn()) {
-            actionType = WorkflowActionType.RETURN_TO_OPERATOR;
-        } else if (action.contains("SUBMIT") || action.contains("SEND") ||
-                action.contains("COMPLETE") || "INITIATE".equals(action)) {
-            actionType = WorkflowActionType.APPROVE;
-        }
-        history.setActionType(actionType);
-
-        workflowHistoryRepository.save(history);
-    }
-
     // ========== SOQM TEAM WORKFLOW ENDPOINTS ==========
     
     @PostMapping("/submit-to-process-owner")
     @Transactional
-    public ResponseEntity<?> submitToProcessOwner(@RequestParam Long controlId, HttpSession session) {
-        try {
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(401).body("User not authenticated");
-            }
-
-            log.info("SoQM Team {} submitting control {} to Process Owner", currentUser.getMail(), controlId);
-
-            // Get control
-            Optional<Control> controlOpt = controlService.getControlById(controlId);
-            if (controlOpt.isEmpty()) {
-                return ResponseEntity.badRequest().body("Control not found");
-            }
-            Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.SUBMIT_TO_PROCESS_OWNER);
-            if (restrictedResponse != null) {
-                return restrictedResponse;
-            }
-            Optional<String> missingComment = requiredFieldService.getMissingReviewCommentMessage(control);
-            if (missingComment.isPresent()) {
-                return ResponseEntity.badRequest().body(missingComment.get());
-            }
-
-            Optional<String> missingField = requiredFieldService.getMissingFieldMessage(control);
-            if (missingField.isPresent()) {
-                return ResponseEntity.badRequest().body(missingField.get());
-            }
-
-            // Update control status
-            control.setPerformanceStatus("PROCESS_OWNER_REVIEW");
-            controlService.save(control);
-
-            // Create workflow history
-            WorkflowHistory history = new WorkflowHistory();
-            history.setControlId(controlId);
-            history.setActionType(WorkflowActionType.SUBMIT_TO_PROCESS_OWNER);
-            history.setFromStep("SOQM_HEAD_REVIEW");
-            history.setToStep("PROCESS_OWNER_REVIEW");
-            history.setPerformedByEmail(currentUser.getMail());
-            history.setPerformedByName(currentUser.getDisplayName());
-            history.setComments("Control submitted to Process Owner for review");
-            history.setCreatedAt(LocalDateTime.now(Notification.ZONE));
-            workflowHistoryRepository.save(history);
-
-            // Notify Process Owner only
-            notificationService.sendTemplateNotifications(
-                    control,
-                    assignmentEmails(controlId, "PROCESS_OWNER"),
-                    NotificationTemplateService.TemplateType.SOQM_TO_OWNER,
-                    false
-            );
-
-            log.info("✅ Control {} submitted to Process Owner successfully", controlId);
-            return ResponseEntity.ok("Control submitted to Process Owner");
-
-        } catch (Exception e) {
-            log.error("❌ Error submitting control to Process Owner: {}", e.getMessage(), e);
-            rollbackCurrentTransaction();
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ResponseEntity<?> submitToProcessOwner(@RequestParam Long controlId,
+                                                  @RequestParam(required = false) String comments,
+                                                  HttpSession session) {
+        return perform(controlId, session, List.of(WorkflowTransition.SUBMIT_TO_PROCESS_OWNER), comments,
+                "Control submitted to Process Owner");
     }
 
     /**
-     * Back to the Control Operator (spec 9.4): by SoQM from SoQM review, by the Process Owner from
-     * Process Owner review. A comment is required; it is stored on the control, in the history
+     * Back to the Control Operator (spec 9.4): by SoQM from SoQM review, by the Process Owner (or SoQM for
+     * them) from Process Owner review. A comment is required; it is stored on the control, in the history
      * (RETURN_TO_OPERATOR) and sent to the Control Operator.
      */
     @PostMapping("/return-to-operator")
@@ -245,133 +81,39 @@ public class WorkflowController {
     public ResponseEntity<?> returnToOperator(@RequestParam Long controlId,
                                               @RequestParam(required = false) String comments,
                                               HttpSession session) {
-        try {
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(401).body("User not authenticated");
-            }
-
-            log.info("User {} returning control {} to Control Operator", currentUser.getMail(), controlId);
-
-            // Get control
-            Optional<Control> controlOpt = controlService.getControlById(controlId);
-            if (controlOpt.isEmpty()) {
-                return ResponseEntity.badRequest().body("Control not found");
-            }
-            Control control = controlOpt.get();
-            WorkflowTransitionGuard.Decision decision = transitionGuard.check(
-                    control, controlPermissionService.resolve(control, currentUser),
-                    List.of(WorkflowTransition.RETURN_TO_OPERATOR, WorkflowTransition.OWNER_RETURN_TO_OPERATOR));
-            if (!decision.allowed()) {
-                return ResponseEntity.status(decision.httpStatus()).body(decision.message());
-            }
-            Optional<String> missingComment = requiredFieldService.getMissingReviewCommentMessage(control);
-            if (missingComment.isPresent()) {
-                return ResponseEntity.badRequest().body(missingComment.get());
-            }
-
-            if (comments == null || comments.isBlank()) {
-                return ResponseEntity.badRequest().body(RETURN_COMMENT_REQUIRED);
-            }
-            if (comments.length() > 2000) {
-                return ResponseEntity.badRequest().body("Comment is too long. Maximum 2000 characters allowed.");
-            }
-
-            // Update control status
-            control.setPerformanceStatus("REVIEW");
-            control.setReturnToOperatorComment(comments);
-            controlService.save(control);
-
-            // Create workflow history
-            WorkflowHistory history = new WorkflowHistory();
-            history.setControlId(controlId);
-            history.setActionType(WorkflowActionType.RETURN_TO_OPERATOR);
-            history.setFromStep(decision.transition().getFromStatus());
-            history.setToStep("REVIEW");
-            history.setPerformedByEmail(currentUser.getMail());
-            history.setPerformedByName(currentUser.getDisplayName());
-            history.setComments(comments);
-            history.setCreatedAt(LocalDateTime.now(Notification.ZONE));
-            workflowHistoryRepository.save(history);
-
-            // Notify the Control Operators, the one who returns it included when they are also one
-            // (a Process Owner who is also the Operator): every move to a step a person holds is announced
-            notificationService.sendReturnNotifications(
-                    control,
-                    assignmentEmails(controlId, "CONTROL_OPERATOR"),
-                    decision.transition().getActor().getDisplayName(),
-                    currentUser.getDisplayName(),
-                    "Control Operator",
-                    comments,
-                    "RETURN_TO_OPERATOR"
-            );
-
-            log.info("✅ Control {} returned to Control Operator successfully", controlId);
-            return ResponseEntity.ok("Control returned to Control Operator");
-
-        } catch (Exception e) {
-            log.error("❌ Error returning control to Operator: {}", e.getMessage(), e);
-            rollbackCurrentTransaction();
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        return perform(controlId, session,
+                List.of(WorkflowTransition.RETURN_TO_OPERATOR, WorkflowTransition.OWNER_RETURN_TO_OPERATOR), comments,
+                "Control returned to Control Operator");
     }
 
     @PostMapping("/complete-control")
     @Transactional
     public ResponseEntity<?> completeControl(@RequestParam Long controlId,
-                                            HttpSession session) {
+                                             @RequestParam(required = false) String comments,
+                                             HttpSession session) {
+        return perform(controlId, session, List.of(WorkflowTransition.COMPLETE), comments, "Control completed");
+    }
+
+    /** One standard step through {@link WorkflowMoveService}, answered as these endpoints always answered. */
+    private ResponseEntity<?> perform(Long controlId, HttpSession session, List<WorkflowTransition> candidates,
+                                      String comments, String successMessage) {
         try {
             User currentUser = (User) session.getAttribute("currentUser");
             if (currentUser == null) {
                 return ResponseEntity.status(401).body("User not authenticated");
             }
-
-            log.info("Process Owner {} completing control {}", currentUser.getMail(), controlId);
-
-            // Get control
             Optional<Control> controlOpt = controlService.getControlById(controlId);
             if (controlOpt.isEmpty()) {
                 return ResponseEntity.badRequest().body("Control not found");
             }
-            Control control = controlOpt.get();
-            ResponseEntity<?> restrictedResponse = denyTransition(control, currentUser, WorkflowTransition.COMPLETE);
-            if (restrictedResponse != null) {
-                return restrictedResponse;
+            WorkflowMoveService.Outcome outcome =
+                    workflowMoveService.perform(controlOpt.get(), currentUser, candidates, comments);
+            if (!outcome.ok()) {
+                return ResponseEntity.status(outcome.httpStatus()).body(outcome.message());
             }
-            Optional<String> missingComment = requiredFieldService.getMissingReviewCommentMessage(control);
-            if (missingComment.isPresent()) {
-                return ResponseEntity.badRequest().body(missingComment.get());
-            }
-
-            // Update control status to Completed
-            control.setPerformanceStatus("COMPLETED");
-            controlService.save(control);
-
-            // Create workflow history
-            WorkflowHistory history = new WorkflowHistory();
-            history.setControlId(controlId);
-            history.setActionType(WorkflowActionType.APPROVE);
-            history.setFromStep("PROCESS_OWNER_REVIEW");
-            history.setToStep("COMPLETED");
-            history.setPerformedByEmail(currentUser.getMail());
-            history.setPerformedByName(currentUser.getDisplayName());
-            history.setComments("Control completed by Process Owner");
-            history.setCreatedAt(LocalDateTime.now(Notification.ZONE));
-            workflowHistoryRepository.save(history);
-
-            // Notify control participants (excluding process owner and shared users)
-            notificationService.sendTemplateNotifications(
-                    control,
-                    assignmentEmails(controlId, "COMPLETED"),
-                    NotificationTemplateService.TemplateType.COMPLETED_ALL,
-                    false
-            );
-
-            log.info("✅ Control {} completed successfully", controlId);
-            return ResponseEntity.ok("Control completed");
-
+            return ResponseEntity.ok(successMessage);
         } catch (Exception e) {
-            log.error("❌ Error completing control: {}", e.getMessage(), e);
+            log.error("Error in workflow step on control {}: {}", controlId, e.getMessage(), e);
             rollbackCurrentTransaction();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -383,168 +125,6 @@ public class WorkflowController {
         private String action;
         @Size(max = 2000, message = "Comment must be at most 2000 characters")
         private String comment;
-    }
-
-    private void sendWorkflowNotifications(Control control, String action, String oldStatus, String newStatus) {
-        sendWorkflowNotifications(control, action, oldStatus, newStatus, null, null);
-    }
-
-    private void sendWorkflowNotifications(Control control,
-                                           String action,
-                                           String oldStatus,
-                                           String newStatus,
-                                           User currentUser,
-                                           String comment) {
-        if (control == null || action == null) {
-            return;
-        }
-        String normalizedAction = action.trim().toUpperCase(Locale.ROOT);
-
-        if ("SUBMIT_TO_CONTROL_OPERATOR".equals(normalizedAction)) {
-            notificationService.sendTemplateNotifications(
-                    control,
-                    assignmentEmails(control.getId(), "CONTROL_OPERATOR"),
-                    NotificationTemplateService.TemplateType.FACILITATOR_TO_OPERATOR,
-                    false
-            );
-            return;
-        }
-
-        if ("SUBMIT_FOR_SOQM".equals(normalizedAction) || "SUBMIT_SOQM".equals(normalizedAction)) {
-            boolean resubmitted = false;
-            notificationService.sendTemplateNotifications(
-                    control,
-                    assignmentEmails(control.getId(), "SOQM_TEAM"),
-                    NotificationTemplateService.TemplateType.OPERATOR_TO_SOQM,
-                    resubmitted
-            );
-            return;
-        }
-
-        if ("SEND_BACK_TO_OPERATOR".equals(normalizedAction) || "SEND_FOR_REVISION".equals(normalizedAction)) {
-            notificationService.sendReturnNotifications(
-                    control,
-                    assignmentEmails(control.getId(), "CONTROL_OPERATOR"),
-                    currentUser != null ? actorLabel(normalizedAction) : null,
-                    currentUser != null ? currentUser.getDisplayName() : null,
-                    "Control Operator",
-                    firstNonBlank(comment, control.getReturnToOperatorComment()),
-                    "RETURN_TO_OPERATOR"
-            );
-            return;
-        }
-
-        if ("RETURN_TO_FACILITATOR".equals(normalizedAction)) {
-            notificationService.sendReturnNotifications(
-                    control,
-                    assignmentEmails(control.getId(), "FACILITATOR"),
-                    currentUser != null ? actorLabel(normalizedAction) : null,
-                    currentUser != null ? currentUser.getDisplayName() : null,
-                    "Facilitator",
-                    firstNonBlank(comment, control.getReturnToFacilitatorComment()),
-                    "RETURN_TO_FACILITATOR"
-            );
-            return;
-        }
-
-        if ("SEND_TO_PROCESS_OWNER".equals(normalizedAction) || "SOQM_COMMENT".equals(normalizedAction)) {
-            notificationService.sendTemplateNotifications(
-                    control,
-                    assignmentEmails(control.getId(), "PROCESS_OWNER"),
-                    NotificationTemplateService.TemplateType.SOQM_TO_OWNER,
-                    false
-            );
-            return;
-        }
-
-        if ("COMPLETE".equals(normalizedAction)) {
-            notificationService.sendTemplateNotifications(
-                    control,
-                    assignmentEmails(control.getId(), "COMPLETED"),
-                    NotificationTemplateService.TemplateType.COMPLETED_ALL,
-                    false
-            );
-        }
-    }
-
-    /** The step a perform-action return is made in, for the return notification. */
-    private String actorLabel(String normalizedAction) {
-        return WorkflowTransition.forAction(normalizedAction).stream()
-                .findFirst()
-                .map(transition -> transition.getActor().getDisplayName())
-                .orElse(null);
-    }
-
-    private String firstNonBlank(String first, String second) {
-        if (first != null && !first.isBlank()) {
-            return first;
-        }
-        if (second != null && !second.isBlank()) {
-            return second;
-        }
-        return null;
-    }
-
-    private List<String> assignmentEmails(Long controlId, String role) {
-        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
-        Set<String> recipients = new LinkedHashSet<>();
-        if (assignment == null) {
-            return List.of();
-        }
-        switch (role) {
-            case "FACILITATOR":
-                addAll(recipients, assignment.getFacilitator());
-                break;
-            case "CONTROL_OPERATOR":
-                addAll(recipients, assignment.getControlOperator());
-                break;
-            case "SOQM_TEAM":
-                addAll(recipients, assignment.getSoqmLead());
-                break;
-            case "PROCESS_OWNER":
-                addAll(recipients, assignment.getProcessOwner());
-                break;
-            case "ALL":
-                addAll(recipients, assignment.getFacilitator());
-                addAll(recipients, assignment.getControlOperator());
-                addAll(recipients, assignment.getSoqmLead());
-                addAll(recipients, assignment.getProcessOwner());
-                break;
-            case "COMPLETED":
-                addAll(recipients, assignment.getFacilitator());
-                addAll(recipients, assignment.getControlOperator());
-                addAll(recipients, assignment.getSoqmLead());
-                break;
-            default:
-                break;
-        }
-        return new ArrayList<>(recipients);
-    }
-
-    private void addAll(Set<String> target, List<String> items) {
-        if (items == null) {
-            return;
-        }
-        for (String item : items) {
-            if (item != null && !item.isBlank()) {
-                target.add(item.trim());
-            }
-        }
-    }
-
-    private void sendRoleNotification(Control control, List<String> recipients, String stepName, String message) {
-        if (control == null || recipients == null || recipients.isEmpty()) {
-            return;
-        }
-        log.info("Workflow notification: control={}, step={}, recipients={}",
-                control.getControlId(), stepName, recipients.size());
-        notificationService.sendWorkflowStepNotifications(control, recipients, stepName, message);
-    }
-
-    private ResponseEntity<?> denyTransition(Control control, User currentUser, WorkflowTransition transition) {
-        WorkflowTransitionGuard.Decision decision = transitionGuard.check(
-                control, controlPermissionService.resolve(control, currentUser), transition);
-        return decision.allowed() ? null : ResponseEntity.status(decision.httpStatus()).body(decision.message());
     }
 
     /**

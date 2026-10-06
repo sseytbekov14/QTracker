@@ -905,6 +905,9 @@ public class ViewController {
         model.addAttribute("stepField", yourTurn
                 ? WorkflowRequiredFieldService.stepField(normalizedStatus, permission.isStepsSplit()).orElse(null) : null);
 
+        // SoQM moves the control on or back for any role (the Move dialog); everyone else has their step buttons
+        model.addAttribute("soqmMoves", soqmMoves(permission, normalizedStatus, assignment));
+
         // A draft links to its Initiate page for whoever the server lets initiate it
         model.addAttribute("canInitiate",
                 transitionGuard.check(control, permission, WorkflowTransition.INITIATE).allowed());
@@ -912,6 +915,27 @@ public class ViewController {
         model.addAttribute("soqmYearOptions", SoqmYear.options(todayAlmaty));
 
         return "view-control";
+    }
+
+    /** The moves AccessPolicy lets a SoQM user make from this status, nearest first; empty for anyone else. */
+    private List<WorkflowMoveOptionDTO> soqmMoves(ControlPermission permission, String status,
+                                                  ControlAssignmentDTO assignment) {
+        List<WorkflowMoveOptionDTO> options = new ArrayList<>();
+        if (!permission.isSoqmLead()) {
+            return options;
+        }
+        for (String target : AccessPolicy.soqmTargets(status)) {
+            AccessPolicy.move(permission, status, target).ifPresent(move -> options.add(new WorkflowMoveOptionDTO(
+                    move.to(),
+                    WorkflowMove.displayStatus(move.to()),
+                    move.label(),
+                    move.isReturn(),
+                    move.onBehalf(),
+                    move.actingFor().getDisplayName(),
+                    move.onBehalf() ? joinDisplayNames(WorkflowMoveService.peopleOf(move.actingFor(), assignment)) : null,
+                    move.commentRequired())));
+        }
+        return options;
     }
 
     private ControlResponseDTO convertToResponseDTO(Control control) {

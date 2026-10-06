@@ -123,7 +123,7 @@ class RoleMatrixIT {
 
     private static final List<String> CONTROL_OPS = List.of(
             "View page", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
-            "Assign", "Upload", "Rename ID", "Step", "Return", "Excel (completed)");
+            "Assign", "Upload", "Rename ID", "Step", "Return", "Return to In Progress", "Excel (completed)");
 
     private static final List<String> USER_OPS = List.of(
             "Create control", "Export button", "Assignment picker", "Admin Panel", "Admin Panel change");
@@ -255,14 +255,23 @@ class RoleMatrixIT {
             case "Steps field" -> sees && writer && stepsField ? "ok" : "refused";
             case "Operator field" -> sees && writer && operatorField ? "ok" : "refused";
             case "Edit control", "Assign", "Rename ID" -> soqm ? "ok" : "refused";
+            // SoQM performs every step, the participants' ones on their behalf (decision 3); an admin
+            // without level SOQM and read-only users none
             case "Step" -> switch (status) {
                 case "DRAFT", "SOQM_HEAD_REVIEW" -> soqm ? "ok" : "refused";
-                case "IN_PROGRESS", "REVIEW", "PROCESS_OWNER_REVIEW" -> participantStep ? "ok" : "refused";
+                case "IN_PROGRESS", "REVIEW", "PROCESS_OWNER_REVIEW" -> participantStep || soqm ? "ok" : "refused";
                 default -> "refused"; // a completed control: no step, also not for Shared With
             };
             case "Return" -> switch (status) {
-                case "REVIEW", "PROCESS_OWNER_REVIEW" -> participantStep ? "ok" : "refused";
+                case "REVIEW", "PROCESS_OWNER_REVIEW" -> participantStep || soqm ? "ok" : "refused";
                 case "SOQM_HEAD_REVIEW" -> soqm ? "ok" : "refused";
+                default -> "refused";
+            };
+            // Back to In Progress in one move: SoQM from any later working status, the Control Operator
+            // from Review (their own return)
+            case "Return to In Progress" -> switch (status) {
+                case "REVIEW" -> participantStep || soqm ? "ok" : "refused";
+                case "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW" -> soqm ? "ok" : "refused";
                 default -> "refused";
             };
             case "Excel (completed)" -> "COMPLETED".equals(status) && sees && (soqm || shared) ? "ok" : "refused";
@@ -318,7 +327,8 @@ class RoleMatrixIT {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"newControlId\":\"" + control.getControlId() + "-R\"}"), session));
 
-        row.put("Step", answer(step(status, control(who, status)), session));
+        // With a comment: SoQM needs one when it makes a participant's step
+        row.put("Step", answer(step(status, control(who, status)).param("comments", "Moved on by " + who.key()), session));
         String returnUrl = switch (status) {
             case "REVIEW" -> "/api/workflow/return-to-facilitator";
             // Elsewhere there is no return: trying one must change nothing
@@ -327,6 +337,10 @@ class RoleMatrixIT {
         row.put("Return", answer(post(returnUrl).with(csrf().asHeader())
                 .param("controlId", String.valueOf(control(who, status).getId()))
                 .param("comments", "Returned by " + who.key()), session));
+        row.put("Return to In Progress", answer(post("/api/workflow/move").with(csrf().asHeader())
+                .param("controlId", String.valueOf(control(who, status).getId()))
+                .param("targetStatus", "IN_PROGRESS")
+                .param("comments", "Back to the Facilitator, by " + who.key()), session));
         return reorder(row, CONTROL_OPS);
     }
 

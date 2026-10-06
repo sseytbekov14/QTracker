@@ -11,6 +11,10 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.NotificationService;
+import com.kpmg.qtracker.dto.ControlAssignmentDTO;
+import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.ControlAssignmentService;
+import com.kpmg.qtracker.service.WorkflowMoveService;
 import com.kpmg.qtracker.service.WorkflowRequiredFieldService;
 import com.kpmg.qtracker.service.WorkflowTransitionGuard;
 import org.junit.jupiter.api.Test;
@@ -34,7 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = WorkflowTransitionController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import(WorkflowTransitionGuard.class)
+@Import({WorkflowTransitionGuard.class, WorkflowMoveService.class})
 class WorkflowTransitionControllerTest {
 
     @Autowired
@@ -57,6 +61,12 @@ class WorkflowTransitionControllerTest {
 
     @MockBean
     private ControlPermissionService controlPermissionService;
+
+    @MockBean
+    private ControlAssignmentService controlAssignmentService;
+
+    @MockBean
+    private AdminAuditService adminAuditService;
 
     @Test
     void returnToFacilitator_includesCommentInReturnNotification() throws Exception {
@@ -81,6 +91,10 @@ class WorkflowTransitionControllerTest {
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, false,
                         false, false, true, false, false));
         when(controlAssignmentRepository.findByControlId(20L)).thenReturn(Optional.of(assignment));
+        ControlAssignmentDTO assignmentDto = new ControlAssignmentDTO();
+        assignmentDto.setControlOperator(java.util.List.of("operator@kpmg.kz"));
+        assignmentDto.setFacilitator(java.util.List.of("facilitator@kpmg.kz"));
+        when(controlAssignmentService.getAssignmentByControlId(20L)).thenReturn(assignmentDto);
         when(controlService.save(any(Control.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(workflowHistoryRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 

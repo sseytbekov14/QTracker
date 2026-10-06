@@ -524,14 +524,6 @@ public class ControlController {
                 }
             }
 
-            // The Process Owner Comments are the Process Owner's: SoQM does not change them here
-            if (permission.canEditAll()
-                    && controlDTO.getProcessOwnerComments() != null
-                    && !controlDTO.getProcessOwnerComments().equals(existingControl.getProcessOwnerComments())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body("VALIDATION_ERROR: SoQM cannot modify Process Owner Comments");
-            }
-
             // Without full edit rights every field checked above is unchanged, so only the Process Owner
             // comment may still differ. A request that changes nothing is not saved: updatedAt, the audit
             // log, a legacy frequency spelling and the schedule stay as they are.
@@ -586,11 +578,13 @@ public class ControlController {
             if (controlDTO.getPrp() != null) {
                 existingControl.setPrp(controlDTO.getPrp());
             }
-            // The review comments: SoQM's and the Process Owner's (in their step)
+            // The review comments: SoQM's, and the Process Owner's (in their step, or SoQM filling them in for
+            // the Process Owner: business decision 3; the audit entry below names who wrote them)
             if (controlDTO.getSoqmHeadComments() != null && permission.canEditAll()) {
                 existingControl.setSoqmHeadComments(controlDTO.getSoqmHeadComments());
             }
-            if (controlDTO.getProcessOwnerComments() != null && permission.canEditProcessOwnerComments()) {
+            if (controlDTO.getProcessOwnerComments() != null
+                    && (permission.canEditAll() || permission.canEditProcessOwnerComments())) {
                 existingControl.setProcessOwnerComments(controlDTO.getProcessOwnerComments());
             }
             

@@ -4,7 +4,10 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.enums.AccessScope;
 
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -14,9 +17,10 @@ import java.util.Set;
  * who performs a workflow step and who may be assigned. Callers describe the user ({@link Subject}) and
  * the control as that user stands on it ({@link ControlFacts}); nothing here reads the database.
  * <ul>
- *   <li>Level: SOQM creates and edits every control, assigns people and performs the SoQM steps (any SoQM
- *   user, assigned or not); PARTICIPANT performs the Facilitator, Control Operator and Process Owner steps
- *   and edits only where assigned; READ_ONLY never writes.</li>
+ *   <li>Level: SOQM creates and edits every control, assigns people, performs the SoQM steps (any SoQM
+ *   user, assigned or not) and moves a control on or back for any other role ({@link #move}); PARTICIPANT
+ *   performs the Facilitator, Control Operator and Process Owner steps and edits only where assigned;
+ *   READ_ONLY never writes.</li>
  *   <li>Scope: OWN = assigned or shared; ALL = every control; KDN = KDN controls the user is assigned to
  *   or shared with. SoQM always sees every control; KDN users are always READ_ONLY ({@link #levelScopeRefusal}).</li>
  *   <li>admin_access: Admin Panel, audit and viewing every control; it grants no edit, assignment,
@@ -291,8 +295,9 @@ public final class AccessPolicy {
     }
 
     /**
-     * Whether a resolved permission covers the participant a workflow transition belongs to. The SoQM steps
-     * and Initiate are any SoQM user's; Shared With performs no step.
+     * Whether a resolved permission covers the participant a workflow transition belongs to, as that
+     * participant (SoQM acting for one is {@link #actsOnBehalf}). The SoQM steps and Initiate are any SoQM
+     * user's; Shared With performs no step.
      */
     public static boolean isActor(WorkflowTransition.Actor actor, ControlPermission permission) {
         if (actor == null || permission == null || !permission.canView() || !permission.canUseWorkflowActions()) {
@@ -301,10 +306,126 @@ public final class AccessPolicy {
         return switch (actor) {
             case FACILITATOR -> permission.isFacilitator();
             case CONTROL_OPERATOR -> permission.isControlOperator();
-            case SOQM_TEAM, COORDINATOR -> permission.canEditAll();
+            case SOQM_TEAM, COORDINATOR -> permission.isSoqmLead();
             case PROCESS_OWNER -> permission.isProcessOwner();
             case SHARED_VIEWER -> false;
         };
+    }
+
+    // ---------------------------------------------------------------- moving a control on or back
+
+    /** The working statuses in workflow order; a move to an earlier one is a return. Draft comes before them. */
+    private static final List<String> WORKFLOW_ORDER =
+            List.of("IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW", "COMPLETED");
+
+    /** The steps of the Facilitator, the Control Operator and the Process Owner. */
+    private static final Set<WorkflowTransition.Actor> PARTICIPANT_STEPS = EnumSet.of(
+            WorkflowTransition.Actor.FACILITATOR,
+            WorkflowTransition.Actor.CONTROL_OPERATOR,
+            WorkflowTransition.Actor.PROCESS_OWNER);
+
+    /** Whether a status is one of the workflow's (Draft included). */
+    public static boolean isWorkflowStatus(String status) {
+        String normalized = normalizeStatus(status);
+        return "DRAFT".equals(normalized) || WORKFLOW_ORDER.contains(normalized);
+    }
+
+    /** A move back to an earlier working status. */
+    public static boolean isReturn(String from, String to) {
+        int fromIndex = WORKFLOW_ORDER.indexOf(normalizeStatus(from));
+        int toIndex = WORKFLOW_ORDER.indexOf(normalizeStatus(to));
+        return toIndex >= 0 && fromIndex > toIndex;
+    }
+
+    /**
+     * Whose step a control in this status is at: the role that normally moves it on (In Progress the
+     * Facilitator, Review the Control Operator, SoQM review SoQM, Process Owner Review the Process Owner).
+     * A completed control and a draft are SoQM's.
+     */
+    public static WorkflowTransition.Actor stepOwner(String status) {
+        return switch (normalizeStatus(status)) {
+            case "IN_PROGRESS" -> WorkflowTransition.Actor.FACILITATOR;
+            case "REVIEW" -> WorkflowTransition.Actor.CONTROL_OPERATOR;
+            case "PROCESS_OWNER_REVIEW" -> WorkflowTransition.Actor.PROCESS_OWNER;
+            case "DRAFT" -> WorkflowTransition.Actor.COORDINATOR;
+            default -> WorkflowTransition.Actor.SOQM_TEAM;
+        };
+    }
+
+    /**
+     * SoQM performs the step of a Facilitator, Control Operator or Process Owner in their place (business
+     * decision 3: SoQM Head, Team and Delegate move a control on or back for any role). An admin without level
+     * SOQM, a read-only user and Shared With do not.
+     */
+    public static boolean actsOnBehalf(WorkflowTransition.Actor actor, ControlPermission permission) {
+        return actor != null && PARTICIPANT_STEPS.contains(actor)
+                && permission != null && permission.canView() && permission.canUseWorkflowActions()
+                && permission.isSoqmLead();
+    }
+
+    /**
+     * Where SoQM may move a control in this status: on to the next status, or back to any earlier working
+     * status (In Progress at the earliest; Draft is never a target). A draft moves on only through Initiate,
+     * which has its own page; a completed control is not moved.
+     */
+    public static List<String> soqmTargets(String status) {
+        String from = normalizeStatus(status);
+        int index = WORKFLOW_ORDER.indexOf(from);
+        if (index < 0 || "COMPLETED".equals(from)) {
+            return List.of();
+        }
+        List<String> targets = new ArrayList<>();
+        targets.add(WORKFLOW_ORDER.get(index + 1));
+        targets.addAll(WORKFLOW_ORDER.subList(0, index));
+        return targets;
+    }
+
+    /**
+     * A return needs a comment (spec 9.4), and so does every move SoQM makes for a participant
+     * (TODO: BUSINESS CONFIRMATION: the comment when SoQM acts for another role).
+     */
+    public static boolean moveNeedsComment(boolean isReturn, boolean onBehalf) {
+        return isReturn || onBehalf;
+    }
+
+    /**
+     * The move the user may make on the control from its status to {@code target}, or empty: a standard step
+     * of their own (the Facilitator's submit, the Control Operator's return, ...), or as SoQM any step of
+     * {@link #soqmTargets}, made for the participant whose step the control is at ({@link WorkflowMove#onBehalf}).
+     */
+    public static Optional<WorkflowMove> move(ControlPermission permission, String status, String target) {
+        if (permission == null || !permission.canView() || !permission.canUseWorkflowActions()) {
+            return Optional.empty();
+        }
+        String from = normalizeStatus(status);
+        String to = normalizeStatus(target);
+        Optional<WorkflowTransition> standard = standardTransition(from, to);
+        if (standard.isPresent() && isActor(standard.get().getActor(), permission)) {
+            return Optional.of(WorkflowMove.of(standard.get(), false));
+        }
+        if (permission.isSoqmLead() && soqmTargets(from).contains(to)) {
+            WorkflowTransition.Actor owner = stepOwner(from);
+            return Optional.of(new WorkflowMove(from, to, owner, PARTICIPANT_STEPS.contains(owner),
+                    standard.orElse(null)));
+        }
+        return Optional.empty();
+    }
+
+    /** The named transition from one status to another (not Initiate, not the closed shared resubmit). */
+    private static Optional<WorkflowTransition> standardTransition(String from, String to) {
+        for (WorkflowTransition transition : WorkflowTransition.values()) {
+            if (transition != WorkflowTransition.INITIATE
+                    && transition.getActor() != WorkflowTransition.Actor.SHARED_VIEWER
+                    && transition.getFromStatus().equals(from)
+                    && transition.getTargetStatus().equals(to)) {
+                return Optional.of(transition);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static String normalizeStatus(String status) {
+        return status == null || status.isBlank() ? "DRAFT" : status.trim().toUpperCase(Locale.ROOT);
     }
 
     /** "Your turn": the current step is in a field the user acts in. */

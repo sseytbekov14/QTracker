@@ -4088,7 +4088,7 @@ function buildChangelogCard(entry) {
 
     const actorEl = document.createElement('div');
     actorEl.className = 'changelog-user';
-    if (entryType === 'workflow') {
+    if (entryType === 'workflow' && !actorName && !actorEmail) {
         actorEl.textContent = 'Workflow event';
     } else if (actorName && actorEmail) {
         actorEl.textContent = `${actorName} `;
@@ -4121,7 +4121,10 @@ function buildChangelogCard(entry) {
         const actionLine = document.createElement('div');
         actionLine.className = 'changelog-workflow-action';
 
-        const transition = inferWorkflowTransition(entry.eventName);
+        // The statuses the server recorded; old entries without them are read from the event name
+        const transition = entry.fromStep && entry.toStep
+            ? { from: entry.fromStep, to: entry.toStep }
+            : inferWorkflowTransition(entry.eventName);
         actionLine.textContent = buildWorkflowSummary(entry.eventName, transition);
         const fromStep = transition.from || 'Unknown';
         const toStep = transition.to || 'Unknown';
@@ -4146,6 +4149,15 @@ function buildChangelogCard(entry) {
 
         workflowBlock.appendChild(actionLine);
         workflowBlock.appendChild(flowLine);
+
+        // SoQM made the move for the people assigned to that step
+        if (entry.onBehalf) {
+            const behalfLine = document.createElement('div');
+            behalfLine.className = 'changelog-workflow-on-behalf';
+            behalfLine.textContent = 'On behalf of the ' + (entry.actedAs || 'assigned participant')
+                + (entry.assignedPerformer ? ' (assigned: ' + entry.assignedPerformer + ')' : '');
+            workflowBlock.appendChild(behalfLine);
+        }
 
         if (shouldShowWorkflowComment(entry)) {
             const commentLine = document.createElement('div');

@@ -11,6 +11,7 @@ import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.enums.WorkflowActionType;
 import com.kpmg.qtracker.repository.AdminAuditLogRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
+import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class ControlHistoryService {
     private final ControlAssignmentService controlAssignmentService;
     private final AdminAuditLogRepository adminAuditLogRepository;
     private final WorkflowHistoryRepository workflowHistoryRepository;
+    private final UserRepository userRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public List<ControlHistoryEntryDTO> getControlHistory(Long controlId) {
@@ -66,6 +68,10 @@ public class ControlHistoryService {
             if (log.getChangedFields() == null && log.getPreviousValues() == null && log.getNewValues() == null) {
                 continue;
             }
+            // A workflow move is shown from its history entry below; its audit entry is for the audit trail
+            if (WorkflowMoveService.AUDIT_ACTION.equals(log.getActionType())) {
+                continue;
+            }
             List<FieldChangeDTO> changes = parseFieldChanges(log);
             if (changes.isEmpty()) {
                 continue;
@@ -90,6 +96,11 @@ public class ControlHistoryService {
             if (history.getComments() != null && !history.getComments().isBlank()) {
                 workflowEntry.setEventDetails(history.getComments());
             }
+            workflowEntry.setFromStep(history.getFromStep());
+            workflowEntry.setToStep(history.getToStep());
+            workflowEntry.setActedAs(history.getActedAs());
+            workflowEntry.setOnBehalf(history.isOnBehalf());
+            workflowEntry.setAssignedPerformer(describePeople(history.getAssignedPerformer()));
             entries.add(workflowEntry);
         }
 
@@ -128,6 +139,25 @@ public class ControlHistoryService {
             default:
                 return "Control Performance - Status Update";
         }
+    }
+
+    /** "Jane Doe (jane@x.kz), bob@x.kz": the names of the e-mails that belong to users. */
+    private String describePeople(String emails) {
+        if (emails == null || emails.isBlank()) {
+            return null;
+        }
+        List<String> people = new ArrayList<>();
+        for (String email : emails.split(",")) {
+            String mail = email.trim();
+            if (mail.isEmpty()) {
+                continue;
+            }
+            people.add(userRepository.findByMail(mail)
+                    .map(user -> user.getDisplayName() != null && !user.getDisplayName().isBlank()
+                            ? user.getDisplayName() + " (" + mail + ")" : mail)
+                    .orElse(mail));
+        }
+        return String.join(", ", people);
     }
 
     private List<FieldChangeDTO> parseFieldChanges(AdminAuditLog log) {

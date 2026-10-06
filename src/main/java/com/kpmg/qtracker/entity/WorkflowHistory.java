@@ -35,6 +35,18 @@ public class WorkflowHistory {
     @Column(length = 2000)
     private String comments;
 
+    /** The role whose step the move was ("Facilitator", "SoQM Team", ...); null on rows before V9. */
+    @Column(name = "acted_as", length = 40)
+    private String actedAs;
+
+    /** A SoQM user made the move for the participant who holds the step (performedBy is the SoQM user). */
+    @Column(name = "on_behalf", nullable = false)
+    private boolean onBehalf;
+
+    /** The people assigned to that step when the move was made (e-mails, comma-separated). */
+    @Column(name = "assigned_performer", length = 2000)
+    private String assignedPerformer;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

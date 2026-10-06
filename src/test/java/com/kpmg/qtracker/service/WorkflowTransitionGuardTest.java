@@ -36,6 +36,8 @@ class WorkflowTransitionGuardTest {
                 // A SoQM-role user is both SoQM Team and coordinator
                 .filter(actor -> !Set.of(transition.getActor(), actor).equals(
                         Set.of(WorkflowTransition.Actor.COORDINATOR, WorkflowTransition.Actor.SOQM_TEAM)))
+                // ... and acts for the Facilitator, the Control Operator and the Process Owner (decision 3)
+                .filter(actor -> !(isSoqm(actor) && PARTICIPANT_STEPS.contains(transition.getActor())))
                 .forEach(actor -> {
                     WorkflowTransitionGuard.Decision decision = guard.check(
                             control(transition.getFromStatus()), permissionFor(actor), transition);
@@ -119,9 +121,12 @@ class WorkflowTransitionGuardTest {
         assertThat(guard.check(control("PROCESS_OWNER_REVIEW"),
                 permissionFor(WorkflowTransition.Actor.CONTROL_OPERATOR), candidates).httpStatus())
                 .isEqualTo(409);
-        assertThat(guard.check(control("REVIEW"),
-                permissionFor(WorkflowTransition.Actor.SOQM_TEAM), candidates).httpStatus())
-                .isEqualTo(403);
+        // SoQM makes the Control Operator's return for them
+        WorkflowTransitionGuard.Decision soqm = guard.check(control("REVIEW"),
+                permissionFor(WorkflowTransition.Actor.SOQM_TEAM), candidates);
+        assertThat(soqm.transition()).isEqualTo(WorkflowTransition.RETURN_TO_FACILITATOR);
+        assertThat(soqm.move().onBehalf()).isTrue();
+        assertThat(soqm.move().actingFor()).isEqualTo(WorkflowTransition.Actor.CONTROL_OPERATOR);
     }
 
     @Test
@@ -135,9 +140,68 @@ class WorkflowTransitionGuardTest {
         assertThat(guard.check(control("PROCESS_OWNER_REVIEW"),
                 permissionFor(WorkflowTransition.Actor.PROCESS_OWNER), candidates).transition())
                 .isEqualTo(WorkflowTransition.OWNER_RETURN_TO_OPERATOR);
-        assertThat(guard.check(control("PROCESS_OWNER_REVIEW"),
-                permissionFor(WorkflowTransition.Actor.SOQM_TEAM), candidates).httpStatus())
-                .isEqualTo(409);
+        // From Process Owner review SoQM makes the Process Owner's return, for them
+        WorkflowTransitionGuard.Decision soqm = guard.check(control("PROCESS_OWNER_REVIEW"),
+                permissionFor(WorkflowTransition.Actor.SOQM_TEAM), candidates);
+        assertThat(soqm.transition()).isEqualTo(WorkflowTransition.OWNER_RETURN_TO_OPERATOR);
+        assertThat(soqm.move().onBehalf()).isTrue();
+        // Their own return from SoQM review is not on behalf of anyone
+        assertThat(guard.check(control("SOQM_HEAD_REVIEW"),
+                permissionFor(WorkflowTransition.Actor.SOQM_TEAM), candidates).move().onBehalf()).isFalse();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = WorkflowTransition.class, names = {"INITIATE", "SHARED_RESUBMIT_TO_SOQM_TEAM"},
+            mode = EnumSource.Mode.EXCLUDE)
+    void soqm_performsEveryStep_onBehalfOfTheParticipantWhoseStepItIs(WorkflowTransition transition) {
+        WorkflowTransitionGuard.Decision decision = guard.check(control(transition.getFromStatus()),
+                permissionFor(WorkflowTransition.Actor.SOQM_TEAM), transition);
+
+        assertThat(decision.allowed()).isTrue();
+        assertThat(decision.move().onBehalf()).isEqualTo(PARTICIPANT_STEPS.contains(transition.getActor()));
+        assertThat(decision.move().actingFor()).isEqualTo(transition.getActor());
+        assertThat(decision.move().commentRequired()).isEqualTo(decision.move().onBehalf() || transition.isReturn());
+    }
+
+    @Test
+    void adminWithoutSoqmLevel_andReadOnly_performNoStepForOthers() {
+        // A participant-level admin sees everything but is listed nowhere
+        ControlPermission admin = new ControlPermission(true, false, Set.of(), true, false,
+                false, false, false, false, false);
+        ControlPermission readOnlySoqmFlag = new ControlPermission(true, false, Set.of(), false, false,
+                false, false, false, true, false);
+
+        assertThat(guard.check(control("IN_PROGRESS"), admin, WorkflowTransition.SUBMIT_TO_CONTROL_OPERATOR).httpStatus())
+                .isEqualTo(403);
+        assertThat(guard.checkMove(control("IN_PROGRESS"), admin, "REVIEW").httpStatus()).isEqualTo(403);
+        assertThat(guard.checkMove(control("IN_PROGRESS"), readOnlySoqmFlag, "REVIEW").message())
+                .isEqualTo("Your access is read-only");
+    }
+
+    @Test
+    void checkMove_soqmGoesOnOrBackToAnyEarlierStatus_participantsOnlyTheirOwnStep() {
+        ControlPermission soqm = permissionFor(WorkflowTransition.Actor.SOQM_TEAM);
+        ControlPermission owner = permissionFor(WorkflowTransition.Actor.PROCESS_OWNER);
+
+        WorkflowTransitionGuard.Decision back = guard.checkMove(control("PROCESS_OWNER_REVIEW"), soqm, "IN_PROGRESS");
+        assertThat(back.allowed()).isTrue();
+        assertThat(back.move().isReturn()).isTrue();
+        assertThat(back.move().onBehalf()).isTrue();
+        assertThat(back.move().actingFor()).isEqualTo(WorkflowTransition.Actor.PROCESS_OWNER);
+        assertThat(back.transition()).isNull();
+        assertThat(back.move().label()).isEqualTo("Return to In Progress");
+
+        assertThat(guard.checkMove(control("SOQM_HEAD_REVIEW"), soqm, "IN_PROGRESS").move().onBehalf()).isFalse();
+        // Not two steps on, not to Draft, not from Draft
+        assertThat(guard.checkMove(control("IN_PROGRESS"), soqm, "SOQM_HEAD_REVIEW").httpStatus()).isEqualTo(409);
+        assertThat(guard.checkMove(control("REVIEW"), soqm, "DRAFT").httpStatus()).isEqualTo(409);
+        assertThat(guard.checkMove(control("DRAFT"), soqm, "IN_PROGRESS").httpStatus()).isEqualTo(409);
+        assertThat(guard.checkMove(control("REVIEW"), soqm, "NOWHERE").httpStatus()).isEqualTo(400);
+
+        assertThat(guard.checkMove(control("PROCESS_OWNER_REVIEW"), owner, "COMPLETED").move().onBehalf()).isFalse();
+        assertThat(guard.checkMove(control("PROCESS_OWNER_REVIEW"), owner, "REVIEW").transition())
+                .isEqualTo(WorkflowTransition.OWNER_RETURN_TO_OPERATOR);
+        assertThat(guard.checkMove(control("PROCESS_OWNER_REVIEW"), owner, "IN_PROGRESS").httpStatus()).isEqualTo(409);
     }
 
     @Test
@@ -168,6 +232,14 @@ class WorkflowTransitionGuardTest {
     void initiate_isNotAPerformAction() {
         assertThat(WorkflowTransition.forAction("INITIATE")).isEmpty();
         assertThat(WorkflowTransition.forAction("SUBMIT_FOR_REVIEW")).isEmpty();
+    }
+
+    private static final Set<WorkflowTransition.Actor> PARTICIPANT_STEPS = Set.of(
+            WorkflowTransition.Actor.FACILITATOR, WorkflowTransition.Actor.CONTROL_OPERATOR,
+            WorkflowTransition.Actor.PROCESS_OWNER);
+
+    private static boolean isSoqm(WorkflowTransition.Actor actor) {
+        return actor == WorkflowTransition.Actor.SOQM_TEAM || actor == WorkflowTransition.Actor.COORDINATOR;
     }
 
     private ControlPermission permissionFor(WorkflowTransition.Actor actor) {

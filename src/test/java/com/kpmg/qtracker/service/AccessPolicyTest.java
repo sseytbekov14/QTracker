@@ -266,6 +266,58 @@ class AccessPolicyTest {
         assertThat(AccessPolicy.isActor(transition.getActor(), p)).isEqualTo(allowed);
     }
 
+    @ParameterizedTest(name = "{0} {1} -> {2}")
+    @CsvSource({
+            // user,     status,               target,               places, allowed, onBehalf, comment
+            "SOQM,       IN_PROGRESS,          REVIEW,               -,      true,    true,     true",
+            "SOQM,       REVIEW,               SOQM_HEAD_REVIEW,     -,      true,    true,     true",
+            "SOQM,       REVIEW,               IN_PROGRESS,          -,      true,    true,     true",
+            "SOQM,       SOQM_HEAD_REVIEW,     PROCESS_OWNER_REVIEW, -,      true,    false,    false",
+            "SOQM,       SOQM_HEAD_REVIEW,     REVIEW,               -,      true,    false,    true",
+            "SOQM,       SOQM_HEAD_REVIEW,     IN_PROGRESS,          -,      true,    false,    true",
+            "SOQM,       PROCESS_OWNER_REVIEW, COMPLETED,            -,      true,    true,     true",
+            "SOQM,       PROCESS_OWNER_REVIEW, SOQM_HEAD_REVIEW,     -,      true,    true,     true",
+            "SOQM,       PROCESS_OWNER_REVIEW, IN_PROGRESS,          -,      true,    true,     true",
+            "SOQM,       IN_PROGRESS,          SOQM_HEAD_REVIEW,     -,      false,   false,    false",
+            "SOQM,       IN_PROGRESS,          DRAFT,                -,      false,   false,    false",
+            "SOQM,       DRAFT,                IN_PROGRESS,          -,      false,   false,    false",
+            "SOQM,       COMPLETED,            PROCESS_OWNER_REVIEW, -,      false,   false,    false",
+            "ADMIN_SOQM, REVIEW,               IN_PROGRESS,          -,      true,    true,     true",
+            "PART,       IN_PROGRESS,          REVIEW,               F,      true,    false,    false",
+            "PART,       REVIEW,               IN_PROGRESS,          CO,     true,    false,    true",
+            "PART,       PROCESS_OWNER_REVIEW, REVIEW,               PO,     true,    false,    true",
+            "PART,       PROCESS_OWNER_REVIEW, IN_PROGRESS,          PO,     false,   false,    false",
+            "PART,       REVIEW,               SOQM_HEAD_REVIEW,     F,      false,   false,    false",
+            "ADMIN_PART, IN_PROGRESS,          REVIEW,               -,      false,   false,    false",
+            "ADMIN_RO,   IN_PROGRESS,          REVIEW,               -,      false,   false,    false",
+            "RO_ALL,     IN_PROGRESS,          REVIEW,               -,      false,   false,    false",
+            "KDN,        IN_PROGRESS,          REVIEW,               F,      false,   false,    false",
+            "DISABLED_SOQM, IN_PROGRESS,       REVIEW,               -,      false,   false,    false",
+    })
+    void moves(String user, String status, String target, String places,
+               boolean allowed, boolean onBehalf, boolean comment) {
+        ControlPermission p = AccessPolicy.resolve(who(user), control(status, places.equals("KDN") || user.equals("KDN"), places));
+        var move = AccessPolicy.move(p, status, target);
+        assertThat(move.isPresent()).as("allowed").isEqualTo(allowed);
+        if (allowed) {
+            assertThat(move.get().onBehalf()).as("onBehalf").isEqualTo(onBehalf);
+            assertThat(move.get().commentRequired()).as("comment").isEqualTo(comment);
+            assertThat(move.get().actingFor()).as("actingFor").isEqualTo(AccessPolicy.stepOwner(status));
+        }
+    }
+
+    @Test
+    void soqmTargets_areTheNextStatusAndEveryEarlierWorkingOne() {
+        assertThat(AccessPolicy.soqmTargets("DRAFT")).isEmpty();
+        assertThat(AccessPolicy.soqmTargets("IN_PROGRESS")).containsExactly("REVIEW");
+        assertThat(AccessPolicy.soqmTargets("REVIEW")).containsExactly("SOQM_HEAD_REVIEW", "IN_PROGRESS");
+        assertThat(AccessPolicy.soqmTargets("PROCESS_OWNER_REVIEW"))
+                .containsExactly("COMPLETED", "IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW");
+        assertThat(AccessPolicy.isReturn("COMPLETED", "IN_PROGRESS")).isTrue();
+        assertThat(AccessPolicy.isReturn("IN_PROGRESS", "REVIEW")).isFalse();
+        assertThat(AccessPolicy.isReturn("REVIEW", "DRAFT")).isFalse();
+    }
+
     @ParameterizedTest(name = "{0} {1} {2}")
     @CsvSource({
             "SOQM,       SOQM_HEAD_REVIEW,     SOQM,  true",

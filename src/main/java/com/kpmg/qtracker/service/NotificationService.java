@@ -33,6 +33,8 @@ public class NotificationService {
     private final StatusDisplayMapper statusDisplayMapper;
     private static final String TYPE_AUTO_CREATED = "CONTROL_AUTO_CREATED";
     private static final String TYPE_INITIATE = "INITIATE";
+    /** In-app copy to the assigned people when SoQM made their step's move for them. */
+    public static final String TYPE_ON_BEHALF = "ON_BEHALF";
     private static final java.time.format.DateTimeFormatter AUTO_CREATE_DATE_FORMAT =
             java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy");
     
@@ -176,6 +178,47 @@ public class NotificationService {
                 if (emailChannel != null) {
                     emailChannel.send(email, template.getSubject(), template.getBody());
                 }
+            });
+        }
+    }
+
+    /**
+     * In-app only, no e-mail: tells the people assigned to a step that a SoQM user made its move for them
+     * (business decision 3; TODO: BUSINESS CONFIRMATION: whether this copy is wanted). The usual notice of
+     * the move goes out as well, to the ones whose step it is now.
+     */
+    @Transactional
+    public void sendOnBehalfCopy(Control control,
+                                 List<String> recipientEmails,
+                                 String actorName,
+                                 String stepLabel,
+                                 String moveLabel,
+                                 String fromStatus,
+                                 String toStatus,
+                                 String comment) {
+        if (control == null || recipientEmails == null || recipientEmails.isEmpty()) {
+            return;
+        }
+        String controlName = control.getControlId() != null ? control.getControlId() : "Control";
+        StringBuilder message = new StringBuilder()
+                .append(normalizeActorName(actorName, "SoQM")).append(" (SoQM) made the ").append(stepLabel)
+                .append(" step for you: ").append(moveLabel).append(", ")
+                .append(statusDisplayMapper.display(fromStatus)).append(" -> ")
+                .append(statusDisplayMapper.display(toStatus)).append('.');
+        if (comment != null && !comment.isBlank()) {
+            message.append("\nComment: ").append(comment.trim());
+        }
+        for (String email : uniqueRecipients(recipientEmails)) {
+            userRepository.findByMail(email).ifPresent(user -> {
+                Notification notif = new Notification();
+                notif.setUserId(user.getId());
+                notif.setControlId(control.getId());
+                notif.setType(TYPE_ON_BEHALF);
+                notif.setTitle("SoQM acted for you on " + controlName);
+                notif.setMessage(message.toString());
+                notif.setLink(notificationTemplateService.buildControlLink(control));
+                notif.setIsRead(false);
+                notificationRepository.save(notif);
             });
         }
     }

@@ -773,3 +773,23 @@ input[data-date-picker] {
 .qt-datepicker-link:hover { text-decoration: underline; }
 .qt-datepicker button:focus-visible { outline: 2px solid var(--kpmg-blue-light); outline-offset: 1px; }
 /* the dark form-control rules set the background shorthand with !important */
+
+/* SoQM Move dialog (workflow-move.js): one row per move, the role SoQM acts for as a chip */
+.soqm-move-now { font-size: 0.85rem; color: var(--kpmg-gray-700, #495057); }
+.soqm-move-legend { font-size: 0.85rem; }
+.soqm-move-option { padding: 6px 8px 6px 2.1rem; border: 1px solid var(--kpmg-gray-100, #eef0f4); border-radius: 4px; margin-bottom: 6px; }
+.soqm-move-option .form-check-label { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.soqm-move-label { font-weight: 600; }
+.soqm-move-status { font-size: 0.78rem; color: var(--kpmg-gray-500, #6c757d); }
+.soqm-move-status::before { content: "\2192\00a0"; }
+.soqm-move-behalf {
+    padding: 1px 6px; border-radius: 3px; font-size: 0.72rem; font-weight: 600;
+    background: #fff4d6; color: #7a5a00;
+}
+.soqm-move-note {
+    margin-bottom: 10px; padding: 6px 10px; border-left: 3px solid #f0b400;
+    background: #fffaf0; font-size: 0.8rem; color: #5c4a14;
+}
+
+/* Changelog: a move SoQM made for the participant whose step it was */
+.changelog-workflow-on-behalf { margin-top: 2px; font-size: 0.8rem; font-weight: 600; color: #7a5a00; }
