@@ -270,10 +270,11 @@ class WorkflowControllerCompletedRecipientsTest {
         assertThat(history.getValue().getToStep()).isEqualTo("REVIEW");
         assertThat(history.getValue().getComments()).isEqualTo(comment);
 
-        // The Process Owner is also an Operator here and does not notify themselves
+        // The Process Owner is also an Operator here: the control comes back to their own step, so they
+        // are notified as well, like every Operator
         verify(notificationService).sendReturnNotifications(
                 eq(control),
-                eq(List.of("operator@kpmg.kz")),
+                eq(List.of("operator@kpmg.kz", "po.current@kpmg.kz")),
                 any(),
                 eq("Process Owner"),
                 eq("Control Operator"),

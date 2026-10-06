@@ -202,6 +202,86 @@ class WorkflowFlowIT {
         assertWorkflowHistoryCount(controlId, 9);
     }
 
+    /**
+     * One person is Facilitator, Control Operator and Process Owner (the Operator field spells the address in
+     * capitals): every move of the control to one of their steps notifies them once, the returns they make
+     * themselves included.
+     */
+    @Test
+    void personWithSeveralFields_isNotifiedOnEveryMoveToTheirStep_onceEachTime() throws Exception {
+        User both = saveUser("PROCESS_OWNER", "both-" + UUID.randomUUID().toString().substring(0, 8) + "@example.test",
+                "Fac Op Owner");
+        extraUsers.add(both);
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setFacilitator(both.getMail());
+        assignment.setControlOperator(both.getMail().toUpperCase());
+        assignment.setProcessOwner(both.getMail());
+        assignmentRepository.save(assignment);
+        Long controlId = control.getId();
+
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-control-operator", controlId, both)).andExpect(status().isOk());
+        assertNotices(controlId, both, 1);
+        mockMvc.perform(workflowPost("/api/workflow/return-to-facilitator", controlId, both)
+                .param("comments", "Back to myself as Facilitator")).andExpect(status().isOk());
+        assertPerformanceStatus(controlId, "IN_PROGRESS");
+        assertNotices(controlId, both, 2);
+        assertEquals(1L, noticesOfType(controlId, both, "RETURN_TO_FACILITATOR"));
+
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-control-operator", controlId, both)).andExpect(status().isOk());
+        assertNotices(controlId, both, 3);
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-soqm-lead", controlId, both)).andExpect(status().isOk());
+        assertNotices(controlId, both, 3);
+        mockMvc.perform(workflowPost("/api/workflow/return-to-operator", controlId, soqmLead)
+                .param("comments", "SoQM: more evidence")).andExpect(status().isOk());
+        assertNotices(controlId, both, 4);
+
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-soqm-lead", controlId, both)).andExpect(status().isOk());
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-process-owner", controlId, soqmLead)).andExpect(status().isOk());
+        assertNotices(controlId, both, 5);
+        mockMvc.perform(workflowPost("/api/workflow/return-to-operator", controlId, both)
+                .param("comments", "Owner: back to myself as Operator")).andExpect(status().isOk());
+        assertPerformanceStatus(controlId, "REVIEW");
+        assertNotices(controlId, both, 6);
+        assertEquals(2L, noticesOfType(controlId, both, "RETURN_TO_OPERATOR"));
+
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-soqm-lead", controlId, both)).andExpect(status().isOk());
+        mockMvc.perform(workflowPost("/api/workflow/submit-to-process-owner", controlId, soqmLead)).andExpect(status().isOk());
+        assertNotices(controlId, both, 7);
+        // Completed goes to the Facilitator and the Operator: the same person, one notice
+        mockMvc.perform(workflowPost("/api/workflow/complete-control", controlId, both)).andExpect(status().isOk());
+        assertPerformanceStatus(controlId, "COMPLETED");
+        assertNotices(controlId, both, 8);
+    }
+
+    /** The same through POST /api/workflow/perform-action (returns to the Facilitator and by the Process Owner). */
+    @Test
+    void personWithSeveralFields_isNotifiedOfTheirOwnReturns_throughPerformAction() throws Exception {
+        User both = saveUser("PROCESS_OWNER", "both-pa-" + UUID.randomUUID().toString().substring(0, 8) + "@example.test",
+                "Fac Op Owner PA");
+        extraUsers.add(both);
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setFacilitator(both.getMail());
+        assignment.setControlOperator(both.getMail());
+        assignment.setProcessOwner(both.getMail());
+        assignmentRepository.save(assignment);
+        Long controlId = control.getId();
+
+        performAction(controlId, both, "SUBMIT_TO_CONTROL_OPERATOR", null);
+        assertNotices(controlId, both, 1);
+        performAction(controlId, both, "RETURN_TO_FACILITATOR", "Back to myself");
+        assertPerformanceStatus(controlId, "IN_PROGRESS");
+        assertNotices(controlId, both, 2);
+        assertEquals(1L, noticesOfType(controlId, both, "RETURN_TO_FACILITATOR"));
+
+        control = controlRepository.findById(controlId).orElseThrow();
+        control.setPerformanceStatus("PROCESS_OWNER_REVIEW");
+        controlRepository.save(control);
+        performAction(controlId, both, "SEND_FOR_REVISION", "Owner wants changes");
+        assertPerformanceStatus(controlId, "REVIEW");
+        assertNotices(controlId, both, 3);
+        assertEquals(1L, noticesOfType(controlId, both, "RETURN_TO_OPERATOR"));
+    }
+
     @Test
     void returnsWithoutAComment_areRefused_andChangeNothing() throws Exception {
         Long controlId = control.getId();
@@ -321,6 +401,31 @@ class WorkflowFlowIT {
                 .sessionAttr("currentUser", actor)
                 .with(user(actor.getMail()).roles(actor.getRole()))
                 .with(csrf());
+    }
+
+    private void performAction(Long controlId, User actor, String action, String comment) throws Exception {
+        String body = "{\"controlId\":" + controlId + ",\"action\":\"" + action + "\""
+                + (comment != null ? ",\"comment\":\"" + comment + "\"" : "") + "}";
+        mockMvc.perform(post("/api/workflow/perform-action")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(body)
+                        .sessionAttr("currentUser", actor)
+                        .with(user(actor.getMail()).roles(actor.getRole()))
+                        .with(csrf()))
+                .andExpect(status().isOk());
+    }
+
+    private void assertNotices(Long controlId, User person, long expected) {
+        assertEquals(expected, notificationRepository.findByControlIdOrderByCreatedAtDesc(controlId).stream()
+                .filter(notification -> person.getId().equals(notification.getUserId()))
+                .count());
+    }
+
+    private long noticesOfType(Long controlId, User person, String type) {
+        return notificationRepository.findByControlIdOrderByCreatedAtDesc(controlId).stream()
+                .filter(notification -> person.getId().equals(notification.getUserId()))
+                .filter(notification -> type.equals(notification.getType()))
+                .count();
     }
 
     private User saveUser(String role, String mail, String displayName) {
