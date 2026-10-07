@@ -14,7 +14,7 @@ import java.util.Set;
  *   <li>Master - not imported ({@link #excludedFromImport}: the role Master no longer exists, decision of
  *   2026-10-07); should one reach {@link #of}, it gets the least access;</li>
  *   <li>Facilitator, Control Operator, Process Owner - PARTICIPANT / OWN;</li>
- *   <li>KDN, in either role column - READ_ONLY / KDN (KDN users only view their KDN controls);</li>
+ *   <li>KDN, in either role column - READ_ONLY / KDN (KDN users only view the KDN controls);</li>
  *   <li>ADMIN (the seed accounts' role string) - PARTICIPANT / ALL;</li>
  *   <li>Read Only, a blank or unknown role - READ_ONLY / OWN.</li>
  * </ul>

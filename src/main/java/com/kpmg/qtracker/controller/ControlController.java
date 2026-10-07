@@ -137,7 +137,15 @@ public class ControlController {
                 && !AccessPolicy.seesAllControls(AccessPolicy.Subject.of(currentUser))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        List<ControlResponseDTO> controls = controlService.getUserControls(email).stream()
+        List<Control> created = controlService.getUserControls(email);
+        if (!AccessPolicy.seesAllControls(AccessPolicy.Subject.of(currentUser))) {
+            // Only what the user sees (AccessPolicy.canView): a KDN user's old non-KDN controls stay out
+            Set<Long> visible = controlService.findVisibleControlsForUser(currentUser).stream()
+                    .map(Control::getId)
+                    .collect(Collectors.toSet());
+            created = created.stream().filter(control -> visible.contains(control.getId())).toList();
+        }
+        List<ControlResponseDTO> controls = created.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(controls);

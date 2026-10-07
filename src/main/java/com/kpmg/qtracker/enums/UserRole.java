@@ -12,7 +12,7 @@ public enum UserRole {
     SOQM_TEAM("SoQM Team"),
     /** Everyone else in the firm: {@link Visibility} and {@link AccessRight} say what they see and do. */
     USER("User"),
-    /** Staff of other countries: only views the KDN controls they are on (READ_ONLY / KDN). */
+    /** Staff of other countries: views every KDN control and nothing else (READ_ONLY / KDN). */
     KDN("KDN");
 
     private final String displayName;

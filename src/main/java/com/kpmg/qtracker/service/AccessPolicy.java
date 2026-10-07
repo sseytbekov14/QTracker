@@ -24,8 +24,8 @@ import java.util.Set;
  *   user, assigned or not) and moves a control on or back for any other role ({@link #move}); PARTICIPANT
  *   performs the Facilitator, Control Operator and Process Owner steps and edits only where assigned;
  *   READ_ONLY never writes.</li>
- *   <li>Scope: OWN = assigned, shared or created; ALL = every control; KDN = KDN controls the user is
- *   assigned to, shared with or created. SoQM always sees every control; KDN users are always READ_ONLY
+ *   <li>Scope: OWN = assigned, shared or created; ALL = every control; KDN = every KDN control and no other
+ *   ({@link #kdnSees}). SoQM always sees every control; KDN users are always READ_ONLY
  *   ({@link #levelScopeRefusal}).</li>
  *   <li>People see this as a role ({@link Profile}): SoQM Team = SOQM / ALL; User = Visibility (My controls =
  *   OWN, All controls = ALL) and Access (Edit = PARTICIPANT, Read Only = READ_ONLY), every combination
@@ -233,12 +233,16 @@ public final class AccessPolicy {
         }
     }
 
+    /** The start of the Control ID that makes a KDN control. */
+    public static final String KDN_PREFIX = "KDN";
+
     /**
-     * A KDN control: "KDN" anywhere in its Control ID, in any case (KDN-001, KDN001, X-KDN-12, kdn-5), as
-     * the Power Apps KDN grid filtered (business decision, 2026-10-07). The only place this rule lives.
+     * A KDN control: its Control ID starts with "KDN" after trimming, in any case (KDN-001, KDN001, kdn-5);
+     * "KDN" further on (X-KDN-12) does not count (business decision, 2026-10-07). SoQM Team gives such a
+     * control its ID by hand. The only place this rule lives.
      */
     public static boolean isKdnControl(String controlId) {
-        return controlId != null && controlId.trim().toUpperCase(Locale.ROOT).contains("KDN");
+        return controlId != null && controlId.trim().toUpperCase(Locale.ROOT).startsWith(KDN_PREFIX);
     }
 
     /** Renaming the Control ID from one to the other makes the control a KDN control or stops it being one. */
@@ -264,6 +268,15 @@ public final class AccessPolicy {
     /** Every control, drafts included: SoQM Team and All controls. */
     public static boolean seesAllControls(Subject subject) {
         return active(subject) && (subject.level() == AccessLevel.SOQM || subject.scope() == AccessScope.ALL);
+    }
+
+    /**
+     * Sees a whole set of controls whether or not they are on them: SoQM Team and All controls (every control)
+     * and KDN (every KDN control). For them "Active" means not completed, not "my turn", and a draft they are
+     * only shared with opens like any other.
+     */
+    public static boolean seesWithoutBeingOn(Subject subject) {
+        return seesAllControls(subject) || (active(subject) && subject.scope() == AccessScope.KDN);
     }
 
     /**
@@ -304,14 +317,14 @@ public final class AccessPolicy {
 
     /**
      * Why a level and a scope cannot go together, or empty when they can: SoQM sees every control (scope
-     * ALL), and KDN users (staff of other countries) only watch their KDN controls, so scope KDN is READ_ONLY.
+     * ALL), and KDN users (staff of other countries) only watch the KDN controls, so scope KDN is READ_ONLY.
      */
     public static Optional<String> levelScopeRefusal(AccessLevel level, AccessScope scope) {
         if (level == AccessLevel.SOQM && scope != AccessScope.ALL) {
             return Optional.of("SoQM Team always sees all controls");
         }
         if (scope == AccessScope.KDN && level != AccessLevel.READ_ONLY) {
-            return Optional.of("KDN users have read-only access");
+            return Optional.of("KDN access is always Read Only");
         }
         return Optional.empty();
     }
@@ -321,7 +334,7 @@ public final class AccessPolicy {
     /**
      * Whether the user sees the control, in lists and on its pages. This is also the one rule for drafts:
      * SoQM Team and All controls see every draft, Read Only included (decision of 2026-10-07); My controls
-     * and KDN see a draft only when assigned, shared or its creator.
+     * see a draft only when assigned, shared or its creator; KDN as {@link #kdnSees}.
      */
     public static boolean canView(Subject subject, ControlFacts control) {
         if (!active(subject) || control == null) {
@@ -331,27 +344,42 @@ public final class AccessPolicy {
     }
 
     /**
-     * The control is within the user's scope: assigned, shared or its creator (My controls, and KDN on KDN
-     * controls only), or every control (All controls).
+     * The control is within the user's scope: assigned, shared or its creator (My controls), every control
+     * (All controls), or every KDN control (KDN, {@link #kdnSees}).
      */
     private static boolean inScope(Subject subject, ControlFacts control) {
-        boolean own = control.assigned() || control.shared() || control.creator();
         return switch (subject.scope()) {
             case ALL -> true;
-            case KDN -> control.kdn() && own;
-            case OWN -> own;
+            case KDN -> kdnSees(control);
+            case OWN -> control.assigned() || control.shared() || control.creator();
         };
     }
 
     /**
+     * Whether KDN users see their drafts too: every KDN draft, like the other KDN controls (business decision of
+     * 2026-10-07). Set to false to show KDN users a KDN control only once it is initiated.
+     */
+    static final boolean KDN_SEES_DRAFTS = true;
+
+    /**
+     * What a KDN user sees, the one place of this rule (business decision of 2026-10-07): every KDN control,
+     * whoever is assigned to it, shared with it or created it, drafts as {@link #KDN_SEES_DRAFTS} says; never
+     * another control. They only view it ({@link #levelScopeRefusal} keeps them Read Only).
+     */
+    static boolean kdnSees(ControlFacts control) {
+        return control.kdn() && (KDN_SEES_DRAFTS || !control.draft());
+    }
+
+    /**
      * Opening the control: as {@link #canView}, except that a draft stays closed to a user it is only
-     * shared with (the "Not available yet" page) unless they see every control.
+     * shared with (the "Not available yet" page) unless they see it without being on it
+     * ({@link #seesWithoutBeingOn}).
      */
     public static ReadAccess readAccess(Subject subject, ControlFacts control) {
         if (!canView(subject, control)) {
             return ReadAccess.DENIED;
         }
-        if (control.draft() && control.sharedOnly() && !seesAllControls(subject)) {
+        if (control.draft() && control.sharedOnly() && !seesWithoutBeingOn(subject)) {
             return ReadAccess.DRAFT_NOT_INITIATED;
         }
         return ReadAccess.ALLOWED;

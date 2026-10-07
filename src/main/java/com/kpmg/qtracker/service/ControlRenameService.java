@@ -14,19 +14,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * Renaming a Control ID. The ID also decides whether the control is a KDN control
  * ({@link AccessPolicy#isKdnControl}), so a rename that makes it one or stops it being one changes who sees
- * it: KDN users listed on it or who created it gain or lose access. Such a rename needs a comment and is not
- * kept without its audit entry. Every rename gets an audit entry, shown in the control's changelog.
+ * it: every KDN user gains or loses access. Such a rename needs a comment and is not kept without its audit
+ * entry. Every rename gets an audit entry, shown in the control's changelog.
  */
 @Service
 @RequiredArgsConstructor
@@ -89,27 +87,20 @@ public class ControlRenameService {
         return saved;
     }
 
-    /** The KDN users whose view of the control the new KDN mark changes (by {@link AccessPolicy#canView}). */
+    /**
+     * The users whose view of the control the new KDN mark changes, by {@link AccessPolicy#canView}: every
+     * active KDN user, since KDN users see every KDN control, whether or not they are on it.
+     */
     public KdnAccessChange kdnAccessChange(Control control, boolean becomesKdn) {
         ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
         if (assignment == null) {
             assignment = new ControlAssignmentDTO();
         }
-        Set<String> mails = new LinkedHashSet<>();
-        Stream.of(assignment.getFacilitator(), assignment.getControlOperator(), assignment.getSoqmLead(),
-                        assignment.getProcessOwner(), assignment.getControlSharedWith())
-                .filter(list -> list != null)
-                .flatMap(List::stream)
-                .filter(mail -> mail != null && !mail.isBlank())
-                .forEach(mail -> mails.add(mail.trim().toLowerCase(Locale.ROOT)));
-        if (control.getCreatedBy() != null && control.getCreatedBy().getMail() != null) {
-            mails.add(control.getCreatedBy().getMail().trim().toLowerCase(Locale.ROOT));
-        }
-
         List<String> gaining = new ArrayList<>();
         List<String> losing = new ArrayList<>();
-        for (String mail : mails) {
-            User user = userRepository.findByMail(mail).orElse(null);
+        List<User> users = new ArrayList<>(userRepository.findAll());
+        users.sort(Comparator.comparing(user -> user.getMail() == null ? "" : user.getMail().toLowerCase(Locale.ROOT)));
+        for (User user : users) {
             AccessPolicy.ControlFacts facts = controlPermissionService.facts(control, user, assignment);
             if (facts == null) {
                 continue;

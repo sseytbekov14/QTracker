@@ -104,15 +104,17 @@ class AccessPolicyTest {
             "PART_ALL,     DRAFT,                false, -,       true,  ALLOWED",
             "PART_ALL,     DRAFT,                false, SHARED,  true,  ALLOWED",
             "PART_ALL,     COMPLETED,            true,  -,       true,  ALLOWED",
+            // KDN sees every KDN control, drafts included, on it or not; never another control
             "KDN,          DRAFT,                true,  F,       true,  ALLOWED",
-            "KDN,          DRAFT,                true,  SHARED,  true,  DRAFT_NOT_INITIATED",
+            "KDN,          DRAFT,                true,  SHARED,  true,  ALLOWED",
+            "KDN,          DRAFT,                true,  -,       true,  ALLOWED",
             "KDN,          REVIEW,               true,  SHARED,  true,  ALLOWED",
-            "KDN,          REVIEW,               true,  -,       false, DENIED",
+            "KDN,          REVIEW,               true,  -,       true,  ALLOWED",
+            "KDN,          COMPLETED,            true,  -,       true,  ALLOWED",
             "KDN,          REVIEW,               false, CO,      false, DENIED",
             "KDN,          COMPLETED,            false, SHARED,  false, DENIED",
-            // A KDN user sees the KDN controls they created; with scope OWN creating gives nothing
+            "KDN,          DRAFT,                false, F,       false, DENIED",
             "KDN,          REVIEW,               true,  CREATOR, true,  ALLOWED",
-            "KDN,          DRAFT,                true,  CREATOR, true,  ALLOWED",
             "KDN,          REVIEW,               false, CREATOR, false, DENIED",
             "RO,           REVIEW,               false, CREATOR, true,  ALLOWED",
             "PART,         REVIEW,               false, CREATOR, true,  ALLOWED",
@@ -413,7 +415,7 @@ class AccessPolicyTest {
         assertThat(AccessPolicy.assignmentRefusal(who("RO_ALL"), Slot.PROCESS_OWNER, true))
                 .hasValue("has Read Only access and cannot be assigned");
         assertThat(AccessPolicy.levelScopeRefusal(AccessLevel.PARTICIPANT, AccessScope.KDN))
-                .hasValue("KDN users have read-only access");
+                .hasValue("KDN access is always Read Only");
         assertThat(AccessPolicy.assignmentRefusal(who("SOQM"), Slot.PROCESS_OWNER, false))
                 .hasValue("is SoQM Team; Process Owner takes a User with Edit access");
         assertThat(AccessPolicy.assignmentRefusal(who("PART"), Slot.SOQM_LEAD, false))
@@ -601,15 +603,16 @@ class AccessPolicyTest {
     }
 
     @ParameterizedTest(name = "[{0}]")
-    @ValueSource(strings = {"KDN-001", "KDN001", "X-KDN-12", "kdn-5", "Kdn", "HR-CTRL-MF-1/FY26/kDn",
-            "  KDN-001  ", "\tkdn-5\n", "KDN/FY26", "KDNX-01", "HR-KDN-01"})
-    void kdnControl_hasKdnAnywhereInItsId_inAnyCase(String id) {
+    @ValueSource(strings = {"KDN-001", "KDN001", "kdn-5", "Kdn", "KDN", "  KDN-001  ", " kdn-5", "\tkdn-5\n",
+            "KDN/FY26/Central/OCT", "KDNX-01", "kDn 7"})
+    void kdnControl_idStartsWithKdn_afterTrim_inAnyCase(String id) {
         assertThat(AccessPolicy.isKdnControl(id)).isTrue();
     }
 
     @ParameterizedTest(name = "[{0}]")
-    @ValueSource(strings = {"HR-CTRL-MF-1/FY26/Central", "KD-N-01", "K DN-01", "KD", "DN", "", " ", "\t"})
-    void kdnControl_notWithoutKdnInItsId(String id) {
+    @ValueSource(strings = {"X-KDN-12", "HR-KDN-01", "HR-CTRL-MF-1/FY26/kDn", "HR-1", "HR-CTRL-MF-1/FY26/Central",
+            "KD-N-01", "K DN-01", "KD", "DN", "-KDN-1", "_KDN1", "", " ", "\t"})
+    void kdnControl_notWhenTheIdDoesNotStartWithKdn(String id) {
         assertThat(AccessPolicy.isKdnControl(id)).isFalse();
     }
 
@@ -620,26 +623,29 @@ class AccessPolicyTest {
 
     @Test
     void renameChangesKdn_whenKdnAppearsOrGoes() {
-        assertThat(AccessPolicy.renameChangesKdn("HR-1", "HR-KDN-1")).isTrue();
+        assertThat(AccessPolicy.renameChangesKdn("HR-1", "KDN-HR-1")).isTrue();
         assertThat(AccessPolicy.renameChangesKdn("kdn-5", "HR-5")).isTrue();
+        assertThat(AccessPolicy.renameChangesKdn("KDN-1", "x-kdn-1")).isTrue();
         assertThat(AccessPolicy.renameChangesKdn(null, "KDN001")).isTrue();
-        assertThat(AccessPolicy.renameChangesKdn("KDN-1", "x-kdn-1")).isFalse();
+        assertThat(AccessPolicy.renameChangesKdn("HR-1", "HR-KDN-1")).isFalse();
+        assertThat(AccessPolicy.renameChangesKdn("KDN-1", " kdn-2 ")).isFalse();
         assertThat(AccessPolicy.renameChangesKdn("HR-1", "HR-2")).isFalse();
         assertThat(AccessPolicy.renameChangesKdn("", null)).isFalse();
     }
 
     @Test
-    void kdnUser_seesAndIsAssignedOnEveryIdWithKdn_onlyThere() {
-        for (String id : List.of("KDN-001", "KDN001", "X-KDN-12", "kdn-5", " KDN-7 ")) {
+    void kdnUser_seesAndIsAssignedOnEveryIdStartingWithKdn_onlyThere() {
+        for (String id : List.of("KDN-001", "KDN001", "kdn-5", " KDN-7 ")) {
             boolean kdn = AccessPolicy.isKdnControl(id);
             assertThat(AccessPolicy.canView(who("KDN"), control("REVIEW", kdn, "F"))).as(id).isTrue();
             assertThat(AccessPolicy.canView(who("KDN"), control("REVIEW", kdn, "SHARED"))).as(id).isTrue();
+            assertThat(AccessPolicy.canView(who("KDN"), control("DRAFT", kdn, "-"))).as(id).isTrue();
             for (Slot slot : List.of(Slot.FACILITATOR, Slot.CONTROL_OPERATOR, Slot.PROCESS_OWNER, Slot.SHARED_WITH)) {
                 assertThat(AccessPolicy.assignmentRefusal(who("KDN"), slot, kdn)).as(id + " " + slot).isEmpty();
             }
             assertThat(AccessPolicy.assignmentRefusal(who("KDN"), Slot.SOQM_LEAD, kdn)).as(id).isPresent();
         }
-        for (String id : Arrays.asList("HR-001", "KD-N-1", "", null)) {
+        for (String id : Arrays.asList("HR-001", "X-KDN-12", "HR-KDN-1", "KD-N-1", "", null)) {
             boolean kdn = AccessPolicy.isKdnControl(id);
             assertThat(AccessPolicy.canView(who("KDN"), control("REVIEW", kdn, "F"))).as(id).isFalse();
             for (Slot slot : Slot.values()) {
@@ -649,5 +655,41 @@ class AccessPolicyTest {
             // the others are not affected by the KDN mark
             assertThat(AccessPolicy.canView(who("PART"), control("REVIEW", kdn, "F"))).as(id).isTrue();
         }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource({
+            // user,          seesWithoutBeingOn
+            "SOQM,            true",
+            "PART_ALL,        true",
+            "RO_ALL,          true",
+            "KDN,             true",
+            "PART,            false",
+            "RO,              false",
+            "DISABLED_SOQM,   false",
+            "NONE,            false",
+    })
+    void seesWithoutBeingOn_soqmAllControlsAndKdn(String user, boolean expected) {
+        assertThat(AccessPolicy.seesWithoutBeingOn(who(user))).isEqualTo(expected);
+    }
+
+    @Test
+    void kdnSees_everyKdnControl_inEveryStatus_onItOrNot_andNoOther() {
+        for (String status : List.of("DRAFT", "IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW", "COMPLETED")) {
+            for (String places : List.of("-", "F", "CO", "PO", "SHARED", "CREATOR")) {
+                ControlFacts kdnControl = control(status, true, places);
+                ControlFacts other = control(status, false, places);
+                assertThat(AccessPolicy.readAccess(who("KDN"), kdnControl)).as(status + " " + places)
+                        .isEqualTo(ReadAccess.ALLOWED);
+                assertThat(AccessPolicy.readAccess(who("KDN"), other)).as(status + " " + places + " non-KDN")
+                        .isEqualTo(ReadAccess.DENIED);
+                ControlPermission p = AccessPolicy.resolve(who("KDN"), kdnControl);
+                assertThat(p.canEdit()).as(status + " " + places).isFalse();
+                assertThat(p.canUseWorkflowActions()).as(status + " " + places).isFalse();
+                assertThat(AccessPolicy.notice(who("KDN"), p)).as(status + " " + places)
+                        .isEqualTo(AccessPolicy.Notice.READ_ONLY);
+            }
+        }
+        assertThat(AccessPolicy.KDN_SEES_DRAFTS).isTrue();
     }
 }

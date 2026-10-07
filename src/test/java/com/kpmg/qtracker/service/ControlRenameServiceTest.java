@@ -46,6 +46,9 @@ class ControlRenameServiceTest {
     private final User soqm = TestUsers.user("soqm@kpmg.kz", AccessLevel.SOQM, AccessScope.ALL, false);
     private final User kdn = TestUsers.user("kdn@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, false);
     private final User part = TestUsers.user("part@kpmg.kz", AccessLevel.PARTICIPANT, AccessScope.OWN, false);
+    /** A KDN user on no field of the control: KDN users see every KDN control. */
+    private final User otherKdn = TestUsers.user("other.kdn@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, false);
+    private final User disabledKdn = TestUsers.user("off.kdn@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, false);
     private Control control;
 
     @BeforeEach
@@ -63,8 +66,8 @@ class ControlRenameServiceTest {
         assignment.setFacilitator(List.of("KDN@kpmg.kz"));
         assignment.setControlOperator(List.of("part@kpmg.kz"));
         lenient().when(controlAssignmentService.getAssignmentByControlId(5L)).thenReturn(assignment);
-        lenient().when(userRepository.findByMail("kdn@kpmg.kz")).thenReturn(Optional.of(kdn));
-        lenient().when(userRepository.findByMail("part@kpmg.kz")).thenReturn(Optional.of(part));
+        disabledKdn.setEnabled(false);
+        lenient().when(userRepository.findAll()).thenReturn(List.of(part, otherKdn, soqm, disabledKdn, kdn));
     }
 
     @Test
@@ -72,7 +75,7 @@ class ControlRenameServiceTest {
         assertThatThrownBy(() -> service.rename(5L, "HR-5", "  ", soqm))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("A comment is required: the new Control ID makes this control no longer a KDN control;"
-                        + " KDN users who will no longer see it: kdn@kpmg.kz");
+                        + " KDN users who will no longer see it: kdn@kpmg.kz, other.kdn@kpmg.kz");
         verify(controlRepository, never()).save(any());
         verify(adminAuditService, never()).logActionWithChanges(any(), any(), any(), any(), any(), any(), any(), any());
     }
@@ -109,14 +112,14 @@ class ControlRenameServiceTest {
     }
 
     @Test
-    void kdnAccessChange_namesOnlyTheKdnUsersWhoseViewChanges() {
+    void kdnAccessChange_namesEveryActiveKdnUser_onTheControlOrNot() {
         ControlRenameService.KdnAccessChange losing = service.kdnAccessChange(control, false);
-        assertThat(losing.losing()).containsExactly("kdn@kpmg.kz");
+        assertThat(losing.losing()).containsExactly("kdn@kpmg.kz", "other.kdn@kpmg.kz");
         assertThat(losing.gaining()).isEmpty();
 
         control.setControlId("HR-5");
         ControlRenameService.KdnAccessChange gaining = service.kdnAccessChange(control, true);
-        assertThat(gaining.gaining()).containsExactly("kdn@kpmg.kz");
+        assertThat(gaining.gaining()).containsExactly("kdn@kpmg.kz", "other.kdn@kpmg.kz");
         assertThat(gaining.losing()).isEmpty();
     }
 }

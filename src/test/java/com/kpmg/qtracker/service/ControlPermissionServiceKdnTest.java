@@ -16,7 +16,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Scope KDN (always read-only): only KDN controls, and of those the ones the user is listed on or shared with. */
+/** Scope KDN (always read-only): every KDN control (Control ID starting with KDN), on it or not, and no other. */
 @ExtendWith(MockitoExtension.class)
 class ControlPermissionServiceKdnTest {
 
@@ -38,12 +38,23 @@ class ControlPermissionServiceKdnTest {
     }
 
     @Test
-    void kdnUser_doesNotSeeAKdnControlTheyAreNotOn() {
-        ControlPermission permission = permissionService.resolve(control("KDN-1001", "IN_PROGRESS"), user,
-                new ControlAssignmentDTO());
+    void kdnUser_seesAKdnControlTheyAreNotOn_draftsIncluded_readOnly() {
+        for (String status : new String[] {"IN_PROGRESS", "DRAFT", null}) {
+            ControlPermission permission = permissionService.resolve(control("KDN-1001", status), user,
+                    new ControlAssignmentDTO());
 
-        assertThat(permission.canView()).isFalse();
-        assertThat(permission.canEdit()).isFalse();
+            assertThat(permission.canView()).as(status).isTrue();
+            assertThat(permission.canEdit()).as(status).isFalse();
+            assertThat(permission.canUseWorkflowActions()).as(status).isFalse();
+        }
+    }
+
+    @Test
+    void kdnUser_doesNotSeeAControlWithKdnFurtherOnInItsId() {
+        ControlAssignmentDTO assignment = new ControlAssignmentDTO();
+        assignment.setControlSharedWith(List.of(MAIL));
+
+        assertThat(permissionService.resolve(control("X-KDN-12", "IN_PROGRESS"), user, assignment).canView()).isFalse();
     }
 
     @Test

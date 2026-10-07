@@ -164,9 +164,9 @@ class ControlAssignmentServiceTest {
 
     @ParameterizedTest(name = "[{0}] KDN control: {1}")
     @CsvSource(value = {
-            "KDN-001|true", "KDN001|true", "X-KDN-12|true", "kdn-5|true", "'  KDN-9  '|true",
-            "HR-001|false", "KD-N-1|false", "''|false"}, delimiter = '|')
-    void saveAssignment_kdnUserInAStepField_onlyWhereTheIdHasKdn(String controlId, boolean kdnControl) {
+            "KDN-001|true", "KDN001|true", "kdn-5|true", "'  KDN-9  '|true",
+            "X-KDN-12|false", "HR-001|false", "KD-N-1|false", "''|false"}, delimiter = '|')
+    void saveAssignment_kdnUserInAStepField_onlyWhereTheIdStartsWithKdn(String controlId, boolean kdnControl) {
         Control control = new Control();
         control.setId(92L);
         control.setControlId(controlId);

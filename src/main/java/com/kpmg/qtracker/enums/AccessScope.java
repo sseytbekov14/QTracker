@@ -9,7 +9,7 @@ public enum AccessScope {
     OWN("My controls"),
     /** Every control, drafts included. */
     ALL("All controls"),
-    /** Only KDN controls, and of those only the ones they are assigned to or that are shared with them. */
+    /** Every KDN control (Control ID starting with KDN) and no other ({@link com.kpmg.qtracker.service.AccessPolicy#isKdnControl}). */
     KDN("KDN controls");
 
     private final String displayName;

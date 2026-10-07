@@ -92,7 +92,7 @@ class RoleMatrixIT {
         OPERATOR,
         /** The only Facilitator and the only Control Operator: one person, one steps field. */
         BOTH,
-        /** Not on the control, but its creator (My controls and KDN see it, decision of 2026-10-07). */
+        /** Not on the control, but its creator (My controls see it, decision of 2026-10-07). */
         CREATOR
     }
 
@@ -115,11 +115,14 @@ class RoleMatrixIT {
             new Who("all-step", "User · All controls · Edit, assigned", EDIT, ALL, Place.STEP, false, false, false),
             new Who("all-none", "User · All controls · Edit, not on it", EDIT, ALL, Place.NONE, false, false, false),
             new Who("all-shared", "User · All controls · Edit, shared only", EDIT, ALL, Place.SHARED, false, false, false),
+            new Who("part-none-kdn", "User · My controls · Edit, not on it, KDN control", EDIT, MY, Place.NONE, true, false, false),
             new Who("kdn-step", "KDN, in the step field, KDN control", READ, AccessScope.KDN, Place.STEP, true, false, false),
             new Who("kdn-shared", "KDN, shared only, KDN control", READ, AccessScope.KDN, Place.SHARED, true, false, false),
             new Who("kdn-creator", "KDN, creator only, KDN control", READ, AccessScope.KDN, Place.CREATOR, true, false, false),
             new Who("kdn-none", "KDN, not on it, KDN control", READ, AccessScope.KDN, Place.NONE, true, false, false),
             new Who("kdn-hr", "KDN, in the step field, non-KDN control (old data)", READ, AccessScope.KDN, Place.STEP, false, false, false),
+            new Who("kdn-hr-shared", "KDN, shared only, non-KDN control", READ, AccessScope.KDN, Place.SHARED, false, false, false),
+            new Who("kdn-inside", "KDN, in the step field, KDN further on in the ID (X-KDN-…)", READ, AccessScope.KDN, Place.STEP, false, false, false),
             new Who("ro-shared", "User · My controls · Read Only, shared", READ, MY, Place.SHARED, false, false, false),
             new Who("ro-creator", "User · My controls · Read Only, creator only", READ, MY, Place.CREATOR, false, false, false),
             new Who("ro-none", "User · My controls · Read Only, not on it", READ, MY, Place.NONE, false, false, false),
@@ -154,10 +157,10 @@ class RoleMatrixIT {
             "Move to PO review", "PROCESS_OWNER_REVIEW");
 
     /**
-     * A KDN control is one with "KDN" anywhere in its Control ID, in any case: the KDN rows' controls take
-     * these forms in turn; the other controls are "HR-RM-n".
+     * A KDN control is one whose Control ID starts with "KDN", in any case: the KDN rows' controls take these
+     * forms in turn; the other controls are "HR-RM-n", the kdn-inside row's "X-KDN-RM-n" (not a KDN control).
      */
-    private static final List<String> KDN_ID_FORMS = List.of("KDN-RM-%d", "KDNRM%d", "X-KDN-RM-%d", "kdn-rm-%d");
+    private static final List<String> KDN_ID_FORMS = List.of("KDN-RM-%d", "KDNRM%d", "kdn-rm-%d", "Kdn_RM_%d");
 
     private static final List<String> USER_OPS = List.of(
             "Create control", "Export button", "Assignment picker", "Admin Panel", "Admin Panel change");
@@ -275,11 +278,14 @@ class RoleMatrixIT {
         boolean listed = inF || inCO || inPO;
         boolean shared = who.place() == Place.SHARED;
         boolean own = listed || shared;
-        // My controls = assigned, shared or creator; KDN the same, on KDN controls only
+        // My controls = assigned, shared or creator; KDN = every KDN control, drafts included, whoever is on it,
+        // and never another control (decision of 2026-10-07)
         boolean creator = who.place() == Place.CREATOR;
-        boolean inScope = who.scope() == AccessScope.KDN ? who.kdnControl() && (own || creator)
-                : who.scope() == AccessScope.ALL || own || creator;
+        boolean kdnUser = who.scope() == AccessScope.KDN;
+        boolean inScope = kdnUser ? who.kdnControl() : who.scope() == AccessScope.ALL || own || creator;
         boolean sees = active && (seesAll || inScope);
+        // A draft someone is only shared with opens once initiated, except for those who see it anyway
+        boolean notYet = "DRAFT".equals(status) && shared && !(active && (seesAll || kdnUser));
         boolean writer = active && who.level() != AccessLevel.READ_ONLY;
         // A completed control is locked for everyone, SoQM included (decision 4); renaming is not an edit
         boolean soqmEdits = soqm && !"COMPLETED".equals(status);
@@ -298,18 +304,18 @@ class RoleMatrixIT {
         return switch (op) {
             // The page's notice (no buttons the server refuses): Read Only and KDN everywhere, a User with Edit
             // in no Control role field "not assigned", nobody else; "-" when the page does not open
-            case "Notice" -> !sees || ("DRAFT".equals(status) && shared && !seesAll) ? "-"
+            case "Notice" -> !sees || notYet ? "-"
                     : !writer ? "READ_ONLY"
                     : soqm || listed ? "NONE" : "NOT_ASSIGNED";
             case "View page" -> !sees ? "refused"
-                    : "DRAFT".equals(status) && shared && !seesAll ? "not yet" : "ok";
-            case "Read API", "History", "Download" -> sees && !("DRAFT".equals(status) && shared && !seesAll) ? "ok" : "refused";
+                    : notYet ? "not yet" : "ok";
+            case "Read API", "History", "Download" -> sees && !notYet ? "ok" : "refused";
             case "Save details", "Upload" -> sees && writer && (soqmEdits || participantStep) ? "ok" : "refused";
             case "Steps field" -> sees && writer && stepsField ? "ok" : "refused";
             case "Operator field" -> sees && writer && operatorField ? "ok" : "refused";
             case "Edit control", "Assign" -> soqmEdits ? "ok" : "refused";
             case "Rename ID" -> soqm ? "ok" : "refused";
-            // "KDN" appearing in or going from the ID changes who sees the control: SoQM gives a comment
+            // "KDN" appearing at or going from the start of the ID changes who sees the control: SoQM gives a comment
             case "Rename ±KDN, no comment" -> soqm ? "400" : "refused";
             case "Rename ±KDN" -> soqm ? "ok" : "refused";
             // SoQM Team performs every step, the Control roles' ones on their behalf (decision 3); Read
@@ -391,7 +397,7 @@ class RoleMatrixIT {
         row.put("Rename ID", answer(post("/api/controls/{id}/rename-id", control.getId()).with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"newControlId\":\"" + control.getControlId() + "-R\"}"), session));
-        // From a KDN ID to one without "KDN", or the other way round
+        // From a KDN ID to one not starting with "KDN", or the other way round
         String flipped = who.kdnControl() ? "HR-RN-" + control.getId() : "KDN-RN-" + control.getId();
         row.put("Rename ±KDN, no comment", answer(post("/api/controls/{id}/rename-id", control.getId()).with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -563,7 +569,7 @@ class RoleMatrixIT {
         ++controlCount;
         control.setControlId(who.kdnControl()
                 ? String.format(KDN_ID_FORMS.get(controlCount % KDN_ID_FORMS.size()), controlCount)
-                : "HR-RM-" + controlCount);
+                : "kdn-inside".equals(who.key()) ? "X-KDN-RM-" + controlCount : "HR-RM-" + controlCount);
         control.setControlFrequency("Monthly");
         control.setControlCategory("Manual");
         control.setControlType("Preventive");

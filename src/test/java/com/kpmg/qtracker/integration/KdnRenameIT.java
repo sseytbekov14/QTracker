@@ -33,6 +33,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -42,9 +44,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * A KDN control is one with "KDN" anywhere in its Control ID. Renaming the ID so that "KDN" appears or goes
- * changes who sees the control: such a rename needs a comment, and its audit entry names the KDN users who
- * gain or lose access. Other renames need no comment and are audited as well.
+ * A KDN control is one whose Control ID starts with "KDN", and KDN users see every KDN control. Renaming the
+ * ID so that the prefix appears or goes changes who sees the control: such a rename needs a comment, and its
+ * audit entry names the KDN users who gain or lose access (all of them, on the control or not). Other renames
+ * need no comment and are audited as well. Other tests may leave KDN users in the database, so the lists are
+ * checked to contain this test's users.
  */
 @SpringBootTest(properties = "file.upload.dir=target/it-uploads-kdn-rename")
 @AutoConfigureMockMvc
@@ -98,27 +102,27 @@ class KdnRenameIT {
     }
 
     @Test
-    void kdnUsersSeeEveryFormOfKdnId_andNoOtherControl() throws Exception {
+    void kdnUsersSeeEveryControlWhoseIdStartsWithKdn_onItOrNot_andNoOther() throws Exception {
         List<Control> kdn = new ArrayList<>();
-        for (String form : List.of("KDN-001-", "KDN001-", "X-KDN-12-", "kdn-5-")) {
+        for (String form : List.of("KDN-001-", "KDN001-", "kdn-5-", "  Kdn-7-")) {
             kdn.add(control(form + s));
         }
-        Control hr = control("HR-001-" + s);
-        Control nearly = control("KD-N-1-" + s);
+        List<Control> others = List.of(control("X-KDN-12-" + s), control("HR-001-" + s), control("KD-N-1-" + s));
 
         for (Control control : kdn) {
-            readAs(kdnFacilitator, control).andExpect(status().isOk());
-            readAs(kdnShared, control).andExpect(status().isOk());
-            readAs(kdnCreator, control).andExpect(status().isOk());
-            readAs(kdnOther, control).andExpect(status().isForbidden());
+            for (User reader : List.of(kdnFacilitator, kdnShared, kdnCreator, kdnOther)) {
+                readAs(reader, control).andExpect(status().isOk());
+            }
         }
-        for (Control control : List.of(hr, nearly)) {
-            readAs(kdnFacilitator, control).andExpect(status().isForbidden());
-            readAs(kdnCreator, control).andExpect(status().isForbidden());
+        for (Control control : others) {
+            for (User reader : List.of(kdnFacilitator, kdnShared, kdnCreator, kdnOther)) {
+                readAs(reader, control).andExpect(status().isForbidden());
+            }
             readAs(participant, control).andExpect(status().isOk());
         }
-        assertThat(controlService.findVisibleControlsForUser(kdnFacilitator)).extracting(Control::getId)
-                .containsExactlyInAnyOrderElementsOf(kdn.stream().map(Control::getId).toList());
+        assertThat(controlService.findVisibleControlsForUser(kdnOther)).extracting(Control::getId)
+                .containsAll(kdn.stream().map(Control::getId).toList())
+                .doesNotContainAnyElementsOf(others.stream().map(Control::getId).toList());
     }
 
     @Test
@@ -131,7 +135,8 @@ class KdnRenameIT {
                 .andExpect(content().string(containsString("A comment is required")))
                 .andExpect(content().string(containsString("no longer a KDN control")))
                 .andExpect(content().string(containsString(kdnFacilitator.getMail())))
-                .andExpect(content().string(containsString(kdnCreator.getMail())));
+                .andExpect(content().string(containsString(kdnCreator.getMail())))
+                .andExpect(content().string(containsString(kdnOther.getMail())));
         rename(control, newId, "   ").andExpect(status().isBadRequest());
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getControlId()).isEqualTo("KDN-77-" + s);
         assertThat(audits(control)).isEmpty();
@@ -144,6 +149,7 @@ class KdnRenameIT {
         readAs(kdnFacilitator, control).andExpect(status().isForbidden());
         readAs(kdnShared, control).andExpect(status().isForbidden());
         readAs(kdnCreator, control).andExpect(status().isForbidden());
+        readAs(kdnOther, control).andExpect(status().isForbidden());
         readAs(participant, control).andExpect(status().isOk());
 
         AdminAuditLog audit = single(audits(control));
@@ -160,7 +166,8 @@ class KdnRenameIT {
         assertThat(next.get("KDN control")).isEqualTo("No");
         assertThat(next.get("Comment")).isEqualTo("Moved to the local HR controls");
         assertThat((List<Object>) next.get("KDN users losing access"))
-                .containsExactlyInAnyOrder(kdnFacilitator.getMail(), kdnShared.getMail(), kdnCreator.getMail());
+                .contains(kdnFacilitator.getMail(), kdnShared.getMail(), kdnCreator.getMail(), kdnOther.getMail())
+                .doesNotContain(participant.getMail(), soqm.getMail());
         assertThat((List<Object>) next.get("KDN users gaining access")).isEmpty();
 
         mockMvc.perform(as(soqm, get("/api/controls/{id}/changelog", control.getId())))
@@ -169,11 +176,11 @@ class KdnRenameIT {
     }
 
     @Test
-    void renameThatAddsKdn_needsAComment_thenTheKdnUsersOnItSeeIt() throws Exception {
-        // KDN users on a non-KDN control: old data, or a control renamed earlier
+    void renameThatAddsKdn_needsAComment_thenEveryKdnUserSeesIt() throws Exception {
         Control control = control("HR-88-" + s);
-        String newId = "hr-88-kdn-" + s;
+        String newId = "kdn-hr-88-" + s;
         readAs(kdnFacilitator, control).andExpect(status().isForbidden());
+        readAs(kdnOther, control).andExpect(status().isForbidden());
 
         rename(control, newId, "").andExpect(status().isBadRequest())
                 .andExpect(content().string(containsString("makes this a KDN control")));
@@ -182,27 +189,45 @@ class KdnRenameIT {
 
         readAs(kdnFacilitator, control).andExpect(status().isOk());
         readAs(kdnCreator, control).andExpect(status().isOk());
-        readAs(kdnOther, control).andExpect(status().isForbidden());
+        readAs(kdnOther, control).andExpect(status().isOk());
         Map<?, ?> next = objectMapper.readValue(single(audits(control)).getNewValues(), Map.class);
         assertThat((List<Object>) next.get("KDN users gaining access"))
-                .containsExactlyInAnyOrder(kdnFacilitator.getMail(), kdnShared.getMail(), kdnCreator.getMail());
+                .contains(kdnFacilitator.getMail(), kdnShared.getMail(), kdnCreator.getMail(), kdnOther.getMail());
         assertThat((List<Object>) next.get("KDN users losing access")).isEmpty();
     }
 
     @Test
     void renameThatKeepsTheKdnMark_needsNoComment_andIsAudited() throws Exception {
         Control kdn = control("KDN-99-" + s);
-        rename(kdn, "  x-kdn-99-" + s + "  ", null)
+        rename(kdn, "  kdn99-" + s + "  ", null)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.controlId").value("x-kdn-99-" + s));
-        readAs(kdnFacilitator, kdn).andExpect(status().isOk());
+                .andExpect(jsonPath("$.controlId").value("kdn99-" + s));
+        readAs(kdnOther, kdn).andExpect(status().isOk());
         AdminAuditLog audit = single(audits(kdn));
         assertThat(objectMapper.readValue(audit.getChangedFields(), List.class)).containsExactly("Control ID");
 
+        // "KDN" further on in the ID does not make a KDN control: no change, no comment needed
         Control hr = control("HR-99-" + s);
-        rename(hr, "HR-100-" + s, "Typo").andExpect(status().isOk());
+        rename(hr, "HR-KDN-99-" + s, null).andExpect(status().isOk());
+        readAs(kdnFacilitator, hr).andExpect(status().isForbidden());
         assertThat(objectMapper.readValue(single(audits(hr)).getChangedFields(), List.class))
+                .containsExactly("Control ID");
+
+        Control other = control("HR-98-" + s);
+        rename(other, "HR-100-" + s, "Typo").andExpect(status().isOk());
+        assertThat(objectMapper.readValue(single(audits(other)).getChangedFields(), List.class))
                 .containsExactly("Control ID", "Comment");
+    }
+
+    @Test
+    void ownCreatedControlsApi_givesAKdnUserOnlyTheKdnOnes() throws Exception {
+        // Old data: a KDN user as the creator of a non-KDN control
+        Control kdn = control("KDN-66-" + s);
+        Control hr = control("HR-66-" + s);
+        mockMvc.perform(as(kdnCreator, get("/api/controls/user/{email}", kdnCreator.getMail())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].id", hasItem(kdn.getId().intValue())))
+                .andExpect(jsonPath("$[*].id", not(hasItem(hr.getId().intValue()))));
     }
 
     @Test

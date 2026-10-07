@@ -23,7 +23,7 @@ import static org.mockito.ArgumentMatchers.anyIterable;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
-/** Control lists through the access policy: scope KDN, scope OWN with drafts, and users who see everything. */
+/** Control lists through the access policy: scope KDN (every KDN control), scope OWN with drafts, and users who see everything. */
 @ExtendWith(MockitoExtension.class)
 class ControlServiceKdnVisibilityTest {
 
@@ -58,53 +58,44 @@ class ControlServiceKdnVisibilityTest {
     }
 
     @Test
-    void kdnScope_seesOnlyTheKdnControlsItIsAssignedToOrSharedWith() {
+    void kdnScope_seesEveryKdnControl_onItOrNot_draftsIncluded_andNoOther() {
+        User other = TestUsers.user("soqm@kpmg.kz", AccessLevel.SOQM, AccessScope.ALL, false);
         Control kdnAssigned = control(3L, "KDN-3001", "IN_PROGRESS");
         Control hrAssigned = control(4L, "HR-3002", "IN_PROGRESS");
         Control kdnShared = control(7L, "kdn-7001", "COMPLETED");
-        candidates(List.of(kdnAssigned, hrAssigned, kdnShared),
-                List.of(assignment(3L, MAIL, null), assignment(4L, MAIL, null), assignment(7L, null, MAIL)));
+        Control kdnDraftOfOthers = control(8L, "KDN-8", null);
+        kdnDraftOfOthers.setCreatedBy(other);
+        Control kdnNobody = control(9L, "KDN009", "REVIEW");
+        Control kdnInside = control(10L, "X-KDN-10", "REVIEW");
+        everyControl(List.of(kdnInside, kdnNobody, kdnDraftOfOthers, kdnShared, hrAssigned, kdnAssigned),
+                List.of(assignment(3L, MAIL, null), assignment(4L, MAIL, null), assignment(7L, null, MAIL),
+                        assignment(10L, MAIL, null)));
 
         List<Control> visible = controlService.findVisibleControlsForUser(
                 TestUsers.user(MAIL, AccessLevel.READ_ONLY, AccessScope.KDN, false));
 
-        assertThat(visible).extracting(Control::getControlId).containsExactly("kdn-7001", "KDN-3001");
+        assertThat(visible).extracting(Control::getControlId)
+                .containsExactly("KDN009", "KDN-8", "kdn-7001", "KDN-3001");
     }
 
     @Test
-    void kdnScope_seesEveryIdWithKdnAnywhere_inAnyCase() {
+    void kdnScope_seesEveryIdStartingWithKdn_inAnyCase() {
         List<Control> controls = List.of(
-                control(31L, "KDN-001", "IN_PROGRESS"),
-                control(32L, "KDN001", "REVIEW"),
-                control(33L, "X-KDN-12", "COMPLETED"),
-                control(34L, "kdn-5", "DRAFT"),
-                control(35L, "  KDN-35  ", "REVIEW"),
-                control(36L, "HR-36", "REVIEW"),
-                control(37L, "KD-N-37", "REVIEW"),
+                control(39L, null, "REVIEW"),
                 control(38L, "", "REVIEW"),
-                control(39L, null, "REVIEW"));
-        candidates(controls, controls.stream().map(c -> assignment(c.getId(), MAIL, null)).toList());
+                control(37L, "KD-N-37", "REVIEW"),
+                control(36L, "HR-36", "REVIEW"),
+                control(35L, "  KDN-35  ", "REVIEW"),
+                control(34L, "kdn-5", "DRAFT"),
+                control(33L, "X-KDN-12", "COMPLETED"),
+                control(32L, "KDN001", "REVIEW"),
+                control(31L, "KDN-001", "IN_PROGRESS"));
+        everyControl(controls, List.of());
 
         List<Control> visible = controlService.findVisibleControlsForUser(
                 TestUsers.user(MAIL, AccessLevel.READ_ONLY, AccessScope.KDN, false));
 
-        assertThat(visible).extracting(Control::getId).containsExactly(35L, 34L, 33L, 32L, 31L);
-    }
-
-    @Test
-    void kdnScope_alsoSeesTheKdnControlsItCreated_butNotOthersItCreated() {
-        User kdnUser = TestUsers.user(MAIL, AccessLevel.READ_ONLY, AccessScope.KDN, false);
-        kdnUser.setId(77L);
-        Control kdnCreated = control(20L, "KDN-20", "REVIEW");
-        kdnCreated.setCreatedBy(kdnUser);
-        Control hrCreated = control(21L, "HR-21", "REVIEW");
-        hrCreated.setCreatedBy(kdnUser);
-        when(controlRepository.findByCreatedByMailOrderByCreatedAtDesc(MAIL)).thenReturn(List.of(kdnCreated, hrCreated));
-        when(controlAssignmentRepository.findAllById(anyIterable())).thenReturn(List.of());
-        when(controlRepository.findAllById(anyIterable())).thenReturn(List.of(kdnCreated, hrCreated));
-
-        assertThat(controlService.findVisibleControlsForUser(kdnUser))
-                .extracting(Control::getControlId).containsExactly("KDN-20");
+        assertThat(visible).extracting(Control::getId).containsExactly(35L, 34L, 32L, 31L);
     }
 
     @Test
@@ -137,9 +128,11 @@ class ControlServiceKdnVisibilityTest {
                     .extracting(Control::getControlId)
                     .containsExactly("HR-2", "KDN-1");
         }
-        // The stored admin flag of a KDN user (before V11) does not open every control
+        // The stored admin flag of a KDN user (before V11) does not open every control: only the KDN ones
+        when(controlAssignmentRepository.findAllById(anyIterable())).thenReturn(List.of());
         assertThat(controlService.findVisibleControlsForUser(
-                TestUsers.user("admin@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, true))).isEmpty();
+                TestUsers.user("admin@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, true)))
+                .extracting(Control::getControlId).containsExactly("KDN-1");
     }
 
     @Test
@@ -164,6 +157,12 @@ class ControlServiceKdnVisibilityTest {
         candidates(List.of(control), List.of(assignment(5L, "soqm@kpmg.kz", null)));
 
         assertThat(controlService.findVisibleControlsForUser(disabled)).isEmpty();
+    }
+
+    /** KDN: every control is a candidate, newest first, as the repository gives them. */
+    private void everyControl(List<Control> controls, List<ControlAssignment> assignments) {
+        when(controlRepository.findAllByOrderByIdDesc()).thenReturn(controls);
+        when(controlAssignmentRepository.findAllById(anyIterable())).thenReturn(assignments);
     }
 
     private void candidates(List<Control> controls, List<ControlAssignment> assignments) {

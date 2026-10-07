@@ -100,7 +100,7 @@ public class ControlService implements IControlService {
 
     /**
      * The controls the user sees ({@link AccessPolicy#canView}): every control for SoQM Team and All
-     * controls; otherwise the ones they are assigned to, shared with or created, for KDN only KDN controls.
+     * controls; every KDN control for KDN; otherwise the ones they are assigned to, shared with or created.
      */
     @Override
     public List<Control> findVisibleControlsForUser(User user) {
@@ -113,24 +113,35 @@ public class ControlService implements IControlService {
         }
         String userEmail = user.getMail();
 
-        // LIKE finds the address anywhere in a column, including inside another address
-        // (a@kpmg.kz in ba@kpmg.kz); the policy below checks whole addresses
-        Set<Long> candidateIds = new LinkedHashSet<>();
-        addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByFacilitator(userEmail));
-        addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlOperator(userEmail));
-        addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsBySoqmLead(userEmail));
-        addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByProcessOwner(userEmail));
-        addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlSharedWith(userEmail));
-        // My controls and KDN also cover the controls the user created
-        controlRepository.findByCreatedByMailOrderByCreatedAtDesc(userEmail)
-                .forEach(control -> candidateIds.add(control.getId()));
-        if (candidateIds.isEmpty()) {
+        List<Control> candidates;
+        if (AccessPolicy.seesWithoutBeingOn(subject)) {
+            // KDN: every control is a candidate, the policy keeps the KDN ones (the rule stays in one place)
+            candidates = getAllControls();
+        } else {
+            // LIKE finds the address anywhere in a column, including inside another address
+            // (a@kpmg.kz in ba@kpmg.kz); the policy below checks whole addresses
+            Set<Long> candidateIds = new LinkedHashSet<>();
+            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByFacilitator(userEmail));
+            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlOperator(userEmail));
+            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsBySoqmLead(userEmail));
+            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByProcessOwner(userEmail));
+            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlSharedWith(userEmail));
+            // My controls also cover the controls the user created
+            controlRepository.findByCreatedByMailOrderByCreatedAtDesc(userEmail)
+                    .forEach(control -> candidateIds.add(control.getId()));
+            if (candidateIds.isEmpty()) {
+                return Collections.emptyList();
+            }
+            candidates = controlRepository.findAllById(candidateIds);
+        }
+        if (candidates.isEmpty()) {
             return Collections.emptyList();
         }
 
-        Map<Long, ControlAssignment> assignments = controlAssignmentRepository.findAllById(candidateIds).stream()
+        Map<Long, ControlAssignment> assignments = controlAssignmentRepository.findAllById(
+                        candidates.stream().map(Control::getId).filter(Objects::nonNull).toList()).stream()
                 .collect(Collectors.toMap(ControlAssignment::getControlId, assignment -> assignment, (a, b) -> a));
-        List<Control> visibleControls = controlRepository.findAllById(candidateIds).stream()
+        List<Control> visibleControls = candidates.stream()
                 .filter(control -> AccessPolicy.canView(subject,
                         facts(control, assignments.get(control.getId()), user)))
                 .collect(Collectors.toList());
