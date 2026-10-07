@@ -282,7 +282,9 @@ public class ViewController {
                 effectiveScope = "all";
             }
         }
-        if (completedFilter && !seesAll) {
+        // Completed is never within "active" (not completed): for those who see all or the KDN controls the active
+        // scope used to drop every completed control before this filter, so Completed listed nothing
+        if (completedFilter) {
             effectiveScope = "all";
         }
         

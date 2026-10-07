@@ -1776,6 +1776,33 @@ class ViewControllerStatusFilterTest {
                 .doesNotContain("/view-control/942");
     }
 
+    @Test
+    void controls_completedFilter_listsTheCompletedControls_forAllControlsAndKdnToo() throws Exception {
+        User allRead = TestUsers.user("all-completed@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.READ_ONLY,
+                com.kpmg.qtracker.enums.AccessScope.ALL, false);
+        allRead.setId(95L);
+        User kdn = TestUsers.user("kdn-completed@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.READ_ONLY,
+                com.kpmg.qtracker.enums.AccessScope.KDN, false);
+        kdn.setId(96L);
+        for (User user : List.of(allRead, kdn)) {
+            mockVisibleControls(user, List.of(dto(951L, "KDN-951", "COMPLETED", null),
+                    dto(952L, "KDN-952", "REVIEW", null), dto(953L, "KDN-953", "COMPLETED", null)));
+
+            MvcResult completed = mockMvc.perform(get("/controls").param("filter", "COMPLETED")
+                            .sessionAttr("currentUser", user))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            assertThat(listedIds(completed)).as(user.getMail()).containsExactlyInAnyOrder(951L, 953L);
+            assertThat(completed.getModelAndView().getModel()).containsEntry("completedControls", 2);
+
+            MvcResult kdnCompleted = mockMvc.perform(get("/controls").param("filter", "COMPLETED").param("kdn", "1")
+                            .sessionAttr("currentUser", user))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            assertThat(listedIds(kdnCompleted)).as(user.getMail()).containsExactlyInAnyOrder(951L, 953L);
+        }
+    }
+
     private void mockVisibleControls(User user, List<ControlResponseDTO> dtos) {
         List<Control> controls = new java.util.ArrayList<>();
         for (ControlResponseDTO dto : dtos) {
