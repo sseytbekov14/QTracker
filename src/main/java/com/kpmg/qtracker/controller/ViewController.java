@@ -222,6 +222,7 @@ public class ViewController {
                            @RequestParam(value = "status", required = false) String status,
                            @RequestParam(value = "filter", required = false) String filter,
                            @RequestParam(value = "component", required = false) String component,
+                           @RequestParam(value = "kdn", required = false) String kdn,
                            Model model,
                            HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
@@ -279,13 +280,15 @@ public class ViewController {
         // Apply status filter for all users (not just SOQM_TEAM)
         if (!normalizedStatus.isBlank()) {
             String upperStatus = normalizedStatus.toUpperCase(Locale.ROOT);
+            // IN_REVIEW: the three review statuses together (the "In review" counter of the KDN block)
             Set<String> allowedStatuses = Set.of(
                     "DRAFT",
                     "IN_PROGRESS",
                     "REVIEW",
                     "SOQM_HEAD_REVIEW",
                     "PROCESS_OWNER_REVIEW",
-                    "COMPLETED"
+                    "COMPLETED",
+                    IN_REVIEW
             );
             if (allowedStatuses.contains(upperStatus)) {
                 statusFilter = upperStatus;
@@ -302,6 +305,13 @@ public class ViewController {
         if (componentFilter != null) {
             userControlsList = userControlsList.stream()
                     .filter(control -> componentFilter.equalsIgnoreCase(control.getComponent()))
+                    .collect(Collectors.toList());
+        }
+        // KDN controls only, among the controls the user sees (the Action Centre's "View all KDN controls")
+        boolean kdnFilter = isKdnFilter(kdn);
+        if (kdnFilter) {
+            userControlsList = userControlsList.stream()
+                    .filter(control -> AccessPolicy.isKdnControl(control.getControlId()))
                     .collect(Collectors.toList());
         }
         Map<Long, LocalDateTime> completionTimeByControlId = resolveCompletionTimes(userControlsList);
@@ -351,7 +361,9 @@ public class ViewController {
                 userControlsList = userControlsList.stream()
                         .filter(control -> {
                             String controlStatus = normalizeStatus(control.getPerformanceStatus());
-                            boolean matches = filterValue.equals(controlStatus);
+                            boolean matches = IN_REVIEW.equals(filterValue)
+                                    ? KdnControlsOverview.inReview(controlStatus)
+                                    : filterValue.equals(controlStatus);
                             if (matches) {
                                 System.out.println("   ✅ Control " + control.getControlId() + " status=" + controlStatus + " matches");
                             }
@@ -396,7 +408,13 @@ public class ViewController {
         model.addAttribute("statusFilter", resolvedStatusFilter);
         model.addAttribute("componentFilter", componentFilter);
         model.addAttribute("componentFilterName", componentFilter != null ? COMPONENT_NAMES.get(componentFilter) : null);
-        addControlsFilterLinks(model, resolvedStatusFilter, resolvedControlsFilter, componentFilter);
+        model.addAttribute("kdnFilter", kdnFilter);
+        if (kdnFilter) {
+            // The same list without the KDN filter: the "KDN controls" chip's remove link
+            model.addAttribute("kdnFilterClearHref", controlsUrl(statusKeyOf(resolvedStatusFilter, resolvedControlsFilter),
+                    statusValueOf(resolvedStatusFilter, resolvedControlsFilter), componentFilter, false));
+        }
+        addControlsFilterLinks(model, resolvedStatusFilter, resolvedControlsFilter, componentFilter, kdnFilter);
         model.addAttribute("controls", userControlsList);
         // The "KDN control" mark, for SoQM Team only (AccessPolicy.seesKdnMark)
         model.addAttribute("kdnControlIds", AccessPolicy.seesKdnMark(subject)
@@ -472,8 +490,16 @@ public class ViewController {
                 .orElse(null);
     }
 
-    /** /controls URL with an optional status (or filter=OVERDUE/COMPLETED / scope=active) and component. */
-    private String controlsUrl(String statusKey, String value, String component) {
+    /** The status filter that groups the three review statuses (REVIEW, SOQM_HEAD_REVIEW, PROCESS_OWNER_REVIEW). */
+    static final String IN_REVIEW = "IN_REVIEW";
+
+    /** kdn=1 (or true) on /controls: only the KDN controls among those the user sees. */
+    private static boolean isKdnFilter(String kdn) {
+        return kdn != null && ("1".equals(kdn.trim()) || "true".equalsIgnoreCase(kdn.trim()));
+    }
+
+    /** /controls URL with an optional status (or filter=OVERDUE/COMPLETED / scope=active), component and KDN filter. */
+    private String controlsUrl(String statusKey, String value, String component, boolean kdn) {
         org.springframework.web.util.UriComponentsBuilder builder =
                 org.springframework.web.util.UriComponentsBuilder.fromPath("/controls");
         if (statusKey != null && value != null) {
@@ -482,54 +508,71 @@ public class ViewController {
         if (component != null) {
             builder.queryParam("component", component);
         }
+        if (kdn) {
+            builder.queryParam("kdn", "1");
+        }
         // build().encode() escapes "&" inside values (component "A&C")
         return builder.build().encode().toUriString();
     }
 
+    /** The query key that keeps the current status filter: filter, status or scope (null for none). */
+    private static String statusKeyOf(String statusFilter, String controlsFilter) {
+        String status = statusFilter == null ? "" : statusFilter;
+        if ("OVERDUE".equals(status) || "COMPLETED".equals(status)) {
+            return "filter";
+        }
+        if (!status.isEmpty()) {
+            return "status";
+        }
+        return "active".equals(controlsFilter) ? "scope" : null;
+    }
+
+    private static String statusValueOf(String statusFilter, String controlsFilter) {
+        String status = statusFilter == null ? "" : statusFilter;
+        if (!status.isEmpty()) {
+            return status;
+        }
+        return "active".equals(controlsFilter) ? "active" : null;
+    }
+
     private void addControlsFilterLinks(Model model, String statusFilter, String controlsFilter,
-                                        String component) {
+                                        String component, boolean kdn) {
         String status = statusFilter == null ? "" : statusFilter;
         boolean activeScope = "active".equals(controlsFilter);
         boolean all = status.isEmpty() && !activeScope;
 
         List<FilterLink> chips = new ArrayList<>();
-        chips.add(new FilterLink("All", controlsUrl(null, null, component), all));
+        chips.add(new FilterLink("All", controlsUrl(null, null, component, kdn), all));
         // Everyone may see drafts: the ones they work on, or all of them with scope ALL
-        chips.add(new FilterLink("Draft", controlsUrl("status", "DRAFT", component), "DRAFT".equals(status)));
-        chips.add(new FilterLink("In Progress", controlsUrl("status", "IN_PROGRESS", component), "IN_PROGRESS".equals(status)));
-        chips.add(new FilterLink("Review", controlsUrl("status", "REVIEW", component), "REVIEW".equals(status)));
-        chips.add(new FilterLink("SoQM Review", controlsUrl("status", "SOQM_HEAD_REVIEW", component), "SOQM_HEAD_REVIEW".equals(status)));
-        chips.add(new FilterLink("Process Owner Review", controlsUrl("status", "PROCESS_OWNER_REVIEW", component), "PROCESS_OWNER_REVIEW".equals(status)));
-        chips.add(new FilterLink("Completed", controlsUrl("filter", "COMPLETED", component), "COMPLETED".equals(status)));
-        chips.add(new FilterLink("Overdue", controlsUrl("filter", "OVERDUE", component), "OVERDUE".equals(status)));
+        chips.add(new FilterLink("Draft", controlsUrl("status", "DRAFT", component, kdn), "DRAFT".equals(status)));
+        chips.add(new FilterLink("In Progress", controlsUrl("status", "IN_PROGRESS", component, kdn), "IN_PROGRESS".equals(status)));
+        chips.add(new FilterLink("Review", controlsUrl("status", "REVIEW", component, kdn), "REVIEW".equals(status)));
+        chips.add(new FilterLink("SoQM Review", controlsUrl("status", "SOQM_HEAD_REVIEW", component, kdn), "SOQM_HEAD_REVIEW".equals(status)));
+        chips.add(new FilterLink("Process Owner Review", controlsUrl("status", "PROCESS_OWNER_REVIEW", component, kdn), "PROCESS_OWNER_REVIEW".equals(status)));
+        // The three review statuses together: a chip only while it is the filter (KDN block's "In review")
+        if (IN_REVIEW.equals(status)) {
+            chips.add(new FilterLink("In review (all)", controlsUrl("status", IN_REVIEW, component, kdn), true));
+        }
+        chips.add(new FilterLink("Completed", controlsUrl("filter", "COMPLETED", component, kdn), "COMPLETED".equals(status)));
+        chips.add(new FilterLink("Overdue", controlsUrl("filter", "OVERDUE", component, kdn), "OVERDUE".equals(status)));
         model.addAttribute("statusChips", chips);
 
-        model.addAttribute("statTotalLink", new FilterLink("Total", controlsUrl(null, null, component), all));
-        model.addAttribute("statActiveLink", new FilterLink("Active", controlsUrl("scope", "active", component),
+        model.addAttribute("statTotalLink", new FilterLink("Total", controlsUrl(null, null, component, kdn), all));
+        model.addAttribute("statActiveLink", new FilterLink("Active", controlsUrl("scope", "active", component, kdn),
                 status.isEmpty() && activeScope));
-        model.addAttribute("statCompletedLink", new FilterLink("Completed", controlsUrl("filter", "COMPLETED", component),
+        model.addAttribute("statCompletedLink", new FilterLink("Completed", controlsUrl("filter", "COMPLETED", component, kdn),
                 "COMPLETED".equals(status)));
-        model.addAttribute("statOverdueLink", new FilterLink("Overdue", controlsUrl("filter", "OVERDUE", component),
+        model.addAttribute("statOverdueLink", new FilterLink("Overdue", controlsUrl("filter", "OVERDUE", component, kdn),
                 "OVERDUE".equals(status)));
 
         // Component select keeps the current status filter
-        String statusKey = null;
-        String statusValue = null;
-        if ("OVERDUE".equals(status) || "COMPLETED".equals(status)) {
-            statusKey = "filter";
-            statusValue = status;
-        } else if (!status.isEmpty()) {
-            statusKey = "status";
-            statusValue = status;
-        } else if (activeScope) {
-            statusKey = "scope";
-            statusValue = "active";
-        }
+        String statusKey = statusKeyOf(statusFilter, controlsFilter);
+        String statusValue = statusValueOf(statusFilter, controlsFilter);
         List<FilterLink> components = new ArrayList<>();
-        components.add(new FilterLink("All components", controlsUrl(statusKey, statusValue, null), component == null));
+        components.add(new FilterLink("All components", controlsUrl(statusKey, statusValue, null, kdn), component == null));
         for (Map.Entry<String, String> entry : COMPONENT_NAMES.entrySet()) {
             components.add(new FilterLink(entry.getValue() + " (" + entry.getKey() + ")",
-                    controlsUrl(statusKey, statusValue, entry.getKey()), entry.getKey().equals(component)));
+                    controlsUrl(statusKey, statusValue, entry.getKey(), kdn), entry.getKey().equals(component)));
         }
         model.addAttribute("componentOptions", components);
     }
@@ -834,7 +877,7 @@ public class ViewController {
         if (redirect != null) return redirect;
         // The component page is the Controls list filtered by component
         String code = resolveComponentCode(componentName);
-        return "redirect:" + (code == null ? "/controls" : controlsUrl(null, null, code));
+        return "redirect:" + (code == null ? "/controls" : controlsUrl(null, null, code, false));
     }
 
     @GetMapping("/view-control/{id}")

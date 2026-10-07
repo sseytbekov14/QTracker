@@ -121,6 +121,40 @@ body { background: var(--kpmg-gray-50); }
 .status-chip.chip-overdue:not(.is-active) { color: var(--kpmg-red); border-color: #f1b8c2; }
 .status-chip:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
 
+/* The KDN filter (Action Centre's "View all KDN controls"): what is shown, and how to show everything again */
+.kdn-filter {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 10px;
+    font-size: 0.8rem;
+    color: var(--kpmg-gray-600);
+}
+.kdn-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px 3px 10px;
+    border: 1px solid #c9b3e0;
+    border-radius: 14px;
+    background: #f3ecfa;
+    color: #5b2a86;
+    font-weight: 600;
+}
+.kdn-filter-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    color: #5b2a86;
+    text-decoration: none;
+}
+.kdn-filter-clear:hover { background: #e4d6f3; color: #3f1c60; }
+.kdn-filter-clear:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 1px; }
+
 .toolbar-right {
     display: flex;
     align-items: center;
@@ -363,18 +397,18 @@ th[aria-sort="descending"] .sort-btn .bi { opacity: 1; color: var(--kpmg-blue); 
                         <span>Home</span>
                     </a>
                     <span class="app-breadcrumb-separator">/</span>
-                    <th:block th:if="${componentFilter != null}">
+                    <th:block th:if="${componentFilter != null or kdnFilter}">
                         <a href="/controls" class="app-breadcrumb-link">Controls</a>
                         <span class="app-breadcrumb-separator">/</span>
-                        <span class="app-breadcrumb-current" th:text="${componentFilterName}">Component</span>
+                        <span class="app-breadcrumb-current" th:text="${componentFilter != null} ? ${componentFilterName} : 'KDN controls'">Component</span>
                     </th:block>
-                    <span class="app-breadcrumb-current" th:if="${componentFilter == null}">Controls</span>
+                    <span class="app-breadcrumb-current" th:if="${componentFilter == null and !kdnFilter}">Controls</span>
                 </nav>
 
                 <!-- Header -->
                 <div class="page-header">
                     <div>
-                        <h1 th:text="${componentFilter != null} ? ${componentFilterName} + ' (' + ${componentFilter} + ')' : 'Controls'">Controls</h1>
+                        <h1 th:text="${componentFilter != null} ? ${componentFilterName} + ' (' + ${componentFilter} + ')' : (${kdnFilter} ? 'KDN controls' : 'Controls')">Controls</h1>
                         <p class="subtitle" th:text="${controlsSubtitle}">Controls assigned to you, shared with you or created by you</p>
                     </div>
                     <button type="button" class="btn-export" id="exportBtn"
@@ -397,6 +431,18 @@ th[aria-sort="descending"] .sort-btn .bi { opacity: 1; color: var(--kpmg-blue); 
                     <a class="stat-item overdue" th:href="${statOverdueLink.href()}" th:classappend="${statOverdueLink.active()} ? 'is-active'">
                         <span>Overdue</span><span class="stat-num" th:text="${overdueControls}">0</span>
                     </a>
+                </div>
+
+                <!-- KDN filter: only the KDN controls among those the user sees -->
+                <div class="kdn-filter" th:if="${kdnFilter}">
+                    <span class="kdn-filter-pill">
+                        KDN controls only
+                        <a class="kdn-filter-clear" th:href="${kdnFilterClearHref}"
+                           aria-label="Remove the KDN controls filter" title="Show all controls">
+                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        </a>
+                    </span>
+                    <span>Control ID starts with KDN</span>
                 </div>
 
                 <!-- Toolbar -->
@@ -540,7 +586,7 @@ th[aria-sort="descending"] .sort-btn .bi { opacity: 1; color: var(--kpmg-blue); 
                                     <div class="empty-state">
                                         <i class="bi bi-inbox" aria-hidden="true"></i>
                                         <p>No controls match this filter.</p>
-                                        <a th:if="${(statusFilter != null and statusFilter != '') or controlsFilter == 'active' or componentFilter != null}" th:href="@{/controls}">Show all controls</a>
+                                        <a th:if="${(statusFilter != null and statusFilter != '') or controlsFilter == 'active' or componentFilter != null or kdnFilter}" th:href="@{/controls}">Show all controls</a>
                                     </div>
                                 </td>
                             </tr>

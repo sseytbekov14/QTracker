@@ -1551,6 +1551,115 @@ class ViewControllerStatusFilterTest {
         }
     }
 
+    private static ControlResponseDTO dto(long id, String controlId, String status, java.time.LocalDate deadline) {
+        ControlResponseDTO dto = new ControlResponseDTO();
+        dto.setId(id);
+        dto.setControlId(controlId);
+        dto.setComponent("HR");
+        dto.setPerformanceStatus(status);
+        dto.setDeadline(deadline);
+        dto.setCreatedAt(java.time.LocalDateTime.now().minusDays(id % 100));
+        return dto;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Long> listedIds(MvcResult result) {
+        return ((List<ControlResponseDTO>) result.getModelAndView().getModel().get("controls")).stream()
+                .map(ControlResponseDTO::getId).toList();
+    }
+
+    @Test
+    void controls_kdnFilter_onlyKdnControls_inEveryLinkOfThePage_andARemovableChip() throws Exception {
+        User soqm = new User();
+        soqm.setId(81L);
+        TestUsers.withRole(soqm, "SOQM_TEAM");
+        soqm.setMail("soqm-kdn-filter@kpmg.kz");
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
+        mockVisibleControls(soqm, List.of(
+                dto(811L, "KDN-811", "IN_PROGRESS", today.minusDays(2)),
+                dto(812L, "kdn812", "REVIEW", today.plusDays(3)),
+                dto(813L, "X-KDN-813", "IN_PROGRESS", today.minusDays(2)),
+                dto(814L, "HR-814", "SOQM_HEAD_REVIEW", today.minusDays(1)),
+                dto(815L, " Kdn-815", "COMPLETED", today.minusDays(9)),
+                dto(816L, "KDN-816", "PROCESS_OWNER_REVIEW", today.minusDays(1)),
+                dto(817L, "KDN-817", "DRAFT", null)));
+
+        MvcResult all = mockMvc.perform(get("/controls").param("kdn", "1").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(listedIds(all)).containsExactlyInAnyOrder(811L, 812L, 815L, 816L, 817L);
+        assertThat(all.getModelAndView().getModel()).containsEntry("kdnFilter", true)
+                .containsEntry("totalControls", 5).containsEntry("overdueControls", 2)
+                .containsEntry("completedControls", 1).containsEntry("kdnFilterClearHref", "/controls");
+        assertThat(all.getResponse().getContentAsString())
+                .contains("<h1>KDN controls</h1>", "KDN controls only", "aria-label=\"Remove the KDN controls filter\"",
+                        "href=\"/controls?filter=OVERDUE&amp;kdn=1\"", "href=\"/controls?status=REVIEW&amp;kdn=1\"",
+                        "value=\"/controls?component=HR&amp;kdn=1\"");
+
+        MvcResult overdue = mockMvc.perform(get("/controls").param("kdn", "1").param("filter", "OVERDUE")
+                        .sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(listedIds(overdue)).containsExactlyInAnyOrder(811L, 816L);
+        assertThat(overdue.getModelAndView().getModel()).containsEntry("kdnFilterClearHref", "/controls?filter=OVERDUE");
+
+        MvcResult inReview = mockMvc.perform(get("/controls").param("kdn", "1").param("status", "IN_REVIEW")
+                        .sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(listedIds(inReview)).containsExactlyInAnyOrder(812L, 816L);
+        assertThat(inReview.getResponse().getContentAsString()).contains("In review (all)");
+
+        MvcResult inProgress = mockMvc.perform(get("/controls").param("kdn", "1").param("status", "IN_PROGRESS")
+                        .sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(listedIds(inProgress)).containsExactly(811L);
+
+        MvcResult unfiltered = mockMvc.perform(get("/controls").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(listedIds(unfiltered)).hasSize(7);
+        assertThat(unfiltered.getModelAndView().getModel()).containsEntry("kdnFilter", false);
+        assertThat(unfiltered.getResponse().getContentAsString()).doesNotContain("KDN controls only", "kdn=1",
+                "In review (all)");
+    }
+
+    @Test
+    void controls_inReviewStatus_theThreeReviewStatuses() throws Exception {
+        User soqm = new User();
+        soqm.setId(82L);
+        TestUsers.withRole(soqm, "SOQM_TEAM");
+        soqm.setMail("soqm-in-review@kpmg.kz");
+        mockVisibleControls(soqm, List.of(
+                dto(821L, "HR-821", "REVIEW", null),
+                dto(822L, "HR-822", "SOQM_HEAD_REVIEW", null),
+                dto(823L, "HR-823", "PROCESS_OWNER_REVIEW", null),
+                dto(824L, "HR-824", "IN_PROGRESS", null),
+                dto(825L, "HR-825", "COMPLETED", null),
+                dto(826L, "HR-826", "DRAFT", null)));
+
+        MvcResult result = mockMvc.perform(get("/controls").param("status", "in_review").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(listedIds(result)).containsExactlyInAnyOrder(821L, 822L, 823L);
+        assertThat(result.getModelAndView().getModel()).containsEntry("statusFilter", "IN_REVIEW");
+    }
+
+    @Test
+    void controls_kdnFilter_forMyControls_onlyTheirOwnKdnControls() throws Exception {
+        User mine = TestUsers.user("mine-kdn@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.PARTICIPANT,
+                com.kpmg.qtracker.enums.AccessScope.OWN, false);
+        mine.setId(83L);
+        // The visible list is the policy's: the filter only narrows it, never adds a control
+        mockVisibleControls(mine, List.of(dto(831L, "KDN-831", "IN_PROGRESS", null), dto(832L, "HR-832", "REVIEW", null)));
+
+        MvcResult result = mockMvc.perform(get("/controls").param("kdn", "1").sessionAttr("currentUser", mine))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(listedIds(result)).containsExactly(831L);
+    }
+
     private void mockVisibleControls(User user, List<ControlResponseDTO> dtos) {
         List<Control> controls = new java.util.ArrayList<>();
         for (ControlResponseDTO dto : dtos) {
