@@ -492,12 +492,12 @@ class RoleMatrixIT {
         return notice;
     }
 
-    /** "ok" when the control's page carries the "KDN control" mark, "none" when it does not, else what it answered. */
+    /** "ok" when the control's page carries the "KDN control" mark, "none" when it does not, else as "View page". */
     private String kdnMark(Control control, MockHttpSession session) throws Exception {
         MvcResult result = perform(get("/view-control/{id}", control.getId()), session);
         ModelAndView mav = result.getModelAndView();
         if (result.getResponse().getStatus() != 200 || mav == null || !"view-control".equals(mav.getViewName())) {
-            return outcome(result);
+            return mav != null && "control-not-available".equals(mav.getViewName()) ? "not yet" : outcome(result);
         }
         return result.getResponse().getContentAsString().contains("vc-kdn-badge") ? "ok" : "none";
     }
