@@ -31,8 +31,8 @@ public final class KdnControlsOverview {
     }
 
     /**
-     * Counters and every KDN control in display order: overdue first, then by the nearest deadline (no deadline
-     * last), then by Control ID. Drafts count in {@code total} only; overdue may also be in progress or in review.
+     * Counters and every KDN control in display order ({@link #order}). Drafts count in {@code total} only; overdue
+     * may also be in progress or in review.
      */
     public record Overview(long total, long drafts, long inProgress, long inReview, long completed, long overdue,
                            List<ControlResponseDTO> controls) {
@@ -62,10 +62,14 @@ public final class KdnControlsOverview {
         return status != null && REVIEW_STATUSES.contains(status.trim().toUpperCase(Locale.ROOT));
     }
 
-    /** Overdue first, then the nearest deadline, then Control ID. */
+    /**
+     * Overdue first, then the open controls by the nearest deadline (no deadline last), then the completed ones
+     * (their deadline is history, not what comes next); Control ID within the same deadline.
+     */
     static Comparator<ControlResponseDTO> order(LocalDate today) {
         return Comparator.comparing((ControlResponseDTO control) ->
                         !DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), today))
+                .thenComparing(control -> DeadlineOverdue.isCompleted(control.getPerformanceStatus()))
                 .thenComparing(ControlResponseDTO::getDeadline, Comparator.nullsLast(Comparator.naturalOrder()))
                 .thenComparing(ControlResponseDTO::getControlId, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
     }

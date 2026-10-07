@@ -52,7 +52,7 @@ class KdnControlsOverviewTest {
     }
 
     @Test
-    void overdueFirst_thenTheNearestDeadline_noDeadlineLast_thenControlId() {
+    void overdueFirst_thenOpenByTheNearestDeadline_noDeadlineAfter_completedLast() {
         List<ControlResponseDTO> visible = List.of(
                 control("KDN-later", "IN_PROGRESS", TODAY.plusDays(20)),
                 control("KDN-none", "REVIEW", null),
@@ -61,15 +61,16 @@ class KdnControlsOverviewTest {
                 control("KDN-today", "IN_PROGRESS", TODAY),
                 control("KDN-overdue-old", "DRAFT", TODAY.minusDays(9)),
                 control("KDN-b-soon", "PROCESS_OWNER_REVIEW", TODAY.plusDays(2)),
-                control("KDN-a-soon", "SOQM_HEAD_REVIEW", TODAY.plusDays(2)));
+                control("KDN-a-soon", "SOQM_HEAD_REVIEW", TODAY.plusDays(2)),
+                control("KDN-done-soon", "COMPLETED", TODAY.plusDays(1)));
 
         KdnControlsOverview.Overview overview = KdnControlsOverview.of(visible, TODAY);
 
         assertThat(overview.controls()).extracting(ControlResponseDTO::getControlId).containsExactly(
                 "KDN-overdue-old", "KDN-overdue-new",
-                // A completed control is never overdue: it takes its place by deadline
-                "KDN-done-late", "KDN-today", "KDN-a-soon", "KDN-b-soon", "KDN-later",
-                "KDN-none");
+                "KDN-today", "KDN-a-soon", "KDN-b-soon", "KDN-later", "KDN-none",
+                // A completed control is never overdue and comes after the open ones, by deadline
+                "KDN-done-late", "KDN-done-soon");
         assertThat(overview.controls()).filteredOn(ControlResponseDTO::isOverdue)
                 .extracting(ControlResponseDTO::getControlId)
                 .containsExactly("KDN-overdue-old", "KDN-overdue-new");
