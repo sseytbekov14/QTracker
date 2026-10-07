@@ -382,6 +382,7 @@ public class ControlService implements IControlService {
         }
 
         dto.setCreatedAt(control.getCreatedAt());
+        dto.setReopened(control.getReopenedAt() != null);
         dto.setUpdatedAt(control.getUpdatedAt());
 
         // Получаем данные assignment

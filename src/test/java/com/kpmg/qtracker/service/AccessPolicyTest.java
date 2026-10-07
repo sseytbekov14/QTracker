@@ -617,6 +617,33 @@ class AccessPolicyTest {
     }
 
     @Test
+    void kdnUser_onlyTheRoleKdn_andTheyHaveNoActionQueue() {
+        assertThat(AccessPolicy.isKdnUser(who("KDN"))).isTrue();
+        for (String key : List.of("SOQM", "PART", "PART_ALL", "RO", "RO_ALL", "DISABLED_SOQM", "DISABLED_PART")) {
+            assertThat(AccessPolicy.isKdnUser(who(key))).as(key).isFalse();
+        }
+        assertThat(AccessPolicy.isKdnUser(subject(AccessLevel.READ_ONLY, AccessScope.KDN, false))).isFalse();
+        assertThat(AccessPolicy.isKdnUser(null)).isFalse();
+
+        assertThat(AccessPolicy.seesActionQueue(who("KDN"))).isFalse();
+        for (String key : List.of("SOQM", "PART", "PART_ALL", "RO", "RO_ALL")) {
+            assertThat(AccessPolicy.seesActionQueue(who(key))).as(key).isTrue();
+        }
+        assertThat(AccessPolicy.seesActionQueue(null)).isFalse();
+    }
+
+    @ParameterizedTest(name = "{0} with {1} KDN controls -> {2}")
+    @CsvSource({
+            "SOQM, 0, true", "SOQM, 3, true",
+            "PART_ALL, 0, true", "RO_ALL, 0, true", "RO_ALL, 2, true",
+            "KDN, 0, true", "KDN, 5, true",
+            "PART, 0, false", "PART, 1, true", "RO, 0, false", "RO, 2, true",
+            "DISABLED_SOQM, 4, false", "DISABLED_PART, 1, false", "NONE, 1, false"})
+    void kdnBlock_seenWithoutBeingOn_orWhenMyControlsHoldSome(String key, long kdnControls, boolean shown) {
+        assertThat(AccessPolicy.showsKdnBlock(who(key), kdnControls)).isEqualTo(shown);
+    }
+
+    @Test
     void kdnControl_notForNoId() {
         assertThat(AccessPolicy.isKdnControl(null)).isFalse();
     }

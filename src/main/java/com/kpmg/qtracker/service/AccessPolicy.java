@@ -292,7 +292,26 @@ public final class AccessPolicy {
      * see every KDN control and are on few of them. Everyone else's charts cover the controls they are on.
      */
     public static boolean chartsCoverEveryVisibleControl(Subject subject) {
+        return isKdnUser(subject);
+    }
+
+    /** The role KDN: watches every KDN control, Read Only, and has no workflow step and nothing to act on. */
+    public static boolean isKdnUser(Subject subject) {
         return active(subject) && subject.scope() == AccessScope.KDN && !isSoqm(subject);
+    }
+
+    /** "Awaiting my action" and the other to-do blocks: everyone but KDN, who never act on a control. */
+    public static boolean seesActionQueue(Subject subject) {
+        return active(subject) && !isKdnUser(subject);
+    }
+
+    /**
+     * The "KDN controls" block of the Action Centre ({@link KdnControlsOverview}): shown to those who see the KDN
+     * controls without being on them (SoQM Team, All controls, KDN), even before there is one; to My controls
+     * only when some of the controls they see are KDN controls. Which controls it lists is {@link #canView}'s.
+     */
+    public static boolean showsKdnBlock(Subject subject, long visibleKdnControls) {
+        return active(subject) && (visibleKdnControls > 0 || seesWithoutBeingOn(subject));
     }
 
     /**

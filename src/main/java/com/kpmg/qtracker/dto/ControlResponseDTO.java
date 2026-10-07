@@ -47,6 +47,8 @@ public class ControlResponseDTO {
     private boolean overdue;
     // Completed on a day after the deadline ("Closed late"); never overdue
     private boolean closedLate;
+    // Returned from Completed and not completed again (Control.reopenedAt)
+    private boolean reopened;
     private boolean sharedViewOnly;
     // Workflow fields
     private String workflowStatus;
