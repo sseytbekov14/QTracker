@@ -39,7 +39,8 @@
                     <div>
                         <h1 th:text="${listTitle}">Performance: Human Resources (HR)</h1>
                         <p class="subtitle" th:text="${kdnList} ? 'Controls whose ID starts with KDN, of the controls you can see'
-                                : 'The controls of this component that you can see'">The controls of this component that you can see</p>
+                                : (${allList} ? 'The controls of every component that you can see'
+                                : 'The controls of this component that you can see')">The controls of this component that you can see</p>
                     </div>
                 </div>
 
@@ -122,7 +123,8 @@
                     <!-- Nothing at all in this component, as far as the user sees -->
                     <div th:if="${counts.total() == 0}" class="cc-panel empty-state">
                         <i class="bi bi-inbox" aria-hidden="true"></i>
-                        <p th:text="${kdnList} ? 'There are no KDN controls you can see.' : 'There are no controls in this component that you can see.'">
+                        <p th:text="${kdnList} ? 'There are no KDN controls you can see.'
+                                : (${allList} ? 'There are no controls you can see.' : 'There are no controls in this component that you can see.')">
                             There are no controls in this component that you can see.</p>
                         <a href="/#action-centre">Back to Action Centre</a>
                     </div>

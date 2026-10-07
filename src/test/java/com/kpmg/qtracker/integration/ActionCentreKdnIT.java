@@ -226,8 +226,30 @@ class ActionCentreKdnIT {
     }
 
     @Test
+    void allComponentsList_eachRole_theControlsTheySee_theNumbersOfTheAllCard() throws Exception {
+        Map<User, Integer> expected = new java.util.LinkedHashMap<>();
+        expected.put(soqm, 34);       // 7 GOV + 27 HR
+        expected.put(allRead, 34);
+        expected.put(kdn, 5);         // the KDN controls only
+        expected.put(mine, 2);        // KDN-AC-1 and X-KDN-AC-6
+        expected.put(mineNoKdn, 1);   // HR-AC-7
+        for (Map.Entry<User, Integer> entry : expected.entrySet()) {
+            MockHttpSession session = login(entry.getKey());
+            MvcResult dashboard = perform(get("/"), session);
+            ViewController.ComponentSummary card =
+                    (ViewController.ComponentSummary) dashboard.getModelAndView().getModel().get("componentSummaryAll");
+            assertThat(actionCentre(dashboard)).contains("<a class=\"ac-summary\" href=\"/component/ALL\">");
+            ComponentControlsList.Result all = list(perform(get("/component/ALL").param("size", "50"), session));
+            assertThat(all.matching()).as(entry.getKey().getMail()).isEqualTo(entry.getValue());
+            assertThat(all.counts()).as(entry.getKey().getMail()).isEqualTo(card.counts());
+            assertThat(rowIds(all)).as(entry.getKey().getMail()).allMatch(id ->
+                    controls.containsKey(id) && (entry.getKey() != kdn || id.toUpperCase().startsWith("KDN")));
+        }
+    }
+
+    @Test
     void notSignedIn_noList() throws Exception {
-        for (String path : List.of("/component/KDN", "/component/HR", "/component/GOV?q=KDN")) {
+        for (String path : List.of("/component/KDN", "/component/HR", "/component/ALL", "/component/GOV?q=KDN")) {
             assertThat(perform(get(path), null).getResponse().getRedirectedUrl()).as(path).contains("/login");
         }
     }

@@ -29,6 +29,9 @@ public final class ComponentControlsList {
     /** The KDN controls' list code; not a component, see {@link AccessPolicy#isKdnControl}. */
     public static final String KDN_CODE = "KDN";
     public static final String KDN_NAME = "KDN controls";
+    /** Every component's controls together (the "All components" card). */
+    public static final String ALL_CODE = "ALL";
+    public static final String ALL_NAME = "All components";
 
     public static final int DEFAULT_PAGE_SIZE = 25;
     public static final List<Integer> PAGE_SIZES = List.of(25, 50);

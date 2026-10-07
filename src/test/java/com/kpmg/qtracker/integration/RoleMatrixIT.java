@@ -529,14 +529,14 @@ class RoleMatrixIT {
     }
 
     /**
-     * "ok" when /component/HR lists the control with a row opening its page, and so does /component/KDN for a
-     * KDN control; "absent" when a list leaves it out, "in KDN list!" when a non-KDN control shows up there,
+     * "ok" when /component/HR and /component/ALL list the control with a row opening its page, and so does
+     * /component/KDN for a KDN control; "absent" when a list leaves it out, "in KDN list!" when a non-KDN control shows up there,
      * otherwise what the page answered. Searched by Control ID, so no page of the list is missed.
      */
     private String inComponentLists(Control control, MockHttpSession session) throws Exception {
         boolean kdnControl = AccessPolicy.isKdnControl(control.getControlId());
         java.util.Set<String> answers = new java.util.LinkedHashSet<>();
-        for (String path : List.of("/component/HR", "/component/KDN")) {
+        for (String path : List.of("/component/HR", "/component/ALL", "/component/KDN")) {
             MvcResult result = perform(get(path).param("q", control.getControlId()).param("size", "50"), session);
             ModelAndView mav = result.getModelAndView();
             if (result.getResponse().getStatus() != 200 || mav == null || !"component-controls".equals(mav.getViewName())) {

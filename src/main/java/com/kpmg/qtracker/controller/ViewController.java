@@ -641,16 +641,27 @@ public class ViewController {
     /** The component cards: each counts the controls of its list (ComponentControlsList.controlsOf). */
     private void addComponentSummaries(Model model, List<ControlResponseDTO> controls, LocalDate today) {
         List<ComponentSummary> summaries = new ArrayList<>();
-        List<ControlResponseDTO> inComponents = new ArrayList<>();
         for (Map.Entry<String, String> component : COMPONENT_NAMES.entrySet()) {
-            List<ControlResponseDTO> own = ComponentControlsList.controlsOf(component.getKey(), controls);
             summaries.add(new ComponentSummary(component.getKey(), component.getValue(),
-                    ComponentControlsList.Counts.of(own, today)));
-            inComponents.addAll(own);
+                    ComponentControlsList.Counts.of(ComponentControlsList.controlsOf(component.getKey(), controls), today)));
         }
         model.addAttribute("componentSummaries", summaries);
-        model.addAttribute("componentSummaryAll", new ComponentSummary("All", "All components",
-                ComponentControlsList.Counts.of(inComponents, today)));
+        model.addAttribute("componentSummaryAll", new ComponentSummary(ComponentControlsList.ALL_CODE,
+                ComponentControlsList.ALL_NAME, ComponentControlsList.Counts.of(listControls(ComponentControlsList.ALL_CODE, controls), today)));
+    }
+
+    /**
+     * The controls of an Action Centre list: a component's, the KDN controls, or ALL = the controls of the ten
+     * components (what the "All components" card counts; a control without a known component is in none).
+     */
+    private static List<ControlResponseDTO> listControls(String code, List<ControlResponseDTO> visible) {
+        if (!ComponentControlsList.ALL_CODE.equals(code)) {
+            return ComponentControlsList.controlsOf(code, visible);
+        }
+        return visible.stream()
+                .filter(control -> COMPONENT_NAMES.keySet().stream()
+                        .anyMatch(component -> ComponentControlsList.inComponent(component, control)))
+                .toList();
     }
 
     private record ControlCounters(int total, int active, int completed, int overdue) {
@@ -902,7 +913,8 @@ public class ViewController {
     /**
      * The Action Centre's list of a component's controls, or of the KDN controls (/component/KDN): the controls
      * the user sees (findControlsVisibleToUser, the policy), sorted, searched, filtered and paged by
-     * ComponentControlsList. "All" and unknown codes lead to the Controls list, as before.
+     * ComponentControlsList; /component/All lists the controls of every component. Unknown codes lead to the
+     * Controls list.
      */
     @GetMapping("/component/{componentName}")
     public String controlsByComponent(@PathVariable String componentName,
@@ -916,14 +928,17 @@ public class ViewController {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
 
-        boolean kdn = componentName != null
-                && ComponentControlsList.KDN_CODE.equalsIgnoreCase(componentName.trim());
-        String code = kdn ? ComponentControlsList.KDN_CODE : resolveComponentCode(componentName);
+        String requested = componentName == null ? "" : componentName.trim();
+        boolean kdn = ComponentControlsList.KDN_CODE.equalsIgnoreCase(requested);
+        boolean all = ComponentControlsList.ALL_CODE.equalsIgnoreCase(requested);
+        String code = kdn ? ComponentControlsList.KDN_CODE
+                : all ? ComponentControlsList.ALL_CODE : resolveComponentCode(requested);
         if (code == null) {
             return "redirect:/controls";
         }
         User currentUser = getCurrentUser(session);
-        String name = kdn ? ComponentControlsList.KDN_NAME : COMPONENT_NAMES.get(code);
+        String name = kdn ? ComponentControlsList.KDN_NAME
+                : all ? ComponentControlsList.ALL_NAME : COMPONENT_NAMES.get(code);
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userEmail", currentUser.getMail());
@@ -932,10 +947,11 @@ public class ViewController {
         model.addAttribute("listName", name);
         model.addAttribute("listTitle", "Performance: " + name + " (" + code + ")");
         model.addAttribute("kdnList", kdn);
+        model.addAttribute("allList", all);
         ComponentControlsList.Query query = ComponentControlsList.Query.of(q, status, sort, dir, page, size);
         model.addAttribute("query", query);
         try {
-            List<ControlResponseDTO> controls = ComponentControlsList.controlsOf(code, findControlsVisibleToUser(currentUser));
+            List<ControlResponseDTO> controls = listControls(code, findControlsVisibleToUser(currentUser));
             // Every person of the list in one query
             Map<String, String> names = userService.displayNamesByEmail(ComponentControlsList.emailsOf(controls));
             String basePath = org.springframework.web.util.UriComponentsBuilder.fromPath("/component/{code}")

@@ -1058,7 +1058,7 @@ class ViewControllerStatusFilterTest {
 
         mockVisibleControls(currentUser, List.of(draftControl, inProgressOverdue, completedControl));
 
-        // "/component/All" now redirects to the Controls list, so the counters are checked there
+        // The Controls list's counters (the "All components" list is checked in componentPage_all_*)
         MvcResult result = mockMvc.perform(get("/controls")
                         .sessionAttr("currentUser", currentUser))
                 .andExpect(status().isOk())
@@ -1444,17 +1444,55 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
-    void componentPage_allAndUnknownCodes_leadToTheControlsList() throws Exception {
+    void componentPage_all_everyComponentsControls_theSameNumbersAsTheAllCard() throws Exception {
+        User soqm = new User();
+        soqm.setId(78L);
+        TestUsers.withRole(soqm, "SOQM_TEAM");
+        soqm.setMail("soqm-all@kpmg.kz");
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
+        ControlResponseDTO hr = dto(781L, "HR-781", "IN_PROGRESS", today.minusDays(2));
+        ControlResponseDTO ep = dto(782L, "EP-782", "REVIEW", null);
+        ep.setComponent("EP");
+        ControlResponseDTO gov = dto(783L, "KDN-783", "COMPLETED", null);
+        gov.setComponent(" gov ");
+        ControlResponseDTO unknown = dto(784L, "XX-784", "REVIEW", null);
+        unknown.setComponent("KDN");
+        mockVisibleControls(soqm, List.of(hr, ep, gov, unknown));
+
+        for (String path : List.of("/component/All", "/component/ALL", "/component/all")) {
+            MvcResult result = mockMvc.perform(get(path).sessionAttr("currentUser", soqm))
+                    .andExpect(status().isOk())
+                    .andExpect(view().name("component-controls"))
+                    .andReturn();
+            ComponentControlsList.Result list = (ComponentControlsList.Result) result.getModelAndView().getModel().get("list");
+            assertThat(list.rows()).as(path).extracting(ComponentControlsList.Row::id).containsExactly(782L, 781L, 783L);
+            assertThat(list.counts()).isEqualTo(new ComponentControlsList.Counts(3, 0, 1, 1, 1, 1));
+            assertThat(result.getResponse().getContentAsString()).contains(
+                    "<h1>Performance: All components (ALL)</h1>", "aria-current=\"page\">All components</span>",
+                    "The controls of every component that you can see", "href=\"/component/ALL?sort=id&amp;dir=desc\"")
+                    .doesNotContain("XX-784");
+        }
+
+        // The "All components" card counts the same controls and leads here
+        MvcResult dashboard = mockMvc.perform(get("/").sessionAttr("currentUser", soqm)).andExpect(status().isOk()).andReturn();
+        ViewController.ComponentSummary card =
+                (ViewController.ComponentSummary) dashboard.getModelAndView().getModel().get("componentSummaryAll");
+        assertThat(card.counts()).isEqualTo(new ComponentControlsList.Counts(3, 0, 1, 1, 1, 1));
+        assertThat(dashboard.getResponse().getContentAsString()).contains("<a class=\"ac-summary\" href=\"/component/ALL\">");
+    }
+
+    @Test
+    void componentPage_unknownCode_leadsToTheControlsList() throws Exception {
         User soqm = new User();
         soqm.setId(70L);
         TestUsers.withRole(soqm, "SOQM_TEAM");
         soqm.setMail("soqm@kpmg.kz");
 
-        mockMvc.perform(get("/component/All").sessionAttr("currentUser", soqm))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/controls"));
         mockMvc.perform(get("/component/NOPE").sessionAttr("currentUser", soqm))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/controls"));
         mockMvc.perform(get("/component/HR"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/login"));
+        mockMvc.perform(get("/component/All"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/login"));
     }
 
