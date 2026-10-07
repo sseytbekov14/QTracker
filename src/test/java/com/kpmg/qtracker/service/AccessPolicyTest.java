@@ -604,14 +604,19 @@ class AccessPolicyTest {
 
     @ParameterizedTest(name = "[{0}]")
     @ValueSource(strings = {"KDN-001", "KDN001", "kdn-5", "Kdn", "KDN", "  KDN-001  ", " kdn-5", "\tkdn-5\n",
-            "KDN/FY26/Central/OCT", "KDNX-01", "kDn 7"})
+            "KDN/FY26/Central/OCT", "KDNX-01", "kDn 7",
+            // real IDs (2026-10-07)
+            "KDN_RER-CTRL-MF-33A/FY26/Central/1Q", "KDN_EP-CTRL-MF-109A/FY26/Central/DEC-SEP",
+            " kdn_rer-ctrl-mf-33a/fy26/central/1q "})
     void kdnControl_idStartsWithKdn_afterTrim_inAnyCase(String id) {
         assertThat(AccessPolicy.isKdnControl(id)).isTrue();
     }
 
     @ParameterizedTest(name = "[{0}]")
     @ValueSource(strings = {"X-KDN-12", "HR-KDN-01", "HR-CTRL-MF-1/FY26/kDn", "HR-1", "HR-CTRL-MF-1/FY26/Central",
-            "KD-N-01", "K DN-01", "KD", "DN", "-KDN-1", "_KDN1", "", " ", "\t"})
+            "KD-N-01", "K DN-01", "KD", "DN", "-KDN-1", "_KDN1", "", " ", "\t",
+            // a real non-KDN ID (2026-10-07)
+            "HR-CTRL-MF-151A/FY26/UZB/OCT"})
     void kdnControl_notWhenTheIdDoesNotStartWithKdn(String id) {
         assertThat(AccessPolicy.isKdnControl(id)).isFalse();
     }
