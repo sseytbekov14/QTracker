@@ -66,18 +66,121 @@ class ControlAssignmentServiceTest {
 
         ControlAssignment saved = service.saveAssignment(dto);
 
-        assertThat(saved.getControlOperationDeadline()).isEqualTo(operationDate.plusDays(7));
+        assertThat(saved.getControlOperationDeadline()).isEqualTo(operationDate.plusDays(14));
         assertThat(saved.getNextControlOperationDate()).isEqualTo(operationDate.plusMonths(1));
 
         ArgumentCaptor<Control> controlCaptor = ArgumentCaptor.forClass(Control.class);
         verify(controlRepository).save(controlCaptor.capture());
-        assertThat(controlCaptor.getValue().getDeadline()).isEqualTo(operationDate.plusDays(7));
+        assertThat(controlCaptor.getValue().getDeadline()).isEqualTo(operationDate.plusDays(14));
+    }
+
+    @Test
+    void saveAssignment_keepingTheOperationDate_keepsTheStoredDeadlineAndNextDate() {
+        // A Monthly control set up under the earlier rule (deadline + 7 days): reassigning people does not move it
+        LocalDate operationDate = LocalDate.of(2026, 9, 25);
+        ControlAssignment stored = storedAssignment(81L, operationDate, LocalDate.of(2026, 10, 2), LocalDate.of(2026, 10, 25));
+        Control control = control(81L, "Monthly");
+        when(assignmentRepository.findByControlId(81L)).thenReturn(Optional.of(stored));
+        when(controlRepository.findById(81L)).thenReturn(Optional.of(control));
+        when(assignmentRepository.save(any(ControlAssignment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ControlAssignmentDTO dto = dto(81L, List.of(), null, null);
+        dto.setControlOperationDate(operationDate);
+        dto.setControlOperationDeadline(LocalDate.of(2030, 1, 1));       // whatever the page sends is ignored
+        dto.setNextControlOperationDate(LocalDate.of(2030, 2, 1));
+
+        ControlAssignment saved = service.saveAssignment(dto);
+
+        assertThat(saved.getControlOperationDeadline()).isEqualTo(LocalDate.of(2026, 10, 2));
+        assertThat(saved.getNextControlOperationDate()).isEqualTo(LocalDate.of(2026, 10, 25));
+        assertThat(control.getDeadline()).isEqualTo(LocalDate.of(2026, 10, 2));
+    }
+
+    @Test
+    void saveAssignment_withoutADate_keepsTheStoredSchedule() {
+        LocalDate operationDate = LocalDate.of(2026, 9, 25);
+        ControlAssignment stored = storedAssignment(82L, operationDate, LocalDate.of(2026, 10, 25), null);
+        when(assignmentRepository.findByControlId(82L)).thenReturn(Optional.of(stored));
+        when(controlRepository.findById(82L)).thenReturn(Optional.of(control(82L, "Annual")));
+        when(assignmentRepository.save(any(ControlAssignment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ControlAssignment saved = service.saveAssignment(dto(82L, List.of(), null, null));
+
+        assertThat(saved.getControlOperationDate()).isEqualTo(operationDate);
+        assertThat(saved.getControlOperationDeadline()).isEqualTo(LocalDate.of(2026, 10, 25));
+        assertThat(saved.getNextControlOperationDate()).isNull();
+    }
+
+    @Test
+    void saveAssignment_changingTheOperationDate_appliesTheFourteenDays() {
+        ControlAssignment stored = storedAssignment(83L, LocalDate.of(2026, 9, 25),
+                LocalDate.of(2026, 10, 25), LocalDate.of(2027, 9, 25));
+        Control control = control(83L, "Annual");
+        when(assignmentRepository.findByControlId(83L)).thenReturn(Optional.of(stored));
+        when(controlRepository.findById(83L)).thenReturn(Optional.of(control));
+        when(assignmentRepository.save(any(ControlAssignment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ControlAssignmentDTO dto = dto(83L, List.of(), null, null);
+        dto.setControlOperationDate(LocalDate.of(2026, 10, 1));
+        dto.setControlOperationDeadline(LocalDate.of(2026, 10, 2));
+
+        ControlAssignment saved = service.saveAssignment(dto);
+
+        assertThat(saved.getControlOperationDeadline()).isEqualTo(LocalDate.of(2026, 10, 15));
+        assertThat(saved.getNextControlOperationDate()).isEqualTo(LocalDate.of(2027, 10, 1));
+        assertThat(control.getDeadline()).isEqualTo(LocalDate.of(2026, 10, 15));
+    }
+
+    @Test
+    void saveAssignment_storedDateWithoutADeadline_getsOne() {
+        ControlAssignment stored = storedAssignment(84L, LocalDate.of(2026, 9, 25), null, null);
+        when(assignmentRepository.findByControlId(84L)).thenReturn(Optional.of(stored));
+        when(controlRepository.findById(84L)).thenReturn(Optional.of(control(84L, "Quarterly")));
+        when(assignmentRepository.save(any(ControlAssignment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ControlAssignment saved = service.saveAssignment(dto(84L, List.of(), null, null));
+
+        assertThat(saved.getControlOperationDeadline()).isEqualTo(LocalDate.of(2026, 10, 9));
+        assertThat(saved.getNextControlOperationDate()).isEqualTo(LocalDate.of(2026, 12, 25));
+    }
+
+    @Test
+    void recalculateSchedule_afterAFrequencyChange_appliesTheFourteenDays() {
+        ControlAssignment stored = storedAssignment(85L, LocalDate.of(2026, 9, 25),
+                LocalDate.of(2026, 10, 2), LocalDate.of(2026, 10, 25));
+        Control control = control(85L, "Semi Annual");
+        when(assignmentRepository.findByControlId(85L)).thenReturn(Optional.of(stored));
+        when(controlRepository.findById(85L)).thenReturn(Optional.of(control));
+
+        service.recalculateSchedule(85L);
+
+        assertThat(stored.getControlOperationDeadline()).isEqualTo(LocalDate.of(2026, 10, 9));
+        assertThat(stored.getNextControlOperationDate()).isEqualTo(LocalDate.of(2027, 3, 25));
+        assertThat(control.getDeadline()).isEqualTo(LocalDate.of(2026, 10, 9));
+    }
+
+    private static ControlAssignment storedAssignment(Long controlId, LocalDate operationDate,
+                                                      LocalDate deadline, LocalDate nextDate) {
+        ControlAssignment assignment = new ControlAssignment();
+        assignment.setControlId(controlId);
+        assignment.setControlOperationDate(operationDate);
+        assignment.setControlOperationDeadline(deadline);
+        assignment.setNextControlOperationDate(nextDate);
+        return assignment;
+    }
+
+    private static Control control(Long id, String frequency) {
+        Control control = new Control();
+        control.setId(id);
+        control.setControlId("HR-" + id);
+        control.setControlFrequency(frequency);
+        return control;
     }
 
     @Test
     void monthlyNextDateComputedWhenMissing() {
         assertNextOperationDateComputed("Monthly", LocalDate.of(2026, 2, 4),
-                null, LocalDate.of(2026, 2, 11), LocalDate.of(2026, 3, 4));
+                null, LocalDate.of(2026, 2, 18), LocalDate.of(2026, 3, 4));
     }
 
     @Test
@@ -89,13 +192,13 @@ class ControlAssignmentServiceTest {
     @Test
     void semiAnnualNextDateComputedWhenMissing() {
         assertNextOperationDateComputed("Semi Annual", LocalDate.of(2026, 2, 4),
-                null, LocalDate.of(2026, 3, 4), LocalDate.of(2026, 8, 4));
+                null, LocalDate.of(2026, 2, 18), LocalDate.of(2026, 8, 4));
     }
 
     @Test
     void annualNextDateComputedWhenMissing() {
         assertNextOperationDateComputed("Annual", LocalDate.of(2026, 2, 4),
-                null, LocalDate.of(2026, 3, 4), LocalDate.of(2027, 2, 4));
+                null, LocalDate.of(2026, 2, 18), LocalDate.of(2027, 2, 4));
     }
 
     @Test

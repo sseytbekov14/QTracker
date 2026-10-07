@@ -69,9 +69,17 @@ public class ControlAssignmentService {
 
         String frequencyValue = controlOpt.map(Control::getControlFrequency).orElse(null);
 
+        // A save that keeps the operation date keeps the stored schedule: a control set up under an earlier
+        // deadline rule keeps its deadline until its date (or its frequency, recalculateSchedule) changes
         LocalDate deadline = null;
         LocalDate nextDate = null;
-        if (operationDate != null) {
+        ControlAssignment stored = existingAssignment.orElse(null);
+        if (operationDate != null && stored != null
+                && operationDate.equals(stored.getControlOperationDate())
+                && stored.getControlOperationDeadline() != null) {
+            deadline = stored.getControlOperationDeadline();
+            nextDate = stored.getNextControlOperationDate();
+        } else if (operationDate != null) {
             ControlFrequency frequency = ControlFrequency.fromValue(frequencyValue);
             deadline = scheduleCalculator.calculateDeadline(frequency, operationDate);
             nextDate = scheduleCalculator.calculateNextDate(frequency, operationDate);

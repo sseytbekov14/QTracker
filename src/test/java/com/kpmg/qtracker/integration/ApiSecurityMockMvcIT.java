@@ -313,12 +313,12 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isOk());
 
         ControlAssignment stored = assignmentRepository.findByControlId(control.getId()).orElseThrow();
-        assertThat(stored.getControlOperationDeadline()).isEqualTo(LocalDate.of(2026, 2, 7));
+        assertThat(stored.getControlOperationDeadline()).isEqualTo(LocalDate.of(2026, 2, 14));
         assertThat(stored.getNextControlOperationDate()).isEqualTo(LocalDate.of(2026, 2, 28));
         String loggedValues = auditLogRepository.findByControlIdOrderByCreatedAtDesc(control.getId())
                 .get(0).getNewValues();
         assertThat(loggedValues)
-                .contains("\"Control Operation Deadline\":\"2026-02-07\"")
+                .contains("\"Control Operation Deadline\":\"2026-02-14\"")
                 .contains("\"Next Control Operation Date\":\"2026-02-28\"")
                 .doesNotContain("2026-02-09")
                 .doesNotContain("2026-03-03");

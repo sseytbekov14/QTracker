@@ -2598,38 +2598,34 @@ function saveDocumentsData(controlId) {
     }
 
     // UI regression examples (matches ControlScheduleCalculator; SchedulePreviewParityTest runs these functions):
-    // OperationDate=2026-02-06
-    // Monthly:   deadline=2026-02-13, next=2026-03-06
-    // Quarterly: deadline=2026-02-20, next=2026-05-06
-    // Recurring: deadline=2026-02-20, next=2026-05-06
-    // Ad-hoc:    deadline=2026-02-20, next=(none)
-    // Annual:    deadline=2026-03-06, next=2027-02-06
-    // Semi Annual: deadline=2026-03-06, next=2026-08-06
+    // OperationDate=2026-02-06, every frequency: deadline=2026-02-20
+    // Monthly:   next=2026-03-06
+    // Quarterly: next=2026-05-06
+    // Recurring: next=2026-05-06
+    // Ad-hoc:    next=(none)
+    // Annual:    next=2027-02-06
+    // Semi Annual: next=2026-08-06
     // OperationDate=2026-01-31, Monthly: next=2026-02-28
     function calculateDeadline(operationDate, controlFrequency) {
-        const date = new Date(operationDate.getFullYear(), operationDate.getMonth(), operationDate.getDate());
-        const normalized = normalizeControlFrequency(controlFrequency);
-
-        if (!normalized) {
+        // ControlScheduleCalculator.DEADLINE: the same number of days, counted the same way, for every frequency
+        const deadlineDays = 14;
+        const deadlineInWorkingDays = false;
+        if (!normalizeControlFrequency(controlFrequency)) {
             return null;
         }
 
-        switch (normalized) {
-            case 'quarterly':
-            case 'recurring':
-            case 'ad-hoc':
-                date.setDate(date.getDate() + 14);
-                break;
-            case 'semi annual':
-            case 'annual':
-                return plusMonths(date, 1);
-            case 'monthly':
-                date.setDate(date.getDate() + 7);
-                break;
-            default:
-                return null;
+        const date = new Date(operationDate.getFullYear(), operationDate.getMonth(), operationDate.getDate());
+        if (!deadlineInWorkingDays) {
+            date.setDate(date.getDate() + deadlineDays);
+            return date;
         }
-
+        // Monday to Friday, as WorkingDaysService counts them
+        for (let left = deadlineDays; left > 0;) {
+            date.setDate(date.getDate() + 1);
+            if (date.getDay() !== 0 && date.getDay() !== 6) {
+                left--;
+            }
+        }
         return date;
     }
 
