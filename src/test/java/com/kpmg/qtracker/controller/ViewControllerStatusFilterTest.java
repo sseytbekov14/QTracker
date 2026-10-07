@@ -1533,7 +1533,7 @@ class ViewControllerStatusFilterTest {
                 "<label for=\"ccSortPhone\">Sort by</label>",
                 "<option value=\"/component/HR?sort=status&amp;dir=desc\">Performance Status, descending</option>",
                 "title=\"Not set\">&mdash;</span>",
-                "/css/component-controls.css?v=2", "/js/component-controls.js?v=2");
+                "/css/component-controls.css?v=3", "/js/component-controls.js?v=2", "<div class=\"cc-badges\">");
         // the phone's "Sort by" is not sent with the form (no name): one sort parameter only
         assertThat(html).doesNotContain("name=\"sort\" id=\"ccSortPhone\"");
     }

@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=17" rel="stylesheet">
-    <link href="/css/component-controls.css?v=2" rel="stylesheet">
+    <link href="/css/component-controls.css?v=3" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 </head>
 <body class="theme-light">
@@ -181,6 +181,8 @@
                                     </td>
                                     <td data-label="Performance Status" class="cc-status"
                                         th:with="statusLabel=${@statusDisplayMapper.display(row.status()) ?: 'Draft'}">
+                                        <!--/* one box for the badges: on a phone the cell is a two-column grid (label, value) */-->
+                                        <div class="cc-badges">
                                         <span th:switch="${row.status()}">
                                             <span th:case="'COMPLETED'" class="badge status-completed" th:text="${statusLabel}"></span>
                                             <span th:case="'IN_PROGRESS'" class="badge status-progress" th:text="${statusLabel}"></span>
@@ -191,6 +193,7 @@
                                         </span>
                                         <span th:if="${row.overdue()}" class="badge status-overdue" title="Deadline passed">
                                             <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>Overdue</span>
+                                        </div>
                                     </td>
                                 </tr>
                                 </tbody>

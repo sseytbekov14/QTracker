@@ -294,7 +294,7 @@ th[aria-sort="descending"] .sort-link .bi { opacity: 1; }
         border: 1px solid var(--kpmg-gray-200);
         border-radius: 6px;
     }
-    .cc-row.is-overdue { border-left: 4px solid var(--kpmg-red); }
+    .cc-table tbody tr.cc-row.is-overdue { border-left: 4px solid var(--kpmg-red); }
     .cc-row.is-overdue td:first-child { box-shadow: none; }
     .cc-table tbody td {
         display: grid;
