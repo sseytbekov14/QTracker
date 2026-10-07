@@ -1368,7 +1368,7 @@ class ViewControllerStatusFilterTest {
         MvcResult result = mockMvc.perform(get("/").sessionAttr("currentUser", soqm))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString(">Human Resources<")))
-                .andExpect(content().string(containsString(">1 overdue<")))
+                .andExpect(content().string(containsString("<dt>Overdue</dt><dd>1</dd>")))
                 .andReturn();
 
         @SuppressWarnings("unchecked")
@@ -1379,6 +1379,9 @@ class ViewControllerStatusFilterTest {
         assertThat(hr.overdue()).isEqualTo(1);
         assertThat(hr.completed()).isEqualTo(1);
         assertThat(hr.active()).isZero();
+        assertThat(hr.inProgress()).isEqualTo(1);
+        assertThat(hr.inReview()).isZero();
+        assertThat(hr.viewAllLabel()).isEqualTo("View all HR controls");
         ViewController.ComponentSummary all =
                 (ViewController.ComponentSummary) result.getModelAndView().getModel().get("componentSummaryAll");
         assertThat(all.total()).isEqualTo(3);
@@ -1842,15 +1845,17 @@ class ViewControllerStatusFilterTest {
                 "awaiting your action", "Nothing is awaiting your action");
         assertThat(result.getModelAndView().getModel()).doesNotContainKeys("actionItems", "actionItemsTotal")
                 .containsEntry("kdnUser", true);
-        // The first card of the grid, the same card as a component's: badge, name, counts, bar, overdue flag
-        assertThat(cardLinks(pane)).first().isEqualTo("/controls?kdn=1");
-        assertThat(card(pane, "/controls?kdn=1")).contains("class=\"ac-card has-overdue\"",
-                "<span class=\"ac-code\">KDN</span>", "<span class=\"ac-overdue-flag\">1 overdue</span>",
-                "<div class=\"ac-name\">KDN controls</div>", "<strong>4</strong>", "2 active", "1 done",
+        // The first card of the grid, the same card as a component's: badge, name, five counters, bar, link text
+        assertThat(cardLinks(pane)).first().isEqualTo("/component/KDN");
+        assertThat(card(pane, "/component/KDN")).contains("class=\"ac-card has-overdue\"",
+                "<span class=\"ac-code\">KDN</span>", "<div class=\"ac-name\">KDN controls</div>",
+                "<dt>Total</dt><dd>4</dd>", "<dt>In progress</dt><dd>2</dd>", "<dt>In review</dt><dd>0</dd>",
+                "<dt>Completed</dt><dd>1</dd>", "<dt>Overdue</dt><dd>1</dd>", "View all KDN controls",
                 "aria-label=\"25% completed, 1 overdue\"");
         ViewController.ComponentSummary summary =
                 (ViewController.ComponentSummary) result.getModelAndView().getModel().get("kdnSummary");
-        assertThat(summary).isEqualTo(new ViewController.ComponentSummary("KDN", "KDN controls", 4, 2, 1, 1));
+        assertThat(summary).isEqualTo(new ViewController.ComponentSummary("KDN", "KDN controls",
+                new ComponentControlsList.Counts(4, 1, 2, 0, 1, 1)));
     }
 
     @Test
@@ -1876,9 +1881,10 @@ class ViewControllerStatusFilterTest {
         String pane = actionCentre(html);
 
         assertThat(html).contains("<section class=\"action-queue\"", "id=\"actionQueueTitle\"");
-        assertThat(cardLinks(pane)).hasSize(11).last().isEqualTo("/controls?kdn=1");
-        assertThat(card(pane, "/controls?kdn=1")).contains("<strong>10</strong>", "10 active", "0 done")
-                .doesNotContain("ac-overdue-flag", "has-overdue");
+        assertThat(cardLinks(pane)).hasSize(11).last().isEqualTo("/component/KDN");
+        assertThat(card(pane, "/component/KDN")).contains("<dt>Total</dt><dd>10</dd>", "<dt>In review</dt><dd>10</dd>",
+                        "<dt>Completed</dt><dd>0</dd>", "<dt>Overdue</dt><dd>0</dd>")
+                .doesNotContain("ac-stat-late", "has-overdue");
     }
 
     @Test
@@ -1890,7 +1896,7 @@ class ViewControllerStatusFilterTest {
         String all = mockMvc.perform(get("/").sessionAttr("currentUser", allRead))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        assertThat(card(actionCentre(all), "/controls?kdn=1")).contains("class=\"ac-card is-empty\"",
+        assertThat(card(actionCentre(all), "/component/KDN")).contains("class=\"ac-card is-empty\"",
                 "<span class=\"ac-code\">KDN</span>", "No controls");
 
         User mine = TestUsers.user("mine-ac@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.PARTICIPANT,
@@ -1907,7 +1913,8 @@ class ViewControllerStatusFilterTest {
         String some = mockMvc.perform(get("/").sessionAttr("currentUser", mine))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        assertThat(card(actionCentre(some), "/controls?kdn=1")).contains("<strong>1</strong>", "1 active");
+        assertThat(card(actionCentre(some), "/component/KDN")).contains("<dt>Total</dt><dd>1</dd>",
+                "<dt>In review</dt><dd>1</dd>");
     }
 
     @Test

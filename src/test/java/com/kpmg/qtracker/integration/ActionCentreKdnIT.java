@@ -130,10 +130,10 @@ class ActionCentreKdnIT {
         MvcResult dashboard = perform(get("/"), session);
         String pane = actionCentre(dashboard);
 
-        assertCard(dashboard, 5, 2, 2, 1);
+        assertCard(dashboard, 5, 1, 2, 1, 2);
         assertThat(dashboard.getResponse().getContentAsString())
                 .doesNotContain("id=\"actionQueueTitle\"", "<section class=\"action-queue\"", "awaiting your action");
-        assertThat(pane.indexOf("href=\"/controls?kdn=1\"")).as("KDN card first in the grid")
+        assertThat(pane.indexOf("href=\"/component/KDN\"")).as("KDN card first in the grid")
                 .isLessThan(pane.indexOf("href=\"/component/HR\""));
         // KDN users see only KDN controls: the dashboard tiles count the same controls
         assertThat(dashboard.getModelAndView().getModel()).containsEntry("totalControls", 5)
@@ -148,9 +148,9 @@ class ActionCentreKdnIT {
         MvcResult dashboard = perform(get("/"), session);
         String pane = actionCentre(dashboard);
 
-        assertCard(dashboard, 5, 2, 2, 1);
+        assertCard(dashboard, 5, 1, 2, 1, 2);
         assertThat(dashboard.getResponse().getContentAsString()).contains("id=\"actionQueueTitle\"");
-        assertThat(pane.indexOf("href=\"/controls?kdn=1\"")).as("KDN card last in the grid")
+        assertThat(pane.indexOf("href=\"/component/KDN\"")).as("KDN card last in the grid")
                 .isGreaterThan(pane.indexOf("href=\"/component/RAP\""));
         assertCardAgreesWithTheControlsList(dashboard, session,
                 List.of("KDN-AC-1", "kdn-ac-2", "KDNAC3", "KDN-AC-4", "KDN-AC-5"));
@@ -161,7 +161,7 @@ class ActionCentreKdnIT {
         MockHttpSession session = login(allRead);
         MvcResult dashboard = perform(get("/"), session);
 
-        assertCard(dashboard, 5, 2, 2, 1);
+        assertCard(dashboard, 5, 1, 2, 1, 2);
         assertCardAgreesWithTheControlsList(dashboard, session,
                 List.of("KDN-AC-1", "kdn-ac-2", "KDNAC3", "KDN-AC-4", "KDN-AC-5"));
     }
@@ -172,14 +172,14 @@ class ActionCentreKdnIT {
         MvcResult dashboard = perform(get("/"), session);
 
         // On KDN-AC-1 and X-KDN-AC-6: only the KDN one, and their action queue stays
-        assertCard(dashboard, 1, 0, 1, 0);
+        assertCard(dashboard, 1, 1, 0, 0, 1);
         assertThat(dashboard.getResponse().getContentAsString()).contains("id=\"actionQueueTitle\"");
         assertCardAgreesWithTheControlsList(dashboard, session, List.of("KDN-AC-1"));
 
         MvcResult none = perform(get("/"), login(mineNoKdn));
         assertThat(none.getResponse().getStatus()).isEqualTo(200);
         assertThat(none.getModelAndView().getModel()).doesNotContainKey("kdnSummary");
-        assertThat(actionCentre(none)).doesNotContain("kdn=1");
+        assertThat(actionCentre(none)).doesNotContain("/component/KDN", "View all KDN controls");
     }
 
     @Test
@@ -193,21 +193,24 @@ class ActionCentreKdnIT {
 
     // ------------------------------------------------------------------ the card and the Controls list agree
 
-    /** The card in the model and on the page: total, active, overdue, completed. */
-    private static void assertCard(MvcResult dashboard, long total, long active, long overdue, long completed)
-            throws Exception {
+    /** The card in the model and on the page: its five counters and where it leads. */
+    private static void assertCard(MvcResult dashboard, long total, long inProgress, long inReview, long completed,
+                                   long overdue) throws Exception {
         assertThat(dashboard.getResponse().getStatus()).isEqualTo(200);
-        assertThat(dashboard.getModelAndView().getModel().get("kdnSummary"))
-                .isEqualTo(new ViewController.ComponentSummary("KDN", "KDN controls", total, active, overdue, completed));
+        ViewController.ComponentSummary summary =
+                (ViewController.ComponentSummary) dashboard.getModelAndView().getModel().get("kdnSummary");
+        assertThat(List.of(summary.code(), summary.name())).containsExactly("KDN", "KDN controls");
+        assertThat(List.of(summary.total(), summary.inProgress(), summary.inReview(), summary.completed(), summary.overdue()))
+                .containsExactly(total, inProgress, inReview, completed, overdue);
+        assertThat(dashboard.getModelAndView().getModel()).containsEntry("kdnHref", "/component/KDN");
         String pane = actionCentre(dashboard);
-        int at = pane.indexOf("href=\"/controls?kdn=1\"");
+        int at = pane.indexOf("href=\"/component/KDN\"");
         assertThat(at).as("KDN card").isPositive();
         String card = pane.substring(pane.lastIndexOf("<a ", at), pane.indexOf("</a>", at));
-        assertThat(card).contains("<span class=\"ac-code\">KDN</span>", "<strong>" + total + "</strong>",
-                active + " active", completed + " done");
-        if (overdue > 0) {
-            assertThat(card).contains("<span class=\"ac-overdue-flag\">" + overdue + " overdue</span>");
-        }
+        assertThat(card).contains("<span class=\"ac-code\">KDN</span>", "View all KDN controls",
+                "<dt>Total</dt><dd>" + total + "</dd>", "<dt>In progress</dt><dd>" + inProgress + "</dd>",
+                "<dt>In review</dt><dd>" + inReview + "</dd>", "<dt>Completed</dt><dd>" + completed + "</dd>",
+                "<dt>Overdue</dt><dd>" + overdue + "</dd>");
     }
 
     /** /controls?kdn=1 behind the card lists exactly the KDN controls the card counts, with the same numbers. */

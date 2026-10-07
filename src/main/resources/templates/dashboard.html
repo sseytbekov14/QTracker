@@ -258,14 +258,6 @@ html.tab-init-pending #mainTabContent {
 }
 .ac-code-all { background: var(--kpmg-blue); color: var(--kpmg-white); }
 .ac-card.is-empty .ac-code { background: var(--kpmg-gray-100); color: var(--kpmg-gray-600); }
-.ac-overdue-flag {
-    padding: 1px 7px;
-    border-radius: 10px;
-    background: #fdecef;
-    color: var(--kpmg-red);
-    font-size: 0.68rem;
-    font-weight: 700;
-}
 .ac-name {
     font-size: 0.86rem;
     font-weight: 600;
@@ -276,8 +268,37 @@ html.tab-init-pending #mainTabContent {
     color: var(--kpmg-gray-600);
     margin-bottom: 8px;
 }
-.ac-counts strong { color: var(--kpmg-gray-800); font-size: 0.9rem; }
-.ac-dot { margin: 0 3px; }
+/* The card's five counters, the same as its list's */
+.ac-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 14px;
+    margin: 0 0 8px;
+}
+/* label left, number right; Total across the card */
+.ac-stat {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 0;
+}
+.ac-stat:first-child { grid-column: 1 / -1; padding-bottom: 2px; border-bottom: 1px solid var(--kpmg-gray-100); }
+.ac-stat dt { font-size: 0.74rem; font-weight: 500; color: var(--kpmg-gray-600); }
+.ac-stat dd { margin: 0; font-size: 0.86rem; font-weight: 700; color: var(--kpmg-gray-800); }
+.ac-stat:first-child dd { font-size: 1rem; }
+.ac-stat-done dd { color: #00843a; }
+.ac-stat-late dd { color: var(--kpmg-red); }
+.ac-view-all {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--kpmg-blue);
+}
+.ac-card:hover .ac-view-all span { text-decoration: underline; }
 /* Stacked bar: completed (green) + overdue (red); the rest is active */
 .ac-progress {
     display: flex;

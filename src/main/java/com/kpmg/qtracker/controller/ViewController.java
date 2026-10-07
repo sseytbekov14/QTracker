@@ -197,13 +197,14 @@ public class ViewController {
         }
 
         // ===== ACTION CENTRE DATA =====
-        addComponentSummaries(model, allControls);
+        addComponentSummaries(model, allControls, todayAlmaty);
         // KDN: one more card like the components, of the KDN controls the user sees (no query of its own);
-        // first in the grid for KDN users, last for the others
-        DeadlineOverdue.Counts kdn = KdnControlsOverview.count(allControls, todayAlmaty);
+        // first in the grid for KDN users, last for the others; it leads to the list /component/KDN
+        ComponentControlsList.Counts kdn = ComponentControlsList.Counts.of(
+                ComponentControlsList.controlsOf(ComponentControlsList.KDN_CODE, allControls), todayAlmaty);
         if (AccessPolicy.showsKdnBlock(subject, kdn.total())) {
-            model.addAttribute("kdnSummary", new ComponentSummary("KDN", "KDN controls",
-                    kdn.total(), kdn.active(), kdn.overdue(), kdn.completed()));
+            model.addAttribute("kdnSummary",
+                    new ComponentSummary(ComponentControlsList.KDN_CODE, ComponentControlsList.KDN_NAME, kdn));
             model.addAttribute("kdnHref", KdnControlsOverview.CONTROLS_HREF);
         }
         model.addAttribute("kdnUser", AccessPolicy.isKdnUser(subject));
@@ -582,10 +583,44 @@ public class ViewController {
         model.addAttribute("componentOptions", components);
     }
 
-    /** Per-component breakdown for the Action Centre cards. */
-    public record ComponentSummary(String code, String name, long total, long active, long overdue, long completed) {
+    /**
+     * An Action Centre card: a component, KDN or "All components", with the counters of its list
+     * (ComponentControlsList.Counts, the same numbers the list behind the card shows).
+     */
+    public record ComponentSummary(String code, String name, ComponentControlsList.Counts counts) {
+        public long total() {
+            return counts.total();
+        }
+
+        public long inProgress() {
+            return counts.inProgress();
+        }
+
+        public long inReview() {
+            return counts.inReview();
+        }
+
+        public long completed() {
+            return counts.completed();
+        }
+
+        public long overdue() {
+            return counts.overdue();
+        }
+
+        /** Not completed and not overdue (the bar's remainder). */
+        public long active() {
+            return counts.active();
+        }
+
         public int completedPercent() {
-            return total == 0 ? 0 : (int) Math.round(completed * 100.0 / total);
+            return counts.completedPercent();
+        }
+
+        /** "View all KDN controls", "View all HR controls": the card's link text. */
+        public String viewAllLabel() {
+            return "View all " + (ComponentControlsList.KDN_CODE.equals(code) ? ComponentControlsList.KDN_NAME
+                    : code + " controls");
         }
     }
 
@@ -603,31 +638,19 @@ public class ViewController {
         COMPONENT_NAMES.put("RAP", "Risk Assessment Process");
     }
 
-    private void addComponentSummaries(Model model, List<ControlResponseDTO> controls) {
+    /** The component cards: each counts the controls of its list (ComponentControlsList.controlsOf). */
+    private void addComponentSummaries(Model model, List<ControlResponseDTO> controls, LocalDate today) {
         List<ComponentSummary> summaries = new ArrayList<>();
-        long allTotal = 0, allOverdue = 0, allCompleted = 0;
+        List<ControlResponseDTO> inComponents = new ArrayList<>();
         for (Map.Entry<String, String> component : COMPONENT_NAMES.entrySet()) {
-            long total = 0, overdue = 0, completed = 0;
-            for (ControlResponseDTO control : controls) {
-                if (!component.getKey().equals(control.getComponent())) {
-                    continue;
-                }
-                total++;
-                if (DeadlineOverdue.isCompleted(control.getPerformanceStatus())) {
-                    completed++;
-                } else if (control.isOverdue()) {
-                    overdue++;
-                }
-            }
+            List<ControlResponseDTO> own = ComponentControlsList.controlsOf(component.getKey(), controls);
             summaries.add(new ComponentSummary(component.getKey(), component.getValue(),
-                    total, total - overdue - completed, overdue, completed));
-            allTotal += total;
-            allOverdue += overdue;
-            allCompleted += completed;
+                    ComponentControlsList.Counts.of(own, today)));
+            inComponents.addAll(own);
         }
         model.addAttribute("componentSummaries", summaries);
         model.addAttribute("componentSummaryAll", new ComponentSummary("All", "All components",
-                allTotal, allTotal - allOverdue - allCompleted, allOverdue, allCompleted));
+                ComponentControlsList.Counts.of(inComponents, today)));
     }
 
     private record ControlCounters(int total, int active, int completed, int overdue) {

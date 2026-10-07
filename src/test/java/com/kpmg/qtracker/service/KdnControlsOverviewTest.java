@@ -43,13 +43,13 @@ class KdnControlsOverviewTest {
 
         assertThat(KdnControlsOverview.kdnControls(visible)).extracting(ControlResponseDTO::getControlId)
                 .containsExactlyElementsOf(counted ? List.of(controlId) : List.of());
-        assertThat(KdnControlsOverview.count(visible, TODAY).total()).isEqualTo(counted ? 1 : 0);
+        assertThat(ComponentControlsList.controlsOf("KDN", visible)).hasSize(counted ? 1 : 0);
         // The card takes the rule from the policy, the one place it lives
         assertThat(AccessPolicy.isKdnControl(controlId)).isEqualTo(counted);
     }
 
     @Test
-    void counts_eachControlOnce_likeTheComponentCards() {
+    void counts_theComponentCardsCounters() {
         List<ControlResponseDTO> visible = List.of(
                 control("KDN-1", null, TODAY.minusDays(3)),               // draft, overdue
                 control("KDN-2", "DRAFT", null),                          // draft: active
@@ -61,19 +61,20 @@ class KdnControlsOverviewTest {
                 control("HR-8", "IN_PROGRESS", TODAY.minusDays(5)),       // not KDN: never counted
                 control("X-KDN-9", "REVIEW", TODAY.minusDays(5)));
 
-        DeadlineOverdue.Counts counts = KdnControlsOverview.count(visible, TODAY);
+        ComponentControlsList.Counts counts = ComponentControlsList.Counts.of(KdnControlsOverview.kdnControls(visible), TODAY);
 
-        assertThat(counts).isEqualTo(new DeadlineOverdue.Counts(7, 3, 1, 3));
-        // The same numbers as the component cards and the Controls counters give for the same controls
-        assertThat(counts).isEqualTo(DeadlineOverdue.count(visible.subList(0, 7),
-                ControlResponseDTO::getPerformanceStatus, ControlResponseDTO::getDeadline, TODAY));
+        assertThat(counts).isEqualTo(new ComponentControlsList.Counts(7, 2, 2, 2, 1, 3));
+        // Completed, overdue and the rest as the Controls counters give for the same controls
+        DeadlineOverdue.Counts controlsList = DeadlineOverdue.count(visible.subList(0, 7),
+                ControlResponseDTO::getPerformanceStatus, ControlResponseDTO::getDeadline, TODAY);
+        assertThat(List.of(counts.total(), counts.active(), counts.completed(), counts.overdue()))
+                .containsExactly(controlsList.total(), controlsList.active(), controlsList.completed(), controlsList.overdue());
     }
 
     @Test
     void noKdnControls_zero() {
-        assertThat(KdnControlsOverview.count(List.of(control("HR-1", "REVIEW", TODAY)), TODAY))
-                .isEqualTo(new DeadlineOverdue.Counts(0, 0, 0, 0));
-        assertThat(KdnControlsOverview.count(null, TODAY).total()).isZero();
-        assertThat(KdnControlsOverview.CONTROLS_HREF).isEqualTo("/controls?kdn=1");
+        assertThat(KdnControlsOverview.kdnControls(List.of(control("HR-1", "REVIEW", TODAY)))).isEmpty();
+        assertThat(KdnControlsOverview.kdnControls(null)).isEmpty();
+        assertThat(KdnControlsOverview.CONTROLS_HREF).isEqualTo("/component/KDN");
     }
 }

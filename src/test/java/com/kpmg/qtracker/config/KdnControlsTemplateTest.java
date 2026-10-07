@@ -37,10 +37,11 @@ class KdnControlsTemplateTest {
     }
 
     @Test
-    void card_onlyALink_withItsCountsInWords() throws IOException {
+    void card_onlyALink_withItsFiveCountersInWords() throws IOException {
         String card = read(CARD);
         assertThat(card).contains("th:fragment=\"card(c, href)\"", "class=\"ac-card\"", "th:href=\"@{${href}}\"",
-                "' overdue'", "' active'", "' done'", "No controls", "role=\"img\"");
+                "<dt>Total</dt>", "<dt>In progress</dt>", "<dt>In review</dt>", "<dt>Completed</dt>", "<dt>Overdue</dt>",
+                "${c.viewAllLabel()}", "No controls", "role=\"img\"");
         assertThat(card).doesNotContain("<button", "<form", "<input", "<script");
     }
 
