@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,5 +28,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /** Active users of a level (the last active SoQM Team member keeps the role and the account). */
     @Query("SELECT COUNT(u) FROM User u WHERE u.accessLevel = :level AND u.enabled = true")
     long countActiveByAccessLevel(@Param("level") AccessLevel level);
+
+    /** The users of these addresses (lower-case), in one query: the names of a list's people. */
+    @Query("SELECT u FROM User u WHERE LOWER(TRIM(u.mail)) IN :mails")
+    List<User> findByMailLowerIn(@Param("mails") Collection<String> mails);
 
 }

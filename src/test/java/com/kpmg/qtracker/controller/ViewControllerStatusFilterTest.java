@@ -12,6 +12,7 @@ import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.repository.WorkflowStepRepository;
 
 import com.kpmg.qtracker.service.AccessPolicy;
+import com.kpmg.qtracker.service.ComponentControlsList;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
 import com.kpmg.qtracker.service.DashboardService;
@@ -47,6 +48,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
@@ -1437,19 +1441,150 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
-    void componentPage_redirectsToControlsWithComponentFilter() throws Exception {
+    void componentPage_allAndUnknownCodes_leadToTheControlsList() throws Exception {
         User soqm = new User();
         soqm.setId(70L);
         TestUsers.withRole(soqm, "SOQM_TEAM");
         soqm.setMail("soqm@kpmg.kz");
 
-        mockMvc.perform(get("/component/hr").sessionAttr("currentUser", soqm))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/controls?component=HR"));
-        mockMvc.perform(get("/component/A&C").sessionAttr("currentUser", soqm))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/controls?component=A%26C"));
         mockMvc.perform(get("/component/All").sessionAttr("currentUser", soqm))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/controls"));
+        mockMvc.perform(get("/component/NOPE").sessionAttr("currentUser", soqm))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/controls"));
+        mockMvc.perform(get("/component/HR"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/login"));
+    }
+
+    @Test
+    void componentPage_titleCrumbsTenColumns_namesInOneQuery_rowsOpenViewControl() throws Exception {
+        User soqm = new User();
+        soqm.setId(72L);
+        TestUsers.withRole(soqm, "SOQM_TEAM");
+        soqm.setMail("soqm-component@kpmg.kz");
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
+        ControlResponseDTO hr = dto(721L, "HR-CTRL-MF-151A/FY26/UZB/OCT", "PROCESS_OWNER_REVIEW", today.minusDays(1));
+        hr.setControlType("Manual");
+        hr.setControlFrequency("Monthly");
+        hr.setControlCategory("Key");
+        hr.setControlOperationDate(java.time.LocalDate.of(2026, 9, 4));
+        hr.setFacilitators(List.of("anna@kpmg.kz", "new.person@kpmg.kz"));
+        hr.setControlOperators(List.of("op@kpmg.kz"));
+        hr.setProcessOwners(List.of("po@kpmg.kz"));
+        hr.setSoqmLeads(List.of("lead@kpmg.kz"));
+        ControlResponseDTO draft = dto(722L, "HR-DRAFT-1", "DRAFT", null);
+        ControlResponseDTO other = dto(723L, "EP-1", "REVIEW", null);
+        other.setComponent("EP");
+        mockVisibleControls(soqm, List.of(hr, draft, other));
+        when(userService.displayNamesByEmail(any())).thenReturn(Map.of(
+                "anna@kpmg.kz", "Anna Petrova", "op@kpmg.kz", "Oleg Operator",
+                "po@kpmg.kz", "Polina Owner", "lead@kpmg.kz", "Lena Lead"));
+
+        MvcResult result = mockMvc.perform(get("/component/hr").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andExpect(view().name("component-controls"))
+                .andReturn();
+
+        String html = result.getResponse().getContentAsString();
+        assertThat(html).contains("<h1>Performance: Human Resources (HR)</h1>",
+                "<a href=\"/#action-centre\" class=\"app-breadcrumb-link\">Action Centre</a>",
+                "aria-current=\"page\">Human Resources</span>",
+                "href=\"/view-control/721\"", "data-href=\"/view-control/722\"",
+                "Anna Petrova, new.person", "Oleg Operator", "Polina Owner", "Lena Lead", "04.09.2026", "Overdue")
+                .doesNotContain("EP-1", "/initiate/722");
+        java.util.regex.Matcher header = java.util.regex.Pattern
+                .compile("<a class=\"sort-link\"[^>]*>\\s*<span>([^<]+)</span>").matcher(html);
+        List<String> headers = new java.util.ArrayList<>();
+        while (header.find()) {
+            headers.add(header.group(1));
+        }
+        assertThat(headers).containsExactly("Control ID", "Control Type", "Control Frequency",
+                "Facilitator / Preparer(s)", "Control Operator", "Process Owner", "SoQM Lead / Delegate",
+                "Control Category", "Control Operation Date", "Performance Status");
+        // one query for all the people, none per person
+        verify(userService, times(1)).displayNamesByEmail(any());
+        verify(userService, never()).getUserByEmail(any());
+
+        ComponentControlsList.Result list = (ComponentControlsList.Result) result.getModelAndView().getModel().get("list");
+        assertThat(list.rows()).extracting(ComponentControlsList.Row::id).containsExactly(721L, 722L);
+        assertThat(list.counts()).isEqualTo(new ComponentControlsList.Counts(2, 1, 0, 1, 0, 1));
+    }
+
+    @Test
+    void componentPage_codeWithAmpersand_inEveryLink() throws Exception {
+        User soqm = new User();
+        soqm.setId(73L);
+        TestUsers.withRole(soqm, "SOQM_TEAM");
+        soqm.setMail("soqm-ac@kpmg.kz");
+        ControlResponseDTO ac = dto(731L, "AC-1", "REVIEW", null);
+        ac.setComponent("A&C");
+        mockVisibleControls(soqm, List.of(ac));
+
+        MvcResult result = mockMvc.perform(get("/component/a&c").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(result.getResponse().getContentAsString())
+                .contains("Performance: Acceptance &amp; Continuance (A&amp;C)", "href=\"/component/A&amp;C?sort=id&amp;dir=desc\"",
+                        "action=\"/component/A&amp;C\"", "href=\"/component/A&amp;C?status=OVERDUE\"", "href=\"/view-control/731\"");
+    }
+
+    @Test
+    void componentPage_kdn_onlyKdnControls_sameColumns() throws Exception {
+        User soqm = new User();
+        soqm.setId(74L);
+        TestUsers.withRole(soqm, "SOQM_TEAM");
+        soqm.setMail("soqm-kdn-list@kpmg.kz");
+        mockVisibleControls(soqm, List.of(
+                dto(741L, "KDN_RER-CTRL-MF-33A/FY26/Central/1Q", "IN_PROGRESS", null),
+                dto(742L, "KDN_EP-CTRL-MF-109A/FY26/Central/DEC-SEP", "DRAFT", null),
+                dto(743L, "HR-CTRL-MF-151A/FY26/UZB/OCT", "REVIEW", null),
+                dto(744L, "X-KDN-12", "REVIEW", null)));
+
+        MvcResult result = mockMvc.perform(get("/component/kdn").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(result.getModelAndView().getModel()).containsEntry("kdnList", true).containsEntry("listCode", "KDN");
+        ComponentControlsList.Result list = (ComponentControlsList.Result) result.getModelAndView().getModel().get("list");
+        assertThat(list.rows()).extracting(ComponentControlsList.Row::id).containsExactly(742L, 741L);
+        assertThat(result.getResponse().getContentAsString())
+                .contains("<h1>Performance: KDN controls (KDN)</h1>", "Performance Status")
+                .doesNotContain("HR-CTRL-MF-151A", "X-KDN-12");
+    }
+
+    @Test
+    void componentPage_nothingToSee_andNothingMatching_sayWhy() throws Exception {
+        User soqm = new User();
+        soqm.setId(75L);
+        TestUsers.withRole(soqm, "SOQM_TEAM");
+        soqm.setMail("soqm-empty@kpmg.kz");
+        mockVisibleControls(soqm, List.of(dto(751L, "HR-751", "REVIEW", null)));
+
+        assertThat(mockMvc.perform(get("/component/GOV").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                .contains("There are no controls in this component that you can see.", "Back to Action Centre")
+                .doesNotContain("id=\"ccTable\"", "id=\"ccFilters\"");
+        assertThat(mockMvc.perform(get("/component/HR").param("q", "nobody").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                .contains("No controls match your search or filter.", "Clear search and filter", "value=\"nobody\"")
+                .doesNotContain("id=\"ccTable\"");
+    }
+
+    @Test
+    void componentPage_loadingFails_anErrorInsteadOfNumbers() throws Exception {
+        User soqm = new User();
+        soqm.setId(76L);
+        TestUsers.withRole(soqm, "SOQM_TEAM");
+        soqm.setMail("soqm-error@kpmg.kz");
+        when(controlService.findVisibleControlsForUser(soqm)).thenThrow(new IllegalStateException("database down"));
+
+        String html = mockMvc.perform(get("/component/HR").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html).contains("role=\"alert\"", "The controls could not be loaded.", "contact SoQM Team",
+                        "<h1>Performance: Human Resources (HR)</h1>")
+                .doesNotContain("id=\"ccTable\"", "stat-num", "database down");
     }
 
     @Test

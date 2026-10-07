@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <th:block th:replace="~{fragments/csrf :: csrf}"></th:block>
+    <title th:text="${listTitle} + ' - QTracker'">Performance - QTracker</title>
+    <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css?v=17" rel="stylesheet">
+    <link href="/css/component-controls.css?v=1" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body class="theme-light">
+<!--/*
+  The Action Centre's list of a component's controls, or of the KDN controls (ViewController.controlsByComponent).
+  Model: listCode, listName, listTitle, kdnList, query (ComponentControlsList.Query),
+  list (ComponentControlsList.Result; absent when loadError).
+*/-->
+<div class="container-fluid">
+    <div class="row">
+        <div th:replace="~{fragments/sidebar :: sidebar('action')}"></div>
+
+        <main class="col-md-10">
+            <div class="p-3">
+
+                <nav class="app-breadcrumb" aria-label="breadcrumb">
+                    <a href="/" class="app-breadcrumb-link">
+                        <i class="bi bi-house app-breadcrumb-home-icon" aria-hidden="true"></i>
+                        <span>Home</span>
+                    </a>
+                    <span class="app-breadcrumb-separator" aria-hidden="true">/</span>
+                    <a href="/#action-centre" class="app-breadcrumb-link">Action Centre</a>
+                    <span class="app-breadcrumb-separator" aria-hidden="true">/</span>
+                    <span class="app-breadcrumb-current" aria-current="page" th:text="${listName}">Human Resources</span>
+                </nav>
+
+                <div class="page-header">
+                    <div>
+                        <h1 th:text="${listTitle}">Performance: Human Resources (HR)</h1>
+                        <p class="subtitle" th:text="${kdnList} ? 'Controls whose ID starts with KDN, of the controls you can see'
+                                : 'The controls of this component that you can see'">The controls of this component that you can see</p>
+                    </div>
+                </div>
+
+                <!-- Loading failed: no numbers rather than wrong ones -->
+                <div th:if="${loadError}" class="cc-error" role="alert">
+                    <i class="bi bi-exclamation-octagon" aria-hidden="true"></i>
+                    <div>
+                        <strong>The controls could not be loaded.</strong>
+                        <span>Reload the page. If it happens again, contact SoQM Team.</span>
+                        <a th:href="@{/component/{code}(code=${listCode})}">Reload</a>
+                    </div>
+                </div>
+
+                <th:block th:if="${list != null}" th:with="counts=${list.counts()}">
+
+                    <!-- Counters: the card's numbers; each is the list filtered by it -->
+                    <nav class="stats-bar" aria-label="Counters">
+                        <a class="stat-item total" th:href="${list.statusHref('')}"
+                           th:classappend="${query.status().name() == 'ALL' and query.q() == ''} ? 'is-active'"
+                           th:attr="aria-current=${query.status().name() == 'ALL' and query.q() == ''} ? 'true' : null">
+                            <span>Total</span><span class="stat-num" data-count="total" th:text="${counts.total()}">0</span>
+                        </a>
+                        <a class="stat-item progress-item" th:href="${list.statusHref('IN_PROGRESS')}"
+                           th:classappend="${query.status().name() == 'IN_PROGRESS'} ? 'is-active'"
+                           th:attr="aria-current=${query.status().name() == 'IN_PROGRESS'} ? 'true' : null">
+                            <span>In progress</span><span class="stat-num" data-count="inProgress" th:text="${counts.inProgress()}">0</span>
+                        </a>
+                        <a class="stat-item review-item" th:href="${list.statusHref('IN_REVIEW')}"
+                           th:classappend="${query.status().name() == 'IN_REVIEW'} ? 'is-active'"
+                           th:attr="aria-current=${query.status().name() == 'IN_REVIEW'} ? 'true' : null">
+                            <span>In review</span><span class="stat-num" data-count="inReview" th:text="${counts.inReview()}">0</span>
+                        </a>
+                        <a class="stat-item completed" th:href="${list.statusHref('COMPLETED')}"
+                           th:classappend="${query.status().name() == 'COMPLETED'} ? 'is-active'"
+                           th:attr="aria-current=${query.status().name() == 'COMPLETED'} ? 'true' : null">
+                            <span>Completed</span><span class="stat-num" data-count="completed" th:text="${counts.completed()}">0</span>
+                        </a>
+                        <a class="stat-item overdue" th:href="${list.statusHref('OVERDUE')}"
+                           th:classappend="${query.status().name() == 'OVERDUE'} ? 'is-active'"
+                           th:attr="aria-current=${query.status().name() == 'OVERDUE'} ? 'true' : null">
+                            <span>Overdue</span><span class="stat-num" data-count="overdue" th:text="${counts.overdue()}">0</span>
+                        </a>
+                    </nav>
+
+                    <!-- Search and status filter: a plain GET form, so it works without scripts too -->
+                    <form class="cc-toolbar" method="get" role="search" id="ccFilters"
+                          th:action="@{/component/{code}(code=${listCode})}" th:if="${counts.total() > 0}">
+                        <div class="cc-field cc-search">
+                            <label for="ccSearch">Search</label>
+                            <div class="search-box">
+                                <i class="bi bi-search" aria-hidden="true"></i>
+                                <input type="search" id="ccSearch" name="q" th:value="${query.q()}"
+                                       placeholder="Control ID or person" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="cc-field">
+                            <label for="ccStatus">Status</label>
+                            <select id="ccStatus" name="status" class="cc-select">
+                                <option th:each="f : ${list.statusFilters()}" th:value="${f.key()}" th:text="${f.label()}"
+                                        th:selected="${query.status() == f}">All statuses</option>
+                            </select>
+                        </div>
+                        <input type="hidden" name="sort" th:if="${query.sort().name() != 'ID' or query.desc()}" th:value="${query.sort().key()}">
+                        <input type="hidden" name="dir" th:if="${query.sort().name() != 'ID' or query.desc()}" th:value="${query.desc()} ? 'desc' : 'asc'">
+                        <input type="hidden" name="size" th:if="${query.size() != 25}" th:value="${query.size()}">
+                        <div class="cc-actions">
+                            <button type="submit" class="cc-btn">Apply</button>
+                            <a th:if="${query.filtered()}" class="cc-clear" th:href="${list.clearHref()}">Clear</a>
+                        </div>
+                    </form>
+
+                    <!-- Nothing at all in this component, as far as the user sees -->
+                    <div th:if="${counts.total() == 0}" class="cc-panel empty-state">
+                        <i class="bi bi-inbox" aria-hidden="true"></i>
+                        <p th:text="${kdnList} ? 'There are no KDN controls you can see.' : 'There are no controls in this component that you can see.'">
+                            There are no controls in this component that you can see.</p>
+                        <a href="/#action-centre">Back to Action Centre</a>
+                    </div>
+
+                    <!-- Controls exist, but none match the search or the filter -->
+                    <div th:if="${counts.total() > 0 and list.matching() == 0}" class="cc-panel empty-state">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <p>No controls match your search or filter.</p>
+                        <a th:href="${list.clearHref()}">Clear search and filter</a>
+                    </div>
+
+                    <th:block th:if="${list.matching() > 0}">
+                        <p class="result-count" id="ccResultCount">
+                            Showing <span th:text="${list.from()}">1</span>&ndash;<span th:text="${list.to()}">25</span>
+                            of <span th:text="${list.matching()}">60</span>
+                            <span th:text="${list.matching() == 1} ? 'control' : 'controls'">controls</span>
+                        </p>
+
+                        <div class="table-wrapper">
+                            <table class="cc-table" id="ccTable">
+                                <caption class="visually-hidden" th:text="${listTitle}">Performance</caption>
+                                <colgroup>
+                                    <col class="w-id"><col class="w-type"><col class="w-freq"><col class="w-person">
+                                    <col class="w-person"><col class="w-person"><col class="w-person"><col class="w-cat">
+                                    <col class="w-date"><col class="w-status">
+                                </colgroup>
+                                <thead>
+                                <tr>
+                                    <th scope="col" th:each="col : ${list.columns()}" th:with="key=${col.key()}"
+                                        th:attr="aria-sort=${list.ariaSort(key)}, data-col=${key}">
+                                        <a class="sort-link" th:href="${list.sortHref(key)}">
+                                            <span th:text="${col.label()}">Control ID</span>
+                                            <i class="bi" aria-hidden="true"
+                                               th:classappend="${list.ariaSort(key) == 'ascending'} ? 'bi-arrow-up' : (${list.ariaSort(key) == 'descending'} ? 'bi-arrow-down' : 'bi-arrow-down-up')"></i>
+                                        </a>
+                                    </th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="row : ${list.rows()}" class="cc-row" tabindex="0"
+                                    th:classappend="${row.overdue()} ? 'is-overdue'"
+                                    th:attr="data-href=${row.href()}, data-control-id=${row.controlId()}">
+                                    <td data-label="Control ID" class="cc-id">
+                                        <a class="control-link" th:href="${row.href()}" th:text="${row.controlId()}">HR-CTRL-1</a>
+                                    </td>
+                                    <td data-label="Control Type" th:text="${row.type()}">Manual</td>
+                                    <td data-label="Control Frequency" th:text="${row.frequency()}">Monthly</td>
+                                    <td data-label="Facilitator / Preparer(s)" th:text="${row.facilitators()}">Name</td>
+                                    <td data-label="Control Operator" th:text="${row.operators()}">Name</td>
+                                    <td data-label="Process Owner" th:text="${row.owners()}">Name</td>
+                                    <td data-label="SoQM Lead / Delegate" th:text="${row.soqmLeads()}">Name</td>
+                                    <td data-label="Control Category" th:text="${row.category()}">Key</td>
+                                    <td data-label="Control Operation Date">
+                                        <span th:if="${row.operationDate() != null}" th:text="${row.operationDateText()}">01.10.2026</span>
+                                        <span th:if="${row.operationDate() == null}" class="muted" aria-label="No date">&mdash;</span>
+                                    </td>
+                                    <td data-label="Performance Status" class="cc-status"
+                                        th:with="statusLabel=${@statusDisplayMapper.display(row.status()) ?: 'Draft'}">
+                                        <span th:switch="${row.status()}">
+                                            <span th:case="'COMPLETED'" class="badge status-completed" th:text="${statusLabel}"></span>
+                                            <span th:case="'IN_PROGRESS'" class="badge status-progress" th:text="${statusLabel}"></span>
+                                            <span th:case="'REVIEW'" class="badge status-review" th:text="${statusLabel}"></span>
+                                            <span th:case="'SOQM_HEAD_REVIEW'" class="badge status-soqm" th:text="${statusLabel}"></span>
+                                            <span th:case="'PROCESS_OWNER_REVIEW'" class="badge status-po" th:text="${statusLabel}"></span>
+                                            <span th:case="*" class="badge status-draft" th:text="${statusLabel}">Draft</span>
+                                        </span>
+                                        <span th:if="${row.overdue()}" class="badge status-overdue" title="Deadline passed">
+                                            <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>Overdue</span>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="cc-pager">
+                            <nav th:if="${list.pages() > 1}" aria-label="Pages" class="cc-pages">
+                                <a th:if="${list.page() > 1}" class="cc-page" th:href="${list.pageHref(list.page() - 1)}"
+                                   rel="prev"><i class="bi bi-chevron-left" aria-hidden="true"></i>Previous</a>
+                                <th:block th:each="n : ${list.pageLinks()}">
+                                    <span th:if="${n == 0}" class="cc-gap" aria-hidden="true">&hellip;</span>
+                                    <a th:if="${n > 0}" class="cc-page" th:href="${list.pageHref(n)}" th:text="${n}"
+                                       th:classappend="${n == list.page()} ? 'is-current'"
+                                       th:attr="aria-current=${n == list.page()} ? 'page' : null,
+                                                aria-label=${'Page ' + n}">1</a>
+                                </th:block>
+                                <a th:if="${list.page() < list.pages()}" class="cc-page" th:href="${list.pageHref(list.page() + 1)}"
+                                   rel="next">Next<i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+                            </nav>
+                            <nav class="cc-sizes" aria-label="Rows per page">
+                                <span>Rows per page:</span>
+                                <a th:each="s : ${list.pageSizes()}" class="cc-page" th:href="${list.sizeHref(s)}" th:text="${s}"
+                                   th:classappend="${s == query.size()} ? 'is-current'"
+                                   th:attr="aria-current=${s == query.size()} ? 'true' : null">25</a>
+                            </nav>
+                        </div>
+                    </th:block>
+                </th:block>
+            </div>
+        </main>
+    </div>
+</div>
+<script src="/js/component-controls.js?v=1"></script>
+</body>
+</html>

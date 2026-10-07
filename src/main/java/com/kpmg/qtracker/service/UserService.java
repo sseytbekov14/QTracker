@@ -10,9 +10,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -38,6 +41,28 @@ public class UserService {
 
     public Optional<User> getUserByEmail(String email) {
         return userRepository.findByMail(email); // Используем findByMail
+    }
+
+    /**
+     * Display names by lower-case e-mail, in one query (no look-up per person); addresses without a user, or
+     * a user without a name, are left out for the caller's fallback.
+     */
+    public Map<String, String> displayNamesByEmail(Collection<String> emails) {
+        List<String> wanted = emails == null ? List.of() : emails.stream()
+                .filter(email -> email != null && !email.isBlank())
+                .map(email -> email.trim().toLowerCase(Locale.ROOT))
+                .distinct()
+                .toList();
+        Map<String, String> names = new HashMap<>();
+        if (wanted.isEmpty()) {
+            return names;
+        }
+        for (User user : userRepository.findByMailLowerIn(wanted)) {
+            if (user.getMail() != null && user.getDisplayName() != null && !user.getDisplayName().isBlank()) {
+                names.put(user.getMail().trim().toLowerCase(Locale.ROOT), user.getDisplayName().trim());
+            }
+        }
+        return names;
     }
 
     public Optional<User> getUserById(Long id) {

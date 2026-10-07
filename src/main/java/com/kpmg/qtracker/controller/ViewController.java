@@ -43,6 +43,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ViewController {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ViewController.class);
+
     private static final int DASHBOARD_ACTION_ITEMS_LIMIT = 8;
     private static final int DUE_SOON_DAYS = 3;
     private static final int NOTIFICATIONS_PAGE_SIZE = 50;
@@ -874,13 +876,54 @@ public class ViewController {
         return dto;
     }
 
+    /**
+     * The Action Centre's list of a component's controls, or of the KDN controls (/component/KDN): the controls
+     * the user sees (findControlsVisibleToUser, the policy), sorted, searched, filtered and paged by
+     * ComponentControlsList. "All" and unknown codes lead to the Controls list, as before.
+     */
     @GetMapping("/component/{componentName}")
-    public String controlsByComponent(@PathVariable String componentName, HttpSession session) {
+    public String controlsByComponent(@PathVariable String componentName,
+                                      @RequestParam(value = "q", required = false) String q,
+                                      @RequestParam(value = "status", required = false) String status,
+                                      @RequestParam(value = "sort", required = false) String sort,
+                                      @RequestParam(value = "dir", required = false) String dir,
+                                      @RequestParam(value = "page", required = false) Integer page,
+                                      @RequestParam(value = "size", required = false) Integer size,
+                                      Model model, HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
-        // The component page is the Controls list filtered by component
-        String code = resolveComponentCode(componentName);
-        return "redirect:" + (code == null ? "/controls" : controlsUrl(null, null, code, false));
+
+        boolean kdn = componentName != null
+                && ComponentControlsList.KDN_CODE.equalsIgnoreCase(componentName.trim());
+        String code = kdn ? ComponentControlsList.KDN_CODE : resolveComponentCode(componentName);
+        if (code == null) {
+            return "redirect:/controls";
+        }
+        User currentUser = getCurrentUser(session);
+        String name = kdn ? ComponentControlsList.KDN_NAME : COMPONENT_NAMES.get(code);
+
+        model.addAttribute("userName", currentUser.getDisplayName());
+        model.addAttribute("userEmail", currentUser.getMail());
+        model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
+        model.addAttribute("listCode", code);
+        model.addAttribute("listName", name);
+        model.addAttribute("listTitle", "Performance: " + name + " (" + code + ")");
+        model.addAttribute("kdnList", kdn);
+        ComponentControlsList.Query query = ComponentControlsList.Query.of(q, status, sort, dir, page, size);
+        model.addAttribute("query", query);
+        try {
+            List<ControlResponseDTO> controls = ComponentControlsList.controlsOf(code, findControlsVisibleToUser(currentUser));
+            // Every person of the list in one query
+            Map<String, String> names = userService.displayNamesByEmail(ComponentControlsList.emailsOf(controls));
+            String basePath = org.springframework.web.util.UriComponentsBuilder.fromPath("/component/{code}")
+                    .buildAndExpand(code).encode().toUriString();
+            model.addAttribute("list", ComponentControlsList.of(basePath, controls, names, query,
+                    DeadlineOverdue.today(Instant.now())));
+        } catch (RuntimeException e) {
+            log.error("Could not load the controls of {} for {}", code, currentUser.getMail(), e);
+            model.addAttribute("loadError", true);
+        }
+        return "component-controls";
     }
 
     @GetMapping("/view-control/{id}")
