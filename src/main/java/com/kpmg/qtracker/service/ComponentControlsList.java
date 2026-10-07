@@ -224,6 +224,10 @@ public final class ComponentControlsList {
         }
     }
 
+    /** One choice of the phone's "Sort by". */
+    public record SortOption(String label, String href, boolean selected) {
+    }
+
     /** The page of rows and how to get to the others. */
     public record Result(String basePath, Query query, Counts counts, List<Row> rows, int matching, int page,
                          int pages) {
@@ -241,6 +245,20 @@ public final class ComponentControlsList {
             Sort sort = Sort.of(key);
             boolean desc = query.sort() == sort && !query.desc();
             return href(query.q(), query.status(), sort, desc, 1, query.size());
+        }
+
+        /** Every column both ways, for the phone's "Sort by" (the headers are hidden there). */
+        public List<SortOption> sortOptions() {
+            List<SortOption> options = new ArrayList<>();
+            for (Column column : COLUMNS) {
+                Sort sort = Sort.of(column.key());
+                for (boolean desc : new boolean[]{false, true}) {
+                    options.add(new SortOption(column.label() + (desc ? ", descending" : ", ascending"),
+                            href(query.q(), query.status(), sort, desc, 1, query.size()),
+                            query.sort() == sort && query.desc() == desc));
+                }
+            }
+            return options;
         }
 
         /** aria-sort of the column's header. */

@@ -240,6 +240,20 @@ class ComponentControlsListTest {
     }
 
     @Test
+    void sortOptions_forThePhone_everyColumnBothWays_currentSelected() {
+        List<ControlResponseDTO> controls = List.of(control(1, "HR-1", "HR", "REVIEW", null));
+        List<ComponentControlsList.SortOption> options =
+                result(controls, "hr", null, "date", "desc", 1, 50).sortOptions();
+
+        assertThat(options).hasSize(20);
+        assertThat(options.get(0)).isEqualTo(new ComponentControlsList.SortOption(
+                "Control ID, ascending", "/component/HR?q=hr&size=50", false));
+        assertThat(options).filteredOn(ComponentControlsList.SortOption::selected)
+                .extracting(ComponentControlsList.SortOption::label)
+                .containsExactly("Control Operation Date, descending");
+    }
+
+    @Test
     void pageLinks_firstLastAndAroundTheCurrent_withGaps() {
         List<ControlResponseDTO> controls = new ArrayList<>();
         for (int i = 1; i <= 250; i++) {

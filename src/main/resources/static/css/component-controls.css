@@ -253,3 +253,66 @@ th[aria-sort="descending"] .sort-link .bi { opacity: 1; }
 .cc-page.is-current { background: var(--kpmg-blue); border-color: var(--kpmg-blue); color: var(--kpmg-white); }
 .cc-page:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
 .cc-gap { padding: 0 4px; }
+
+/* Sorting on a phone, where the column headers are hidden */
+.cc-sort-phone { display: none; }
+
+/* Phone: each row is a card of label / value lines; the headers stay for screen readers */
+@media (max-width: 767.98px) {
+    .page-header { padding: 12px 16px; }
+    .stats-bar { flex-wrap: wrap; }
+    .stats-bar .stat-item {
+        flex: 1 1 33.33%;
+        flex-direction: column;
+        gap: 0;
+        padding: 8px 6px;
+        border-bottom: 1px solid var(--kpmg-gray-200);
+        text-align: center;
+    }
+    .stats-bar .stat-item:nth-child(3) { border-right: none; }
+    .stats-bar .stat-item:nth-child(n+4) { flex-basis: 50%; border-bottom: none; }
+    .cc-toolbar { flex-direction: column; align-items: stretch; }
+    .cc-field, .search-box, .search-box input, .cc-select { width: 100%; min-width: 0; }
+    .cc-sort-phone { display: flex; }
+    .cc-actions .cc-btn { flex: 1; padding: 8px 16px; }
+
+    .table-wrapper { background: none; border: none; }
+    .cc-table, .cc-table tbody, .cc-table tr, .cc-table td { display: block; width: 100%; }
+    .cc-table colgroup { display: none; }
+    .cc-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+    .cc-table tbody tr.cc-row {
+        margin: 0 0 10px;
+        padding: 10px 12px;
+        background: var(--kpmg-white);
+        border: 1px solid var(--kpmg-gray-200);
+        border-radius: 6px;
+    }
+    .cc-row.is-overdue { border-left: 4px solid var(--kpmg-red); }
+    .cc-row.is-overdue td:first-child { box-shadow: none; }
+    .cc-table tbody td {
+        display: grid;
+        grid-template-columns: 42% 1fr;
+        gap: 8px;
+        padding: 4px 0;
+        border-bottom: 1px solid var(--kpmg-gray-100);
+    }
+    .cc-table tbody tr td:last-child { border-bottom: none; }
+    .cc-table tbody td::before {
+        content: attr(data-label);
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--kpmg-gray-600);
+    }
+    /* The Control ID heads the card */
+    .cc-table tbody td.cc-id { display: block; padding: 0 0 6px; font-size: 0.9rem; }
+    .cc-table tbody td.cc-id::before { content: none; }
+    .cc-pager { flex-direction: column; align-items: stretch; }
+    .cc-sizes { margin-left: 0; }
+}

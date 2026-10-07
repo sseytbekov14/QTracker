@@ -1510,6 +1510,32 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
+    void componentPage_phoneCardsAndAccessibility_markup() throws Exception {
+        User soqm = new User();
+        soqm.setId(77L);
+        TestUsers.withRole(soqm, "SOQM_TEAM");
+        soqm.setMail("soqm-a11y@kpmg.kz");
+        mockVisibleControls(soqm, List.of(dto(771L, "HR-771", "REVIEW", null)));
+
+        String html = mockMvc.perform(get("/component/HR").param("sort", "status").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html).contains(
+                "<caption class=\"visually-hidden\">Performance: Human Resources (HR)</caption>",
+                "<th scope=\"col\" aria-sort=\"ascending\" data-col=\"status\">",
+                "<th scope=\"col\" aria-sort=\"none\" data-col=\"id\">",
+                "tabindex=\"0\"", "data-label=\"SoQM Lead / Delegate\"", "data-label=\"Performance Status\"",
+                "<label for=\"ccSearch\">Search</label>", "<label for=\"ccStatus\">Status</label>",
+                "<label for=\"ccSortPhone\">Sort by</label>",
+                "<option value=\"/component/HR?sort=status&amp;dir=desc\">Performance Status, descending</option>",
+                "title=\"Not set\">&mdash;</span>",
+                "/css/component-controls.css?v=2", "/js/component-controls.js?v=2");
+        // the phone's "Sort by" is not sent with the form (no name): one sort parameter only
+        assertThat(html).doesNotContain("name=\"sort\" id=\"ccSortPhone\"");
+    }
+
+    @Test
     void componentPage_codeWithAmpersand_inEveryLink() throws Exception {
         User soqm = new User();
         soqm.setId(73L);

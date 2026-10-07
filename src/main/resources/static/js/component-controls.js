@@ -31,6 +31,14 @@
         });
     }
 
+    // Phone: "Sort by" opens the list sorted that way
+    var sortPhone = document.getElementById('ccSortPhone');
+    if (sortPhone) {
+        sortPhone.addEventListener('change', function () {
+            window.location.href = sortPhone.value;
+        });
+    }
+
     // The status filter applies at once (the Apply button stays for the search and without scripts)
     var status = document.getElementById('ccStatus');
     if (status && status.form) {

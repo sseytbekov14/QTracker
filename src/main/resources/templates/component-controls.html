@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=17" rel="stylesheet">
-    <link href="/css/component-controls.css?v=1" rel="stylesheet">
+    <link href="/css/component-controls.css?v=2" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 </head>
 <body class="theme-light">
@@ -102,6 +102,14 @@
                                         th:selected="${query.status() == f}">All statuses</option>
                             </select>
                         </div>
+                        <!--/* Phone only: the column headers are hidden there; no name, it navigates (component-controls.js) */-->
+                        <div class="cc-field cc-sort-phone">
+                            <label for="ccSortPhone">Sort by</label>
+                            <select id="ccSortPhone" class="cc-select">
+                                <option th:each="o : ${list.sortOptions()}" th:value="${o.href()}" th:text="${o.label()}"
+                                        th:selected="${o.selected()}">Control ID, ascending</option>
+                            </select>
+                        </div>
                         <input type="hidden" name="sort" th:if="${query.sort().name() != 'ID' or query.desc()}" th:value="${query.sort().key()}">
                         <input type="hidden" name="dir" th:if="${query.sort().name() != 'ID' or query.desc()}" th:value="${query.desc()} ? 'desc' : 'asc'">
                         <input type="hidden" name="size" th:if="${query.size() != 25}" th:value="${query.size()}">
@@ -160,16 +168,16 @@
                                     <td data-label="Control ID" class="cc-id">
                                         <a class="control-link" th:href="${row.href()}" th:text="${row.controlId()}">HR-CTRL-1</a>
                                     </td>
-                                    <td data-label="Control Type" th:text="${row.type()}">Manual</td>
-                                    <td data-label="Control Frequency" th:text="${row.frequency()}">Monthly</td>
-                                    <td data-label="Facilitator / Preparer(s)" th:text="${row.facilitators()}">Name</td>
-                                    <td data-label="Control Operator" th:text="${row.operators()}">Name</td>
-                                    <td data-label="Process Owner" th:text="${row.owners()}">Name</td>
-                                    <td data-label="SoQM Lead / Delegate" th:text="${row.soqmLeads()}">Name</td>
-                                    <td data-label="Control Category" th:text="${row.category()}">Key</td>
+                                    <td data-label="Control Type" th:with="v=${row.type()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Manual</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
+                                    <td data-label="Control Frequency" th:with="v=${row.frequency()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Monthly</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
+                                    <td data-label="Facilitator / Preparer(s)" th:with="v=${row.facilitators()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
+                                    <td data-label="Control Operator" th:with="v=${row.operators()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
+                                    <td data-label="Process Owner" th:with="v=${row.owners()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
+                                    <td data-label="SoQM Lead / Delegate" th:with="v=${row.soqmLeads()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
+                                    <td data-label="Control Category" th:with="v=${row.category()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Key</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
                                     <td data-label="Control Operation Date">
                                         <span th:if="${row.operationDate() != null}" th:text="${row.operationDateText()}">01.10.2026</span>
-                                        <span th:if="${row.operationDate() == null}" class="muted" aria-label="No date">&mdash;</span>
+                                        <span th:if="${row.operationDate() == null}" class="muted" title="Not set">&mdash;</span>
                                     </td>
                                     <td data-label="Performance Status" class="cc-status"
                                         th:with="statusLabel=${@statusDisplayMapper.display(row.status()) ?: 'Draft'}">
@@ -216,6 +224,6 @@
         </main>
     </div>
 </div>
-<script src="/js/component-controls.js?v=1"></script>
+<script src="/js/component-controls.js?v=2"></script>
 </body>
 </html>
