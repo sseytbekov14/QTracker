@@ -118,6 +118,29 @@ class FileStorageServiceTest {
     }
 
     @Test
+    void moveFile_movesOneFile_keepsAFileOfTheSameNameInTheNewFolder_andDropsTheEmptiedFolder() throws Exception {
+        FileStorageService service = serviceOn(tempDir);
+        Path old = Files.createDirectories(tempDir.resolve("HR-5_2H"));
+        Files.writeString(old.resolve("cv.pdf"), "cv");
+        Files.writeString(old.resolve("plan.xlsx"), "old plan");
+        Files.writeString(Files.createDirectories(tempDir.resolve("KDN")).resolve("plan.xlsx"), "new plan");
+
+        assertThat(service.moveFile("cv.pdf", "HR-5/2H", "KDN")).isTrue();
+        assertThat(service.moveFile("plan.xlsx", "HR-5/2H", "KDN")).isFalse();
+        assertThat(service.moveFile("absent.pdf", "HR-5/2H", "KDN")).isFalse();
+        assertThat(tempDir.resolve("KDN").resolve("cv.pdf")).hasContent("cv");
+        assertThat(tempDir.resolve("KDN").resolve("plan.xlsx")).hasContent("new plan");
+        assertThat(old.resolve("plan.xlsx")).hasContent("old plan");
+
+        Files.delete(old.resolve("plan.xlsx"));
+        Files.writeString(old.resolve("last.pdf"), "last");
+        assertThat(service.moveFile("last.pdf", "HR-5/2H", "NEW")).isTrue();
+        assertThat(old).doesNotExist();
+        assertThat(tempDir.resolve("NEW").resolve("last.pdf")).hasContent("last");
+        assertThatThrownBy(() -> service.moveFile("../x.pdf", "KDN", "NEW")).isInstanceOf(SecurityException.class);
+    }
+
+    @Test
     void deleteFile_removesTheFileFromTheFirstFolderThatHasIt_neverFromTheRoot() throws Exception {
         FileStorageService service = serviceOn(tempDir);
         Files.createDirectories(tempDir.resolve("OLD"));

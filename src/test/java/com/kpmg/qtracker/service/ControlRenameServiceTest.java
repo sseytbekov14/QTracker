@@ -109,17 +109,31 @@ class ControlRenameServiceTest {
     }
 
     @Test
-    void attachmentFolders_areTheCurrentId_thenEarlierIdsFromTheRenameAudit_newestFirst() {
+    void attachmentFolders_areTheCurrentId_thenEarlierIdsFromTheRenameAudit_thenOtherIdsOfItsAuditEntries() {
         control.setControlId("KDN");
-        when(adminAuditLogRepository.findByControlIdAndActionTypeOrderByCreatedAtDesc(5L, ControlRenameService.AUDIT_ACTION))
-                .thenReturn(List.of(audit("{\"Control ID\":\"HR-CTRL-MF-5/FY26/Central/2H\",\"KDN control\":\"No\"}"),
-                        audit("{\"Control ID\":\"HR-5\"}"),
-                        audit("{\"Control ID\":\"KDN\"}"),
-                        audit("not json"),
-                        audit(null)));
+        when(adminAuditLogRepository.findByControlIdOrderByCreatedAtDesc(5L)).thenReturn(List.of(
+                audit("ATTACHMENT_ADDED", "KDN", null),
+                rename("{\"Control ID\":\"HR-5\",\"KDN control\":\"No\"}"),
+                audit("EDIT", "HR-5", null),
+                rename("not json"),
+                rename(null),
+                // Renamed before renames were audited: only the upload under the old ID shows it
+                audit("ATTACHMENT_ADDED", "HR-CTRL-MF-5/FY26/Central/2H", null),
+                audit("CREATE", " HR-CTRL-MF-5/FY26/Central/2H ", null),
+                audit("VIEW", null, null)));
 
         assertThat(service.attachmentFolders(control))
-                .containsExactly("KDN", "HR-CTRL-MF-5/FY26/Central/2H", "HR-5");
+                .containsExactly("KDN", "HR-5", "HR-CTRL-MF-5/FY26/Central/2H");
+    }
+
+    @Test
+    void earlierIdThatAnotherControlHasNow_isNotUsed() {
+        control.setControlId("KDN");
+        when(adminAuditLogRepository.findByControlIdOrderByCreatedAtDesc(5L)).thenReturn(List.of(
+                rename("{\"Control ID\":\"HR-5\"}"), audit("ATTACHMENT_ADDED", "HR-4", null)));
+        when(controlRepository.existsByControlId("HR-5")).thenReturn(true);
+
+        assertThat(service.attachmentFolders(control)).containsExactly("KDN", "HR-4");
     }
 
     @Test
@@ -128,8 +142,44 @@ class ControlRenameServiceTest {
         assertThat(service.attachmentFolders(control)).containsExactly("5");
     }
 
-    private static AdminAuditLog audit(String previousValues) {
+    @Test
+    void rename_alsoGathersListedFilesLeftUnderOlderIds() throws Exception {
+        when(adminAuditService.logActionWithChanges(any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new AdminAuditLog());
+        control.setAttachmentDetailsPath("cv.pdf; plan.xlsx");
+        control.setAttachmentDocumentsPath("plan.xlsx;Отчёт.pdf");
+        when(adminAuditLogRepository.findByControlIdOrderByCreatedAtDesc(5L)).thenReturn(List.of(
+                audit("ATTACHMENT_ADDED", "HR-CTRL-MF-5/FY26/Central/2H", null)));
+        when(fileStorageService.moveFile(any(), any(), any())).thenReturn(true);
+
+        service.rename(5L, "KDN-NEW", null, soqm);
+
+        verify(fileStorageService).moveControlFolder("KDN-5", "KDN-NEW");
+        for (String name : List.of("cv.pdf", "plan.xlsx", "Отчёт.pdf")) {
+            verify(fileStorageService).moveFile(name, "HR-CTRL-MF-5/FY26/Central/2H", "KDN-NEW");
+        }
+    }
+
+    @Test
+    void rename_isKept_whenFilesUnderOlderIdsCannotBeMoved() throws Exception {
+        when(adminAuditService.logActionWithChanges(any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new AdminAuditLog());
+        control.setAttachmentDetailsPath("cv.pdf");
+        when(adminAuditLogRepository.findByControlIdOrderByCreatedAtDesc(5L)).thenReturn(List.of(
+                audit("ATTACHMENT_ADDED", "HR-5", null)));
+        doThrow(new java.io.IOException("locked")).when(fileStorageService).moveFile(any(), any(), any());
+
+        assertThat(service.rename(5L, "KDN-NEW", null, soqm).getControlId()).isEqualTo("KDN-NEW");
+    }
+
+    private static AdminAuditLog rename(String previousValues) {
+        return audit(ControlRenameService.AUDIT_ACTION, null, previousValues);
+    }
+
+    private static AdminAuditLog audit(String action, String controlId, String previousValues) {
         AdminAuditLog entry = new AdminAuditLog();
+        entry.setActionType(action);
+        entry.setControlControlId(controlId);
         entry.setPreviousValues(previousValues);
         return entry;
     }

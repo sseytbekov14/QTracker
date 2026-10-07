@@ -304,6 +304,59 @@ class KdnRenameIT {
     }
 
     @Test
+    void renamedBeforeRenamesWereAudited_filesAreFoundByTheUploadEntry_andTheNextRenameGathersThem() throws Exception {
+        // Uploaded as HR-OLD-..., renamed to KDN-... without a rename entry: only the upload entry has the old ID
+        String oldId = "HR-OLD-" + s + "/FY26/Central/2H";
+        Control control = control("KDN-SEVEN-" + s);
+        Path oldFolder = Files.createDirectories(UPLOADS.resolve("HR-OLD-" + s + "_FY26_Central_2H"));
+        Files.writeString(oldFolder.resolve("Seytbekov_CV_.pdf"), "%PDF cv");
+        Files.writeString(oldFolder.resolve("Отчёт soqm.xlsx"), "xlsx");
+        control.setAttachmentDocumentsPath("Seytbekov_CV_.pdf;Отчёт soqm.xlsx");
+        controlRepository.save(control);
+        for (String name : List.of("Seytbekov_CV_.pdf", "Отчёт soqm.xlsx")) {
+            AdminAuditLog upload = new AdminAuditLog();
+            upload.setAdminEmail(soqm.getMail());
+            upload.setActionType("ATTACHMENT_ADDED");
+            upload.setControlId(control.getId());
+            upload.setControlControlId(oldId);
+            upload.setNewValues("{\"Attachment (DOCUMENTS)\":\"" + name + "\"}");
+            auditRepository.save(upload);
+        }
+
+        for (User reader : List.of(soqm, kdnOther)) {
+            download(reader, control, "Seytbekov_CV_.pdf").andExpect(status().isOk()).andExpect(content().string("%PDF cv"));
+            download(reader, control, "Отчёт soqm.xlsx").andExpect(status().isOk());
+        }
+
+        String newId = "KDN-EIGHT-" + s;
+        rename(control, newId, null).andExpect(status().isOk());
+
+        assertThat(oldFolder).doesNotExist();
+        assertThat(UPLOADS.resolve(newId).resolve("Seytbekov_CV_.pdf")).hasContent("%PDF cv");
+        assertThat(UPLOADS.resolve(newId).resolve("Отчёт soqm.xlsx")).hasContent("xlsx");
+        download(kdnOther, control, "Отчёт soqm.xlsx").andExpect(status().isOk()).andExpect(content().string("xlsx"));
+    }
+
+    @Test
+    void earlierIdThatAnotherControlHasNow_doesNotServeThatControlsFiles() throws Exception {
+        String sharedId = "HR-TAKEN-" + s;
+        Control renamed = control("KDN-TAKEN-" + s);
+        renamed.setAttachmentDetailsPath("plan.pdf");
+        controlRepository.save(renamed);
+        AdminAuditLog upload = new AdminAuditLog();
+        upload.setAdminEmail(soqm.getMail());
+        upload.setActionType("ATTACHMENT_ADDED");
+        upload.setControlId(renamed.getId());
+        upload.setControlControlId(sharedId);
+        auditRepository.save(upload);
+        // A newer control has the old ID now, and its own plan.pdf in that folder
+        control(sharedId);
+        Files.writeString(Files.createDirectories(UPLOADS.resolve(sharedId)).resolve("plan.pdf"), "other control");
+
+        download(soqm, renamed, "plan.pdf").andExpect(status().isNotFound());
+    }
+
+    @Test
     void onlySoqmRenames() throws Exception {
         Control control = control("KDN-55-" + s);
         mockMvc.perform(as(participant, post("/api/controls/{id}/rename-id", control.getId()))

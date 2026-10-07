@@ -31,9 +31,9 @@ import java.util.Map;
  * it: every KDN user gains or loses access. Such a rename needs a comment and is not kept without its audit
  * entry. Every rename gets an audit entry, shown in the control's changelog.
  * <p>
- * The control's attachments lie in a folder named after its Control ID, so a rename moves that folder too.
- * Files a rename could not move (or renames from before the move existed) are still found through the
- * earlier IDs in the rename audit entries: {@link #attachmentFolders}.
+ * The control's attachments lie in a folder named after its Control ID, so a rename moves them to the folder
+ * of the new ID. Files a rename could not move, or that lie under an ID from before files moved along, are
+ * still found under the control's earlier IDs: {@link #attachmentFolders}.
  */
 @Service
 @RequiredArgsConstructor
@@ -130,13 +130,13 @@ public class ControlRenameService {
         }
         log.info("Control {} renamed from {} to {} by {}{}", saved.getId(), oldId, newId,
                 actor != null ? actor.getMail() : "unknown", change != null ? " (" + describe(change) + ")" : "");
-        afterCommit(() -> moveAttachments(saved.getId(), oldId, newId));
+        afterCommit(() -> moveAttachments(saved, oldId, newId));
         return saved;
     }
 
     /**
      * The folders that may hold the control's attachments, in the order to look: the folder of its Control ID,
-     * then those of its earlier IDs (newest first) from the rename audit entries.
+     * then those of its earlier IDs ({@link #earlierControlIds}).
      */
     public List<String> attachmentFolders(Control control) {
         LinkedHashSet<String> folders = new LinkedHashSet<>();
@@ -144,16 +144,38 @@ public class ControlRenameService {
         if (current != null) {
             folders.add(current);
         }
-        if (control.getId() != null) {
-            for (AdminAuditLog entry : adminAuditLogRepository
-                    .findByControlIdAndActionTypeOrderByCreatedAtDesc(control.getId(), AUDIT_ACTION)) {
-                String earlier = earlierControlId(entry);
-                if (earlier != null) {
-                    folders.add(earlier);
-                }
+        folders.addAll(earlierControlIds(control));
+        return new ArrayList<>(folders);
+    }
+
+    /**
+     * The IDs the control had before, newest first: those its rename entries name, then every other ID its audit
+     * entries were written under (an upload under the old ID shows it even when the rename itself was not yet
+     * audited). An ID another control has now is left out: that folder is the other control's.
+     */
+    public List<String> earlierControlIds(Control control) {
+        if (control.getId() == null) {
+            return List.of();
+        }
+        List<AdminAuditLog> entries = adminAuditLogRepository.findByControlIdOrderByCreatedAtDesc(control.getId());
+        LinkedHashSet<String> ids = new LinkedHashSet<>();
+        for (AdminAuditLog entry : entries) {
+            if (AUDIT_ACTION.equals(entry.getActionType())) {
+                addId(ids, earlierControlId(entry));
             }
         }
-        return new ArrayList<>(folders);
+        for (AdminAuditLog entry : entries) {
+            addId(ids, entry.getControlControlId());
+        }
+        ids.remove(control.getControlId() == null ? "" : control.getControlId().trim());
+        ids.removeIf(controlRepository::existsByControlId);
+        return new ArrayList<>(ids);
+    }
+
+    private static void addId(LinkedHashSet<String> ids, String id) {
+        if (id != null && !id.isBlank()) {
+            ids.add(id.trim());
+        }
     }
 
     private String earlierControlId(AdminAuditLog entry) {
@@ -168,18 +190,54 @@ public class ControlRenameService {
         }
     }
 
-    /** The files go with the ID; a failure leaves them in the old folder, where downloads still find them. */
-    private void moveAttachments(Long id, String oldId, String newId) {
-        String from = FileStorageService.controlFolder(oldId, id);
+    /**
+     * The files go with the ID: the folder of the old ID moves to the new one, and the files the control lists
+     * that still lie under IDs it had before (renamed before files moved along) join them. A failure leaves
+     * files where they are, where downloads still find them.
+     */
+    private void moveAttachments(Control control, String oldId, String newId) {
+        Long id = control.getId();
         String to = FileStorageService.controlFolder(newId, id);
+        int moved = 0;
         try {
-            int moved = fileStorageService.moveControlFolder(from, to);
-            if (moved > 0) {
-                log.info("Control {}: {} attachment(s) moved with the rename from {} to {}", id, moved, oldId, newId);
-            }
+            moved += fileStorageService.moveControlFolder(FileStorageService.controlFolder(oldId, id), to);
         } catch (Exception e) {
             log.warn("Control {}: attachments stay in the folder of its earlier ID {} ({})", id, oldId, e.toString());
         }
+        try {
+            for (String earlier : earlierControlIds(control)) {
+                for (String name : listedFiles(control)) {
+                    try {
+                        if (fileStorageService.moveFile(name, earlier, to)) {
+                            moved++;
+                        }
+                    } catch (Exception e) {
+                        log.warn("Control {}: attachment {} stays in the folder of its earlier ID {} ({})",
+                                id, name, earlier, e.toString());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Control {}: earlier IDs could not be read, their files stay where they are ({})", id, e.toString());
+        }
+        if (moved > 0) {
+            log.info("Control {}: {} attachment(s) moved with the rename from {} to {}", id, moved, oldId, newId);
+        }
+    }
+
+    /** The file names on both attachment tabs. */
+    private static List<String> listedFiles(Control control) {
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        for (String list : new String[]{control.getAttachmentDetailsPath(), control.getAttachmentDocumentsPath()}) {
+            if (list != null) {
+                for (String part : list.split(";")) {
+                    if (!part.isBlank()) {
+                        names.add(part.trim());
+                    }
+                }
+            }
+        }
+        return new ArrayList<>(names);
     }
 
     /** Runs the action once the transaction has committed, so a rename rolled back moves no files. */

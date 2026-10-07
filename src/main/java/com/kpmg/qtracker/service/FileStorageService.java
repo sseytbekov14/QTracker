@@ -182,6 +182,30 @@ public class FileStorageService {
     }
 
     /**
+     * Moves one file from a folder to another (Rename ID gathering files left under an earlier ID). Returns
+     * false when the old folder does not have it or the new one already has a file of that name.
+     */
+    public boolean moveFile(String filename, String fromFolder, String toFolder) throws IOException {
+        if (!hasFolder(fromFolder) || !hasFolder(toFolder)) {
+            return false;
+        }
+        Path source = filePath(filename, fromFolder);
+        Path target = filePath(filename, toFolder);
+        if (source.equals(target) || !Files.isRegularFile(source) || Files.exists(target)) {
+            return false;
+        }
+        Files.createDirectories(target.getParent());
+        Files.move(source, target);
+        Path from = source.getParent();
+        try (Stream<Path> rest = Files.list(from)) {
+            if (rest.findAny().isEmpty()) {
+                Files.delete(from);
+            }
+        }
+        return true;
+    }
+
+    /**
      * Deletes a file from storage
      */
     public void deleteFile(String filename) throws IOException {

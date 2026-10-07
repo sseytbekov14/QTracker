@@ -17,9 +17,6 @@ public interface AdminAuditLogRepository extends JpaRepository<AdminAuditLog, Lo
     
     // Find all logs for a specific control
     List<AdminAuditLog> findByControlIdOrderByCreatedAtDesc(Long controlId);
-
-    // Entries of one action on a control, newest first (e.g. its Control ID renames)
-    List<AdminAuditLog> findByControlIdAndActionTypeOrderByCreatedAtDesc(Long controlId, String actionType);
     
     // Find logs by action type
     List<AdminAuditLog> findByActionTypeOrderByCreatedAtDesc(String actionType);
