@@ -1,6 +1,7 @@
 package com.kpmg.qtracker.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kpmg.qtracker.dto.ErrorResponse;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAttachment;
 import com.kpmg.qtracker.entity.User;
@@ -14,6 +15,8 @@ import com.kpmg.qtracker.service.FileStorageService;
 import com.kpmg.qtracker.service.PermissionService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -23,8 +26,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,6 +42,7 @@ import java.util.Set;
 @RestController
 @RequestMapping("/api/attachments")
 @RequiredArgsConstructor
+@Slf4j
 public class FileAttachmentController {
 
     private final FileStorageService fileStorageService;
@@ -49,6 +55,8 @@ public class FileAttachmentController {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final int MAX_FILES_PER_TAB = 50;
+    static final String FILE_NOT_FOUND = "FILE_NOT_FOUND";
+    static final String FILE_NOT_FOUND_MESSAGE = "File not found";
     private static final List<String> ALLOWED_EXTENSIONS =
             List.of(".pdf", ".docx", ".doc", ".xlsx", ".xls", ".csv", ".png", ".jpg", ".jpeg");
 
@@ -214,34 +222,60 @@ public class FileAttachmentController {
     /**
      * Download a file
      * GET /api/attachments/download/{filename}
+     * Anyone who may read the control downloads the files it lists. Errors are JSON (ErrorResponse): 400 without
+     * controlId, 401, 403 "Access denied" and 404 "Control not found" (GlobalExceptionHandler), 404 "File not
+     * found" for a file the control does not list or that is missing on disk.
      */
     @GetMapping("/download/{filename:.+}")
-    public ResponseEntity<byte[]> downloadFile(@PathVariable String filename,
-                                               @RequestParam(value = "controlId", required = false) Long controlId,
-                                               HttpSession session) {
+    public ResponseEntity<?> downloadFile(@PathVariable String filename,
+                                          @RequestParam(value = "controlId", required = false) Long controlId,
+                                          HttpSession session) {
         if (controlId == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            return error(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "controlId is required");
         }
         Control control = permissionService.requireReadable(controlId, getCurrentUser(session));
+        String decodedFilename;
         try {
-            String decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8).trim();
-            // Only a file this control lists; the storage then refuses any name that would leave its folder
-            if (!controlAttachmentService.isAttached(control, decodedFilename)) {
-                return ResponseEntity.notFound().build();
-            }
+            decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8).trim();
+        } catch (IllegalArgumentException e) {
+            return fileNotFound();
+        }
+        // Only a file this control lists; the storage then refuses any name that would leave its folder
+        if (!controlAttachmentService.isAttached(control, decodedFilename)) {
+            return fileNotFound();
+        }
+        try {
             byte[] fileContent = fileStorageService.downloadFile(decodedFilename,
                     controlRenameService.attachmentFolders(control));
             String mimeType = fileStorageService.getMimeType(decodedFilename);
-            
+
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(mimeType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition("attachment", decodedFilename))
                     .body(fileContent);
-                    
-        } catch (Exception e) {
-            System.err.println("❌ Download error: " + e.getMessage());
-            return ResponseEntity.notFound().build();
+        } catch (NoSuchFileException e) {
+            // Listed on the control but gone from the attachments folder
+            log.warn("Attachment missing on disk: control {} (id {}), file {}",
+                    control.getControlId(), control.getId(), decodedFilename);
+            return fileNotFound();
+        } catch (SecurityException e) {
+            return fileNotFound();
+        } catch (IOException e) {
+            log.error("Attachment could not be read: control {} (id {}), file {} ({})",
+                    control.getControlId(), control.getId(), decodedFilename, e.getClass().getSimpleName());
+            return error(HttpStatus.INTERNAL_SERVER_ERROR, "FILE_UNREADABLE", "The file could not be read");
         }
+    }
+
+    private static ResponseEntity<ErrorResponse> fileNotFound() {
+        return error(HttpStatus.NOT_FOUND, FILE_NOT_FOUND, FILE_NOT_FOUND_MESSAGE);
+    }
+
+    private static ResponseEntity<ErrorResponse> error(HttpStatus status, String code, String message) {
+        String correlationId = MDC.get("correlationId");
+        return ResponseEntity.status(status)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(code, message, correlationId == null ? "N/A" : correlationId));
     }
 
     /**

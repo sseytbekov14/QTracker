@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -116,7 +117,8 @@ public class FileStorageService {
     /**
      * Returns the file bytes for download from the first of the folders that has it (the control's folder,
      * then the folders of its earlier IDs), else from the upload root, where files uploaded before control
-     * folders existed lie.
+     * folders existed lie. NoSuchFileException when none has it; SecurityException for a name that would
+     * leave its folder.
      */
     public byte[] downloadFile(String filename, List<String> controlFolders) throws IOException {
         List<Path> candidates = new ArrayList<>();
@@ -131,7 +133,7 @@ public class FileStorageService {
                 return Files.readAllBytes(filePath);
             }
         }
-        throw new IOException("File not found: " + filename);
+        throw new NoSuchFileException(filename);
     }
 
     /**
@@ -231,6 +233,7 @@ public class FileStorageService {
         if (lower.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
         if (lower.endsWith(".xls")) return "application/vnd.ms-excel";
         if (lower.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        if (lower.endsWith(".csv")) return "text/csv";
         if (lower.endsWith(".png")) return "image/png";
         if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
         if (lower.endsWith(".gif")) return "image/gif";

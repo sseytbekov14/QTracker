@@ -13,6 +13,7 @@ import com.kpmg.qtracker.service.PermissionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -29,6 +30,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -61,7 +63,7 @@ class FileAttachmentDownloadPathTest {
         Control control = new Control();
         control.setId(1L);
         control.setControlId("HR1");
-        control.setAttachmentDetailsPath("report.pdf;20260101_abcd1234_old.pdf;../HR2/secret.pdf;"
+        control.setAttachmentDetailsPath("report.pdf;20260101_abcd1234_old.pdf;gone.pdf;../HR2/secret.pdf;"
                 + "..\\HR2\\secret.pdf;../../outside.txt");
 
         ControlService controlService = mock(ControlService.class);
@@ -86,7 +88,25 @@ class FileAttachmentDownloadPathTest {
 
     @Test
     void fileOfAnotherControl_isNotServed() throws Exception {
-        download("secret.pdf").andExpect(status().isNotFound());
+        download("secret.pdf").andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.code").value("FILE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("File not found"));
+    }
+
+    @Test
+    void listedFileMissingOnDisk_is404Json() throws Exception {
+        download("gone.pdf").andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.code").value("FILE_NOT_FOUND"));
+    }
+
+    @Test
+    void withoutControlId_is400Json() throws Exception {
+        mockMvc.perform(get("/api/attachments/download/report.pdf").sessionAttr("currentUser", user))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.message").value("controlId is required"));
     }
 
     @Test
@@ -97,7 +117,8 @@ class FileAttachmentDownloadPathTest {
         download("%252e%252e%252fHR2%252fsecret.pdf").andExpect(status().isNotFound());
         // Backslashes: "..\HR2\secret.pdf"
         download("..%5CHR2%5Csecret.pdf").andExpect(status().isNotFound());
-        download("%2e%2e%2f%2e%2e%2foutside.txt").andExpect(status().isNotFound());
+        download("%2e%2e%2f%2e%2e%2foutside.txt").andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("FILE_NOT_FOUND"));
 
         // The names did reach the storage, which refused them
         verify(storage, org.mockito.Mockito.times(2)).downloadFile(eq("../HR2/secret.pdf"), eq(List.of("HR1")));
