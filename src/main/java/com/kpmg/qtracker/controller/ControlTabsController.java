@@ -430,9 +430,8 @@ public class ControlTabsController {
         }
         if (changes(existing != null ? existing.getControlOperatorReview() : null, incoming.getControlOperatorReview())
                 && !permission.canWriteOperatorReview()) {
-            return ControlStepsFields.OPERATOR_PROGRAM_LABEL + (permission.isStepsSplit()
-                    ? " is filled in by the Control Operator while the control is in Review"
-                    : " is used only when the Facilitator and the Control Operator are different people");
+            return ControlStepsFields.OPERATOR_PROGRAM_LABEL
+                    + " is filled in by the Control Operator while the control is in Review";
         }
         return null;
     }

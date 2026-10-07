@@ -191,8 +191,8 @@ class ControlPermissionServiceBusinessTest {
         }
 
         @Test
-        @DisplayName("Facilitator и Control Operator — один человек: на REVIEW одно поле Steps Performed")
-        void samePersonInBothSlots_writesTheOneStepsFieldAtReview() {
+        @DisplayName("Facilitator и Control Operator — один человек: на REVIEW пишет и Control Operator's Program")
+        void samePersonInBothSlots_writesTheOperatorsProgramAtReview() {
             User user = makeUser(CO_EMAIL, "CONTROL_OPERATOR", false);
             Control control = makeControl(1L, "HR-001", "REVIEW");
             ControlAssignmentDTO assignment = assignmentWithControlOperator(CO_EMAIL);
@@ -203,8 +203,9 @@ class ControlPermissionServiceBusinessTest {
 
             assertThat(perm.isStepsSplit()).isFalse();
             assertThat(perm.getAllowedEditableFields())
-                    .containsExactly(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
-            assertThat(perm.canWriteOperatorReview()).isFalse();
+                    .containsExactly(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED,
+                            ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW);
+            assertThat(perm.canWriteOperatorReview()).isTrue();
         }
 
         @Test
@@ -223,8 +224,8 @@ class ControlPermissionServiceBusinessTest {
         }
 
         @Test
-        @DisplayName("SoQM в режиме «разные люди» правит оба поля, в режиме «один человек» — только первое")
-        void soqmWritesBothStepsFields_onlyWhileSplit() {
+        @DisplayName("SoQM правит оба поля, один человек Facilitator и Control Operator или разные")
+        void soqmWritesBothStepsFields_onePersonOrNot() {
             User soqm = makeUser(SOQM_EMAIL, "SOQM_TEAM", false);
             Control control = makeControl(1L, "HR-001", "SOQM_HEAD_REVIEW");
             ControlAssignmentDTO split = assignmentWithControlOperator(CO_EMAIL);
@@ -238,7 +239,7 @@ class ControlPermissionServiceBusinessTest {
             assertThat(splitPerm.canWriteStepsPerformed()).isTrue();
             assertThat(splitPerm.canWriteOperatorReview()).isTrue();
             assertThat(onePerm.canWriteStepsPerformed()).isTrue();
-            assertThat(onePerm.canWriteOperatorReview()).isFalse();
+            assertThat(onePerm.canWriteOperatorReview()).isTrue();
         }
 
         @Test

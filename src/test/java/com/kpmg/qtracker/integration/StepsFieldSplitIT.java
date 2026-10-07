@@ -212,31 +212,32 @@ class StepsFieldSplitIT {
         assertThat(fieldAuthors(control, ControlStepsFields.STEPS_LABEL)).containsExactly(fac2.getMail());
     }
 
-    // ------------------------------------------------------------------ one person: one field
+    // ------------------------------------------------------------------ one person: Facilitator and Operator
 
     @Test
-    void onePersonInBothSlots_writesTheOneField_atBothSteps() throws Exception {
+    void onePersonInBothSlots_writesTheOperatorsProgramInReview_notInProgress() throws Exception {
         Control control = control("IN_PROGRESS", fac.getMail() + ";" + fac2.getMail(), " " + fac.getMail().toUpperCase() + " ", null, null);
         MockHttpSession facSession = login(fac);
 
         assertThat(save(control, facSession, STEPS, "Steps as Facilitator")).isEqualTo(200);
-        setStatus(control, "REVIEW");
-        assertThat(save(control, facSession, STEPS, "Steps as Operator")).isEqualTo(200);
-        assertThat(details(control).getControlStepsPerformed()).isEqualTo("Steps as Operator");
-
-        MvcResult refused = saveResult(control, facSession, REVIEW, "A second field");
-        assertThat(refused.getResponse().getStatus()).isEqualTo(403);
-        assertThat(refused.getResponse().getContentAsString())
-                .contains("is used only when the Facilitator and the Control Operator are different people");
+        MvcResult tooEarly = saveResult(control, facSession, REVIEW, "Program while In Progress");
+        assertThat(tooEarly.getResponse().getStatus()).isEqualTo(403);
+        assertThat(tooEarly.getResponse().getContentAsString())
+                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the Control Operator while the control is in Review");
         assertThat(details(control).getControlOperatorReview()).isNull();
+
+        setStatus(control, "REVIEW");
+        assertThat(save(control, facSession, REVIEW, "Program as Operator")).isEqualTo(200);
+        assertThat(details(control).getControlOperatorReview()).isEqualTo("Program as Operator");
+        assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL)).containsExactly(fac.getMail());
 
         // The other Facilitator is not the Operator: the Review step is not theirs
         assertThat(save(control, login(fac2), STEPS, "Not my step")).isEqualTo(403);
+        assertThat(save(control, login(fac2), REVIEW, "Not my step")).isEqualTo(403);
 
         JsonNode permissions = json(get("/api/permissions/{id}", control.getId()), facSession).path("permissions");
         assertThat(permissions.path("stepsSplit").asBoolean()).isFalse();
-        assertThat(permissions.path("canEditStepsPerformed").asBoolean()).isTrue();
-        assertThat(permissions.path("canEditOperatorReview").asBoolean()).isFalse();
+        assertThat(permissions.path("canEditOperatorReview").asBoolean()).isTrue();
     }
 
     // ------------------------------------------------------------------ Submit to SoQM
@@ -340,7 +341,7 @@ class StepsFieldSplitIT {
         JsonNode permissions = json(get("/api/permissions/{id}", control.getId()), facSession).path("permissions");
         assertThat(permissions.path("stepsSplit").asBoolean()).isFalse();
         assertThat(save(control, facSession, STEPS, "Steps, rewritten by the new Operator")).isEqualTo(200);
-        assertThat(save(control, facSession, REVIEW, "Hidden field")).isEqualTo(403);
+        assertThat(save(control, facSession, REVIEW, "Program by the new Operator")).isEqualTo(200);
 
         // Not required any more while it is one person, even when empty; the stored value stays
         ControlDetails cleared = details(control);
@@ -363,7 +364,7 @@ class StepsFieldSplitIT {
     }
 
     @Test
-    void soqm_writesBothFieldsWhileSplit_andOnlyTheStepsFieldForOnePerson() throws Exception {
+    void soqm_writesBothFields_onePersonOrNot() throws Exception {
         MockHttpSession soqmSession = login(soqm);
         Control split = control("SOQM_HEAD_REVIEW", fac.getMail(), op.getMail(), "Steps", "Review");
         assertThat(save(split, soqmSession, STEPS, "Steps by SoQM")).isEqualTo(200);
@@ -372,14 +373,15 @@ class StepsFieldSplitIT {
 
         Control onePerson = control("SOQM_HEAD_REVIEW", fac.getMail(), fac.getMail(), "Steps", "Kept from before");
         assertThat(save(onePerson, soqmSession, STEPS, "Steps by SoQM")).isEqualTo(200);
-        assertThat(save(onePerson, soqmSession, REVIEW, "Hidden field")).isEqualTo(403);
-        // Edit mode sends the hidden field as the page loaded it (a textarea turns CRLF into LF): no change
-        ControlDetails crlf = details(onePerson);
-        crlf.setControlOperatorReview("Line 1\r\nLine 2");
-        detailsRepository.save(crlf);
-        assertThat(save(onePerson, soqmSession, "{\"" + STEPS + "\":\"Steps again\",\"" + REVIEW + "\":\"Line 1\\nLine 2\"}"))
+        assertThat(save(onePerson, soqmSession, REVIEW, "Program by SoQM")).isEqualTo(200);
+        assertValues(onePerson, "Steps by SoQM", "Program by SoQM");
+        assertThat(fieldAuthors(onePerson, ControlStepsFields.OPERATOR_PROGRAM_LABEL)).containsExactly(soqm.getMail());
+
+        // A field the user may not change, sent as the page loaded it (a textarea turns CRLF into LF): no change
+        Control inProgress = control("IN_PROGRESS", fac.getMail(), fac.getMail(), "Steps", "Line 1\r\nLine 2");
+        assertThat(save(inProgress, login(fac), "{\"" + STEPS + "\":\"Steps again\",\"" + REVIEW + "\":\"Line 1\\nLine 2\"}"))
                 .isEqualTo(200);
-        assertValues(onePerson, "Steps again", "Line 1\r\nLine 2");
+        assertValues(inProgress, "Steps again", "Line 1\r\nLine 2");
     }
 
     // ------------------------------------------------------------------ View Control
@@ -393,7 +395,7 @@ class StepsFieldSplitIT {
         assertThat(page).contains("name=\"controlStepsPerformed\"")
                 .contains(">" + ControlStepsFields.STEPS_LABEL + "<")
                 .contains("id=\"stepsSplit\" value=\"false\"")
-                .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed\"")
+                .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed,controlOperatorReview\"")
                 // the page script names the field; the markup has neither the row nor the textarea
                 .doesNotContain("id=\"operatorReviewRow\"")
                 .doesNotContain("id=\"controlOperatorReview\"")

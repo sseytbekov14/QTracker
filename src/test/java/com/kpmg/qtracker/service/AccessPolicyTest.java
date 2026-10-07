@@ -155,8 +155,13 @@ class AccessPolicyTest {
             "PART,         IN_PROGRESS,          false, F,          true,  false,   controlStepsPerformed",
             "PART,         REVIEW,               false, F,          false, false,   -",
             "PART,         DRAFT,                false, F,          false, false,   -",
-            "PART,         REVIEW,               false, CO,         true,  false,   controlStepsPerformed",
-            "PART,         REVIEW,               false, F+CO,       true,  false,   controlStepsPerformed",
+            // The Control Operator writes Control Operator's Program in Review whether or not they are a Facilitator
+            "PART,         REVIEW,               false, CO,         true,  false,   controlStepsPerformed+controlOperatorReview",
+            "PART,         REVIEW,               false, F+CO,       true,  false,   controlStepsPerformed+controlOperatorReview",
+            "PART,         IN_PROGRESS,          false, F+CO,       true,  false,   controlStepsPerformed",
+            "KDN,          REVIEW,               true,  CO,         false, false,   -",
+            "RO,           REVIEW,               false, CO,         false, false,   -",
+            "PART,         REVIEW,               false, SHARED,     false, false,   -",
             // Facilitator and Control Operator are different people: one field each, each on its own step
             "PART,         IN_PROGRESS,          false, F+SPLIT,    true,  false,   controlStepsPerformed",
             "PART,         REVIEW,               false, F+SPLIT,    false, false,   -",
@@ -198,14 +203,20 @@ class AccessPolicyTest {
 
     @ParameterizedTest(name = "{0} {1} {2}")
     @CsvSource({
-            // user,     status,      places,       steps field, operator review field
+            // user,     status,      places,       steps field, Control Operator's Program
             "SOQM,       REVIEW,      SPLIT,        true,  true",
-            "SOQM,       REVIEW,      -,            true,  false",
+            "SOQM,       REVIEW,      -,            true,  true",
             "SOQM,       COMPLETED,   SPLIT,        false, false",
             "PART,       IN_PROGRESS, F+SPLIT,      true,  false",
             "PART,       IN_PROGRESS, F,            true,  false",
             "PART,       REVIEW,      CO+SPLIT,     false, true",
-            "PART,       REVIEW,      CO,           true,  false",
+            "PART,       REVIEW,      CO,           true,  true",
+            "PART,       REVIEW,      F+CO,         true,  true",
+            "PART,       IN_PROGRESS, F+CO,         true,  false",
+            "PART,       REVIEW,      F,            false, false",
+            "PART,       REVIEW,      SHARED,       false, false",
+            "KDN,        REVIEW,      CO,           false, false",
+            "RO,         REVIEW,      CO,           false, false",
             "PART,       REVIEW,      F+SPLIT,      false, false",
             "PART,       REVIEW,      SHARED+SPLIT, false, false",
             "RO_ALL,     REVIEW,      SPLIT,        false, false",
@@ -213,7 +224,7 @@ class AccessPolicyTest {
     void whoWritesEachStepsField(String user, String status, String places, boolean steps, boolean review) {
         ControlPermission p = AccessPolicy.resolve(who(user), control(status, false, places));
         assertThat(p.canWriteStepsPerformed()).as("Control Steps Performed").isEqualTo(steps);
-        assertThat(p.canWriteOperatorReview()).as("Control Operator Review").isEqualTo(review);
+        assertThat(p.canWriteOperatorReview()).as("Control Operator's Program").isEqualTo(review);
     }
 
     // ------------------------------------------------------------------ workflow steps

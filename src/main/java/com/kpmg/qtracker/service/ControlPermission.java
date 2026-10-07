@@ -8,7 +8,7 @@ import java.util.Set;
 public final class ControlPermission {
     public static final String FIELD_CONTROL_STEPS_PERFORMED = "controlStepsPerformed";
     public static final String FIELD_PROCESS_OWNER_COMMENTS = "processOwnerComments";
-    /** Control Operator's Program: only when the Facilitator and the Operator differ. */
+    /** Control Operator's Program: the Control Operator's own field, written in Review. */
     public static final String FIELD_CONTROL_OPERATOR_REVIEW = "controlOperatorReview";
 
     private final boolean canView;
@@ -170,11 +170,11 @@ public final class ControlPermission {
     }
 
     /**
-     * Who saves Control Operator's Program: SoQM or the Control Operator in Review, and only while
-     * the control has two fields; with one person the field is not shown and nobody writes it.
+     * Who saves Control Operator's Program: SoQM (on behalf of the Control Operator, the Changelog names who
+     * saved it) or the Control Operator in Review, whether or not the Operator is also a Facilitator.
      */
     public boolean canWriteOperatorReview() {
-        return stepsSplit && (canEditAll || canEditOperatorReview());
+        return canEditAll || canEditOperatorReview();
     }
 
     public boolean canEditProcessOwnerComments() {

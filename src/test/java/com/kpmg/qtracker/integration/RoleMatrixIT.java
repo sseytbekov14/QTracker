@@ -298,12 +298,12 @@ class RoleMatrixIT {
                 && (who.scope() != AccessScope.KDN || who.kdnControl());
         boolean participantStep = actsInStep && (("IN_PROGRESS".equals(status) && inF)
                 || ("REVIEW".equals(status) && inCO) || ("PROCESS_OWNER_REVIEW".equals(status) && inPO));
-        // Steps fields: one person -> one field, written by whoever's step it is; different people -> the
-        // Facilitator's field in In Progress, the Control Operator's own field in Review; SoQM writes both
+        // Steps fields: the Facilitator's field in In Progress (one person: also in Review), Control Operator's
+        // Program in Review by the Control Operator, one person or not; SoQM writes both
         boolean split = stepsSplit(who);
         boolean stepsField = soqmEdits || (actsInStep && (("IN_PROGRESS".equals(status) && inF)
                 || ("REVIEW".equals(status) && inCO && !split)));
-        boolean operatorField = split && (soqmEdits || (actsInStep && "REVIEW".equals(status) && inCO));
+        boolean operatorField = soqmEdits || (actsInStep && "REVIEW".equals(status) && inCO);
 
         return switch (op) {
             // The page's notice (no buttons the server refuses): Read Only and KDN everywhere, a User with Edit
