@@ -307,181 +307,6 @@ html.tab-init-pending #mainTabContent {
 .ac-swatch-overdue { background: var(--kpmg-red); }
 .ac-swatch-active { background: #d6e4f5; }
 
-/* KDN controls (fragments/kdn-controls.html): first and accented for KDN users, after the components for others */
-.kdn-block {
-    background: var(--kpmg-white);
-    border: 1px solid var(--kpmg-gray-200);
-    border-radius: 6px;
-    padding: 14px 18px 16px;
-    margin: 18px 0 0;
-    color: var(--kpmg-gray-800);
-}
-.kdn-block.is-primary {
-    margin: 0 0 18px;
-    border-top: 3px solid var(--kpmg-blue);
-}
-.kdn-block-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px 16px;
-    margin-bottom: 12px;
-}
-.kdn-block-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 700;
-}
-.kdn-code { background: #f3ecfa; color: #5b2a86; }
-.kdn-block-sub {
-    margin: 4px 0 0;
-    font-size: 0.78rem;
-    color: var(--kpmg-gray-600);
-}
-.kdn-block-all {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--kpmg-blue);
-    text-decoration: none;
-    white-space: nowrap;
-}
-.kdn-block-all:hover { text-decoration: underline; color: var(--kpmg-blue); }
-.kdn-block-all:focus-visible,
-.kdn-stat:focus-visible,
-.kdn-row:focus-visible,
-.kdn-show-all:focus-visible {
-    outline: 2px solid var(--kpmg-blue);
-    outline-offset: 2px;
-}
-.kdn-stats {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 8px;
-    margin: 0 0 12px;
-    padding: 0;
-    list-style: none;
-}
-.kdn-stat {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 8px 12px;
-    border: 1px solid var(--kpmg-gray-200);
-    border-radius: 4px;
-    background: var(--kpmg-gray-50);
-    color: var(--kpmg-gray-800);
-    text-decoration: none;
-}
-.kdn-stat:hover { border-color: var(--kpmg-blue-light); color: var(--kpmg-gray-800); text-decoration: none; }
-.kdn-stat-num { font-size: 1.3rem; font-weight: 700; line-height: 1.1; color: var(--kpmg-blue); }
-.kdn-stat-label {
-    margin-top: 2px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--kpmg-gray-600);
-}
-.kdn-stat.is-progress .kdn-stat-num { color: var(--kpmg-amber-text); }
-.kdn-stat.is-review .kdn-stat-num { color: #004085; }
-.kdn-stat.is-completed .kdn-stat-num { color: #00703a; }
-.kdn-stat.is-overdue { border-left: 3px solid var(--kpmg-red); }
-.kdn-stat.is-overdue .kdn-stat-num { color: var(--kpmg-red); }
-.kdn-stat.is-overdue.is-zero { border-left-color: var(--kpmg-gray-200); }
-.kdn-stat.is-overdue.is-zero .kdn-stat-num { color: var(--kpmg-gray-800); }
-.kdn-empty {
-    margin: 0;
-    padding: 14px 4px 4px;
-    font-size: 0.86rem;
-    color: var(--kpmg-gray-600);
-}
-.kdn-empty i { margin-right: 6px; color: var(--kpmg-gray-400); }
-.kdn-list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-.kdn-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 150px 120px 190px;
-    align-items: center;
-    gap: 12px;
-    padding: 9px 12px;
-    border: 1px solid var(--kpmg-gray-200);
-    border-left: 3px solid var(--kpmg-blue-light);
-    margin-bottom: -1px;
-    color: var(--kpmg-gray-800);
-    text-decoration: none;
-}
-.kdn-row:hover { background: #f0f4fa; color: var(--kpmg-gray-800); text-decoration: none; }
-.kdn-row.is-overdue { border-left-color: var(--kpmg-red); }
-.kdn-row-main { display: flex; flex-direction: column; min-width: 0; }
-.kdn-row-id { font-size: 0.82rem; font-weight: 700; color: var(--kpmg-blue); }
-.kdn-row-title {
-    font-size: 0.78rem;
-    color: var(--kpmg-gray-600);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.kdn-row-deadline { font-size: 0.78rem; color: var(--kpmg-gray-600); white-space: nowrap; }
-.kdn-row.is-overdue .kdn-row-deadline { color: var(--kpmg-red); font-weight: 600; }
-.kdn-row-flags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
-.kdn-status,
-.kdn-flag {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: 3px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    white-space: nowrap;
-}
-.kdn-status.is-draft     { background: var(--kpmg-gray-200); color: #4a5163; }
-.kdn-status.is-progress  { background: #fff3cd; color: #6b5104; }
-.kdn-status.is-review    { background: #cce5ff; color: #004085; }
-.kdn-status.is-soqm      { background: #e2d5f1; color: #4a2d7a; }
-.kdn-status.is-po        { background: #d1f0ef; color: #0b5c5a; }
-.kdn-status.is-completed { background: #d4edda; color: #155724; }
-.kdn-flag.is-overdue { background: var(--kpmg-red); color: var(--kpmg-white); }
-.kdn-flag.is-reopened { background: var(--kpmg-white); color: var(--kpmg-blue); border: 1px solid var(--kpmg-blue-light); }
-.kdn-show-all {
-    margin-top: 10px;
-    padding: 5px 14px;
-    border: 1px solid var(--kpmg-gray-200);
-    border-radius: 14px;
-    background: var(--kpmg-white);
-    color: var(--kpmg-blue);
-    font-size: 0.78rem;
-    font-weight: 600;
-}
-.kdn-show-all:hover { border-color: var(--kpmg-blue); }
-@media (max-width: 991.98px) {
-    .kdn-row { grid-template-columns: minmax(0, 1fr) auto auto; }
-    .kdn-row-flags { grid-column: 1 / -1; justify-content: flex-start; }
-    .kdn-row-flags:empty { display: none; }
-}
-/* Phone: Total on its own line, the other four two by two; each row a card */
-@media (max-width: 575.98px) {
-    .kdn-block { padding: 12px; }
-    .kdn-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .kdn-stat-total { grid-column: 1 / -1; }
-    .kdn-row {
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 6px 10px;
-        margin-bottom: 8px;
-        border-radius: 6px;
-    }
-    .kdn-row-main { grid-column: 1 / -1; }
-    .kdn-row-title { white-space: normal; }
-    .kdn-row-deadline { text-align: right; }
-}
-
 /* ── Notifications ── */
 .notif-body { padding-top: 16px; }
 .notif-filter {
@@ -1298,11 +1123,6 @@ a.stat-block:focus-visible,
                         </div>
 
                         <div class="ac-body" th:if="${componentSummaries != null}">
-                            <!--/* KDN users: their KDN controls come first (they have no action blocks) */-->
-                            <th:block th:if="${kdnUser and kdnOverview != null}">
-                                <section th:replace="~{fragments/kdn-controls :: block}"></section>
-                            </th:block>
-
                             <!-- Overall -->
                             <a class="ac-summary" href="/component/All" th:with="all=${componentSummaryAll}">
                                 <div class="ac-summary-title">
@@ -1323,45 +1143,23 @@ a.stat-block:focus-visible,
                             </a>
 
                             <!-- Components -->
+                            <!--/* KDN is one more card: first for KDN users, last for the others */-->
                             <div class="ac-grid">
-                                <a th:each="c : ${componentSummaries}"
-                                   class="ac-card"
-                                   th:href="@{'/component/' + ${c.code()}}"
-                                   th:classappend="${c.total() == 0} ? 'is-empty' : (${c.overdue() > 0} ? 'has-overdue' : '')">
-                                    <div class="ac-card-head">
-                                        <span class="ac-code" th:text="${c.code()}">HR</span>
-                                        <span th:if="${c.overdue() > 0}" class="ac-overdue-flag"
-                                              th:text="${c.overdue()} + ' overdue'">1 overdue</span>
-                                    </div>
-                                    <div class="ac-name" th:text="${c.name()}">Human Resources</div>
-                                    <th:block th:if="${c.total() > 0}">
-                                        <div class="ac-counts">
-                                            <strong th:text="${c.total()}">0</strong>
-                                            <span th:text="${c.total() == 1} ? 'control' : 'controls'">controls</span>
-                                            <span class="ac-dot">·</span>
-                                            <span th:text="${c.active()} + ' active'">0 active</span>
-                                            <span class="ac-dot">·</span>
-                                            <span th:text="${c.completed()} + ' done'">0 done</span>
-                                        </div>
-                                        <div class="ac-progress" role="img"
-                                             th:attr="aria-label=${c.completedPercent()} + '% completed, ' + ${c.overdue()} + ' overdue'">
-                                            <span class="ac-progress-completed" th:style="'width:' + ${c.completed() * 100.0 / c.total()} + '%'"></span>
-                                            <span class="ac-progress-overdue" th:style="'width:' + ${c.overdue() * 100.0 / c.total()} + '%'"></span>
-                                        </div>
-                                    </th:block>
-                                    <div th:if="${c.total() == 0}" class="ac-counts">No controls</div>
-                                </a>
+                                <th:block th:if="${kdnUser and kdnSummary != null}">
+                                    <a th:replace="~{fragments/action-centre :: card(${kdnSummary}, ${kdnHref})}"></a>
+                                </th:block>
+                                <th:block th:each="c : ${componentSummaries}">
+                                    <a th:replace="~{fragments/action-centre :: card(${c}, ${'/component/' + c.code()})}"></a>
+                                </th:block>
+                                <th:block th:if="${!kdnUser and kdnSummary != null}">
+                                    <a th:replace="~{fragments/action-centre :: card(${kdnSummary}, ${kdnHref})}"></a>
+                                </th:block>
                             </div>
                             <div class="ac-legend" aria-hidden="true">
                                 <span><i class="ac-swatch ac-swatch-completed"></i>Completed</span>
                                 <span><i class="ac-swatch ac-swatch-overdue"></i>Overdue</span>
                                 <span><i class="ac-swatch ac-swatch-active"></i>Active</span>
                             </div>
-
-                            <!--/* KDN controls, next to the components (SoQM Team, All controls, My controls holding some) */-->
-                            <th:block th:if="${!kdnUser and kdnOverview != null}">
-                                <section th:replace="~{fragments/kdn-controls :: block}"></section>
-                            </th:block>
                         </div>
                     </div>
 

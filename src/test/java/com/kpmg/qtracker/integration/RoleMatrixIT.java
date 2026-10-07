@@ -362,7 +362,7 @@ class RoleMatrixIT {
             case "Create control", "Export button", "Assignment picker" -> soqm;
             // Admin Panel, users and audit: SoQM Team and only SoQM Team
             case "Admin Panel", "Admin Panel change" -> soqm;
-            // Action Centre "KDN controls": SoQM Team, All controls and KDN always; My controls only with a KDN
+            // Action Centre "KDN" card: SoQM Team, All controls and KDN always; My controls only with a KDN
             // control among theirs, and no My controls row of the matrix is on one
             case "KDN block" -> active && (soqm || who.scope() == AccessScope.ALL || who.scope() == AccessScope.KDN);
             default -> throw new IllegalArgumentException(op);
@@ -475,7 +475,7 @@ class RoleMatrixIT {
         MvcResult dashboard = perform(get("/"), session);
         ModelAndView dashboardView = dashboard.getModelAndView();
         row.put("KDN block", dashboard.getResponse().getStatus() == 200 && dashboardView != null
-                ? (dashboardView.getModel().get("kdnOverview") != null ? "ok" : "hidden")
+                ? (dashboardView.getModel().get("kdnSummary") != null ? "ok" : "hidden")
                 : outcome(dashboard));
         return row;
     }

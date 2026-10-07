@@ -196,10 +196,13 @@ public class ViewController {
 
         // ===== ACTION CENTRE DATA =====
         addComponentSummaries(model, allControls);
-        // KDN controls: the KDN controls among those the user sees (no query of its own); first for KDN users
-        KdnControlsOverview.Overview kdnOverview = KdnControlsOverview.of(allControls, todayAlmaty);
-        if (AccessPolicy.showsKdnBlock(subject, kdnOverview.total())) {
-            model.addAttribute("kdnOverview", kdnOverview);
+        // KDN: one more card like the components, of the KDN controls the user sees (no query of its own);
+        // first in the grid for KDN users, last for the others
+        DeadlineOverdue.Counts kdn = KdnControlsOverview.count(allControls, todayAlmaty);
+        if (AccessPolicy.showsKdnBlock(subject, kdn.total())) {
+            model.addAttribute("kdnSummary", new ComponentSummary("KDN", "KDN controls",
+                    kdn.total(), kdn.active(), kdn.overdue(), kdn.completed()));
+            model.addAttribute("kdnHref", KdnControlsOverview.CONTROLS_HREF);
         }
         model.addAttribute("kdnUser", AccessPolicy.isKdnUser(subject));
 
@@ -291,15 +294,13 @@ public class ViewController {
         // Apply status filter for all users (not just SOQM_TEAM)
         if (!normalizedStatus.isBlank()) {
             String upperStatus = normalizedStatus.toUpperCase(Locale.ROOT);
-            // IN_REVIEW: the three review statuses together (the "In review" counter of the KDN block)
             Set<String> allowedStatuses = Set.of(
                     "DRAFT",
                     "IN_PROGRESS",
                     "REVIEW",
                     "SOQM_HEAD_REVIEW",
                     "PROCESS_OWNER_REVIEW",
-                    "COMPLETED",
-                    IN_REVIEW
+                    "COMPLETED"
             );
             if (allowedStatuses.contains(upperStatus)) {
                 statusFilter = upperStatus;
@@ -372,9 +373,7 @@ public class ViewController {
                 userControlsList = userControlsList.stream()
                         .filter(control -> {
                             String controlStatus = normalizeStatus(control.getPerformanceStatus());
-                            boolean matches = IN_REVIEW.equals(filterValue)
-                                    ? KdnControlsOverview.inReview(controlStatus)
-                                    : filterValue.equals(controlStatus);
+                            boolean matches = filterValue.equals(controlStatus);
                             if (matches) {
                                 System.out.println("   ✅ Control " + control.getControlId() + " status=" + controlStatus + " matches");
                             }
@@ -501,9 +500,6 @@ public class ViewController {
                 .orElse(null);
     }
 
-    /** The status filter that groups the three review statuses (REVIEW, SOQM_HEAD_REVIEW, PROCESS_OWNER_REVIEW). */
-    static final String IN_REVIEW = "IN_REVIEW";
-
     /** kdn=1 (or true) on /controls: only the KDN controls among those the user sees. */
     private static boolean isKdnFilter(String kdn) {
         return kdn != null && ("1".equals(kdn.trim()) || "true".equalsIgnoreCase(kdn.trim()));
@@ -560,10 +556,6 @@ public class ViewController {
         chips.add(new FilterLink("Review", controlsUrl("status", "REVIEW", component, kdn), "REVIEW".equals(status)));
         chips.add(new FilterLink("SoQM Review", controlsUrl("status", "SOQM_HEAD_REVIEW", component, kdn), "SOQM_HEAD_REVIEW".equals(status)));
         chips.add(new FilterLink("Process Owner Review", controlsUrl("status", "PROCESS_OWNER_REVIEW", component, kdn), "PROCESS_OWNER_REVIEW".equals(status)));
-        // The three review statuses together: a chip only while it is the filter (KDN block's "In review")
-        if (IN_REVIEW.equals(status)) {
-            chips.add(new FilterLink("In review (all)", controlsUrl("status", IN_REVIEW, component, kdn), true));
-        }
         chips.add(new FilterLink("Completed", controlsUrl("filter", "COMPLETED", component, kdn), "COMPLETED".equals(status)));
         chips.add(new FilterLink("Overdue", controlsUrl("filter", "OVERDUE", component, kdn), "OVERDUE".equals(status)));
         model.addAttribute("statusChips", chips);

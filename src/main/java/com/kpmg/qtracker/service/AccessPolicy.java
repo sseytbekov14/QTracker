@@ -306,7 +306,7 @@ public final class AccessPolicy {
     }
 
     /**
-     * The "KDN controls" block of the Action Centre ({@link KdnControlsOverview}): shown to those who see the KDN
+     * The "KDN" card of the Action Centre ({@link KdnControlsOverview}): shown to those who see the KDN
      * controls without being on them (SoQM Team, All controls, KDN), even before there is one; to My controls
      * only when some of the controls they see are KDN controls. Which controls it lists is {@link #canView}'s.
      */
