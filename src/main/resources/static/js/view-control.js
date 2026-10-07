@@ -1390,7 +1390,7 @@ function confirmWorkflowAction() {
         stepsField.style.backgroundColor = '';
     }
 
-    // Control Operator Review and Results: the Control Operator's own field while the steps field is split
+    // Control Operator's Program: the Control Operator's own field while the steps field is split
     function enableOperatorReviewField() {
         const reviewField = document.querySelector('textarea[name="controlOperatorReview"]');
         if (!reviewField) {
@@ -3396,7 +3396,7 @@ function getWorkflowRoleRequirement() {
         const reviewField = document.querySelector('textarea[name="controlOperatorReview"]');
         if (reviewField) {
             const label = document.querySelector('label[for="controlOperatorReview"] span')?.textContent
-                || 'Control Operator Review and Results';
+                || "Control Operator's Program";
             return {
                 field: reviewField,
                 message: 'To submit, please fill: ' + label

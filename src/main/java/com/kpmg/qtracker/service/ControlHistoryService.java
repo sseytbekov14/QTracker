@@ -250,9 +250,10 @@ public class ControlHistoryService {
             case ControlStepsFields.STEPS_LABEL:
             case "control_steps_performed":
                 return ControlStepsFields.STEPS_LABEL;
-            case ControlStepsFields.OPERATOR_REVIEW_LABEL:
+            case ControlStepsFields.OPERATOR_PROGRAM_LABEL:
+            case ControlStepsFields.FORMER_OPERATOR_REVIEW_LABEL:
             case "control_operator_review":
-                return ControlStepsFields.OPERATOR_REVIEW_LABEL;
+                return ControlStepsFields.OPERATOR_PROGRAM_LABEL;
             default:
                 return humanizeFieldLabel(field);
         }

@@ -1714,7 +1714,8 @@ class ApiSecurityMockMvcIT {
                 "SOQM_HEAD_REVIEW", "soqmHeadComments", "PROCESS_OWNER_REVIEW", "processOwnerComments");
         Map<String, String> labelOf = Map.of(
                 "controlStepsPerformed", "Control Steps Performed and Results",
-                "controlOperatorReview", "Control Operator Review and Results",
+                // the page escapes the apostrophe
+                "controlOperatorReview", "Control Operator&#39;s Program",
                 "soqmHeadComments", "SoQM Head/Team Comments",
                 "processOwnerComments", "Process Owner Comments");
 

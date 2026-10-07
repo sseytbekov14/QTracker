@@ -1,5 +1,6 @@
 package com.kpmg.qtracker.dto;
 
+import com.kpmg.qtracker.service.ControlStepsFields;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -22,7 +23,7 @@ public class ControlDetailsDTO {
     private String itApplications;
     @Size(max = 2000, message = "Control Steps Performed must be at most 2000 characters")
     private String controlStepsPerformed;
-    @Size(max = 2000, message = "Control Operator Review and Results must be at most 2000 characters")
+    @Size(max = 2000, message = ControlStepsFields.OPERATOR_PROGRAM_LABEL + " must be at most 2000 characters")
     private String controlOperatorReview;
     @Size(max = 2000, message = "SoQM Head Comments must be at most 2000 characters")
     private String soqmHeadComments;

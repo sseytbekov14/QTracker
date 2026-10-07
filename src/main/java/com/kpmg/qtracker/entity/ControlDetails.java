@@ -26,7 +26,7 @@ public class ControlDetails {
     @Column(length = 2000)
     private String controlStepsPerformed;
 
-    /** Control Operator Review and Results: written only when the Facilitator and the Operator differ (ControlStepsFields). */
+    /** Control Operator's Program (ControlStepsFields.OPERATOR_PROGRAM_LABEL); the column keeps its first name. */
     @Column(name = "control_operator_review", length = 2000)
     private String controlOperatorReview;
 

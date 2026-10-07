@@ -85,7 +85,7 @@ public class ControlTabsController {
                     existingDetails.getItApplications(), mergedDetails.getItApplications());
             collectChange(changedFields, previousValues, newValues, ControlStepsFields.STEPS_LABEL,
                     existingDetails.getControlStepsPerformed(), mergedDetails.getControlStepsPerformed());
-            collectChange(changedFields, previousValues, newValues, ControlStepsFields.OPERATOR_REVIEW_LABEL,
+            collectChange(changedFields, previousValues, newValues, ControlStepsFields.OPERATOR_PROGRAM_LABEL,
                     existingDetails.getControlOperatorReview(), mergedDetails.getControlOperatorReview());
             collectChange(changedFields, previousValues, newValues, "SoQM Head/Team Comments",
                     existingDetails.getSoqmHeadComments(), mergedDetails.getSoqmHeadComments());
@@ -430,7 +430,7 @@ public class ControlTabsController {
         }
         if (changes(existing != null ? existing.getControlOperatorReview() : null, incoming.getControlOperatorReview())
                 && !permission.canWriteOperatorReview()) {
-            return ControlStepsFields.OPERATOR_REVIEW_LABEL + (permission.isStepsSplit()
+            return ControlStepsFields.OPERATOR_PROGRAM_LABEL + (permission.isStepsSplit()
                     ? " is filled in by the Control Operator while the control is in Review"
                     : " is used only when the Facilitator and the Control Operator are different people");
         }

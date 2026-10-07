@@ -9,6 +9,8 @@ import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.enums.AccessScope;
+import com.kpmg.qtracker.entity.AdminAuditLog;
+import com.kpmg.qtracker.repository.AdminAuditLogRepository;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
@@ -28,6 +30,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.web.util.HtmlUtils;
 
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -83,6 +86,8 @@ class StepsFieldSplitIT {
     @Autowired
     private ControlDetailsRepository detailsRepository;
     @Autowired
+    private AdminAuditLogRepository auditLogRepository;
+    @Autowired
     private PasswordEncoder passwordEncoder;
     @Autowired
     private ObjectMapper objectMapper;
@@ -129,7 +134,7 @@ class StepsFieldSplitIT {
         MvcResult refused = saveResult(control, facSession, REVIEW, "Facilitator writes the review");
         assertThat(refused.getResponse().getStatus()).isEqualTo(403);
         assertThat(refused.getResponse().getContentAsString())
-                .contains(ControlStepsFields.OPERATOR_REVIEW_LABEL + " is filled in by the Control Operator");
+                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the Control Operator");
         assertThat(details(control).getControlOperatorReview()).isNull();
 
         setStatus(control, "REVIEW");
@@ -202,7 +207,7 @@ class StepsFieldSplitIT {
         assertThat(save(control, login(op2), REVIEW, "Review by the second Operator")).isEqualTo(200);
         assertThat(save(control, login(op), REVIEW, "Review by the first Operator")).isEqualTo(200);
 
-        List<String> authors = fieldAuthors(control, ControlStepsFields.OPERATOR_REVIEW_LABEL);
+        List<String> authors = fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL);
         assertThat(authors).containsExactlyInAnyOrder(op.getMail(), op2.getMail());
         assertThat(fieldAuthors(control, ControlStepsFields.STEPS_LABEL)).containsExactly(fac2.getMail());
     }
@@ -245,7 +250,7 @@ class StepsFieldSplitIT {
                 .param("controlId", String.valueOf(split.getId())), opSession);
         assertThat(missing.getResponse().getStatus()).isEqualTo(400);
         assertThat(missing.getResponse().getContentAsString())
-                .contains("Required field is missing: " + ControlStepsFields.OPERATOR_REVIEW_LABEL);
+                .contains("Required field is missing: " + ControlStepsFields.OPERATOR_PROGRAM_LABEL);
         assertThat(status(split)).isEqualTo("REVIEW");
 
         // The other way in, as View Control's action buttons send it
@@ -253,7 +258,7 @@ class StepsFieldSplitIT {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlId\":" + split.getId() + ",\"action\":\"SUBMIT_FOR_SOQM\"}"), opSession);
         assertThat(viaAction.getResponse().getStatus()).isEqualTo(400);
-        assertThat(viaAction.getResponse().getContentAsString()).contains(ControlStepsFields.OPERATOR_REVIEW_LABEL);
+        assertThat(viaAction.getResponse().getContentAsString()).contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL);
         assertThat(status(split)).isEqualTo("REVIEW");
 
         assertThat(save(split, opSession, REVIEW, "Reviewed")).isEqualTo(200);
@@ -319,7 +324,7 @@ class StepsFieldSplitIT {
         assertValues(control, "Steps v2", "Review v4");
 
         assertThat(fieldAuthors(control, ControlStepsFields.STEPS_LABEL)).containsExactly(fac.getMail());
-        assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_REVIEW_LABEL))
+        assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL))
                 .containsExactly(op.getMail(), op.getMail(), op.getMail());
     }
 
@@ -392,7 +397,7 @@ class StepsFieldSplitIT {
                 // the page script names the field; the markup has neither the row nor the textarea
                 .doesNotContain("id=\"operatorReviewRow\"")
                 .doesNotContain("id=\"controlOperatorReview\"")
-                .doesNotContain(">" + ControlStepsFields.OPERATOR_REVIEW_LABEL + "<")
+                .doesNotContain(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<")
                 .doesNotContain("class=\"steps-field-owner\"");
     }
 
@@ -406,7 +411,7 @@ class StepsFieldSplitIT {
         String operatorPage = page(control, login(op));
         assertThat(operatorPage).contains("name=\"controlStepsPerformed\"")
                 .contains("id=\"controlOperatorReview\"")
-                .contains(">" + ControlStepsFields.OPERATOR_REVIEW_LABEL + "<")
+                .contains(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<")
                 .contains("<span class=\"steps-field-owner\">Facilitator</span>")
                 .contains("<span class=\"steps-field-owner\">Control Operator</span>")
                 .contains("id=\"operatorReviewSubmitHint\"")
@@ -433,6 +438,30 @@ class StepsFieldSplitIT {
                 .contains("id=\"allowedEditableFields\" value=\"\"");
     }
 
+    // ------------------------------------------------------------------ Changelog
+
+    @Test
+    void changelog_showsAnEntryWrittenUnderTheFormerName_underTheNewOne_andLeavesTheStoredEntryAsItWas() throws Exception {
+        Control control = control("REVIEW", fac.getMail(), op.getMail(), "Steps", "Program");
+        AdminAuditLog former = new AdminAuditLog();
+        former.setAdminEmail(op.getMail());
+        former.setAdminName(op.getDisplayName());
+        former.setActionType("EDIT");
+        former.setControlId(control.getId());
+        former.setControlControlId(control.getControlId());
+        former.setActionDescription("Edit Control");
+        former.setChangedFields("[\"" + ControlStepsFields.FORMER_OPERATOR_REVIEW_LABEL + "\"]");
+        former.setPreviousValues("{\"" + ControlStepsFields.FORMER_OPERATOR_REVIEW_LABEL + "\":\"\"}");
+        former.setNewValues("{\"" + ControlStepsFields.FORMER_OPERATOR_REVIEW_LABEL + "\":\"Program\"}");
+        former.setCreatedAt(LocalDateTime.now().minusDays(1));
+        former = auditLogRepository.save(former);
+
+        assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL)).containsExactly(op.getMail());
+        assertThat(fieldAuthors(control, ControlStepsFields.FORMER_OPERATOR_REVIEW_LABEL)).isEmpty();
+        assertThat(auditLogRepository.findById(former.getId()).orElseThrow().getChangedFields())
+                .contains(ControlStepsFields.FORMER_OPERATOR_REVIEW_LABEL);
+    }
+
     // ------------------------------------------------------------------ Excel
 
     @Test
@@ -441,13 +470,13 @@ class StepsFieldSplitIT {
 
         Map<String, String> split = exportRows(control("COMPLETED", fac.getMail(), op.getMail(), "Steps", "Review"), soqmSession);
         assertThat(split).containsEntry(ControlStepsFields.STEPS_LABEL, "Steps")
-                .containsEntry(ControlStepsFields.OPERATOR_REVIEW_LABEL, "Review");
-        assertThat(new ArrayList<>(split.keySet()).indexOf(ControlStepsFields.OPERATOR_REVIEW_LABEL))
+                .containsEntry(ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Review");
+        assertThat(new ArrayList<>(split.keySet()).indexOf(ControlStepsFields.OPERATOR_PROGRAM_LABEL))
                 .isEqualTo(new ArrayList<>(split.keySet()).indexOf(ControlStepsFields.STEPS_LABEL) + 1);
 
         Map<String, String> onePerson = exportRows(control("COMPLETED", fac.getMail(), fac.getMail(), "Steps", "Kept from before"), soqmSession);
         assertThat(onePerson).containsEntry(ControlStepsFields.STEPS_LABEL, "Steps")
-                .doesNotContainKey(ControlStepsFields.OPERATOR_REVIEW_LABEL);
+                .doesNotContainKey(ControlStepsFields.OPERATOR_PROGRAM_LABEL);
     }
 
     private Map<String, String> exportRows(Control control, MockHttpSession session) throws Exception {

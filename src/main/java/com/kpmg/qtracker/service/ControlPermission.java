@@ -8,7 +8,7 @@ import java.util.Set;
 public final class ControlPermission {
     public static final String FIELD_CONTROL_STEPS_PERFORMED = "controlStepsPerformed";
     public static final String FIELD_PROCESS_OWNER_COMMENTS = "processOwnerComments";
-    /** Control Operator Review and Results: only when the Facilitator and the Operator differ. */
+    /** Control Operator's Program: only when the Facilitator and the Operator differ. */
     public static final String FIELD_CONTROL_OPERATOR_REVIEW = "controlOperatorReview";
 
     private final boolean canView;
@@ -159,7 +159,7 @@ public final class ControlPermission {
         return locked && canView ? AccessPolicy.LOCKED_MESSAGE : otherwise;
     }
 
-    /** Two steps fields: the Facilitator's and Control Operator Review and Results. */
+    /** Two steps fields: the Facilitator's and Control Operator's Program. */
     public boolean isStepsSplit() {
         return stepsSplit;
     }
@@ -170,7 +170,7 @@ public final class ControlPermission {
     }
 
     /**
-     * Who saves Control Operator Review and Results: SoQM or the Control Operator in Review, and only while
+     * Who saves Control Operator's Program: SoQM or the Control Operator in Review, and only while
      * the control has two fields; with one person the field is not shown and nobody writes it.
      */
     public boolean canWriteOperatorReview() {

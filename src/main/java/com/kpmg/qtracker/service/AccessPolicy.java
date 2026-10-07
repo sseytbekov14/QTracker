@@ -431,7 +431,7 @@ public final class AccessPolicy {
     /**
      * Fields a participant may change while the step is theirs: the Facilitator Control Steps Performed in
      * In Progress; the Control Operator in Review the same field, or, when the Facilitator and the Operator
-     * are different people, only Control Operator Review and Results; the Process Owner Process Owner
+     * are different people, only Control Operator's Program; the Process Owner Process Owner
      * Comments in Process Owner Review.
      */
     public static Set<String> participantFields(Subject subject, ControlFacts control) {

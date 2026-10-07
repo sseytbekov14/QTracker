@@ -22,7 +22,13 @@ public final class ControlStepsFields {
 
     // TODO: BUSINESS CONFIRMATION: the names of both fields (View Control, Excel, history, error messages)
     public static final String STEPS_LABEL = "Control Steps Performed and Results";
-    public static final String OPERATOR_REVIEW_LABEL = "Control Operator Review and Results";
+    /** The Control Operator's field (column control_operator_review), named so everywhere a person sees it. */
+    public static final String OPERATOR_PROGRAM_LABEL = "Control Operator's Program";
+    /**
+     * The field's name until 2026-10-07. Changelog entries written before then keep it in the database; the
+     * Changelog shows them under {@link #OPERATOR_PROGRAM_LABEL} ({@code ControlHistoryService}).
+     */
+    public static final String FORMER_OPERATOR_REVIEW_LABEL = "Control Operator Review and Results";
 
     private ControlStepsFields() {
     }
@@ -46,7 +52,7 @@ public final class ControlStepsFields {
         return onePerson(join(facilitators), join(controlOperators));
     }
 
-    /** Different people: the control has the second field (Control Operator Review and Results). */
+    /** Different people: the control has the second field (Control Operator's Program). */
     public static boolean split(String facilitators, String controlOperators) {
         return !onePerson(facilitators, controlOperators);
     }

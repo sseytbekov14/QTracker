@@ -755,7 +755,7 @@ public class ControlController {
                 // As on View Control: the Operator's own field only when the Facilitator and the Operator differ
                 if (assignment != null
                         && ControlStepsFields.split(assignment.getFacilitator(), assignment.getControlOperator())) {
-                    rowNum = addRow(sheet, rowNum, ControlStepsFields.OPERATOR_REVIEW_LABEL, details.getControlOperatorReview());
+                    rowNum = addRow(sheet, rowNum, ControlStepsFields.OPERATOR_PROGRAM_LABEL, details.getControlOperatorReview());
                 }
             }
 

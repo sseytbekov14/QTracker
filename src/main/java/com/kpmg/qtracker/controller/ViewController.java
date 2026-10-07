@@ -1014,7 +1014,7 @@ public class ViewController {
         // One steps field or two (ControlStepsFields): the second is not rendered for one person
         model.addAttribute("stepsSplit", permission.isStepsSplit());
         model.addAttribute("stepsLabel", ControlStepsFields.STEPS_LABEL);
-        model.addAttribute("operatorReviewLabel", ControlStepsFields.OPERATOR_REVIEW_LABEL);
+        model.addAttribute("operatorProgramLabel", ControlStepsFields.OPERATOR_PROGRAM_LABEL);
 
         // Read Only / KDN, or a User with Edit who is not assigned: a notice instead of buttons the server refuses
         model.addAttribute("accessNotice", AccessPolicy.notice(AccessPolicy.Subject.of(currentUser), permission).name());

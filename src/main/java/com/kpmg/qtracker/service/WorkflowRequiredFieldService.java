@@ -18,8 +18,8 @@ public class WorkflowRequiredFieldService {
     private final ControlAssignmentRepository controlAssignmentRepository;
 
     public static final String MISSING_STEPS = "Required field is missing: Control steps performed and results";
-    public static final String MISSING_OPERATOR_REVIEW = "Required field is missing: "
-            + ControlStepsFields.OPERATOR_REVIEW_LABEL;
+    public static final String MISSING_OPERATOR_PROGRAM = "Required field is missing: "
+            + ControlStepsFields.OPERATOR_PROGRAM_LABEL;
 
     /**
      * The Details field a step needs before its actions go through (the checks below), for the "Your step" hint
@@ -41,7 +41,7 @@ public class WorkflowRequiredFieldService {
         String status = performanceStatus == null ? "" : performanceStatus.trim().toUpperCase(Locale.ROOT);
         if (stepsSplit && "REVIEW".equals(status)) {
             return Optional.of(new StepField(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW,
-                    ControlStepsFields.OPERATOR_REVIEW_LABEL, false,
+                    ControlStepsFields.OPERATOR_PROGRAM_LABEL, false,
                     "Submit for SoQM Team Review or Return to Facilitator"));
         }
         return switch (status) {
@@ -61,8 +61,8 @@ public class WorkflowRequiredFieldService {
     /**
      * Control Steps Performed must be filled in to move a control on from In Progress, Review or SoQM review,
      * whoever does it (one person may hold several fields of a control). From Review (Submit to SoQM Team)
-     * a control whose Facilitator and Control Operator are different people also needs Control Operator
-     * Review and Results ({@link ControlStepsFields}); the other steps require nothing new.
+     * a control whose Facilitator and Control Operator are different people also needs Control Operator's
+     * Program ({@link ControlStepsFields}); the other steps require nothing new.
      */
     public Optional<String> getMissingFieldMessage(Control control) {
         if (control == null) {
@@ -81,7 +81,7 @@ public class WorkflowRequiredFieldService {
         if ("REVIEW".equals(status) && stepsSplit(control)) {
             String review = details != null ? details.getControlOperatorReview() : null;
             if (review == null || review.trim().isEmpty()) {
-                return Optional.of(MISSING_OPERATOR_REVIEW);
+                return Optional.of(MISSING_OPERATOR_PROGRAM);
             }
         }
 

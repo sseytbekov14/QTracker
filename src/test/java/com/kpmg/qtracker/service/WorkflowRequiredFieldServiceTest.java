@@ -31,7 +31,7 @@ class WorkflowRequiredFieldServiceTest {
         details.setControlStepsPerformed("Steps by the Facilitator");
         details.setControlOperatorReview("  ");
         assertThat(service.getMissingFieldMessage(control("REVIEW")))
-                .contains("Required field is missing: Control Operator Review and Results");
+                .contains("Required field is missing: Control Operator's Program");
 
         details.setControlOperatorReview("Reviewed by the Operator");
         assertThat(service.getMissingFieldMessage(control("REVIEW"))).isEmpty();
@@ -141,7 +141,7 @@ class WorkflowRequiredFieldServiceTest {
         WorkflowRequiredFieldService.StepField stepField =
                 WorkflowRequiredFieldService.stepField("REVIEW", true).orElseThrow();
         assertThat(stepField.field()).isEqualTo("controlOperatorReview");
-        assertThat(stepField.label()).isEqualTo(ControlStepsFields.OPERATOR_REVIEW_LABEL);
+        assertThat(stepField.label()).isEqualTo(ControlStepsFields.OPERATOR_PROGRAM_LABEL);
         assertThat(stepField.check()).isFalse();
         // the other steps are the same in both modes
         for (String status : java.util.List.of("IN_PROGRESS", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW")) {
