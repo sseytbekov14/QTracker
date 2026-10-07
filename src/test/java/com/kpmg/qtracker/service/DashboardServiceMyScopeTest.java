@@ -96,6 +96,27 @@ class DashboardServiceMyScopeTest {
         assertThat(result.getValues().stream().mapToLong(Long::longValue).sum()).isEqualTo(2L);
     }
 
+    @Test
+    void kdnCharts_coverEveryKdnControlTheySee_onItOrNot() {
+        User kdn = TestUsers.user("kdn@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.READ_ONLY,
+                com.kpmg.qtracker.enums.AccessScope.KDN, false);
+        kdn.setId(11L);
+        Control onIt = buildControl(300L, "Monthly", "HR");
+        Control notOnIt = buildControl(301L, "Monthly", "GOV");
+        Control draft = buildControl(302L, "Annual", "GOV");
+        draft.setPerformanceStatus("DRAFT");
+        when(controlService.findVisibleControlsForUser(kdn)).thenReturn(List.of(onIt, notOnIt, draft));
+
+        DashboardChartDataDTO frequency = dashboardService.getMyFrequencyBreakdown(kdn);
+        DashboardChartDataDTO component = dashboardService.getMyComponentBreakdown(kdn);
+
+        // No assignment is looked at; drafts stay out of the charts as for everyone
+        assertThat(frequency.getLabels()).containsExactly("Monthly");
+        assertThat(frequency.getValues()).containsExactly(2L);
+        assertThat(component.getLabels()).containsExactly("HR", "GOV");
+        assertThat(component.getValues()).containsExactly(1L, 1L);
+    }
+
     private User buildUser(Long id, String email, String role) {
         User user = new User();
         user.setId(id);

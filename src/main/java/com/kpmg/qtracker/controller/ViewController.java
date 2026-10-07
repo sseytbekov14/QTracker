@@ -15,6 +15,7 @@ import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.repository.WorkflowStepRepository;
 import com.kpmg.qtracker.service.*;
 import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
+import com.kpmg.qtracker.util.RoleDisplayMapper;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -230,8 +231,9 @@ public class ViewController {
         String userEmail = currentUser.getMail();
         AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
         boolean soqm = AccessPolicy.isSoqm(subject);
-        // SoQM, admins and scope ALL: "active" = not completed; everyone else: the controls waiting for them
-        boolean seesAll = AccessPolicy.seesAllControls(subject);
+        // SoQM Team, All controls and KDN (they see controls they are not on): "active" = not completed;
+        // everyone else: the controls waiting for them
+        boolean seesAll = AccessPolicy.seesWithoutBeingOn(subject);
         String normalizedScope = scope == null ? "" : scope.trim().toLowerCase(Locale.ROOT);
         String normalizedStatus = status == null ? "" : status.trim();
         String normalizedFilter = filter == null ? "" : filter.trim();
@@ -376,6 +378,7 @@ public class ViewController {
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userEmail", userEmail);
         model.addAttribute("userSeesAll", seesAll);
+        model.addAttribute("controlsSubtitle", RoleDisplayMapper.visibleControls(AccessPolicy.Profile.of(currentUser)));
         model.addAttribute("canExportAll", AccessPolicy.canExportAllControls(subject));
         String resolvedControlsFilter = effectiveScope;
         if (overdueFilter && !soqm) {
@@ -420,7 +423,8 @@ public class ViewController {
             return new ArrayList<>();
         }
         String userEmail = currentUser.getMail();
-        boolean seesAll = AccessPolicy.seesAllControls(AccessPolicy.Subject.of(currentUser));
+        // "Shared" (view only) only for those who see a control because it is shared with them
+        boolean seesAll = AccessPolicy.seesWithoutBeingOn(AccessPolicy.Subject.of(currentUser));
         List<Control> visibleControls = controlService.findVisibleControlsForUser(currentUser);
         Map<Long, ControlResponseDTO> controlMap = new LinkedHashMap<>();
         for (Control control : visibleControls) {

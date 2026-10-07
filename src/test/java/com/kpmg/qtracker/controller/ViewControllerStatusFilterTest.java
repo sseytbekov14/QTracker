@@ -1222,6 +1222,54 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
+    void controls_kdn_activeIsEveryNotCompletedKdnControl_withTheKdnSubtitle_andNoSharedTag() throws Exception {
+        User kdn = TestUsers.user("kdn@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.READ_ONLY,
+                com.kpmg.qtracker.enums.AccessScope.KDN, false);
+        kdn.setId(41L);
+
+        ControlResponseDTO notOnIt = new ControlResponseDTO();
+        notOnIt.setId(411L);
+        notOnIt.setControlId("KDN-411");
+        notOnIt.setPerformanceStatus("REVIEW");
+        notOnIt.setCreatedAt(java.time.LocalDateTime.now());
+        ControlResponseDTO draft = new ControlResponseDTO();
+        draft.setId(412L);
+        draft.setControlId("KDN-412");
+        draft.setPerformanceStatus("DRAFT");
+        draft.setCreatedAt(java.time.LocalDateTime.now().minusDays(1));
+        ControlResponseDTO completed = new ControlResponseDTO();
+        completed.setId(413L);
+        completed.setControlId("KDN-413");
+        completed.setPerformanceStatus("COMPLETED");
+        completed.setCreatedAt(java.time.LocalDateTime.now().minusDays(2));
+        mockVisibleControls(kdn, List.of(notOnIt, draft, completed));
+
+        MvcResult active = mockMvc.perform(get("/controls").param("scope", "active").sessionAttr("currentUser", kdn))
+                .andExpect(status().isOk())
+                .andReturn();
+        @SuppressWarnings("unchecked")
+        List<ControlResponseDTO> activeControls =
+                (List<ControlResponseDTO>) active.getModelAndView().getModel().get("controls");
+        assertThat(activeControls).extracting(ControlResponseDTO::getId).containsExactly(411L, 412L);
+        assertThat(active.getModelAndView().getModel().get("controlsSubtitle"))
+                .isEqualTo("All KDN controls (Control ID starting with KDN), drafts included");
+        assertThat(active.getResponse().getContentAsString())
+                .contains("All KDN controls (Control ID starting with KDN), drafts included")
+                .doesNotContain("Controls assigned to you, shared with you or created by you");
+
+        MvcResult all = mockMvc.perform(get("/controls").sessionAttr("currentUser", kdn))
+                .andExpect(status().isOk())
+                .andReturn();
+        @SuppressWarnings("unchecked")
+        List<ControlResponseDTO> allControls =
+                (List<ControlResponseDTO>) all.getModelAndView().getModel().get("controls");
+        assertThat(allControls).extracting(ControlResponseDTO::getId).containsExactly(411L, 412L, 413L);
+        assertThat(allControls).noneMatch(ControlResponseDTO::isSharedViewOnly);
+        assertThat(all.getModelAndView().getModel().get("activeControls")).isEqualTo(2);
+        assertThat(all.getModelAndView().getModel().get("completedControls")).isEqualTo(1);
+    }
+
+    @Test
     void controls_marksYourTurn_andShowsCurrentAssignee() throws Exception {
         User facilitator = new User();
         facilitator.setId(41L);

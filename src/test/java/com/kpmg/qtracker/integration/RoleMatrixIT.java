@@ -1,6 +1,7 @@
 package com.kpmg.qtracker.integration;
 
 import com.kpmg.qtracker.config.DevUserSeeder;
+import com.kpmg.qtracker.dto.ControlResponseDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.ControlDetails;
@@ -137,7 +138,7 @@ class RoleMatrixIT {
             new Who("anonymous", "not signed in", null, null, Place.NONE, false, false, true));
 
     private static final List<String> CONTROL_OPS = List.of(
-            "View page", "Notice", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
+            "In Controls list", "View page", "Notice", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
             "Assign", "Upload", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)");
 
@@ -307,6 +308,8 @@ class RoleMatrixIT {
             case "Notice" -> !sees || notYet ? "-"
                     : !writer ? "READ_ONLY"
                     : soqm || listed ? "NONE" : "NOT_ASSIGNED";
+            // The Controls list (and the dashboard tiles counted from it) holds every control the user sees
+            case "In Controls list" -> sees ? "ok" : "refused";
             case "View page" -> !sees ? "refused"
                     : notYet ? "not yet" : "ok";
             case "Read API", "History", "Download" -> sees && !notYet ? "ok" : "refused";
@@ -367,6 +370,7 @@ class RoleMatrixIT {
         MockHttpSession session = sessions.get(who.key());
 
         Control control = control(who, status);
+        row.put("In Controls list", inControlsList(control, session));
         row.put("View page", page(get("/view-control/{id}", control.getId()), session));
         row.put("Notice", notice(control, session));
         row.put("Read API", answer(get("/api/control-details").param("controlId", String.valueOf(control.getId())), session));
@@ -482,6 +486,18 @@ class RoleMatrixIT {
             return notice + " buttons!";
         }
         return notice;
+    }
+
+    /** "ok" when /controls lists the control, "absent" when it does not, otherwise what the page answered. */
+    private String inControlsList(Control control, MockHttpSession session) throws Exception {
+        MvcResult result = perform(get("/controls"), session);
+        ModelAndView mav = result.getModelAndView();
+        if (result.getResponse().getStatus() != 200 || mav == null || !"controls".equals(mav.getViewName())) {
+            return outcome(result);
+        }
+        @SuppressWarnings("unchecked")
+        List<ControlResponseDTO> listed = (List<ControlResponseDTO>) mav.getModel().get("controls");
+        return listed.stream().anyMatch(dto -> control.getId().equals(dto.getId())) ? "ok" : "absent";
     }
 
     private String page(MockHttpServletRequestBuilder request, MockHttpSession session) throws Exception {

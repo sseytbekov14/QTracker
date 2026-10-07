@@ -338,6 +338,10 @@ public class DashboardService {
             return Collections.emptyList();
         }
         List<Control> candidates = controlService.findVisibleControlsForUser(currentUser);
+        if (AccessPolicy.chartsCoverEveryVisibleControl(AccessPolicy.Subject.of(currentUser))) {
+            // KDN: every KDN control, as their tiles and Controls list
+            return safeControls(candidates);
+        }
         Predicate<Control> predicate = buildMyScopePredicate(currentUser);
         return safeControls(candidates).stream()
                 .filter(predicate)

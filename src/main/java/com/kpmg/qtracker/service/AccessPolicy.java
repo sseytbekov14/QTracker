@@ -280,6 +280,14 @@ public final class AccessPolicy {
     }
 
     /**
+     * The dashboard charts of a user without the organisation-wide ones cover every control they see: KDN, who
+     * see every KDN control and are on few of them. Everyone else's charts cover the controls they are on.
+     */
+    public static boolean chartsCoverEveryVisibleControl(Subject subject) {
+        return active(subject) && subject.scope() == AccessScope.KDN && !isSoqm(subject);
+    }
+
+    /**
      * The Admin Panel, its users and the audit trail: every SoQM Team member and only them (the stored
      * admin_access flag decides nothing). The one place this rule lives.
      */
