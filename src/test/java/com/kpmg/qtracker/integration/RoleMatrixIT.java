@@ -165,7 +165,7 @@ class RoleMatrixIT {
     private static final List<String> KDN_ID_FORMS = List.of("KDN-RM-%d", "KDNRM%d", "kdn-rm-%d", "Kdn_RM_%d");
 
     private static final List<String> USER_OPS = List.of(
-            "Create control", "Export button", "Assignment picker", "Admin Panel", "Admin Panel change");
+            "Create control", "Export button", "Assignment picker", "Admin Panel", "Admin Panel change", "KDN block");
 
     @Autowired
     private MockMvc mockMvc;
@@ -362,6 +362,9 @@ class RoleMatrixIT {
             case "Create control", "Export button", "Assignment picker" -> soqm;
             // Admin Panel, users and audit: SoQM Team and only SoQM Team
             case "Admin Panel", "Admin Panel change" -> soqm;
+            // Action Centre "KDN controls": SoQM Team, All controls and KDN always; My controls only with a KDN
+            // control among theirs, and no My controls row of the matrix is on one
+            case "KDN block" -> active && (soqm || who.scope() == AccessScope.ALL || who.scope() == AccessScope.KDN);
             default -> throw new IllegalArgumentException(op);
         };
     }
@@ -469,6 +472,11 @@ class RoleMatrixIT {
                 .param("visibility", "MY")
                 .param("access", "EDIT")
                 .param("enabled", "true"), session));
+        MvcResult dashboard = perform(get("/"), session);
+        ModelAndView dashboardView = dashboard.getModelAndView();
+        row.put("KDN block", dashboard.getResponse().getStatus() == 200 && dashboardView != null
+                ? (dashboardView.getModel().get("kdnOverview") != null ? "ok" : "hidden")
+                : outcome(dashboard));
         return row;
     }
 
