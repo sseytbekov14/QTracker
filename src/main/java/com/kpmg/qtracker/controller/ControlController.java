@@ -98,6 +98,28 @@ public class ControlController {
         }
     }
 
+    /**
+     * What renaming to the new ID would do to KDN access (who gains or loses it), for the confirmation in
+     * the Rename ID dialog. SoQM only, like the rename; nothing is saved.
+     */
+    @GetMapping("/{id}/rename-preview")
+    public ResponseEntity<?> renamePreview(@PathVariable Long id,
+                                           @RequestParam(required = false) String newControlId,
+                                           HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Optional<Control> control = controlService.findById(id);
+        if (control.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!AccessPolicy.canRenameId(controlPermissionService.resolve(control.get(), currentUser))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not authorized to rename controls");
+        }
+        return ResponseEntity.ok(controlRenameService.preview(control.get(), newControlId));
+    }
+
     @PostMapping("/{id}/rename-id")
     public ResponseEntity<?> renameControlId(@PathVariable Long id,
                                              @RequestBody Map<String, String> request,

@@ -122,4 +122,27 @@ class ControlRenameServiceTest {
         assertThat(gaining.gaining()).containsExactly("kdn@kpmg.kz", "other.kdn@kpmg.kz");
         assertThat(gaining.losing()).isEmpty();
     }
+
+    @Test
+    void preview_namesWhoLosesOrGainsAccess_andSavesNothing() {
+        ControlRenameService.RenamePreview stops = service.preview(control, " HR-5 ");
+        assertThat(stops.kdnChange()).isTrue();
+        assertThat(stops.becomesKdn()).isFalse();
+        assertThat(stops.losing()).containsExactly("kdn@kpmg.kz", "other.kdn@kpmg.kz");
+        assertThat(stops.title()).isEqualTo("This control will stop being a KDN control");
+        assertThat(stops.explanation()).contains("2 KDN users will lose access", "A comment is required", "audit log");
+
+        control.setControlId("HR-5");
+        ControlRenameService.RenamePreview becomes = service.preview(control, "kdn-5");
+        assertThat(becomes.kdnChange()).isTrue();
+        assertThat(becomes.becomesKdn()).isTrue();
+        assertThat(becomes.gaining()).containsExactly("kdn@kpmg.kz", "other.kdn@kpmg.kz");
+        assertThat(becomes.explanation()).startsWith("The new ID starts with KDN, so every KDN user will see this control");
+
+        // KDN further on in the ID, or no ID: nothing to confirm
+        assertThat(service.preview(control, "HR-KDN-5").kdnChange()).isFalse();
+        assertThat(service.preview(control, "  ").kdnChange()).isFalse();
+        verify(controlRepository, never()).save(any());
+        verify(adminAuditService, never()).logActionWithChanges(any(), any(), any(), any(), any(), any(), any(), any());
+    }
 }

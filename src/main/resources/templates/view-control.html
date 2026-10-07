@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=17" rel="stylesheet">
-    <link href="/css/view-control.css?v=18" rel="stylesheet">
+    <link href="/css/view-control.css?v=19" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator Program validation styling */
@@ -1313,11 +1313,20 @@
                                         <span id="renameKdnHint" th:text="${kdnIdHint} + '.'">IDs starting with KDN are visible to KDN users.</span></div>
                                     <div id="controlIdError" class="text-danger mt-1" style="display: none;"></div>
                                 </div>
+                                <!-- Shown when the new ID makes this a KDN control or stops it being one (rename-preview) -->
+                                <div class="rename-kdn-confirm" id="renameKdnConfirm" role="alert" hidden>
+                                    <p class="rename-kdn-title"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                                        <span id="renameKdnTitle">This control will stop being a KDN control</span></p>
+                                    <p class="rename-kdn-text" id="renameKdnText"></p>
+                                    <p class="rename-kdn-users-label" id="renameKdnUsersLabel" hidden></p>
+                                    <ul class="rename-kdn-users" id="renameKdnUsers" hidden></ul>
+                                </div>
                                 <div class="mb-0">
-                                    <label for="renameComment" class="form-label">Comment</label>
+                                    <label for="renameComment" class="form-label">Comment <span class="required-mark" id="renameCommentRequired" aria-hidden="true" hidden>*</span></label>
                                     <textarea class="form-control" id="renameComment" rows="2" maxlength="1000"
+                                              aria-describedby="renameCommentHelp"
                                               placeholder="Why the Control ID changes"></textarea>
-                                    <div class="form-text">Required when the new ID makes this a KDN control or stops it being one: KDN users then gain or lose access.</div>
+                                    <div class="form-text" id="renameCommentHelp">Required when the new ID makes this a KDN control or stops it being one: KDN users then gain or lose access.</div>
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -1639,7 +1648,7 @@
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
-<script src="/js/view-control.js?v=6.0"></script>
+<script src="/js/view-control.js?v=6.1"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows

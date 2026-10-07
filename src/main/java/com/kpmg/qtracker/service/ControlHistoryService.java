@@ -212,6 +212,10 @@ public class ControlHistoryService {
 
     private String valueToString(Object value) {
         if (value == null) return "";
+        if (value instanceof java.util.Collection<?> items) {
+            // A list of people (e.g. the KDN users gaining access on a rename): one line, comma separated
+            return items.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(", "));
+        }
         return String.valueOf(value);
     }
 
@@ -279,6 +283,9 @@ public class ControlHistoryService {
                     break;
                 case "soqm":
                     result.add("SoQM");
+                    break;
+                case "kdn":
+                    result.add("KDN");
                     break;
                 default:
                     result.add(Character.toUpperCase(lower.charAt(0)) + lower.substring(1));

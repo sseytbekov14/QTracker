@@ -2843,6 +2843,49 @@ function saveDocumentsData(controlId) {
                 if (renameCommentInput) {
                     renameCommentInput.value = '';
                 }
+                // A new ID that makes this a KDN control or stops it being one: explained and confirmed first
+                const kdnConfirmBox = document.getElementById('renameKdnConfirm');
+                const kdnCommentMark = document.getElementById('renameCommentRequired');
+                let kdnConfirmFor = null;
+
+                function hideKdnConfirm() {
+                    kdnConfirmFor = null;
+                    if (kdnConfirmBox) kdnConfirmBox.hidden = true;
+                    if (kdnCommentMark) kdnCommentMark.hidden = true;
+                    if (renameCommentInput) renameCommentInput.removeAttribute('aria-required');
+                    confirmRenameBtn.textContent = 'Rename';
+                }
+
+                function showKdnConfirm(newId, preview) {
+                    kdnConfirmFor = newId;
+                    document.getElementById('renameKdnTitle').textContent = preview.title;
+                    document.getElementById('renameKdnText').textContent = preview.explanation;
+                    const people = preview.becomesKdn ? preview.gaining : preview.losing;
+                    const label = document.getElementById('renameKdnUsersLabel');
+                    const list = document.getElementById('renameKdnUsers');
+                    label.textContent = preview.becomesKdn ? 'Gaining access:' : 'Losing access:';
+                    list.replaceChildren.apply(list, (people || []).map(function(mail) {
+                        const item = document.createElement('li');
+                        item.textContent = mail;
+                        return item;
+                    }));
+                    label.hidden = !people || people.length === 0;
+                    list.hidden = label.hidden;
+                    kdnConfirmBox.hidden = false;
+                    kdnCommentMark.hidden = false;
+                    renameCommentInput.setAttribute('aria-required', 'true');
+                    confirmRenameBtn.textContent = 'Confirm rename';
+                }
+
+                async function renamePreview(newId) {
+                    const response = await fetch('/api/controls/' + document.querySelector('input[name="id"]').value
+                        + '/rename-preview?newControlId=' + encodeURIComponent(newId));
+                    if (!response.ok) {
+                        throw new Error(serverErrorText(await response.text()) || 'Could not check the new Control ID');
+                    }
+                    return response.json();
+                }
+                hideKdnConfirm();
                 controlIdError.style.display = 'none';
                 controlIdError.textContent = '';
 
@@ -2852,6 +2895,10 @@ function saveDocumentsData(controlId) {
                 function checkIfValueChanged() {
                     const currentValue = newControlIdInput.value;
                     const trimmedCurrent = currentValue.trim();
+                    if (kdnConfirmFor !== null && kdnConfirmFor !== trimmedCurrent) {
+                        // Another ID: its KDN change is checked again on Rename
+                        hideKdnConfirm();
+                    }
 
                     if (trimmedCurrent === '') {
                         confirmRenameBtn.disabled = true;
@@ -2914,8 +2961,21 @@ function saveDocumentsData(controlId) {
                             throw new Error('Control ID already exists. Please choose a different ID.');
                         }
 
-                        // The server asks for a comment when the new ID makes the control a KDN control or stops it being one
+                        // A new ID that makes the control a KDN control or stops it being one changes who sees it:
+                        // the dialog says who gains or loses access and asks for a comment and a second click
                         const renameComment = renameCommentInput ? renameCommentInput.value.trim() : '';
+                        if (kdnConfirmFor !== newControlId) {
+                            const preview = await renamePreview(newControlId);
+                            if (preview.kdnChange) {
+                                showKdnConfirm(newControlId, preview);
+                                renameBtn.disabled = false;
+                                renameCommentInput.focus();
+                                return;
+                            }
+                        } else if (!renameComment) {
+                            renameBtn.textContent = 'Confirm rename';
+                            throw new Error('A comment is required: KDN users gain or lose access with this rename.');
+                        }
                         const updatedControl = await renameControlId(newControlId, renameComment);
 
                         document.title = 'Control - ' + updatedControl.controlId;
@@ -2944,7 +3004,7 @@ function saveDocumentsData(controlId) {
                         controlIdError.style.display = 'block';
 
                         renameBtn.disabled = false;
-                        renameBtn.textContent = 'Rename';
+                        renameBtn.textContent = kdnConfirmFor !== null ? 'Confirm rename' : 'Rename';
                         checkIfValueChanged();
                     }
                 };
@@ -2970,7 +3030,7 @@ function saveDocumentsData(controlId) {
 
                     confirmRenameBtn.disabled = false;
                     confirmRenameBtn.classList.remove('btn-disabled');
-                    confirmRenameBtn.textContent = 'Rename';
+                    hideKdnConfirm();
 
                     modalElement.removeEventListener('hidden.bs.modal', cleanup);
                 });

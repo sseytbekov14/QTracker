@@ -795,3 +795,20 @@ input[data-date-picker] {
 
 /* Changelog: a move SoQM made for the participant whose step it was */
 .changelog-workflow-on-behalf { margin-top: 2px; font-size: 0.8rem; font-weight: 600; color: #7a5a00; }
+
+/* Rename ID: the new ID makes this a KDN control or stops it being one */
+.rename-kdn-confirm {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border: 1px solid #f0d58c;
+    border-left: 3px solid #b58105;
+    border-radius: 4px;
+    background: #fff8e1;
+    color: #5c4300;
+    font-size: 0.8rem;
+}
+.rename-kdn-confirm[hidden] { display: none; }
+.rename-kdn-title { margin: 0 0 4px; font-weight: 700; display: flex; gap: 6px; align-items: baseline; }
+.rename-kdn-text { margin: 0; }
+.rename-kdn-users-label { margin: 6px 0 2px; font-weight: 600; }
+.rename-kdn-users { margin: 0; padding-left: 18px; max-height: 120px; overflow-y: auto; overflow-wrap: anywhere; }

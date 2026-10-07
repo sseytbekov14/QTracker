@@ -158,7 +158,7 @@ class KdnRenameIT {
         assertThat(audit.getControlControlId()).isEqualTo(newId);
         assertThat(audit.getActionDescription()).contains("KDN-77-" + s + " -> " + newId, "no longer a KDN control");
         assertThat(objectMapper.readValue(audit.getChangedFields(), List.class))
-                .containsExactly("Control ID", "KDN control", "Comment");
+                .containsExactly("Control ID", "KDN control", "KDN users losing access", "Comment");
         Map<?, ?> previous = objectMapper.readValue(audit.getPreviousValues(), Map.class);
         Map<?, ?> next = objectMapper.readValue(audit.getNewValues(), Map.class);
         assertThat(previous.get("Control ID")).isEqualTo("KDN-77-" + s);
@@ -172,7 +172,10 @@ class KdnRenameIT {
 
         mockMvc.perform(as(soqm, get("/api/controls/{id}/changelog", control.getId())))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Rename Control ID")));
+                .andExpect(content().string(containsString("Rename Control ID")))
+                .andExpect(content().string(containsString("\"KDN Control\"")))
+                .andExpect(content().string(containsString("\"KDN Users Losing Access\"")))
+                .andExpect(content().string(containsString(kdnOther.getMail())));
     }
 
     @Test
@@ -217,6 +220,31 @@ class KdnRenameIT {
         rename(other, "HR-100-" + s, "Typo").andExpect(status().isOk());
         assertThat(objectMapper.readValue(single(audits(other)).getChangedFields(), List.class))
                 .containsExactly("Control ID", "Comment");
+    }
+
+    @Test
+    void renamePreview_explainsTheKdnChange_toSoqmOnly_andSavesNothing() throws Exception {
+        Control control = control("KDN-44-" + s);
+        mockMvc.perform(as(soqm, get("/api/controls/{id}/rename-preview", control.getId())
+                        .param("newControlId", "HR-44-" + s)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.kdnChange").value(true))
+                .andExpect(jsonPath("$.becomesKdn").value(false))
+                .andExpect(jsonPath("$.losing", hasItem(kdnOther.getMail())))
+                .andExpect(jsonPath("$.losing", hasItem(kdnFacilitator.getMail())))
+                .andExpect(jsonPath("$.title").value("This control will stop being a KDN control"));
+        mockMvc.perform(as(soqm, get("/api/controls/{id}/rename-preview", control.getId())
+                        .param("newControlId", "kdn44-" + s)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.kdnChange").value(false));
+        mockMvc.perform(as(participant, get("/api/controls/{id}/rename-preview", control.getId())
+                        .param("newControlId", "HR-44-" + s)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(as(kdnOther, get("/api/controls/{id}/rename-preview", control.getId())
+                        .param("newControlId", "HR-44-" + s)))
+                .andExpect(status().isForbidden());
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getControlId()).isEqualTo("KDN-44-" + s);
+        assertThat(audits(control)).isEmpty();
     }
 
     @Test

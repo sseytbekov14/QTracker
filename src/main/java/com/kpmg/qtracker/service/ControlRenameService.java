@@ -35,6 +35,8 @@ public class ControlRenameService {
     static final String FIELD_CONTROL_ID = "Control ID";
     static final String FIELD_KDN = "KDN control";
     static final String FIELD_COMMENT = "Comment";
+    static final String FIELD_GAINING = "KDN users gaining access";
+    static final String FIELD_LOSING = "KDN users losing access";
 
     private final ControlRepository controlRepository;
     private final ControlAssignmentService controlAssignmentService;
@@ -45,6 +47,39 @@ public class ControlRenameService {
 
     /** The KDN users who see the control only before the rename (losing) or only after it (gaining). */
     public record KdnAccessChange(boolean becomesKdn, List<String> gaining, List<String> losing) {
+    }
+
+    /**
+     * What a rename to the new ID would do to KDN access, for the confirmation in the Rename ID dialog:
+     * kdnChange false when the KDN mark stays (no confirmation, no comment needed).
+     */
+    public record RenamePreview(boolean kdnChange, boolean becomesKdn, List<String> gaining, List<String> losing,
+                                String title, String explanation) {
+    }
+
+    /** The preview of renaming the control to the new ID (trimmed); nothing is saved. */
+    public RenamePreview preview(Control control, String newControlId) {
+        String newId = newControlId == null ? "" : newControlId.trim();
+        if (newId.isEmpty() || !AccessPolicy.renameChangesKdn(control.getControlId(), newId)) {
+            return new RenamePreview(false, AccessPolicy.isKdnControl(newId), List.of(), List.of(), null, null);
+        }
+        KdnAccessChange change = kdnAccessChange(control, AccessPolicy.isKdnControl(newId));
+        String title = change.becomesKdn()
+                ? "This control will become a KDN control"
+                : "This control will stop being a KDN control";
+        String explanation = change.becomesKdn()
+                ? "The new ID starts with KDN, so every KDN user will see this control (read only). "
+                        + (change.gaining().isEmpty() ? "No active KDN user gains access now."
+                        : count(change.gaining().size()) + " will gain access.")
+                : "The new ID does not start with KDN, so KDN users will no longer see this control. "
+                        + (change.losing().isEmpty() ? "No active KDN user loses access now."
+                        : count(change.losing().size()) + " will lose access.");
+        return new RenamePreview(true, change.becomesKdn(), change.gaining(), change.losing(), title,
+                explanation + " A comment is required and the change is recorded in the audit log.");
+    }
+
+    private static String count(int users) {
+        return users == 1 ? "1 KDN user" : users + " KDN users";
     }
 
     /**
@@ -144,8 +179,15 @@ public class ControlRenameService {
             fields.add(FIELD_KDN);
             previous.put(FIELD_KDN, change.becomesKdn() ? "No" : "Yes");
             next.put(FIELD_KDN, change.becomesKdn() ? "Yes" : "No");
-            next.put("KDN users gaining access", change.gaining());
-            next.put("KDN users losing access", change.losing());
+            // Who gains or loses access is in the entry, and shown in the changelog when there is anyone
+            next.put(FIELD_GAINING, change.gaining());
+            next.put(FIELD_LOSING, change.losing());
+            if (!change.gaining().isEmpty()) {
+                fields.add(FIELD_GAINING);
+            }
+            if (!change.losing().isEmpty()) {
+                fields.add(FIELD_LOSING);
+            }
         }
         if (!comment.isEmpty()) {
             fields.add(FIELD_COMMENT);
