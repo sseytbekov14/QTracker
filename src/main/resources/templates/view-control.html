@@ -461,6 +461,7 @@
 <input type="hidden" id="canUseWorkflowActions" th:value="${canUseWorkflowActions}">
 <input type="hidden" id="allowedEditableFields" th:value="${allowedEditableFieldsCsv}">
 <input type="hidden" id="stepsSplit" th:value="${stepsSplit}">
+<input type="hidden" id="operatorProgramRequired" th:value="${operatorProgramRequired}">
 
 <div class="container-fluid">
     <div class="row">
@@ -1648,7 +1649,7 @@
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
-<script src="/js/view-control.js?v=6.3"></script>
+<script src="/js/view-control.js?v=6.4"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
@@ -1825,9 +1826,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // ============================================
     // CONTROL STEPS REQUIRED BEFORE SUBMIT ACTIONS
     // ============================================
-    // The field each submit needs: the Facilitator's steps field; for the Control Operator the same field,
-    // or their own Control Operator's Program when the two are different people (#stepsSplit)
-    const stepsSplit = document.getElementById('stepsSplit')?.value === 'true';
+    // The field each submit needs: the Facilitator's steps field; for the Control Operator their own Control
+    // Operator's Program when it is required (#operatorProgramRequired, ControlStepsFields), else the steps
+    // field, which Submit to SoQM Team checks as well
+    const operatorProgramRequired = document.getElementById('operatorProgramRequired')?.value === 'true';
     const controlSteps = document.querySelector('textarea[name="controlStepsPerformed"]');
     const operatorReview = document.querySelector('textarea[name="controlOperatorReview"]');
     const stepsLabel = document.querySelector('label[for="controlStepsPerformed"] span')?.textContent || 'Control Steps Performed and Results';
@@ -1839,7 +1841,7 @@ document.addEventListener('DOMContentLoaded', function() {
             hint: document.getElementById('controlStepsSubmitHint'), label: stepsLabel });
     }
     if (canUseWorkflowActions && isControlOperator && performanceStatus === 'REVIEW') {
-        submitRequirements.push(stepsSplit
+        submitRequirements.push(operatorProgramRequired
             ? { btn: document.getElementById('submitToSoqmLeadBtn'), field: operatorReview,
                 hint: document.getElementById('operatorReviewSubmitHint'), label: reviewLabel }
             : { btn: document.getElementById('submitToSoqmLeadBtn'), field: controlSteps,

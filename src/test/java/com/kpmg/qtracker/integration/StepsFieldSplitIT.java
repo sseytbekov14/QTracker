@@ -275,6 +275,10 @@ class StepsFieldSplitIT {
         assertThat(status(split)).isEqualTo("SOQM_HEAD_REVIEW");
 
         Control onePerson = control("REVIEW", fac.getMail(), fac.getMail(), "Steps", null);
+        assertThat(json(get("/api/permissions/{id}", onePerson.getId()), login(fac))
+                .path("permissions").path("operatorProgramRequired").asBoolean()).isFalse();
+        assertThat(json(get("/api/permissions/{id}", split.getId()), opSession)
+                .path("permissions").path("operatorProgramRequired").asBoolean()).isTrue();
         assertThat(perform(post("/api/workflow/submit-to-soqm-lead").with(csrf().asHeader())
                 .param("controlId", String.valueOf(onePerson.getId())), login(fac)).getResponse().getStatus()).isEqualTo(200);
         assertThat(status(onePerson)).isEqualTo("SOQM_HEAD_REVIEW");
@@ -475,7 +479,7 @@ class StepsFieldSplitIT {
     // ------------------------------------------------------------------ Excel
 
     @Test
-    void completedExport_hasTheOperatorFieldOnlyWhenFacilitatorAndOperatorDiffer() throws Exception {
+    void completedExport_hasTheOperatorsProgram_onePersonOrNot() throws Exception {
         MockHttpSession soqmSession = login(soqm);
 
         Map<String, String> split = exportRows(control("COMPLETED", fac.getMail(), op.getMail(), "Steps", "Review"), soqmSession);
@@ -486,6 +490,12 @@ class StepsFieldSplitIT {
 
         Map<String, String> onePerson = exportRows(control("COMPLETED", fac.getMail(), fac.getMail(), "Steps", "Kept from before"), soqmSession);
         assertThat(onePerson).containsEntry(ControlStepsFields.STEPS_LABEL, "Steps")
+                .containsEntry(ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Kept from before")
+                .doesNotContainKey(ControlStepsFields.FORMER_OPERATOR_REVIEW_LABEL);
+
+        // An empty Program has no row, as every empty field
+        Map<String, String> empty = exportRows(control("COMPLETED", fac.getMail(), op.getMail(), "Steps", null), soqmSession);
+        assertThat(empty).containsKey(ControlStepsFields.STEPS_LABEL)
                 .doesNotContainKey(ControlStepsFields.OPERATOR_PROGRAM_LABEL);
     }
 

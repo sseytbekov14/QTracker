@@ -43,6 +43,7 @@ public class PermissionController {
             permissions.put("canEditProcessOwnerComments", permission.canEditProcessOwnerComments());
             permissions.put("canEditOperatorReview", permission.canEditOperatorReview());
             permissions.put("stepsSplit", permission.isStepsSplit());
+            permissions.put("operatorProgramRequired", permission.isOperatorProgramRequired());
             permissions.put("canUseWorkflowActions", permission.canUseWorkflowActions());
             permissions.put("allowedEditableFields", permission.getAllowedEditableFields());
             permissions.put("isSharedViewer", permission.isSharedViewer());

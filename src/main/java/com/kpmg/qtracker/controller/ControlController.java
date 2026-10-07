@@ -752,11 +752,8 @@ public class ControlController {
                 rowNum = addRow(sheet, rowNum, "Other Related Controls", details.getOtherRelatedControls());
                 rowNum = addRow(sheet, rowNum, "IT Applications", details.getItApplications());
                 rowNum = addRow(sheet, rowNum, ControlStepsFields.STEPS_LABEL, details.getControlStepsPerformed());
-                // As on View Control: the Operator's own field only when the Facilitator and the Operator differ
-                if (assignment != null
-                        && ControlStepsFields.split(assignment.getFacilitator(), assignment.getControlOperator())) {
-                    rowNum = addRow(sheet, rowNum, ControlStepsFields.OPERATOR_PROGRAM_LABEL, details.getControlOperatorReview());
-                }
+                // As on View Control: whoever holds the two roles (an empty value has no row, as every field)
+                rowNum = addRow(sheet, rowNum, ControlStepsFields.OPERATOR_PROGRAM_LABEL, details.getControlOperatorReview());
             }
 
             if (documents != null) {

@@ -38,7 +38,7 @@ public final class ControlPermission {
                 facilitator, controlOperator, soqmLead, processOwner, false);
     }
 
-    /** @param stepsSplit the control has two steps fields ({@link ControlStepsFields}) */
+    /** @param stepsSplit the Facilitator and the Control Operator are different people ({@link ControlStepsFields}) */
     public ControlPermission(boolean canView,
                              boolean canEdit,
                              Set<String> allowedEditableFields,
@@ -159,9 +159,14 @@ public final class ControlPermission {
         return locked && canView ? AccessPolicy.LOCKED_MESSAGE : otherwise;
     }
 
-    /** Two steps fields: the Facilitator's and Control Operator's Program. */
+    /** The Facilitator and the Control Operator are different people ({@link ControlStepsFields#split}). */
     public boolean isStepsSplit() {
         return stepsSplit;
+    }
+
+    /** Control Operator's Program must be filled before Submit to SoQM Team ({@link ControlStepsFields}). */
+    public boolean isOperatorProgramRequired() {
+        return ControlStepsFields.operatorProgramRequired(stepsSplit);
     }
 
     /** Who saves Control Steps Performed and Results: SoQM, or the participant whose step it is. */

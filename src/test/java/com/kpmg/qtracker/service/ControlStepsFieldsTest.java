@@ -43,6 +43,17 @@ class ControlStepsFieldsTest {
     void onePerson_whenEveryOperatorIsAFacilitator(String facilitators, String operators, boolean expected) {
         assertThat(ControlStepsFields.onePerson(facilitators, operators)).isEqualTo(expected);
         assertThat(ControlStepsFields.split(facilitators, operators)).isEqualTo(!expected);
+        // Control Operator's Program is required exactly when they are different people (as before)
+        assertThat(ControlStepsFields.operatorProgramRequired(facilitators, operators)).isEqualTo(!expected);
+    }
+
+    @Test
+    void operatorProgram_requiredOnlyForDifferentPeople_untilTheBusinessSaysAlways() {
+        assertThat(ControlStepsFields.OPERATOR_PROGRAM_ALWAYS_REQUIRED).isFalse();
+        assertThat(ControlStepsFields.operatorProgramRequired(true)).isTrue();
+        assertThat(ControlStepsFields.operatorProgramRequired(false)).isFalse();
+        assertThat(ControlStepsFields.operatorProgramRequired("fac@x.kz", "fac@x.kz")).isFalse();
+        assertThat(ControlStepsFields.operatorProgramRequired("fac@x.kz", "op@x.kz")).isTrue();
     }
 
     @Test

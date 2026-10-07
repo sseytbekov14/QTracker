@@ -7,16 +7,15 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * "Control Steps Performed and Results" as one field or two, decided by the assignment. The server
- * (rights, required fields, Excel), the View Control page and view-control.js take the mode from here.
- * <ul>
- *   <li>One person: every Control Operator of the control is also listed as Facilitator. One field, as
- *   before: the Facilitator writes it in In Progress, the Control Operator in Review.</li>
- *   <li>Different people: two fields. The Facilitator writes the steps field in In Progress, the Control
- *   Operator writes the review field in Review; each is read-only to everyone else.</li>
- * </ul>
- * Values are never cleared when the mode changes (a new assignment only changes what is shown and
- * required); old data and imports have the steps field only, the review field stays NULL.
+ * The two steps fields of a control's Details: "Control Steps Performed and Results", written by the Facilitator
+ * in In Progress, and "Control Operator's Program", written by the Control Operator in Review. Both are shown to
+ * everyone who sees the control, whoever holds the two roles; one person who is Facilitator and Control Operator
+ * writes the first on the Facilitator's step and the second on their own.
+ * <p>
+ * Whether the Facilitator and the Control Operator are one person ({@link #onePerson}) decides only one thing:
+ * whether Control Operator's Program is required before Submit to SoQM Team ({@link #operatorProgramRequired}).
+ * Values are never cleared when the assignment changes; old data and imports have the steps field only, the
+ * Program stays NULL.
  */
 public final class ControlStepsFields {
 
@@ -30,7 +29,25 @@ public final class ControlStepsFields {
      */
     public static final String FORMER_OPERATOR_REVIEW_LABEL = "Control Operator Review and Results";
 
+    /**
+     * Control Operator's Program is required before Submit to SoQM Team only when the Control Operator is not
+     * also a Facilitator (different people). {@code true} makes it required on every control: the server
+     * check, the "Your step" hint, the red mark and the Submit button all follow {@link #operatorProgramRequired}.
+     */
+    // TODO: BUSINESS CONFIRMATION: should Control Operator's Program be required always, one person too?
+    public static final boolean OPERATOR_PROGRAM_ALWAYS_REQUIRED = false;
+
     private ControlStepsFields() {
+    }
+
+    /** The one rule for Control Operator's Program being required, given whether F and CO are different people. */
+    public static boolean operatorProgramRequired(boolean differentPeople) {
+        return OPERATOR_PROGRAM_ALWAYS_REQUIRED || differentPeople;
+    }
+
+    /** {@link #operatorProgramRequired(boolean)} for the stored assignment. */
+    public static boolean operatorProgramRequired(String facilitators, String controlOperators) {
+        return operatorProgramRequired(split(facilitators, controlOperators));
     }
 
     /**
@@ -52,7 +69,7 @@ public final class ControlStepsFields {
         return onePerson(join(facilitators), join(controlOperators));
     }
 
-    /** Different people: the control has the second field (Control Operator's Program). */
+    /** Different people: some Control Operator is not listed as Facilitator. */
     public static boolean split(String facilitators, String controlOperators) {
         return !onePerson(facilitators, controlOperators);
     }

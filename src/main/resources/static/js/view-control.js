@@ -55,6 +55,7 @@ const viewControl = (function() {
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
                 canEditOperatorReview: canEditOperatorReview,
                 stepsSplit: false,
+                operatorProgramRequired: document.getElementById('operatorProgramRequired')?.value === 'true',
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
                 allowedEditableFields: allowedEditableFields
@@ -85,6 +86,7 @@ const viewControl = (function() {
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
                 canEditOperatorReview: canEditOperatorReview,
                 stepsSplit: Boolean(permissions.stepsSplit),
+                operatorProgramRequired: Boolean(permissions.operatorProgramRequired),
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
                 allowedEditableFields: allowedEditableFields
@@ -108,6 +110,7 @@ const viewControl = (function() {
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
                 canEditOperatorReview: canEditOperatorReview,
                 stepsSplit: document.getElementById('stepsSplit')?.value === 'true',
+                operatorProgramRequired: document.getElementById('operatorProgramRequired')?.value === 'true',
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
                 allowedEditableFields: allowedEditableFields
@@ -3392,9 +3395,10 @@ function getWorkflowRoleRequirement() {
     }
 
     if (isControlOperator && performanceStatus === 'REVIEW') {
-        // Different people: the Control Operator submits on their own field
+        // The Control Operator submits on their own field when it is required (ControlStepsFields)
         const reviewField = document.querySelector('textarea[name="controlOperatorReview"]');
-        if (reviewField) {
+        const programRequired = document.getElementById('operatorProgramRequired')?.value === 'true';
+        if (reviewField && programRequired) {
             const label = document.querySelector('label[for="controlOperatorReview"] span')?.textContent
                 || "Control Operator's Program";
             return {
