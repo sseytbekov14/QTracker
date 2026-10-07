@@ -430,9 +430,9 @@ public final class AccessPolicy {
 
     /**
      * Fields a participant may change while the step is theirs: the Facilitator Control Steps Performed in
-     * In Progress; the Control Operator in Review Control Operator's Program, whether or not they are also a
-     * Facilitator, and, when they are (one person), Control Steps Performed as well; the Process Owner
-     * Process Owner Comments in Process Owner Review.
+     * In Progress; the Control Operator Control Operator's Program in Review, whether or not they are also a
+     * Facilitator (one person writes the first field on the Facilitator's step, the second on their own); the
+     * Process Owner Process Owner Comments in Process Owner Review.
      */
     public static Set<String> participantFields(Subject subject, ControlFacts control) {
         Set<String> fields = new LinkedHashSet<>();
@@ -443,9 +443,6 @@ public final class AccessPolicy {
             fields.add(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
         }
         if ("REVIEW".equals(control.status()) && actsAsParticipant(subject, control, control.controlOperator())) {
-            if (!control.stepsSplit()) {
-                fields.add(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
-            }
             fields.add(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW);
         }
         if ("PROCESS_OWNER_REVIEW".equals(control.status()) && actsAsParticipant(subject, control, control.processOwner())) {

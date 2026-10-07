@@ -156,6 +156,8 @@
 }
 .vc-step-state:empty { display: none; }
 .vc-step-state.is-filled { background: #e8f6ee; color: #146c3a; border-color: #b9e2c9; }
+/* A field the step may leave empty (Control Operator's Program when it is not required) */
+.vc-step-state.is-optional { background: var(--surface-bg-2, #f1f3f6); color: var(--text-muted, #5c6478); border-color: var(--border, #d8dce5); }
 .vc-turn-hint.is-done { background: #eef7f1; color: #146c3a; }
 .step-required-mark { color: #dc3545; font-weight: 700; }
 /* Phone: the text takes the width, the Required / Filled state goes under it */

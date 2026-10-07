@@ -215,7 +215,7 @@ class StepsFieldSplitIT {
     // ------------------------------------------------------------------ one person: Facilitator and Operator
 
     @Test
-    void onePersonInBothSlots_writesTheOperatorsProgramInReview_notInProgress() throws Exception {
+    void onePersonInBothSlots_writesTheStepsOnTheFacilitatorsStep_andTheProgramOnTheOperatorsStep() throws Exception {
         Control control = control("IN_PROGRESS", fac.getMail() + ";" + fac2.getMail(), " " + fac.getMail().toUpperCase() + " ", null, null);
         MockHttpSession facSession = login(fac);
 
@@ -230,6 +230,12 @@ class StepsFieldSplitIT {
         assertThat(save(control, facSession, REVIEW, "Program as Operator")).isEqualTo(200);
         assertThat(details(control).getControlOperatorReview()).isEqualTo("Program as Operator");
         assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL)).containsExactly(fac.getMail());
+        // Control Steps Performed and Results stays the Facilitator's field of In Progress
+        MvcResult steps = saveResult(control, facSession, STEPS, "Steps as Operator");
+        assertThat(steps.getResponse().getStatus()).isEqualTo(403);
+        assertThat(steps.getResponse().getContentAsString())
+                .contains(ControlStepsFields.STEPS_LABEL + " is filled in by the Facilitator while the control is In Progress");
+        assertThat(details(control).getControlStepsPerformed()).isEqualTo("Steps as Facilitator");
 
         // The other Facilitator is not the Operator: the Review step is not theirs
         assertThat(save(control, login(fac2), STEPS, "Not my step")).isEqualTo(403);
@@ -238,6 +244,7 @@ class StepsFieldSplitIT {
         JsonNode permissions = json(get("/api/permissions/{id}", control.getId()), facSession).path("permissions");
         assertThat(permissions.path("stepsSplit").asBoolean()).isFalse();
         assertThat(permissions.path("canEditOperatorReview").asBoolean()).isTrue();
+        assertThat(permissions.path("canEditStepsPerformed").asBoolean()).isFalse();
     }
 
     // ------------------------------------------------------------------ Submit to SoQM
@@ -340,7 +347,8 @@ class StepsFieldSplitIT {
         assertValues(control, "Steps", "Review by the old Operator");
         JsonNode permissions = json(get("/api/permissions/{id}", control.getId()), facSession).path("permissions");
         assertThat(permissions.path("stepsSplit").asBoolean()).isFalse();
-        assertThat(save(control, facSession, STEPS, "Steps, rewritten by the new Operator")).isEqualTo(200);
+        assertThat(save(control, facSession, STEPS, "Steps, rewritten by the new Operator")).isEqualTo(403);
+        assertThat(save(control, soqmSession, STEPS, "Steps, rewritten by SoQM")).isEqualTo(200);
         assertThat(save(control, facSession, REVIEW, "Program by the new Operator")).isEqualTo(200);
 
         // Not required any more while it is one person, even when empty; the stored value stays
@@ -358,7 +366,7 @@ class StepsFieldSplitIT {
         restored.setControlOperatorReview("Review by the old Operator");
         detailsRepository.save(restored);
         assertThat(reassignOperator(control, op.getMail(), soqmSession)).isEqualTo(200);
-        assertValues(control, "Steps, rewritten by the new Operator", "Review by the old Operator");
+        assertValues(control, "Steps, rewritten by SoQM", "Review by the old Operator");
         assertThat(json(get("/api/permissions/{id}", control.getId()), facSession)
                 .path("permissions").path("stepsSplit").asBoolean()).isTrue();
     }
@@ -395,11 +403,11 @@ class StepsFieldSplitIT {
         assertThat(page).contains("name=\"controlStepsPerformed\"")
                 .contains(">" + ControlStepsFields.STEPS_LABEL + "<")
                 .contains("id=\"stepsSplit\" value=\"false\"")
-                .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed,controlOperatorReview\"")
-                // the page script names the field; the markup has neither the row nor the textarea
+                .contains("id=\"allowedEditableFields\" value=\"controlOperatorReview\"")
+                // the page script and the step hint name the field; the markup has neither the row nor the textarea
                 .doesNotContain("id=\"operatorReviewRow\"")
                 .doesNotContain("id=\"controlOperatorReview\"")
-                .doesNotContain(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<")
+                .doesNotContain("<label class=\"form-label\" for=\"controlOperatorReview\"")
                 .doesNotContain("class=\"steps-field-owner\"");
     }
 

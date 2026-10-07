@@ -298,11 +298,9 @@ class RoleMatrixIT {
                 && (who.scope() != AccessScope.KDN || who.kdnControl());
         boolean participantStep = actsInStep && (("IN_PROGRESS".equals(status) && inF)
                 || ("REVIEW".equals(status) && inCO) || ("PROCESS_OWNER_REVIEW".equals(status) && inPO));
-        // Steps fields: the Facilitator's field in In Progress (one person: also in Review), Control Operator's
-        // Program in Review by the Control Operator, one person or not; SoQM writes both
-        boolean split = stepsSplit(who);
-        boolean stepsField = soqmEdits || (actsInStep && (("IN_PROGRESS".equals(status) && inF)
-                || ("REVIEW".equals(status) && inCO && !split)));
+        // Steps fields: the Facilitator's field in In Progress, Control Operator's Program in Review by the
+        // Control Operator, one person or not; SoQM writes both
+        boolean stepsField = soqmEdits || (actsInStep && "IN_PROGRESS".equals(status) && inF);
         boolean operatorField = soqmEdits || (actsInStep && "REVIEW".equals(status) && inCO);
 
         return switch (op) {
@@ -716,15 +714,10 @@ class RoleMatrixIT {
         return who.place() == Place.STEP && "PO".equals(stepSlot(status));
     }
 
-    /** Every control has a Facilitator and a Control Operator who differ, except the one-person row's. */
-    private static boolean stepsSplit(Who who) {
-        return who.place() != Place.BOTH;
-    }
-
     /** The Details field the holder of the current step writes ("Save details"). */
     private static String stepFieldOf(Who who, String status) {
         return switch (status) {
-            case "REVIEW" -> stepsSplit(who) ? "controlOperatorReview" : "controlStepsPerformed";
+            case "REVIEW" -> "controlOperatorReview";
             case "PROCESS_OWNER_REVIEW" -> "processOwnerComments";
             default -> "controlStepsPerformed";
         };

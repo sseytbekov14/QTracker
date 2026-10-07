@@ -424,9 +424,7 @@ public class ControlTabsController {
         }
         if (changes(existing != null ? existing.getControlStepsPerformed() : null, incoming.getControlStepsPerformed())
                 && !permission.canWriteStepsPerformed()) {
-            return ControlStepsFields.STEPS_LABEL + (permission.isStepsSplit()
-                    ? " is filled in by the Facilitator while the control is In Progress"
-                    : " is filled in by the Facilitator (In Progress) or the Control Operator (Review)");
+            return ControlStepsFields.STEPS_LABEL + " is filled in by the Facilitator while the control is In Progress";
         }
         if (changes(existing != null ? existing.getControlOperatorReview() : null, incoming.getControlOperatorReview())
                 && !permission.canWriteOperatorReview()) {

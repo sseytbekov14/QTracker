@@ -115,7 +115,6 @@ class WorkflowRequiredFieldServiceTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
             "IN_PROGRESS,          controlStepsPerformed, Control Steps Performed and Results, false",
-            "REVIEW,               controlStepsPerformed, Control Steps Performed and Results, true",
             "SOQM_HEAD_REVIEW,     soqmHeadComments,      SoQM Head/Team Comments,             false",
             "PROCESS_OWNER_REVIEW, processOwnerComments,  Process Owner Comments,              false"
     })
@@ -124,6 +123,7 @@ class WorkflowRequiredFieldServiceTest {
         assertThat(stepField.field()).isEqualTo(field);
         assertThat(stepField.label()).isEqualTo(label);
         assertThat(stepField.check()).isEqualTo(check);
+        assertThat(stepField.required()).isTrue();
 
         // Details with every other step field filled, this one empty
         ControlDetails details = new ControlDetails();
@@ -143,6 +143,7 @@ class WorkflowRequiredFieldServiceTest {
         assertThat(stepField.field()).isEqualTo("controlOperatorReview");
         assertThat(stepField.label()).isEqualTo(ControlStepsFields.OPERATOR_PROGRAM_LABEL);
         assertThat(stepField.check()).isFalse();
+        assertThat(stepField.required()).isTrue();
         // the other steps are the same in both modes
         for (String status : java.util.List.of("IN_PROGRESS", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW")) {
             assertThat(WorkflowRequiredFieldService.stepField(status, true))
@@ -155,6 +156,22 @@ class WorkflowRequiredFieldServiceTest {
         when(repository.findByControlId(1L)).thenReturn(Optional.of(details));
         assertThat(service.getMissingFieldMessage(control("REVIEW")))
                 .hasValueSatisfying(message -> assertThat(message).contains(stepField.label()));
+    }
+
+    @Test
+    void stepField_review_onePerson_isTheOperatorsField_too_optional_asSubmitToSoqmDoesNotCheckIt() {
+        WorkflowRequiredFieldService.StepField stepField =
+                WorkflowRequiredFieldService.stepField("REVIEW", false).orElseThrow();
+        assertThat(stepField.field()).isEqualTo("controlOperatorReview");
+        assertThat(stepField.label()).isEqualTo(ControlStepsFields.OPERATOR_PROGRAM_LABEL);
+        assertThat(stepField.required()).isFalse();
+        assertThat(WorkflowRequiredFieldService.stepField("REVIEW")).contains(stepField);
+
+        assigned("fac@x.kz", "fac@x.kz");
+        ControlDetails details = new ControlDetails();
+        details.setControlStepsPerformed("Steps");
+        when(repository.findByControlId(1L)).thenReturn(Optional.of(details));
+        assertThat(service.getMissingFieldMessage(control("REVIEW"))).isEmpty();
     }
 
     @Test

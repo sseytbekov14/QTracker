@@ -22,38 +22,35 @@ public class WorkflowRequiredFieldService {
             + ControlStepsFields.OPERATOR_PROGRAM_LABEL;
 
     /**
-     * The Details field a step needs before its actions go through (the checks below), for the "Your step" hint
-     * on View Control. {@code check}: the field was filled at an earlier step and is only reviewed here.
+     * The Details field of a step, for the "Your step" hint on View Control. {@code check}: the field was filled
+     * at an earlier step and is only reviewed here; {@code required}: the step's actions are refused while it is
+     * empty (the checks below), else the hint names it as optional.
      */
-    public record StepField(String field, String label, boolean check, String actions) {
+    public record StepField(String field, String label, boolean check, boolean required, String actions) {
     }
 
-    /** The field of the step a control in this status is at, with one steps field; empty for Draft and Completed. */
+    /** The field of the step a control in this status is at, Control Operator's Program not required. */
     public static Optional<StepField> stepField(String performanceStatus) {
         return stepField(performanceStatus, false);
     }
 
     /**
-     * As {@link #stepField(String)}; when the Facilitator and the Control Operator are different people
-     * ({@link ControlStepsFields}) the Review step needs the Operator's own field, the one Submit to SoQM checks.
+     * As {@link #stepField(String)}. Review is the Control Operator's step, whose field is Control Operator's
+     * Program whether or not they are also a Facilitator; it is required when the two are different people
+     * (Submit to SoQM Team checks it then). Draft and Completed have none.
      */
-    public static Optional<StepField> stepField(String performanceStatus, boolean stepsSplit) {
+    public static Optional<StepField> stepField(String performanceStatus, boolean operatorProgramRequired) {
         String status = performanceStatus == null ? "" : performanceStatus.trim().toUpperCase(Locale.ROOT);
-        if (stepsSplit && "REVIEW".equals(status)) {
-            return Optional.of(new StepField(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW,
-                    ControlStepsFields.OPERATOR_PROGRAM_LABEL, false,
-                    "Submit for SoQM Team Review or Return to Facilitator"));
-        }
         return switch (status) {
-            case "IN_PROGRESS" -> Optional.of(new StepField("controlStepsPerformed",
-                    ControlStepsFields.STEPS_LABEL, false, "Submit for Review"));
-            case "REVIEW" -> Optional.of(new StepField("controlStepsPerformed",
-                    ControlStepsFields.STEPS_LABEL, true,
+            case "IN_PROGRESS" -> Optional.of(new StepField(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED,
+                    ControlStepsFields.STEPS_LABEL, false, true, "Submit for Review"));
+            case "REVIEW" -> Optional.of(new StepField(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW,
+                    ControlStepsFields.OPERATOR_PROGRAM_LABEL, false, operatorProgramRequired,
                     "Submit for SoQM Team Review or Return to Facilitator"));
             case "SOQM_HEAD_REVIEW" -> Optional.of(new StepField("soqmHeadComments",
-                    "SoQM Head/Team Comments", false, "Send to Process Owner or Return to Operator"));
-            case "PROCESS_OWNER_REVIEW" -> Optional.of(new StepField("processOwnerComments",
-                    "Process Owner Comments", false, "Complete or Return to Control Operator"));
+                    "SoQM Head/Team Comments", false, true, "Send to Process Owner or Return to Operator"));
+            case "PROCESS_OWNER_REVIEW" -> Optional.of(new StepField(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS,
+                    "Process Owner Comments", false, true, "Complete or Return to Control Operator"));
             default -> Optional.empty();
         };
     }

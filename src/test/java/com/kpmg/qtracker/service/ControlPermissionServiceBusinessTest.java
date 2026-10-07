@@ -191,7 +191,7 @@ class ControlPermissionServiceBusinessTest {
         }
 
         @Test
-        @DisplayName("Facilitator и Control Operator — один человек: на REVIEW пишет и Control Operator's Program")
+        @DisplayName("Facilitator и Control Operator — один человек: на REVIEW пишет только Control Operator's Program")
         void samePersonInBothSlots_writesTheOperatorsProgramAtReview() {
             User user = makeUser(CO_EMAIL, "CONTROL_OPERATOR", false);
             Control control = makeControl(1L, "HR-001", "REVIEW");
@@ -203,9 +203,9 @@ class ControlPermissionServiceBusinessTest {
 
             assertThat(perm.isStepsSplit()).isFalse();
             assertThat(perm.getAllowedEditableFields())
-                    .containsExactly(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED,
-                            ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW);
+                    .containsExactly(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW);
             assertThat(perm.canWriteOperatorReview()).isTrue();
+            assertThat(perm.canWriteStepsPerformed()).isFalse();
         }
 
         @Test

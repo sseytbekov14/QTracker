@@ -155,9 +155,10 @@ class AccessPolicyTest {
             "PART,         IN_PROGRESS,          false, F,          true,  false,   controlStepsPerformed",
             "PART,         REVIEW,               false, F,          false, false,   -",
             "PART,         DRAFT,                false, F,          false, false,   -",
-            // The Control Operator writes Control Operator's Program in Review whether or not they are a Facilitator
-            "PART,         REVIEW,               false, CO,         true,  false,   controlStepsPerformed+controlOperatorReview",
-            "PART,         REVIEW,               false, F+CO,       true,  false,   controlStepsPerformed+controlOperatorReview",
+            // The Control Operator writes Control Operator's Program in Review whether or not they are a Facilitator;
+            // Control Steps Performed stays the Facilitator's field of In Progress
+            "PART,         REVIEW,               false, CO,         true,  false,   controlOperatorReview",
+            "PART,         REVIEW,               false, F+CO,       true,  false,   controlOperatorReview",
             "PART,         IN_PROGRESS,          false, F+CO,       true,  false,   controlStepsPerformed",
             "KDN,          REVIEW,               true,  CO,         false, false,   -",
             "RO,           REVIEW,               false, CO,         false, false,   -",
@@ -210,8 +211,8 @@ class AccessPolicyTest {
             "PART,       IN_PROGRESS, F+SPLIT,      true,  false",
             "PART,       IN_PROGRESS, F,            true,  false",
             "PART,       REVIEW,      CO+SPLIT,     false, true",
-            "PART,       REVIEW,      CO,           true,  true",
-            "PART,       REVIEW,      F+CO,         true,  true",
+            "PART,       REVIEW,      CO,           false, true",
+            "PART,       REVIEW,      F+CO,         false, true",
             "PART,       IN_PROGRESS, F+CO,         true,  false",
             "PART,       REVIEW,      F,            false, false",
             "PART,       REVIEW,      SHARED,       false, false",

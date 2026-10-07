@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=17" rel="stylesheet">
-    <link href="/css/view-control.css?v=19" rel="stylesheet">
+    <link href="/css/view-control.css?v=20" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator Program validation styling */
@@ -530,14 +530,14 @@
                     <div th:replace="~{fragments/workflow-stepper :: stepper(${workflowStepIndex}, ${facilitatorNames}, ${operatorNames}, ${soqmNames}, ${ownerNames})}"></div>
                     <!-- Your step: the one field it needs (WorkflowRequiredFieldService.stepField), Required / Filled live -->
                     <p class="vc-turn-hint" id="stepFieldHint" th:if="${yourTurn and stepField != null}"
-                       th:attr="data-step-field=${stepField.field()}">
+                       th:attr="data-step-field=${stepField.field()},data-step-required=${stepField.required()}">
                         <i class="bi bi-info-circle" aria-hidden="true"></i>
                         <span>
                             <strong>Your step:</strong>
                             <th:block th:text="${stepField.check()} ? 'check' : 'fill'">fill</th:block>
                             <a href="#details" class="vc-turn-hint-link" data-vc-tab="details"
                                th:attr="data-vc-field=${stepField.field()}"
-                               th:text="${stepField.label()}">SoQM Head/Team Comments</a>
+                               th:text="${stepField.label()}">SoQM Head/Team Comments</a><th:block th:unless="${stepField.required()}"> (optional)</th:block>
                             on the Details tab (press Edit to change it), then
                             <th:block th:text="${stepField.actions()} + '.'">Send to Process Owner or Return to Operator.</th:block>
                         </span>
@@ -765,7 +765,7 @@
                                 <div class="row">
                                     <div class="col-12 mb-3">
                                         <label class="form-label" for="controlStepsPerformed"><span th:text="${stepsLabel}">Control Steps Performed and Results</span><span class="step-required-mark" aria-hidden="true"
-                                                th:if="${stepField != null and stepField.field() == 'controlStepsPerformed'}"> *</span><span class="steps-field-owner" th:if="${stepsSplit}">Facilitator</span></label>
+                                                th:if="${stepField != null and stepField.required() and stepField.field() == 'controlStepsPerformed'}"> *</span><span class="steps-field-owner" th:if="${stepsSplit}">Facilitator</span></label>
                                         <textarea class="form-control" id="controlStepsPerformed" name="controlStepsPerformed" rows="8" maxlength="2000"
                                                   placeholder="Describe control steps and results"></textarea>
                                         <div class="required-hint d-none" id="controlStepsSubmitHint">
@@ -778,7 +778,7 @@
                                 <div class="row" id="operatorReviewRow" th:if="${stepsSplit}">
                                     <div class="col-12 mb-3">
                                         <label class="form-label" for="controlOperatorReview"><span th:text="${operatorProgramLabel}">Control Operator's Program</span><span class="step-required-mark" aria-hidden="true"
-                                                th:if="${stepField != null and stepField.field() == 'controlOperatorReview'}"> *</span><span class="steps-field-owner">Control Operator</span></label>
+                                                th:if="${stepField != null and stepField.required() and stepField.field() == 'controlOperatorReview'}"> *</span><span class="steps-field-owner">Control Operator</span></label>
                                         <textarea class="form-control" id="controlOperatorReview" name="controlOperatorReview" rows="8" maxlength="2000"
                                                   placeholder="Describe the Control Operator's program and its results"></textarea>
                                         <div class="required-hint d-none" id="operatorReviewSubmitHint">
@@ -1787,11 +1787,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // YOUR STEP: THE FIELD IT NEEDS
     // ============================================
     // The field named in the "Your step" hint is red with a note under it until it has a value, for every
-    // role (Facilitator and Operator: Control steps; SoQM: SoQM Head/Team Comments; Process Owner: Process
-    // Owner Comments); the hint shows Required / Filled. The values arrive later (loadDetailsData fires input).
+    // role (Facilitator: Control steps; Control Operator: Control Operator's Program; SoQM: SoQM Head/Team
+    // Comments; Process Owner: Process Owner Comments); the hint shows Required / Filled. A field the step
+    // may leave empty (data-step-required="false") is never red and shows Optional / Filled. The values
+    // arrive later (loadDetailsData fires input).
     const stepHintEl = document.getElementById('stepFieldHint');
     if (stepHintEl && canUseWorkflowActions) {
         const stepFieldName = stepHintEl.getAttribute('data-step-field');
+        const stepRequired = stepHintEl.getAttribute('data-step-required') !== 'false';
         const stepField = document.querySelector('textarea[name="' + stepFieldName + '"]');
         const stepState = document.getElementById('stepFieldState');
         const fieldNote = document.getElementById(
@@ -1800,14 +1803,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 : stepFieldName + 'StepHint');
         const updateStepField = () => {
             const filled = !!(stepField && stepField.value.trim());
-            if (stepField) {
+            if (stepField && stepRequired) {
                 stepField.classList.toggle('field-required-error', !filled);
                 stepField.setAttribute('aria-required', 'true');
             }
-            if (fieldNote) fieldNote.classList.toggle('d-none', filled);
+            if (fieldNote && stepRequired) fieldNote.classList.toggle('d-none', filled);
             if (stepState) {
-                stepState.textContent = filled ? 'Filled' : 'Required';
+                stepState.textContent = filled ? 'Filled' : stepRequired ? 'Required' : 'Optional';
                 stepState.classList.toggle('is-filled', filled);
+                stepState.classList.toggle('is-optional', !filled && !stepRequired);
             }
             stepHintEl.classList.toggle('is-done', filled);
         };
