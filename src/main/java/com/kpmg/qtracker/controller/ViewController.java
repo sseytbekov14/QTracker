@@ -180,19 +180,28 @@ public class ViewController {
         model.addAttribute("overdueControls", dashboardCounters.overdue());
 
         // ===== AWAITING MY ACTION =====
-        // Controls where the current workflow step belongs to this user; overdue first, then nearest deadline
-        List<ControlResponseDTO> actionItems = allControls.stream()
-                .filter(control -> isMyTurn(subject, userEmail, control))
-                .sorted(Comparator.comparing(ControlResponseDTO::isOverdue).reversed()
-                        .thenComparing(ControlResponseDTO::getDeadline,
-                                Comparator.nullsLast(Comparator.naturalOrder())))
-                .collect(Collectors.toList());
-        model.addAttribute("actionItems", actionItems.stream().limit(DASHBOARD_ACTION_ITEMS_LIMIT).toList());
-        model.addAttribute("actionItemsTotal", actionItems.size());
-        model.addAttribute("actionItemsOverdue", actionItems.stream().filter(ControlResponseDTO::isOverdue).count());
+        // Controls where the current workflow step belongs to this user; overdue first, then nearest deadline.
+        // Not for KDN: they never act on a control, so the block and its header line are left out
+        if (AccessPolicy.seesActionQueue(subject)) {
+            List<ControlResponseDTO> actionItems = allControls.stream()
+                    .filter(control -> isMyTurn(subject, userEmail, control))
+                    .sorted(Comparator.comparing(ControlResponseDTO::isOverdue).reversed()
+                            .thenComparing(ControlResponseDTO::getDeadline,
+                                    Comparator.nullsLast(Comparator.naturalOrder())))
+                    .collect(Collectors.toList());
+            model.addAttribute("actionItems", actionItems.stream().limit(DASHBOARD_ACTION_ITEMS_LIMIT).toList());
+            model.addAttribute("actionItemsTotal", actionItems.size());
+            model.addAttribute("actionItemsOverdue", actionItems.stream().filter(ControlResponseDTO::isOverdue).count());
+        }
 
         // ===== ACTION CENTRE DATA =====
         addComponentSummaries(model, allControls);
+        // KDN controls: the KDN controls among those the user sees (no query of its own); first for KDN users
+        KdnControlsOverview.Overview kdnOverview = KdnControlsOverview.of(allControls, todayAlmaty);
+        if (AccessPolicy.showsKdnBlock(subject, kdnOverview.total())) {
+            model.addAttribute("kdnOverview", kdnOverview);
+        }
+        model.addAttribute("kdnUser", AccessPolicy.isKdnUser(subject));
 
         // ===== NOTIFICATIONS DATA =====
         // Newest first, NOTIFICATIONS_PAGE_SIZE at a time ("Show more" raises notifLimit).

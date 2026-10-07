@@ -20,6 +20,7 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
+import com.kpmg.qtracker.service.KdnControlsOverview;
 import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.service.PermissionService;
 import com.kpmg.qtracker.service.UserService;
@@ -1658,6 +1659,121 @@ class ViewControllerStatusFilterTest {
                 .andExpect(status().isOk())
                 .andReturn();
         assertThat(listedIds(result)).containsExactly(831L);
+    }
+
+    private static String actionCentre(String html) {
+        return html.substring(html.indexOf("id=\"pane-action\""), html.indexOf("id=\"pane-notifications\""));
+    }
+
+    @Test
+    void dashboard_kdnUser_kdnBlockFirst_andNoActionBlocks() throws Exception {
+        User kdn = TestUsers.user("kdn-ac@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.READ_ONLY,
+                com.kpmg.qtracker.enums.AccessScope.KDN, false);
+        kdn.setId(91L);
+        kdn.setDisplayName("KDN Reader");
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
+        ControlResponseDTO reopened = dto(913L, "KDN-913", "SOQM_HEAD_REVIEW", today.plusDays(1));
+        reopened.setReopened(true);
+        reopened.setControlDescription("Reopened control description");
+        // KDN users are listed in a step field of old data: still no "Awaiting my action"
+        ControlResponseDTO onIt = dto(914L, "KDN-914", "IN_PROGRESS", today.plusDays(9));
+        onIt.setFacilitators(List.of("kdn-ac@kpmg.kz"));
+        mockVisibleControls(kdn, List.of(
+                dto(911L, "KDN-911", "DRAFT", null),
+                dto(912L, "kdn-912", "IN_PROGRESS", today.minusDays(4)),
+                reopened, onIt));
+
+        MvcResult result = mockMvc.perform(get("/").sessionAttr("currentUser", kdn))
+                .andExpect(status().isOk())
+                .andReturn();
+        String html = result.getResponse().getContentAsString();
+        String pane = actionCentre(html);
+
+        assertThat(html).doesNotContain("<section class=\"action-queue\"", "id=\"actionQueueTitle\"",
+                "awaiting your action", "Nothing is awaiting your action");
+        assertThat(result.getModelAndView().getModel()).doesNotContainKeys("actionItems", "actionItemsTotal")
+                .containsEntry("kdnUser", true);
+        assertThat(pane).contains("<section class=\"kdn-block is-primary\"", "id=\"kdnBlockTitle\"",
+                "aria-labelledby=\"kdnBlockTitle\"", "View all KDN controls", "href=\"/controls?kdn=1\"");
+        assertThat(pane.indexOf("id=\"kdnBlockTitle\"")).as("KDN block before the components")
+                .isLessThan(pane.indexOf("class=\"ac-summary\""));
+        // Rows: overdue first, then by deadline, no deadline last; they only open View Control
+        assertThat(pane.indexOf("/view-control/912")).isLessThan(pane.indexOf("/view-control/913"));
+        assertThat(pane.indexOf("/view-control/913")).isLessThan(pane.indexOf("/view-control/914"));
+        assertThat(pane.indexOf("/view-control/914")).isLessThan(pane.indexOf("/view-control/911"));
+        assertThat(pane).contains("Reopened control description", "Component HR", ">Reopened", ">Overdue",
+                        "Total includes 1 draft")
+                .doesNotContain("/initiate/", "/edit-control", "<form", "Show all");
+        KdnControlsOverview.Overview overview =
+                (KdnControlsOverview.Overview) result.getModelAndView().getModel().get("kdnOverview");
+        assertThat(overview.total()).isEqualTo(4);
+        assertThat(overview.overdue()).isEqualTo(1);
+        assertThat(overview.inProgress()).isEqualTo(2);
+        assertThat(overview.inReview()).isEqualTo(1);
+    }
+
+    @Test
+    void dashboard_soqm_kdnBlockAfterTheComponents_actionQueueKept_nonKdnNeverListed() throws Exception {
+        User soqm = new User();
+        soqm.setId(92L);
+        TestUsers.withRole(soqm, "SOQM_TEAM");
+        soqm.setMail("soqm-ac@kpmg.kz");
+        soqm.setDisplayName("SoQM AC");
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
+        List<ControlResponseDTO> dtos = new java.util.ArrayList<>();
+        for (int i = 1; i <= 10; i++) {
+            dtos.add(dto(920L + i, String.format("KDN-%02d", i), "REVIEW", today.plusDays(i)));
+        }
+        dtos.add(dto(931L, "HR-931", "IN_PROGRESS", today.minusDays(3)));
+        dtos.add(dto(932L, "X-KDN-932", "IN_PROGRESS", today.minusDays(3)));
+        mockVisibleControls(soqm, dtos);
+
+        MvcResult result = mockMvc.perform(get("/").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn();
+        String html = result.getResponse().getContentAsString();
+        String pane = actionCentre(html);
+
+        assertThat(html).contains("<section class=\"action-queue\"", "id=\"actionQueueTitle\"");
+        assertThat(pane).contains("<section class=\"kdn-block\"", "Show all 10", "aria-expanded=\"false\"",
+                "aria-controls=\"kdnControlList\"");
+        assertThat(pane.indexOf("id=\"kdnBlockTitle\"")).as("KDN block after the components")
+                .isGreaterThan(pane.indexOf("class=\"ac-legend\""));
+        String block = pane.substring(pane.indexOf("id=\"kdnBlockTitle\""));
+        assertThat(block).doesNotContain("HR-931", "X-KDN-932");
+        // Eight rows shown, the other two hidden until "Show all 10"
+        assertThat(block.split("<li hidden=\"hidden\" class=\"kdn-more\">", -1)).hasSize(3);
+        assertThat(block.indexOf("KDN-08")).isLessThan(block.indexOf("kdn-more"));
+    }
+
+    @Test
+    void dashboard_noKdnControls_emptyStateForThoseWhoSeeThemAll_nothingForMyControls() throws Exception {
+        User allRead = TestUsers.user("all-ac@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.READ_ONLY,
+                com.kpmg.qtracker.enums.AccessScope.ALL, false);
+        allRead.setId(93L);
+        mockVisibleControls(allRead, List.of(dto(941L, "HR-941", "REVIEW", null)));
+        String all = mockMvc.perform(get("/").sessionAttr("currentUser", allRead))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(actionCentre(all)).contains("id=\"kdnBlockTitle\"", "No KDN controls yet")
+                .doesNotContain("kdnControlList", "Show all");
+
+        User mine = TestUsers.user("mine-ac@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.PARTICIPANT,
+                com.kpmg.qtracker.enums.AccessScope.OWN, false);
+        mine.setId(94L);
+        mockVisibleControls(mine, List.of(dto(942L, "HR-942", "REVIEW", null)));
+        MvcResult none = mockMvc.perform(get("/").sessionAttr("currentUser", mine))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(none.getModelAndView().getModel()).doesNotContainKey("kdnOverview");
+        assertThat(actionCentre(none.getResponse().getContentAsString())).doesNotContain("kdnBlockTitle", "kdn-block", "KDN controls");
+
+        mockVisibleControls(mine, List.of(dto(942L, "HR-942", "REVIEW", null), dto(943L, "KDN-943", "REVIEW", null)));
+        String some = mockMvc.perform(get("/").sessionAttr("currentUser", mine))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(actionCentre(some)).contains("id=\"kdnBlockTitle\"", "/view-control/943")
+                .doesNotContain("/view-control/942");
     }
 
     private void mockVisibleControls(User user, List<ControlResponseDTO> dtos) {
