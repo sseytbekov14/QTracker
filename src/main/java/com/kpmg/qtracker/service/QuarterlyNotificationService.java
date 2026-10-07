@@ -34,6 +34,8 @@ public class QuarterlyNotificationService {
     static final String TYPE_DAY12 = "QUARTERLY_DAY12";
     static final String TYPE_OVERDUE_1 = "QUARTERLY_OVERDUE1";
     static final String TYPE_OVERDUE_REPEAT = "QUARTERLY_OVERDUE_REPEAT";
+    // Working days after the operation date; ReminderDays keeps them on or before the deadline
+    private static final int[] REMINDER_DAYS = {5, 12};
 
     private static final String STATUS_IN_PROGRESS = "IN_PROGRESS";
     private static final String STATUS_REVIEW = "REVIEW";
@@ -303,7 +305,8 @@ public class QuarterlyNotificationService {
                 skipped++;
                 continue;
             }
-            if (!today.equals(workingDaysService.addWorkingDays(operationDate, dayOffset))) {
+            if (!ReminderDays.isDue(workingDaysService, today, operationDate, row.getDeadlineDate(),
+                    dayOffset, REMINDER_DAYS)) {
                 continue;
             }
             Long controlId = row.getControlId();

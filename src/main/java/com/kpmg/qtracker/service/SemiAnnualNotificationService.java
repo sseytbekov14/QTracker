@@ -35,6 +35,8 @@ public class SemiAnnualNotificationService {
     static final String TYPE_DAY25 = "ANNUAL_SEMI_DAY25";
     static final String TYPE_OVERDUE_1 = "ANNUAL_SEMI_OVERDUE1";
     static final String TYPE_OVERDUE_REPEAT = "ANNUAL_SEMI_OVERDUE_REPEAT";
+    // Working days after the operation date; ReminderDays keeps them on or before the deadline
+    private static final int[] REMINDER_DAYS = {5, 25};
 
     private static final String STATUS_IN_PROGRESS = "IN_PROGRESS";
     private static final String STATUS_REVIEW = "REVIEW";
@@ -140,7 +142,7 @@ public class SemiAnnualNotificationService {
                 skipped++;
                 continue;
             }
-            String notificationType = determineDayType(today, operationDate);
+            String notificationType = determineDayType(today, operationDate, row.getDeadlineDate());
             if (notificationType == null) {
                 continue;
             }
@@ -253,11 +255,11 @@ public class SemiAnnualNotificationService {
         return new OverdueRunSummary(today, processed, sent, deduped, skipped);
     }
 
-    private String determineDayType(LocalDate today, LocalDate operationDate) {
-        if (today.equals(workingDaysService.addWorkingDays(operationDate, 5))) {
+    private String determineDayType(LocalDate today, LocalDate operationDate, LocalDate deadline) {
+        if (ReminderDays.isDue(workingDaysService, today, operationDate, deadline, 5, REMINDER_DAYS)) {
             return TYPE_DAY5;
         }
-        if (today.equals(workingDaysService.addWorkingDays(operationDate, 25))) {
+        if (ReminderDays.isDue(workingDaysService, today, operationDate, deadline, 25, REMINDER_DAYS)) {
             return TYPE_DAY25;
         }
         return null;

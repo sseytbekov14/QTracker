@@ -33,6 +33,8 @@ public class MonthlyNotificationService {
     static final String TYPE_DAY6 = "MONTHLY_DAY6";
     static final String TYPE_OVERDUE_1 = "MONTHLY_OVERDUE1";
     static final String TYPE_OVERDUE_REPEAT = "MONTHLY_OVERDUE_REPEAT";
+    // Working days after the operation date; ReminderDays keeps them on or before the deadline
+    private static final int[] REMINDER_DAYS = {3, 6};
 
     private static final String STATUS_IN_PROGRESS = "IN_PROGRESS";
     private static final String STATUS_REVIEW = "REVIEW";
@@ -295,7 +297,8 @@ public class MonthlyNotificationService {
                 skipped++;
                 continue;
             }
-            if (!today.equals(workingDaysService.addWorkingDays(operationDate, dayOffset))) {
+            if (!ReminderDays.isDue(workingDaysService, today, operationDate, row.getDeadlineDate(),
+                    dayOffset, REMINDER_DAYS)) {
                 continue;
             }
             Long controlId = row.getControlId();

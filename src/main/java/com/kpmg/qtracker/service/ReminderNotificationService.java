@@ -148,7 +148,10 @@ public class ReminderNotificationService {
         if (offsets == null) {
             return null;
         }
-        LocalDate reminder1Date = workingDaysService.addWorkingDays(operationDate, offsets[0]);
+        // On or before the deadline, never two on one day (ReminderDays)
+        LocalDate[] reminderDates = ReminderDays.dates(workingDaysService, operationDate,
+                assignment.getControlOperationDeadline(), offsets);
+        LocalDate reminder1Date = reminderDates[0];
         if (today.equals(reminder1Date)) {
             boolean responseExists = hasResponse(control);
             return new DueNotification(
@@ -159,7 +162,7 @@ public class ReminderNotificationService {
                     getReminderRecipients(assignment)
             );
         }
-        LocalDate reminder2Date = workingDaysService.addWorkingDays(operationDate, offsets[1]);
+        LocalDate reminder2Date = reminderDates[1];
         if (today.equals(reminder2Date)) {
             boolean responseExists = hasResponse(control);
             return new DueNotification(

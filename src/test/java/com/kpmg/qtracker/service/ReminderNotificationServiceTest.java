@@ -217,6 +217,33 @@ class ReminderNotificationServiceTest {
         );
     }
 
+    /** With 14 days to the deadline the second reminder goes out on the deadline day, never after it. */
+    @ParameterizedTest
+    @MethodSource("reminder2Cases")
+    void reminder2AfterTheDeadline_goesOutOnTheDeadlineDay(Long controlId, String frequency, int dayOffset) {
+        Control onTheDeadline = controlWithFrequency(controlId, frequency);
+        service.processControl(onTheDeadline, assignmentWithDates(TODAY.minusDays(14), TODAY), TODAY);
+
+        verify(notificationService).sendTemplateNotifications(
+                eq(onTheDeadline),
+                any(),
+                eq(NotificationTemplateService.TemplateType.REMINDER_2_OPEN),
+                eq(false)
+        );
+        assertLoggedDates(TODAY);
+
+        Control pastTheDeadline = controlWithFrequency(controlId + 1000, frequency);
+        LocalDate operationDate = workingDaysService.addWorkingDays(TODAY, -dayOffset);
+        service.processControl(pastTheDeadline, assignmentWithDates(operationDate, operationDate.plusDays(14)), TODAY);
+
+        verify(notificationService, never()).sendTemplateNotifications(
+                eq(pastTheDeadline),
+                any(),
+                eq(NotificationTemplateService.TemplateType.REMINDER_2_OPEN),
+                eq(false)
+        );
+    }
+
     @ParameterizedTest
     @MethodSource("notDueReminderCases")
     void doesNotSendReminderWhenNotDue(Long controlId, String frequency, int dayOffset) {
