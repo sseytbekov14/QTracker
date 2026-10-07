@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=17" rel="stylesheet">
-    <link href="/css/view-control.css?v=17" rel="stylesheet">
+    <link href="/css/view-control.css?v=18" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator Program validation styling */
@@ -498,6 +498,8 @@
                                          : (${st == 'SOQM_HEAD_REVIEW'} ? 'vc-status-soqm'
                                          : (${st == 'PROCESS_OWNER_REVIEW'} ? 'vc-status-po' : 'vc-status-draft'))))"
                                       th:text="${stLabel}">In Progress</span>
+                                <span class="vc-badge vc-kdn-badge" th:if="${kdnControlMark}"
+                                      title="Control ID starts with KDN: KDN users see this control">KDN control</span>
                                 <span th:if="${overdue}" class="vc-badge vc-status-overdue">Overdue</span>
                                 <span th:if="${yourTurn}" class="vc-badge vc-your-turn"><i class="bi bi-person-check" aria-hidden="true"></i> Your turn</span>
                             </h1>
@@ -1307,7 +1309,8 @@
                                     <label for="newControlId" class="form-label required-field">New Control ID</label>
                                     <input type="text" class="form-control" id="newControlId"
                                            th:value="${control.controlId}" placeholder="Enter new Control ID">
-                                    <div class="form-text">Control ID must be unique across the system</div>
+                                    <div class="form-text">Control ID must be unique across the system.
+                                        <span id="renameKdnHint" th:text="${kdnIdHint} + '.'">IDs starting with KDN are visible to KDN users.</span></div>
                                     <div id="controlIdError" class="text-danger mt-1" style="display: none;"></div>
                                 </div>
                                 <div class="mb-0">

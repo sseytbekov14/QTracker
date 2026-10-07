@@ -269,6 +269,8 @@ th[aria-sort="descending"] .sort-btn .bi { opacity: 1; color: var(--kpmg-blue); 
 }
 .tag-your-turn { background: #e6ecf6; color: var(--kpmg-blue); }
 .tag-shared { background: #e0f2f7; color: #055160; }
+/* Control ID starting with KDN: KDN users see it (SoQM Team only) */
+.tag-kdn { background: #f3ecfa; color: #5b2a86; }
 
 .with-name { display: block; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 .with-role { font-size: 0.7rem; color: var(--kpmg-gray-600); }
@@ -475,6 +477,8 @@ th[aria-sort="descending"] .sort-btn .bi { opacity: 1; color: var(--kpmg-blue); 
                                     <a class="control-link" th:href="${controlUrl}" th:text="${control.controlId}">CTRL-001</a>
                                     <span th:if="${yourTurn}" class="tag tag-your-turn" title="The current workflow step is yours">Your turn</span>
                                     <span th:if="${control.sharedViewOnly}" class="tag tag-shared" title="Shared with you (view only)">Shared</span>
+                                    <span th:if="${kdnControlIds != null and #sets.contains(kdnControlIds, control.id)}" class="tag tag-kdn"
+                                          title="Control ID starts with KDN: KDN users see this control">KDN control</span>
                                     <span class="control-desc" th:if="${control.controlDescription != null and !#strings.isEmpty(control.controlDescription)}"
                                           th:text="${control.controlDescription}" th:title="${control.controlDescription}">Description</span>
                                 </td>

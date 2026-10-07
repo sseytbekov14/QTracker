@@ -1182,7 +1182,8 @@ class ViewControllerStatusFilterTest {
                 .andExpect(view().name("new-control"))
                 .andExpect(content().string(containsString("id=\"controlForm\"")))
                 .andExpect(content().string(containsString("class=\"col-md-2 sidebar p-3\"")))
-                .andExpect(content().string(containsString("id=\"controlId-status\"")));
+                .andExpect(content().string(containsString("id=\"controlId-status\"")))
+                .andExpect(content().string(containsString("IDs starting with KDN are visible to KDN users")));
 
         User facilitator = new User();
         facilitator.setId(31L);
@@ -1267,6 +1268,43 @@ class ViewControllerStatusFilterTest {
         assertThat(allControls).noneMatch(ControlResponseDTO::isSharedViewOnly);
         assertThat(all.getModelAndView().getModel().get("activeControls")).isEqualTo(2);
         assertThat(all.getModelAndView().getModel().get("completedControls")).isEqualTo(1);
+    }
+
+    @Test
+    void controls_kdnMark_onlyForSoqm_andOnlyOnIdsStartingWithKdn() throws Exception {
+        User soqm = new User();
+        soqm.setId(42L);
+        TestUsers.withRole(soqm, "SOQM_TEAM");
+        soqm.setMail("soqm-mark@kpmg.kz");
+        List<ControlResponseDTO> dtos = new java.util.ArrayList<>();
+        String[] ids = {"KDN-421", "X-KDN-422", "HR-423", " kdn424 "};
+        for (int i = 0; i < ids.length; i++) {
+            ControlResponseDTO dto = new ControlResponseDTO();
+            dto.setId(421L + i);
+            dto.setControlId(ids[i]);
+            dto.setPerformanceStatus("IN_PROGRESS");
+            dto.setCreatedAt(java.time.LocalDateTime.now().minusDays(i));
+            dtos.add(dto);
+        }
+        mockVisibleControls(soqm, dtos);
+
+        MvcResult result = mockMvc.perform(get("/controls").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(result.getModelAndView().getModel().get("kdnControlIds")).isEqualTo(java.util.Set.of(421L, 424L));
+        assertThat(result.getResponse().getContentAsString().split("class=\"tag tag-kdn\"", -1)).hasSize(3);
+
+        User reader = new User();
+        reader.setId(43L);
+        TestUsers.withRole(reader, "FACILITATOR");
+        reader.setMail("reader@kpmg.kz");
+        reader.setAccessScope(com.kpmg.qtracker.enums.AccessScope.ALL);
+        mockVisibleControls(reader, dtos);
+        MvcResult other = mockMvc.perform(get("/controls").sessionAttr("currentUser", reader))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat((java.util.Set<?>) other.getModelAndView().getModel().get("kdnControlIds")).isEmpty();
+        assertThat(other.getResponse().getContentAsString()).doesNotContain("class=\"tag tag-kdn\"");
     }
 
     @Test

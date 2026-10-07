@@ -91,6 +91,8 @@
     font-weight: 600;
     letter-spacing: 0;
 }
+/* Control ID starting with KDN (SoQM Team only): KDN users see the control */
+.vc-kdn-badge { background: #f3ecfa; color: #5b2a86; }
 /* same status palette as the Controls list */
 .vc-status-draft { background: #d8dce5; color: #5c6478; }
 .vc-status-progress { background: #fff3cd; color: #6b5104; }

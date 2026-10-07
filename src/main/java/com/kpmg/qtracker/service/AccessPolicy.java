@@ -245,6 +245,14 @@ public final class AccessPolicy {
         return controlId != null && controlId.trim().toUpperCase(Locale.ROOT).startsWith(KDN_PREFIX);
     }
 
+    /**
+     * Whether the user is shown which controls are KDN controls (the "KDN control" mark in lists and on the
+     * control): SoQM Team, who give the IDs. KDN users see only KDN controls, the others need not know.
+     */
+    public static boolean seesKdnMark(Subject subject) {
+        return isSoqm(subject);
+    }
+
     /** Renaming the Control ID from one to the other makes the control a KDN control or stops it being one. */
     public static boolean renameChangesKdn(String oldControlId, String newControlId) {
         return isKdnControl(oldControlId) != isKdnControl(newControlId);

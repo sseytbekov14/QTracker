@@ -342,10 +342,13 @@
                                     <input type="text" class="form-control" id="controlId" name="controlId" required
                                            maxlength="255" autocomplete="off"
                                            placeholder="Select component & frequency"
-                                           aria-describedby="controlId-error controlId-status">
+                                           aria-describedby="controlId-error controlId-status controlId-kdn">
                                     <div class="invalid-feedback" id="controlId-error"></div>
                                     <div class="field-meta">
                                         <span id="controlId-status" class="id-status" aria-live="polite">Auto-generated, can be edited</span>
+                                    </div>
+                                    <div class="field-meta">
+                                        <span id="controlId-kdn" th:text="${kdnIdHint}">IDs starting with KDN are visible to KDN users</span>
                                     </div>
                                 </div>
                             </div>

@@ -58,6 +58,9 @@ public final class RoleDisplayMapper {
         return user == null ? "" : AccessPolicy.Profile.of(user).role().getDisplayName();
     }
 
+    /** The hint at a Control ID field (new control, Rename ID). */
+    public static final String KDN_ID_HINT = "IDs starting with KDN are visible to KDN users";
+
     /** The subtitle of the Controls list: which controls the user sees. */
     public static String visibleControls(AccessPolicy.Profile profile) {
         if (profile.role() == UserRole.KDN) {

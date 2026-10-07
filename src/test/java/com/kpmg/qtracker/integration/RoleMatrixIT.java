@@ -109,6 +109,7 @@ class RoleMatrixIT {
 
     private static final List<Who> PEOPLE = List.of(
             new Who("soqm", "SoQM Team", AccessLevel.SOQM, ALL, Place.NONE, false, false, false),
+            new Who("soqm-kdn", "SoQM Team, KDN control", AccessLevel.SOQM, ALL, Place.NONE, true, false, false),
             new Who("part-step", "User · My controls · Edit, assigned", EDIT, MY, Place.STEP, false, false, false),
             new Who("part-none", "User · My controls · Edit, not on it", EDIT, MY, Place.NONE, false, false, false),
             new Who("part-shared", "User · My controls · Edit, shared only", EDIT, MY, Place.SHARED, false, false, false),
@@ -138,7 +139,7 @@ class RoleMatrixIT {
             new Who("anonymous", "not signed in", null, null, Place.NONE, false, false, true));
 
     private static final List<String> CONTROL_OPS = List.of(
-            "In Controls list", "View page", "Notice", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
+            "In Controls list", "View page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
             "Assign", "Upload", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)");
 
@@ -308,6 +309,8 @@ class RoleMatrixIT {
             case "Notice" -> !sees || notYet ? "-"
                     : !writer ? "READ_ONLY"
                     : soqm || listed ? "NONE" : "NOT_ASSIGNED";
+            // The "KDN control" mark on the control's page: SoQM Team only, on a KDN control
+            case "KDN mark" -> soqm && who.kdnControl() ? "ok" : "refused";
             // The Controls list (and the dashboard tiles counted from it) holds every control the user sees
             case "In Controls list" -> sees ? "ok" : "refused";
             case "View page" -> !sees ? "refused"
@@ -373,6 +376,7 @@ class RoleMatrixIT {
         row.put("In Controls list", inControlsList(control, session));
         row.put("View page", page(get("/view-control/{id}", control.getId()), session));
         row.put("Notice", notice(control, session));
+        row.put("KDN mark", kdnMark(control, session));
         row.put("Read API", answer(get("/api/control-details").param("controlId", String.valueOf(control.getId())), session));
         row.put("History", answer(get("/api/controls/{id}/changelog", control.getId()), session));
         row.put("Download", answer(get("/api/attachments/download/{name}", control.getAttachmentDetailsPath())
@@ -486,6 +490,16 @@ class RoleMatrixIT {
             return notice + " buttons!";
         }
         return notice;
+    }
+
+    /** "ok" when the control's page carries the "KDN control" mark, "none" when it does not, else what it answered. */
+    private String kdnMark(Control control, MockHttpSession session) throws Exception {
+        MvcResult result = perform(get("/view-control/{id}", control.getId()), session);
+        ModelAndView mav = result.getModelAndView();
+        if (result.getResponse().getStatus() != 200 || mav == null || !"view-control".equals(mav.getViewName())) {
+            return outcome(result);
+        }
+        return result.getResponse().getContentAsString().contains("vc-kdn-badge") ? "ok" : "none";
     }
 
     /** "ok" when /controls lists the control, "absent" when it does not, otherwise what the page answered. */

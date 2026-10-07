@@ -398,6 +398,13 @@ public class ViewController {
         model.addAttribute("componentFilterName", componentFilter != null ? COMPONENT_NAMES.get(componentFilter) : null);
         addControlsFilterLinks(model, resolvedStatusFilter, resolvedControlsFilter, componentFilter);
         model.addAttribute("controls", userControlsList);
+        // The "KDN control" mark, for SoQM Team only (AccessPolicy.seesKdnMark)
+        model.addAttribute("kdnControlIds", AccessPolicy.seesKdnMark(subject)
+                ? userControlsList.stream()
+                        .filter(control -> AccessPolicy.isKdnControl(control.getControlId()))
+                        .map(ControlResponseDTO::getId)
+                        .collect(Collectors.toSet())
+                : Set.of());
         // Controls where the current workflow step is this user's ("Your turn" badge)
         model.addAttribute("actionControlIds", userControlsList.stream()
                 .filter(control -> isMyTurn(subject, userEmail, control))
@@ -886,6 +893,10 @@ public class ViewController {
 
         // Rename ID: SoQM, also on a completed control, which nobody edits otherwise (AccessPolicy.isLocked)
         model.addAttribute("canRenameId", AccessPolicy.canRenameId(permission));
+        // The "KDN control" mark in the header and the hint at the Control ID, for SoQM Team
+        model.addAttribute("kdnControlMark", AccessPolicy.seesKdnMark(AccessPolicy.Subject.of(currentUser))
+                && AccessPolicy.isKdnControl(control.getControlId()));
+        model.addAttribute("kdnIdHint", RoleDisplayMapper.KDN_ID_HINT);
         model.addAttribute("completedLocked", permission.isLocked());
 
         // Header summary + workflow stepper
@@ -989,6 +1000,7 @@ public class ViewController {
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userEmail", currentUser.getMail());
+        model.addAttribute("kdnIdHint", RoleDisplayMapper.KDN_ID_HINT);
 
         return "new-control";
     }
