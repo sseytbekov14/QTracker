@@ -126,7 +126,7 @@
             background-color: #f7f8fa !important;
         }
 
-        /* Who fills a steps field in, when the Facilitator and the Control Operator are different people */
+        /* Who fills each steps field in: the Facilitator, the Control Operator */
         .steps-field-owner {
             color: var(--text-muted, #6c757d);
             font-size: 0.8125rem;
@@ -766,7 +766,7 @@
                                 <div class="row">
                                     <div class="col-12 mb-3">
                                         <label class="form-label" for="controlStepsPerformed"><span th:text="${stepsLabel}">Control Steps Performed and Results</span><span class="step-required-mark" aria-hidden="true"
-                                                th:if="${stepField != null and stepField.required() and stepField.field() == 'controlStepsPerformed'}"> *</span><span class="steps-field-owner" th:if="${stepsSplit}">Facilitator</span></label>
+                                                th:if="${stepField != null and stepField.required() and stepField.field() == 'controlStepsPerformed'}">&nbsp;*</span><span class="steps-field-owner">Facilitator</span></label>
                                         <textarea class="form-control" id="controlStepsPerformed" name="controlStepsPerformed" rows="8" maxlength="2000"
                                                   placeholder="Describe control steps and results"></textarea>
                                         <div class="required-hint d-none" id="controlStepsSubmitHint">
@@ -775,13 +775,15 @@
                                     </div>
                                 </div>
 
-                                <!-- Only when the Facilitator and the Control Operator are different people (ControlStepsFields) -->
-                                <div class="row" id="operatorReviewRow" th:if="${stepsSplit}">
+                                <!-- Control Operator's Program: shown to everyone who sees the control, one person or not
+                                     (ControlStepsFields); written by the Control Operator in Review, read-only to the others -->
+                                <div class="row" id="operatorReviewRow">
                                     <div class="col-12 mb-3">
                                         <label class="form-label" for="controlOperatorReview"><span th:text="${operatorProgramLabel}">Control Operator's Program</span><span class="step-required-mark" aria-hidden="true"
-                                                th:if="${stepField != null and stepField.required() and stepField.field() == 'controlOperatorReview'}"> *</span><span class="steps-field-owner">Control Operator</span></label>
+                                                th:if="${stepField != null and stepField.required() and stepField.field() == 'controlOperatorReview'}">&nbsp;*</span><span class="steps-field-owner">Control Operator</span></label>
                                         <textarea class="form-control" id="controlOperatorReview" name="controlOperatorReview" rows="8" maxlength="2000"
-                                                  placeholder="Describe the Control Operator's program and its results"></textarea>
+                                                  placeholder="Not filled yet"
+                                                  data-edit-placeholder="Describe the Control Operator's program and its results"></textarea>
                                         <div class="required-hint d-none" id="operatorReviewSubmitHint">
                                             This field is required before submission.
                                         </div>
@@ -1649,7 +1651,7 @@
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
-<script src="/js/view-control.js?v=6.4"></script>
+<script src="/js/view-control.js?v=6.5"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
@@ -1984,7 +1986,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         console.log('?? Status-based restriction:', { statusValue, normalizedStatus, isEditMode });
 
-        // Control Operator's Program exists only while the two fields are split
+        // Control Operator's Program: the Control Operator in Review (and SoQM), whoever the Facilitator is
         const canEditOperatorReview = Boolean(window.qtrackerPermissions && window.qtrackerPermissions.canEditOperatorReview);
         setStepsFieldEditable(controlStepsField, (canEditAll || canEditStepsPerformed) && isEditMode);
         setStepsFieldEditable(document.querySelector('textarea[name="controlOperatorReview"]'),
@@ -2015,6 +2017,25 @@ document.addEventListener('DOMContentLoaded', function() {
             field.style.borderColor = restrictedBorder;
         }
     }
+
+    // Control Operator's Program read-only and empty reads "Not filled yet"; the hint to write appears only
+    // while the field can be written (whichever script makes it editable or read-only)
+    (function operatorProgramPlaceholder() {
+        const program = document.querySelector('textarea[name="controlOperatorReview"]');
+        if (!program) {
+            return;
+        }
+        const editPlaceholder = program.getAttribute('data-edit-placeholder') || '';
+        const update = () => {
+            const readOnly = program.disabled || program.readOnly;
+            const text = readOnly ? 'Not filled yet' : editPlaceholder;
+            if (program.getAttribute('placeholder') !== text) {
+                program.setAttribute('placeholder', text);
+            }
+        };
+        new MutationObserver(update).observe(program, { attributes: true, attributeFilter: ['readonly', 'disabled'] });
+        update();
+    })();
 
     // Apply restrictions on page load
     applyRoleBasedRestrictions();

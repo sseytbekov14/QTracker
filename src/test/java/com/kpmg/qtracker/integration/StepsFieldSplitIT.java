@@ -399,20 +399,50 @@ class StepsFieldSplitIT {
     // ------------------------------------------------------------------ View Control
 
     @Test
-    void viewControl_onePerson_rendersOneField_namedByTheConstant() throws Exception {
-        Control control = control("REVIEW", fac.getMail(), fac.getMail(), "Steps", "Kept from before");
+    void viewControl_onePerson_rendersBothFields_theProgramOptional_writtenInReview() throws Exception {
+        Control control = control("REVIEW", fac.getMail(), fac.getMail(), "Steps", null);
 
         String page = page(control, login(fac));
 
         assertThat(page).contains("name=\"controlStepsPerformed\"")
                 .contains(">" + ControlStepsFields.STEPS_LABEL + "<")
+                .contains("id=\"operatorReviewRow\"")
+                .contains("id=\"controlOperatorReview\"")
+                .contains(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<")
+                .contains("<span class=\"steps-field-owner\">Facilitator</span>")
+                .contains("<span class=\"steps-field-owner\">Control Operator</span>")
                 .contains("id=\"stepsSplit\" value=\"false\"")
+                .contains("id=\"operatorProgramRequired\" value=\"false\"")
                 .contains("id=\"allowedEditableFields\" value=\"controlOperatorReview\"")
-                // the page script and the step hint name the field; the markup has neither the row nor the textarea
-                .doesNotContain("id=\"operatorReviewRow\"")
-                .doesNotContain("id=\"controlOperatorReview\"")
-                .doesNotContain("<label class=\"form-label\" for=\"controlOperatorReview\"")
-                .doesNotContain("class=\"steps-field-owner\"");
+                // Your step: the Program, which Submit to SoQM Team does not need here
+                .contains("data-step-field=\"controlOperatorReview\"", "data-step-required=\"false\"", " (optional)")
+                .doesNotContain("class=\"step-required-mark\"");
+
+        // The same person on the Facilitator's step writes the steps field only
+        setStatus(control, "IN_PROGRESS");
+        assertThat(page(control, login(fac)))
+                .contains("id=\"controlOperatorReview\"")
+                .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed\"");
+    }
+
+    @Test
+    void viewControl_theProgram_isShownToEveryoneWhoSeesTheControl_readOnlyEmptyReads_NotFilledYet() throws Exception {
+        for (String operators : List.of(fac.getMail(), op.getMail())) {
+            Control control = control("REVIEW", fac.getMail(), operators, "Steps", null);
+            ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+            assignment.setControlSharedWith(sharedUser.getMail());
+            assignmentRepository.save(assignment);
+
+            for (User reader : List.of(fac, op, soqm, po, sharedUser, readOnlyAll())) {
+                if (reader == op && operators.equals(fac.getMail())) {
+                    continue; // not on the one-person control
+                }
+                assertThat(page(control, login(reader))).as(operators + " / " + reader.getMail())
+                        .contains("id=\"controlOperatorReview\"")
+                        .contains("placeholder=\"Not filled yet\"")
+                        .contains(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<");
+            }
+        }
     }
 
     @Test
@@ -430,6 +460,8 @@ class StepsFieldSplitIT {
                 .contains("<span class=\"steps-field-owner\">Control Operator</span>")
                 .contains("id=\"operatorReviewSubmitHint\"")
                 .contains("id=\"stepsSplit\" value=\"true\"")
+                .contains("id=\"operatorProgramRequired\" value=\"true\"")
+                .contains("data-step-required=\"true\"")
                 .contains("id=\"allowedEditableFields\" value=\"controlOperatorReview\"");
 
         for (User reader : List.of(fac, sharedUser, po)) {
@@ -631,6 +663,13 @@ class StepsFieldSplitIT {
         details.setProcessOwnerComments("Process Owner comments");
         detailsRepository.save(details);
         return control;
+    }
+
+    /** A Read Only user of All controls: sees the control without being on it. */
+    private User readOnlyAll() {
+        User user = saveUser("ro-all-" + UUID.randomUUID().toString().substring(0, 8), AccessLevel.READ_ONLY);
+        user.setAccessScope(AccessScope.ALL);
+        return userRepository.save(user);
     }
 
     private User saveUser(String name, AccessLevel level) {

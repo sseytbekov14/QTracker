@@ -1393,7 +1393,7 @@ function confirmWorkflowAction() {
         stepsField.style.backgroundColor = '';
     }
 
-    // Control Operator's Program: the Control Operator's own field while the steps field is split
+    // Control Operator's Program: the Control Operator's own field in Review, one person or not
     function enableOperatorReviewField() {
         const reviewField = document.querySelector('textarea[name="controlOperatorReview"]');
         if (!reviewField) {
@@ -3261,7 +3261,7 @@ function buildDetailsPayload(controlId) {
         otherRelatedControls: getDetailsValue('[name="otherRelatedControls"]'),
         itApplications: getDetailsValue('[name="itApplications"]'),
         controlStepsPerformed: getDetailsValue('[name="controlStepsPerformed"]'),
-        // Not on the page for one person: null keeps the stored value
+        // Always on the page; without the right to change it, applyDetailsPermissions sends null (kept as stored)
         controlOperatorReview: detailsForm.querySelector('[name="controlOperatorReview"]')
             ? getDetailsValue('[name="controlOperatorReview"]')
             : null,
