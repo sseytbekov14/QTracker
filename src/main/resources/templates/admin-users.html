@@ -395,11 +395,22 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .role-info-title { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; color: var(--kpmg-gray-800); }
 .role-info-list { margin: 0 0 8px; padding-left: 18px; font-size: 0.78rem; color: var(--kpmg-gray-800); }
 .role-info-list li + li { margin-top: 2px; }
-.role-fixed { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; font-size: 0.78rem; }
+.role-fixed { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; align-items: baseline; margin: 0; font-size: 0.78rem; }
 .role-fixed:empty { display: none; }
 .role-fixed dt { font-weight: 600; color: var(--kpmg-gray-600); }
-.role-fixed dd { margin: 0; }
-.fixed-value { font-weight: 600; color: var(--kpmg-gray-800); margin-right: 6px; }
+.role-fixed dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+/* A value the role fixes: shown like a disabled field, it cannot be chosen */
+.fixed-value {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 8px;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 4px;
+    background: var(--kpmg-gray-100);
+    color: var(--kpmg-gray-600);
+    font-weight: 600;
+    cursor: not-allowed;
+}
+.fixed-value .bi { font-size: 0.72rem; }
 .fixed-reason { color: var(--kpmg-gray-600); }
 .summary-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--kpmg-gray-600); }
 .summary-hint { color: var(--kpmg-gray-800); }
@@ -855,6 +866,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const ACCESS_HINTS = /*[[${accessHints}]]*/ {};
     const ROLE_CAN_DO = /*[[${roleCanDo}]]*/ {};
     const ROLE_FIXED = /*[[${roleFixedValues}]]*/ {};
+    const ROLE_SUMMARIES = /*[[${roleSummaries}]]*/ {};
     const MAX_NAME_LENGTH = 255;
     const SEPARATOR = ' · ';
 
@@ -937,10 +949,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ---------------------------------------------------------------- access words
 
-    // "SoQM Team", "User · My controls · Edit", "KDN", as RoleDisplayMapper.summary
+    // "SoQM Team", "User · My controls · Edit", "KDN · All KDN controls · Read Only", as RoleDisplayMapper.summary
     function summaryOf(user) {
         if (user.role !== 'USER') {
-            return ROLE_LABELS[user.role] || user.role || '-';
+            return ROLE_SUMMARIES[user.role] || ROLE_LABELS[user.role] || user.role || '-';
         }
         return ROLE_LABELS.USER + SEPARATOR + (VISIBILITY_LABELS[user.visibility] || '-')
             + SEPARATOR + (ACCESS_LABELS[user.access] || '-');
@@ -1309,10 +1321,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const fixedItems = [];
         fixed.forEach(function(value) {
             fixedItems.push(element('dt', null, value.label));
-            fixedItems.push(element('dd', null, null, [
-                element('span', 'fixed-value', value.value),
-                element('span', 'fixed-reason', value.reason)
-            ]));
+            const fixedValue = element('span', 'fixed-value', null, [
+                element('i', 'bi bi-lock', null, null, {'aria-hidden': 'true'}), value.value
+            ], {'aria-disabled': 'true', title: 'Fixed for this role'});
+            fixedItems.push(element('dd', null, null, [fixedValue, element('span', 'fixed-reason', value.reason)]));
         });
         roleInfoFixed.replaceChildren.apply(roleInfoFixed, fixedItems);
         updateAccessSummary();

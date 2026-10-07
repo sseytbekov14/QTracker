@@ -112,7 +112,7 @@ class UserAccessAuditIT {
                         .param("role", "KDN")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.audit.action").value("Changed role from SoQM Team to KDN"));
+                .andExpect(jsonPath("$.audit.action").value("Changed role from SoQM Team to KDN · All KDN controls · Read Only"));
         assertThat(accessEntries(admin)).hasSize(2);
     }
 
@@ -165,7 +165,7 @@ class UserAccessAuditIT {
                         .param("email", mail)
                         .param("role", "KDN"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary").value("KDN"));
+                .andExpect(jsonPath("$.summary").value("KDN · All KDN controls · Read Only"));
 
         AdminAuditLog log = auditLogRepository.findByAdminEmailOrderByCreatedAtDesc(admin.getMail()).stream()
                 .filter(entry -> "USER_CREATE".equals(entry.getActionType()))

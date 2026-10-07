@@ -10,7 +10,7 @@ public enum AccessScope {
     /** Every control, drafts included. */
     ALL("All controls"),
     /** Every KDN control (Control ID starting with KDN) and no other ({@link com.kpmg.qtracker.service.AccessPolicy#isKdnControl}). */
-    KDN("KDN controls");
+    KDN("All KDN controls");
 
     private final String displayName;
 

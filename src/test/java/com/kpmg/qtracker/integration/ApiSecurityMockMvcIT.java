@@ -1726,7 +1726,8 @@ class ApiSecurityMockMvcIT {
                 "<span class=\"role-badge is-soqm_team\">SoQM Team</span>", "data-label=\"Access\">SoQM Team</td>")
                 .doesNotContain("data-visibility=\"MY\"", "data-visibility=\"ALL\"", "data-access=\"EDIT\"");
         assertThat(userRow(html, kdn)).contains("data-role=\"KDN\"",
-                "<span class=\"role-badge is-kdn\">KDN</span>", "data-label=\"Access\">KDN</td>");
+                "<span class=\"role-badge is-kdn\">KDN</span>",
+                "data-label=\"Access\">KDN · All KDN controls · Read Only</td>");
         assertThat(userRow(html, readOnly)).contains("data-role=\"USER\"", "data-visibility=\"MY\"",
                 "data-access=\"READ_ONLY\"", "<span class=\"role-badge is-user\">User</span>",
                 "data-label=\"Access\">User · My controls · Read Only</td>");
@@ -1734,7 +1735,9 @@ class ApiSecurityMockMvcIT {
                 "data-label=\"Access\">User · All controls · Edit</td>");
         // Every combination's hint and what SoQM Team and KDN can do reach the dialog script
         assertThat(html).containsPattern("USER\\\\?/ALL\\\\?/EDIT")
-                .contains("What this role can do", "KDN users have read-only access.");
+                .contains("What this role can do", "All KDN controls", "KDN · All KDN controls · Read Only")
+                .doesNotContain("KDN users have read-only access", "KDN controls they are on",
+                        "Sees only KDN controls", "SoQM Team does that for them");
     }
 
     @Test
@@ -1812,7 +1815,7 @@ class ApiSecurityMockMvcIT {
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.role").value("KDN"))
-                .andExpect(jsonPath("$.summary").value("KDN"))
+                .andExpect(jsonPath("$.summary").value("KDN · All KDN controls · Read Only"))
                 .andExpect(jsonPath("$.visibility").doesNotExist());
         User saved = userRepository.findById(target.getId()).orElseThrow();
         assertThat(saved.getRole()).isEqualTo("FACILITATOR");

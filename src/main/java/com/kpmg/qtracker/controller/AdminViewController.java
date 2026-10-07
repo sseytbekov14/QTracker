@@ -93,6 +93,7 @@ public class AdminViewController {
         model.addAttribute("roleCanDo", roleCanDo);
         model.addAttribute("roleFixedValues", roleFixedValues);
         model.addAttribute("accessHints", RoleDisplayMapper.hints());
+        model.addAttribute("roleSummaries", RoleDisplayMapper.roleSummaries());
         model.addAttribute("canManageUsers", AccessPolicy.canManageUsers(subject));
         AdminAuditTrail.Trail trail = adminAuditTrail.latest();
         model.addAttribute("auditTrail", trail.entries());
