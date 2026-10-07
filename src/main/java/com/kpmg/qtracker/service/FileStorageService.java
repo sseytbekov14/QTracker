@@ -1,5 +1,6 @@
 package com.kpmg.qtracker.service;
 
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,8 +19,47 @@ import java.util.stream.Stream;
 @Slf4j
 public class FileStorageService {
 
-    @Value("${file.upload.dir}")
+    /** Default folder name, in the folder the app is started from, while no file.upload.dir is given. */
+    static final String DEFAULT_FOLDER = "uploads";
+
+    @Value("${file.upload.dir:}")
     private String uploadDir;
+
+    /** The attachments folder as an absolute path, fixed at start. */
+    private Path root;
+
+    /**
+     * Fixes the attachments folder once, creates it when missing and says in the log which folder it is. A
+     * relative or missing setting depends on the folder the app is started from, so it is reported as a warning.
+     */
+    @PostConstruct
+    void init() {
+        root = resolveRoot(uploadDir);
+        if (uploadDir == null || uploadDir.isBlank()) {
+            log.warn("Attachments folder: {} (file.upload.dir / FILE_UPLOAD_DIR is not set: the \"{}\" folder of the"
+                    + " start folder is used; set an absolute path so every start uses the same folder)", root, DEFAULT_FOLDER);
+        } else if (!Paths.get(uploadDir.trim()).isAbsolute()) {
+            log.warn("Attachments folder: {} (file.upload.dir \"{}\" is relative to the start folder; set an absolute"
+                    + " path so every start uses the same folder)", root, uploadDir.trim());
+        } else {
+            log.info("Attachments folder: {}", root);
+        }
+        try {
+            Files.createDirectories(root);
+        } catch (IOException e) {
+            log.error("Attachments folder {} cannot be created: uploads and downloads will fail ({})", root, e.toString());
+        }
+    }
+
+    /** The configured folder as an absolute path; without a setting the "uploads" folder of the start folder. */
+    static Path resolveRoot(String configured) {
+        String folder = configured == null || configured.isBlank() ? DEFAULT_FOLDER : configured.trim();
+        return Paths.get(folder).toAbsolutePath().normalize();
+    }
+
+    private Path root() {
+        return root != null ? root : resolveRoot(uploadDir);
+    }
 
     /**
      * Saves uploaded file to disk and returns the unique filename
@@ -239,7 +279,7 @@ public class FileStorageService {
 
     /** The control's folder directly under the upload root, or the root itself without a folder. */
     private Path folderPath(String controlFolder) {
-        Path basePath = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path basePath = root();
         if (!hasFolder(controlFolder)) {
             return basePath;
         }

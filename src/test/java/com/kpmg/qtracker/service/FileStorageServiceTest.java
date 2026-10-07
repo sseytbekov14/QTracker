@@ -160,6 +160,23 @@ class FileStorageServiceTest {
     }
 
     @Test
+    void uploadRoot_isAbsolute_andTheDefaultIsTheUploadsFolderOfTheStartFolder() throws Exception {
+        Path start = Path.of("").toAbsolutePath();
+        assertThat(FileStorageService.resolveRoot(null)).isEqualTo(start.resolve("uploads"));
+        assertThat(FileStorageService.resolveRoot("  ")).isEqualTo(start.resolve("uploads"));
+        assertThat(FileStorageService.resolveRoot("data/files")).isEqualTo(start.resolve("data").resolve("files"));
+        assertThat(FileStorageService.resolveRoot(tempDir.toString())).isEqualTo(tempDir.toAbsolutePath());
+
+        // Fixed at start and created when missing
+        Path configured = tempDir.resolve("attachments");
+        FileStorageService service = serviceOn(configured);
+        service.init();
+        assertThat(configured).isDirectory();
+        Files.writeString(Files.createDirectories(configured.resolve("HR1")).resolve("a.pdf"), "a");
+        assertThat(service.downloadFile("a.pdf", "HR1")).asString().isEqualTo("a");
+    }
+
+    @Test
     void isPlainFileName_allowsStoredNames() {
         assertThat(FileStorageService.isPlainFileName("Отчёт_о_проверке (1).pdf")).isTrue();
         assertThat(FileStorageService.isPlainFileName("20260101_abcd1234_report..v2.pdf")).isTrue();

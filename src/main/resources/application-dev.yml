@@ -14,10 +14,6 @@ spring:
 app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
 
-file:
-  upload:
-    dir: ${FILE_UPLOAD_DIR:uploads}
-
 logging:
   level:
     com.kpmg.qtracker.scheduler.ControlReminderScheduler: INFO

@@ -43,6 +43,10 @@ app:
 
 file:
   upload:
+    # Folder of the attachments. Give FILE_UPLOAD_DIR as an absolute path. Without it the "uploads" folder of
+    # the folder the app is started from is used, so the IDE and a jar started elsewhere would not share files.
+    # The folder in use is written to the log at start.
+    dir: ${FILE_UPLOAD_DIR:}
     max-file-size-mb: ${FILE_UPLOAD_MAX_FILE_SIZE_MB:10}
 
 reminders:
