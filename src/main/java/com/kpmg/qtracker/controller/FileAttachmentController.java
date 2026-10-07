@@ -9,6 +9,7 @@ import com.kpmg.qtracker.service.ControlAttachmentService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
+import com.kpmg.qtracker.service.ControlRenameService;
 import com.kpmg.qtracker.service.FileStorageService;
 import com.kpmg.qtracker.service.PermissionService;
 import jakarta.servlet.http.HttpSession;
@@ -44,6 +45,7 @@ public class FileAttachmentController {
     private final AdminAuditService adminAuditService;
     private final ControlAttachmentService controlAttachmentService;
     private final PermissionService permissionService;
+    private final ControlRenameService controlRenameService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final int MAX_FILES_PER_TAB = 50;
@@ -227,7 +229,8 @@ public class FileAttachmentController {
             if (!controlAttachmentService.isAttached(control, decodedFilename)) {
                 return ResponseEntity.notFound().build();
             }
-            byte[] fileContent = fileStorageService.downloadFile(decodedFilename, resolveControlFolder(control));
+            byte[] fileContent = fileStorageService.downloadFile(decodedFilename,
+                    controlRenameService.attachmentFolders(control));
             String mimeType = fileStorageService.getMimeType(decodedFilename);
             
             return ResponseEntity.ok()
@@ -318,8 +321,7 @@ public class FileAttachmentController {
                     : control.getAttachmentDetailsPath();
             if (removed && !ControlAttachmentService.isListed(otherPath, decodedFilename.trim())) {
                 try {
-                    String controlFolder = resolveControlFolder(control);
-                    fileStorageService.deleteFile(decodedFilename, controlFolder);
+                    fileStorageService.deleteFile(decodedFilename, controlRenameService.attachmentFolders(control));
                 } catch (Exception e) {
                     System.out.println("⚠️ Could not delete physical file: " + e.getMessage());
                 }
@@ -382,14 +384,7 @@ public class FileAttachmentController {
     }
 
     private String resolveControlFolder(Control control) {
-        if (control == null) {
-            return null;
-        }
-        String controlCode = control.getControlId();
-        if (controlCode == null || controlCode.isBlank()) {
-            return String.valueOf(control.getId());
-        }
-        return controlCode;
+        return control == null ? null : FileStorageService.controlFolder(control.getControlId(), control.getId());
     }
 
     // RFC 6266 header with filename*=UTF-8'' so non-ASCII (e.g. Cyrillic) names download correctly

@@ -8,6 +8,7 @@ import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -58,6 +59,76 @@ class FileStorageServiceTest {
 
         assertThat(service.downloadFile("report.pdf", "HR1")).asString().isEqualTo("in folder");
         assertThat(service.downloadFile("20260101_abcd1234_old.pdf", "HR1")).asString().isEqualTo("in root");
+    }
+
+    @Test
+    void downloadFile_looksInTheGivenFoldersInOrder_thenTheUploadRoot() throws Exception {
+        FileStorageService service = serviceOn(tempDir);
+        Files.createDirectories(tempDir.resolve("HR-CTRL-MF-5_FY26_Central_2H"));
+        Files.writeString(tempDir.resolve("HR-CTRL-MF-5_FY26_Central_2H").resolve("cv.pdf"), "earlier id");
+        Files.writeString(tempDir.resolve("20260101_abcd1234_old.pdf"), "in root");
+
+        List<String> folders = List.of("KDN", "HR-CTRL-MF-5/FY26/Central/2H");
+        assertThat(service.downloadFile("cv.pdf", folders)).asString().isEqualTo("earlier id");
+        assertThat(service.downloadFile("20260101_abcd1234_old.pdf", folders)).asString().isEqualTo("in root");
+        assertThatThrownBy(() -> service.downloadFile("missing.pdf", folders)).isInstanceOf(java.io.IOException.class);
+    }
+
+    @Test
+    void moveControlFolder_renamesTheFolder_whenTheNewOneDoesNotExist() throws Exception {
+        FileStorageService service = serviceOn(tempDir);
+        Path old = Files.createDirectories(tempDir.resolve("HR-CTRL-MF-5_FY26_Central_2H"));
+        Files.writeString(old.resolve("Отчёт_за_май.pdf"), "a");
+        Files.writeString(old.resolve("plan.xlsx"), "b");
+
+        assertThat(service.moveControlFolder("HR-CTRL-MF-5/FY26/Central/2H", "KDN")).isEqualTo(2);
+
+        assertThat(old).doesNotExist();
+        assertThat(tempDir.resolve("KDN").resolve("Отчёт_за_май.pdf")).hasContent("a");
+        assertThat(service.downloadFile("plan.xlsx", "KDN")).asString().isEqualTo("b");
+    }
+
+    @Test
+    void moveControlFolder_intoAnExistingFolder_keepsBothSameNamedFiles() throws Exception {
+        FileStorageService service = serviceOn(tempDir);
+        Path old = Files.createDirectories(tempDir.resolve("HR1"));
+        Path existing = Files.createDirectories(tempDir.resolve("HR2"));
+        Files.writeString(old.resolve("a.pdf"), "old a");
+        Files.writeString(old.resolve("b.pdf"), "old b");
+        Files.writeString(existing.resolve("a.pdf"), "existing a");
+
+        assertThat(service.moveControlFolder("HR1", "HR2")).isEqualTo(1);
+
+        assertThat(existing.resolve("a.pdf")).hasContent("existing a");
+        assertThat(existing.resolve("b.pdf")).hasContent("old b");
+        assertThat(old.resolve("a.pdf")).hasContent("old a");
+        assertThat(old.resolve("b.pdf")).doesNotExist();
+    }
+
+    @Test
+    void moveControlFolder_withoutAnOldFolder_orToTheSameFolder_movesNothing() throws Exception {
+        FileStorageService service = serviceOn(tempDir);
+        assertThat(service.moveControlFolder("HR1", "HR2")).isZero();
+        Files.createDirectories(tempDir.resolve("HR_1"));
+        Files.writeString(tempDir.resolve("HR_1").resolve("a.pdf"), "a");
+        // "HR/1" and "HR_1" share a folder name
+        assertThat(service.moveControlFolder("HR/1", "HR_1")).isZero();
+        assertThat(tempDir.resolve("HR_1").resolve("a.pdf")).exists();
+        assertThatThrownBy(() -> service.moveControlFolder("HR_1", "..")).isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    void deleteFile_removesTheFileFromTheFirstFolderThatHasIt_neverFromTheRoot() throws Exception {
+        FileStorageService service = serviceOn(tempDir);
+        Files.createDirectories(tempDir.resolve("OLD"));
+        Files.writeString(tempDir.resolve("OLD").resolve("a.pdf"), "a");
+        Files.writeString(tempDir.resolve("root.pdf"), "root");
+
+        service.deleteFile("a.pdf", List.of("NEW", "OLD"));
+        service.deleteFile("root.pdf", List.of("NEW", "OLD"));
+
+        assertThat(tempDir.resolve("OLD").resolve("a.pdf")).doesNotExist();
+        assertThat(tempDir.resolve("root.pdf")).exists();
     }
 
     @Test

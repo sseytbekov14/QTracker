@@ -1,21 +1,26 @@
 package com.kpmg.qtracker.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.AdminAuditLog;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.repository.AdminAuditLogRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -25,6 +30,10 @@ import java.util.Map;
  * ({@link AccessPolicy#isKdnControl}), so a rename that makes it one or stops it being one changes who sees
  * it: every KDN user gains or loses access. Such a rename needs a comment and is not kept without its audit
  * entry. Every rename gets an audit entry, shown in the control's changelog.
+ * <p>
+ * The control's attachments lie in a folder named after its Control ID, so a rename moves that folder too.
+ * Files a rename could not move (or renames from before the move existed) are still found through the
+ * earlier IDs in the rename audit entries: {@link #attachmentFolders}.
  */
 @Service
 @RequiredArgsConstructor
@@ -43,6 +52,8 @@ public class ControlRenameService {
     private final ControlPermissionService controlPermissionService;
     private final UserRepository userRepository;
     private final AdminAuditService adminAuditService;
+    private final AdminAuditLogRepository adminAuditLogRepository;
+    private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** The KDN users who see the control only before the rename (losing) or only after it (gaining). */
@@ -119,7 +130,70 @@ public class ControlRenameService {
         }
         log.info("Control {} renamed from {} to {} by {}{}", saved.getId(), oldId, newId,
                 actor != null ? actor.getMail() : "unknown", change != null ? " (" + describe(change) + ")" : "");
+        afterCommit(() -> moveAttachments(saved.getId(), oldId, newId));
         return saved;
+    }
+
+    /**
+     * The folders that may hold the control's attachments, in the order to look: the folder of its Control ID,
+     * then those of its earlier IDs (newest first) from the rename audit entries.
+     */
+    public List<String> attachmentFolders(Control control) {
+        LinkedHashSet<String> folders = new LinkedHashSet<>();
+        String current = FileStorageService.controlFolder(control.getControlId(), control.getId());
+        if (current != null) {
+            folders.add(current);
+        }
+        if (control.getId() != null) {
+            for (AdminAuditLog entry : adminAuditLogRepository
+                    .findByControlIdAndActionTypeOrderByCreatedAtDesc(control.getId(), AUDIT_ACTION)) {
+                String earlier = earlierControlId(entry);
+                if (earlier != null) {
+                    folders.add(earlier);
+                }
+            }
+        }
+        return new ArrayList<>(folders);
+    }
+
+    private String earlierControlId(AdminAuditLog entry) {
+        if (entry.getPreviousValues() == null || entry.getPreviousValues().isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode value = objectMapper.readTree(entry.getPreviousValues()).get(FIELD_CONTROL_ID);
+            return value != null && value.isTextual() && !value.asText().isBlank() ? value.asText() : null;
+        } catch (JsonProcessingException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** The files go with the ID; a failure leaves them in the old folder, where downloads still find them. */
+    private void moveAttachments(Long id, String oldId, String newId) {
+        String from = FileStorageService.controlFolder(oldId, id);
+        String to = FileStorageService.controlFolder(newId, id);
+        try {
+            int moved = fileStorageService.moveControlFolder(from, to);
+            if (moved > 0) {
+                log.info("Control {}: {} attachment(s) moved with the rename from {} to {}", id, moved, oldId, newId);
+            }
+        } catch (Exception e) {
+            log.warn("Control {}: attachments stay in the folder of its earlier ID {} ({})", id, oldId, e.toString());
+        }
+    }
+
+    /** Runs the action once the transaction has committed, so a rename rolled back moves no files. */
+    private static void afterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
     }
 
     /**

@@ -6,6 +6,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.enums.AccessScope;
+import com.kpmg.qtracker.repository.AdminAuditLogRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.support.TestUsers;
@@ -24,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,6 +43,10 @@ class ControlRenameServiceTest {
     private UserRepository userRepository;
     @Mock
     private AdminAuditService adminAuditService;
+    @Mock
+    private AdminAuditLogRepository adminAuditLogRepository;
+    @Mock
+    private FileStorageService fileStorageService;
 
     private ControlRenameService service;
     private final User soqm = TestUsers.user("soqm@kpmg.kz", AccessLevel.SOQM, AccessScope.ALL, false);
@@ -55,7 +61,7 @@ class ControlRenameServiceTest {
     void setUp() {
         ControlPermissionService permissionService = new ControlPermissionService(controlService, controlAssignmentService);
         service = new ControlRenameService(controlRepository, controlAssignmentService, permissionService,
-                userRepository, adminAuditService);
+                userRepository, adminAuditService, adminAuditLogRepository, fileStorageService);
         control = new Control();
         control.setId(5L);
         control.setControlId("KDN-5");
@@ -78,6 +84,54 @@ class ControlRenameServiceTest {
                         + " KDN users who will no longer see it: kdn@kpmg.kz, other.kdn@kpmg.kz");
         verify(controlRepository, never()).save(any());
         verify(adminAuditService, never()).logActionWithChanges(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void refusedRename_movesNoAttachments() throws Exception {
+        assertThatThrownBy(() -> service.rename(5L, "HR-5", null, soqm)).isInstanceOf(IllegalArgumentException.class);
+        verify(fileStorageService, never()).moveControlFolder(any(), any());
+    }
+
+    @Test
+    void rename_movesTheAttachmentFolder_toTheNewId() throws Exception {
+        when(adminAuditService.logActionWithChanges(any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new AdminAuditLog());
+        service.rename(5L, "KDN-5/FY26/KZ", null, soqm);
+        verify(fileStorageService).moveControlFolder("KDN-5", "KDN-5/FY26/KZ");
+    }
+
+    @Test
+    void rename_isKept_whenTheFolderCannotBeMoved() throws Exception {
+        when(adminAuditService.logActionWithChanges(any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new AdminAuditLog());
+        doThrow(new java.io.IOException("locked")).when(fileStorageService).moveControlFolder(any(), any());
+        assertThat(service.rename(5L, "KDN-6", null, soqm).getControlId()).isEqualTo("KDN-6");
+    }
+
+    @Test
+    void attachmentFolders_areTheCurrentId_thenEarlierIdsFromTheRenameAudit_newestFirst() {
+        control.setControlId("KDN");
+        when(adminAuditLogRepository.findByControlIdAndActionTypeOrderByCreatedAtDesc(5L, ControlRenameService.AUDIT_ACTION))
+                .thenReturn(List.of(audit("{\"Control ID\":\"HR-CTRL-MF-5/FY26/Central/2H\",\"KDN control\":\"No\"}"),
+                        audit("{\"Control ID\":\"HR-5\"}"),
+                        audit("{\"Control ID\":\"KDN\"}"),
+                        audit("not json"),
+                        audit(null)));
+
+        assertThat(service.attachmentFolders(control))
+                .containsExactly("KDN", "HR-CTRL-MF-5/FY26/Central/2H", "HR-5");
+    }
+
+    @Test
+    void attachmentFolders_ofAControlWithoutId_isItsDatabaseId() {
+        control.setControlId(" ");
+        assertThat(service.attachmentFolders(control)).containsExactly("5");
+    }
+
+    private static AdminAuditLog audit(String previousValues) {
+        AdminAuditLog entry = new AdminAuditLog();
+        entry.setPreviousValues(previousValues);
+        return entry;
     }
 
     @Test

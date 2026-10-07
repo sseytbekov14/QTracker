@@ -6,6 +6,7 @@ import com.kpmg.qtracker.repository.ControlAttachmentRepository;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlAttachmentService;
 import com.kpmg.qtracker.service.ControlPermissionService;
+import com.kpmg.qtracker.service.ControlRenameService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.FileStorageService;
 import com.kpmg.qtracker.service.PermissionService;
@@ -19,6 +20,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -68,9 +70,11 @@ class FileAttachmentDownloadPathTest {
         ControlAttachmentService attachmentService =
                 new ControlAttachmentService(mock(ControlAttachmentRepository.class), controlService);
 
+        ControlRenameService renameService = mock(ControlRenameService.class);
+        when(renameService.attachmentFolders(control)).thenReturn(List.of("HR1"));
         FileAttachmentController controller = new FileAttachmentController(storage, controlService,
                 mock(ControlPermissionService.class), mock(AdminAuditService.class), attachmentService,
-                permissionService);
+                permissionService, renameService);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -96,9 +100,9 @@ class FileAttachmentDownloadPathTest {
         download("%2e%2e%2f%2e%2e%2foutside.txt").andExpect(status().isNotFound());
 
         // The names did reach the storage, which refused them
-        verify(storage, org.mockito.Mockito.times(2)).downloadFile(eq("../HR2/secret.pdf"), eq("HR1"));
-        verify(storage).downloadFile(eq("..\\HR2\\secret.pdf"), eq("HR1"));
-        verify(storage).downloadFile(eq("../../outside.txt"), eq("HR1"));
+        verify(storage, org.mockito.Mockito.times(2)).downloadFile(eq("../HR2/secret.pdf"), eq(List.of("HR1")));
+        verify(storage).downloadFile(eq("..\\HR2\\secret.pdf"), eq(List.of("HR1")));
+        verify(storage).downloadFile(eq("../../outside.txt"), eq(List.of("HR1")));
     }
 
     private org.springframework.test.web.servlet.ResultActions download(String encodedName) throws Exception {

@@ -25,6 +25,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,6 +70,8 @@ class KdnRenameIT {
     private AdminAuditLogRepository auditRepository;
     @Autowired
     private IControlService controlService;
+
+    private static final Path UPLOADS = Path.of("target/it-uploads-kdn-rename").toAbsolutePath();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final List<User> users = new ArrayList<>();
@@ -259,6 +263,47 @@ class KdnRenameIT {
     }
 
     @Test
+    void renamedControl_takesItsAttachmentsAlong_forSoqmAndKdnToDownload() throws Exception {
+        Control control = control("HR-ATT-" + s + "/FY26/Central/2H");
+        Path oldFolder = Files.createDirectories(UPLOADS.resolve("HR-ATT-" + s + "_FY26_Central_2H"));
+        Files.writeString(oldFolder.resolve("Резюме_кандидата.pdf"), "%PDF cv");
+        control.setAttachmentDocumentsPath("Резюме_кандидата.pdf");
+        controlRepository.save(control);
+
+        String newId = "KDN-ATT-" + s;
+        rename(control, newId, "Belongs to the KDN set").andExpect(status().isOk());
+
+        assertThat(oldFolder).doesNotExist();
+        assertThat(UPLOADS.resolve(newId).resolve("Резюме_кандидата.pdf")).hasContent("%PDF cv");
+        for (User reader : List.of(soqm, kdnOther)) {
+            download(reader, control, "Резюме_кандидата.pdf")
+                    .andExpect(status().isOk())
+                    .andExpect(content().string("%PDF cv"));
+        }
+    }
+
+    @Test
+    void filesLeftInTheFolderOfAnEarlierId_areStillDownloaded() throws Exception {
+        // Renamed before the files moved with the ID: they lie under the earlier ID its audit entry names
+        Control control = control("KDN-NOW-" + s);
+        Path earlierFolder = Files.createDirectories(UPLOADS.resolve("HR-EARLIER-" + s + "_FY26_2H"));
+        Files.writeString(earlierFolder.resolve("plan_Q3.xlsx"), "xlsx");
+        control.setAttachmentDetailsPath("plan_Q3.xlsx");
+        controlRepository.save(control);
+        AdminAuditLog entry = new AdminAuditLog();
+        entry.setAdminEmail(soqm.getMail());
+        entry.setActionType(ControlRenameService.AUDIT_ACTION);
+        entry.setControlId(control.getId());
+        entry.setPreviousValues("{\"Control ID\":\"HR-EARLIER-" + s + "/FY26/2H\"}");
+        entry.setNewValues("{\"Control ID\":\"KDN-NOW-" + s + "\"}");
+        auditRepository.save(entry);
+
+        for (User reader : List.of(soqm, kdnOther)) {
+            download(reader, control, "plan_Q3.xlsx").andExpect(status().isOk()).andExpect(content().string("xlsx"));
+        }
+    }
+
+    @Test
     void onlySoqmRenames() throws Exception {
         Control control = control("KDN-55-" + s);
         mockMvc.perform(as(participant, post("/api/controls/{id}/rename-id", control.getId()))
@@ -300,6 +345,12 @@ class KdnRenameIT {
         return mockMvc.perform(as(soqm, post("/api/controls/{id}/rename-id", control.getId()))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions download(User reader, Control control, String name)
+            throws Exception {
+        return mockMvc.perform(as(reader, get("/api/attachments/download/{name}", name)
+                .param("controlId", String.valueOf(control.getId()))));
     }
 
     private org.springframework.test.web.servlet.ResultActions readAs(User reader, Control control) throws Exception {

@@ -9,6 +9,7 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.FileStorageService;
+import com.kpmg.qtracker.service.ControlRenameService;
 import com.kpmg.qtracker.service.PermissionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +58,9 @@ class FileAttachmentControllerTest {
 
     @MockBean
     private PermissionService permissionService;
+
+    @MockBean
+    private ControlRenameService controlRenameService;
 
     @Test
     void uploadDetails_overLimit_returnsBadRequest() throws Exception {

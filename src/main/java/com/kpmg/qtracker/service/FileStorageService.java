@@ -1,5 +1,6 @@
 package com.kpmg.qtracker.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -9,8 +10,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
 
 @Service
+@Slf4j
 public class FileStorageService {
 
     @Value("${file.upload.dir}")
@@ -65,22 +70,80 @@ public class FileStorageService {
      * Returns the file bytes for download
      */
     public byte[] downloadFile(String filename, String controlFolder) throws IOException {
-        Path filePath = filePath(filename, controlFolder);
-        // Files uploaded before control folders existed lie in the upload root
-        if (!Files.exists(filePath) && hasFolder(controlFolder)) {
-            filePath = filePath(filename, null);
+        return downloadFile(filename, List.of(controlFolder == null ? "" : controlFolder));
+    }
+
+    /**
+     * Returns the file bytes for download from the first of the folders that has it (the control's folder,
+     * then the folders of its earlier IDs), else from the upload root, where files uploaded before control
+     * folders existed lie.
+     */
+    public byte[] downloadFile(String filename, List<String> controlFolders) throws IOException {
+        List<Path> candidates = new ArrayList<>();
+        for (String folder : controlFolders) {
+            if (hasFolder(folder)) {
+                candidates.add(filePath(filename, folder));
+            }
         }
-        if (!Files.exists(filePath)) {
-            throw new IOException("File not found: " + filename);
+        candidates.add(filePath(filename, null));
+        for (Path filePath : candidates) {
+            if (Files.isRegularFile(filePath)) {
+                return Files.readAllBytes(filePath);
+            }
         }
-        return Files.readAllBytes(filePath);
+        throw new IOException("File not found: " + filename);
+    }
+
+    /**
+     * Moves a control's files from the folder of its old ID to the folder of its new one (Rename ID). A file
+     * whose name the new folder already has stays in the old folder, which is removed once empty.
+     * Returns how many files were moved.
+     */
+    public int moveControlFolder(String fromFolder, String toFolder) throws IOException {
+        if (!hasFolder(fromFolder) || !hasFolder(toFolder)) {
+            return 0;
+        }
+        Path from = folderPath(fromFolder);
+        Path to = folderPath(toFolder);
+        if (from.equals(to) || !Files.isDirectory(from)) {
+            return 0;
+        }
+        if (!Files.exists(to)) {
+            int count;
+            try (Stream<Path> files = Files.list(from)) {
+                count = (int) files.count();
+            }
+            Files.move(from, to);
+            return count;
+        }
+        int moved = 0;
+        List<Path> files;
+        try (Stream<Path> list = Files.list(from)) {
+            files = list.filter(Files::isRegularFile).toList();
+        }
+        for (Path file : files) {
+            Path target = to.resolve(file.getFileName());
+            if (Files.exists(target)) {
+                log.warn("Attachment {} stays in folder {}: folder {} already has a file of that name",
+                        file.getFileName(), fromFolder, toFolder);
+                continue;
+            }
+            Files.move(file, target);
+            moved++;
+        }
+        try (Stream<Path> rest = Files.list(from)) {
+            if (rest.findAny().isEmpty()) {
+                Files.delete(from);
+            }
+        }
+        return moved;
     }
 
     /**
      * Deletes a file from storage
      */
     public void deleteFile(String filename) throws IOException {
-        deleteFile(filename, null);
+        deleteFile(filename, (String) null);
     }
 
     /**
@@ -93,6 +156,27 @@ public class FileStorageService {
         Path filePath = filePath(filename, controlFolder);
         Files.deleteIfExists(filePath);
         System.out.println("🗑️ File deleted: " + filePath);
+    }
+
+    /** Deletes the file from the first of the control's folders (its own, then its earlier IDs') that has it. */
+    public void deleteFile(String filename, List<String> controlFolders) throws IOException {
+        if (filename == null || filename.isEmpty()) {
+            return;
+        }
+        for (String folder : controlFolders) {
+            if (hasFolder(folder) && Files.isRegularFile(filePath(filename, folder))) {
+                deleteFile(filename, folder);
+                return;
+            }
+        }
+    }
+
+    /** The folder of a control's files: its Control ID, or its database id while it has no Control ID. */
+    public static String controlFolder(String controlId, Long id) {
+        if (controlId == null || controlId.isBlank()) {
+            return id == null ? null : String.valueOf(id);
+        }
+        return controlId;
     }
 
     /**
