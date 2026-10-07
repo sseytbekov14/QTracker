@@ -12,6 +12,8 @@ import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.service.AccessPolicy;
+import com.kpmg.qtracker.service.ComponentControlsList;
 import com.kpmg.qtracker.service.DeadlineOverdue;
 import com.kpmg.qtracker.service.FileStorageService;
 import com.kpmg.qtracker.service.SoqmYear;
@@ -139,7 +141,7 @@ class RoleMatrixIT {
             new Who("anonymous", "not signed in", null, null, Place.NONE, false, false, true));
 
     private static final List<String> CONTROL_OPS = List.of(
-            "In Controls list", "View page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
+            "In Controls list", "In component list", "View page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
             "Assign", "Upload", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)");
 
@@ -313,6 +315,9 @@ class RoleMatrixIT {
             case "KDN mark" -> soqm && who.kdnControl() ? "ok" : "refused";
             // The Controls list (and the dashboard tiles counted from it) holds every control the user sees
             case "In Controls list" -> sees ? "ok" : "refused";
+            // The Action Centre's lists: the component's (and the KDN list for a KDN control) hold the same
+            // controls, each row opening its own control; a non-KDN control is never in the KDN list
+            case "In component list" -> sees ? "ok" : "refused";
             case "View page" -> !sees ? "refused"
                     : notYet ? "not yet" : "ok";
             case "Read API", "History", "Download" -> sees && !notYet ? "ok" : "refused";
@@ -377,6 +382,7 @@ class RoleMatrixIT {
 
         Control control = control(who, status);
         row.put("In Controls list", inControlsList(control, session));
+        row.put("In component list", inComponentLists(control, session));
         row.put("View page", page(get("/view-control/{id}", control.getId()), session));
         row.put("Notice", notice(control, session));
         row.put("KDN mark", kdnMark(control, session));
@@ -520,6 +526,36 @@ class RoleMatrixIT {
         @SuppressWarnings("unchecked")
         List<ControlResponseDTO> listed = (List<ControlResponseDTO>) mav.getModel().get("controls");
         return listed.stream().anyMatch(dto -> control.getId().equals(dto.getId())) ? "ok" : "absent";
+    }
+
+    /**
+     * "ok" when /component/HR lists the control with a row opening its page, and so does /component/KDN for a
+     * KDN control; "absent" when a list leaves it out, "in KDN list!" when a non-KDN control shows up there,
+     * otherwise what the page answered. Searched by Control ID, so no page of the list is missed.
+     */
+    private String inComponentLists(Control control, MockHttpSession session) throws Exception {
+        boolean kdnControl = AccessPolicy.isKdnControl(control.getControlId());
+        java.util.Set<String> answers = new java.util.LinkedHashSet<>();
+        for (String path : List.of("/component/HR", "/component/KDN")) {
+            MvcResult result = perform(get(path).param("q", control.getControlId()).param("size", "50"), session);
+            ModelAndView mav = result.getModelAndView();
+            if (result.getResponse().getStatus() != 200 || mav == null || !"component-controls".equals(mav.getViewName())) {
+                answers.add(outcome(result));
+                continue;
+            }
+            ComponentControlsList.Result list = (ComponentControlsList.Result) mav.getModel().get("list");
+            boolean listed = list.rows().stream().anyMatch(row -> control.getId().equals(row.id())
+                    && row.href().equals("/view-control/" + control.getId()))
+                    && result.getResponse().getContentAsString().contains("data-href=\"/view-control/" + control.getId() + "\"");
+            if (path.endsWith("KDN") && !kdnControl) {
+                if (listed) {
+                    answers.add("in KDN list!");
+                }
+                continue;
+            }
+            answers.add(listed ? "ok" : "absent");
+        }
+        return answers.size() == 1 ? answers.iterator().next() : String.join(" / ", answers);
     }
 
     private String page(MockHttpServletRequestBuilder request, MockHttpSession session) throws Exception {

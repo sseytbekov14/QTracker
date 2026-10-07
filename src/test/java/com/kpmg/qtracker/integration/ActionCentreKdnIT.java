@@ -11,6 +11,7 @@ import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.service.ComponentControlsList;
 import com.kpmg.qtracker.service.DeadlineOverdue;
 import com.kpmg.qtracker.service.SoqmYear;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,8 +41,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 /**
- * The Action Centre's "KDN" card end to end, on a database of its own (exact numbers): who gets it, which
- * controls it counts (the policy's, KDN only), and that its numbers agree with the Controls list it opens.
+ * The Action Centre's "KDN" card and the lists behind the cards (/component/KDN, /component/HR) end to end, on a
+ * database of its own (exact numbers): who gets them, which controls they hold (the policy's, KDN only for the KDN
+ * list), that the card, the list and each counter's link agree, and the list's columns, rows, sorting, search,
+ * filter and pages.
  */
 @SpringBootTest(properties = {
         "spring.main.allow-bean-definition-overriding=true",
@@ -114,6 +117,12 @@ class ActionCentreKdnIT {
         // Not KDN controls, overdue: never in the block, whoever sees them
         control("X-KDN-AC-6", "IN_PROGRESS", today.minusDays(4), mine);
         control("HR-AC-7", "REVIEW", today.minusDays(4), mineNoKdn);
+        // Human Resources, more than a page: SoQM Team and All controls see them; one Facilitator has no user
+        List<String> statuses = List.of("IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "COMPLETED", "DRAFT");
+        for (int i = 1; i <= 27; i++) {
+            control(String.format("HR-PAGE-%02d", i), statuses.get(i % statuses.size()), today.plusDays(i - 10),
+                    null, "HR", i == 1 ? "ghost.person@nowhere.test" : null);
+        }
 
         MockHttpSession soqmSession = login(soqm);
         MvcResult reopen = perform(post("/api/workflow/move").with(csrf().asHeader())
@@ -191,6 +200,112 @@ class ActionCentreKdnIT {
         assertThat(controlsList.getResponse().getRedirectedUrl()).contains("/login");
     }
 
+    // ------------------------------------------------------------------ the lists behind the cards
+
+    @Test
+    void kdnList_eachRole_exactlyTheKdnControlsTheySee_draftsIncluded() throws Exception {
+        List<String> every = List.of("KDN-AC-1", "kdn-ac-2", "KDNAC3", "KDN-AC-4", "KDN-AC-5");
+        Map<User, List<String>> expected = new java.util.LinkedHashMap<>();
+        expected.put(kdn, every);
+        expected.put(soqm, every);
+        expected.put(allRead, every);
+        expected.put(mine, List.of("KDN-AC-1"));
+        expected.put(mineNoKdn, List.of());
+        for (Map.Entry<User, List<String>> entry : expected.entrySet()) {
+            MvcResult page = perform(get("/component/KDN"), login(entry.getKey()));
+            ComponentControlsList.Result list = list(page);
+            assertThat(rowIds(list)).as(entry.getKey().getMail())
+                    .containsExactlyInAnyOrderElementsOf(entry.getValue())
+                    .doesNotContain("X-KDN-AC-6", "HR-AC-7");
+            assertThat(list.counts().total()).isEqualTo(entry.getValue().size());
+            assertThat(page.getResponse().getContentAsString()).contains("<h1>Performance: KDN controls (KDN)</h1>")
+                    .doesNotContain("X-KDN-AC-6", "HR-AC-7", "HR-PAGE-");
+        }
+        assertThat(perform(get("/component/KDN"), login(mineNoKdn)).getResponse().getContentAsString())
+                .contains("There are no KDN controls you can see.");
+    }
+
+    @Test
+    void notSignedIn_noList() throws Exception {
+        for (String path : List.of("/component/KDN", "/component/HR", "/component/GOV?q=KDN")) {
+            assertThat(perform(get(path), null).getResponse().getRedirectedUrl()).as(path).contains("/login");
+        }
+    }
+
+    @Test
+    void kdnList_eachRowOpensItsOwnControl_theDraftToo() throws Exception {
+        MockHttpSession session = login(kdn);
+        MvcResult page = perform(get("/component/KDN"), session);
+        String html = page.getResponse().getContentAsString();
+        for (ComponentControlsList.Row row : list(page).rows()) {
+            String href = "/view-control/" + controls.get(row.controlId()).getId();
+            assertThat(row.href()).as(row.controlId()).isEqualTo(href);
+            assertThat(html).contains("data-href=\"" + href + "\"", "href=\"" + href + "\">" + row.controlId() + "</a>");
+            MvcResult opened = perform(get(href), session);
+            assertThat(opened.getResponse().getStatus()).as(row.controlId()).isEqualTo(200);
+            assertThat(opened.getModelAndView().getViewName()).as(row.controlId()).isEqualTo("view-control");
+            assertThat(opened.getModelAndView().getModel().get("control")).extracting("controlId").isEqualTo(row.controlId());
+        }
+        assertThat(rowIds(list(page))).contains("KDNAC3");
+    }
+
+    @Test
+    void componentList_tenColumns_namesSortSearchFilterPages() throws Exception {
+        MockHttpSession session = login(soqm);
+        MvcResult first = perform(get("/component/HR"), session);
+        String html = first.getResponse().getContentAsString();
+        java.util.regex.Matcher header = java.util.regex.Pattern
+                .compile("<a class=\"sort-link\"[^>]*>\\s*<span>([^<]+)</span>").matcher(html);
+        List<String> headers = new java.util.ArrayList<>();
+        while (header.find()) {
+            headers.add(header.group(1));
+        }
+        assertThat(headers).containsExactly("Control ID", "Control Type", "Control Frequency",
+                "Facilitator / Preparer(s)", "Control Operator", "Process Owner", "SoQM Lead / Delegate",
+                "Control Category", "Control Operation Date", "Performance Status");
+        assertThat(html).contains("<h1>Performance: Human Resources (HR)</h1>", "of <span>27</span>");
+
+        // pages of 25 (default) or 50; past the end is the last page
+        ComponentControlsList.Result page1 = list(first);
+        assertThat(page1.rows()).hasSize(25);
+        assertThat(page1.counts().total()).isEqualTo(27);
+        assertThat(rowIds(page1)).allMatch(id -> id.startsWith("HR-PAGE-"));
+        assertThat(rowIds(list(perform(get("/component/HR").param("page", "2"), session)))).containsExactly("HR-PAGE-26", "HR-PAGE-27");
+        assertThat(list(perform(get("/component/HR").param("page", "9"), session)).page()).isEqualTo(2);
+        assertThat(list(perform(get("/component/HR").param("size", "50"), session)).rows()).hasSize(27);
+
+        // sorting
+        assertThat(rowIds(list(perform(get("/component/HR").param("sort", "id").param("dir", "desc"), session))))
+                .startsWith("HR-PAGE-27", "HR-PAGE-26");
+        List<String> statuses = list(perform(get("/component/HR").param("sort", "status").param("size", "50"), session))
+                .rows().stream().map(ComponentControlsList.Row::status).toList();
+        List<String> order = List.of("DRAFT", "IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW", "COMPLETED");
+        assertThat(statuses).isSortedAccordingTo(java.util.Comparator.comparing(order::indexOf));
+
+        // search: Control ID, a person's name or address
+        assertThat(rowIds(list(perform(get("/component/HR").param("q", "page-0"), session)))).hasSize(9);
+        assertThat(rowIds(list(perform(get("/component/HR").param("q", "GHOST.person"), session)))).containsExactly("HR-PAGE-01");
+        assertThat(list(perform(get("/component/HR").param("q", "ac-op"), session)).matching()).isEqualTo(27);
+
+        // the people: names from the users table, the local part for an address without a user
+        ComponentControlsList.Row withGhost = list(perform(get("/component/HR").param("q", "HR-PAGE-01"), session)).rows().get(0);
+        assertThat(withGhost.facilitators()).isEqualTo("ac-fac, ghost.person");
+        assertThat(withGhost.operators()).isEqualTo("ac-op");
+        assertThat(withGhost.owners()).isEqualTo("ac-po");
+        assertThat(withGhost.soqmLeads()).isEqualTo("ac-soqm");
+        assertThat(perform(get("/component/HR").param("q", "HR-PAGE-01"), session).getResponse().getContentAsString())
+                .contains(withGhost.operationDateText());
+        assertThat(withGhost.operationDateText()).matches("\\d{2}\\.\\d{2}\\.\\d{4}");
+
+        // status filter, alone and with the search
+        ComponentControlsList.Result completed = list(perform(get("/component/HR").param("status", "COMPLETED"), session));
+        assertThat(completed.rows()).isNotEmpty().allMatch(row -> row.status().equals("COMPLETED"));
+        assertThat(completed.matching()).isEqualTo(completed.counts().completed());
+        assertThat(list(perform(get("/component/HR").param("status", "COMPLETED").param("q", "nobody"), session)).matching()).isZero();
+        // other components' controls never in the HR list
+        assertThat(rowIds(list(perform(get("/component/HR").param("size", "50"), session)))).noneMatch(id -> !id.startsWith("HR-PAGE-"));
+    }
+
     // ------------------------------------------------------------------ the card and the Controls list agree
 
     /** The card in the model and on the page: its five counters and where it leads. */
@@ -228,6 +343,34 @@ class ActionCentreKdnIT {
                 .hasSize((int) card.completed());
         assertThat(listed(perform(get("/controls").param("kdn", "1").param("filter", "OVERDUE"), session)))
                 .hasSize((int) card.overdue()).allMatch(ControlResponseDTO::isOverdue);
+
+        // The card leads to /component/KDN: the same controls, the same five numbers, and each counter's link
+        // lists exactly its number
+        ComponentControlsList.Result kdnList = list(perform(get((String) dashboard.getModelAndView().getModel().get("kdnHref")), session));
+        assertThat(rowIds(kdnList)).containsExactlyInAnyOrderElementsOf(kdnIds);
+        ComponentControlsList.Counts counts = kdnList.counts();
+        assertThat(List.of(counts.total(), counts.inProgress(), counts.inReview(), counts.completed(), counts.overdue()))
+                .containsExactly(card.total(), card.inProgress(), card.inReview(), card.completed(), card.overdue());
+        Map<String, Long> links = new java.util.LinkedHashMap<>();
+        links.put("", card.total());
+        links.put("IN_PROGRESS", card.inProgress());
+        links.put("IN_REVIEW", card.inReview());
+        links.put("COMPLETED", card.completed());
+        links.put("OVERDUE", card.overdue());
+        for (Map.Entry<String, Long> link : links.entrySet()) {
+            assertThat((long) list(perform(get(kdnList.statusHref(link.getKey())), session)).matching())
+                    .as("%s -> %s", link.getKey(), kdnList.statusHref(link.getKey())).isEqualTo(link.getValue());
+        }
+    }
+
+    private static ComponentControlsList.Result list(MvcResult page) {
+        assertThat(page.getResponse().getStatus()).isEqualTo(200);
+        assertThat(page.getModelAndView().getViewName()).isEqualTo("component-controls");
+        return (ComponentControlsList.Result) page.getModelAndView().getModel().get("list");
+    }
+
+    private static List<String> rowIds(ComponentControlsList.Result list) {
+        return list.rows().stream().map(ComponentControlsList.Row::controlId).toList();
     }
 
     private static String actionCentre(MvcResult dashboard) throws Exception {
@@ -248,12 +391,17 @@ class ActionCentreKdnIT {
     // ------------------------------------------------------------------ data and requests
 
     private void control(String controlId, String status, LocalDate deadline, User facilitatorToo) {
+        control(controlId, status, deadline, facilitatorToo, "GOV", null);
+    }
+
+    private void control(String controlId, String status, LocalDate deadline, User facilitatorToo, String component,
+                         String otherFacilitator) {
         Control control = new Control();
         control.setControlId(controlId);
         control.setControlFrequency("Monthly");
         control.setControlCategory("Manual");
         control.setControlType("Preventive");
-        control.setComponent("GOV");
+        control.setComponent(component);
         control.setOperatedBy("Finance");
         control.setPriority("High");
         control.setNonAuditServicesApplicability("No");
@@ -266,7 +414,8 @@ class ActionCentreKdnIT {
         control = controlRepository.save(control);
 
         ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
-        assignment.setFacilitator(facilitator.getMail() + (facilitatorToo != null ? "," + facilitatorToo.getMail() : ""));
+        assignment.setFacilitator(facilitator.getMail() + (facilitatorToo != null ? "," + facilitatorToo.getMail() : "")
+                + (otherFacilitator != null ? "," + otherFacilitator : ""));
         assignment.setControlOperator(operator.getMail());
         assignment.setSoqmLead(soqm.getMail());
         assignment.setProcessOwner(owner.getMail());
