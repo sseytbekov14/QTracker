@@ -14,6 +14,7 @@ import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.ComponentControlsList;
+import com.kpmg.qtracker.service.ControlStepsFields;
 import com.kpmg.qtracker.service.DeadlineOverdue;
 import com.kpmg.qtracker.service.FileStorageService;
 import com.kpmg.qtracker.service.SoqmYear;
@@ -32,6 +33,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.util.HtmlUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -138,15 +140,18 @@ class RoleMatrixIT {
             new Who("part-op", "User · My controls · Edit, Control Operator (F and CO differ)", EDIT, MY, Place.OPERATOR, false, false, false),
             new Who("part-both", "User · My controls · Edit, Facilitator and Control Operator (one person)", EDIT, MY, Place.BOTH, false, false, false),
             new Who("ro-op", "User · My controls · Read Only, Control Operator (old data)", READ, MY, Place.OPERATOR, false, false, false),
+            new Who("ro-both", "User · My controls · Read Only, Facilitator and Control Operator (one person, old data)", READ, MY, Place.BOTH, false, false, false),
+            new Who("all-both", "User · All controls · Edit, Facilitator and Control Operator (one person)", EDIT, ALL, Place.BOTH, false, false, false),
+            new Who("kdn-op", "KDN, Control Operator (F and CO differ), KDN control", READ, AccessScope.KDN, Place.OPERATOR, true, false, false),
             new Who("anonymous", "not signed in", null, null, Place.NONE, false, false, true));
 
     private static final List<String> CONTROL_OPS = List.of(
-            "In Controls list", "In component list", "View page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator field", "Edit control",
+            "In Controls list", "In component list", "View page", "Program on page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
             "Assign", "Upload", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)");
 
     /** The operations that change a control: none may pass where the page shows a notice. */
-    private static final List<String> WRITES = List.of("Save details", "Steps field", "Operator field", "Edit control",
+    private static final List<String> WRITES = List.of("Save details", "Steps field", "Operator's Program", "Edit control",
             "Assign", "Upload", "Rename ID", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review");
 
@@ -318,10 +323,13 @@ class RoleMatrixIT {
             case "In component list" -> sees ? "ok" : "refused";
             case "View page" -> !sees ? "refused"
                     : notYet ? "not yet" : "ok";
+            // Control Operator's Program is on the Details tab of everyone whose page opens, one person or not
+            case "Program on page" -> !sees ? "refused"
+                    : notYet ? "not yet" : "ok";
             case "Read API", "History", "Download" -> sees && !notYet ? "ok" : "refused";
             case "Save details", "Upload" -> sees && writer && (soqmEdits || participantStep) ? "ok" : "refused";
             case "Steps field" -> sees && writer && stepsField ? "ok" : "refused";
-            case "Operator field" -> sees && writer && operatorField ? "ok" : "refused";
+            case "Operator's Program" -> sees && writer && operatorField ? "ok" : "refused";
             case "Edit control", "Assign" -> soqmEdits ? "ok" : "refused";
             case "Rename ID" -> soqm ? "ok" : "refused";
             // "KDN" appearing at or going from the start of the ID changes who sees the control: SoQM gives a comment
@@ -382,6 +390,7 @@ class RoleMatrixIT {
         row.put("In Controls list", inControlsList(control, session));
         row.put("In component list", inComponentLists(control, session));
         row.put("View page", page(get("/view-control/{id}", control.getId()), session));
+        row.put("Program on page", programOnPage(control, session));
         row.put("Notice", notice(control, session));
         row.put("KDN mark", kdnMark(control, session));
         row.put("Read API", answer(get("/api/control-details").param("controlId", String.valueOf(control.getId())), session));
@@ -396,7 +405,7 @@ class RoleMatrixIT {
         row.put("Steps field", answer(post("/api/control-details").with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlId\":" + control.getId() + ",\"controlStepsPerformed\":\"Steps by " + who.key() + "\"}"), session));
-        row.put("Operator field", answer(post("/api/control-details").with(csrf().asHeader())
+        row.put("Operator's Program", answer(post("/api/control-details").with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlId\":" + control.getId() + ",\"controlOperatorReview\":\"Review by " + who.key() + "\"}"), session));
         row.put("Edit control", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
@@ -502,6 +511,18 @@ class RoleMatrixIT {
             return notice + " buttons!";
         }
         return notice;
+    }
+
+    /** "ok" when the control's page has the Control Operator's Program field, "none" when not, else as "View page". */
+    private String programOnPage(Control control, MockHttpSession session) throws Exception {
+        MvcResult result = perform(get("/view-control/{id}", control.getId()), session);
+        ModelAndView mav = result.getModelAndView();
+        if (result.getResponse().getStatus() != 200 || mav == null || !"view-control".equals(mav.getViewName())) {
+            return mav != null && "control-not-available".equals(mav.getViewName()) ? "not yet" : outcome(result);
+        }
+        String html = result.getResponse().getContentAsString();
+        return html.contains("id=\"controlOperatorReview\"")
+                && html.contains(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<") ? "ok" : "none";
     }
 
     /** "ok" when the control's page carries the "KDN control" mark, "none" when it does not, else as "View page". */

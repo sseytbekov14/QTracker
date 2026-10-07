@@ -247,6 +247,46 @@ class StepsFieldSplitIT {
         assertThat(permissions.path("canEditStepsPerformed").asBoolean()).isFalse();
     }
 
+    @Test
+    void theProgram_onePersonOrNot_isWrittenByTheControlOperatorInReview_orSoqmForThem_nobodyElse() throws Exception {
+        User kdn = saveUser("kdn-" + UUID.randomUUID().toString().substring(0, 8), AccessLevel.READ_ONLY);
+        kdn.setAccessScope(AccessScope.KDN);
+        kdn = userRepository.save(kdn);
+
+        for (boolean onePerson : List.of(true, false)) {
+            User operator = onePerson ? fac : op;
+            // Read Only and KDN are listed as Control Operators too (old data): listing gives no write
+            Control control = control("REVIEW", fac.getMail(),
+                    operator.getMail() + ";" + readOnly.getMail() + ";" + kdn.getMail(), "Steps", null);
+            Control stored = controlRepository.findById(control.getId()).orElseThrow();
+            stored.setControlId("KDN-PROG-" + UUID.randomUUID().toString().substring(0, 8));
+            control = controlRepository.save(stored);
+            ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+            assignment.setControlSharedWith(sharedUser.getMail());
+            assignmentRepository.save(assignment);
+
+            List<User> refused = new ArrayList<>(List.of(outsider, sharedUser, readOnly, kdn, po));
+            if (!onePerson) {
+                refused.add(fac);
+            }
+            for (User who : refused) {
+                assertThat(save(control, login(who), REVIEW, "by " + who.getMail()))
+                        .as(onePerson + " " + who.getMail()).isEqualTo(403);
+            }
+            assertThat(save(control, login(operator), REVIEW, "Program by the Control Operator")).isEqualTo(200);
+            assertThat(save(control, login(soqm), REVIEW, "Program by SoQM for the Control Operator")).isEqualTo(200);
+            assertThat(details(control).getControlOperatorReview()).isEqualTo("Program by SoQM for the Control Operator");
+            // newest first: who saved it, SoQM included
+            assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL))
+                    .containsExactly(soqm.getMail(), operator.getMail());
+
+            // Not the Control Operator's step any more: refused, SoQM still writes
+            setStatus(control, "SOQM_HEAD_REVIEW");
+            assertThat(save(control, login(operator), REVIEW, "Too late")).isEqualTo(403);
+            assertThat(save(control, login(soqm), REVIEW, "SoQM in its own step")).isEqualTo(200);
+        }
+    }
+
     // ------------------------------------------------------------------ Submit to SoQM
 
     @Test
