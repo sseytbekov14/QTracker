@@ -324,6 +324,51 @@ class ApiSecurityMockMvcIT {
                 .doesNotContain("2026-03-03");
     }
 
+    /** Deadline = operation date + 14 days only for a new date or frequency; a stored one stays otherwise. */
+    @Test
+    void storedDeadline_staysOnAnAssignmentSave_newDateOrFrequencyGetsFourteenDays() throws Exception {
+        Participants p = participants();
+        Control control = createControl("CTRL-D14-" + suffix(), p.soqm, "IN_PROGRESS");
+        assign(control, p);
+        // Set up under the earlier rule: Monthly from 15 January, deadline + 7 days
+        ControlAssignment earlier = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        earlier.setControlOperationDeadline(LocalDate.of(2026, 1, 22));
+        earlier.setNextControlOperationDate(LocalDate.of(2026, 2, 15));
+        assignmentRepository.save(earlier);
+        MockHttpSession soqm = login(p.soqm.getMail());
+
+        saveAssignment(control, soqm, "2026-01-15", "2026-01-29");
+        assertSchedule(control, LocalDate.of(2026, 1, 22), LocalDate.of(2026, 2, 15));
+
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(controlForm("Quarterly", "HR", "IN_PROGRESS"))
+                        .session(soqm))
+                .andExpect(status().isOk());
+        assertSchedule(control, LocalDate.of(2026, 1, 29), LocalDate.of(2026, 4, 15));
+
+        saveAssignment(control, soqm, "2026-02-02", "2026-02-03");
+        assertSchedule(control, LocalDate.of(2026, 2, 16), LocalDate.of(2026, 5, 2));
+    }
+
+    private void saveAssignment(Control control, MockHttpSession session, String operationDate,
+                                String sentDeadline) throws Exception {
+        mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId()
+                                + ",\"controlOperationDate\":\"" + operationDate + "\""
+                                + ",\"controlOperationDeadline\":\"" + sentDeadline + "\"}")
+                        .session(session))
+                .andExpect(status().isOk());
+    }
+
+    private void assertSchedule(Control control, LocalDate deadline, LocalDate nextDate) {
+        ControlAssignment stored = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assertThat(stored.getControlOperationDeadline()).isEqualTo(deadline);
+        assertThat(stored.getNextControlOperationDate()).isEqualTo(nextDate);
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getDeadline()).isEqualTo(deadline);
+    }
+
     @Test
     void assignedFacilitator_resendingUnchangedControlForm_returns200() throws Exception {
         Participants p = participants();
