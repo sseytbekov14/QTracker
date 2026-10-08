@@ -9,6 +9,7 @@ import com.kpmg.qtracker.security.RateLimitingFilter;
 import com.kpmg.qtracker.security.UserPrincipal;
 import com.kpmg.qtracker.security.UserPrincipalService;
 import com.kpmg.qtracker.security.UserEnabledGuardFilter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -24,7 +25,12 @@ import org.springframework.security.web.header.writers.XXssProtectionHeaderWrite
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * The filter chains of the web application. Not created for a one-off command (QtrackerApplication.runCommand),
+ * which runs without a web server and so without HttpSecurity, also in the dev profile.
+ */
 @Configuration
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class SecurityConfig {
 
     private final CorrelationIdFilter correlationIdFilter;

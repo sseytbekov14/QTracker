@@ -23,7 +23,8 @@ import java.util.Optional;
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private static final String DEFAULT_NEW_USER_PASSWORD = "aaa";
+    /** The temporary password of new accounts (the Admin Panel and the user import of dev and test). */
+    public static final String DEFAULT_NEW_USER_PASSWORD = "aaa";
     /** The display_name column length. */
     static final int MAX_NAME_LENGTH = 255;
 
