@@ -51,8 +51,6 @@ const viewControl = (function() {
                 canEditStepsPerformed: canEditStepsPerformed,
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
                 canEditOperatorReview: canEditOperatorReview,
-                stepsSplit: false,
-                operatorProgramRequired: document.getElementById('operatorProgramRequired')?.value === 'true',
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
                 allowedEditableFields: allowedEditableFields
@@ -82,8 +80,6 @@ const viewControl = (function() {
                 canEditStepsPerformed: canEditStepsPerformed,
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
                 canEditOperatorReview: canEditOperatorReview,
-                stepsSplit: Boolean(permissions.stepsSplit),
-                operatorProgramRequired: Boolean(permissions.operatorProgramRequired),
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
                 allowedEditableFields: allowedEditableFields
@@ -106,8 +102,6 @@ const viewControl = (function() {
                 canEditStepsPerformed: canEditStepsPerformed,
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
                 canEditOperatorReview: canEditOperatorReview,
-                stepsSplit: document.getElementById('stepsSplit')?.value === 'true',
-                operatorProgramRequired: document.getElementById('operatorProgramRequired')?.value === 'true',
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
                 allowedEditableFields: allowedEditableFields
@@ -3212,18 +3206,8 @@ function getWorkflowRoleRequirement() {
         };
     }
 
+    // Submit to SoQM Team checks the steps field; Control Operator's Program is required by no step
     if (isControlOperator && performanceStatus === 'REVIEW') {
-        // The Control Operator submits on their own field when it is required (ControlStepsFields)
-        const reviewField = document.querySelector('textarea[name="controlOperatorReview"]');
-        const programRequired = document.getElementById('operatorProgramRequired')?.value === 'true';
-        if (reviewField && programRequired) {
-            const label = document.querySelector('label[for="controlOperatorReview"] span')?.textContent
-                || "Control Operator's Program";
-            return {
-                field: reviewField,
-                message: 'To submit, please fill: ' + label
-            };
-        }
         return {
             field: document.querySelector('textarea[name="controlStepsPerformed"]'),
             message: 'To submit, please fill: Control steps performed and results'

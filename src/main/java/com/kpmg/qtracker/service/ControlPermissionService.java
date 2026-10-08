@@ -63,7 +63,6 @@ public class ControlPermissionService {
                 containsEmail(resolvedAssignment.getSoqmLead(), userEmail),
                 containsEmail(resolvedAssignment.getProcessOwner(), userEmail),
                 containsEmail(resolvedAssignment.getControlSharedWith(), userEmail),
-                ControlStepsFields.split(resolvedAssignment.getFacilitator(), resolvedAssignment.getControlOperator()),
                 isCreator(control, user));
     }
 

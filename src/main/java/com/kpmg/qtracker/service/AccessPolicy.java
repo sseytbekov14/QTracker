@@ -137,9 +137,8 @@ public final class AccessPolicy {
 
     /**
      * A control as one user stands on it: its workflow status, whether it is a KDN control, in which
-     * assignment fields the user is listed, whether Control Steps Performed is split in two because the
-     * Facilitator and the Control Operator are different people ({@link ControlStepsFields}), and whether the
-     * user created it (it sees the control, but acts only where assigned). A blank status is a draft, as everywhere else.
+     * assignment fields the user is listed, and whether the user created it (it sees the control, but acts only
+     * where assigned). A blank status is a draft, as everywhere else.
      */
     public record ControlFacts(String status,
                                boolean kdn,
@@ -148,7 +147,6 @@ public final class AccessPolicy {
                                boolean soqmLead,
                                boolean processOwner,
                                boolean shared,
-                               boolean stepsSplit,
                                boolean creator) {
 
         public ControlFacts {
@@ -157,26 +155,20 @@ public final class AccessPolicy {
 
         /** Not the creator, or where that does not matter. */
         public ControlFacts(String status, boolean kdn, boolean facilitator, boolean controlOperator,
-                            boolean soqmLead, boolean processOwner, boolean shared, boolean stepsSplit) {
-            this(status, kdn, facilitator, controlOperator, soqmLead, processOwner, shared, stepsSplit, false);
-        }
-
-        /** Where the steps fields do not matter (visibility, "your turn"): one steps field. */
-        public ControlFacts(String status, boolean kdn, boolean facilitator, boolean controlOperator,
                             boolean soqmLead, boolean processOwner, boolean shared) {
-            this(status, kdn, facilitator, controlOperator, soqmLead, processOwner, shared, false, false);
+            this(status, kdn, facilitator, controlOperator, soqmLead, processOwner, shared, false);
         }
 
         /** The same control with another KDN mark (its Control ID renamed). */
         public ControlFacts withKdn(boolean kdnControl) {
             return new ControlFacts(status, kdnControl, facilitator, controlOperator, soqmLead, processOwner, shared,
-                    stepsSplit, creator);
+                    creator);
         }
 
         /** The same control with the user in Shared With or not (before it is saved). */
         public ControlFacts withShared(boolean inSharedWith) {
             return new ControlFacts(status, kdn, facilitator, controlOperator, soqmLead, processOwner, inSharedWith,
-                    stepsSplit, creator);
+                    creator);
         }
 
         /** Listed in one of the four workflow fields (Shared With is not an assignment). */
@@ -491,7 +483,6 @@ public final class AccessPolicy {
                 actsAsParticipant(subject, control, control.controlOperator()),
                 soqm,
                 actsAsParticipant(subject, control, control.processOwner()),
-                control.stepsSplit(),
                 locked);
     }
 

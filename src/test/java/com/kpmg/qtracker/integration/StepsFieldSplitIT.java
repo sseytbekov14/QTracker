@@ -242,7 +242,6 @@ class StepsFieldSplitIT {
         assertThat(save(control, login(fac2), REVIEW, "Not my step")).isEqualTo(403);
 
         JsonNode permissions = json(get("/api/permissions/{id}", control.getId()), facSession).path("permissions");
-        assertThat(permissions.path("stepsSplit").asBoolean()).isFalse();
         assertThat(permissions.path("canEditOperatorReview").asBoolean()).isTrue();
         assertThat(permissions.path("canEditStepsPerformed").asBoolean()).isFalse();
     }
@@ -290,38 +289,42 @@ class StepsFieldSplitIT {
     // ------------------------------------------------------------------ Submit to SoQM
 
     @Test
-    void submitToSoqm_needsTheOperatorField_onlyWhenFacilitatorAndOperatorDiffer() throws Exception {
+    void submitToSoqm_needsNoOperatorsProgram_differentPeopleOrOne() throws Exception {
         Control split = control("REVIEW", fac.getMail(), op.getMail(), "Steps", null);
         MockHttpSession opSession = login(op);
 
-        MvcResult missing = perform(post("/api/workflow/submit-to-soqm-lead").with(csrf().asHeader())
-                .param("controlId", String.valueOf(split.getId())), opSession);
-        assertThat(missing.getResponse().getStatus()).isEqualTo(400);
-        assertThat(missing.getResponse().getContentAsString())
-                .contains("Required field is missing: " + ControlStepsFields.OPERATOR_PROGRAM_LABEL);
-        assertThat(status(split)).isEqualTo("REVIEW");
+        JsonNode permissions = json(get("/api/permissions/{id}", split.getId()), opSession).path("permissions");
+        assertThat(permissions.has("operatorProgramRequired")).isFalse();
+        assertThat(permissions.has("stepsSplit")).isFalse();
 
-        // The other way in, as View Control's action buttons send it
-        MvcResult viaAction = perform(post("/api/workflow/perform-action").with(csrf().asHeader())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlId\":" + split.getId() + ",\"action\":\"SUBMIT_FOR_SOQM\"}"), opSession);
-        assertThat(viaAction.getResponse().getStatus()).isEqualTo(400);
-        assertThat(viaAction.getResponse().getContentAsString()).contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL);
-        assertThat(status(split)).isEqualTo("REVIEW");
-
-        assertThat(save(split, opSession, REVIEW, "Reviewed")).isEqualTo(200);
         assertThat(perform(post("/api/workflow/submit-to-soqm-lead").with(csrf().asHeader())
                 .param("controlId", String.valueOf(split.getId())), opSession).getResponse().getStatus()).isEqualTo(200);
         assertThat(status(split)).isEqualTo("SOQM_HEAD_REVIEW");
+        assertThat(details(split).getControlOperatorReview()).isNull();
+
+        // The other way in, as View Control's action buttons send it
+        Control viaAction = control("REVIEW", fac.getMail(), op.getMail(), "Steps", "  ");
+        assertThat(perform(post("/api/workflow/perform-action").with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlId\":" + viaAction.getId() + ",\"action\":\"SUBMIT_FOR_SOQM\"}"), opSession)
+                .getResponse().getStatus()).isEqualTo(200);
+        assertThat(status(viaAction)).isEqualTo("SOQM_HEAD_REVIEW");
 
         Control onePerson = control("REVIEW", fac.getMail(), fac.getMail(), "Steps", null);
-        assertThat(json(get("/api/permissions/{id}", onePerson.getId()), login(fac))
-                .path("permissions").path("operatorProgramRequired").asBoolean()).isFalse();
-        assertThat(json(get("/api/permissions/{id}", split.getId()), opSession)
-                .path("permissions").path("operatorProgramRequired").asBoolean()).isTrue();
         assertThat(perform(post("/api/workflow/submit-to-soqm-lead").with(csrf().asHeader())
                 .param("controlId", String.valueOf(onePerson.getId())), login(fac)).getResponse().getStatus()).isEqualTo(200);
         assertThat(status(onePerson)).isEqualTo("SOQM_HEAD_REVIEW");
+
+        // The steps field stays required: its message never names the Program
+        Control noSteps = control("REVIEW", fac.getMail(), op.getMail(), null, null);
+        MvcResult missing = perform(post("/api/workflow/submit-to-soqm-lead").with(csrf().asHeader())
+                .param("controlId", String.valueOf(noSteps.getId())), opSession);
+        assertThat(missing.getResponse().getStatus()).isEqualTo(400);
+        assertThat(missing.getResponse().getContentAsString())
+                .contains("Required field is missing: Control steps performed and results")
+                .doesNotContain(ControlStepsFields.OPERATOR_PROGRAM_LABEL)
+                .doesNotContain(HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL));
+        assertThat(status(noSteps)).isEqualTo("REVIEW");
     }
 
     @Test
@@ -381,38 +384,22 @@ class StepsFieldSplitIT {
     }
 
     @Test
-    void reassignment_keepsBothValues_andChangesOnlyWhatIsShownAndRequired() throws Exception {
+    void reassignment_keepsBothValues_andNeverMakesTheProgramRequired() throws Exception {
         Control control = control("REVIEW", fac.getMail(), op.getMail(), "Steps", "Review by the old Operator");
         MockHttpSession soqmSession = login(soqm);
-        MockHttpSession facSession = login(fac);
 
-        // The Facilitator becomes the Operator too: one person, one field
+        // The Facilitator becomes the Operator too, then someone else again: both values stay
         assertThat(reassignOperator(control, fac.getMail(), soqmSession)).isEqualTo(200);
         assertValues(control, "Steps", "Review by the old Operator");
-        JsonNode permissions = json(get("/api/permissions/{id}", control.getId()), facSession).path("permissions");
-        assertThat(permissions.path("stepsSplit").asBoolean()).isFalse();
-        assertThat(save(control, facSession, STEPS, "Steps, rewritten by the new Operator")).isEqualTo(403);
-        assertThat(save(control, soqmSession, STEPS, "Steps, rewritten by SoQM")).isEqualTo(200);
-        assertThat(save(control, facSession, REVIEW, "Program by the new Operator")).isEqualTo(200);
-
-        // Not required any more while it is one person, even when empty; the stored value stays
         ControlDetails cleared = details(control);
         cleared.setControlOperatorReview("");
         detailsRepository.save(cleared);
         assertThat(reassignOperator(control, op.getMail(), soqmSession)).isEqualTo(200);
-        assertThat(workflow("/api/workflow/submit-to-soqm-lead", control, login(op), null)).isEqualTo(400);
-        assertThat(reassignOperator(control, fac.getMail(), soqmSession)).isEqualTo(200);
-        assertThat(workflow("/api/workflow/submit-to-soqm-lead", control, facSession, null)).isEqualTo(200);
-        assertThat(status(control)).isEqualTo("SOQM_HEAD_REVIEW");
+        assertValues(control, "Steps", "");
 
-        // Back to different people: the value written before comes back with the field
-        ControlDetails restored = details(control);
-        restored.setControlOperatorReview("Review by the old Operator");
-        detailsRepository.save(restored);
-        assertThat(reassignOperator(control, op.getMail(), soqmSession)).isEqualTo(200);
-        assertValues(control, "Steps, rewritten by SoQM", "Review by the old Operator");
-        assertThat(json(get("/api/permissions/{id}", control.getId()), facSession)
-                .path("permissions").path("stepsSplit").asBoolean()).isTrue();
+        // Different people and an empty Program: Submit to SoQM Team passes all the same
+        assertThat(workflow("/api/workflow/submit-to-soqm-lead", control, login(op), null)).isEqualTo(200);
+        assertThat(status(control)).isEqualTo("SOQM_HEAD_REVIEW");
     }
 
     @Test
@@ -451,8 +438,8 @@ class StepsFieldSplitIT {
                 .contains(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<")
                 .contains("<span class=\"steps-field-owner\">Facilitator</span>")
                 .doesNotContain("<span class=\"steps-field-owner\">Control Operator</span>")
-                .contains("id=\"stepsSplit\" value=\"false\"")
-                .contains("id=\"operatorProgramRequired\" value=\"false\"")
+                .doesNotContain("id=\"stepsSplit\"")
+                .doesNotContain("id=\"operatorProgramRequired\"")
                 .contains("id=\"allowedEditableFields\" value=\"controlOperatorReview\"")
                 // Your step: the Program, which Submit to SoQM Team does not need here
                 .contains("data-step-field=\"controlOperatorReview\"", "data-step-required=\"false\"", " (optional)")
@@ -498,10 +485,12 @@ class StepsFieldSplitIT {
                 .contains(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<")
                 .contains("<span class=\"steps-field-owner\">Facilitator</span>")
                 .doesNotContain("<span class=\"steps-field-owner\">Control Operator</span>")
-                .contains("id=\"operatorReviewSubmitHint\"")
-                .contains("id=\"stepsSplit\" value=\"true\"")
-                .contains("id=\"operatorProgramRequired\" value=\"true\"")
-                .contains("data-step-required=\"true\"")
+                .doesNotContain("id=\"operatorReviewSubmitHint\"")
+                .doesNotContain("id=\"stepsSplit\"")
+                .doesNotContain("id=\"operatorProgramRequired\"")
+                // Your step: the Program, optional for different people too
+                .contains("data-step-required=\"false\"", " (optional)")
+                .doesNotContain("class=\"step-required-mark\"")
                 .contains("id=\"allowedEditableFields\" value=\"controlOperatorReview\"");
 
         for (User reader : List.of(fac, sharedUser, po)) {

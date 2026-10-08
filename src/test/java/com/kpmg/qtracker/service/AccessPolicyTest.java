@@ -48,14 +48,11 @@ class AccessPolicyTest {
         return "NONE".equals(key) ? null : SUBJECTS.get(key);
     }
 
-    /**
-     * "SPLIT" among the places: the Facilitator and the Control Operator are different people; "CREATOR": the
-     * user created the control.
-     */
+    /** "CREATOR" among the places: the user created the control. */
     private static ControlFacts control(String status, boolean kdn, String places) {
         Set<String> p = "-".equals(places) ? Set.of() : Arrays.stream(places.split("\\+")).collect(Collectors.toSet());
         return new ControlFacts(status, kdn, p.contains("F"), p.contains("CO"), p.contains("SOQM"),
-                p.contains("PO"), p.contains("SHARED"), p.contains("SPLIT"), p.contains("CREATOR"));
+                p.contains("PO"), p.contains("SHARED"), p.contains("CREATOR"));
     }
 
     // ------------------------------------------------------------------ the user alone
@@ -163,19 +160,6 @@ class AccessPolicyTest {
             "KDN,          REVIEW,               true,  CO,         false, false,   -",
             "RO,           REVIEW,               false, CO,         false, false,   -",
             "PART,         REVIEW,               false, SHARED,     false, false,   -",
-            // Facilitator and Control Operator are different people: one field each, each on its own step
-            "PART,         IN_PROGRESS,          false, F+SPLIT,    true,  false,   controlStepsPerformed",
-            "PART,         REVIEW,               false, F+SPLIT,    false, false,   -",
-            "PART,         REVIEW,               false, CO+SPLIT,   true,  false,   controlOperatorReview",
-            "PART,         IN_PROGRESS,          false, CO+SPLIT,   false, false,   -",
-            "PART,         SOQM_HEAD_REVIEW,     false, CO+SPLIT,   false, false,   -",
-            "PART,         COMPLETED,            false, CO+SPLIT,   false, false,   -",
-            "PART,         REVIEW,               false, F+CO+SPLIT, true,  false,   controlOperatorReview",
-            "PART,         REVIEW,               false, SHARED+SPLIT, false, false, -",
-            "KDN,          REVIEW,               true,  CO+SPLIT,   false, false,   -",
-            "KDN,          REVIEW,               false, CO+SPLIT,   false, false,   -",
-            "RO,           REVIEW,               false, CO+SPLIT,   false, false,   -",
-            "SOQM,         REVIEW,               false, SPLIT,      true,  true,    -",
             "PART,         SOQM_HEAD_REVIEW,     false, CO+SOQM,    false, false,   -",
             "PART,         PROCESS_OWNER_REVIEW, false, PO,         true,  false,   processOwnerComments",
             "PART,         COMPLETED,            false, F+CO+PO,    false, false,   -",
@@ -199,18 +183,15 @@ class AccessPolicyTest {
         assertThat(p.getAllowedEditableFields())
                 .as("fields")
                 .isEqualTo("-".equals(fields) ? Set.of() : Set.of(fields.split("\\+")));
-        assertThat(p.isStepsSplit()).as("stepsSplit").isEqualTo(p.canView() && places.contains("SPLIT"));
     }
 
     @ParameterizedTest(name = "{0} {1} {2}")
     @CsvSource({
             // user,     status,      places,       steps field, Control Operator's Program
-            "SOQM,       REVIEW,      SPLIT,        true,  true",
             "SOQM,       REVIEW,      -,            true,  true",
-            "SOQM,       COMPLETED,   SPLIT,        false, false",
-            "PART,       IN_PROGRESS, F+SPLIT,      true,  false",
+            "SOQM,       COMPLETED,   -,            false, false",
+            "RO_ALL,     REVIEW,      -,            false, false",
             "PART,       IN_PROGRESS, F,            true,  false",
-            "PART,       REVIEW,      CO+SPLIT,     false, true",
             "PART,       REVIEW,      CO,           false, true",
             "PART,       REVIEW,      F+CO,         false, true",
             "PART,       IN_PROGRESS, F+CO,         true,  false",
@@ -218,9 +199,6 @@ class AccessPolicyTest {
             "PART,       REVIEW,      SHARED,       false, false",
             "KDN,        REVIEW,      CO,           false, false",
             "RO,         REVIEW,      CO,           false, false",
-            "PART,       REVIEW,      F+SPLIT,      false, false",
-            "PART,       REVIEW,      SHARED+SPLIT, false, false",
-            "RO_ALL,     REVIEW,      SPLIT,        false, false",
     })
     void whoWritesEachStepsField(String user, String status, String places, boolean steps, boolean review) {
         ControlPermission p = AccessPolicy.resolve(who(user), control(status, false, places));

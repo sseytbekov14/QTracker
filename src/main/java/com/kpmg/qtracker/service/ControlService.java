@@ -160,7 +160,6 @@ public class ControlService implements IControlService {
                 hasAssignment && EmailList.contains(assignment.getSoqmLead(), userEmail),
                 hasAssignment && EmailList.contains(assignment.getProcessOwner(), userEmail),
                 hasAssignment && EmailList.contains(assignment.getControlSharedWith(), userEmail),
-                false,
                 ControlPermissionService.isCreator(control, user));
     }
 

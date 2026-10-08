@@ -183,7 +183,6 @@ class ControlPermissionServiceBusinessTest {
 
             assertThat(perm.canView()).isTrue();
             assertThat(perm.canEdit()).isTrue();
-            assertThat(perm.isStepsSplit()).isTrue();
             assertThat(perm.getAllowedEditableFields())
                     .containsExactly(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW);
             assertThat(perm.canWriteOperatorReview()).isTrue();
@@ -201,7 +200,6 @@ class ControlPermissionServiceBusinessTest {
 
             ControlPermission perm = permissionService.resolve(control, user, assignment);
 
-            assertThat(perm.isStepsSplit()).isFalse();
             assertThat(perm.getAllowedEditableFields())
                     .containsExactly(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW);
             assertThat(perm.canWriteOperatorReview()).isTrue();

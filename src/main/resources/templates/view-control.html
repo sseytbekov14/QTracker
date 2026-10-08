@@ -461,8 +461,6 @@
 <input type="hidden" id="isSharedViewer" th:value="${isSharedViewer}">
 <input type="hidden" id="canUseWorkflowActions" th:value="${canUseWorkflowActions}">
 <input type="hidden" id="allowedEditableFields" th:value="${allowedEditableFieldsCsv}">
-<input type="hidden" id="stepsSplit" th:value="${stepsSplit}">
-<input type="hidden" id="operatorProgramRequired" th:value="${operatorProgramRequired}">
 
 <div class="container-fluid">
     <div class="row">
@@ -755,14 +753,10 @@
                                      (ControlStepsFields); written by the Control Operator in Review, read-only to the others -->
                                 <div class="row" id="operatorReviewRow">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label" for="controlOperatorReview"><span th:text="${operatorProgramLabel}">Control Operator's Program</span><span class="step-required-mark" aria-hidden="true"
-                                                th:if="${stepField != null and stepField.required() and stepField.field() == 'controlOperatorReview'}">&nbsp;*</span></label>
+                                        <label class="form-label" for="controlOperatorReview"><span th:text="${operatorProgramLabel}">Control Operator's Program</span></label>
                                         <textarea class="form-control" id="controlOperatorReview" name="controlOperatorReview" rows="8" maxlength="2000"
                                                   placeholder="Not filled yet"
                                                   data-edit-placeholder="Describe the Control Operator's program and its results"></textarea>
-                                        <div class="required-hint d-none" id="operatorReviewSubmitHint">
-                                            This field is required before submission.
-                                        </div>
                                     </div>
                                 </div>
 
@@ -1667,7 +1661,7 @@
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=3"></script>
-<script src="/js/view-control.js?v=6.7"></script>
+<script src="/js/view-control.js?v=6.8"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
@@ -1817,9 +1811,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const stepField = document.querySelector('textarea[name="' + stepFieldName + '"]');
         const stepState = document.getElementById('stepFieldState');
         const fieldNote = document.getElementById(
-            stepFieldName === 'controlStepsPerformed' ? 'controlStepsSubmitHint'
-                : stepFieldName === 'controlOperatorReview' ? 'operatorReviewSubmitHint'
-                : stepFieldName + 'StepHint');
+            stepFieldName === 'controlStepsPerformed' ? 'controlStepsSubmitHint' : stepFieldName + 'StepHint');
         const updateStepField = () => {
             const filled = !!(stepField && stepField.value.trim());
             if (stepField && stepRequired) {
@@ -1844,14 +1836,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // ============================================
     // CONTROL STEPS REQUIRED BEFORE SUBMIT ACTIONS
     // ============================================
-    // The field each submit needs: the Facilitator's steps field; for the Control Operator their own Control
-    // Operator's Program when it is required (#operatorProgramRequired, ControlStepsFields), else the steps
-    // field, which Submit to SoQM Team checks as well
-    const operatorProgramRequired = document.getElementById('operatorProgramRequired')?.value === 'true';
+    // The field each submit needs: the steps field, for the Facilitator's submit and for Submit to SoQM Team
+    // alike; Control Operator's Program is required by no step
     const controlSteps = document.querySelector('textarea[name="controlStepsPerformed"]');
-    const operatorReview = document.querySelector('textarea[name="controlOperatorReview"]');
     const stepsLabel = document.querySelector('label[for="controlStepsPerformed"] span')?.textContent || 'Control Steps Performed and Results';
-    const reviewLabel = document.querySelector('label[for="controlOperatorReview"] span')?.textContent || "Control Operator's Program";
     const submitRequirements = [];
 
     if (canUseWorkflowActions && isFacilitator && performanceStatus === 'IN_PROGRESS') {
@@ -1859,11 +1847,8 @@ document.addEventListener('DOMContentLoaded', function() {
             hint: document.getElementById('controlStepsSubmitHint'), label: stepsLabel });
     }
     if (canUseWorkflowActions && isControlOperator && performanceStatus === 'REVIEW') {
-        submitRequirements.push(operatorProgramRequired
-            ? { btn: document.getElementById('submitToSoqmLeadBtn'), field: operatorReview,
-                hint: document.getElementById('operatorReviewSubmitHint'), label: reviewLabel }
-            : { btn: document.getElementById('submitToSoqmLeadBtn'), field: controlSteps,
-                hint: document.getElementById('controlStepsSubmitHint'), label: stepsLabel });
+        submitRequirements.push({ btn: document.getElementById('submitToSoqmLeadBtn'), field: controlSteps,
+            hint: document.getElementById('controlStepsSubmitHint'), label: stepsLabel });
     }
 
     if (submitRequirements.length > 0) {

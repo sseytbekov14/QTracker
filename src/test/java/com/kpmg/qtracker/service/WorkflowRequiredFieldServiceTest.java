@@ -1,9 +1,7 @@
 package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.Control;
-import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.ControlDetails;
-import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import org.junit.jupiter.api.Test;
 
@@ -16,12 +14,10 @@ import static org.mockito.Mockito.when;
 class WorkflowRequiredFieldServiceTest {
 
     private final ControlDetailsRepository repository = mock(ControlDetailsRepository.class);
-    private final ControlAssignmentRepository assignments = mock(ControlAssignmentRepository.class);
-    private final WorkflowRequiredFieldService service = new WorkflowRequiredFieldService(repository, assignments);
+    private final WorkflowRequiredFieldService service = new WorkflowRequiredFieldService(repository);
 
     @Test
-    void review_differentPeople_requiresTheOperatorReview_afterTheSteps() {
-        assigned("fac@x.kz", "op@x.kz");
+    void review_requiresTheStepsField_neverTheOperatorsProgram() {
         ControlDetails details = new ControlDetails();
         when(repository.findByControlId(1L)).thenReturn(Optional.of(details));
 
@@ -30,26 +26,11 @@ class WorkflowRequiredFieldServiceTest {
 
         details.setControlStepsPerformed("Steps by the Facilitator");
         details.setControlOperatorReview("  ");
-        assertThat(service.getMissingFieldMessage(control("REVIEW")))
-                .contains("Required field is missing: Control Operator's Program");
-
-        details.setControlOperatorReview("Reviewed by the Operator");
         assertThat(service.getMissingFieldMessage(control("REVIEW"))).isEmpty();
     }
 
     @Test
-    void review_onePerson_needsOnlyTheStepsField() {
-        assigned("fac@x.kz; second@x.kz", " FAC@x.kz ");
-        ControlDetails details = new ControlDetails();
-        details.setControlStepsPerformed("Steps");
-        when(repository.findByControlId(1L)).thenReturn(Optional.of(details));
-
-        assertThat(service.getMissingFieldMessage(control("REVIEW"))).isEmpty();
-    }
-
-    @Test
-    void otherSteps_differentPeople_requireNothingNew() {
-        assigned("fac@x.kz", "op@x.kz");
+    void otherSteps_requireNothingNew_withoutTheOperatorsProgram() {
         ControlDetails details = new ControlDetails();
         details.setControlStepsPerformed("Steps");
         when(repository.findByControlId(1L)).thenReturn(Optional.of(details));
@@ -57,24 +38,6 @@ class WorkflowRequiredFieldServiceTest {
         assertThat(service.getMissingFieldMessage(control("IN_PROGRESS"))).isEmpty();
         assertThat(service.getMissingFieldMessage(control("SOQM_HEAD_REVIEW"))).isEmpty();
         assertThat(service.getMissingFieldMessage(control("PROCESS_OWNER_REVIEW"))).isEmpty();
-    }
-
-    @Test
-    void review_withoutAssignment_isOnePerson() {
-        ControlDetails details = new ControlDetails();
-        details.setControlStepsPerformed("Steps");
-        when(repository.findByControlId(1L)).thenReturn(Optional.of(details));
-        when(assignments.findByControlId(1L)).thenReturn(Optional.empty());
-
-        assertThat(service.getMissingFieldMessage(control("REVIEW"))).isEmpty();
-    }
-
-    private void assigned(String facilitators, String operators) {
-        ControlAssignment assignment = new ControlAssignment();
-        assignment.setControlId(1L);
-        assignment.setFacilitator(facilitators);
-        assignment.setControlOperator(operators);
-        when(assignments.findByControlId(1L)).thenReturn(Optional.of(assignment));
     }
 
     @Test
@@ -137,37 +100,12 @@ class WorkflowRequiredFieldServiceTest {
     }
 
     @Test
-    void stepField_review_differentPeople_isTheOperatorsField_whichSubmitToSoqmChecks() {
-        WorkflowRequiredFieldService.StepField stepField =
-                WorkflowRequiredFieldService.stepField("REVIEW", true).orElseThrow();
-        assertThat(stepField.field()).isEqualTo("controlOperatorReview");
-        assertThat(stepField.label()).isEqualTo(ControlStepsFields.OPERATOR_PROGRAM_LABEL);
-        assertThat(stepField.check()).isFalse();
-        assertThat(stepField.required()).isTrue();
-        // the other steps are the same in both modes
-        for (String status : java.util.List.of("IN_PROGRESS", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW")) {
-            assertThat(WorkflowRequiredFieldService.stepField(status, true))
-                    .isEqualTo(WorkflowRequiredFieldService.stepField(status));
-        }
-
-        assigned("fac@x.kz", "op@x.kz");
-        ControlDetails details = new ControlDetails();
-        details.setControlStepsPerformed("Steps");
-        when(repository.findByControlId(1L)).thenReturn(Optional.of(details));
-        assertThat(service.getMissingFieldMessage(control("REVIEW")))
-                .hasValueSatisfying(message -> assertThat(message).contains(stepField.label()));
-    }
-
-    @Test
-    void stepField_review_onePerson_isTheOperatorsField_too_optional_asSubmitToSoqmDoesNotCheckIt() {
-        WorkflowRequiredFieldService.StepField stepField =
-                WorkflowRequiredFieldService.stepField("REVIEW", false).orElseThrow();
+    void stepField_review_isTheOperatorsProgram_optional_asSubmitToSoqmDoesNotCheckIt() {
+        WorkflowRequiredFieldService.StepField stepField = WorkflowRequiredFieldService.stepField("REVIEW").orElseThrow();
         assertThat(stepField.field()).isEqualTo("controlOperatorReview");
         assertThat(stepField.label()).isEqualTo(ControlStepsFields.OPERATOR_PROGRAM_LABEL);
         assertThat(stepField.required()).isFalse();
-        assertThat(WorkflowRequiredFieldService.stepField("REVIEW")).contains(stepField);
 
-        assigned("fac@x.kz", "fac@x.kz");
         ControlDetails details = new ControlDetails();
         details.setControlStepsPerformed("Steps");
         when(repository.findByControlId(1L)).thenReturn(Optional.of(details));

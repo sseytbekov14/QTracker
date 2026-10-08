@@ -1,9 +1,7 @@
 package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.Control;
-import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.ControlDetails;
-import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,11 +13,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class WorkflowRequiredFieldService {
     private final ControlDetailsRepository controlDetailsRepository;
-    private final ControlAssignmentRepository controlAssignmentRepository;
 
     public static final String MISSING_STEPS = "Required field is missing: Control steps performed and results";
-    public static final String MISSING_OPERATOR_PROGRAM = "Required field is missing: "
-            + ControlStepsFields.OPERATOR_PROGRAM_LABEL;
 
     /**
      * The Details field of a step, for the "Your step" hint on View Control. {@code check}: the field was filled
@@ -29,24 +24,17 @@ public class WorkflowRequiredFieldService {
     public record StepField(String field, String label, boolean check, boolean required, String actions) {
     }
 
-    /** The field of the step a control in this status is at, Control Operator's Program not required. */
-    public static Optional<StepField> stepField(String performanceStatus) {
-        return stepField(performanceStatus, false);
-    }
-
     /**
-     * As {@link #stepField(String)}. Review is the Control Operator's step, whose field is Control Operator's
-     * Program whether or not they are also a Facilitator; it is required as
-     * {@link ControlStepsFields#operatorProgramRequired} says (Submit to SoQM Team checks it then). Draft and
-     * Completed have none.
+     * The field of the step a control in this status is at. Review is the Control Operator's step, whose field is
+     * Control Operator's Program, required by no step. Draft and Completed have none.
      */
-    public static Optional<StepField> stepField(String performanceStatus, boolean operatorProgramRequired) {
+    public static Optional<StepField> stepField(String performanceStatus) {
         String status = performanceStatus == null ? "" : performanceStatus.trim().toUpperCase(Locale.ROOT);
         return switch (status) {
             case "IN_PROGRESS" -> Optional.of(new StepField(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED,
                     ControlStepsFields.STEPS_LABEL, false, true, "Submit for Review"));
             case "REVIEW" -> Optional.of(new StepField(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW,
-                    ControlStepsFields.OPERATOR_PROGRAM_LABEL, false, operatorProgramRequired,
+                    ControlStepsFields.OPERATOR_PROGRAM_LABEL, false, false,
                     "Submit for SoQM Team Review or Return to Facilitator"));
             case "SOQM_HEAD_REVIEW" -> Optional.of(new StepField("soqmHeadComments",
                     "SoQM Head/Team Comments", false, true, "Send to Process Owner or Return to Operator"));
@@ -58,10 +46,8 @@ public class WorkflowRequiredFieldService {
 
     /**
      * Control Steps Performed must be filled in to move a control on from In Progress, Review or SoQM review,
-     * whoever does it (one person may hold several fields of a control). From Review (Submit to SoQM Team)
-     * a control also needs Control Operator's Program when {@link ControlStepsFields#operatorProgramRequired}
-     * says so (today: the Facilitator and the Control Operator are different people); the other steps require
-     * nothing new.
+     * whoever does it (one person may hold several fields of a control). Control Operator's Program is required
+     * by no step, whoever the Facilitator and the Control Operator are.
      */
     public Optional<String> getMissingFieldMessage(Control control) {
         if (control == null) {
@@ -77,25 +63,8 @@ public class WorkflowRequiredFieldService {
         if (value == null || value.trim().isEmpty()) {
             return Optional.of(MISSING_STEPS);
         }
-        if ("REVIEW".equals(status) && operatorProgramRequired(control)) {
-            String review = details != null ? details.getControlOperatorReview() : null;
-            if (review == null || review.trim().isEmpty()) {
-                return Optional.of(MISSING_OPERATOR_PROGRAM);
-            }
-        }
 
         return Optional.empty();
-    }
-
-    /** {@link ControlStepsFields#operatorProgramRequired} for the control's assignment as stored now. */
-    public boolean operatorProgramRequired(Control control) {
-        if (control == null || control.getId() == null) {
-            return ControlStepsFields.operatorProgramRequired(false);
-        }
-        ControlAssignment assignment = controlAssignmentRepository.findByControlId(control.getId()).orElse(null);
-        return assignment != null
-                ? ControlStepsFields.operatorProgramRequired(assignment.getFacilitator(), assignment.getControlOperator())
-                : ControlStepsFields.operatorProgramRequired(false);
     }
 
     /**

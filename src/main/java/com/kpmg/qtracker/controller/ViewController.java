@@ -1011,10 +1011,6 @@ public class ViewController {
         model.addAttribute("canUseWorkflowActions", permission.canUseWorkflowActions());
         model.addAttribute("allowedEditableFields", permission.getAllowedEditableFields());
         model.addAttribute("allowedEditableFieldsCsv", String.join(",", permission.getAllowedEditableFields()));
-        // One steps field or two (ControlStepsFields): the second is not rendered for one person
-        model.addAttribute("stepsSplit", permission.isStepsSplit());
-        // Whether Submit to SoQM Team needs Control Operator's Program (ControlStepsFields.operatorProgramRequired)
-        model.addAttribute("operatorProgramRequired", permission.isOperatorProgramRequired());
         model.addAttribute("stepsLabel", ControlStepsFields.STEPS_LABEL);
         model.addAttribute("operatorProgramLabel", ControlStepsFields.OPERATOR_PROGRAM_LABEL);
 
@@ -1057,7 +1053,7 @@ public class ViewController {
         model.addAttribute("yourTurn", yourTurn);
         // The field the user's step needs, named in the "Your step" hint and marked on the Details tab
         model.addAttribute("stepField", yourTurn
-                ? WorkflowRequiredFieldService.stepField(normalizedStatus, permission.isOperatorProgramRequired()).orElse(null) : null);
+                ? WorkflowRequiredFieldService.stepField(normalizedStatus).orElse(null) : null);
 
         // SoQM moves the control on or back for any role (the Move dialog); everyone else has their step buttons
         model.addAttribute("soqmMoves", soqmMoves(permission, normalizedStatus, assignment));
