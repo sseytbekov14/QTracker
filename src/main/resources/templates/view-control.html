@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=17" rel="stylesheet">
-    <link href="/css/view-control.css?v=21" rel="stylesheet">
+    <link href="/css/view-control.css?v=22" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator Program validation styling */
@@ -987,6 +987,7 @@
                                                 <span class="form-label mb-0" id="sharedWithLabel">Control Shared With</span>
                                                 <span class="sw-count" id="sharedWithCount" th:hidden="${swCount == 0}"
                                                       th:text="${swCount == 1} ? '1 person' : |${swCount} people|">0 people</span>
+                                                <span class="sw-unsaved" id="sharedWithUnsaved" th:if="${canEditAll}" hidden>Not saved yet</span>
                                             </div>
                                             <p class="sw-hint" id="sharedWithHint" th:text="${sharedWithHint}">Can view this control and download files, no editing</p>
                                             <div class="sw-box" id="sharedWithBox">
@@ -1001,15 +1002,15 @@
                                                            role="combobox" aria-autocomplete="list" aria-expanded="false"
                                                            aria-controls="sharedWithListbox" aria-labelledby="sharedWithLabel"
                                                            aria-describedby="sharedWithKeys" autocomplete="off" spellcheck="false"
-                                                           placeholder="Add people: search by name or e-mail">
+                                                           placeholder="Search by name or e-mail">
                                                 </div>
                                             </div>
+                                            <div class="sw-error" id="sharedWithError" role="alert" hidden></div>
                                             <ul class="sw-listbox" id="sharedWithListbox" role="listbox" aria-multiselectable="true"
                                                 aria-labelledby="sharedWithLabel" th:if="${canEditAll}" hidden></ul>
                                             <button type="button" class="sw-more" id="sharedWithMore" th:if="${swCount > 6}"
                                                     aria-expanded="false" aria-controls="sharedWithChips"
                                                     th:text="|Show all ${swCount}|">Show all</button>
-                                            <div class="sw-error" id="sharedWithError" role="alert" hidden></div>
                                             <span class="visually-hidden" id="sharedWithKeys" th:if="${canEditAll}">Up and down arrows move through the list, Enter adds or removes the person, Backspace in an empty search removes the last person, Escape closes the list.</span>
                                             <span class="visually-hidden" id="sharedWithStatus" aria-live="polite"></span>
                                             <input type="hidden" name="controlSharedWith" id="controlSharedWithHidden">
@@ -1665,8 +1666,8 @@
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
-<script src="/js/shared-with.js?v=1"></script>
-<script src="/js/view-control.js?v=6.6"></script>
+<script src="/js/shared-with.js?v=2"></script>
+<script src="/js/view-control.js?v=6.7"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows

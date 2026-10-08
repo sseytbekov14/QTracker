@@ -19,6 +19,8 @@ const SharedWithField = (function () {
     let more = null;
     let hidden = null;
     let status = null;
+    let errorBox = null;
+    let unsaved = null;
 
     let people = [];          // { mail, name, access, note, refusal } in the order of the field
     let candidates = null;    // the people the picker offers, loaded once
@@ -29,6 +31,7 @@ const SharedWithField = (function () {
     let editing = false;
     let expanded = false;
     let notesShown = false;
+    let savedKey = '';        // the addresses as last saved, to tell an unsaved change
 
     const key = (mail) => String(mail || '').trim().toLowerCase();
 
@@ -148,6 +151,9 @@ const SharedWithField = (function () {
         if (searchWrap) {
             searchWrap.hidden = !editing;
         }
+        if (unsaved) {
+            unsaved.hidden = !isChanged();
+        }
         writeHidden();
         field.dispatchEvent(new CustomEvent('sharedwith:change', { bubbles: true }));
     }
@@ -167,6 +173,7 @@ const SharedWithField = (function () {
             return;
         }
         people.splice(index, 1);
+        clearError();
         render();
         announce('Removed ' + person.name + '. ' + peopleCount(people.length) + '.');
         if (listbox && !listbox.hidden) {
@@ -196,6 +203,7 @@ const SharedWithField = (function () {
             note: user.sharedNote || '',
             refusal: ''
         });
+        clearError();
         render();
         announce('Added ' + name + '. ' + peopleCount(people.length) + '.');
         return true;
@@ -461,6 +469,94 @@ const SharedWithField = (function () {
         }
     }
 
+    // ------------------------------------------------------------------ saving
+
+    function keyOf(list) {
+        return list.map((person) => key(person.mail)).join(',');
+    }
+
+    function isChanged() {
+        return keyOf(people) !== savedKey;
+    }
+
+    function chipOf(mail) {
+        const wanted = key(mail);
+        return Array.from(chips.querySelectorAll('.sw-chip')).find((chip) => key(chip.dataset.mail) === wanted) || null;
+    }
+
+    function showError(message, mails) {
+        if (!errorBox) {
+            return;
+        }
+        errorBox.textContent = message;
+        errorBox.hidden = false;
+        field.classList.add('has-error');
+        chips.querySelectorAll('.sw-chip.is-invalid').forEach((chip) => chip.classList.remove('is-invalid'));
+        (mails || []).forEach((mail) => chipOf(mail)?.classList.add('is-invalid'));
+        if (search) {
+            search.setAttribute('aria-invalid', 'true');
+            search.setAttribute('aria-describedby', 'sharedWithError sharedWithKeys');
+        }
+    }
+
+    function clearError() {
+        if (!errorBox || errorBox.hidden) {
+            return;
+        }
+        errorBox.textContent = '';
+        errorBox.hidden = true;
+        field.classList.remove('has-error');
+        chips.querySelectorAll('.sw-chip.is-invalid').forEach((chip) => chip.classList.remove('is-invalid'));
+        if (search) {
+            search.removeAttribute('aria-invalid');
+            search.setAttribute('aria-describedby', 'sharedWithKeys');
+        }
+    }
+
+    /**
+     * Before Save sends anything: the people the server would refuse in this field (data-refusal, from
+     * AccessPolicy.assignmentRefusal) are named under it. Returns the message, or null when the field can be saved.
+     */
+    function validate() {
+        if (!field || !editing) {
+            return null;
+        }
+        const refused = people.filter((person) => person.refusal);
+        if (refused.length === 0) {
+            clearError();
+            return null;
+        }
+        const reasons = refused.map((person) => person.mail + ' ' + person.refusal).join('; ');
+        const message = 'Remove before saving: ' + reasons + '.';
+        showError(message, refused.map((person) => person.mail));
+        return message;
+    }
+
+    /**
+     * A refusal of the Assignment save that names this field ("Control Shared With: <mail> <reason>"), shown
+     * under it; the people stay as chosen. Returns whether the message was this field's.
+     */
+    function showServerError(text) {
+        const match = /^\s*Control Shared With:\s*(\S+)\s+(.*)$/.exec(String(text || ''));
+        if (!field || !match) {
+            return false;
+        }
+        showError('Not saved: ' + match[1] + ' ' + match[2].replace(/\.$/, '') + '.', [match[1]]);
+        return true;
+    }
+
+    /** The people as they are now were saved (the Assignment save went through). */
+    function markSaved() {
+        savedKey = keyOf(people);
+        if (unsaved) {
+            unsaved.hidden = true;
+        }
+    }
+
+    function focusTarget() {
+        return search && editing ? search : field;
+    }
+
     // ------------------------------------------------------------------ setup and the page's calls
 
     function init() {
@@ -477,8 +573,19 @@ const SharedWithField = (function () {
         more = document.getElementById('sharedWithMore');
         hidden = document.getElementById('controlSharedWithHidden');
         status = document.getElementById('sharedWithStatus');
+        errorBox = document.getElementById('sharedWithError');
+        unsaved = document.getElementById('sharedWithUnsaved');
         notesShown = field.dataset.notes === 'true';
         people = readPeople();
+        savedKey = keyOf(people);
+
+        // Leaving the page with people added or removed and not saved
+        window.addEventListener('beforeunload', (event) => {
+            if (editing && isChanged()) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        });
 
         more?.addEventListener('click', () => {
             expanded = !expanded;
@@ -525,6 +632,7 @@ const SharedWithField = (function () {
         editing = Boolean(on) && field.dataset.editable === 'true' && Boolean(search);
         expanded = false;
         if (!editing) {
+            clearError();
             close();
             if (search) {
                 search.value = '';
@@ -546,6 +654,7 @@ const SharedWithField = (function () {
             return;
         }
         people = saved.map((person) => ({ ...person }));
+        clearError();
         render();
     }
 
@@ -556,7 +665,12 @@ const SharedWithField = (function () {
         snapshot: snapshot,
         restore: restore,
         isOpen: isOpen,
-        close: close
+        close: close,
+        validate: validate,
+        showServerError: showServerError,
+        markSaved: markSaved,
+        isChanged: isChanged,
+        focusTarget: focusTarget
     };
 })();
 

@@ -819,9 +819,11 @@ input[data-date-picker] {
 .sw-head {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
     gap: 4px 12px;
     flex-wrap: wrap;
+}
+.sw-head .form-label {
+    margin-right: auto;
 }
 .sw-count {
     font-size: 0.74rem;
@@ -1060,6 +1062,15 @@ input[data-date-picker] {
     margin-top: 6px;
     font-size: 0.8rem;
     color: var(--kpmg-red);
+}
+.sw-field.has-error .sw-chip.is-invalid {
+    border-color: var(--kpmg-red);
+    box-shadow: 0 0 0 1px var(--kpmg-red);
+}
+.sw-unsaved {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--kpmg-amber-text);
 }
 @media (max-width: 576px) {
     .sw-chip {

@@ -233,6 +233,35 @@ class SharedWithFieldIT {
         assertThat(chips(field(control, session))).extracting(Chip::mail).containsExactly(reader.getMail());
     }
 
+    /**
+     * The page stops Save on the people the server would refuse, with the server's own reason (data-refusal); the
+     * server's refusal names the field as "Control Shared With: <mail> <reason>", which the page shows under it.
+     */
+    @Test
+    void theRefusalShownBeforeSaving_isTheServers_andNothingIsStored() throws Exception {
+        String ghost = "ghost-" + UUID.randomUUID().toString().substring(0, 6) + "@outside.test";
+        Control control = control("HR", "IN_PROGRESS", reader.getMail());
+        MockHttpSession session = login(soqm);
+
+        for (String refused : List.of(ghost, kdn.getMail())) {
+            Control shown = control("HR", "IN_PROGRESS", refused);
+            String reason = Pattern.compile("data-refusal=\"([^\"]*)\"").matcher(chips(field(shown, session)).get(0).attributes())
+                    .results().findFirst().orElseThrow().group(1);
+
+            MvcResult saved = mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader()).with(ownAddress())
+                            .session(session).contentType("application/json")
+                            .content("{\"controlId\":" + control.getId() + ",\"controlSharedWith\":[\""
+                                    + reader.getMail() + "\",\"" + refused + "\"]}"))
+                    .andReturn();
+
+            assertThat(saved.getResponse().getStatus()).isEqualTo(400);
+            assertThat(saved.getResponse().getContentAsString())
+                    .isEqualTo("VALIDATION_ERROR: Control Shared With: " + refused + " " + HtmlUtils.htmlUnescape(reason));
+            assertThat(assignmentRepository.findByControlId(control.getId()).orElseThrow().getControlSharedWith())
+                    .isEqualTo(reader.getMail());
+        }
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private record Chip(String mail, String attributes, String html) {

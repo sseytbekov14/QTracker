@@ -2004,6 +2004,18 @@ function renameControlId(newControlId, comment) {
             };
         }
 
+        // Control Shared With: people the server would refuse there are named under the field, before anything is sent
+        if (!isLimitedFieldEdit() && typeof SharedWithField !== 'undefined') {
+            const sharedWithRefusal = SharedWithField.validate();
+            if (sharedWithRefusal && !firstInvalid) {
+                firstInvalid = {
+                    field: SharedWithField.focusTarget(),
+                    title: 'Control Shared With',
+                    message: sharedWithRefusal
+                };
+            }
+        }
+
         if (firstInvalid) {
             showMissingFieldMessage(firstInvalid.message, firstInvalid.field, firstInvalid.title);
             return false;
@@ -2168,6 +2180,10 @@ function saveAssignmentData(controlId) {
             }
 
             console.error('вќЊ Server error:', errorMessage);
+            // A refusal that names Control Shared With is also shown under that field
+            if (typeof SharedWithField !== 'undefined') {
+                SharedWithField.showServerError(serverErrorText(errorMessage));
+            }
             throw new Error('Assignment save failed: ' + serverErrorText(errorMessage));
         }
 
@@ -2189,6 +2205,9 @@ function saveAssignmentData(controlId) {
     })
     .then(data => {
         console.log('вњ… Assignment saved successfully, response data:', data);
+        if (typeof SharedWithField !== 'undefined') {
+            SharedWithField.markSaved();
+        }
 
         // Upload file attachments if any
         if (window.uploadAttachments) {
