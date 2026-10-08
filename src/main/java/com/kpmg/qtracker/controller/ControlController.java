@@ -736,7 +736,8 @@ public class ControlController {
                 rowNum = addRow(sheet, rowNum, "Control Operator(s)", joinList(assignment.getControlOperator()));
                 rowNum = addRow(sheet, rowNum, "SoQM Team/Delegate(s)", joinList(assignment.getSoqmLead()));
                 rowNum = addRow(sheet, rowNum, "Process Owner(s)", joinList(assignment.getProcessOwner()));
-                rowNum = addRow(sheet, rowNum, "Shared With", joinList(assignment.getControlSharedWith()));
+                // The name View Control and the Changelog give the field; addresses in the stored order
+                rowNum = addRow(sheet, rowNum, "Control Shared With", joinList(assignment.getControlSharedWith()));
                 rowNum = addRow(sheet, rowNum, "Control Operation Date", formatDate(assignment.getControlOperationDate()));
                 rowNum = addRow(sheet, rowNum, "Control Operation Deadline", formatDate(assignment.getControlOperationDeadline()));
                 rowNum = addRow(sheet, rowNum, "Next Control Operation Date", formatDate(assignment.getNextControlOperationDate()));

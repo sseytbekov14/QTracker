@@ -1,5 +1,7 @@
 package com.kpmg.qtracker.integration;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.config.DevUserSeeder;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
@@ -22,11 +24,17 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.util.HtmlUtils;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+import java.io.ByteArrayInputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -260,6 +268,62 @@ class SharedWithFieldIT {
             assertThat(assignmentRepository.findByControlId(control.getId()).orElseThrow().getControlSharedWith())
                     .isEqualTo(reader.getMail());
         }
+    }
+
+    // ------------------------------------------------------------------ the field elsewhere
+
+    @Test
+    void changelog_namesThePeople_inTheStoredOrder_likeTheField() throws Exception {
+        String ghost = "ghost-" + UUID.randomUUID().toString().substring(0, 6) + "@outside.test";
+        Control control = control("HR", "IN_PROGRESS", reader.getMail());
+        MockHttpSession session = login(soqm);
+        // A stored address without a user (older data) stays in the list it is saved with
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setControlSharedWith(reader.getMail() + "," + ghost);
+        assignmentRepository.save(assignment);
+
+        MvcResult saved = mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader()).with(ownAddress())
+                        .session(session).contentType("application/json")
+                        .content("{\"controlId\":" + control.getId() + ",\"controlSharedWith\":[\""
+                                + readerAll.getMail() + "\",\"" + reader.getMail() + "\"]}"))
+                .andReturn();
+        assertThat(saved.getResponse().getStatus()).isEqualTo(200);
+
+        String changelog = mockMvc.perform(get("/api/controls/{id}/changelog", control.getId()).with(ownAddress())
+                        .session(session))
+                .andReturn().getResponse().getContentAsString();
+        JsonNode change = null;
+        for (JsonNode entry : new ObjectMapper().readTree(changelog)) {
+            for (JsonNode fieldChange : entry.path("fieldChanges")) {
+                if ("Control Shared With".equals(fieldChange.path("field").asText())) {
+                    change = fieldChange;
+                }
+            }
+        }
+        assertThat(change).as("Control Shared With in the Changelog").isNotNull();
+        assertThat(change.path("oldValue").asText())
+                .isEqualTo(reader.getDisplayName() + " (" + reader.getMail() + "), " + ghost);
+        assertThat(change.path("newValue").asText()).isEqualTo(readerAll.getDisplayName() + " (" + readerAll.getMail()
+                + "), " + reader.getDisplayName() + " (" + reader.getMail() + ")");
+    }
+
+    @Test
+    void excel_namesTheFieldAsThePageDoes_withTheAddressesInStoredOrder() throws Exception {
+        Control control = control("HR", "COMPLETED", readerAll.getMail() + "," + reader.getMail());
+
+        MvcResult result = mockMvc.perform(get("/api/controls/{id}/export/completed", control.getId())
+                        .with(ownAddress()).session(login(soqm)))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        Map<String, String> rows = new LinkedHashMap<>();
+        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(result.getResponse().getContentAsByteArray()))) {
+            for (Row row : workbook.getSheetAt(0)) {
+                rows.put(row.getCell(0).getStringCellValue(),
+                        row.getCell(1) != null ? row.getCell(1).getStringCellValue() : null);
+            }
+        }
+        assertThat(rows).doesNotContainKey("Shared With")
+                .containsEntry("Control Shared With", readerAll.getMail() + ", " + reader.getMail());
     }
 
     // ------------------------------------------------------------------ helpers

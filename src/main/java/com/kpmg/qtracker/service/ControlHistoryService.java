@@ -13,6 +13,7 @@ import com.kpmg.qtracker.repository.AdminAuditLogRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
+import com.kpmg.qtracker.util.EmailList;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +28,13 @@ public class ControlHistoryService {
     private final WorkflowHistoryRepository workflowHistoryRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /**
+     * The assignment fields as Edit Control logs them (ControlTabsController): their values are e-mails, shown as
+     * on View Control, each with the person's name, in the stored order.
+     */
+    private static final Set<String> PEOPLE_FIELDS =
+            Set.of("Facilitator", "Control Operator", "SoQM Team", "Process Owner", "Control Shared With");
 
     public List<ControlHistoryEntryDTO> getControlHistory(Long controlId) {
         List<ControlHistoryEntryDTO> entries = new ArrayList<>();
@@ -147,11 +155,7 @@ public class ControlHistoryService {
             return null;
         }
         List<String> people = new ArrayList<>();
-        for (String email : emails.split(",")) {
-            String mail = email.trim();
-            if (mail.isEmpty()) {
-                continue;
-            }
+        for (String mail : EmailList.parse(emails)) {
             people.add(userRepository.findByMail(mail)
                     .map(user -> user.getDisplayName() != null && !user.getDisplayName().isBlank()
                             ? user.getDisplayName() + " (" + mail + ")" : mail)
@@ -175,6 +179,10 @@ public class ControlHistoryService {
         for (String field : fields) {
             String oldValue = valueToString(previous.get(field));
             String newValue = valueToString(updated.get(field));
+            if (PEOPLE_FIELDS.contains(field)) {
+                oldValue = Objects.toString(describePeople(oldValue), "");
+                newValue = Objects.toString(describePeople(newValue), "");
+            }
             String label = normalizeFieldLabel(field);
             changes.add(new FieldChangeDTO(label, oldValue, newValue));
         }
