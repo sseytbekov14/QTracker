@@ -11,7 +11,6 @@ const viewControl = (function() {
     let controlOperatorUsers = [];
     let soqmLeadUsers = [];
     let processOwnerUsers = [];
-    let sharedWithUsers = [];
     let fullEditEnabled = false;
     let canEditStepsPerformed = false;
     let canEditProcessOwnerComments = false;
@@ -25,14 +24,12 @@ const viewControl = (function() {
     let isControlOperatorDropdownOpen = false;
     let isSoqmLeadDropdownOpen = false;
     let isProcessOwnerDropdownOpen = false;
-    let isSharedWithDropdownOpen = false;
     let currentWorkflowButton = null;
     let currentControlId = null;
     let selectedUser = null;
     let selectedControlOperator = null;
     let selectedSoqmLead = null;
     let selectedProcessOwner = null;
-    let selectedSharedWithUsers = []; // Array instead of single user
     let editModeSnapshot = null;
 
     // SoQM and admins, as the server decides it (ControlPermission.canEditAll)
@@ -177,7 +174,8 @@ const viewControl = (function() {
             controlOperatorMail: document.getElementById('controlOperatorHidden')?.value || '',
             soqmLeadMail: document.getElementById('soqmLeadHidden')?.value || '',
             processOwnerMail: document.getElementById('processOwnerHidden')?.value || '',
-            sharedWithMails: selectedSharedWithUsers.map(user => user.mail).filter(Boolean)
+            // Control Shared With keeps its people itself (shared-with.js), unknown addresses included
+            sharedWith: typeof SharedWithField !== 'undefined' ? SharedWithField.snapshot() : null
         };
     }
 
@@ -207,9 +205,6 @@ const viewControl = (function() {
         selectedControlOperator = findUserByEmail(editModeSnapshot.controlOperatorMail);
         selectedSoqmLead = findUserByEmail(editModeSnapshot.soqmLeadMail);
         selectedProcessOwner = findUserByEmail(editModeSnapshot.processOwnerMail);
-        selectedSharedWithUsers = (editModeSnapshot.sharedWithMails || [])
-            .map(findUserByEmail)
-            .filter(Boolean);
 
         const facilitatorInput = document.getElementById('facilitatorInput');
         if (facilitatorInput) facilitatorInput.value = selectedUser ? selectedUser.displayName : '';
@@ -231,8 +226,9 @@ const viewControl = (function() {
         const processOwnerHidden = document.getElementById('processOwnerHidden');
         if (processOwnerHidden) processOwnerHidden.value = editModeSnapshot.processOwnerMail || '';
 
-        updateSharedWithDisplay();
-        updateSharedWithHidden();
+        if (typeof SharedWithField !== 'undefined') {
+            SharedWithField.restore(editModeSnapshot.sharedWith);
+        }
         normalizeAssignmentDateFieldsForDisplay();
 
         // Marks left by a refused Save belong to the edit that is being cancelled
@@ -969,191 +965,6 @@ function confirmWorkflowAction() {
         closeProcessOwnerDropdown();
     }
 
-    // ========== CONTROL SHARED WITH FUNCTIONS ==========
-    function toggleSharedWithDropdown() {
-        if (!isAssignmentDropdownEditable('sharedWithInput')) {
-            return;
-        }
-        const dropdown = document.getElementById('sharedWithDropdown');
-        if (!isSharedWithDropdownOpen) {
-            dropdown.style.display = 'block';
-            isSharedWithDropdownOpen = true;
-
-            const searchInput = document.getElementById('sharedWithSearchInput');
-            if (searchInput) searchInput.value = '';
-
-            if (sharedWithUsers.length === 0) {
-                loadUsersByRole('SHARED_WITH').then((users) => {
-                    sharedWithUsers = onlyActiveUsers(users);
-                    displaySharedWithList(sharedWithUsers);
-                });
-            } else {
-                displaySharedWithList(sharedWithUsers);
-            }
-
-            setTimeout(() => {
-                if (!areWorkflowActionsAllowed()) {
-                    hideWorkflowActionsUi();
-                    return;
-                }
-                const searchInput = document.getElementById('sharedWithSearchInput');
-                if (searchInput) searchInput.focus();
-            }, 100);
-        } else {
-            closeSharedWithDropdown();
-        }
-    }
-
-    function closeSharedWithDropdown() {
-        const dropdown = document.getElementById('sharedWithDropdown');
-        dropdown.style.display = 'none';
-        isSharedWithDropdownOpen = false;
-    }
-
-    function displaySharedWithList(users) {
-        const usersList = document.getElementById('sharedWithUsersList');
-        if (!usersList) return;
-
-        usersList.innerHTML = '';
-
-        if (users.length === 0) {
-            usersList.innerHTML = '<div class="no-users-message">No users found</div>';
-            return;
-        }
-
-        const sortedUsers = [...users].sort((a, b) => a.displayName.localeCompare(b.displayName));
-
-        sortedUsers.forEach(user => {
-            const isSelected = selectedSharedWithUsers.some(u => u.mail === user.mail);
-            
-            const listItem = document.createElement('div');
-            listItem.className = 'list-group-item p-2';
-            listItem.style.cursor = 'pointer';
-            listItem.style.display = 'flex';
-            listItem.style.alignItems = 'center';
-            listItem.style.gap = '10px';
-            listItem.innerHTML = `
-                <input type="checkbox" 
-                       ${isSelected ? 'checked' : ''} 
-                       class="form-check-input"
-                       style="margin: 0;">
-                <div style="flex: 1;">
-                    <div style="font-weight: 500;">${user.displayName}</div>
-                    <div style="font-size: 12px; color: #666;">${user.mail}</div>
-                </div>
-            `;
-            
-            listItem.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleSharedWithUser(user);
-            });
-            
-            usersList.appendChild(listItem);
-        });
-    }
-
-    function toggleSharedWithUser(user) {
-        const index = selectedSharedWithUsers.findIndex(u => u.mail === user.mail);
-        
-        if (index === -1) {
-            // Add user
-            selectedSharedWithUsers.push(user);
-        } else {
-            // Remove user
-            selectedSharedWithUsers.splice(index, 1);
-        }
-        
-        updateSharedWithDisplay();
-        updateSharedWithHidden();
-        displaySharedWithList(sharedWithUsers);
-    }
-
-    function updateSharedWithDisplay() {
-        const placeholder = document.getElementById('sharedWithPlaceholder');
-        const tagsContainer = document.getElementById('sharedWithSelectedTags');
-        
-        if (selectedSharedWithUsers.length === 0) {
-            placeholder.style.display = 'inline';
-            tagsContainer.innerHTML = '';
-        } else {
-            placeholder.style.display = 'none';
-            tagsContainer.innerHTML = '';
-            
-            selectedSharedWithUsers.forEach((user, index) => {
-                const span = document.createElement('span');
-                span.className = 'badge bg-primary';
-                span.style.display = 'flex';
-                span.style.alignItems = 'center';
-                span.style.gap = '5px';
-                
-                const nameSpan = document.createElement('span');
-                nameSpan.textContent = user.displayName;
-                
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'btn-close btn-close-white';
-                btn.setAttribute('aria-label', 'Remove');
-                btn.style.marginLeft = '5px';
-                btn.style.padding = '0';
-                btn.style.fontSize = '12px';
-                
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    removeSharedWithUser(user.mail);
-                });
-                
-                span.appendChild(nameSpan);
-                span.appendChild(btn);
-                tagsContainer.appendChild(span);
-            });
-        }
-    }
-
-    function removeSharedWithUser(mail) {
-        const index = selectedSharedWithUsers.findIndex(u => u.mail === mail);
-        if (index !== -1) {
-            selectedSharedWithUsers.splice(index, 1);
-            updateSharedWithDisplay();
-            updateSharedWithHidden();
-            displaySharedWithList(sharedWithUsers);
-        }
-    }
-
-    function updateSharedWithHidden() {
-        const hiddenInput = document.getElementById('controlSharedWithHidden');
-        if (hiddenInput) {
-            hiddenInput.value = JSON.stringify(selectedSharedWithUsers.map(u => u.mail));
-        }
-    }
-
-    function filterSharedWithList() {
-        const searchInput = document.getElementById('sharedWithSearchInput');
-        if (!searchInput) return;
-
-        const query = searchInput.value.trim().toLowerCase();
-        if (query === '') {
-            displaySharedWithList(sharedWithUsers);
-            return;
-        }
-
-        const filteredUsers = sharedWithUsers.filter(user => {
-            if (!user) return false;
-            
-            return (user.displayName && user.displayName.toLowerCase().startsWith(query)) ||
-                   (user.username && user.username.toLowerCase().startsWith(query)) ||
-                   (user.mail && user.mail.toLowerCase().startsWith(query));
-        });
-
-        displaySharedWithList(filteredUsers);
-    }
-
-    function selectSharedWithUser(user) {
-        // Legacy function - now using toggleSharedWithUser instead
-        toggleSharedWithUser(user);
-    }
-
     // ========== DATA LOADING FUNCTIONS ==========
     async function loadAssignmentData(controlId) {
         try {
@@ -1199,18 +1010,7 @@ function confirmWorkflowAction() {
                         }
                     }
 
-                    // Control Shared With - multiple users
-                    if (assignmentData.controlSharedWith && Array.isArray(assignmentData.controlSharedWith) && assignmentData.controlSharedWith.length > 0) {
-                        selectedSharedWithUsers = [];
-                        assignmentData.controlSharedWith.forEach(email => {
-                            const user = findUserByEmail(email);
-                            if (user) {
-                                selectedSharedWithUsers.push(user);
-                            }
-                        });
-                        updateSharedWithDisplay();
-                        updateSharedWithHidden();
-                    }
+                    // Control Shared With is rendered by the server with every stored address (shared-with.js)
 
                     // Р”Р°С‚С‹
                     const form = document.getElementById('assignmentForm');
@@ -1365,8 +1165,7 @@ function confirmWorkflowAction() {
             'facilitatorInput',
             'controlOperatorInput',
             'soqmLeadInput',
-            'processOwnerInput',
-            'sharedWithInput'
+            'processOwnerInput'
         ];
 
         dropdownInputs.forEach(id => {
@@ -1584,8 +1383,7 @@ function makeAllFormsEditable() {
         'facilitatorInput',
         'controlOperatorInput',
         'soqmLeadInput',
-        'processOwnerInput',
-        'sharedWithInput'
+        'processOwnerInput'
     ];
 
     dropdownInputs.forEach(id => {
@@ -1811,8 +1609,7 @@ function saveControlData(controlId) {
             'facilitatorInput',
             'controlOperatorInput',
             'soqmLeadInput',
-            'processOwnerInput',
-            'sharedWithInput'
+            'processOwnerInput'
         ];
 
         dropdownInputs.forEach(id => {
@@ -1858,6 +1655,10 @@ function saveControlData(controlId) {
         if (editBtn) editBtn.classList.add('d-none');
 
         makeAllFormsEditable();
+        // Control Shared With: SoQM Team adds and removes people
+        if (typeof SharedWithField !== 'undefined') {
+            SharedWithField.setEditing(fullEditEnabled);
+        }
 
         // Without full rights only Details fields are editable (Assignment and Documents are saved by SoQM Team only)
         toggleSoqmOnlyNotes(!fullEditEnabled);
@@ -1893,6 +1694,9 @@ function saveControlData(controlId) {
         }
 
         makeAllFormsReadOnly();
+        if (typeof SharedWithField !== 'undefined') {
+            SharedWithField.setEditing(false);
+        }
         toggleSoqmOnlyNotes(false);
     }
 
@@ -2297,15 +2101,15 @@ function saveAssignmentData(controlId) {
     const soqmLead = getEmailValue('soqmLeadHidden');
     const processOwner = getEmailValue('processOwnerHidden');
     
-    // Control Shared With - get multiple users
+    // Control Shared With: the addresses shared-with.js holds; until it has filled the field, null keeps the stored list
     const controlSharedWithElement = document.getElementById('controlSharedWithHidden');
-    let controlSharedWith = [];
-    if (controlSharedWithElement && controlSharedWithElement.value) {
+    let controlSharedWith = null;
+    if (controlSharedWithElement && controlSharedWithElement.dataset.ready === 'true') {
         try {
-            const parsed = JSON.parse(controlSharedWithElement.value);
-            controlSharedWith = Array.isArray(parsed) ? parsed : [];
+            const parsed = JSON.parse(controlSharedWithElement.value || '[]');
+            controlSharedWith = Array.isArray(parsed) ? parsed : null;
         } catch (e) {
-            controlSharedWith = [];
+            controlSharedWith = null;
         }
     }
 
@@ -2688,9 +2492,6 @@ function saveDocumentsData(controlId) {
         filterSoqmLeadList: filterSoqmLeadList,
         toggleProcessOwnerDropdown: toggleProcessOwnerDropdown,
         filterProcessOwnerList: filterProcessOwnerList,
-        toggleSharedWithDropdown: toggleSharedWithDropdown,
-        filterSharedWithList: filterSharedWithList,
-        removeSharedWithUser: removeSharedWithUser,
         goBack: goBack,
 
         init: async function() {
@@ -2700,8 +2501,7 @@ function saveDocumentsData(controlId) {
                 { id: 'facilitatorSearchInput', handler: filterUserList },
                 { id: 'controlOperatorSearchInput', handler: filterControlOperatorList },
                 { id: 'soqmLeadSearchInput', handler: filterSoqmLeadList },
-                { id: 'processOwnerSearchInput', handler: filterProcessOwnerList },
-                { id: 'sharedWithSearchInput', handler: filterSharedWithList }
+                { id: 'processOwnerSearchInput', handler: filterProcessOwnerList }
             ];
 
             searchInputs.forEach(({ id, handler }) => {
@@ -2727,7 +2527,6 @@ function saveDocumentsData(controlId) {
                     if (isControlOperatorDropdownOpen) closeControlOperatorDropdown();
                     if (isSoqmLeadDropdownOpen) closeSoqmLeadDropdown();
                     if (isProcessOwnerDropdownOpen) closeProcessOwnerDropdown();
-                    if (isSharedWithDropdownOpen) closeSharedWithDropdown();
                 }
             });
 

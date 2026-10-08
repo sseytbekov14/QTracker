@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=17" rel="stylesheet">
-    <link href="/css/view-control.css?v=20" rel="stylesheet">
+    <link href="/css/view-control.css?v=21" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator Program validation styling */
@@ -360,7 +360,8 @@
         /* Who may only look (the access notice is shown): no upload zones and no "remove" on Shared With chips,
            which the server would refuse anyway (AccessPolicy.notice) */
         body:has(#accessBanner) .kpmg-upload-zone,
-        body:has(#accessBanner) #assignment-tab .badge .btn-close {
+        body:has(#accessBanner) #sharedWithField .sw-chip-remove,
+        body:has(#accessBanner) #sharedWithSearch {
             display: none;
         }
 
@@ -975,29 +976,42 @@
 
                                 <div class="row">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label">Control Shared With</label>
-                                        <div class="facilitator-dropdown">
-                                            <div class="selected-user-display">
-                                                <div class="form-control control-shared-input"
-                                                     id="sharedWithInput"
-                                                     onclick="viewControl.toggleSharedWithDropdown()"
-                                                     style="cursor: pointer; min-height: 38px; display: flex; align-items: center; flex-wrap: wrap; gap: 5px; padding: 4px 12px; font-size: 0.84rem;">
-                                                    <span id="sharedWithPlaceholder" style="color: #6c757d;">Select users...</span>
-                                                    <div id="sharedWithSelectedTags"></div>
+                                        <!-- Control Shared With: the people as the server describes them (ViewController
+                                             sharedWithPeople, AccessPolicy.sharedAccess); shared-with.js adds the search
+                                             for SoQM Team in edit mode. The marks are for SoQM Team only. -->
+                                        <div class="sw-field" id="sharedWithField"
+                                             th:with="swCount=${#lists.size(sharedWithPeople)}"
+                                             th:classappend="${swCount > 6} ? 'is-collapsed'"
+                                             th:attr="data-notes=${sharedWithNotes},data-editable=${canEditAll},data-control-id=${control.id}">
+                                            <div class="sw-head">
+                                                <span class="form-label mb-0" id="sharedWithLabel">Control Shared With</span>
+                                                <span class="sw-count" id="sharedWithCount" th:hidden="${swCount == 0}"
+                                                      th:text="${swCount == 1} ? '1 person' : |${swCount} people|">0 people</span>
+                                            </div>
+                                            <p class="sw-hint" id="sharedWithHint" th:text="${sharedWithHint}">Can view this control and download files, no editing</p>
+                                            <div class="sw-box" id="sharedWithBox">
+                                                <ul class="sw-chips" id="sharedWithChips" aria-labelledby="sharedWithLabel" aria-describedby="sharedWithHint"><li class="sw-chip"
+                                                        th:each="person : ${sharedWithPeople}"
+                                                        th:classappend="${sharedWithNotes and person.access != null} ? ${'is-' + #strings.replace(#strings.toLowerCase(person.accessName()), '_', '-')} : ''"
+                                                        th:attr="data-mail=${person.mail},data-name=${person.name},data-access=${sharedWithNotes ? person.accessName() : null},data-note=${sharedWithNotes ? person.note : null},data-refusal=${sharedWithNotes ? person.saveRefusal : null}"><span class="sw-chip-text"><span class="sw-chip-name" th:text="${person.name}">Name</span><span class="sw-chip-mail" th:if="${person.named()}" th:text="${person.mail}">name@example.com</span><span class="sw-note" th:if="${sharedWithNotes and person.note != null}" th:text="${person.note}">Disabled</span></span></li></ul>
+                                                <p class="sw-empty" id="sharedWithEmpty" th:hidden="${swCount > 0}" th:text="${sharedWithEmpty}">Not shared with anyone</p>
+                                                <div class="sw-search" id="sharedWithSearch" th:if="${canEditAll}" hidden>
+                                                    <svg class="sw-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                                                    <input type="text" class="sw-search-input" id="sharedWithSearchInput"
+                                                           role="combobox" aria-autocomplete="list" aria-expanded="false"
+                                                           aria-controls="sharedWithListbox" aria-labelledby="sharedWithLabel"
+                                                           aria-describedby="sharedWithKeys" autocomplete="off" spellcheck="false"
+                                                           placeholder="Add people: search by name or e-mail">
                                                 </div>
                                             </div>
-                                            <div class="dropdown-users" id="sharedWithDropdown" style="display: none;">
-                                                <div class="dropdown-search p-2">
-                                                    <input type="text"
-                                                           class="form-control form-control-sm"
-                                                           id="sharedWithSearchInput"
-                                                           placeholder="Find items..."
-                                                           oninput="viewControl.filterSharedWithList()">
-                                                </div>
-                                                <div class="users-list" style="max-height: 200px; overflow-y: auto;">
-                                                    <div class="list-group list-group-flush" id="sharedWithUsersList"></div>
-                                                </div>
-                                            </div>
+                                            <ul class="sw-listbox" id="sharedWithListbox" role="listbox" aria-multiselectable="true"
+                                                aria-labelledby="sharedWithLabel" th:if="${canEditAll}" hidden></ul>
+                                            <button type="button" class="sw-more" id="sharedWithMore" th:if="${swCount > 6}"
+                                                    aria-expanded="false" aria-controls="sharedWithChips"
+                                                    th:text="|Show all ${swCount}|">Show all</button>
+                                            <div class="sw-error" id="sharedWithError" role="alert" hidden></div>
+                                            <span class="visually-hidden" id="sharedWithKeys" th:if="${canEditAll}">Up and down arrows move through the list, Enter adds or removes the person, Backspace in an empty search removes the last person, Escape closes the list.</span>
+                                            <span class="visually-hidden" id="sharedWithStatus" aria-live="polite"></span>
                                             <input type="hidden" name="controlSharedWith" id="controlSharedWithHidden">
                                         </div>
                                     </div>
@@ -1651,7 +1665,8 @@
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
-<script src="/js/view-control.js?v=6.5"></script>
+<script src="/js/shared-with.js?v=1"></script>
+<script src="/js/view-control.js?v=6.6"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
