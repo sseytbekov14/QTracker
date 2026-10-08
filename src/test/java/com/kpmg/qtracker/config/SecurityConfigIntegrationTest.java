@@ -52,7 +52,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.flyway.enabled=false"
+        "spring.flyway.enabled=false",
+        // Signs in as the seeded soqm1@qtracker.local
+        "dev.seed-users=true"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles({"test", "dev"})

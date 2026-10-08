@@ -7,6 +7,7 @@ import com.kpmg.qtracker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -14,10 +15,12 @@ import org.springframework.stereotype.Component;
 /**
  * Test accounts for dev and stage, one or two per kind of access. Only missing accounts are created,
  * so changes made in the Admin Panel stay; the V2 seed accounts get their access from the V6 backfill,
- * except admin@qtracker.local, which is always made SoQM Team.
+ * except admin@qtracker.local, which is always made SoQM Team. Only with {@code dev.seed-users=true}: by
+ * default a test database holds the imported people alone (the user import).
  */
 @Component
 @Profile({"dev", "stage"})
+@ConditionalOnProperty(name = "dev.seed-users", havingValue = "true")
 @RequiredArgsConstructor
 public class DevUserSeeder implements ApplicationRunner {
 

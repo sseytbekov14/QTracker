@@ -69,6 +69,11 @@ notifications:
     whitelist-enforced: ${NOTIFICATIONS_EMAIL_WHITELIST_ENFORCED:false}
     whitelist: ${NOTIFICATIONS_EMAIL_WHITELIST:}
 
+dev:
+  # DevUserSeeder: the made-up test accounts (soqm1@qtracker.local, ...) in dev and stage; off: only the people
+  # of the user import
+  seed-users: ${DEV_SEED_USERS:false}
+
 controls:
   auto-create:
     enabled: ${CONTROLS_AUTO_CREATE_ENABLED:true}
