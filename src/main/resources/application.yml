@@ -41,6 +41,13 @@ spring:
 app:
   base-url: ${APP_BASE_URL:}
 
+auth:
+  # The domain of the addresses the user import gives people: <username>@<domain>
+  username-domain: ${AUTH_USERNAME_DOMAIN:qtracker.local}
+  username-login:
+    # The login form also takes a username (the domain is added); off: e-mail only
+    enabled: ${AUTH_USERNAME_LOGIN_ENABLED:false}
+
 file:
   upload:
     # Folder of the attachments. Give FILE_UPLOAD_DIR as an absolute path. Without it the "uploads" folder of

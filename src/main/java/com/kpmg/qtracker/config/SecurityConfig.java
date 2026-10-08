@@ -3,6 +3,7 @@ package com.kpmg.qtracker.config;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.security.CsrfAccessDeniedHandler;
 import com.kpmg.qtracker.security.DevAuthenticationProvider;
+import com.kpmg.qtracker.security.LoginNameResolver;
 import com.kpmg.qtracker.security.LoginAttemptService;
 import com.kpmg.qtracker.security.RateLimitingFilter;
 import com.kpmg.qtracker.security.UserPrincipal;
@@ -159,7 +160,9 @@ public class SecurityConfig {
     public AuthenticationProvider devAuthenticationProvider(UserPrincipalService userPrincipalService,
                                                             PasswordEncoder passwordEncoder,
                                                             LoginAttemptService loginAttemptService,
-                                                            UserRepository userRepository) {
-        return new DevAuthenticationProvider(userPrincipalService, passwordEncoder, loginAttemptService, userRepository);
+                                                            UserRepository userRepository,
+                                                            LoginNameResolver loginNameResolver) {
+        return new DevAuthenticationProvider(userPrincipalService, passwordEncoder, loginAttemptService, userRepository,
+                loginNameResolver);
     }
 }

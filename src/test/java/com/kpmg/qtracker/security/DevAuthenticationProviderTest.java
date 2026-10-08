@@ -41,7 +41,8 @@ class DevAuthenticationProviderTest {
     @BeforeEach
     void setUp() {
         passwordEncoder = new BCryptPasswordEncoder();
-        provider = new DevAuthenticationProvider(userPrincipalService, passwordEncoder, loginAttemptService, userRepository);
+        provider = new DevAuthenticationProvider(userPrincipalService, passwordEncoder, loginAttemptService, userRepository,
+                new LoginNameResolver(true, "qtracker.local"));
     }
 
     @Test
@@ -120,4 +121,18 @@ class DevAuthenticationProviderTest {
                 verify(loginAttemptService, never()).recordSuccess("soqm1@qtracker.local");
                 verify(loginAttemptService, never()).recordFailure("soqm1@qtracker.local");
         }
+
+    @Test
+    void username_signsInAsItsAddress_lockoutCountedOnTheAddress() {
+        when(loginAttemptService.isLocked("soqm1@qtracker.local")).thenReturn(false);
+        when(userPrincipalService.loadUserByEmail("soqm1@qtracker.local")).thenReturn(java.util.Optional.of(
+                new UserPrincipalService.UserRecord(7L, "soqm1@qtracker.local", passwordEncoder.encode("aaa"), true,
+                        Set.of("SOQM"))));
+
+        Authentication authentication = provider.authenticate(
+                UsernamePasswordAuthenticationToken.unauthenticated(" SoQM1 ", "aaa"));
+
+        assertThat(((UserPrincipal) authentication.getPrincipal()).getEmail()).isEqualTo("soqm1@qtracker.local");
+        verify(loginAttemptService).recordSuccess("soqm1@qtracker.local");
+    }
 }

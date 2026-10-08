@@ -27,6 +27,7 @@ public class DevAuthenticationProvider implements AuthenticationProvider {
     private final PasswordEncoder passwordEncoder;
     private final LoginAttemptService loginAttemptService;
     private final UserRepository userRepository;
+    private final LoginNameResolver loginNames;
 
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
@@ -34,7 +35,8 @@ public class DevAuthenticationProvider implements AuthenticationProvider {
             return null;
         }
 
-        String username = authentication.getName();
+        // A username (when allowed) or an e-mail, in any case and with stray spaces: the address to look up
+        String username = loginNames.toMail(authentication.getName());
         String rawPassword = authentication.getCredentials() == null
                 ? ""
                 : authentication.getCredentials().toString();

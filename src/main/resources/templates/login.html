@@ -306,9 +306,11 @@ body {
             <div class="login-card-body">
                 <form th:action="@{/login}" method="post">
                     <div class="mb-field">
-                        <label for="username" class="form-label">Login</label>
+                        <label for="username" class="form-label"
+                               th:text="${usernameLogin} ? 'Username' : 'Email'">Email</label>
                         <input type="text" class="form-control" id="username" name="username" required
-                               placeholder="Enter username or email" autocomplete="username">
+                               th:placeholder="${usernameLogin} ? 'Enter your username or email' : 'Enter your email'"
+                               placeholder="Enter your email" autocomplete="username">
                     </div>
 
                     <div class="mb-field">

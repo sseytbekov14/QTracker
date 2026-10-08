@@ -1,5 +1,6 @@
 package com.kpmg.qtracker.controller;
 
+import com.kpmg.qtracker.security.LoginNameResolver;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -19,8 +20,11 @@ public class AuthController {
     private static final String MSG_DISABLED = "Your account is disabled. Please contact the system administrator.";
     private static final String MSG_LOCKED = "Too many failed login attempts. Try again later.";
 
+    private final LoginNameResolver loginNames;
+
     @GetMapping("/login")
     public String loginPage(HttpSession session, Model model, @RequestParam(required = false) String error) {
+        model.addAttribute("usernameLogin", loginNames.usernameLogin());
         if (error != null) {
             AuthenticationException exception = (AuthenticationException) session.getAttribute("SPRING_SECURITY_LAST_EXCEPTION");
             if (exception != null) {
