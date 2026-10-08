@@ -143,21 +143,33 @@ class StepsFieldSplitIT {
     }
 
     @Test
-    void split_operatorWritesTheOwnFieldInReview_notTheFacilitators() throws Exception {
-        Control control = control("IN_PROGRESS", fac.getMail(), op.getMail(), "Facilitator steps", null);
+    void split_operatorWritesTheStepsFieldInReview_onlyThere_andTheHistoryNamesEachAuthor() throws Exception {
+        Control control = control("IN_PROGRESS", fac.getMail(), op.getMail(), null, null);
         MockHttpSession opSession = login(op);
+        assertThat(save(control, login(fac), STEPS, "Facilitator steps")).isEqualTo(200);
 
+        // Not the Operator's step yet
+        assertThat(save(control, opSession, STEPS, "Too early")).isEqualTo(403);
         assertThat(save(control, opSession, REVIEW, "Too early")).isEqualTo(403);
 
+        // Someone who edits another field of the control is told whose field it is
+        setStatus(control, "PROCESS_OWNER_REVIEW");
+        MvcResult notTheirs = saveResult(control, login(po), STEPS, "Process Owner writes the steps");
+        assertThat(notTheirs.getResponse().getStatus()).isEqualTo(403);
+        assertThat(notTheirs.getResponse().getContentAsString())
+                .contains(ControlStepsFields.STEPS_LABEL + " is filled in by the Facilitator while the control is In Progress"
+                        + " and by the Control Operator while it is in Review");
+
+        // One field for both steps, as in the old system: the Operator writes it in Review
         setStatus(control, "REVIEW");
+        assertThat(save(control, opSession, STEPS, "Facilitator steps\nChecked by the Operator")).isEqualTo(200);
+        assertThat(details(control).getControlStepsPerformed()).isEqualTo("Facilitator steps\nChecked by the Operator");
+        // newest first; the Changelog keeps the Facilitator's text as the previous value
+        assertThat(fieldAuthors(control, ControlStepsFields.STEPS_LABEL)).containsExactly(op.getMail(), fac.getMail());
+        assertThat(fieldPreviousValues(control, ControlStepsFields.STEPS_LABEL)).first().isEqualTo("Facilitator steps");
+
         assertThat(save(control, opSession, REVIEW, "Operator review")).isEqualTo(200);
         assertThat(details(control).getControlOperatorReview()).isEqualTo("Operator review");
-
-        MvcResult refused = saveResult(control, opSession, STEPS, "Operator rewrites the steps");
-        assertThat(refused.getResponse().getStatus()).isEqualTo(403);
-        assertThat(refused.getResponse().getContentAsString())
-                .contains(ControlStepsFields.STEPS_LABEL + " is filled in by the Facilitator while the control is In Progress");
-        assertThat(details(control).getControlStepsPerformed()).isEqualTo("Facilitator steps");
 
         // The page sends null for the fields the user cannot change: that is no change
         assertThat(save(control, opSession, "{\"" + STEPS + "\":null,\"" + REVIEW + "\":\"Operator review 2\"}")).isEqualTo(200);
@@ -230,12 +242,9 @@ class StepsFieldSplitIT {
         assertThat(save(control, facSession, REVIEW, "Program as Operator")).isEqualTo(200);
         assertThat(details(control).getControlOperatorReview()).isEqualTo("Program as Operator");
         assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL)).containsExactly(fac.getMail());
-        // Control Steps Performed and Results stays the Facilitator's field of In Progress
-        MvcResult steps = saveResult(control, facSession, STEPS, "Steps as Operator");
-        assertThat(steps.getResponse().getStatus()).isEqualTo(403);
-        assertThat(steps.getResponse().getContentAsString())
-                .contains(ControlStepsFields.STEPS_LABEL + " is filled in by the Facilitator while the control is In Progress");
-        assertThat(details(control).getControlStepsPerformed()).isEqualTo("Steps as Facilitator");
+        // Control Steps Performed and Results: theirs again, now as the Control Operator
+        assertThat(save(control, facSession, STEPS, "Steps as Operator")).isEqualTo(200);
+        assertThat(details(control).getControlStepsPerformed()).isEqualTo("Steps as Operator");
 
         // The other Facilitator is not the Operator: the Review step is not theirs
         assertThat(save(control, login(fac2), STEPS, "Not my step")).isEqualTo(403);
@@ -243,7 +252,7 @@ class StepsFieldSplitIT {
 
         JsonNode permissions = json(get("/api/permissions/{id}", control.getId()), facSession).path("permissions");
         assertThat(permissions.path("canEditOperatorReview").asBoolean()).isTrue();
-        assertThat(permissions.path("canEditStepsPerformed").asBoolean()).isFalse();
+        assertThat(permissions.path("canEditStepsPerformed").asBoolean()).isTrue();
     }
 
     @Test
@@ -426,7 +435,7 @@ class StepsFieldSplitIT {
     // ------------------------------------------------------------------ View Control
 
     @Test
-    void viewControl_onePerson_rendersBothFields_theProgramOptional_writtenInReview() throws Exception {
+    void viewControl_onePerson_rendersBothFields_theStepsFieldIsTheOperatorsStepInReview() throws Exception {
         Control control = control("REVIEW", fac.getMail(), fac.getMail(), "Steps", null);
 
         String page = page(control, login(fac));
@@ -440,10 +449,10 @@ class StepsFieldSplitIT {
                 .doesNotContain("<span class=\"steps-field-owner\">Control Operator</span>")
                 .doesNotContain("id=\"stepsSplit\"")
                 .doesNotContain("id=\"operatorProgramRequired\"")
-                .contains("id=\"allowedEditableFields\" value=\"controlOperatorReview\"")
-                // Your step: the Program, which Submit to SoQM Team does not need here
-                .contains("data-step-field=\"controlOperatorReview\"", "data-step-required=\"false\"", " (optional)")
-                .doesNotContain("class=\"step-required-mark\"");
+                .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed,controlOperatorReview\"")
+                // Your step: check the steps field, which Submit to SoQM Team needs
+                .contains("data-step-field=\"controlStepsPerformed\"", "data-step-required=\"true\"")
+                .doesNotContain(" (optional)");
 
         // The same person on the Facilitator's step writes the steps field only
         setStatus(control, "IN_PROGRESS");
@@ -488,10 +497,9 @@ class StepsFieldSplitIT {
                 .doesNotContain("id=\"operatorReviewSubmitHint\"")
                 .doesNotContain("id=\"stepsSplit\"")
                 .doesNotContain("id=\"operatorProgramRequired\"")
-                // Your step: the Program, optional for different people too
-                .contains("data-step-required=\"false\"", " (optional)")
-                .doesNotContain("class=\"step-required-mark\"")
-                .contains("id=\"allowedEditableFields\" value=\"controlOperatorReview\"");
+                // Your step: the steps field, one for the Facilitator and the Control Operator
+                .contains("data-step-field=\"controlStepsPerformed\"", "data-step-required=\"true\"")
+                .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed,controlOperatorReview\"");
 
         for (User reader : List.of(fac, sharedUser, po)) {
             assertThat(page(control, login(reader))).as(reader.getMail())
@@ -666,6 +674,19 @@ class StepsFieldSplitIT {
             }
         }
         return authors;
+    }
+
+    /** The values the field had before each history entry that changed it, newest first. */
+    private List<String> fieldPreviousValues(Control control, String label) throws Exception {
+        List<String> values = new ArrayList<>();
+        for (JsonNode entry : json(get("/api/controls/{id}/changelog", control.getId()), login(soqm))) {
+            for (JsonNode change : entry.path("fieldChanges")) {
+                if (label.equals(change.path("field").asText())) {
+                    values.add(change.path("oldValue").asText());
+                }
+            }
+        }
+        return values;
     }
 
     private void assertValues(Control control, String steps, String review) {

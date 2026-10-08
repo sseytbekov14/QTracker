@@ -1744,14 +1744,12 @@ class ApiSecurityMockMvcIT {
         Map<String, User> actorOf = Map.of(
                 "IN_PROGRESS", p.facilitator, "REVIEW", p.operator,
                 "SOQM_HEAD_REVIEW", p.soqm, "PROCESS_OWNER_REVIEW", p.owner);
-        // in Review the Operator's own field, whoever the Facilitator is
+        // in Review the Control Operator checks and completes the Facilitator's steps field
         Map<String, String> fieldOf = Map.of(
-                "IN_PROGRESS", "controlStepsPerformed", "REVIEW", "controlOperatorReview",
+                "IN_PROGRESS", "controlStepsPerformed", "REVIEW", "controlStepsPerformed",
                 "SOQM_HEAD_REVIEW", "soqmHeadComments", "PROCESS_OWNER_REVIEW", "processOwnerComments");
         Map<String, String> labelOf = Map.of(
                 "controlStepsPerformed", "Control Steps Performed and Results",
-                // the page escapes the apostrophe
-                "controlOperatorReview", "Control Operator&#39;s Program",
                 "soqmHeadComments", "SoQM Head/Team Comments",
                 "processOwnerComments", "Process Owner Comments");
 
@@ -1767,12 +1765,6 @@ class ApiSecurityMockMvcIT {
                     assertThat(html).as("%s at %s", viewer.getMail(), status)
                             .contains("id=\"stepFieldHint\"", "data-step-field=\"" + field + "\"",
                                     "data-vc-field=\"" + field + "\">" + labelOf.get(field) + "</a>");
-                    if ("controlOperatorReview".equals(field)) {
-                        // Control Operator's Program is required by no step: named as optional, no mark
-                        assertThat(html).contains("data-step-required=\"false\"", " (optional)")
-                                .doesNotContain("class=\"step-required-mark\"");
-                        continue;
-                    }
                     // Only that field's label gets the step mark
                     assertThat(html.split("class=\"step-required-mark\"", -1)).hasSize(2);
                     // the steps fields have their name in a span of its own

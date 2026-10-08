@@ -140,7 +140,10 @@ public final class ControlPermission {
         return locked && canView ? AccessPolicy.LOCKED_MESSAGE : otherwise;
     }
 
-    /** Who saves Control Steps Performed and Results: SoQM, or the participant whose step it is. */
+    /**
+     * Who saves Control Steps Performed and Results: SoQM, or the participant whose step it is (the Facilitator in
+     * In Progress, the Control Operator in Review).
+     */
     public boolean canWriteStepsPerformed() {
         return canEditAll || canEditStepsPerformed();
     }

@@ -1254,6 +1254,10 @@ function makeAllFormsEditable() {
     if (stepsPerformedEditOnly) {
         console.log('✅ Field-level edit mode: enabling controlStepsPerformed only');
         enableControlStepsPerformedField();
+        // The Control Operator in Review: the steps field and their Program
+        if (canEditOperatorReview) {
+            enableOperatorReviewField();
+        }
         enableFileInputs();
         normalizeAssignmentDateFieldsForDisplay();
         return;

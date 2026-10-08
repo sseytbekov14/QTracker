@@ -78,6 +78,8 @@ class WorkflowRequiredFieldServiceTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
             "IN_PROGRESS,          controlStepsPerformed, Control Steps Performed and Results, false",
+            // The Control Operator checks and completes the Facilitator's text, the field Submit to SoQM Team needs
+            "REVIEW,               controlStepsPerformed, Control Steps Performed and Results, true",
             "SOQM_HEAD_REVIEW,     soqmHeadComments,      SoQM Head/Team Comments,             false",
             "PROCESS_OWNER_REVIEW, processOwnerComments,  Process Owner Comments,              false"
     })
@@ -97,19 +99,6 @@ class WorkflowRequiredFieldServiceTest {
         Optional<String> refusal = service.getMissingReviewCommentMessage(control(status))
                 .or(() -> service.getMissingFieldMessage(control(status)));
         assertThat(refusal).hasValueSatisfying(message -> assertThat(message).containsIgnoringCase(label));
-    }
-
-    @Test
-    void stepField_review_isTheOperatorsProgram_optional_asSubmitToSoqmDoesNotCheckIt() {
-        WorkflowRequiredFieldService.StepField stepField = WorkflowRequiredFieldService.stepField("REVIEW").orElseThrow();
-        assertThat(stepField.field()).isEqualTo("controlOperatorReview");
-        assertThat(stepField.label()).isEqualTo(ControlStepsFields.OPERATOR_PROGRAM_LABEL);
-        assertThat(stepField.required()).isFalse();
-
-        ControlDetails details = new ControlDetails();
-        details.setControlStepsPerformed("Steps");
-        when(repository.findByControlId(1L)).thenReturn(Optional.of(details));
-        assertThat(service.getMissingFieldMessage(control("REVIEW"))).isEmpty();
     }
 
     @Test

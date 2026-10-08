@@ -26,15 +26,16 @@ public class WorkflowRequiredFieldService {
 
     /**
      * The field of the step a control in this status is at. Review is the Control Operator's step, whose field is
-     * Control Operator's Program, required by no step. Draft and Completed have none.
+     * Control Steps Performed and Results, the Facilitator's text the Operator checks and completes (Submit to
+     * SoQM Team requires it). Draft and Completed have none.
      */
     public static Optional<StepField> stepField(String performanceStatus) {
         String status = performanceStatus == null ? "" : performanceStatus.trim().toUpperCase(Locale.ROOT);
         return switch (status) {
             case "IN_PROGRESS" -> Optional.of(new StepField(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED,
                     ControlStepsFields.STEPS_LABEL, false, true, "Submit for Review"));
-            case "REVIEW" -> Optional.of(new StepField(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW,
-                    ControlStepsFields.OPERATOR_PROGRAM_LABEL, false, false,
+            case "REVIEW" -> Optional.of(new StepField(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED,
+                    ControlStepsFields.STEPS_LABEL, true, true,
                     "Submit for SoQM Team Review or Return to Facilitator"));
             case "SOQM_HEAD_REVIEW" -> Optional.of(new StepField("soqmHeadComments",
                     "SoQM Head/Team Comments", false, true, "Send to Process Owner or Return to Operator"));

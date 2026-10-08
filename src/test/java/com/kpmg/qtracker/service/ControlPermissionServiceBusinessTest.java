@@ -172,8 +172,8 @@ class ControlPermissionServiceBusinessTest {
     class ControlOperatorTests {
 
         @Test
-        @DisplayName("Control Operator, другой человек, чем Facilitator, на REVIEW пишет только своё поле")
-        void controlOperatorWritesOwnReviewFieldAtReviewStatus() {
+        @DisplayName("Control Operator, другой человек, чем Facilitator, на REVIEW пишет Control Steps Performed and Results")
+        void controlOperatorWritesTheStepsFieldAtReviewStatus() {
             User user = makeUser(CO_EMAIL, "CONTROL_OPERATOR", false);
             Control control = makeControl(1L, "HR-001", "REVIEW");
             ControlAssignmentDTO assignment = assignmentWithControlOperator(CO_EMAIL);
@@ -183,15 +183,13 @@ class ControlPermissionServiceBusinessTest {
 
             assertThat(perm.canView()).isTrue();
             assertThat(perm.canEdit()).isTrue();
-            assertThat(perm.getAllowedEditableFields())
-                    .containsExactly(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW);
-            assertThat(perm.canWriteOperatorReview()).isTrue();
-            assertThat(perm.canWriteStepsPerformed()).isFalse();
+            assertThat(perm.getAllowedEditableFields()).contains(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
+            assertThat(perm.canWriteStepsPerformed()).isTrue();
         }
 
         @Test
-        @DisplayName("Facilitator и Control Operator — один человек: на REVIEW пишет только Control Operator's Program")
-        void samePersonInBothSlots_writesTheOperatorsProgramAtReview() {
+        @DisplayName("Facilitator и Control Operator — один человек: на REVIEW пишет Control Steps Performed and Results")
+        void samePersonInBothSlots_writesTheStepsFieldAtReview() {
             User user = makeUser(CO_EMAIL, "CONTROL_OPERATOR", false);
             Control control = makeControl(1L, "HR-001", "REVIEW");
             ControlAssignmentDTO assignment = assignmentWithControlOperator(CO_EMAIL);
@@ -200,15 +198,13 @@ class ControlPermissionServiceBusinessTest {
 
             ControlPermission perm = permissionService.resolve(control, user, assignment);
 
-            assertThat(perm.getAllowedEditableFields())
-                    .containsExactly(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW);
-            assertThat(perm.canWriteOperatorReview()).isTrue();
-            assertThat(perm.canWriteStepsPerformed()).isFalse();
+            assertThat(perm.getAllowedEditableFields()).contains(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
+            assertThat(perm.canWriteStepsPerformed()).isTrue();
         }
 
         @Test
-        @DisplayName("Несколько Control Operator: любой из них пишет поле оператора")
-        void anyOfSeveralOperatorsWritesTheReviewField() {
+        @DisplayName("Несколько Control Operator: любой из них пишет Control Steps Performed and Results")
+        void anyOfSeveralOperatorsWritesTheStepsField() {
             User second = makeUser("second-op@test.com", "CONTROL_OPERATOR", false);
             Control control = makeControl(1L, "HR-001", "REVIEW");
             ControlAssignmentDTO assignment = new ControlAssignmentDTO();
@@ -217,8 +213,7 @@ class ControlPermissionServiceBusinessTest {
 
             ControlPermission perm = permissionService.resolve(control, second, assignment);
 
-            assertThat(perm.getAllowedEditableFields())
-                    .containsExactly(ControlPermission.FIELD_CONTROL_OPERATOR_REVIEW);
+            assertThat(perm.getAllowedEditableFields()).contains(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
         }
 
         @Test
