@@ -61,6 +61,26 @@ public final class RoleDisplayMapper {
     /** The hint at a Control ID field (new control, Rename ID). */
     public static final String KDN_ID_HINT = "IDs starting with KDN are visible to KDN users";
 
+    /** The hint at Control Shared With: what a place there gives ({@link AccessPolicy.SharedAccess#VIEWS}). */
+    public static final String SHARED_WITH_HINT = "Can view this control and download files, no editing";
+
+    /** Control Shared With when it holds nobody. */
+    public static final String SHARED_WITH_EMPTY = "Not shared with anyone";
+
+    /** The mark at a person in Control Shared With, or null when the hint at the field says it all. */
+    public static String sharedNote(AccessPolicy.SharedAccess access) {
+        if (access == null) {
+            return null;
+        }
+        return switch (access) {
+            case VIEWS -> null;
+            case AFTER_INITIATION -> "Will see it once the control is initiated";
+            case NOT_SEEN -> "Will not see this control";
+            case DISABLED -> "Disabled";
+            case NOT_A_USER -> "Not in the system";
+        };
+    }
+
     /** The subtitle of the Controls list: which controls the user sees. */
     public static String visibleControls(AccessPolicy.Profile profile) {
         if (profile.role() == UserRole.KDN) {

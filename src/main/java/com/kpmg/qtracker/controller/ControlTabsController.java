@@ -271,11 +271,21 @@ public class ControlTabsController {
         if (slot.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-        boolean kdnControl = controlId != null && controlService.getControlById(controlId)
-                .map(control -> AccessPolicy.isKdnControl(control.getControlId()))
-                .orElse(false);
+        Control control = controlId == null ? null : controlService.getControlById(controlId).orElse(null);
+        boolean kdnControl = control != null && AccessPolicy.isKdnControl(control.getControlId());
+        // Shared With of a control: what a place there would give each person (a draft opens once initiated, ...)
+        ControlAssignmentDTO assignment = control != null && slot.get() == AccessPolicy.Slot.SHARED_WITH
+                ? controlAssignmentService.getAssignmentByControlId(control.getId()) : null;
         List<UserDTO> users = userService.getUsersOfferedFor(slot.get(), kdnControl).stream()
-                .map(this::convertToUserDTO)
+                .map(user -> {
+                    UserDTO dto = convertToUserDTO(user);
+                    if (assignment != null) {
+                        AccessPolicy.SharedAccess access = permissionService.sharedAccess(control, user, assignment);
+                        dto.setSharedAccess(access != null ? access.name() : null);
+                        dto.setSharedNote(RoleDisplayMapper.sharedNote(access));
+                    }
+                    return dto;
+                })
                 .toList();
         return ResponseEntity.ok(users);
     }

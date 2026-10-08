@@ -7,6 +7,10 @@ import com.kpmg.qtracker.exception.ControlReadDeniedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
+
 @Service
 @RequiredArgsConstructor
 public class PermissionService {
@@ -48,6 +52,23 @@ public class PermissionService {
 
     public AccessPolicy.ReadAccess readAccess(Control control, User user) {
         return readAccess(control, user, null);
+    }
+
+    /** What a place in Control Shared With gives the user on the control ({@link AccessPolicy#sharedAccess}). */
+    public AccessPolicy.SharedAccess sharedAccess(Control control, User user, ControlAssignmentDTO assignment) {
+        return AccessPolicy.sharedAccess(AccessPolicy.Subject.of(user),
+                controlPermissionService.facts(control, user, assignment));
+    }
+
+    /** Control Shared With of the control as View Control shows it, each person with what the place gives them. */
+    public List<SharedWithPeople.Person> sharedWithPeople(Control control, ControlAssignmentDTO assignment,
+                                                          Function<String, Optional<User>> users) {
+        if (control == null || assignment == null) {
+            return List.of();
+        }
+        return SharedWithPeople.describe(assignment.getControlSharedWith(),
+                AccessPolicy.isKdnControl(control.getControlId()), users,
+                user -> sharedAccess(control, user, assignment));
     }
 
     /** The Excel export of one completed control ({@link AccessPolicy#canExportCompletedControl}). */

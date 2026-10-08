@@ -736,4 +736,64 @@ class AccessPolicyTest {
         }
         assertThat(AccessPolicy.KDN_SEES_DRAFTS).isTrue();
     }
+
+    // ------------------------------------------------------------------ Shared With
+
+    @ParameterizedTest(name = "{0} {1} kdn={2} {3}")
+    @CsvSource({
+            // user,         status,      kdn,   places (before sharing), what Shared With gives
+            "PART,           IN_PROGRESS, false, -,       VIEWS",
+            "RO,             COMPLETED,   false, -,       VIEWS",
+            "RO_ALL,         REVIEW,      false, -,       VIEWS",
+            "SOQM,           REVIEW,      false, -,       VIEWS",
+            "KDN,            REVIEW,      true,  -,       VIEWS",
+            "KDN,            REVIEW,      false, -,       NOT_SEEN",
+            "KDN,            DRAFT,       false, -,       NOT_SEEN",
+            "RO,             DRAFT,       false, -,       AFTER_INITIATION",
+            "PART,           DRAFT,       false, -,       AFTER_INITIATION",
+            "PART,           DRAFT,       false, F,       VIEWS",
+            // readAccess: a draft is closed to whoever is only shared with it, its creator too (they see it unshared)
+            "RO,             DRAFT,       false, CREATOR, AFTER_INITIATION",
+            "RO_ALL,         DRAFT,       false, -,       VIEWS",
+            "SOQM,           DRAFT,       false, -,       VIEWS",
+            "KDN,            DRAFT,       true,  -,       VIEWS",
+            "DISABLED_PART,  IN_PROGRESS, false, -,       DISABLED",
+            "DISABLED_SOQM,  DRAFT,       false, -,       DISABLED",
+            "NONE,           IN_PROGRESS, false, -,       NOT_A_USER",
+    })
+    void sharedAccess_isWhatReadAccessGivesThemOnceShared(String user, String status, boolean kdn, String places,
+                                                         AccessPolicy.SharedAccess expected) {
+        ControlFacts before = control(status, kdn, places);
+        assertThat(AccessPolicy.sharedAccess(who(user), before)).isEqualTo(expected);
+        // Already in the list or about to be: the same answer
+        assertThat(AccessPolicy.sharedAccess(who(user), before.withShared(true))).isEqualTo(expected);
+    }
+
+    /** The hint at the field, "Can view this control and download files, no editing", is the policy's. */
+    @ParameterizedTest(name = "{0} {1}")
+    @CsvSource({
+            "PART,   IN_PROGRESS", "PART,   REVIEW", "PART,   PROCESS_OWNER_REVIEW", "PART,   COMPLETED",
+            "PART_ALL, IN_PROGRESS", "RO,     REVIEW", "RO_ALL, COMPLETED", "KDN, SOQM_HEAD_REVIEW",
+    })
+    void sharedOnly_viewsAndDownloads_andChangesNothing(String user, String status) {
+        boolean kdn = "KDN".equals(user);
+        ControlFacts c = control(status, kdn, "SHARED");
+        assertThat(AccessPolicy.sharedAccess(who(user), c)).isEqualTo(AccessPolicy.SharedAccess.VIEWS);
+        // Viewing and downloading are both the read rule
+        assertThat(AccessPolicy.readAccess(who(user), c)).isEqualTo(ReadAccess.ALLOWED);
+        ControlPermission p = AccessPolicy.resolve(who(user), c);
+        assertThat(p.canEdit()).isFalse();
+        assertThat(p.getAllowedEditableFields()).isEmpty();
+        for (WorkflowTransition.Actor actor : WorkflowTransition.Actor.values()) {
+            assertThat(AccessPolicy.isActor(actor, p)).as(actor.name()).isFalse();
+        }
+    }
+
+    @Test
+    void sharedWithNotes_forSoqmTeamOnly() {
+        assertThat(AccessPolicy.seesSharedWithNotes(who("SOQM"))).isTrue();
+        for (String user : List.of("PART", "PART_ALL", "KDN", "RO", "RO_ALL", "DISABLED_SOQM", "NONE")) {
+            assertThat(AccessPolicy.seesSharedWithNotes(who(user))).as(user).isFalse();
+        }
+    }
 }

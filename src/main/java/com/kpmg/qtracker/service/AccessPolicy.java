@@ -173,6 +173,12 @@ public final class AccessPolicy {
                     stepsSplit, creator);
         }
 
+        /** The same control with the user in Shared With or not (before it is saved). */
+        public ControlFacts withShared(boolean inSharedWith) {
+            return new ControlFacts(status, kdn, facilitator, controlOperator, soqmLead, processOwner, inSharedWith,
+                    stepsSplit, creator);
+        }
+
         /** Listed in one of the four workflow fields (Shared With is not an assignment). */
         public boolean assigned() {
             return facilitator || controlOperator || soqmLead || processOwner;
@@ -708,5 +714,42 @@ public final class AccessPolicy {
     /** Whether a user is offered in the picker of an assignment field (disabled users are not). */
     public static boolean isOfferedFor(Subject candidate, Slot slot, boolean kdnControl) {
         return candidate != null && candidate.enabled() && assignmentRefusal(candidate, slot, kdnControl).isEmpty();
+    }
+
+    // ---------------------------------------------------------------- Shared With
+
+    /**
+     * What a place in Shared With gives a person on one control, as {@link #readAccess} decides it: VIEWS - they
+     * open it and download its files, and edit nothing for being there (spec 5.6); AFTER_INITIATION - a draft they
+     * are only shared with stays closed until it is initiated; NOT_SEEN - they never see it (a KDN user on a
+     * control that is not a KDN control, which {@link #assignmentRefusal} also refuses to save); DISABLED - a
+     * disabled user sees nothing; NOT_A_USER - an address without a QTracker user, which cannot be saved.
+     */
+    public enum SharedAccess { VIEWS, AFTER_INITIATION, NOT_SEEN, DISABLED, NOT_A_USER }
+
+    /**
+     * @param candidate null when there is no QTracker user with that address
+     * @param control   how the person stands on the control, whether or not Shared With already holds them
+     */
+    public static SharedAccess sharedAccess(Subject candidate, ControlFacts control) {
+        if (candidate == null || control == null) {
+            return SharedAccess.NOT_A_USER;
+        }
+        if (!candidate.enabled()) {
+            return SharedAccess.DISABLED;
+        }
+        return switch (readAccess(candidate, control.withShared(true))) {
+            case ALLOWED -> SharedAccess.VIEWS;
+            case DRAFT_NOT_INITIATED -> SharedAccess.AFTER_INITIATION;
+            case DENIED -> SharedAccess.NOT_SEEN;
+        };
+    }
+
+    /**
+     * Who is told on View Control what Shared With gives each person (Disabled, Not in the system, ...): SoQM
+     * Team, who change the list. Everyone else sees the names.
+     */
+    public static boolean seesSharedWithNotes(Subject subject) {
+        return isSoqm(subject);
     }
 }

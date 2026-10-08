@@ -1,5 +1,7 @@
 package com.kpmg.qtracker.integration;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.config.DevUserSeeder;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
@@ -1626,6 +1628,40 @@ class ApiSecurityMockMvcIT {
                 .doesNotContain(participant.getMail(), readOnly.getMail());
         assertThat(picker(session, "SHARED_WITH", hr)).contains(readOnly.getMail(), participant.getMail(), soqm.getMail())
                 .doesNotContain(kdn.getMail(), disabled.getMail());
+    }
+
+    @Test
+    void sharedWithPicker_tellsWhatAPlaceThereGivesEachPerson() throws Exception {
+        String s = suffix();
+        User soqm = saveUser("sw-soqm-" + s, "sw-soqm-" + s + "@example.test", "SOQM_TEAM");
+        User readOnly = saveUser("sw-ro-" + s, "sw-ro-" + s + "@example.test", "READ_ONLY");
+        Control draft = createControl("CTRL-SWD-" + s, soqm, "DRAFT");
+        Control running = createControl("CTRL-SWR-" + s, soqm, "IN_PROGRESS");
+        MockHttpSession session = login(soqm.getMail());
+
+        // A draft opens for a My controls user only shared with it once it is initiated; SoQM sees every control
+        JsonNode onDraft = new ObjectMapper().readTree(picker(session, "SHARED_WITH", draft));
+        assertThat(entry(onDraft, readOnly.getMail()).path("sharedAccess").asText()).isEqualTo("AFTER_INITIATION");
+        assertThat(entry(onDraft, readOnly.getMail()).path("sharedNote").asText())
+                .isEqualTo("Will see it once the control is initiated");
+        assertThat(entry(onDraft, soqm.getMail()).path("sharedAccess").asText()).isEqualTo("VIEWS");
+        assertThat(entry(onDraft, soqm.getMail()).path("sharedNote").isNull()).isTrue();
+
+        JsonNode onRunning = new ObjectMapper().readTree(picker(session, "SHARED_WITH", running));
+        assertThat(entry(onRunning, readOnly.getMail()).path("sharedAccess").asText()).isEqualTo("VIEWS");
+
+        // The other pickers carry no such marks
+        JsonNode facilitators = new ObjectMapper().readTree(picker(session, "FACILITATOR", draft));
+        facilitators.forEach(user -> assertThat(user.path("sharedAccess").isNull()).isTrue());
+    }
+
+    private static JsonNode entry(JsonNode users, String mail) {
+        for (JsonNode user : users) {
+            if (mail.equalsIgnoreCase(user.path("mail").asText())) {
+                return user;
+            }
+        }
+        throw new AssertionError(mail + " is not offered");
     }
 
     private String picker(MockHttpSession session, String field, Control control) throws Exception {

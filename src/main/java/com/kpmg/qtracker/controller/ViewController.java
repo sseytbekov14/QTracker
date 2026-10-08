@@ -1029,6 +1029,14 @@ public class ViewController {
         model.addAttribute("kdnIdHint", RoleDisplayMapper.KDN_ID_HINT);
         model.addAttribute("completedLocked", permission.isLocked());
 
+        // Control Shared With: each person with what the place gives them (AccessPolicy.sharedAccess); the marks
+        // (Disabled, Not in the system, ...) for SoQM Team, who change the list
+        model.addAttribute("sharedWithPeople",
+                permissionService.sharedWithPeople(control, assignment, userService::getUserByEmail));
+        model.addAttribute("sharedWithNotes", AccessPolicy.seesSharedWithNotes(AccessPolicy.Subject.of(currentUser)));
+        model.addAttribute("sharedWithHint", RoleDisplayMapper.SHARED_WITH_HINT);
+        model.addAttribute("sharedWithEmpty", RoleDisplayMapper.SHARED_WITH_EMPTY);
+
         // Header summary + workflow stepper
         String normalizedStatus = normalizeStatus(performanceStatus);
         LocalDate todayAlmaty = DeadlineOverdue.today(Instant.now());

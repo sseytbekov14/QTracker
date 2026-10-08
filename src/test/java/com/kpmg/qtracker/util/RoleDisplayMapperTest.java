@@ -4,6 +4,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.enums.UserRole;
+import com.kpmg.qtracker.service.AccessPolicy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -84,5 +85,18 @@ class RoleDisplayMapperTest {
     void roleSummaries_forTheDialogScript() {
         assertThat(RoleDisplayMapper.roleSummaries()).containsExactly(
                 entry("SOQM_TEAM", "SoQM Team"), entry("KDN", "KDN · All KDN controls · Read Only"));
+    }
+
+    @Test
+    void sharedWith_hintEmptyStateAndMarks() {
+        assertThat(RoleDisplayMapper.SHARED_WITH_HINT).isEqualTo("Can view this control and download files, no editing");
+        assertThat(RoleDisplayMapper.SHARED_WITH_EMPTY).isEqualTo("Not shared with anyone");
+        assertThat(RoleDisplayMapper.sharedNote(AccessPolicy.SharedAccess.VIEWS)).isNull();
+        assertThat(RoleDisplayMapper.sharedNote(null)).isNull();
+        assertThat(RoleDisplayMapper.sharedNote(AccessPolicy.SharedAccess.AFTER_INITIATION))
+                .isEqualTo("Will see it once the control is initiated");
+        assertThat(RoleDisplayMapper.sharedNote(AccessPolicy.SharedAccess.NOT_SEEN)).isEqualTo("Will not see this control");
+        assertThat(RoleDisplayMapper.sharedNote(AccessPolicy.SharedAccess.DISABLED)).isEqualTo("Disabled");
+        assertThat(RoleDisplayMapper.sharedNote(AccessPolicy.SharedAccess.NOT_A_USER)).isEqualTo("Not in the system");
     }
 }
