@@ -153,9 +153,9 @@ class AccessPolicyTest {
             "PART,         REVIEW,               false, F,          false, false,   -",
             "PART,         DRAFT,                false, F,          false, false,   -",
             // Control Steps Performed and Results: the Facilitator's in In Progress, the Control Operator's in
-            // Review, whether or not they are also a Facilitator
-            "PART,         REVIEW,               false, CO,         true,  false,   controlStepsPerformed+controlOperatorReview",
-            "PART,         REVIEW,               false, F+CO,       true,  false,   controlStepsPerformed+controlOperatorReview",
+            // Review, whether or not they are also a Facilitator; Control Operator's Program is no one's but SoQM's
+            "PART,         REVIEW,               false, CO,         true,  false,   controlStepsPerformed",
+            "PART,         REVIEW,               false, F+CO,       true,  false,   controlStepsPerformed",
             "PART,         IN_PROGRESS,          false, F+CO,       true,  false,   controlStepsPerformed",
             "KDN,          REVIEW,               true,  CO,         false, false,   -",
             "RO,           REVIEW,               false, CO,         false, false,   -",
@@ -192,8 +192,14 @@ class AccessPolicyTest {
             "SOQM,       COMPLETED,   -,            false, false",
             "RO_ALL,     REVIEW,      -,            false, false",
             "PART,       IN_PROGRESS, F,            true,  false",
-            "PART,       REVIEW,      CO,           true,  true",
-            "PART,       REVIEW,      F+CO,         true,  true",
+            "PART,       REVIEW,      CO,           true,  false",
+            "PART,       REVIEW,      F+CO,         true,  false",
+            // SoQM Team writes the Program in every status but Completed
+            "SOQM,       DRAFT,       -,            true,  true",
+            "SOQM,       IN_PROGRESS, -,            true,  true",
+            "SOQM,       PROCESS_OWNER_REVIEW, -,   true,  true",
+            "PART,       PROCESS_OWNER_REVIEW, PO,  false, false",
+            "PART_ALL,   REVIEW,      CO,           true,  false",
             "PART,       IN_PROGRESS, F+CO,         true,  false",
             "PART,       REVIEW,      F,            false, false",
             "PART,       REVIEW,      SHARED,       false, false",

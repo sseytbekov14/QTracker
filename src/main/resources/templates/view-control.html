@@ -749,14 +749,14 @@
                                     </div>
                                 </div>
 
-                                <!-- Control Operator's Program: shown to everyone who sees the control, one person or not
-                                     (ControlStepsFields); written by the Control Operator in Review, read-only to the others -->
+                                <!-- Control Operator's Program: shown to everyone who sees the control (ControlStepsFields);
+                                     the Control Operator sends it once, SoQM Team puts it in; read-only to everyone else -->
                                 <div class="row" id="operatorReviewRow">
                                     <div class="col-12 mb-3">
                                         <label class="form-label" for="controlOperatorReview"><span th:text="${operatorProgramLabel}">Control Operator's Program</span></label>
                                         <textarea class="form-control" id="controlOperatorReview" name="controlOperatorReview" rows="8" maxlength="2000"
                                                   placeholder="Not filled yet"
-                                                  data-edit-placeholder="Describe the Control Operator's program and its results"></textarea>
+                                                  data-edit-placeholder="Paste the program the Control Operator sent"></textarea>
                                     </div>
                                 </div>
 
@@ -1661,7 +1661,7 @@
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=3"></script>
-<script src="/js/view-control.js?v=6.9"></script>
+<script src="/js/view-control.js?v=7.0"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
@@ -1987,11 +1987,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         console.log('?? Status-based restriction:', { statusValue, normalizedStatus, isEditMode });
 
-        // Control Operator's Program: the Control Operator in Review (and SoQM), whoever the Facilitator is
-        const canEditOperatorReview = Boolean(window.qtrackerPermissions && window.qtrackerPermissions.canEditOperatorReview);
+        // Control Operator's Program: SoQM Team only (canEditAll, never on a completed control)
         setStepsFieldEditable(controlStepsField, (canEditAll || canEditStepsPerformed) && isEditMode);
         setStepsFieldEditable(document.querySelector('textarea[name="controlOperatorReview"]'),
-            (canEditAll || canEditOperatorReview) && isEditMode);
+            canEditAll && isEditMode);
 
         function setStepsFieldEditable(field, editable) {
             if (!field) {

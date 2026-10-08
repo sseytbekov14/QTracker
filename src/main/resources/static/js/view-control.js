@@ -14,7 +14,6 @@ const viewControl = (function() {
     let fullEditEnabled = false;
     let canEditStepsPerformed = false;
     let canEditProcessOwnerComments = false;
-    let canEditOperatorReview = false;
     let canUseWorkflowActions = true;
     let allowedEditableFields = [];
     let stepsPerformedEditOnly = false;
@@ -42,7 +41,6 @@ const viewControl = (function() {
             fullEditEnabled = hasFullEditRights();
             canEditStepsPerformed = false;
             canEditProcessOwnerComments = false;
-            canEditOperatorReview = false;
             canUseWorkflowActions = document.getElementById('canUseWorkflowActions')?.value !== 'false';
             allowedEditableFields = [];
             stepsPerformedEditOnly = false;
@@ -50,7 +48,6 @@ const viewControl = (function() {
             window.qtrackerPermissions = {
                 canEditStepsPerformed: canEditStepsPerformed,
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
-                canEditOperatorReview: canEditOperatorReview,
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
                 allowedEditableFields: allowedEditableFields
@@ -67,7 +64,6 @@ const viewControl = (function() {
             fullEditEnabled = Boolean(permissions.canEditAll);
             canEditStepsPerformed = Boolean(permissions.canEditStepsPerformed);
             canEditProcessOwnerComments = Boolean(permissions.canEditProcessOwnerComments);
-            canEditOperatorReview = Boolean(permissions.canEditOperatorReview);
             canUseWorkflowActions = permissions.canUseWorkflowActions !== false;
             allowedEditableFields = Array.isArray(permissions.allowedEditableFields)
                 ? permissions.allowedEditableFields
@@ -79,7 +75,6 @@ const viewControl = (function() {
             window.qtrackerPermissions = {
                 canEditStepsPerformed: canEditStepsPerformed,
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
-                canEditOperatorReview: canEditOperatorReview,
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
                 allowedEditableFields: allowedEditableFields
@@ -92,7 +87,6 @@ const viewControl = (function() {
                 .split(',').map(field => field.trim()).filter(Boolean);
             canEditStepsPerformed = allowedEditableFields.includes('controlStepsPerformed');
             canEditProcessOwnerComments = allowedEditableFields.includes('processOwnerComments');
-            canEditOperatorReview = allowedEditableFields.includes('controlOperatorReview');
             canUseWorkflowActions = document.getElementById('canUseWorkflowActions')?.value !== 'false';
             stepsPerformedEditOnly = canEditStepsPerformed && !fullEditEnabled;
             processOwnerCommentsEditOnly = canEditProcessOwnerComments
@@ -101,7 +95,6 @@ const viewControl = (function() {
             window.qtrackerPermissions = {
                 canEditStepsPerformed: canEditStepsPerformed,
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
-                canEditOperatorReview: canEditOperatorReview,
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
                 allowedEditableFields: allowedEditableFields
@@ -1186,22 +1179,6 @@ function confirmWorkflowAction() {
         stepsField.style.backgroundColor = '';
     }
 
-    // Control Operator's Program: the Control Operator's own field in Review, one person or not
-    function enableOperatorReviewField() {
-        const reviewField = document.querySelector('textarea[name="controlOperatorReview"]');
-        if (!reviewField) {
-            return;
-        }
-        reviewField.classList.remove('readonly-field', 'readonly-select');
-        reviewField.classList.add('editable-field', 'editable-select');
-        reviewField.readOnly = false;
-        reviewField.disabled = false;
-        reviewField.removeAttribute('readonly');
-        reviewField.removeAttribute('disabled');
-        reviewField.style.pointerEvents = 'auto';
-        reviewField.style.backgroundColor = '';
-    }
-
     function enableProcessOwnerCommentsField() {
         const commentsField = document.querySelector('textarea[name="processOwnerComments"]');
         if (!commentsField) {
@@ -1254,17 +1231,6 @@ function makeAllFormsEditable() {
     if (stepsPerformedEditOnly) {
         console.log('✅ Field-level edit mode: enabling controlStepsPerformed only');
         enableControlStepsPerformedField();
-        // The Control Operator in Review: the steps field and their Program
-        if (canEditOperatorReview) {
-            enableOperatorReviewField();
-        }
-        enableFileInputs();
-        normalizeAssignmentDateFieldsForDisplay();
-        return;
-    }
-
-    if (canEditOperatorReview && !fullEditEnabled) {
-        enableOperatorReviewField();
         enableFileInputs();
         normalizeAssignmentDateFieldsForDisplay();
         return;
@@ -2026,8 +1992,7 @@ function renameControlId(newControlId, comment) {
 function isLimitedFieldEdit() {
     const permissions = window.qtrackerPermissions || {};
     return !permissions.canEditAll
-        && Boolean(permissions.canEditStepsPerformed || permissions.canEditProcessOwnerComments
-            || permissions.canEditOperatorReview);
+        && Boolean(permissions.canEditStepsPerformed || permissions.canEditProcessOwnerComments);
 }
 
 // A reload keeps the #tab hash. Assigning the same URL with a hash would only scroll, not reload.
@@ -3100,9 +3065,6 @@ function applyDetailsPermissions(payload) {
     }
     if (permissions.canEditProcessOwnerComments) {
         allowed.add('processOwnerComments');
-    }
-    if (permissions.canEditOperatorReview) {
-        allowed.add('controlOperatorReview');
     }
 
     const merged = { ...payload };

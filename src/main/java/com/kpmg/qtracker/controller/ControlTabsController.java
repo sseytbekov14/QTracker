@@ -439,8 +439,7 @@ public class ControlTabsController {
         }
         if (changes(existing != null ? existing.getControlOperatorReview() : null, incoming.getControlOperatorReview())
                 && !permission.canWriteOperatorReview()) {
-            return ControlStepsFields.OPERATOR_PROGRAM_LABEL
-                    + " is filled in by the Control Operator while the control is in Review";
+            return ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the SoQM Team";
         }
         return null;
     }

@@ -8,8 +8,6 @@ import java.util.Set;
 public final class ControlPermission {
     public static final String FIELD_CONTROL_STEPS_PERFORMED = "controlStepsPerformed";
     public static final String FIELD_PROCESS_OWNER_COMMENTS = "processOwnerComments";
-    /** Control Operator's Program: the Control Operator's own field, written in Review. */
-    public static final String FIELD_CONTROL_OPERATOR_REVIEW = "controlOperatorReview";
 
     private final boolean canView;
     private final boolean canEdit;
@@ -126,10 +124,6 @@ public final class ControlPermission {
         return allowedEditableFields.contains(FIELD_CONTROL_STEPS_PERFORMED);
     }
 
-    public boolean canEditOperatorReview() {
-        return allowedEditableFields.contains(FIELD_CONTROL_OPERATOR_REVIEW);
-    }
-
     /** A completed control: no edit by anyone until SoQM returns it ({@link AccessPolicy#LOCKED_MESSAGE}). */
     public boolean isLocked() {
         return locked;
@@ -149,11 +143,12 @@ public final class ControlPermission {
     }
 
     /**
-     * Who saves Control Operator's Program: SoQM (on behalf of the Control Operator, the Changelog names who
-     * saved it) or the Control Operator in Review, whether or not the Operator is also a Facilitator.
+     * Who saves Control Operator's Program: SoQM Team only, in every status but Completed (locked, as every other
+     * field); the Control Operator sends the text once and SoQM Team puts it in, the Changelog names who saved
+     * it. Everyone else who sees the control reads it.
      */
     public boolean canWriteOperatorReview() {
-        return canEditAll || canEditOperatorReview();
+        return canEditAll;
     }
 
     public boolean canEditProcessOwnerComments() {

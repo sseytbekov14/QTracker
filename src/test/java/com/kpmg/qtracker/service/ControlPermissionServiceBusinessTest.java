@@ -183,8 +183,10 @@ class ControlPermissionServiceBusinessTest {
 
             assertThat(perm.canView()).isTrue();
             assertThat(perm.canEdit()).isTrue();
-            assertThat(perm.getAllowedEditableFields()).contains(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
+            assertThat(perm.getAllowedEditableFields()).containsExactly(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
             assertThat(perm.canWriteStepsPerformed()).isTrue();
+            // Control Operator's Program: SoQM Team only
+            assertThat(perm.canWriteOperatorReview()).isFalse();
         }
 
         @Test

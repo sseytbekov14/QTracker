@@ -304,10 +304,11 @@ class RoleMatrixIT {
         boolean participantStep = actsInStep && (("IN_PROGRESS".equals(status) && inF)
                 || ("REVIEW".equals(status) && inCO) || ("PROCESS_OWNER_REVIEW".equals(status) && inPO));
         // Control Steps Performed and Results: one field for both steps, the Facilitator's in In Progress and the
-        // Control Operator's in Review; Control Operator's Program by the Control Operator in Review; SoQM both
+        // Control Operator's in Review; Control Operator's Program: SoQM Team only (the Control Operator sends it,
+        // SoQM Team puts it in), every status but Completed; SoQM both
         boolean stepsField = soqmEdits || (actsInStep && (("IN_PROGRESS".equals(status) && inF)
                 || ("REVIEW".equals(status) && inCO)));
-        boolean operatorField = soqmEdits || (actsInStep && "REVIEW".equals(status) && inCO);
+        boolean operatorField = soqmEdits;
 
         return switch (op) {
             // The page's notice (no buttons the server refuses): Read Only and KDN everywhere, a User with Edit
@@ -739,7 +740,6 @@ class RoleMatrixIT {
     /** The Details field the holder of the current step writes ("Save details"). */
     private static String stepFieldOf(Who who, String status) {
         return switch (status) {
-            case "REVIEW" -> "controlOperatorReview";
             case "PROCESS_OWNER_REVIEW" -> "processOwnerComments";
             default -> "controlStepsPerformed";
         };

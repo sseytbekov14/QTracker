@@ -15,6 +15,7 @@ import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.ControlStepsFields;
 import com.kpmg.qtracker.service.SoqmYear;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,11 +50,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 /**
- * Control Steps Performed as one field or two (ControlStepsFields), through the real dev chain: who writes
- * which field on which step, what Submit to SoQM requires, and that returns and reassignment keep both
- * values while the history names every author.
+ * The two steps fields of Details (ControlStepsFields), through the real dev chain: Control Steps Performed and
+ * Results written by the Facilitator in In Progress and the Control Operator in Review, Control Operator's Program
+ * by SoQM Team only; what Submit to SoQM requires, and that returns and reassignment keep both values while the
+ * history names every author.
  */
 @SpringBootTest(properties = {
         "spring.main.allow-bean-definition-overriding=true",
@@ -134,7 +137,7 @@ class StepsFieldSplitIT {
         MvcResult refused = saveResult(control, facSession, REVIEW, "Facilitator writes the review");
         assertThat(refused.getResponse().getStatus()).isEqualTo(403);
         assertThat(refused.getResponse().getContentAsString())
-                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the Control Operator");
+                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the SoQM Team");
         assertThat(details(control).getControlOperatorReview()).isNull();
 
         setStatus(control, "REVIEW");
@@ -168,16 +171,21 @@ class StepsFieldSplitIT {
         assertThat(fieldAuthors(control, ControlStepsFields.STEPS_LABEL)).containsExactly(op.getMail(), fac.getMail());
         assertThat(fieldPreviousValues(control, ControlStepsFields.STEPS_LABEL)).first().isEqualTo("Facilitator steps");
 
-        assertThat(save(control, opSession, REVIEW, "Operator review")).isEqualTo(200);
-        assertThat(details(control).getControlOperatorReview()).isEqualTo("Operator review");
+        // Control Operator's Program is not theirs: SoQM Team puts in what they sent
+        MvcResult program = saveResult(control, opSession, REVIEW, "Operator writes the Program");
+        assertThat(program.getResponse().getStatus()).isEqualTo(403);
+        assertThat(program.getResponse().getContentAsString())
+                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the SoQM Team");
+        assertThat(details(control).getControlOperatorReview()).isNull();
 
         // The page sends null for the fields the user cannot change: that is no change
-        assertThat(save(control, opSession, "{\"" + STEPS + "\":null,\"" + REVIEW + "\":\"Operator review 2\"}")).isEqualTo(200);
-        assertThat(details(control).getControlOperatorReview()).isEqualTo("Operator review 2");
+        assertThat(save(control, opSession, "{\"" + STEPS + "\":\"Steps v2\",\"" + REVIEW + "\":null}")).isEqualTo(200);
+        assertThat(details(control).getControlStepsPerformed()).isEqualTo("Steps v2");
+        assertThat(details(control).getControlOperatorReview()).isNull();
 
         setStatus(control, "SOQM_HEAD_REVIEW");
-        assertThat(save(control, opSession, REVIEW, "After submit")).isEqualTo(403);
-        assertThat(details(control).getControlOperatorReview()).isEqualTo("Operator review 2");
+        assertThat(save(control, opSession, STEPS, "After submit")).isEqualTo(403);
+        assertThat(details(control).getControlStepsPerformed()).isEqualTo("Steps v2");
     }
 
     @Test
@@ -216,56 +224,55 @@ class StepsFieldSplitIT {
 
         assertThat(save(control, login(fac2), STEPS, "Steps by the second Facilitator")).isEqualTo(200);
         setStatus(control, "REVIEW");
-        assertThat(save(control, login(op2), REVIEW, "Review by the second Operator")).isEqualTo(200);
-        assertThat(save(control, login(op), REVIEW, "Review by the first Operator")).isEqualTo(200);
+        assertThat(save(control, login(op2), STEPS, "Steps by the second Operator")).isEqualTo(200);
+        assertThat(save(control, login(op), STEPS, "Steps by the first Operator")).isEqualTo(200);
 
-        List<String> authors = fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL);
-        assertThat(authors).containsExactlyInAnyOrder(op.getMail(), op2.getMail());
-        assertThat(fieldAuthors(control, ControlStepsFields.STEPS_LABEL)).containsExactly(fac2.getMail());
+        // newest first
+        assertThat(fieldAuthors(control, ControlStepsFields.STEPS_LABEL))
+                .containsExactly(op.getMail(), op2.getMail(), fac2.getMail());
+        assertThat(fieldPreviousValues(control, ControlStepsFields.STEPS_LABEL))
+                .containsExactly("Steps by the second Operator", "Steps by the second Facilitator", "");
     }
 
     // ------------------------------------------------------------------ one person: Facilitator and Operator
 
     @Test
-    void onePersonInBothSlots_writesTheStepsOnTheFacilitatorsStep_andTheProgramOnTheOperatorsStep() throws Exception {
+    void onePersonInBothSlots_writesTheStepsOnBothSteps_neverTheProgram() throws Exception {
         Control control = control("IN_PROGRESS", fac.getMail() + ";" + fac2.getMail(), " " + fac.getMail().toUpperCase() + " ", null, null);
         MockHttpSession facSession = login(fac);
 
         assertThat(save(control, facSession, STEPS, "Steps as Facilitator")).isEqualTo(200);
-        MvcResult tooEarly = saveResult(control, facSession, REVIEW, "Program while In Progress");
-        assertThat(tooEarly.getResponse().getStatus()).isEqualTo(403);
-        assertThat(tooEarly.getResponse().getContentAsString())
-                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the Control Operator while the control is in Review");
-        assertThat(details(control).getControlOperatorReview()).isNull();
-
         setStatus(control, "REVIEW");
-        assertThat(save(control, facSession, REVIEW, "Program as Operator")).isEqualTo(200);
-        assertThat(details(control).getControlOperatorReview()).isEqualTo("Program as Operator");
-        assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL)).containsExactly(fac.getMail());
-        // Control Steps Performed and Results: theirs again, now as the Control Operator
         assertThat(save(control, facSession, STEPS, "Steps as Operator")).isEqualTo(200);
         assertThat(details(control).getControlStepsPerformed()).isEqualTo("Steps as Operator");
+        MvcResult program = saveResult(control, facSession, REVIEW, "Program as Operator");
+        assertThat(program.getResponse().getStatus()).isEqualTo(403);
+        assertThat(program.getResponse().getContentAsString())
+                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the SoQM Team");
+        assertThat(details(control).getControlOperatorReview()).isNull();
 
         // The other Facilitator is not the Operator: the Review step is not theirs
         assertThat(save(control, login(fac2), STEPS, "Not my step")).isEqualTo(403);
         assertThat(save(control, login(fac2), REVIEW, "Not my step")).isEqualTo(403);
 
         JsonNode permissions = json(get("/api/permissions/{id}", control.getId()), facSession).path("permissions");
-        assertThat(permissions.path("canEditOperatorReview").asBoolean()).isTrue();
+        assertThat(permissions.has("canEditOperatorReview")).isFalse();
         assertThat(permissions.path("canEditStepsPerformed").asBoolean()).isTrue();
     }
 
+    // ------------------------------------------------------------------ Control Operator's Program: SoQM Team only
+
     @Test
-    void theProgram_onePersonOrNot_isWrittenByTheControlOperatorInReview_orSoqmForThem_nobodyElse() throws Exception {
+    void theProgram_isWrittenBySoqmTeamOnly_inEveryStatusButCompleted_everyoneElseGets403() throws Exception {
         User kdn = saveUser("kdn-" + UUID.randomUUID().toString().substring(0, 8), AccessLevel.READ_ONLY);
         kdn.setAccessScope(AccessScope.KDN);
         kdn = userRepository.save(kdn);
+        MockHttpSession soqmSession = login(soqm);
 
-        for (boolean onePerson : List.of(true, false)) {
-            User operator = onePerson ? fac : op;
+        for (String status : List.of("DRAFT", "IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW")) {
             // Read Only and KDN are listed as Control Operators too (old data): listing gives no write
-            Control control = control("REVIEW", fac.getMail(),
-                    operator.getMail() + ";" + readOnly.getMail() + ";" + kdn.getMail(), "Steps", null);
+            Control control = control(status, fac.getMail(),
+                    op.getMail() + ";" + readOnly.getMail() + ";" + kdn.getMail(), "Steps", null);
             Control stored = controlRepository.findById(control.getId()).orElseThrow();
             stored.setControlId("KDN-PROG-" + UUID.randomUUID().toString().substring(0, 8));
             control = controlRepository.save(stored);
@@ -273,29 +280,91 @@ class StepsFieldSplitIT {
             assignment.setControlSharedWith(sharedUser.getMail());
             assignmentRepository.save(assignment);
 
-            List<User> refused = new ArrayList<>(List.of(outsider, sharedUser, readOnly, kdn, po));
-            if (!onePerson) {
-                refused.add(fac);
-            }
-            for (User who : refused) {
+            for (User who : List.of(op, fac, po, outsider, sharedUser, readOnly, kdn, readOnlyAll())) {
                 assertThat(save(control, login(who), REVIEW, "by " + who.getMail()))
-                        .as(onePerson + " " + who.getMail()).isEqualTo(403);
+                        .as(status + " " + who.getMail()).isEqualTo(403);
             }
-            assertThat(save(control, login(operator), REVIEW, "Program by the Control Operator")).isEqualTo(200);
-            assertThat(save(control, login(soqm), REVIEW, "Program by SoQM for the Control Operator")).isEqualTo(200);
-            assertThat(details(control).getControlOperatorReview()).isEqualTo("Program by SoQM for the Control Operator");
-            // newest first: who saved it, SoQM included
-            assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL))
-                    .containsExactly(soqm.getMail(), operator.getMail());
+            assertThat(details(control).getControlOperatorReview()).as(status).isNull();
 
-            // Not the Control Operator's step any more: refused, SoQM still writes
-            setStatus(control, "SOQM_HEAD_REVIEW");
-            assertThat(save(control, login(operator), REVIEW, "Too late")).isEqualTo(403);
-            assertThat(save(control, login(soqm), REVIEW, "SoQM in its own step")).isEqualTo(200);
+            assertThat(save(control, soqmSession, REVIEW, "Program v1")).as(status).isEqualTo(200);
+            assertThat(save(control, soqmSession, REVIEW, "Program v2")).as(status).isEqualTo(200);
+            assertThat(details(control).getControlOperatorReview()).isEqualTo("Program v2");
+            // Every save is a Changelog entry with its author; the earlier text stays there
+            assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL))
+                    .as(status).containsExactly(soqm.getMail(), soqm.getMail());
+            assertThat(fieldPreviousValues(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL))
+                    .as(status).containsExactlyInAnyOrder("Program v1", ""); // the same millisecond: any order
+
+            // Everyone who sees the control reads it
+            for (User who : List.of(op, fac, po, sharedUser, kdn)) {
+                MvcResult read = perform(get("/api/control-details").param("controlId", String.valueOf(control.getId())), login(who));
+                if ("DRAFT".equals(status) && who != kdn) {
+                    continue; // a draft is not open to the participants yet
+                }
+                assertThat(read.getResponse().getStatus()).as(status + " read " + who.getMail()).isEqualTo(200);
+                assertThat(objectMapper.readTree(read.getResponse().getContentAsString()).path(REVIEW).asText())
+                        .isEqualTo("Program v2");
+            }
         }
+
+        // The Control Operator on their step is told whose field it is
+        Control review = control("REVIEW", fac.getMail(), op.getMail(), "Steps", null);
+        MvcResult refused = saveResult(review, login(op), REVIEW, "Program by the Operator");
+        assertThat(refused.getResponse().getStatus()).isEqualTo(403);
+        assertThat(refused.getResponse().getContentAsString())
+                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the SoQM Team");
     }
 
-    // ------------------------------------------------------------------ Submit to SoQM
+    @Test
+    void theProgram_ofACompletedControl_isLockedForEveryone_soqmIncluded() throws Exception {
+        Control control = control("COMPLETED", fac.getMail(), op.getMail(), "Steps", "Program");
+
+        MvcResult soqmSave = saveResult(control, login(soqm), REVIEW, "Changed after completion");
+        assertThat(soqmSave.getResponse().getStatus()).isEqualTo(403);
+        assertThat(soqmSave.getResponse().getContentAsString()).contains(AccessPolicy.LOCKED_MESSAGE);
+        for (User who : List.of(op, fac, po)) {
+            assertThat(save(control, login(who), REVIEW, "by " + who.getMail())).as(who.getMail()).isEqualTo(403);
+        }
+        assertThat(details(control).getControlOperatorReview()).isEqualTo("Program");
+
+        // Returned to an earlier status, SoQM Team writes it again
+        setStatus(control, "PROCESS_OWNER_REVIEW");
+        assertThat(save(control, login(soqm), REVIEW, "Corrected")).isEqualTo(200);
+        assertThat(details(control).getControlOperatorReview()).isEqualTo("Corrected");
+    }
+
+    @Test
+    void theProgram_isNeverWrittenThroughTheOtherSavePaths() throws Exception {
+        MockHttpSession soqmSession = login(soqm);
+        MockHttpSession opSession = login(op);
+
+        // PUT /api/controls: the control's own fields; the Program sent along is ignored, for SoQM Team as well
+        Control control = control("REVIEW", fac.getMail(), op.getMail(), "Steps", "Program");
+        for (MockHttpSession session : List.of(soqmSession, opSession)) {
+            perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"controlOperatorReview\":\"Through PUT\",\"controlDescription\":\"Description\"}"), session);
+            assertThat(details(control).getControlOperatorReview()).isEqualTo("Program");
+        }
+
+        // The workflow steps and SoQM's move take no Details fields
+        MvcResult submitted = perform(post("/api/workflow/submit-to-soqm-lead").with(csrf().asHeader())
+                .param("controlId", String.valueOf(control.getId()))
+                .param("controlOperatorReview", "Through submit"), opSession);
+        assertThat(submitted.getResponse().getStatus()).isEqualTo(200);
+        assertThat(details(control).getControlOperatorReview()).isEqualTo("Program");
+        MvcResult moved = perform(post("/api/workflow/move").with(csrf().asHeader())
+                .param("controlId", String.valueOf(control.getId()))
+                .param("targetStatus", "REVIEW")
+                .param("comments", "Back to the Operator")
+                .param("controlOperatorReview", "Through move"), soqmSession);
+        assertThat(moved.getResponse().getStatus()).isEqualTo(200);
+        assertThat(status(control)).isEqualTo("REVIEW");
+        assertThat(details(control).getControlOperatorReview()).isEqualTo("Program");
+        assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL)).isEmpty();
+    }
+
+    // ------------------------------------------------------------------ Submit to SoQM    // ------------------------------------------------------------------ Submit to SoQM
 
     @Test
     void submitToSoqm_needsNoOperatorsProgram_differentPeopleOrOne() throws Exception {
@@ -356,7 +425,7 @@ class StepsFieldSplitIT {
 
     @Test
     void returns_keepBothValues_andEveryRewriteIsAHistoryEntryWithItsAuthor() throws Exception {
-        Control control = control("REVIEW", fac.getMail(), op.getMail(), "Steps v1", "Review v1");
+        Control control = control("REVIEW", fac.getMail(), op.getMail(), "Steps v1", "Program v1");
         MockHttpSession facSession = login(fac);
         MockHttpSession opSession = login(op);
         MockHttpSession soqmSession = login(soqm);
@@ -365,31 +434,33 @@ class StepsFieldSplitIT {
         // Control Operator -> Facilitator
         assertThat(workflow("/api/workflow/return-to-facilitator", control, opSession, "Steps are incomplete")).isEqualTo(200);
         assertThat(status(control)).isEqualTo("IN_PROGRESS");
-        assertValues(control, "Steps v1", "Review v1");
+        assertValues(control, "Steps v1", "Program v1");
         assertThat(save(control, facSession, STEPS, "Steps v2")).isEqualTo(200);
         assertThat(workflow("/api/workflow/submit-to-control-operator", control, facSession, null)).isEqualTo(200);
-        assertValues(control, "Steps v2", "Review v1");
-        assertThat(save(control, opSession, REVIEW, "Review v2")).isEqualTo(200);
+        assertValues(control, "Steps v2", "Program v1");
+        assertThat(save(control, opSession, STEPS, "Steps v3")).isEqualTo(200);
         assertThat(workflow("/api/workflow/submit-to-soqm-lead", control, opSession, null)).isEqualTo(200);
 
         // SoQM -> Control Operator
         assertThat(workflow("/api/workflow/return-to-operator", control, soqmSession, "Name the sample")).isEqualTo(200);
         assertThat(status(control)).isEqualTo("REVIEW");
-        assertValues(control, "Steps v2", "Review v2");
-        assertThat(save(control, opSession, REVIEW, "Review v3")).isEqualTo(200);
+        assertValues(control, "Steps v3", "Program v1");
+        assertThat(save(control, soqmSession, REVIEW, "Program v2")).isEqualTo(200);
         assertThat(workflow("/api/workflow/submit-to-soqm-lead", control, opSession, null)).isEqualTo(200);
         assertThat(workflow("/api/workflow/submit-to-process-owner", control, soqmSession, null)).isEqualTo(200);
 
         // Process Owner -> Control Operator
         assertThat(workflow("/api/workflow/return-to-operator", control, poSession, "The sample is too small")).isEqualTo(200);
         assertThat(status(control)).isEqualTo("REVIEW");
-        assertValues(control, "Steps v2", "Review v3");
-        assertThat(save(control, opSession, REVIEW, "Review v4")).isEqualTo(200);
-        assertValues(control, "Steps v2", "Review v4");
+        assertValues(control, "Steps v3", "Program v2");
+        assertThat(save(control, opSession, STEPS, "Steps v4")).isEqualTo(200);
+        assertValues(control, "Steps v4", "Program v2");
 
-        assertThat(fieldAuthors(control, ControlStepsFields.STEPS_LABEL)).containsExactly(fac.getMail());
-        assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL))
-                .containsExactly(op.getMail(), op.getMail(), op.getMail());
+        assertThat(fieldAuthors(control, ControlStepsFields.STEPS_LABEL))
+                .containsExactly(op.getMail(), op.getMail(), fac.getMail());
+        assertThat(fieldPreviousValues(control, ControlStepsFields.STEPS_LABEL))
+                .containsExactly("Steps v3", "Steps v2", "Steps v1");
+        assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL)).containsExactly(soqm.getMail());
     }
 
     @Test
@@ -449,7 +520,7 @@ class StepsFieldSplitIT {
                 .doesNotContain("<span class=\"steps-field-owner\">Control Operator</span>")
                 .doesNotContain("id=\"stepsSplit\"")
                 .doesNotContain("id=\"operatorProgramRequired\"")
-                .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed,controlOperatorReview\"")
+                .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed\"")
                 // Your step: check the steps field, which Submit to SoQM Team needs
                 .contains("data-step-field=\"controlStepsPerformed\"", "data-step-required=\"true\"")
                 .doesNotContain(" (optional)");
@@ -499,7 +570,7 @@ class StepsFieldSplitIT {
                 .doesNotContain("id=\"operatorProgramRequired\"")
                 // Your step: the steps field, one for the Facilitator and the Control Operator
                 .contains("data-step-field=\"controlStepsPerformed\"", "data-step-required=\"true\"")
-                .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed,controlOperatorReview\"");
+                .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed\"");
 
         for (User reader : List.of(fac, sharedUser, po)) {
             assertThat(page(control, login(reader))).as(reader.getMail())
