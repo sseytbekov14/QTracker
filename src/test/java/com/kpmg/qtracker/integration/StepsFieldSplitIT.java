@@ -450,7 +450,7 @@ class StepsFieldSplitIT {
                 .contains("id=\"controlOperatorReview\"")
                 .contains(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<")
                 .contains("<span class=\"steps-field-owner\">Facilitator</span>")
-                .contains("<span class=\"steps-field-owner\">Control Operator</span>")
+                .doesNotContain("<span class=\"steps-field-owner\">Control Operator</span>")
                 .contains("id=\"stepsSplit\" value=\"false\"")
                 .contains("id=\"operatorProgramRequired\" value=\"false\"")
                 .contains("id=\"allowedEditableFields\" value=\"controlOperatorReview\"")
@@ -497,7 +497,7 @@ class StepsFieldSplitIT {
                 .contains("id=\"controlOperatorReview\"")
                 .contains(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<")
                 .contains("<span class=\"steps-field-owner\">Facilitator</span>")
-                .contains("<span class=\"steps-field-owner\">Control Operator</span>")
+                .doesNotContain("<span class=\"steps-field-owner\">Control Operator</span>")
                 .contains("id=\"operatorReviewSubmitHint\"")
                 .contains("id=\"stepsSplit\" value=\"true\"")
                 .contains("id=\"operatorProgramRequired\" value=\"true\"")
@@ -515,7 +515,7 @@ class StepsFieldSplitIT {
 
     @Test
     void viewControl_details_haveTheProgramRightAfterProcessActivities_beforeOtherRelatedControls() throws Exception {
-        Control control = control("REVIEW", fac.getMail(), op.getMail(), "Steps", "Program");
+        Control control = control("IN_PROGRESS", fac.getMail(), op.getMail(), "Steps", "Program");
 
         for (User reader : List.of(soqm, op, readOnlyAll())) {
             String page = page(control, login(reader));
@@ -535,6 +535,9 @@ class StepsFieldSplitIT {
                 assertThat(at).as(reader.getMail() + ": " + field + " after the field before it").isGreaterThan(previous);
                 previous = at;
             }
+            // The Program's label is its name only, no role next to it
+            assertThat(page).contains("<label class=\"form-label\" for=\"controlOperatorReview\"><span>"
+                    + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "</span></label>");
         }
     }
 
