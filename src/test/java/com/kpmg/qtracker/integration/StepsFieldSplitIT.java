@@ -514,6 +514,31 @@ class StepsFieldSplitIT {
     }
 
     @Test
+    void viewControl_details_haveTheProgramRightAfterProcessActivities_beforeOtherRelatedControls() throws Exception {
+        Control control = control("REVIEW", fac.getMail(), op.getMail(), "Steps", "Program");
+
+        for (User reader : List.of(soqm, op, readOnlyAll())) {
+            String page = page(control, login(reader));
+            List<String> fieldsInOrder = List.of(
+                    "name=\"processName\" maxlength",
+                    "name=\"department\" maxlength",
+                    "name=\"processActivities\" rows",
+                    "id=\"controlOperatorReview\" name=",
+                    "name=\"otherRelatedControls\" maxlength",
+                    "name=\"itApplications\" maxlength",
+                    "id=\"controlStepsPerformed\" name=",
+                    "id=\"soqmHeadComments\"",
+                    "id=\"processOwnerComments\"");
+            int previous = -1;
+            for (String field : fieldsInOrder) {
+                int at = page.indexOf(field);
+                assertThat(at).as(reader.getMail() + ": " + field + " after the field before it").isGreaterThan(previous);
+                previous = at;
+            }
+        }
+    }
+
+    @Test
     void viewControl_differentPeople_facilitatorInProgress_editsOnlyTheStepsField() throws Exception {
         Control control = control("IN_PROGRESS", fac.getMail(), op.getMail(), null, null);
 
