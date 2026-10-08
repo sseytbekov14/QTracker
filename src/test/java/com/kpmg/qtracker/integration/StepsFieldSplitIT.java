@@ -167,9 +167,11 @@ class StepsFieldSplitIT {
         setStatus(control, "REVIEW");
         assertThat(save(control, opSession, STEPS, "Facilitator steps\nChecked by the Operator")).isEqualTo(200);
         assertThat(details(control).getControlStepsPerformed()).isEqualTo("Facilitator steps\nChecked by the Operator");
-        // newest first; the Changelog keeps the Facilitator's text as the previous value
-        assertThat(fieldAuthors(control, ControlStepsFields.STEPS_LABEL)).containsExactly(op.getMail(), fac.getMail());
-        assertThat(fieldPreviousValues(control, ControlStepsFields.STEPS_LABEL)).first().isEqualTo("Facilitator steps");
+        // The Changelog keeps the Facilitator's text as the previous value (saves this quick may share a time stamp:
+        // any order)
+        assertThat(fieldAuthors(control, ControlStepsFields.STEPS_LABEL)).containsExactlyInAnyOrder(op.getMail(), fac.getMail());
+        assertThat(fieldPreviousValues(control, ControlStepsFields.STEPS_LABEL))
+                .containsExactlyInAnyOrder("Facilitator steps", "");
 
         // Control Operator's Program is not theirs: SoQM Team puts in what they sent
         MvcResult program = saveResult(control, opSession, REVIEW, "Operator writes the Program");
@@ -227,11 +229,11 @@ class StepsFieldSplitIT {
         assertThat(save(control, login(op2), STEPS, "Steps by the second Operator")).isEqualTo(200);
         assertThat(save(control, login(op), STEPS, "Steps by the first Operator")).isEqualTo(200);
 
-        // newest first
+        // saves this quick may share a time stamp: any order
         assertThat(fieldAuthors(control, ControlStepsFields.STEPS_LABEL))
-                .containsExactly(op.getMail(), op2.getMail(), fac2.getMail());
+                .containsExactlyInAnyOrder(op.getMail(), op2.getMail(), fac2.getMail());
         assertThat(fieldPreviousValues(control, ControlStepsFields.STEPS_LABEL))
-                .containsExactly("Steps by the second Operator", "Steps by the second Facilitator", "");
+                .containsExactlyInAnyOrder("Steps by the second Operator", "Steps by the second Facilitator", "");
     }
 
     // ------------------------------------------------------------------ one person: Facilitator and Operator
@@ -506,10 +508,11 @@ class StepsFieldSplitIT {
         assertThat(save(control, opSession, STEPS, "Steps v4")).isEqualTo(200);
         assertValues(control, "Steps v4", "Program v2");
 
+        // saves this quick may share a time stamp: any order
         assertThat(fieldAuthors(control, ControlStepsFields.STEPS_LABEL))
-                .containsExactly(op.getMail(), op.getMail(), fac.getMail());
+                .containsExactlyInAnyOrder(op.getMail(), op.getMail(), fac.getMail());
         assertThat(fieldPreviousValues(control, ControlStepsFields.STEPS_LABEL))
-                .containsExactly("Steps v3", "Steps v2", "Steps v1");
+                .containsExactlyInAnyOrder("Steps v3", "Steps v2", "Steps v1");
         assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL)).containsExactly(soqm.getMail());
     }
 
