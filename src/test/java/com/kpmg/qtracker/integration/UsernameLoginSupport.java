@@ -56,6 +56,13 @@ abstract class UsernameLoginSupport {
         person("tuser@qtracker.local", "User, Test", AccessLevel.PARTICIPANT, AccessScope.OWN, true);
         person("tkdn@qtracker.local", "Kdn, Test", AccessLevel.READ_ONLY, AccessScope.KDN, true);
         person("tgone@qtracker.local", "Gone, Test", AccessLevel.PARTICIPANT, AccessScope.OWN, false);
+        // Accounts on other domains (created in the Admin Panel)
+        person("tfirm@firm.test", "Firm, Test", AccessLevel.SOQM, AccessScope.ALL, true);
+        person("tboth@qtracker.local", "Both, Imported", AccessLevel.READ_ONLY, AccessScope.KDN, true);
+        person("tboth@firm.test", "Both, Firm", AccessLevel.SOQM, AccessScope.ALL, true);
+        person("ttwice@firm.test", "Twice, Firm", AccessLevel.PARTICIPANT, AccessScope.OWN, true);
+        person("ttwice@other.test", "Twice, Other", AccessLevel.PARTICIPANT, AccessScope.OWN, true);
+        person("t_x@firm.test", "Underscore, Test", AccessLevel.PARTICIPANT, AccessScope.OWN, true);
     }
 
     private void person(String mail, String name, AccessLevel level, AccessScope scope, boolean enabled) {

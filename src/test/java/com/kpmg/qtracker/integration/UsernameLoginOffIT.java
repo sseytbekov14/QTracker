@@ -19,6 +19,7 @@ class UsernameLoginOffIT extends UsernameLoginSupport {
     void username_isRefused_theEmailSignsIn() throws Exception {
         assertThat(signIn("tuser", PASSWORD).getResponse().getRedirectedUrl()).isEqualTo("/login?error");
         assertThat(signIn(" TUser@QTracker.local ", PASSWORD).getResponse().getRedirectedUrl()).isEqualTo("/");
+        assertThat(signIn("tfirm", PASSWORD).getResponse().getRedirectedUrl()).isEqualTo("/login?error");
     }
 
     @Test

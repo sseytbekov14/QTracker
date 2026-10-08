@@ -29,6 +29,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT COUNT(u) FROM User u WHERE u.accessLevel = :level AND u.enabled = true")
     long countActiveByAccessLevel(@Param("level") AccessLevel level);
 
+    /** The users whose address has this part before "@" (lower case), on any domain. */
+    default List<User> findByMailLocalPart(String localPart) {
+        String escaped = localPart.toLowerCase(java.util.Locale.ROOT)
+                .replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        return findByMailLowerLike(escaped + "@%");
+    }
+
+    @Query("SELECT u FROM User u WHERE LOWER(u.mail) LIKE :pattern ESCAPE '!'")
+    List<User> findByMailLowerLike(@Param("pattern") String pattern);
+
     /** The users of these addresses (lower-case), in one query: the names of a list's people. */
     @Query("SELECT u FROM User u WHERE LOWER(TRIM(u.mail)) IN :mails")
     List<User> findByMailLowerIn(@Param("mails") Collection<String> mails);

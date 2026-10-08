@@ -1,6 +1,7 @@
 package com.kpmg.qtracker.integration;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,5 +62,33 @@ class UsernameLoginIT extends UsernameLoginSupport {
                 .andExpect(redirectedUrl("/"));
         mockMvc.perform(get("/admin/users").session(session("tkdn")))
                 .andExpect(redirectedUrl("/"));
+    }
+
+    @Test
+    void username_ofAnAccountOnAnotherDomain_signsIn_whenItIsTheOnlyOne() throws Exception {
+        MockHttpSession session = session(" TFirm ");
+
+        mockMvc.perform(get("/admin/users").session(session)).andExpect(status().isOk());
+        assertThat(session.getAttribute("currentUser")).extracting("mail").isEqualTo("tfirm@firm.test");
+    }
+
+    @Test
+    void theImportedDomain_comesFirst() throws Exception {
+        MockHttpSession session = session("tboth");
+
+        assertThat(session.getAttribute("currentUser")).extracting("mail").isEqualTo("tboth@qtracker.local");
+    }
+
+    @Test
+    void sameUsernameOnTwoOtherDomains_isNotGuessed_theEmailSignsIn() throws Exception {
+        assertThat(signIn("ttwice", PASSWORD).getResponse().getRedirectedUrl()).isEqualTo("/login?error");
+        assertThat(signIn("ttwice@other.test", PASSWORD).getResponse().getRedirectedUrl()).isEqualTo("/");
+    }
+
+    @Test
+    void wildcardsOfTheSearch_areTakenLiterally() throws Exception {
+        assertThat(signIn("tax", PASSWORD).getResponse().getRedirectedUrl()).isEqualTo("/login?error");
+        assertThat(signIn("t_x", PASSWORD).getResponse().getRedirectedUrl()).isEqualTo("/");
+        assertThat(signIn("t%", PASSWORD).getResponse().getRedirectedUrl()).isEqualTo("/login?error");
     }
 }

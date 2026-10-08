@@ -1,5 +1,6 @@
 package com.kpmg.qtracker.security;
 
+import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,8 +15,11 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -36,7 +40,7 @@ public class DevAuthenticationProvider implements AuthenticationProvider {
         }
 
         // A username (when allowed) or an e-mail, in any case and with stray spaces: the address to look up
-        String username = loginNames.toMail(authentication.getName());
+        String username = address(authentication.getName());
         String rawPassword = authentication.getCredentials() == null
                 ? ""
                 : authentication.getCredentials().toString();
@@ -70,6 +74,21 @@ public class DevAuthenticationProvider implements AuthenticationProvider {
         loginAttemptService.recordFailure(username);
         log.warn("auth status=BAD_CREDENTIALS username={}", username);
         throw new BadCredentialsException("Invalid credentials");
+    }
+
+    /**
+     * The address a login stands for: an e-mail as typed; a username is first <username>@auth.username-domain
+     * (the imported people), else the only account whose address has this part before "@" on any domain.
+     * Two or more such accounts: no guess, the domain address stays (and is refused).
+     */
+    private String address(String typed) {
+        String mail = loginNames.toMail(typed);
+        Optional<String> username = loginNames.username(typed);
+        if (username.isEmpty() || userRepository.existsByMail(mail)) {
+            return mail;
+        }
+        List<User> sameUsername = userRepository.findByMailLocalPart(username.get());
+        return sameUsername.size() == 1 ? sameUsername.get(0).getMail() : mail;
     }
 
     @Override
