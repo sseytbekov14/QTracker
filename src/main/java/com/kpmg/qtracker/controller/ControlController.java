@@ -750,11 +750,12 @@ public class ControlController {
                 rowNum = addRow(sheet, rowNum, "Process Name", details.getProcessName());
                 rowNum = addRow(sheet, rowNum, "Department", details.getDepartment());
                 rowNum = addRow(sheet, rowNum, "Process Activities", details.getProcessActivities());
+                // In the order of View Control's Details: the Program (put in by SoQM Team) right after Process
+                // Activities; an empty value has no row, as every field
+                rowNum = addRow(sheet, rowNum, ControlStepsFields.OPERATOR_PROGRAM_LABEL, details.getControlOperatorReview());
                 rowNum = addRow(sheet, rowNum, "Other Related Controls", details.getOtherRelatedControls());
                 rowNum = addRow(sheet, rowNum, "IT Applications", details.getItApplications());
                 rowNum = addRow(sheet, rowNum, ControlStepsFields.STEPS_LABEL, details.getControlStepsPerformed());
-                // As on View Control: whoever holds the two roles (an empty value has no row, as every field)
-                rowNum = addRow(sheet, rowNum, ControlStepsFields.OPERATOR_PROGRAM_LABEL, details.getControlOperatorReview());
             }
 
             if (documents != null) {

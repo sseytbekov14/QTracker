@@ -3159,6 +3159,9 @@ function isBlankValueForWorkflow(value) {
 }
 
 function getWorkflowRoleRequirement() {
+    // The field's name as the page shows it (ControlStepsFields.STEPS_LABEL)
+    const stepsLabel = document.querySelector('label[for="controlStepsPerformed"] span')?.textContent
+        || 'Control Steps Performed and Results';
     const isFacilitator = document.getElementById('isFacilitator')?.value === 'true';
     const isControlOperator = document.getElementById('isControlOperator')?.value === 'true';
     const isSoqmLead = document.getElementById('isSoqmLead')?.value === 'true';
@@ -3168,7 +3171,7 @@ function getWorkflowRoleRequirement() {
     if (isFacilitator && performanceStatus === 'IN_PROGRESS') {
         return {
             field: document.querySelector('textarea[name="controlStepsPerformed"]'),
-            message: 'To submit, please fill: Control steps performed and results'
+            message: 'To submit, please fill: ' + stepsLabel
         };
     }
 
@@ -3176,7 +3179,7 @@ function getWorkflowRoleRequirement() {
     if (isControlOperator && performanceStatus === 'REVIEW') {
         return {
             field: document.querySelector('textarea[name="controlStepsPerformed"]'),
-            message: 'To submit, please fill: Control steps performed and results'
+            message: 'To submit, please fill: ' + stepsLabel
         };
     }
 
@@ -3190,7 +3193,7 @@ function getWorkflowRoleRequirement() {
         }
         return {
             field: document.querySelector('textarea[name="controlStepsPerformed"]'),
-            message: 'To submit, please fill: Control steps performed and results'
+            message: 'To submit, please fill: ' + stepsLabel
         };
     }
 

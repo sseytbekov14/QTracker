@@ -22,7 +22,7 @@ class WorkflowRequiredFieldServiceTest {
         when(repository.findByControlId(1L)).thenReturn(Optional.of(details));
 
         assertThat(service.getMissingFieldMessage(control("REVIEW")))
-                .contains("Required field is missing: Control steps performed and results");
+                .contains("Required field is missing: Control Steps Performed and Results");
 
         details.setControlStepsPerformed("Steps by the Facilitator");
         details.setControlOperatorReview("  ");

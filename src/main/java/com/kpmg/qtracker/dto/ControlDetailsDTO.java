@@ -21,7 +21,7 @@ public class ControlDetailsDTO {
     private String otherRelatedControls;
     @Size(max = 255, message = "IT Applications must be at most 255 characters")
     private String itApplications;
-    @Size(max = 2000, message = "Control Steps Performed must be at most 2000 characters")
+    @Size(max = 2000, message = ControlStepsFields.STEPS_LABEL + " must be at most 2000 characters")
     private String controlStepsPerformed;
     @Size(max = 2000, message = ControlStepsFields.OPERATOR_PROGRAM_LABEL + " must be at most 2000 characters")
     private String controlOperatorReview;

@@ -14,7 +14,7 @@ import java.util.Optional;
 public class WorkflowRequiredFieldService {
     private final ControlDetailsRepository controlDetailsRepository;
 
-    public static final String MISSING_STEPS = "Required field is missing: Control steps performed and results";
+    public static final String MISSING_STEPS = "Required field is missing: " + ControlStepsFields.STEPS_LABEL;
 
     /**
      * The Details field of a step, for the "Your step" hint on View Control. {@code check}: the field was filled
@@ -46,7 +46,7 @@ public class WorkflowRequiredFieldService {
     }
 
     /**
-     * Control Steps Performed must be filled in to move a control on from In Progress, Review or SoQM review,
+     * Control Steps Performed and Results must be filled in to move a control on from In Progress, Review or SoQM review,
      * whoever does it (one person may hold several fields of a control). Control Operator's Program is required
      * by no step, whoever the Facilitator and the Control Operator are.
      */

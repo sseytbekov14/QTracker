@@ -449,7 +449,7 @@ class StepsFieldSplitIT {
                 .param("controlId", String.valueOf(noSteps.getId())), opSession);
         assertThat(missing.getResponse().getStatus()).isEqualTo(400);
         assertThat(missing.getResponse().getContentAsString())
-                .contains("Required field is missing: Control steps performed and results")
+                .contains("Required field is missing: " + ControlStepsFields.STEPS_LABEL)
                 .doesNotContain(ControlStepsFields.OPERATOR_PROGRAM_LABEL)
                 .doesNotContain(HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL));
         assertThat(status(noSteps)).isEqualTo("REVIEW");
@@ -703,8 +703,9 @@ class StepsFieldSplitIT {
         Map<String, String> split = exportRows(control("COMPLETED", fac.getMail(), op.getMail(), "Steps", "Review"), soqmSession);
         assertThat(split).containsEntry(ControlStepsFields.STEPS_LABEL, "Steps")
                 .containsEntry(ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Review");
+        // As on the Details tab: right after Process Activities
         assertThat(new ArrayList<>(split.keySet()).indexOf(ControlStepsFields.OPERATOR_PROGRAM_LABEL))
-                .isEqualTo(new ArrayList<>(split.keySet()).indexOf(ControlStepsFields.STEPS_LABEL) + 1);
+                .isEqualTo(new ArrayList<>(split.keySet()).indexOf("Process Activities") + 1);
 
         Map<String, String> onePerson = exportRows(control("COMPLETED", fac.getMail(), fac.getMail(), "Steps", "Kept from before"), soqmSession);
         assertThat(onePerson).containsEntry(ControlStepsFields.STEPS_LABEL, "Steps")
@@ -858,6 +859,7 @@ class StepsFieldSplitIT {
         ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();
         details.setControlStepsPerformed(steps);
         details.setControlOperatorReview(review);
+        details.setProcessActivities("Process activities");
         details.setSoqmHeadComments("SoQM comments");
         details.setProcessOwnerComments("Process Owner comments");
         detailsRepository.save(details);
