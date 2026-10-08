@@ -155,7 +155,6 @@ const SharedWithField = (function () {
             unsaved.hidden = !isChanged();
         }
         writeHidden();
-        field.dispatchEvent(new CustomEvent('sharedwith:change', { bubbles: true }));
     }
 
     function announce(message) {
@@ -370,9 +369,11 @@ const SharedWithField = (function () {
         listbox.hidden = false;
         search.setAttribute('aria-expanded', 'true');
         activeIndex = -1;
+        // Started before the first render, so the list says "Loading people…" meanwhile
+        const loaded = candidates ? null : loadCandidates();
         renderOptions();
-        if (!candidates) {
-            loadCandidates().then(() => {
+        if (loaded) {
+            loaded.then(() => {
                 if (isOpen()) {
                     renderOptions();
                     // Typed while the people were loading: the first match is ready for Enter
