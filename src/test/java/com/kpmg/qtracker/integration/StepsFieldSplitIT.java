@@ -364,7 +364,57 @@ class StepsFieldSplitIT {
         assertThat(fieldAuthors(control, ControlStepsFields.OPERATOR_PROGRAM_LABEL)).isEmpty();
     }
 
-    // ------------------------------------------------------------------ Submit to SoQM    // ------------------------------------------------------------------ Submit to SoQM
+    // ------------------------------------------------------------------ attachments
+
+    @Test
+    void controlOperatorInReview_attachesDocuments_onBothTabs_andDeletesTheirOwn_onlyOnTheirStep() throws Exception {
+        Control control = control("IN_PROGRESS", fac.getMail(), op.getMail() + ";" + readOnly.getMail(), "Steps", null);
+        MockHttpSession opSession = login(op);
+
+        // Not their step yet
+        assertThat(upload(control, opSession, "attachmentDetails", "too-early.pdf").getResponse().getStatus()).isEqualTo(403);
+
+        setStatus(control, "REVIEW");
+        MvcResult details = upload(control, opSession, "attachmentDetails", "operator-evidence.pdf");
+        assertThat(details.getResponse().getStatus()).isEqualTo(200);
+        String detailsFile = objectMapper.readTree(details.getResponse().getContentAsString()).path("detailsFiles").asText();
+        MvcResult documents = upload(control, opSession, "attachmentDocuments", "operator-sample.pdf");
+        assertThat(documents.getResponse().getStatus()).isEqualTo(200);
+        String documentsFile = objectMapper.readTree(documents.getResponse().getContentAsString()).path("documentsFiles").asText();
+        Control stored = controlRepository.findById(control.getId()).orElseThrow();
+        assertThat(stored.getAttachmentDetailsPath()).contains(detailsFile);
+        assertThat(stored.getAttachmentDocumentsPath()).contains(documentsFile);
+
+        // Their own files are theirs to delete while the step is theirs; everyone who sees the control downloads them
+        JsonNode info = json(get("/api/attachments/info/{id}", control.getId()), opSession);
+        assertThat(info.path("deletableDetails").toString()).contains(detailsFile);
+        for (User reader : List.of(fac, soqm, po)) {
+            assertThat(perform(get("/api/attachments/download/{name}", detailsFile)
+                    .param("controlId", String.valueOf(control.getId())), login(reader)).getResponse().getStatus())
+                    .as(reader.getMail()).isEqualTo(200);
+        }
+        assertThat(perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .delete("/api/attachments/delete/{id}", control.getId()).with(csrf().asHeader())
+                .param("filename", documentsFile).param("type", "documents"), opSession).getResponse().getStatus())
+                .isEqualTo(200);
+
+        // Listed as Control Operator but Read Only: no upload
+        assertThat(upload(control, login(readOnly), "attachmentDetails", "read-only.pdf").getResponse().getStatus()).isEqualTo(403);
+
+        // Submitted: the step is over
+        setStatus(control, "SOQM_HEAD_REVIEW");
+        assertThat(upload(control, opSession, "attachmentDetails", "too-late.pdf").getResponse().getStatus()).isEqualTo(403);
+    }
+
+    private MvcResult upload(Control control, MockHttpSession session, String tab, String name) throws Exception {
+        return perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .multipart("/api/attachments/upload/{id}", control.getId())
+                .file(new org.springframework.mock.web.MockMultipartFile(tab, name, "application/pdf",
+                        "%PDF-1.4 operator".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                .with(csrf().asHeader()), session);
+    }
+
+    // ------------------------------------------------------------------ Submit to SoQM
 
     @Test
     void submitToSoqm_needsNoOperatorsProgram_differentPeopleOrOne() throws Exception {
