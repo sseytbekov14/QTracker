@@ -77,12 +77,17 @@ public interface ControlAssignmentRepository extends JpaRepository<ControlAssign
     boolean existsByControlIdAndOperationDate(@Param("controlId") String controlId,
                                               @Param("operationDate") LocalDate operationDate);
 
+    /**
+     * A cycle of this base control on this day already exists: its ID is the base itself, the base with a "_"
+     * suffix (older IDs) or the base with "/FY../location/period" (ControlIdGeneratorService, maybe with "(n)").
+     */
     @Query(value = """
             SELECT COUNT(*) > 0
             FROM controls c
             WHERE c.control_operation_date = :operationDate
               AND (c.control_id = :baseIdExact
-                   OR c.control_id LIKE CONCAT(:baseIdLike, '\\_%') ESCAPE '\\')
+                   OR c.control_id LIKE CONCAT(:baseIdLike, '\\_%') ESCAPE '\\'
+                   OR c.control_id LIKE CONCAT(:baseIdLike, '/%') ESCAPE '\\')
             """, nativeQuery = true)
     boolean existsByBaseControlIdAndOperationDate(@Param("baseIdExact") String baseIdExact,
                                                   @Param("baseIdLike") String baseIdLike,

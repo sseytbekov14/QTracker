@@ -5,7 +5,6 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.ControlAutoCreationService;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpSession;
@@ -134,7 +133,6 @@ class ReleaseScenarioScheduleIT extends ReleaseScenarioSupport {
     // ---- the next cycle ----
 
     @Test
-    @Disabled("D-06 (S2): a second run of the day creates the cycle again (ID ...(1)); fixed in a later commit")
     void theNextCycle_isCreatedOnItsDay_once_evenWhenTheRunRepeats() throws Exception {
         LocalDate day = uniqueDay();
         Control monthly = cycleSource("Monthly", day, "ACTIVE", "IN_PROGRESS");
