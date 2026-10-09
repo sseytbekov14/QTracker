@@ -44,6 +44,9 @@ public class PermissionController {
             permissions.put("canUseWorkflowActions", permission.canUseWorkflowActions());
             permissions.put("allowedEditableFields", permission.getAllowedEditableFields());
             permissions.put("isSharedViewer", permission.isSharedViewer());
+            // A completed control: locked for the user, or changed in place by SoQM Team (AccessPolicy.isLocked)
+            permissions.put("locked", permission.isLocked());
+            permissions.put("completedEdit", permission.isCompletedEdit());
 
             Map<String, Object> response = new HashMap<>();
             response.put("controlId", controlId);

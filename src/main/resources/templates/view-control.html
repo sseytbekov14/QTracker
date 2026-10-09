@@ -447,6 +447,9 @@
 <input type="hidden" id="isSharedViewer" th:value="${isSharedViewer}">
 <input type="hidden" id="canUseWorkflowActions" th:value="${canUseWorkflowActions}">
 <input type="hidden" id="allowedEditableFields" th:value="${allowedEditableFieldsCsv}">
+<!-- A completed control: locked for this user, or changed in place by SoQM Team (AccessPolicy.isLocked) -->
+<input type="hidden" id="controlLocked" th:value="${completedLocked}">
+<input type="hidden" id="completedEdit" th:value="${completedEdit}">
 
 <div class="container-fluid">
     <div class="row">
@@ -1568,9 +1571,9 @@
                             <div class="modal-body">
                                 <p class="soqm-move-now">
                                     Now: <strong th:text="${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">In Progress</strong>.
-                                    <span th:unless="${completedLocked}">As SoQM Team you can make the step of any Control role: on to the next status or back to an earlier one.</span>
+                                    <span th:unless="${completedControl}">As SoQM Team you can make the step of any Control role: on to the next status or back to an earlier one.</span>
                                 </p>
-                                <p class="soqm-move-now" th:if="${completedLocked}" id="soqmMoveCompletedNote">
+                                <p class="soqm-move-now" th:if="${completedControl}" id="soqmMoveCompletedNote">
                                     A completed control is locked for everyone. Returning it keeps its values, its deadline
                                     and the completion in the history; it can be changed again from the step it goes back to.
                                 </p>
@@ -1647,7 +1650,7 @@
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=3"></script>
-<script src="/js/view-control.js?v=7.1"></script>
+<script src="/js/view-control.js?v=7.2"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows

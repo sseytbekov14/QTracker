@@ -227,6 +227,14 @@ class ReopenCompletedIT {
                 .andExpect(status().isForbidden())
                 .andExpect(content().string(containsString(AccessPolicy.LOCKED_MESSAGE)));
 
+        // View Control reads the same rule (AccessPolicy.isLocked) from /api/permissions
+        for (User user : List.of(soqm, owner, shared)) {
+            mockMvc.perform(as(user, get("/api/permissions/{id}", control.getId()), null))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.permissions.locked").value(true))
+                    .andExpect(jsonPath("$.permissions.completedEdit").value(false));
+        }
+
         Control unchanged = controlRepository.findById(control.getId()).orElseThrow();
         assertThat(unchanged.getControlDescription()).isNull();
         assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getControlStepsPerformed())

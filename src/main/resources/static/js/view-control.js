@@ -50,6 +50,8 @@ const viewControl = (function() {
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
+                locked: document.getElementById('controlLocked')?.value === 'true',
+                completedEdit: document.getElementById('completedEdit')?.value === 'true',
                 allowedEditableFields: allowedEditableFields
             };
             return;
@@ -77,6 +79,8 @@ const viewControl = (function() {
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
+                locked: Boolean(permissions.locked),
+                completedEdit: Boolean(permissions.completedEdit),
                 allowedEditableFields: allowedEditableFields
             };
         } catch (error) {
@@ -97,6 +101,8 @@ const viewControl = (function() {
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
+                locked: document.getElementById('controlLocked')?.value === 'true',
+                completedEdit: document.getElementById('completedEdit')?.value === 'true',
                 allowedEditableFields: allowedEditableFields
             };
         }
@@ -2885,6 +2891,12 @@ function saveDocumentsData(controlId) {
                 console.log('Is SoQM Team for this control:', isSoqmLeadFlag);
                 console.log('Is Process Owner for this control:', isProcessOwnerFlag);
 
+                // A completed control the user may not change (AccessPolicy.isLocked, from /api/permissions)
+                if (window.qtrackerPermissions && window.qtrackerPermissions.locked) {
+                    lockControlForm();
+                    return;
+                }
+
                 if (hasFullEditRights()) {
                     console.log('Full edit rights (SoQM, admin) - editing enabled for all statuses');
                     return;
@@ -2938,16 +2950,6 @@ function saveDocumentsData(controlId) {
                         } else {
                             // For non-Process Owners, lock the control
                             console.log('рџ”’ Control in PROCESS_OWNER_REVIEW - locking for non-Process Owner');
-                            lockControlForm();
-                        }
-                    } else if (workflowStatus === 'COMPLETED') {
-                        // Check if user is shared viewer and allow field-level edit
-                        const isSharedViewerFlag = document.getElementById('isSharedViewer')?.value === 'true';
-                        if (isSharedViewerFlag) {
-                            console.log('вњ… Shared viewer on COMPLETED control - field-level edit via permissions');
-                            // Keep the Edit button visible; permissions still restrict editable fields.
-                        } else {
-                            console.log('рџ”’ Control COMPLETED - locking form');
                             lockControlForm();
                         }
                     } else {

@@ -20,6 +20,7 @@ public final class ControlPermission {
     private final boolean soqmLead;
     private final boolean processOwner;
     private final boolean locked;
+    private final boolean completedEdit;
 
     public ControlPermission(boolean canView,
                              boolean canEdit,
@@ -32,12 +33,13 @@ public final class ControlPermission {
                              boolean soqmLead,
                              boolean processOwner) {
         this(canView, canEdit, allowedEditableFields, canUseWorkflowActions, canEditAll, sharedViewer,
-                facilitator, controlOperator, soqmLead, processOwner, false);
+                facilitator, controlOperator, soqmLead, processOwner, false, false);
     }
 
     /**
-     * @param soqmLead the user is SoQM: performs the SoQM steps, acts for the others, renames, reopens
-     * @param locked   a completed control: nobody edits it ({@link AccessPolicy#isLocked})
+     * @param soqmLead      the user is SoQM: performs the SoQM steps, acts for the others, renames, reopens
+     * @param locked        a completed control the user may not change ({@link AccessPolicy#isLocked})
+     * @param completedEdit a completed control the user changes in place ({@link AccessPolicy#editsAfterCompletion})
      */
     public ControlPermission(boolean canView,
                              boolean canEdit,
@@ -49,7 +51,8 @@ public final class ControlPermission {
                              boolean controlOperator,
                              boolean soqmLead,
                              boolean processOwner,
-                             boolean locked) {
+                             boolean locked,
+                             boolean completedEdit) {
         this.canView = canView;
         this.canEdit = canEdit;
         this.allowedEditableFields = Collections.unmodifiableSet(
@@ -63,6 +66,7 @@ public final class ControlPermission {
         this.soqmLead = soqmLead;
         this.processOwner = processOwner;
         this.locked = locked;
+        this.completedEdit = completedEdit;
     }
 
     public static ControlPermission denied() {
@@ -124,9 +128,19 @@ public final class ControlPermission {
         return allowedEditableFields.contains(FIELD_CONTROL_STEPS_PERFORMED);
     }
 
-    /** A completed control: no edit by anyone until SoQM returns it ({@link AccessPolicy#LOCKED_MESSAGE}). */
+    /** A completed control the user may not change ({@link AccessPolicy#isLocked}, {@link AccessPolicy#LOCKED_MESSAGE}). */
     public boolean isLocked() {
         return locked;
+    }
+
+    /** A completed control the user changes in place, as SoQM Team ({@link AccessPolicy#editsAfterCompletion}). */
+    public boolean isCompletedEdit() {
+        return completedEdit;
+    }
+
+    /** The control is completed: locked for the user, or changed in place by them. */
+    public boolean isCompleted() {
+        return locked || completedEdit;
     }
 
     /** Why the user may not change the control: the completed-control rule first, else the given message. */

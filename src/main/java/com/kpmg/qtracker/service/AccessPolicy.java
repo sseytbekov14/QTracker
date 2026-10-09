@@ -450,13 +450,27 @@ public final class AccessPolicy {
         return fields;
     }
 
+    /** A completed control: the status after Process Owner's Complete, until SoQM returns it. */
+    public static boolean isCompleted(ControlFacts control) {
+        return control != null && control.completed();
+    }
+
     /**
      * The one rule for completed controls (spec 9.5, business decision 4): nobody edits one, SoQM included -
      * no field, assignment, document or attachment change. SoQM returns it to an earlier status first
      * ({@link #soqmTargets}); renaming its Control ID is not an edit of its content and stays allowed.
+     * Every check of the lock - the save endpoints, /api/permissions, View Control - reads it from here,
+     * through {@link ControlPermission#isLocked}.
      */
-    public static boolean isLocked(ControlFacts control) {
-        return control != null && control.completed();
+    public static boolean isLocked(Subject subject, ControlFacts control) {
+        return isCompleted(control);
+    }
+
+    /**
+     * SoQM Team changing a completed control in place, without returning it: none yet ({@link #isLocked}).
+     */
+    public static boolean editsAfterCompletion(Subject subject, ControlFacts control) {
+        return isCompleted(control) && isSoqm(subject) && !isLocked(subject, control);
     }
 
     public static final String LOCKED_MESSAGE =
@@ -470,9 +484,9 @@ public final class AccessPolicy {
         }
         boolean writer = mayWrite(subject);
         boolean soqm = isSoqm(subject);
-        boolean locked = isLocked(control);
+        boolean locked = isLocked(subject, control);
         boolean canEditAll = soqm && !locked;
-        Set<String> fields = locked ? Set.of() : participantFields(subject, control);
+        Set<String> fields = isCompleted(control) ? Set.of() : participantFields(subject, control);
         return new ControlPermission(
                 true,
                 canEditAll || !fields.isEmpty(),
@@ -484,7 +498,8 @@ public final class AccessPolicy {
                 actsAsParticipant(subject, control, control.controlOperator()),
                 soqm,
                 actsAsParticipant(subject, control, control.processOwner()),
-                locked);
+                locked,
+                editsAfterCompletion(subject, control));
     }
 
     /**

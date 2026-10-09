@@ -1017,13 +1017,16 @@ public class ViewController {
         // Read Only / KDN, or a User with Edit who is not assigned: a notice instead of buttons the server refuses
         model.addAttribute("accessNotice", AccessPolicy.notice(AccessPolicy.Subject.of(currentUser), permission).name());
 
-        // Rename ID: SoQM, also on a completed control, which nobody edits otherwise (AccessPolicy.isLocked)
+        // Rename ID: SoQM, also on a completed control (not an edit of it, AccessPolicy.canRenameId)
         model.addAttribute("canRenameId", AccessPolicy.canRenameId(permission));
         // The "KDN control" mark in the header and the hint at the Control ID, for SoQM Team
         model.addAttribute("kdnControlMark", AccessPolicy.seesKdnMark(AccessPolicy.Subject.of(currentUser))
                 && AccessPolicy.isKdnControl(control.getControlId()));
         model.addAttribute("kdnIdHint", RoleDisplayMapper.KDN_ID_HINT);
+        // A completed control (AccessPolicy.isLocked): locked for the user, or changed in place by SoQM Team
         model.addAttribute("completedLocked", permission.isLocked());
+        model.addAttribute("completedEdit", permission.isCompletedEdit());
+        model.addAttribute("completedControl", permission.isCompleted());
 
         // Control Shared With: each person with what the place gives them (AccessPolicy.sharedAccess); the marks
         // (Disabled, Not in the system, ...) for SoQM Team, who change the list

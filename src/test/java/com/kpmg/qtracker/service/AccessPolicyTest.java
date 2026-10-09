@@ -318,6 +318,24 @@ class AccessPolicyTest {
     }
 
     @Test
+    void theLockRule_isOnePlace_whatThePermissionSaysIsWhatThePolicySays() {
+        for (String user : List.of("SOQM", "PART", "PART_ALL", "RO", "RO_ALL", "KDN")) {
+            for (String status : List.of("DRAFT", "IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW", "COMPLETED")) {
+                AccessPolicy.ControlFacts facts = control(status, true, "F+CO+PO+SHARED");
+                ControlPermission p = AccessPolicy.resolve(who(user), facts);
+                String as = user + " " + status;
+                assertThat(AccessPolicy.isCompleted(facts)).as(as).isEqualTo("COMPLETED".equals(status));
+                assertThat(p.isLocked()).as(as).isEqualTo(AccessPolicy.isLocked(who(user), facts));
+                assertThat(p.isCompletedEdit()).as(as).isEqualTo(AccessPolicy.editsAfterCompletion(who(user), facts));
+                assertThat(p.isCompleted()).as(as).isEqualTo(AccessPolicy.isCompleted(facts));
+                assertThat(p.isLocked() && p.isCompletedEdit()).as(as).isFalse();
+            }
+        }
+        assertThat(AccessPolicy.isCompleted(null)).isFalse();
+        assertThat(ControlPermission.denied().isCompleted()).isFalse();
+    }
+
+    @Test
     void soqmTargets_areTheNextStatusAndEveryEarlierWorkingOne() {
         assertThat(AccessPolicy.soqmTargets("DRAFT")).isEmpty();
         assertThat(AccessPolicy.soqmTargets("IN_PROGRESS")).containsExactly("REVIEW");
