@@ -569,8 +569,8 @@ class StepsFieldSplitIT {
                 .contains("id=\"operatorReviewRow\"")
                 .contains("id=\"controlOperatorReview\"")
                 .contains(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<")
-                .contains("<span class=\"steps-field-owner\">Facilitator</span>")
-                .doesNotContain("<span class=\"steps-field-owner\">Control Operator</span>")
+                // Both labels are the field's name only, no role next to it
+                .doesNotContain("steps-field-owner")
                 .doesNotContain("id=\"stepsSplit\"")
                 .doesNotContain("id=\"operatorProgramRequired\"")
                 .contains("id=\"allowedEditableFields\" value=\"controlStepsPerformed\"")
@@ -616,8 +616,8 @@ class StepsFieldSplitIT {
         assertThat(operatorPage).contains("name=\"controlStepsPerformed\"")
                 .contains("id=\"controlOperatorReview\"")
                 .contains(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<")
-                .contains("<span class=\"steps-field-owner\">Facilitator</span>")
-                .doesNotContain("<span class=\"steps-field-owner\">Control Operator</span>")
+                // Both labels are the field's name only, no role next to it
+                .doesNotContain("steps-field-owner")
                 .doesNotContain("id=\"operatorReviewSubmitHint\"")
                 .doesNotContain("id=\"stepsSplit\"")
                 .doesNotContain("id=\"operatorProgramRequired\"")
@@ -656,9 +656,13 @@ class StepsFieldSplitIT {
                 assertThat(at).as(reader.getMail() + ": " + field + " after the field before it").isGreaterThan(previous);
                 previous = at;
             }
-            // The Program's label is its name only, no role next to it
+            // Both steps fields' labels are their names only, no role next to them (In Progress: no step mark for
+            // these viewers)
             assertThat(page).contains("<label class=\"form-label\" for=\"controlOperatorReview\"><span>"
-                    + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "</span></label>");
+                    + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "</span></label>")
+                    .contains("<label class=\"form-label\" for=\"controlStepsPerformed\"><span>"
+                            + ControlStepsFields.STEPS_LABEL + "</span></label>")
+                    .doesNotContain("steps-field-owner");
         }
     }
 

@@ -126,20 +126,6 @@
             background-color: #f7f8fa !important;
         }
 
-        /* Who fills each steps field in: the Facilitator, the Control Operator */
-        .steps-field-owner {
-            color: var(--text-muted, #6c757d);
-            font-size: 0.8125rem;
-            font-weight: 400;
-            letter-spacing: normal;
-            text-transform: none;
-            white-space: nowrap;
-        }
-
-        .steps-field-owner::before {
-            content: "\00b7";
-            margin: 0 0.375rem;
-        }
         
         .role-restricted-label {
             position: relative;
@@ -776,7 +762,7 @@
                                 <div class="row">
                                     <div class="col-12 mb-3">
                                         <label class="form-label" for="controlStepsPerformed"><span th:text="${stepsLabel}">Control Steps Performed and Results</span><span class="step-required-mark" aria-hidden="true"
-                                                th:if="${stepField != null and stepField.required() and stepField.field() == 'controlStepsPerformed'}">&nbsp;*</span><span class="steps-field-owner">Facilitator</span></label>
+                                                th:if="${stepField != null and stepField.required() and stepField.field() == 'controlStepsPerformed'}">&nbsp;*</span></label>
                                         <textarea class="form-control" id="controlStepsPerformed" name="controlStepsPerformed" rows="8" maxlength="2000"
                                                   placeholder="Describe control steps and results"></textarea>
                                         <div class="required-hint d-none" id="controlStepsSubmitHint">
