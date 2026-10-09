@@ -1,12 +1,18 @@
 package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.security.LoginNameResolver;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.logout.CookieClearingLogoutHandler;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -50,9 +56,15 @@ public class AuthController {
         return MSG_BAD_CREDENTIALS;
     }
 
+    /**
+     * The Logout link of the sidebar: ends the server session (and with it the Spring Security sign-in) and
+     * forgets the CSRF token, like the POST /logout of Spring Security; an old session cookie then opens nothing.
+     */
     @GetMapping("/logout")
-    public String logout(HttpSession session) {
-        session.removeAttribute("currentUser");
+    public String logout(HttpServletRequest request, HttpServletResponse response) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        new CookieClearingLogoutHandler("XSRF-TOKEN").logout(request, response, authentication);
+        new SecurityContextLogoutHandler().logout(request, response, authentication);
         return "redirect:/login";
     }
 }

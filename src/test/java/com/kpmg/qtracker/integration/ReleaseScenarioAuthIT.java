@@ -123,7 +123,6 @@ class ReleaseScenarioAuthIT extends ReleaseScenarioSupport {
     // ---- signing out, the session, CSRF ----
 
     @Test
-    @Disabled("D-01 (S2): GET /logout keeps the server session and its Spring Security sign-in; fixed in the next commit")
     void theLogoutLinkOfTheSidebar_endsTheSession_nothingOpensWithItAfterwards() throws Exception {
         User user = myEdit("logout");
         Control control = control("RS-OUT", "IN_PROGRESS", people().facilitator(user));
