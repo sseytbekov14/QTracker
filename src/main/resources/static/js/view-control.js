@@ -1476,7 +1476,8 @@ function saveControlData(controlId) {
         // A blank choice ("Not set") leaves the stored year as it is
         soqmYear: isBlankValue(getControlValue('[name="soqmYear"]')) ? null : getControlValue('[name="soqmYear"]'),
         controlDescription: getControlValue('[name="controlDescription"]'),
-        prp: getControlValue('[name="prp"]')
+        prp: getControlValue('[name="prp"]'),
+        editReason: completedEditReasonForSave()
     };
 
     console.log('Control data to send:', controlData);
@@ -1625,6 +1626,7 @@ function saveControlData(controlId) {
         if (editBtn) editBtn.classList.add('d-none');
 
         makeAllFormsEditable();
+        lockCompletedFixedFields();
         // Control Shared With: SoQM Team adds and removes people
         if (typeof SharedWithField !== 'undefined') {
             SharedWithField.setEditing(fullEditEnabled);
@@ -1645,6 +1647,7 @@ function saveControlData(controlId) {
 
     function switchToReadOnlyMode() {
         restoreFromEditModeSnapshot();
+        window.qtrackerCompletedEditReason = null;
         document.body.classList.remove('edit-mode-active');
 
         const actionButtons = document.querySelector('.action-buttons');
@@ -2113,7 +2116,8 @@ function saveAssignmentData(controlId) {
         soqmLead: soqmLead,
         processOwner: processOwner,
         controlSharedWith: controlSharedWith,
-        controlOperationDate: controlOperationDate
+        controlOperationDate: controlOperationDate,
+        editReason: completedEditReasonForSave()
     };
 
     console.log('рџ“¤ Sending assignment data:', assignmentData);
@@ -2201,6 +2205,7 @@ function saveDetailsData(controlId) {
     if (!detailsData) {
         return Promise.reject(new Error('Details form not found'));
     }
+    detailsData.editReason = completedEditReasonForSave();
 
     console.log('Details data to send:', detailsData);
 
@@ -2269,7 +2274,8 @@ function saveDocumentsData(controlId) {
 
     const documentsData = {
         controlId: parseInt(controlId),
-        soqmDevelopmentMaterials: getDocumentsValue('[name="soqmDevelopmentMaterials"]')
+        soqmDevelopmentMaterials: getDocumentsValue('[name="soqmDevelopmentMaterials"]'),
+        editReason: completedEditReasonForSave()
     };
 
     console.log('Documents data to send:', documentsData);
@@ -2562,6 +2568,14 @@ function saveDocumentsData(controlId) {
                     }
                     if (!(await confirmPastOperationDate())) {
                         return;
+                    }
+                    // A completed control changed in place: every save says why (CompletedEdit on the server)
+                    if (window.qtrackerPermissions && window.qtrackerPermissions.completedEdit) {
+                        const reason = await askCompletedEditReason();
+                        if (reason === null) {
+                            return;
+                        }
+                        window.qtrackerCompletedEditReason = reason;
                     }
 
                     saveEditBtn.disabled = true;
@@ -2975,6 +2989,99 @@ function saveDocumentsData(controlId) {
 
     };
 })();
+
+// A completed control changed in place keeps its schedule, SoQM Year and Control Status
+// (AccessPolicy.COMPLETED_FIXED_FIELDS): in edit mode those fields stay read-only, described by the hint next to them
+function lockCompletedFixedFields() {
+    if (!(window.qtrackerPermissions && window.qtrackerPermissions.completedEdit)) {
+        return;
+    }
+    document.querySelectorAll('[data-completed-fixed]').forEach(field => {
+        field.disabled = true;
+        field.readOnly = true;
+        field.classList.remove('editable-field', 'editable-select');
+        field.classList.add('readonly-field');
+        field.style.pointerEvents = 'none';
+        const hintId = field.getAttribute('data-completed-fixed');
+        const describedBy = (field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+        if (hintId && document.getElementById(hintId) && !describedBy.includes(hintId)) {
+            describedBy.push(hintId);
+            field.setAttribute('aria-describedby', describedBy.join(' '));
+        }
+    });
+}
+
+// The reason SoQM Team gave for saving a completed control in place; undefined (not sent) for any other save
+function completedEditReasonForSave() {
+    return window.qtrackerCompletedEditReason || undefined;
+}
+
+// SoQM Team saving a completed control in place, or hiding one of its files: the reason every such change needs
+// (CompletedEdit on the server). Resolves with the trimmed reason, or null when the dialog closes without one.
+function askCompletedEditReason(options) {
+    const modalEl = document.getElementById('completedEditReasonModal');
+    if (!modalEl || typeof bootstrap === 'undefined') {
+        return Promise.resolve(null);
+    }
+    const settings = options || {};
+    const title = document.getElementById('completedEditReasonTitle');
+    const intro = document.getElementById('completedEditReasonIntro');
+    const field = document.getElementById('completedEditReason');
+    const confirmBtn = document.getElementById('completedEditReasonConfirm');
+    [title, intro, confirmBtn].forEach(el => {
+        if (el.dataset.defaultText === undefined) {
+            el.dataset.defaultText = el.textContent.replace(/\s+/g, ' ').trim();
+        }
+    });
+    title.textContent = settings.title || title.dataset.defaultText;
+    intro.textContent = settings.intro || intro.dataset.defaultText;
+    confirmBtn.textContent = settings.confirmText || confirmBtn.dataset.defaultText;
+    field.value = '';
+    field.classList.remove('is-invalid');
+    field.removeAttribute('aria-invalid');
+
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    return new Promise(resolve => {
+        let reason = null;
+        const confirm = () => {
+            const value = field.value.trim();
+            if (!value) {
+                field.classList.add('is-invalid');
+                field.setAttribute('aria-invalid', 'true');
+                field.focus();
+                return;
+            }
+            reason = value;
+            modal.hide();
+        };
+        // Ctrl+Enter saves from the text box; Enter alone starts a new line
+        const onKey = event => {
+            if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                event.preventDefault();
+                confirm();
+            }
+        };
+        const onInput = () => {
+            if (field.value.trim()) {
+                field.classList.remove('is-invalid');
+                field.removeAttribute('aria-invalid');
+            }
+        };
+        const onShown = () => field.focus();
+        confirmBtn.addEventListener('click', confirm);
+        field.addEventListener('keydown', onKey);
+        field.addEventListener('input', onInput);
+        modalEl.addEventListener('shown.bs.modal', onShown);
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            confirmBtn.removeEventListener('click', confirm);
+            field.removeEventListener('keydown', onKey);
+            field.removeEventListener('input', onInput);
+            modalEl.removeEventListener('shown.bs.modal', onShown);
+            resolve(reason);
+        }, { once: true });
+        modal.show();
+    });
+}
 
 // Save endpoints answer a refused change with "VALIDATION_ERROR: <reason>"; the user sees only the reason.
 // Global, as the save code both inside and outside the IIFE uses it.

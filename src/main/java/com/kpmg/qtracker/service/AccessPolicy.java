@@ -532,13 +532,18 @@ public final class AccessPolicy {
      * The calm notice on a control's page for someone who sees it but may not change it, so the page shows no
      * button the server would refuse: READ_ONLY for Read Only and KDN (no edit, no step anywhere), NOT_ASSIGNED
      * for a User with Edit who is in none of the Facilitator, Control Operator or Process Owner fields (seeing a
-     * control - All controls, shared, creator - gives no edit and no step). SoQM Team and assigned people: NONE.
+     * control - All controls, shared, creator - gives no edit and no step); COMPLETED for everyone but SoQM Team on
+     * a completed control ({@link #isLocked}), whatever else they may do elsewhere. SoQM Team and assigned people:
+     * NONE (SoQM Team on a completed control has its own banner, View Control's completedEdit).
      */
-    public enum Notice { NONE, READ_ONLY, NOT_ASSIGNED }
+    public enum Notice { NONE, READ_ONLY, NOT_ASSIGNED, COMPLETED }
 
     public static Notice notice(Subject subject, ControlPermission permission) {
         if (permission == null || !permission.canView()) {
             return Notice.NONE;
+        }
+        if (permission.isLocked()) {
+            return Notice.COMPLETED;
         }
         if (!mayWrite(subject) || !permission.canUseWorkflowActions()) {
             return Notice.READ_ONLY;

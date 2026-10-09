@@ -243,7 +243,7 @@ class RoleMatrixIT {
                 }
                 report.append(" |\n");
                 String notice = row.get("Notice");
-                if ("READ_ONLY".equals(notice) || "NOT_ASSIGNED".equals(notice)) {
+                if ("READ_ONLY".equals(notice) || "NOT_ASSIGNED".equals(notice) || "COMPLETED".equals(notice)) {
                     for (String write : WRITES) {
                         if ("ok".equals(row.get(write))) {
                             mismatches.add(status + " | " + who.label() + " | notice " + notice + " but " + write + " is allowed");
@@ -317,9 +317,11 @@ class RoleMatrixIT {
         boolean operatorField = soqmEdits;
 
         return switch (op) {
-            // The page's notice (no buttons the server refuses): Read Only and KDN everywhere, a User with Edit
-            // in no Control role field "not assigned", nobody else; "-" when the page does not open
+            // The page's notice (no buttons the server refuses): a completed control for everyone but SoQM Team,
+            // Read Only and KDN everywhere, a User with Edit in no Control role field "not assigned", nobody else;
+            // "-" when the page does not open
             case "Notice" -> !sees || notYet ? "-"
+                    : completed && !soqm ? "COMPLETED"
                     : !writer ? "READ_ONLY"
                     : soqm || listed ? "NONE" : "NOT_ASSIGNED";
             // The "KDN control" mark on the control's page: SoQM Team only, on a KDN control

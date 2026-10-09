@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=17" rel="stylesheet">
-    <link href="/css/view-control.css?v=23" rel="stylesheet">
+    <link href="/css/view-control.css?v=24" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -537,13 +537,29 @@
                 <!-- Who may only look: a calm notice instead of buttons the server would refuse (AccessPolicy.notice) -->
                 <div class="access-banner" id="accessBanner" role="status" th:if="${accessNotice != 'NONE'}"
                      th:attr="data-notice=${accessNotice}">
-                    <i class="bi" th:classappend="${accessNotice == 'READ_ONLY'} ? 'bi-eye' : 'bi-person-dash'" aria-hidden="true"></i>
+                    <i class="bi" th:classappend="${accessNotice == 'COMPLETED'} ? 'bi-lock'
+                        : (${accessNotice == 'READ_ONLY'} ? 'bi-eye' : 'bi-person-dash')" aria-hidden="true"></i>
                     <div>
-                        <p class="access-banner-title" th:text="${accessNotice == 'READ_ONLY'} ? 'You have read-only access to this control'
-                            : 'You are not assigned to this control'">You have read-only access to this control</p>
-                        <p class="access-banner-text" th:text="${accessNotice == 'READ_ONLY'}
+                        <p class="access-banner-title" th:text="${accessNotice == 'COMPLETED'} ? 'This control is completed and locked'
+                            : (${accessNotice == 'READ_ONLY'} ? 'You have read-only access to this control'
+                            : 'You are not assigned to this control')">You have read-only access to this control</p>
+                        <p class="access-banner-text" th:text="${accessNotice == 'COMPLETED'}
+                            ? 'You can view it, read its history and download its documents. Only SoQM Team can change it.'
+                            : (${accessNotice == 'READ_ONLY'}
                             ? 'You can view it, read its history and download its documents. Editing and workflow steps are not available to you.'
-                            : 'You can view it. Only the people assigned to it edit it and perform its steps; ask SoQM Team if you should be one of them.'">Text</p>
+                            : 'You can view it. Only the people assigned to it edit it and perform its steps; ask SoQM Team if you should be one of them.')">Text</p>
+                    </div>
+                </div>
+
+                <!-- SoQM Team on a completed control: changes in place, each save with a reason (AccessPolicy.editsAfterCompletion) -->
+                <div class="access-banner access-banner-completed-edit" id="completedEditBanner" role="status" th:if="${completedEdit}">
+                    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                    <div>
+                        <p class="access-banner-title">This control is completed. Your changes are recorded with a reason</p>
+                        <p class="access-banner-text">Use Edit (completed control) to change it: it stays Completed, and every save
+                            asks for a reason and shows in the Changelog as &ldquo;Edited after completion&rdquo;. The Control
+                            Operation Date, the frequency, the deadline, the next date, the SoQM Year and the Control Status
+                            stay as they are. To rework it in the workflow, use Move / Return.</p>
                     </div>
                 </div>
 
@@ -578,8 +594,9 @@
                                                th:value="${control.controlId}" name="controlId" id="controlId">
                                     </div>
                                     <div class="col-md-3 mb-3">
-                                        <label class="form-label required-field">Control Frequency</label>
-                                        <select class="form-control readonly-field" name="controlFrequency" readonly th:data-stored-value="${control.controlFrequency}">
+                                        <label class="form-label required-field" for="controlFrequency">Control Frequency</label>
+                                        <select class="form-control readonly-field" name="controlFrequency" id="controlFrequency" readonly th:data-stored-value="${control.controlFrequency}"
+                                                data-completed-fixed="controlFrequencyFixedHint">
                                             <option value="">Select Frequency</option>
                                             <option value="Monthly" th:selected="${control.controlFrequency == 'Monthly'}">Monthly</option>
                                             <option value="Quarterly" th:selected="${control.controlFrequency == 'Quarterly'}">Quarterly</option>
@@ -589,6 +606,9 @@
                                             <option value="Annual" th:selected="${control.controlFrequency == 'Annual' or control.controlFrequency == 'Annually'}">Annual</option>
                                             <option value="Semi Annual" th:selected="${control.controlFrequency == 'Semi Annual' or control.controlFrequency == 'Semi-annually'}">Semi Annual</option>
                                         </select>
+                                        <div class="completed-fixed-hint" id="controlFrequencyFixedHint" th:if="${completedEdit}">
+                                            <i class="bi bi-lock" aria-hidden="true"></i> Stays as it is on a completed control
+                                        </div>
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label">Control Category</label>
@@ -639,14 +659,18 @@
                                         </select>
                                     </div>
                                     <div class="col-md-3 mb-3">
-                                        <label class="form-label">Control Status</label>
-                                        <select class="form-control readonly-field" name="controlStatus" readonly th:data-stored-value="${control.controlStatus}">
+                                        <label class="form-label" for="controlStatusSelect">Control Status</label>
+                                        <select class="form-control readonly-field" name="controlStatus" id="controlStatusSelect" readonly th:data-stored-value="${control.controlStatus}"
+                                                data-completed-fixed="controlStatusFixedHint">
                                             <option value="">Select Status</option>
                                             <option value="NOT_APPLICABLE" th:selected="${control.controlStatus == 'NOT_APPLICABLE'}">Not Applicable</option>
                                             <option value="ACTIVE" th:selected="${control.controlStatus == 'ACTIVE'}">Active</option>
                                             <option value="DELETED" th:selected="${control.controlStatus == 'DELETED'}">Deleted</option>
                                             <option value="SUPERSEDED" th:selected="${control.controlStatus == 'SUPERSEDED'}">Superseded</option>
                                         </select>
+                                        <div class="completed-fixed-hint" id="controlStatusFixedHint" th:if="${completedEdit}">
+                                            <i class="bi bi-lock" aria-hidden="true"></i> Stays as it is on a completed control
+                                        </div>
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field">Priority</label>
@@ -671,11 +695,15 @@
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label" for="soqmYear">SoQM Year</label>
-                                        <select class="form-control readonly-field" name="soqmYear" id="soqmYear" readonly th:data-stored-value="${control.soqmYear}">
+                                        <select class="form-control readonly-field" name="soqmYear" id="soqmYear" readonly th:data-stored-value="${control.soqmYear}"
+                                                data-completed-fixed="soqmYearFixedHint">
                                             <option value="" th:unless="${#lists.contains(soqmYearOptions, control.soqmYear)}">Not set</option>
                                             <option th:each="year : ${soqmYearOptions}" th:value="${year}" th:text="${year}"
                                                     th:selected="${year == control.soqmYear}">1 OCT 2026 - 30 SEP 2027</option>
                                         </select>
+                                        <div class="completed-fixed-hint" id="soqmYearFixedHint" th:if="${completedEdit}">
+                                            <i class="bi bi-lock" aria-hidden="true"></i> Stays as it is on a completed control
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1003,10 +1031,11 @@
 
                                 <div class="row">
                                     <div class="col-md-4 mb-3">
-                                        <label class="form-label required-field">Control Operation Date</label>
+                                        <label class="form-label required-field" for="controlOperationDate">Control Operation Date</label>
                                         <input type="text" class="form-control" name="controlOperationDate"
                                                id="controlOperationDate" placeholder="dd.mm.yyyy" inputmode="numeric"
-                                               aria-describedby="controlOperationDateFeedback" data-date-picker>
+                                               aria-describedby="controlOperationDateFeedback" data-date-picker
+                                               data-completed-fixed="scheduleFixedHint">
                                         <div class="invalid-feedback" id="controlOperationDateFeedback">Enter the date as dd.mm.yyyy</div>
                                     </div>
                                     <div class="col-md-4 mb-3">
@@ -1027,6 +1056,10 @@
                                                readonly
                                                style="background-color: #f7f8fa; pointer-events: none;">
                                     </div>
+                                </div>
+                                <div class="completed-fixed-hint mb-3" id="scheduleFixedHint" th:if="${completedEdit}">
+                                    <i class="bi bi-lock" aria-hidden="true"></i> The Control Operation Date, the deadline and the next date
+                                    stay as they are on a completed control; changing the people does not move them.
                                 </div>
                             </div>
                         </form>
@@ -1281,7 +1314,9 @@
 
                             <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Back</button>
                             <button class="btn" id="editBtn"
-                                    th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or canEditAll)}">
+                                    th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or canEditAll)}"
+                                    th:text="${completedEdit} ? 'Edit (completed control)' : 'Edit'"
+                                    th:attr="aria-describedby=${completedEdit} ? 'completedEditBanner' : null">
                                 Edit
                             </button>
                         </div>
@@ -1616,6 +1651,34 @@
                     </div>
                 </div>
 
+                <!-- SoQM Team saving a completed control in place, or hiding one of its files: the reason (CompletedEdit) -->
+                <div class="modal fade" id="completedEditReasonModal" tabindex="-1" th:if="${completedEdit}"
+                     aria-labelledby="completedEditReasonTitle" aria-describedby="completedEditReasonIntro">
+                    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="completedEditReasonTitle">Save changes to a completed control</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="completed-edit-intro" id="completedEditReasonIntro">The control stays Completed. The
+                                    Changelog shows your changes as &ldquo;Edited after completion&rdquo;, with your name and this reason.</p>
+                                <label for="completedEditReason" class="form-label">Reason
+                                    <span class="text-danger" aria-hidden="true">*</span></label>
+                                <textarea class="form-control" id="completedEditReason" rows="3" maxlength="500" required
+                                          aria-required="true" aria-describedby="completedEditReasonHelp completedEditReasonError"
+                                          placeholder="Why the completed control changes"></textarea>
+                                <div class="form-text" id="completedEditReasonHelp">Required, up to 500 characters.</div>
+                                <div class="invalid-feedback" id="completedEditReasonError">Enter the reason for this change.</div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="completedEditReasonConfirm">Save changes</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Modal for Complete Control confirmation -->
                 <div class="modal fade" id="completeControlModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
@@ -1650,7 +1713,7 @@
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=3"></script>
-<script src="/js/view-control.js?v=7.3"></script>
+<script src="/js/view-control.js?v=7.4"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
@@ -2173,6 +2236,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const encodedFile = encodeURIComponent(rawName);
             const downloadHref = `/api/attachments/download/${encodedFile}?controlId=${controlIdVal}`;
             const canDelete = Boolean(deletableNames && deletableNames.has(rawName.trim()));
+            // On a completed control a delete only hides the file (FileAttachmentController)
+            const deleteLabel = window.qtrackerPermissions && window.qtrackerPermissions.completedEdit ? 'Hide file' : 'Delete file';
             html += `<div class="kpmg-file-card">
                 <div class="kpmg-file-card-icon ${icon.cls}">${icon.svg}</div>
                 <span class="kpmg-file-card-name" title="${displayName}">${displayName}</span>
@@ -2181,7 +2246,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <a href="${downloadHref}" class="kpmg-file-card-btn download-btn" download data-filename="${escapeHtml(rawName)}" title="Download file">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     </a>
-                    ${canDelete ? `<button type="button" class="kpmg-file-card-btn delete-btn kpmg-file-delete" data-file="${encodedFile}" data-type="${type}" title="Delete file">
+                    ${canDelete ? `<button type="button" class="kpmg-file-card-btn delete-btn kpmg-file-delete" data-file="${encodedFile}" data-type="${type}" title="${deleteLabel}" aria-label="${deleteLabel}: ${displayName}">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                     </button>` : ''}
                 </div>
@@ -2309,6 +2374,10 @@ document.addEventListener('DOMContentLoaded', function() {
             hasFiles = true;
         }
         if (!hasFiles) return Promise.resolve();
+        // A completed control changed in place: the reason given at Save (CompletedEdit)
+        if (window.qtrackerCompletedEditReason) {
+            formData.append('editReason', window.qtrackerCompletedEditReason);
+        }
 
         const totalBytes = [...(detailsInput?.files || []), ...(documentsInput?.files || [])]
             .reduce((sum, f) => sum + f.size, 0);
@@ -2385,10 +2454,21 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const file = btn.getAttribute('data-file');
         const type = btn.getAttribute('data-type');
+        // A completed control changed in place only hides the file, with a reason (CompletedEdit)
+        let reasonParam = '';
+        if (window.qtrackerPermissions && window.qtrackerPermissions.completedEdit) {
+            const reason = await askCompletedEditReason({
+                title: 'Hide this file',
+                intro: 'Nobody sees or downloads the file any more; it is kept for the records. The control stays Completed and the Changelog shows the change as \u201cEdited after completion\u201d, with your name and this reason.',
+                confirmText: 'Hide file'
+            });
+            if (reason === null) return;
+            reasonParam = '&editReason=' + encodeURIComponent(reason);
+        }
         try {
-            const resp = await fetch(`/api/attachments/delete/${controlId}?filename=${file}&type=${type}`, { method: 'DELETE' });
+            const resp = await fetch(`/api/attachments/delete/${controlId}?filename=${file}&type=${type}${reasonParam}`, { method: 'DELETE' });
             const data = await resp.json();
-            if (data.success) { loadExistingAttachments(); showToast('File deleted.', 'success', 2500); }
+            if (data.success) { loadExistingAttachments(); showToast((data.message || 'File deleted') + '.', 'success', 2500); }
             else { showToast(data.message || 'Failed to delete file', 'error'); }
         } catch (err) { showToast('Failed to delete file: ' + err.message, 'error'); }
     });

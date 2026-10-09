@@ -606,6 +606,28 @@ class AccessPolicyTest {
         }
     }
 
+    @ParameterizedTest(name = "{0} {1}")
+    @CsvSource({
+            "PART,     F+CO+PO",
+            "PART,     SHARED",
+            "PART_ALL, -",
+            "RO,       SHARED",
+            "RO_ALL,   -",
+            "KDN,      PO",
+    })
+    void notice_onACompletedControl_isCompleted_forEveryoneButSoqm(String user, String places) {
+        ControlFacts c = control("COMPLETED", true, places);
+        ControlPermission p = AccessPolicy.resolve(who(user), c);
+        assertThat(AccessPolicy.notice(who(user), p)).isEqualTo(AccessPolicy.Notice.COMPLETED);
+        // The server refuses every change and step: they only read it
+        assertThat(p.canEdit()).isFalse();
+        for (String target : List.of("IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW")) {
+            assertThat(AccessPolicy.move(p, "COMPLETED", target)).isEmpty();
+        }
+        assertThat(AccessPolicy.notice(who("SOQM"), AccessPolicy.resolve(who("SOQM"), c)))
+                .isEqualTo(AccessPolicy.Notice.NONE);
+    }
+
     @Test
     void notice_forKdn_isReadOnly_alsoInTheStepFields() {
         Subject kdn = who("KDN");
@@ -744,8 +766,9 @@ class AccessPolicyTest {
                 ControlPermission p = AccessPolicy.resolve(who("KDN"), kdnControl);
                 assertThat(p.canEdit()).as(status + " " + places).isFalse();
                 assertThat(p.canUseWorkflowActions()).as(status + " " + places).isFalse();
+                // A completed control tells them it is locked, like everyone but SoQM Team
                 assertThat(AccessPolicy.notice(who("KDN"), p)).as(status + " " + places)
-                        .isEqualTo(AccessPolicy.Notice.READ_ONLY);
+                        .isEqualTo("COMPLETED".equals(status) ? AccessPolicy.Notice.COMPLETED : AccessPolicy.Notice.READ_ONLY);
             }
         }
         assertThat(AccessPolicy.KDN_SEES_DRAFTS).isTrue();

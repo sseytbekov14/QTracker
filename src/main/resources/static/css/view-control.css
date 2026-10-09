@@ -1104,3 +1104,28 @@ input[data-date-picker] {
         padding: 10px 0;
     }
 }
+
+/* A completed control SoQM Team changes in place (AccessPolicy.editsAfterCompletion): its banner, the fields that stay
+   as they are with the reason next to them, and the text of the Reason dialog */
+.access-banner.access-banner-completed-edit {
+    border-color: #f0d58c;
+    border-left-color: #c98a00;
+    background: #fffaf0;
+}
+.access-banner.access-banner-completed-edit .bi { color: #9a6a00; }
+.completed-fixed-hint {
+    margin-top: 4px;
+    font-size: 0.76rem;
+    color: #5c6478;
+}
+.completed-fixed-hint .bi { font-size: 0.72rem; }
+.completed-edit-intro { font-size: 0.86rem; color: #3a4260; }
+
+/* Phone: the action bar wraps instead of pushing the last buttons (Edit, Edit (completed control)) off the screen */
+@media (max-width: 575.98px) {
+    .action-buttons > .d-flex,
+    .action-buttons > .d-flex > .d-flex {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}

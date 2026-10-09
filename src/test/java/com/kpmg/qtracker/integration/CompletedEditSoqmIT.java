@@ -363,7 +363,38 @@ class CompletedEditSoqmIT {
                 "Attachment Hidden (Details): Wrong document");
     }
 
+    @Test
+    void viewControl_soqmTeamGetsTheCompletedEditButton_everyoneElseTheLockedBanner() throws Exception {
+        Control control = completedControl(today.plusDays(3), today.minusDays(1));
+        User readOnly = userRepository.save(TestUsers.user("ce-ro-" + UUID.randomUUID().toString().substring(0, 8)
+                + "@example.test", com.kpmg.qtracker.enums.AccessLevel.READ_ONLY, com.kpmg.qtracker.enums.AccessScope.ALL, false));
+        users.add(readOnly);
+
+        String soqmPage = page(soqm, control);
+        assertThat(soqmPage).contains("id=\"completedEditBanner\"", "Your changes are recorded with a reason",
+                "Edit (completed control)", "id=\"completedEditReasonModal\"", "id=\"completedEditReason\"",
+                "for=\"completedEditReason\"", "id=\"controlFrequencyFixedHint\"", "id=\"soqmYearFixedHint\"",
+                "id=\"controlStatusFixedHint\"", "id=\"scheduleFixedHint\"", "data-completed-fixed=\"scheduleFixedHint\"",
+                "id=\"completedEdit\" value=\"true\"")
+                .doesNotContain("id=\"accessBanner\"");
+
+        for (User reader : List.of(readOnly, owner, shared)) {
+            String page = page(reader, control);
+            assertThat(page).as(reader.getMail())
+                    .contains("id=\"accessBanner\"", "data-notice=\"COMPLETED\"", "This control is completed and locked",
+                            "Only SoQM Team can change it.")
+                    .doesNotContain("id=\"editBtn\"", "id=\"completedEditBanner\"", "id=\"completedEditReasonModal\"",
+                            "id=\"workflow-buttons-container\"", "id=\"scheduleFixedHint\"");
+        }
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    private String page(User user, Control control) throws Exception {
+        MvcResult result = perform(as(user, get("/view-control/{id}", control.getId())));
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        return result.getResponse().getContentAsString();
+    }
 
     /** A Monthly control completed on {@code completedOn}, with the four people, every field filled, one file. */
     private Control completedControl(LocalDate deadline, LocalDate completedOn) throws Exception {
