@@ -50,6 +50,7 @@ public class WorkflowMoveService {
     private final WorkflowHistoryRepository workflowHistoryRepository;
     private final NotificationService notificationService;
     private final AdminAuditService adminAuditService;
+    private final ControlRowLock controlRowLock;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** What happened: 200 with the new status, or the HTTP status and message of the refusal. */
@@ -67,6 +68,7 @@ public class WorkflowMoveService {
     /** A standard step (the endpoint of one transition, or the transitions of a perform-action name). */
     @Transactional
     public Outcome perform(Control control, User user, Collection<WorkflowTransition> candidates, String comment) {
+        control = controlRowLock.lockedFresh(control);
         ControlPermission permission = controlPermissionService.resolve(control, user);
         return execute(control, user, transitionGuard.check(control, permission, candidates), comment);
     }
@@ -74,6 +76,7 @@ public class WorkflowMoveService {
     /** A move to a target status: a step of the user's own, or any of SoQM's ({@link AccessPolicy#move}). */
     @Transactional
     public Outcome moveTo(Control control, User user, String targetStatus, String comment) {
+        control = controlRowLock.lockedFresh(control);
         ControlPermission permission = controlPermissionService.resolve(control, user);
         return execute(control, user, transitionGuard.checkMove(control, permission, targetStatus), comment);
     }

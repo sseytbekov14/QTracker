@@ -13,6 +13,7 @@ import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.service.NotificationTemplateService;
+import com.kpmg.qtracker.service.ControlRowLock;
 import com.kpmg.qtracker.service.WorkflowMoveService;
 import com.kpmg.qtracker.service.WorkflowRequiredFieldService;
 import com.kpmg.qtracker.service.WorkflowTransitionGuard;
@@ -63,7 +64,7 @@ class WorkflowControllerCompletedRecipientsTest {
     void setUp() {
         controller = new WorkflowController(controlService, new WorkflowMoveService(controlService,
                 controlAssignmentService, controlPermissionService, new WorkflowTransitionGuard(), requiredFieldService,
-                workflowHistoryRepository, notificationService, adminAuditService));
+                workflowHistoryRepository, notificationService, adminAuditService, new ControlRowLock()));
     }
 
     @Test

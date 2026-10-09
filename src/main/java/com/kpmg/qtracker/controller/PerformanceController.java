@@ -7,6 +7,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.InitiationReadiness;
+import com.kpmg.qtracker.service.ControlRowLock;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.SoqmYear;
 import com.kpmg.qtracker.service.ControlAssignmentService;
@@ -34,6 +35,7 @@ public class PerformanceController {
     private final WorkflowService workflowService;
     private final ControlPermissionService controlPermissionService;
     private final WorkflowTransitionGuard transitionGuard;
+    private final ControlRowLock controlRowLock;
 
     @PostMapping("/initiate")
     @Transactional
@@ -46,6 +48,8 @@ public class PerformanceController {
 
             Control control = controlService.getControlById(performanceDTO.getControlId())
                     .orElseThrow(() -> new RuntimeException("Control not found"));
+            // A second Initiate of the same draft (double click) waits here and then finds it In Progress
+            control = controlRowLock.lockedFresh(control);
 
             ControlPermission permission = controlPermissionService.resolve(control, currentUser);
             WorkflowTransitionGuard.Decision decision = transitionGuard.check(

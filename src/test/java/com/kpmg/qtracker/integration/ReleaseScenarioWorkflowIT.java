@@ -8,7 +8,6 @@ import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.service.SoqmYear;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockMultipartFile;
@@ -359,7 +358,6 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
     // ---- C6: double clicks, parallel moves, a stale page ----
 
     @Test
-    @Disabled("D-03 (S2): two moves at the same time both go through; fixed in a later commit")
     void doubleClickOnASubmit_movesTheControlOnce_oneHistoryEntry_oneNotificationPerPerson() throws Exception {
         User soqm = soqm("dc-soqm");
         User fac = myEdit("dc-fac");
@@ -377,14 +375,27 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
             int notes = notifications(op, control).size() - notesBefore;
             observed.add("answers " + answers + ", history " + moves + ", notifications to CO " + notes);
             assertStatus(control, "REVIEW");
-            assertThat(answers).as("round %d: %s", round, observed).contains(200);
+            assertThat(answers).as("round %d: %s", round, observed).containsOnlyOnce(200);
             assertThat(moves).as("round %d: %s", round, observed).isEqualTo(1);
             assertThat(notes).as("round %d: %s", round, observed).isEqualTo(1);
         }
     }
 
     @Test
-    @Disabled("D-03 (S2): two moves at the same time both go through; fixed in a later commit")
+    void doubleClickOnInitiate_initiatesOnce() throws Exception {
+        User soqm = soqm("di-soqm");
+        Chain chain = new Chain(soqm, myEdit("di-fac"), myEdit("di-op"), myEdit("di-po"));
+        chain.session(soqm);
+        for (int round = 0; round < 3; round++) {
+            Control control = control("RS-DI", "DRAFT", chain.people());
+            List<Integer> answers = parallel(2, () -> chain.status(soqm, initiate(control)));
+            assertStatus(control, "IN_PROGRESS");
+            assertThat(answers).as("round %d", round).containsOnlyOnce(200);
+            assertThat(history(control)).as("round %d answers %s", round, answers).hasSize(1);
+        }
+    }
+
+    @Test
     void twoPeopleMovingAtTheSameTime_onlyOneMoveHappens_theOtherIsRefused() throws Exception {
         User soqm = soqm("pm-soqm");
         User fac = myEdit("pm-fac");

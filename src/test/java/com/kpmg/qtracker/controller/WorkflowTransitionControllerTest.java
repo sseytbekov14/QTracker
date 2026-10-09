@@ -14,9 +14,11 @@ import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
+import com.kpmg.qtracker.service.ControlRowLock;
 import com.kpmg.qtracker.service.WorkflowMoveService;
 import com.kpmg.qtracker.service.WorkflowRequiredFieldService;
 import com.kpmg.qtracker.service.WorkflowTransitionGuard;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -67,6 +69,15 @@ class WorkflowTransitionControllerTest {
 
     @MockBean
     private AdminAuditService adminAuditService;
+
+    /** No database here: the row lock of a move hands the control back as it is. */
+    @MockBean
+    private ControlRowLock controlRowLock;
+
+    @BeforeEach
+    void rowLockPassesTheControlThrough() {
+        when(controlRowLock.lockedFresh(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    }
 
     @Test
     void returnToFacilitator_includesCommentInReturnNotification() throws Exception {

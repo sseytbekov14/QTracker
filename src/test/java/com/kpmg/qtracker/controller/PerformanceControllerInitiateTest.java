@@ -7,6 +7,7 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.WorkflowService;
+import com.kpmg.qtracker.service.ControlRowLock;
 import com.kpmg.qtracker.service.WorkflowTransitionGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,7 +54,8 @@ class PerformanceControllerInitiateTest {
                 controlAssignmentService,
                 workflowService,
                 controlPermissionService,
-                new WorkflowTransitionGuard()
+                new WorkflowTransitionGuard(),
+                new ControlRowLock()
         );
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
