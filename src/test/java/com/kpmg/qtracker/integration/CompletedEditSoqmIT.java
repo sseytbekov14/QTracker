@@ -364,6 +364,38 @@ class CompletedEditSoqmIT {
     }
 
     @Test
+    void theCompletedExcelAndTheLists_showTheValuesAsChanged() throws Exception {
+        Control control = completedControl(today.plusDays(3), today.minusDays(1));
+        ok(as(soqm, put("/api/controls/{id}", control.getId()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlDescription\":\"Corrected description\",\"editReason\":\"Out of date\"}"));
+        ok(as(soqm, post("/api/control-details"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlId\":" + control.getId() + ",\"controlStepsPerformed\":\"Corrected steps\","
+                        + "\"controlOperatorReview\":\"Final program\",\"editReason\":\"Mistyped\"}"));
+        ok(as(soqm, post("/api/control-assignment"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlId\":" + control.getId() + ",\"processOwner\":[\"" + newOwner.getMail() + "\"],"
+                        + "\"editReason\":\"The Process Owner changed\"}"));
+
+        // The Excel of the completed control, for SoQM Team and for a person it is shared with
+        for (User reader : List.of(soqm, shared)) {
+            java.util.Map<String, String> rows = excelRows(control, reader);
+            assertThat(rows).as(reader.getMail())
+                    .containsEntry("Control Description", "Corrected description")
+                    .containsEntry(com.kpmg.qtracker.service.ControlStepsFields.STEPS_LABEL, "Corrected steps")
+                    .containsEntry(com.kpmg.qtracker.service.ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Final program")
+                    .containsEntry("Process Owner(s)", newOwner.getMail())
+                    .containsEntry("Performance Status", "COMPLETED");
+        }
+        // The Controls list
+        ControlResponseDTO row = controlsRow(control);
+        assertThat(row.getControlDescription()).isEqualTo("Corrected description");
+        assertThat(row.getProcessOwners()).containsExactly(newOwner.getMail());
+        assertThat(row.getPerformanceStatus()).isEqualTo("COMPLETED");
+    }
+
+    @Test
     void viewControl_soqmTeamGetsTheCompletedEditButton_everyoneElseTheLockedBanner() throws Exception {
         Control control = completedControl(today.plusDays(3), today.minusDays(1));
         User readOnly = userRepository.save(TestUsers.user("ce-ro-" + UUID.randomUUID().toString().substring(0, 8)
@@ -389,6 +421,21 @@ class CompletedEditSoqmIT {
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /** The rows of the completed control's Excel (label, value) as the user downloads it. */
+    private java.util.Map<String, String> excelRows(Control control, User user) throws Exception {
+        MvcResult result = perform(as(user, get("/api/controls/{id}/export/completed", control.getId())));
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        java.util.Map<String, String> rows = new java.util.LinkedHashMap<>();
+        try (org.apache.poi.ss.usermodel.Workbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(
+                new java.io.ByteArrayInputStream(result.getResponse().getContentAsByteArray()))) {
+            for (org.apache.poi.ss.usermodel.Row row : workbook.getSheetAt(0)) {
+                rows.put(row.getCell(0).getStringCellValue(),
+                        row.getCell(1) != null ? row.getCell(1).getStringCellValue() : null);
+            }
+        }
+        return rows;
+    }
 
     private String page(User user, Control control) throws Exception {
         MvcResult result = perform(as(user, get("/view-control/{id}", control.getId())));
