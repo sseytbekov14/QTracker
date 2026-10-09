@@ -24,6 +24,10 @@ public class ControlHistoryEntryDTO {
     private boolean onBehalf;
     private String assignedPerformer;
 
+    // Edits only: a change SoQM Team made to the completed control without returning it, and why (CompletedEdit)
+    private boolean editedAfterCompletion;
+    private String reason;
+
     public String getFormattedTime() {
         if (createdAt == null) return "";
         return createdAt.format(DateTimeFormatter.ofPattern("MM/dd/yyyy h:mm a", Locale.US));

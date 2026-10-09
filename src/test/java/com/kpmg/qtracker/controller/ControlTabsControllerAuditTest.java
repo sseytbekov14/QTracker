@@ -272,6 +272,13 @@ class ControlTabsControllerAuditTest {
 
     // ------------------------------------------------------------------ a completed control changed in place
 
+    /** The request as JSON with the reason, which the DTOs only read (the mapper leaves it out). */
+    private String withReason(Object request, String reason) {
+        com.fasterxml.jackson.databind.node.ObjectNode json = objectMapper.valueToTree(request);
+        json.put("editReason", reason);
+        return json.toString();
+    }
+
     /** SoQM Team on a completed control they change in place (AccessPolicy.editsAfterCompletion). */
     private static ControlPermission completedEdit() {
         return new ControlPermission(true, true, java.util.Set.of(), true, true,
@@ -292,6 +299,47 @@ class ControlTabsControllerAuditTest {
         when(controlAssignmentService.getAssignmentByControlId(controlId)).thenReturn(existing);
         when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(existing))).thenReturn(completedEdit());
         return existing;
+    }
+
+    @Test
+    void completedControl_detailsChange_needsAReason_andTheAuditEntryIsMarkedWithIt() throws Exception {
+        User sessionUser = new User();
+        sessionUser.setMail("soqm@kpmg.com");
+        sessionUser.setDisplayName("SoQM One");
+        TestUsers.withRole(sessionUser, "SOQM_TEAM");
+        Control control = new Control();
+        control.setId(9L);
+        control.setPerformanceStatus("COMPLETED");
+        completedAssignment(9L, control, sessionUser);
+        ControlDetailsDTO existing = new ControlDetailsDTO();
+        existing.setControlId(9L);
+        existing.setControlStepsPerformed("Old steps");
+        when(controlDetailsService.getDetailsByControlId(9L)).thenReturn(existing);
+        when(controlDetailsService.saveDetails(any(ControlDetailsDTO.class))).thenReturn(new ControlDetails());
+
+        ControlDetailsDTO request = new ControlDetailsDTO();
+        request.setControlId(9L);
+        request.setControlStepsPerformed("Corrected steps");
+
+        mockMvc.perform(post("/api/control-details")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("VALIDATION_ERROR: Give a reason for changing a completed control"));
+        verify(controlDetailsService, never()).saveDetails(any(ControlDetailsDTO.class));
+
+        mockMvc.perform(post("/api/control-details")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(withReason(request, "Steps mistyped"))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isOk());
+        verify(controlDetailsService).saveDetails(any(ControlDetailsDTO.class));
+        verify(adminAuditService).logActionWithChanges(eq("soqm@kpmg.com"), eq("SoQM One"), eq("EDIT"), eq(control),
+                eq("Edit Control - Edited after completion"),
+                eq("[\"Control Steps Performed and Results\",\"Reason\"]"),
+                eq("{\"Control Steps Performed and Results\":\"Old steps\"}"),
+                eq("{\"Control Steps Performed and Results\":\"Corrected steps\",\"Reason\":\"Steps mistyped\"}"));
     }
 
     @Test
@@ -344,7 +392,7 @@ class ControlTabsControllerAuditTest {
 
         mockMvc.perform(post("/api/control-assignment")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request))
+                        .content(withReason(request, "Process Owner left"))
                         .sessionAttr("currentUser", sessionUser))
                 .andExpect(status().isOk());
 

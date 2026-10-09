@@ -342,7 +342,8 @@ class ControlControllerSecurityTest {
         mockMvc.perform(put("/api/controls/203")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"controlFrequency\":\"monthly\",\"soqmYear\":\"1 OCT 2026 - 30 SEP 2027\","
-                                + "\"controlStatus\":\"active\",\"controlDescription\":\"Changed\"}")
+                                + "\"controlStatus\":\"active\",\"controlDescription\":\"Changed\","
+                                + "\"editReason\":\" Description was wrong \"}")
                         .sessionAttr("currentUser", sessionUser))
                 .andExpect(status().isOk());
 
@@ -350,6 +351,36 @@ class ControlControllerSecurityTest {
         org.assertj.core.api.Assertions.assertThat(existing.getControlFrequency()).isEqualTo("Monthly");
         org.assertj.core.api.Assertions.assertThat(existing.getControlStatus()).isEqualTo("ACTIVE");
         verify(controlAssignmentService, never()).recalculateSchedule(any());
+        // The audit entry: marked, the changed field with its values, and the reason
+        verify(adminAuditService).logActionWithChanges(eq(sessionUser.getMail()), any(), eq("EDIT"), eq(existing),
+                eq("Edit Control - Edited after completion"),
+                eq("[\"control_description\",\"Reason\"]"),
+                eq("{\"control_description\":null}"),
+                eq("{\"control_description\":\"Changed\",\"Reason\":\"Description was wrong\"}"));
+    }
+
+    @Test
+    void updateControl_completedControlChangedInPlace_withoutAReason_returns400_andSavesNothing() throws Exception {
+        User sessionUser = userWithRole("SOQM_TEAM");
+        Control existing = completedForEditInPlace(sessionUser, 204L);
+
+        mockMvc.perform(put("/api/controls/204")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlDescription\":\"Changed\",\"editReason\":\"  \"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("VALIDATION_ERROR: Give a reason for changing a completed control"));
+        verify(controlService, never()).updateControl(any(Control.class));
+        verify(adminAuditService, never()).logActionWithChanges(any(), any(), any(), any(), any(), any(), any(), any());
+
+        // Nothing changed: nothing to explain, nothing saved
+        Control unchanged = completedForEditInPlace(sessionUser, 205L);
+        mockMvc.perform(put("/api/controls/205")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlFrequency\":\"Monthly\"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isOk());
+        verify(controlService, never()).updateControl(unchanged);
     }
 
     /** A completed control SoQM Team changes in place (AccessPolicy.editsAfterCompletion). */

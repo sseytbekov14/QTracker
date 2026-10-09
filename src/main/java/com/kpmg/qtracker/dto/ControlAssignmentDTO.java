@@ -1,6 +1,7 @@
 package com.kpmg.qtracker.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import java.time.LocalDate;
 import java.util.List;
@@ -19,4 +20,8 @@ public class ControlAssignmentDTO {
     private LocalDate controlOperationDeadline;
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate nextControlOperationDate;
+
+    /** Why SoQM Team changes a completed control in place (CompletedEdit); sent, never returned. */
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private String editReason;
 }

@@ -3978,6 +3978,21 @@ function buildChangelogCard(entry) {
         title.textContent = entry.eventName || 'Field Changes';
         body.appendChild(title);
 
+        // A change SoQM Team made to the completed control without returning it, with its reason (CompletedEdit)
+        if (entry.editedAfterCompletion) {
+            const mark = document.createElement('span');
+            mark.className = 'changelog-completed-edit';
+            mark.textContent = 'Edited after completion';
+            title.appendChild(document.createTextNode(' '));
+            title.appendChild(mark);
+            if (entry.reason) {
+                const reasonLine = document.createElement('div');
+                reasonLine.className = 'changelog-completed-edit-reason';
+                reasonLine.textContent = 'Reason: ' + entry.reason;
+                body.appendChild(reasonLine);
+            }
+        }
+
         changes.changes.forEach(change => {
             const row = document.createElement('div');
             row.className = 'changelog-change-row';

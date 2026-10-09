@@ -91,8 +91,14 @@ public class ControlTabsController {
                     existingDetails.getSoqmHeadComments(), mergedDetails.getSoqmHeadComments());
             collectChange(changedFields, previousValues, newValues, "Process Owner Comments",
                     existingDetails.getProcessOwnerComments(), mergedDetails.getProcessOwnerComments());
+            Optional<String> reasonRefusal = CompletedEdit.refusal(permission, !changedFields.isEmpty(),
+                    detailsDTO.getEditReason());
+            if (reasonRefusal.isPresent()) {
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + reasonRefusal.get());
+            }
             controlDetailsService.saveDetails(mergedDetails);
-            logChanges(session, detailsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues);
+            logChanges(session, detailsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues,
+                    CompletedEdit.reasonOf(permission, detailsDTO.getEditReason()));
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error saving details: " + e.getMessage());
@@ -158,6 +164,11 @@ public class ControlTabsController {
                     existingAssignment.getControlSharedWith(), mergedAssignment.getControlSharedWith());
             collectChange(changedFields, previousValues, newValues, "Control Operation Date",
                     existingAssignment.getControlOperationDate(), mergedAssignment.getControlOperationDate());
+            Optional<String> reasonRefusal = CompletedEdit.refusal(permission, !changedFields.isEmpty(),
+                    assignmentDTO.getEditReason());
+            if (reasonRefusal.isPresent()) {
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + reasonRefusal.get());
+            }
 
             ControlAssignment saved;
             try {
@@ -187,7 +198,8 @@ public class ControlTabsController {
                 }
             }
 
-            logChanges(session, assignmentDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues);
+            logChanges(session, assignmentDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues,
+                    CompletedEdit.reasonOf(permission, assignmentDTO.getEditReason()));
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error saving assignment: " + e.getMessage());
@@ -223,8 +235,14 @@ public class ControlTabsController {
             collectChange(changedFields, previousValues, newValues, "SoQM Development Materials",
                     existingDocuments.getSoqmDevelopmentMaterials(), mergedDocuments.getSoqmDevelopmentMaterials());
 
+            Optional<String> reasonRefusal = CompletedEdit.refusal(permission, !changedFields.isEmpty(),
+                    documentsDTO.getEditReason());
+            if (reasonRefusal.isPresent()) {
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + reasonRefusal.get());
+            }
             controlDocumentsService.saveDocuments(mergedDocuments);
-            logChanges(session, documentsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues);
+            logChanges(session, documentsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues,
+                    CompletedEdit.reasonOf(permission, documentsDTO.getEditReason()));
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error saving documents: " + e.getMessage());
@@ -354,14 +372,23 @@ public class ControlTabsController {
         return dto;
     }
 
+    /**
+     * @param completedEditReason the reason of a change SoQM Team makes to a completed control in place
+     *                            (CompletedEdit): the entry is marked "Edited after completion" and holds it; else null
+     */
     private void logChanges(HttpSession session,
                             Long controlId,
                             String description,
                             List<String> changedFields,
                             Map<String, String> previousValues,
-                            Map<String, String> newValues) {
+                            Map<String, String> newValues,
+                            String completedEditReason) {
         if (changedFields.isEmpty()) {
             return;
+        }
+        if (completedEditReason != null) {
+            description = CompletedEdit.describe(description);
+            CompletedEdit.addReason(changedFields, newValues, completedEditReason);
         }
 
         User currentUser = session != null ? (User) session.getAttribute("currentUser") : null;

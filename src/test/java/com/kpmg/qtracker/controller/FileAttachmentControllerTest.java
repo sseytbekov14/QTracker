@@ -258,6 +258,55 @@ class FileAttachmentControllerTest {
         verify(fileStorageService, never()).saveFile(any(), any());
     }
 
+    @Test
+    void completedControlChangedInPlace_uploadAndDelete_needAReason_andAreMarkedWithIt() throws Exception {
+        Control control = new Control();
+        control.setId(20L);
+        control.setControlId("HR20");
+        control.setPerformanceStatus("COMPLETED");
+        control.setAttachmentDetailsPath("old.pdf");
+        when(controlService.getControlById(20L)).thenReturn(Optional.of(control));
+        when(controlService.updateControl(any(Control.class))).thenReturn(control);
+        when(fileStorageService.saveFile(any(), any())).thenReturn("late.pdf");
+        // SoQM Team on a completed control they change in place (AccessPolicy.editsAfterCompletion)
+        ControlPermission completedEdit = new ControlPermission(true, true, java.util.Set.of(), true, true,
+                false, false, false, true, false, false, true);
+        when(controlPermissionService.resolve(any(Control.class), any(User.class))).thenReturn(completedEdit);
+        when(controlAttachmentService.canDelete(any(), anyString(), anyString(), any(), eq(completedEdit))).thenReturn(true);
+        when(controlAttachmentService.removeFromControl(any(), anyString(), anyString())).thenReturn(true);
+        User user = new User();
+        user.setAccessLevel(AccessLevel.SOQM);
+        user.setMail("soqm@test.com");
+        user.setDisplayName("SoQM User");
+        MockMultipartFile file = new MockMultipartFile("attachmentDetails", "late.pdf", "application/pdf",
+                "%PDF-1.4".getBytes());
+
+        mockMvc.perform(multipart("/api/attachments/upload/20").file(file).sessionAttr("currentUser", user))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Give a reason for changing a completed control"));
+        mockMvc.perform(delete("/api/attachments/delete/20").param("filename", "old.pdf").param("type", "details")
+                        .sessionAttr("currentUser", user))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Give a reason for changing a completed control"));
+        verify(fileStorageService, never()).saveFile(any(), any());
+        verify(controlAttachmentService, never()).removeFromControl(any(), anyString(), anyString());
+
+        mockMvc.perform(multipart("/api/attachments/upload/20").file(file).param("editReason", "Evidence was missing")
+                        .sessionAttr("currentUser", user))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/api/attachments/delete/20").param("filename", "old.pdf").param("type", "details")
+                        .param("editReason", "Wrong file").sessionAttr("currentUser", user))
+                .andExpect(status().isOk());
+        verify(adminAuditService).logActionWithChanges(eq("soqm@test.com"), eq("SoQM User"), eq("ATTACHMENT_ADDED"),
+                eq(control), eq("Attachment DETAILS - Edited after completion"),
+                eq("[\"Attachment (DETAILS)\",\"Reason\"]"), eq("{}"),
+                eq("{\"Attachment (DETAILS)\":\"late.pdf\",\"Reason\":\"Evidence was missing\"}"));
+        verify(adminAuditService).logActionWithChanges(eq("soqm@test.com"), eq("SoQM User"), eq("ATTACHMENT_REMOVED"),
+                eq(control), eq("Attachment DETAILS - Edited after completion"),
+                eq("[\"Attachment (DETAILS)\",\"Reason\"]"), eq("{\"Attachment (DETAILS)\":\"old.pdf\"}"),
+                eq("{\"Reason\":\"Wrong file\"}"));
+    }
+
     private User mockEditableControl(Long id, String detailsPath) {
         Control control = new Control();
         control.setId(id);

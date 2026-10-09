@@ -6,6 +6,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAttachment;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.CompletedEdit;
 import com.kpmg.qtracker.service.ControlAttachmentService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.ControlPermission;
@@ -37,6 +38,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 @RestController
@@ -72,6 +74,7 @@ public class FileAttachmentController {
             @PathVariable Long controlId,
             @RequestParam(value = "attachmentDetails", required = false) MultipartFile[] detailsFiles,
             @RequestParam(value = "attachmentDocuments", required = false) MultipartFile[] documentsFiles,
+            @RequestParam(value = "editReason", required = false) String editReason,
             HttpSession session) {
         
         Map<String, Object> response = new HashMap<>();
@@ -94,6 +97,14 @@ public class FileAttachmentController {
                 response.put("message", permission.editRefusal("You do not have permission to attach files to this control"));
                 return ResponseEntity.status(403).body(response);
             }
+            Optional<String> reasonRefusal = CompletedEdit.refusal(permission,
+                    countIncomingFiles(detailsFiles) + countIncomingFiles(documentsFiles) > 0, editReason);
+            if (reasonRefusal.isPresent()) {
+                response.put("success", false);
+                response.put("message", reasonRefusal.get());
+                return ResponseEntity.badRequest().body(response);
+            }
+            String completedEditReason = CompletedEdit.reasonOf(permission, editReason);
             
             String controlFolder = resolveControlFolder(control);
 
@@ -128,8 +139,8 @@ public class FileAttachmentController {
                 deleteQuietly(addedDocuments, controlFolder);
                 throw e;
             }
-            logAttachmentAdds(currentUser, control, "DETAILS", addedDetails);
-            logAttachmentAdds(currentUser, control, "DOCUMENTS", addedDocuments);
+            logAttachmentAdds(currentUser, control, "DETAILS", addedDetails, completedEditReason);
+            logAttachmentAdds(currentUser, control, "DOCUMENTS", addedDocuments, completedEditReason);
             
             response.put("success", true);
             response.put("message", "Files uploaded successfully");
@@ -315,6 +326,7 @@ public class FileAttachmentController {
             @PathVariable Long controlId,
             @RequestParam("filename") String filename,
             @RequestParam("type") String type,
+            @RequestParam(value = "editReason", required = false) String editReason,
             HttpSession session) {
 
         Map<String, Object> response = new HashMap<>();
@@ -336,6 +348,12 @@ public class FileAttachmentController {
                 response.put("message", permission.editRefusal(
                         "Only the user who uploaded this file (in the same workflow stage) or SoQM Team can delete it"));
                 return ResponseEntity.status(403).body(response);
+            }
+            Optional<String> reasonRefusal = CompletedEdit.refusal(permission, true, editReason);
+            if (reasonRefusal.isPresent()) {
+                response.put("success", false);
+                response.put("message", reasonRefusal.get());
+                return ResponseEntity.badRequest().body(response);
             }
 
             String currentPath = ControlAttachment.TAB_DETAILS.equals(tabLabel)
@@ -362,7 +380,8 @@ public class FileAttachmentController {
             }
 
             if (removed) {
-                logAttachmentChange(currentUser, control, "ATTACHMENT_REMOVED", tabLabel, decodedFilename, "");
+                logAttachmentChange(currentUser, control, "ATTACHMENT_REMOVED", tabLabel, decodedFilename, "",
+                        CompletedEdit.reasonOf(permission, editReason));
             }
             response.put("success", true);
             response.put("message", "File deleted");
@@ -433,7 +452,8 @@ public class FileAttachmentController {
         return (User) session.getAttribute("currentUser");
     }
 
-    private void logAttachmentAdds(User user, Control control, String tabLabel, List<String> filenames) {
+    private void logAttachmentAdds(User user, Control control, String tabLabel, List<String> filenames,
+                                   String completedEditReason) {
         if (filenames == null || filenames.isEmpty()) {
             return;
         }
@@ -441,17 +461,21 @@ public class FileAttachmentController {
             if (filename == null || filename.isBlank()) {
                 continue;
             }
-            logAttachmentChange(user, control, "ATTACHMENT_ADDED", tabLabel, "", filename);
+            logAttachmentChange(user, control, "ATTACHMENT_ADDED", tabLabel, "", filename, completedEditReason);
         }
     }
 
+    /**
+     * @param completedEditReason the reason of a change SoQM Team makes to a completed control in place
+     *                            (CompletedEdit): the entry is marked "Edited after completion" and holds it; else null
+     */
     private void logAttachmentChange(User user, Control control, String actionType, String tabLabel,
-                                     String oldFileName, String newFileName) {
+                                     String oldFileName, String newFileName, String completedEditReason) {
         if (user == null || user.getMail() == null || user.getMail().isBlank() || control == null) {
             return;
         }
         String fieldLabel = "Attachment (" + tabLabel + ")";
-        List<String> changedFields = List.of(fieldLabel);
+        List<String> changedFields = new ArrayList<>(List.of(fieldLabel));
         Map<String, String> previousValues = new LinkedHashMap<>();
         Map<String, String> newValues = new LinkedHashMap<>();
         if (oldFileName != null && !oldFileName.isBlank()) {
@@ -459,6 +483,11 @@ public class FileAttachmentController {
         }
         if (newFileName != null && !newFileName.isBlank()) {
             newValues.put(fieldLabel, newFileName);
+        }
+        String description = "Attachment " + tabLabel;
+        if (completedEditReason != null) {
+            description = CompletedEdit.describe(description);
+            CompletedEdit.addReason(changedFields, newValues, completedEditReason);
         }
         try {
             String changedFieldsJson = objectMapper.writeValueAsString(changedFields);
@@ -469,7 +498,7 @@ public class FileAttachmentController {
                     user.getDisplayName(),
                     actionType,
                     control,
-                    "Attachment " + tabLabel,
+                    description,
                     changedFieldsJson,
                     previousJson,
                     newJson

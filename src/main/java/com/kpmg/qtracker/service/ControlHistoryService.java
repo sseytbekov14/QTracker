@@ -85,6 +85,13 @@ public class ControlHistoryService {
                 continue;
             }
             ControlHistoryEntryDTO editEntry = new ControlHistoryEntryDTO();
+            // A change SoQM Team made to the completed control in place: marked, with its reason next to the values
+            if (CompletedEdit.isMarked(log.getActionDescription())) {
+                editEntry.setEditedAfterCompletion(true);
+                changes.stream().filter(change -> CompletedEdit.REASON_FIELD.equals(change.getField()))
+                        .findFirst().ifPresent(reason -> editEntry.setReason(reason.getNewValue()));
+                changes.removeIf(change -> CompletedEdit.REASON_FIELD.equals(change.getField()));
+            }
             editEntry.setEventName(mapAuditActionName(log));
             editEntry.setTableType("DIFF");
             editEntry.setCreatedAt(log.getCreatedAt());

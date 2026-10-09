@@ -798,6 +798,13 @@ input[data-date-picker] {
 /* Changelog: a move SoQM made for the participant whose step it was */
 .changelog-workflow-on-behalf { margin-top: 2px; font-size: 0.8rem; font-weight: 600; color: #7a5a00; }
 
+/* Changelog: a change SoQM Team made to the completed control in place, and its reason */
+.changelog-completed-edit {
+    display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.72rem; font-weight: 600;
+    background: #fff4d6; color: #7a5a00; vertical-align: 1px;
+}
+.changelog-completed-edit-reason { margin: 2px 0 6px; font-size: 0.8rem; color: #5c4a14; overflow-wrap: anywhere; }
+
 /* Rename ID: the new ID makes this a KDN control or stops it being one */
 .rename-kdn-confirm {
     margin: 0 0 12px;

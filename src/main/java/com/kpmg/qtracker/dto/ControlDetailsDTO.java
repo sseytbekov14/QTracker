@@ -2,6 +2,7 @@ package com.kpmg.qtracker.dto;
 
 import com.kpmg.qtracker.service.ControlStepsFields;
 import jakarta.validation.constraints.Size;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 @Data
@@ -29,4 +30,8 @@ public class ControlDetailsDTO {
     private String soqmHeadComments;
     @Size(max = 2000, message = "Process Owner Comments must be at most 2000 characters")
     private String processOwnerComments;
+
+    /** Why SoQM Team changes a completed control in place (CompletedEdit); sent, never returned. */
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private String editReason;
 }

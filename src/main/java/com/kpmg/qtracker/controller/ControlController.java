@@ -14,6 +14,7 @@ import com.kpmg.qtracker.repository.ControlRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.CompletedEdit;
 import com.kpmg.qtracker.service.ControlAuditChangeService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
@@ -634,7 +635,22 @@ public class ControlController {
                     && (permission.canEditAll() || permission.canEditProcessOwnerComments())) {
                 existingControl.setProcessOwnerComments(controlDTO.getProcessOwnerComments());
             }
-            
+
+            // A completed control changed in place (CompletedEdit): a request that changes nothing is not saved,
+            // one that changes something needs a reason. Nothing is called before returning, so the changed
+            // entity is never written.
+            String completedEditReason = null;
+            if (permission.isCompletedEdit()) {
+                if (!controlAuditChangeService.diff(originalSnapshot, existingControl).hasChanges()) {
+                    return ResponseEntity.ok(convertToResponseDTO(existingControl));
+                }
+                Optional<String> reasonRefusal = CompletedEdit.refusal(permission, true, controlDTO.getEditReason());
+                if (reasonRefusal.isPresent()) {
+                    return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + reasonRefusal.get());
+                }
+                completedEditReason = CompletedEdit.reasonOf(permission, controlDTO.getEditReason());
+            }
+
             existingControl.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
 
             Control updatedControl = controlService.updateControl(existingControl);
@@ -647,15 +663,22 @@ public class ControlController {
             if (auditChangeSet.hasChanges()) {
                 try {
                     ObjectMapper mapper = new ObjectMapper();
+                    List<String> changedFields = new ArrayList<>(auditChangeSet.getChangedFields());
+                    Map<String, String> newValues = new LinkedHashMap<>(auditChangeSet.getNewValues());
+                    String description = "Edit Control";
+                    if (completedEditReason != null) {
+                        description = CompletedEdit.describe(description);
+                        CompletedEdit.addReason(changedFields, newValues, completedEditReason);
+                    }
                     adminAuditService.logActionWithChanges(
                             currentUser.getMail(),
                             currentUser.getDisplayName(),
                             "EDIT",
                             updatedControl,
-                            "Edit Control",
-                            mapper.writeValueAsString(auditChangeSet.getChangedFields()),
+                            description,
+                            mapper.writeValueAsString(changedFields),
                             mapper.writeValueAsString(auditChangeSet.getPreviousValues()),
-                            mapper.writeValueAsString(auditChangeSet.getNewValues())
+                            mapper.writeValueAsString(newValues)
                     );
                 } catch (Exception e) {
                     logger.warn("Failed to log control changes: {}", e.getMessage());
