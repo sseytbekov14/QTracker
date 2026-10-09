@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -82,10 +83,12 @@ public class EmailNotificationChannel {
         return Collections.unmodifiableSet(entries);
     }
 
+    /** The body is plain text people partly typed (comments, IDs, names): escaped, then its line breaks kept. */
     private String toHtml(String body) {
         if (body == null) {
             return "";
         }
-        return body.replace("\r\n", "\n").replace("\n", "<br>");
+        return HtmlUtils.htmlEscape(body, StandardCharsets.UTF_8.name())
+                .replace("\r\n", "\n").replace("\n", "<br>");
     }
 }

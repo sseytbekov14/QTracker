@@ -2,7 +2,6 @@ package com.kpmg.qtracker.service;
 
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -23,7 +22,6 @@ import static org.mockito.Mockito.when;
 class ReleaseScenarioEmailTest {
 
     @Test
-    @Disabled("D-05 (S2): the HTML e-mail takes the typed text as markup; fixed in the next commit")
     void typedTextInTheBody_isEscapedInTheHtmlEmail_lineBreaksStay() throws Exception {
         JavaMailSender sender = mock(JavaMailSender.class);
         when(sender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
