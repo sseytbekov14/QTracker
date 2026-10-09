@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -165,7 +166,7 @@ class ControlTabsControllerAuditTest {
         when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(existingAssignment)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(),
                         true, true, false, false, false, true, false));
-        when(controlAssignmentService.saveAssignment(any())).thenReturn(new ControlAssignment());
+        when(controlAssignmentService.saveAssignment(any(), anyBoolean())).thenReturn(new ControlAssignment());
 
         mockMvc.perform(post("/api/control-assignment")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -216,7 +217,7 @@ class ControlTabsControllerAuditTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("VALIDATION_ERROR: Process Owner is required"));
 
-        verify(controlAssignmentService, never()).saveAssignment(any());
+        verify(controlAssignmentService, never()).saveAssignment(any(), anyBoolean());
     }
 
     @Test
@@ -266,7 +267,92 @@ class ControlTabsControllerAuditTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(expectedBody));
 
-        verify(controlAssignmentService, never()).saveAssignment(any());
+        verify(controlAssignmentService, never()).saveAssignment(any(), anyBoolean());
+    }
+
+    // ------------------------------------------------------------------ a completed control changed in place
+
+    /** SoQM Team on a completed control they change in place (AccessPolicy.editsAfterCompletion). */
+    private static ControlPermission completedEdit() {
+        return new ControlPermission(true, true, java.util.Set.of(), true, true,
+                false, false, false, true, false, false, true);
+    }
+
+    private ControlAssignmentDTO completedAssignment(Long controlId, Control control, User sessionUser) {
+        ControlAssignmentDTO existing = new ControlAssignmentDTO();
+        existing.setControlId(controlId);
+        existing.setFacilitator(List.of("fac@kpmg.com"));
+        existing.setControlOperator(List.of("op@kpmg.com"));
+        existing.setSoqmLead(List.of("soqm@kpmg.com"));
+        existing.setProcessOwner(List.of("po@kpmg.com"));
+        existing.setControlOperationDate(java.time.LocalDate.of(2026, 1, 15));
+        existing.setControlOperationDeadline(java.time.LocalDate.of(2026, 1, 29));
+        existing.setNextControlOperationDate(java.time.LocalDate.of(2026, 2, 15));
+        when(controlService.getControlById(controlId)).thenReturn(Optional.of(control));
+        when(controlAssignmentService.getAssignmentByControlId(controlId)).thenReturn(existing);
+        when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(existing))).thenReturn(completedEdit());
+        return existing;
+    }
+
+    @Test
+    void completedControl_anotherOperationDate_isRefused_andNothingIsSaved() throws Exception {
+        User sessionUser = new User();
+        sessionUser.setMail("soqm@kpmg.com");
+        TestUsers.withRole(sessionUser, "SOQM_TEAM");
+        Control control = new Control();
+        control.setId(7L);
+        control.setPerformanceStatus("COMPLETED");
+        control.setControlFrequency("Monthly");
+        completedAssignment(7L, control, sessionUser);
+
+        ControlAssignmentDTO request = new ControlAssignmentDTO();
+        request.setControlId(7L);
+        request.setControlOperationDate(java.time.LocalDate.of(2026, 3, 1));
+
+        mockMvc.perform(post("/api/control-assignment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string("VALIDATION_ERROR: Control Operation Date cannot be changed on a completed control"));
+
+        verify(controlAssignmentService, never()).saveAssignment(any(), anyBoolean());
+    }
+
+    @Test
+    void completedControl_peopleChange_keepsTheSchedule_whateverDatesAreSent() throws Exception {
+        User sessionUser = new User();
+        sessionUser.setMail("soqm@kpmg.com");
+        TestUsers.withRole(sessionUser, "SOQM_TEAM");
+        Control control = new Control();
+        control.setId(8L);
+        control.setPerformanceStatus("COMPLETED");
+        // A frequency the schedule cannot be calculated from: no matter, nothing is calculated
+        control.setControlFrequency("Bi-weekly");
+        completedAssignment(8L, control, sessionUser);
+        ControlAssignment saved = new ControlAssignment();
+        saved.setControlOperationDeadline(java.time.LocalDate.of(2026, 1, 29));
+        saved.setNextControlOperationDate(java.time.LocalDate.of(2026, 2, 15));
+        when(controlAssignmentService.saveAssignment(any(), eq(true))).thenReturn(saved);
+
+        ControlAssignmentDTO request = new ControlAssignmentDTO();
+        request.setControlId(8L);
+        request.setProcessOwner(List.of("po2@kpmg.com"));
+        request.setControlOperationDate(java.time.LocalDate.of(2026, 1, 15));
+        request.setControlOperationDeadline(java.time.LocalDate.of(2027, 1, 1));
+        request.setNextControlOperationDate(java.time.LocalDate.of(2027, 2, 1));
+
+        mockMvc.perform(post("/api/control-assignment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isOk());
+
+        org.mockito.ArgumentCaptor<ControlAssignmentDTO> sent = org.mockito.ArgumentCaptor.forClass(ControlAssignmentDTO.class);
+        verify(controlAssignmentService).saveAssignment(sent.capture(), eq(true));
+        org.assertj.core.api.Assertions.assertThat(sent.getValue().getProcessOwner()).containsExactly("po2@kpmg.com");
+        org.assertj.core.api.Assertions.assertThat(sent.getValue().getControlOperationDeadline()).isNull();
+        org.assertj.core.api.Assertions.assertThat(sent.getValue().getNextControlOperationDate()).isNull();
     }
 
     @Test

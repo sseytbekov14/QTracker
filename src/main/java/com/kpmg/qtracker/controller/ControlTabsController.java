@@ -124,12 +124,21 @@ public class ControlTabsController {
                 return ResponseEntity.status(403)
                         .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Team can change control assignment"));
             }
+            // A completed control changed in place keeps its schedule (AccessPolicy.COMPLETED_FIXED_FIELDS): another
+            // Control Operation Date is refused, the deadline and the next date are never taken from the request
+            boolean keepSchedule = permission.isCompletedEdit();
+            if (keepSchedule && assignmentDTO.getControlOperationDate() != null
+                    && (existingAssignment == null
+                    || !assignmentDTO.getControlOperationDate().equals(existingAssignment.getControlOperationDate()))) {
+                return ResponseEntity.status(403).body("VALIDATION_ERROR: "
+                        + AccessPolicy.completedFixedMessage("Control Operation Date"));
+            }
             ControlAssignmentDTO mergedAssignment = mergeControlAssignment(existingAssignment, assignmentDTO);
             String missingField = findMissingAssignmentField(mergedAssignment);
             if (missingField != null) {
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + missingField + " is required");
             }
-            String frequencyError = findScheduleFrequencyError(control, mergedAssignment);
+            String frequencyError = keepSchedule ? null : findScheduleFrequencyError(control, mergedAssignment);
             if (frequencyError != null) {
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + frequencyError);
             }
@@ -152,7 +161,7 @@ public class ControlTabsController {
 
             ControlAssignment saved;
             try {
-                saved = controlAssignmentService.saveAssignment(mergedAssignment);
+                saved = controlAssignmentService.saveAssignment(mergedAssignment, keepSchedule);
             } catch (IllegalArgumentException refused) {
                 // Someone who may not hold that field (read-only, wrong level, KDN scope on a non-KDN control)
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + refused.getMessage());

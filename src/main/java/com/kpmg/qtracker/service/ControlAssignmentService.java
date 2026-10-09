@@ -44,6 +44,15 @@ public class ControlAssignmentService {
 
     @Transactional
     public ControlAssignment saveAssignment(ControlAssignmentDTO assignmentDTO) {
+        return saveAssignment(assignmentDTO, false);
+    }
+
+    /**
+     * @param keepSchedule keep the stored Control Operation Date, deadline and next date as they are, whatever the
+     *                     request holds, and leave the control's deadline alone: a completed control changed in place
+     *                     (AccessPolicy.COMPLETED_FIXED_FIELDS), whose people change but whose dates do not
+     */
+    public ControlAssignment saveAssignment(ControlAssignmentDTO assignmentDTO, boolean keepSchedule) {
         log.debug("saveAssignment: controlId={}, facilitators={}, operators={}, owners={}, soqm={}",
                 assignmentDTO.getControlId(),
                 assignmentDTO.getFacilitator(),
@@ -74,7 +83,11 @@ public class ControlAssignmentService {
         LocalDate deadline = null;
         LocalDate nextDate = null;
         ControlAssignment stored = existingAssignment.orElse(null);
-        if (operationDate != null && stored != null
+        if (keepSchedule && stored != null) {
+            operationDate = stored.getControlOperationDate();
+            deadline = stored.getControlOperationDeadline();
+            nextDate = stored.getNextControlOperationDate();
+        } else if (operationDate != null && stored != null
                 && operationDate.equals(stored.getControlOperationDate())
                 && stored.getControlOperationDeadline() != null) {
             deadline = stored.getControlOperationDeadline();
@@ -113,7 +126,7 @@ public class ControlAssignmentService {
                 saved.getControlId(), saved.getFacilitator(), saved.getProcessOwner());
 
         // ★ Обновляем deadline в таблице control_controls
-        if (controlOpt.isPresent() && deadline != null) {
+        if (controlOpt.isPresent() && deadline != null && !keepSchedule) {
             Control control = controlOpt.get();
             control.setDeadline(deadline);
             controlRepository.save(control);

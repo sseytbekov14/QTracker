@@ -310,6 +310,65 @@ class ControlControllerSecurityTest {
         verify(controlService, never()).updateControl(any(Control.class));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.CsvSource({
+            "Control Frequency, controlFrequency, Quarterly",
+            "SoQM Year,         soqmYear,         1 OCT 2027 - 30 SEP 2028",
+            "Control Status,    controlStatus,    SUPERSEDED"
+    })
+    void updateControl_completedControlChangedInPlace_refusesAFixedField(String label, String field, String value)
+            throws Exception {
+        User sessionUser = userWithRole("SOQM_TEAM");
+        Control existing = completedForEditInPlace(sessionUser, 202L);
+
+        mockMvc.perform(put("/api/controls/202")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"" + field + "\":\"" + value + "\",\"controlDescription\":\"Changed\"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string("VALIDATION_ERROR: " + label + " cannot be changed on a completed control"));
+
+        verify(controlService, never()).updateControl(any(Control.class));
+        org.assertj.core.api.Assertions.assertThat(existing.getControlDescription()).isNull();
+    }
+
+    @Test
+    void updateControl_completedControlChangedInPlace_theSameFixedValuesAreNotApplied() throws Exception {
+        User sessionUser = userWithRole("SOQM_TEAM");
+        Control existing = completedForEditInPlace(sessionUser, 203L);
+        when(controlService.updateControl(any(Control.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // The page sends the stored values back, the frequency in another spelling
+        mockMvc.perform(put("/api/controls/203")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlFrequency\":\"monthly\",\"soqmYear\":\"1 OCT 2026 - 30 SEP 2027\","
+                                + "\"controlStatus\":\"active\",\"controlDescription\":\"Changed\"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(existing.getControlDescription()).isEqualTo("Changed");
+        org.assertj.core.api.Assertions.assertThat(existing.getControlFrequency()).isEqualTo("Monthly");
+        org.assertj.core.api.Assertions.assertThat(existing.getControlStatus()).isEqualTo("ACTIVE");
+        verify(controlAssignmentService, never()).recalculateSchedule(any());
+    }
+
+    /** A completed control SoQM Team changes in place (AccessPolicy.editsAfterCompletion). */
+    private Control completedForEditInPlace(User sessionUser, Long id) {
+        Control existing = new Control();
+        existing.setId(id);
+        existing.setControlId("CTRL-" + id);
+        existing.setControlFrequency("Monthly");
+        existing.setSoqmYear("1 OCT 2026 - 30 SEP 2027");
+        existing.setControlStatus("ACTIVE");
+        existing.setPerformanceStatus("COMPLETED");
+        when(controlService.getControlById(id)).thenReturn(Optional.of(existing));
+        when(controlAssignmentService.getAssignmentByControlId(id)).thenReturn(new ControlAssignmentDTO());
+        when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
+                        false, false, false, true, false, false, true));
+        return existing;
+    }
+
     @Test
     void updateControl_whenSoqmLeadAndCompleted_returns200() throws Exception {
         User sessionUser = userWithRole("SOQM_TEAM");

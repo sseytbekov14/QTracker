@@ -476,6 +476,24 @@ public final class AccessPolicy {
     public static final String LOCKED_MESSAGE =
             "A completed control cannot be changed: SoQM returns it to an earlier step first";
 
+    /**
+     * What a completed control keeps for everyone, SoQM Team changing it in place included: its schedule (the
+     * Control Operation Date, the frequency, the deadline and the next date, which the auto-creation of the next
+     * cycle and "Closed late" follow), its SoQM Year and its Control Status. The Control ID changes only through
+     * Rename ID ({@link #canRenameId}) and the workflow status only through a workflow move ({@link #soqmTargets}).
+     * The save paths refuse a change of one of these ({@link #completedFixedMessage}) and keep the stored value
+     * when the same one is sent; the deadline and the next date are never taken from a request.
+     * TODO: BUSINESS CONFIRMATION: may the dates and the frequency of a completed control change?
+     */
+    public static final List<String> COMPLETED_FIXED_FIELDS = List.of(
+            "Control Operation Date", "Control Frequency", "Control Operation Deadline",
+            "Next Control Operation Date", "SoQM Year", "Control Status");
+
+    /** Why a save may not change one of {@link #COMPLETED_FIXED_FIELDS}. */
+    public static String completedFixedMessage(String field) {
+        return field + " cannot be changed on a completed control";
+    }
+
     /** Everything the user may do on the control. */
     public static ControlPermission resolve(Subject subject, ControlFacts control) {
         boolean canView = canView(subject, control);

@@ -536,6 +536,19 @@ public class ControlController {
             String requestedSoqmYear = controlDTO.getSoqmYear() == null || controlDTO.getSoqmYear().isBlank()
                     ? null : controlDTO.getSoqmYear().trim();
             controlDTO.setSoqmYear(requestedSoqmYear);
+            // A completed control changed in place keeps its frequency, SoQM Year and Control Status
+            // (AccessPolicy.COMPLETED_FIXED_FIELDS): a change is refused, the same value sent is not applied
+            if (permission.isCompletedEdit()) {
+                String fixedField = findChangedCompletedFixedField(controlDTO, existingControl);
+                if (fixedField != null) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body("VALIDATION_ERROR: " + AccessPolicy.completedFixedMessage(fixedField));
+                }
+                controlDTO.setControlFrequency(null);
+                controlDTO.setSoqmYear(null);
+                controlDTO.setControlStatus(null);
+                requestedSoqmYear = null;
+            }
             if (requestedSoqmYear != null && !SoqmYear.isValid(requestedSoqmYear)) {
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + SoqmYear.invalidMessage());
             }
@@ -1001,6 +1014,30 @@ public class ControlController {
             if (sent != null && !normalizeValue(sent).equals(normalizeValue(field.getValue()[1]))) {
                 return field.getKey();
             }
+        }
+        return null;
+    }
+
+    /**
+     * The first field of a completed control that stays as it is (AccessPolicy.COMPLETED_FIXED_FIELDS) whose sent
+     * value differs from the stored one, or null. A frequency counts as the same in another spelling of it.
+     */
+    private String findChangedCompletedFixedField(ControlDTO dto, Control existing) {
+        String sentFrequency = dto.getControlFrequency();
+        if (sentFrequency != null && !sentFrequency.isBlank()
+                && !normalizeValue(sentFrequency).equalsIgnoreCase(normalizeValue(existing.getControlFrequency()))) {
+            String canonical = canonicalizeFrequency(sentFrequency);
+            if (canonical == null || !canonical.equals(canonicalizeFrequency(existing.getControlFrequency()))) {
+                return "Control Frequency";
+            }
+        }
+        if (dto.getSoqmYear() != null && !dto.getSoqmYear().trim().equals(normalizeValue(existing.getSoqmYear()))) {
+            return "SoQM Year";
+        }
+        String sentStatus = dto.getControlStatus();
+        if (sentStatus != null && !sentStatus.isBlank()
+                && !sentStatus.trim().equalsIgnoreCase(normalizeValue(existing.getControlStatus()))) {
+            return "Control Status";
         }
         return null;
     }

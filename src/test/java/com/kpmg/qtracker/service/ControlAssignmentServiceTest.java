@@ -97,6 +97,29 @@ class ControlAssignmentServiceTest {
     }
 
     @Test
+    void saveAssignment_keepingTheSchedule_keepsEveryStoredDate_evenWithoutADeadline_andLeavesTheControlAlone() {
+        // A completed control changed in place: its people change, its dates do not (another date sent is ignored)
+        LocalDate operationDate = LocalDate.of(2026, 9, 25);
+        ControlAssignment stored = storedAssignment(86L, operationDate, null, LocalDate.of(2026, 10, 25));
+        Control control = control(86L, "Monthly");
+        when(assignmentRepository.findByControlId(86L)).thenReturn(Optional.of(stored));
+        when(controlRepository.findById(86L)).thenReturn(Optional.of(control));
+        when(assignmentRepository.save(any(ControlAssignment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ControlAssignmentDTO dto = dto(86L, List.of(), null, null);
+        dto.setControlOperationDate(LocalDate.of(2026, 12, 1));
+        dto.setControlOperationDeadline(LocalDate.of(2030, 1, 1));
+
+        ControlAssignment saved = service.saveAssignment(dto, true);
+
+        assertThat(saved.getControlOperationDate()).isEqualTo(operationDate);
+        assertThat(saved.getControlOperationDeadline()).isNull();
+        assertThat(saved.getNextControlOperationDate()).isEqualTo(LocalDate.of(2026, 10, 25));
+        verify(scheduleCalculator, never()).calculateDeadline(any(), any());
+        verify(controlRepository, never()).save(any(Control.class));
+    }
+
+    @Test
     void saveAssignment_withoutADate_keepsTheStoredSchedule() {
         LocalDate operationDate = LocalDate.of(2026, 9, 25);
         ControlAssignment stored = storedAssignment(82L, operationDate, LocalDate.of(2026, 10, 25), null);
