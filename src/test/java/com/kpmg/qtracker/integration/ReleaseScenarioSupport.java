@@ -321,6 +321,7 @@ abstract class ReleaseScenarioSupport {
         ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();
         details.setProcessActivities("Activities");
         details.setControlStepsPerformed("Steps performed");
+        details.setSoqmHeadComments("SoQM comments");
         details.setProcessOwnerComments("Owner comments");
         detailsRepository.save(details);
         return controlRepository.findById(control.getId()).orElseThrow();
