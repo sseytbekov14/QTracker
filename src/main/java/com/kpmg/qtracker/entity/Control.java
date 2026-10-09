@@ -65,6 +65,11 @@ public class Control {
     @Column(name = "deadline")
     private LocalDate deadline;
 
+    /**
+     * Read only here: the column belongs to ControlAssignment (the same row of table controls). A Control loaded
+     * before an Assignment save and saved after it (its deadline) used to write the old date back over the new one.
+     */
+    @Column(insertable = false, updatable = false)
     private LocalDate controlOperationDate;
 
     @Column(name = "attachment_details_path", columnDefinition = "TEXT")

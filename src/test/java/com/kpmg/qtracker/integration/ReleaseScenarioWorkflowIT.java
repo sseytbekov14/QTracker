@@ -43,7 +43,6 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
     // ---- C1: the chain ----
 
     @Test
-    @Disabled("D-04 (S1): needs the Control Operation Date saved on the Assignment tab")
     void wholeChain_differentPeople_fromCreationToCompleted_withHistoryAndNotifications() throws Exception {
         User soqm = soqm("wf-soqm");
         User fac = myEdit("wf-fac");
@@ -111,7 +110,6 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
     }
 
     @Test
-    @Disabled("D-04 (S1): needs the Control Operation Date saved on the Assignment tab")
     void wholeChain_onePersonInEveryStepField_movesItAlone() throws Exception {
         User soqm = soqm("wf1-soqm");
         User all = myEdit("wf1-all");
@@ -132,7 +130,6 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
     }
 
     @Test
-    @Disabled("D-04 (S1): the Assignment save stores the Control Operation Date as it was; fixed in a later commit")
     void theOperationDate_savedOnTheAssignmentTab_isStored_newOrChanged_withItsDeadline() throws Exception {
         User soqm = soqm("od-soqm");
         Chain chain = new Chain(soqm, myEdit("od-fac"), myEdit("od-op"), myEdit("od-po"));
