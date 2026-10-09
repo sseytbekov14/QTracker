@@ -33,8 +33,10 @@ import java.util.Set;
  *   <li>The Admin Panel (users and audit) is SoQM Team's and only theirs ({@link #hasAdminAccess}); the
  *   stored admin_access flag follows the level and decides nothing.</li>
  *   <li>Shared With only views (spec 5.6): no edit, upload or workflow step, also on completed controls.</li>
- *   <li>A completed control is locked for everyone, SoQM included (spec 9.5, {@link #isLocked}): SoQM returns it
- *   to an earlier status first (business decision 4). Renaming its Control ID stays SoQM's.</li>
+ *   <li>A completed control is locked for everyone but SoQM Team ({@link #isLocked}), who change it in place with a
+ *   reason ({@link #editsAfterCompletion}, business decision of 2026-10-09) or return it to an earlier status
+ *   (business decision 4); its schedule, SoQM Year and status stay ({@link #COMPLETED_FIXED_FIELDS}). Renaming its
+ *   Control ID stays SoQM's.</li>
  * </ul>
  */
 public final class AccessPolicy {
@@ -456,25 +458,31 @@ public final class AccessPolicy {
     }
 
     /**
-     * The one rule for completed controls (spec 9.5, business decision 4): nobody edits one, SoQM included -
-     * no field, assignment, document or attachment change. SoQM returns it to an earlier status first
-     * ({@link #soqmTargets}); renaming its Control ID is not an edit of its content and stays allowed.
+     * The one rule for completed controls (spec 9.5, business decisions 4 and of 2026-10-09): everyone but SoQM
+     * Team - User of any kind, KDN, Shared With, the people assigned to it - only reads one: no field, assignment,
+     * document or attachment change and no step. SoQM Team changes it in place ({@link #editsAfterCompletion}) or
+     * returns it to an earlier status ({@link #soqmTargets}); renaming its Control ID is not an edit of its content.
      * Every check of the lock - the save endpoints, /api/permissions, View Control - reads it from here,
-     * through {@link ControlPermission#isLocked}.
+     * through {@link ControlPermission#isLocked} and {@link ControlPermission#isCompletedEdit}.
      */
     public static boolean isLocked(Subject subject, ControlFacts control) {
-        return isCompleted(control);
+        return isCompleted(control) && !isSoqm(subject);
     }
 
     /**
-     * SoQM Team changing a completed control in place, without returning it: none yet ({@link #isLocked}).
+     * SoQM Team changing a completed control in place, without returning it (business decision of 2026-10-09):
+     * every field of its tabs, Control Operator's Program, Control Steps Performed and Results, the attachments
+     * (upload, and a delete that only hides the file, see FileAttachmentController) and the people, Shared With
+     * included - not {@link #COMPLETED_FIXED_FIELDS}. The status, the completion and its date, reopened_at, "Closed
+     * late", the auto-creation of the next cycle and Overdue stay as they are; every change needs a reason and is
+     * marked "Edited after completion" ({@link CompletedEdit}).
      */
     public static boolean editsAfterCompletion(Subject subject, ControlFacts control) {
         return isCompleted(control) && isSoqm(subject) && !isLocked(subject, control);
     }
 
     public static final String LOCKED_MESSAGE =
-            "A completed control cannot be changed: SoQM returns it to an earlier step first";
+            "This control is completed and locked: only SoQM Team can change it";
 
     /**
      * What a completed control keeps for everyone, SoQM Team changing it in place included: its schedule (the

@@ -259,7 +259,7 @@ class FileAttachmentControllerTest {
     }
 
     @Test
-    void completedControlChangedInPlace_uploadAndDelete_needAReason_andAreMarkedWithIt() throws Exception {
+    void completedControlChangedInPlace_uploadAndHide_needAReason_andAreMarkedWithIt() throws Exception {
         Control control = new Control();
         control.setId(20L);
         control.setControlId("HR20");
@@ -301,7 +301,9 @@ class FileAttachmentControllerTest {
                 eq(control), eq("Attachment DETAILS - Edited after completion"),
                 eq("[\"Attachment (DETAILS)\",\"Reason\"]"), eq("{}"),
                 eq("{\"Attachment (DETAILS)\":\"late.pdf\",\"Reason\":\"Evidence was missing\"}"));
-        verify(adminAuditService).logActionWithChanges(eq("soqm@test.com"), eq("SoQM User"), eq("ATTACHMENT_REMOVED"),
+        // Deleting only hides the file: off the list, kept on disk
+        verify(fileStorageService, never()).deleteFile(anyString(), org.mockito.ArgumentMatchers.<java.util.List<String>>any());
+        verify(adminAuditService).logActionWithChanges(eq("soqm@test.com"), eq("SoQM User"), eq("ATTACHMENT_HIDDEN"),
                 eq(control), eq("Attachment DETAILS - Edited after completion"),
                 eq("[\"Attachment (DETAILS)\",\"Reason\"]"), eq("{\"Attachment (DETAILS)\":\"old.pdf\"}"),
                 eq("{\"Reason\":\"Wrong file\"}"));

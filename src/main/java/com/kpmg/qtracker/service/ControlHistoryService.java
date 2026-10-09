@@ -334,6 +334,8 @@ public class ControlHistoryService {
                 return "Attachment Added" + tabSuffix;
             case "ATTACHMENT_REMOVED":
                 return "Attachment Removed" + tabSuffix;
+            case "ATTACHMENT_HIDDEN":
+                return "Attachment Hidden" + tabSuffix;
             case "ATTACHMENT_REPLACED":
                 return "Attachment Replaced" + tabSuffix;
             case ControlRenameService.AUDIT_ACTION:

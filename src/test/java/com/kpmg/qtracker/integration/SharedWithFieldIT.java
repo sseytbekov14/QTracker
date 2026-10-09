@@ -218,11 +218,15 @@ class SharedWithFieldIT {
     }
 
     @Test
-    void completedControl_soqmSeesTheMarks_butNoSearch() throws Exception {
-        Control control = control("HR", "COMPLETED", off.getMail());
+    void completedControl_soqmChangesSharedWithInPlace_aReaderOnlySeesIt() throws Exception {
+        // SoQM Team changes a completed control in place, people included (decision of 2026-10-09)
+        Control control = control("HR", "COMPLETED", off.getMail() + "," + readerAll.getMail());
 
-        String field = field(control, login(soqm));
-        assertThat(field).contains(">Disabled<").contains("data-editable=\"false\"")
+        String soqmField = field(control, login(soqm));
+        assertThat(soqmField).contains(">Disabled<").contains("data-editable=\"true\"")
+                .contains("sharedWithSearchInput", "sharedWithListbox");
+        String readerField = field(control, login(readerAll));
+        assertThat(readerField).contains("data-editable=\"false\"")
                 .doesNotContain("sharedWithSearchInput", "sharedWithListbox");
     }
 

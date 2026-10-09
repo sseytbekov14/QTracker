@@ -146,8 +146,9 @@ class AccessPolicyTest {
     @CsvSource({
             // user,       status,               kdn,   places,     edit,  editAll, fields
             "SOQM,         DRAFT,                false, -,          true,  true,    -",
-            // A completed control is locked for everyone, SoQM included (decision 4)
-            "SOQM,         COMPLETED,            false, -,          false, false,   -",
+            // A completed control: SoQM Team changes it in place (decision of 2026-10-09), everyone else reads it
+            "SOQM,         COMPLETED,            false, -,          true,  true,    -",
+            "SOQM,         COMPLETED,            true,  F+CO+PO,    true,  true,    -",
             "SOQM,         IN_PROGRESS,          true,  -,          true,  true,    -",
             "PART,         IN_PROGRESS,          false, F,          true,  false,   controlStepsPerformed",
             "PART,         REVIEW,               false, F,          false, false,   -",
@@ -164,6 +165,9 @@ class AccessPolicyTest {
             "PART,         PROCESS_OWNER_REVIEW, false, PO,         true,  false,   processOwnerComments",
             "PART,         COMPLETED,            false, F+CO+PO,    false, false,   -",
             "PART,         COMPLETED,            false, SHARED,     false, false,   -",
+            "PART_ALL,     COMPLETED,            false, PO,         false, false,   -",
+            "KDN,          COMPLETED,            true,  F+CO+PO,    false, false,   -",
+            "RO_ALL,       COMPLETED,            false, SHARED,     false, false,   -",
             "PART,         IN_PROGRESS,          false, SHARED,     false, false,   -",
             "PART_ALL,     IN_PROGRESS,          false, -,          false, false,   -",
             "PART_ALL,     IN_PROGRESS,          false, F,          true,  false,   controlStepsPerformed",
@@ -189,12 +193,13 @@ class AccessPolicyTest {
     @CsvSource({
             // user,     status,      places,       steps field, Control Operator's Program
             "SOQM,       REVIEW,      -,            true,  true",
-            "SOQM,       COMPLETED,   -,            false, false",
+            "SOQM,       COMPLETED,   -,            true,  true",
+            "PART,       COMPLETED,   F+CO,         false, false",
             "RO_ALL,     REVIEW,      -,            false, false",
             "PART,       IN_PROGRESS, F,            true,  false",
             "PART,       REVIEW,      CO,           true,  false",
             "PART,       REVIEW,      F+CO,         true,  false",
-            // SoQM Team writes the Program in every status but Completed
+            // SoQM Team writes the Program in every status, Completed included (in place, with a reason)
             "SOQM,       DRAFT,       -,            true,  true",
             "SOQM,       IN_PROGRESS, -,            true,  true",
             "SOQM,       PROCESS_OWNER_REVIEW, -,   true,  true",
@@ -296,18 +301,25 @@ class AccessPolicyTest {
     }
 
     @Test
-    void completedControl_isLockedForEveryone_butSoqmStillRenamesAndReturnsIt() {
-        for (String user : List.of("SOQM", "PART", "PART_ALL", "RO_ALL")) {
-            ControlPermission p = AccessPolicy.resolve(who(user), control("COMPLETED", false, "F+CO+PO+SHARED"));
+    void completedControl_isLockedForEveryoneButSoqm_whoChangesItInPlace_renamesAndReturnsIt() {
+        for (String user : List.of("PART", "PART_ALL", "RO", "RO_ALL", "KDN")) {
+            ControlPermission p = AccessPolicy.resolve(who(user), control("COMPLETED", true, "F+CO+PO+SHARED"));
             assertThat(p.isLocked()).as(user).isTrue();
+            assertThat(p.isCompletedEdit()).as(user).isFalse();
             assertThat(p.canEdit()).as(user).isFalse();
             assertThat(p.canEditAll()).as(user).isFalse();
             assertThat(p.getAllowedEditableFields()).as(user).isEmpty();
             assertThat(p.editRefusal("other")).as(user).isEqualTo(AccessPolicy.LOCKED_MESSAGE);
         }
         ControlPermission soqm = AccessPolicy.resolve(who("SOQM"), control("COMPLETED", false, "-"));
+        assertThat(soqm.isLocked()).isFalse();
+        assertThat(soqm.isCompletedEdit()).isTrue();
+        assertThat(soqm.canEditAll()).isTrue();
+        assertThat(soqm.editRefusal("other")).isEqualTo("other");
+        assertThat(AccessPolicy.editsAfterCompletion(who("DISABLED_SOQM"), control("COMPLETED", false, "-"))).isFalse();
         assertThat(AccessPolicy.canRenameId(soqm)).isTrue();
         assertThat(soqm.isSoqmLead()).isTrue();
+        assertThat(AccessPolicy.soqmTargets("COMPLETED")).contains("IN_PROGRESS");
         assertThat(AccessPolicy.canRenameId(AccessPolicy.resolve(who("PART"), control("COMPLETED", false, "PO")))).isFalse();
         assertThat(AccessPolicy.canRenameId(AccessPolicy.resolve(who("PART_ALL"), control("REVIEW", false, "-")))).isFalse();
         // Not completed: not locked, SoQM edits

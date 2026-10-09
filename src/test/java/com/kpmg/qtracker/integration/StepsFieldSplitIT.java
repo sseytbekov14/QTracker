@@ -16,6 +16,7 @@ import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.service.AccessPolicy;
+import com.kpmg.qtracker.service.CompletedEdit;
 import com.kpmg.qtracker.service.ControlStepsFields;
 import com.kpmg.qtracker.service.SoqmYear;
 import org.junit.jupiter.api.BeforeEach;
@@ -318,21 +319,24 @@ class StepsFieldSplitIT {
     }
 
     @Test
-    void theProgram_ofACompletedControl_isLockedForEveryone_soqmIncluded() throws Exception {
+    void theProgram_ofACompletedControl_isWrittenBySoqmTeamInPlaceWithAReason_lockedForEveryoneElse() throws Exception {
         Control control = control("COMPLETED", fac.getMail(), op.getMail(), "Steps", "Program");
 
-        MvcResult soqmSave = saveResult(control, login(soqm), REVIEW, "Changed after completion");
-        assertThat(soqmSave.getResponse().getStatus()).isEqualTo(403);
-        assertThat(soqmSave.getResponse().getContentAsString()).contains(AccessPolicy.LOCKED_MESSAGE);
         for (User who : List.of(op, fac, po)) {
-            assertThat(save(control, login(who), REVIEW, "by " + who.getMail())).as(who.getMail()).isEqualTo(403);
+            MvcResult refused = saveResult(control, login(who), REVIEW, "by " + who.getMail());
+            assertThat(refused.getResponse().getStatus()).as(who.getMail()).isEqualTo(403);
+            assertThat(refused.getResponse().getContentAsString()).contains(AccessPolicy.LOCKED_MESSAGE);
         }
+        // SoQM Team: a reason first (decision of 2026-10-09)
+        MvcResult noReason = saveResult(control, login(soqm), REVIEW, "Changed after completion");
+        assertThat(noReason.getResponse().getStatus()).isEqualTo(400);
+        assertThat(noReason.getResponse().getContentAsString()).contains(CompletedEdit.REASON_REQUIRED);
         assertThat(details(control).getControlOperatorReview()).isEqualTo("Program");
 
-        // Returned to an earlier status, SoQM Team writes it again
-        setStatus(control, "PROCESS_OWNER_REVIEW");
-        assertThat(save(control, login(soqm), REVIEW, "Corrected")).isEqualTo(200);
-        assertThat(details(control).getControlOperatorReview()).isEqualTo("Corrected");
+        assertThat(save(control, login(soqm), "{\"" + REVIEW + "\":\"Changed after completion\","
+                + "\"editReason\":\"The Operator sent the final program late\"}")).isEqualTo(200);
+        assertThat(details(control).getControlOperatorReview()).isEqualTo("Changed after completion");
+        assertThat(status(control)).isEqualTo("COMPLETED");
     }
 
     @Test

@@ -58,7 +58,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Business decision 4: SoQM returns a completed control to any earlier status, with a comment; the values,
  * the deadline and the completion in the history stay; the people of the target step are notified; no overdue
  * notice goes out while it is returned; "Closed late" is worked out again from the next completion. Without a
- * return nobody changes a completed control, SoQM included (spec 9.5); renaming its ID stays SoQM's.
+ * return only SoQM Team changes a completed control, in place (decision of 2026-10-09); renaming its ID stays SoQM's.
  */
 @SpringBootTest(properties = "file.upload.dir=target/it-uploads-reopen")
 @AutoConfigureMockMvc
@@ -197,48 +197,47 @@ class ReopenCompletedIT {
     }
 
     @Test
-    void completedControl_isLockedForSoqmToo_butSoqmStillRenamesIt() throws Exception {
+    void completedControl_isLockedForEveryoneButSoqm_andSoqmStillRenamesIt() throws Exception {
         Control control = completedControl(today.plusDays(3), today.minusDays(1));
         String locked = "VALIDATION_ERROR: " + AccessPolicy.LOCKED_MESSAGE;
 
-        mockMvc.perform(as(soqm, put("/api/controls/{id}", control.getId()), null)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"controlDescription\":\"Changed after completion\"}"))
-                .andExpect(status().isForbidden())
-                .andExpect(content().string(locked));
-        mockMvc.perform(as(soqm, post("/api/control-details"), null)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"controlId\":" + control.getId() + ",\"controlStepsPerformed\":\"Changed\"}"))
-                .andExpect(status().isForbidden())
-                .andExpect(content().string(locked));
-        mockMvc.perform(as(soqm, post("/api/control-assignment"), null)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"controlId\":" + control.getId() + "}"))
-                .andExpect(status().isForbidden())
-                .andExpect(content().string(locked));
-        mockMvc.perform(as(soqm, multipart("/api/attachments/upload/{id}", control.getId())
-                        .file(new MockMultipartFile("attachmentDetails", "late.pdf", "application/pdf",
-                                "%PDF-1.4 late".getBytes(StandardCharsets.UTF_8))), null))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value(AccessPolicy.LOCKED_MESSAGE));
-        mockMvc.perform(as(owner, put("/api/controls/{id}", control.getId()), null)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"processOwnerComments\":\"Changed\"}"))
-                .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString(AccessPolicy.LOCKED_MESSAGE)));
-
-        // View Control reads the same rule (AccessPolicy.isLocked) from /api/permissions
-        for (User user : List.of(soqm, owner, shared)) {
+        // The people of the control, Shared With included, only read it (SoQM Team's own changes: CompletedEditSoqmIT)
+        for (User user : List.of(owner, facilitator, operator, shared)) {
+            mockMvc.perform(as(user, put("/api/controls/{id}", control.getId()), null)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"controlDescription\":\"Changed after completion\",\"editReason\":\"x\"}"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(content().string(locked));
+            mockMvc.perform(as(user, post("/api/control-details"), null)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"controlId\":" + control.getId() + ",\"processOwnerComments\":\"Changed\"}"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(content().string(locked));
+            mockMvc.perform(as(user, post("/api/control-assignment"), null)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"controlId\":" + control.getId() + "}"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(content().string(locked));
+            mockMvc.perform(as(user, multipart("/api/attachments/upload/{id}", control.getId())
+                            .file(new MockMultipartFile("attachmentDetails", "late.pdf", "application/pdf",
+                                    "%PDF-1.4 late".getBytes(StandardCharsets.UTF_8))), null))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.message").value(AccessPolicy.LOCKED_MESSAGE));
+            // View Control reads the same rule (AccessPolicy.isLocked) from /api/permissions
             mockMvc.perform(as(user, get("/api/permissions/{id}", control.getId()), null))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.permissions.locked").value(true))
                     .andExpect(jsonPath("$.permissions.completedEdit").value(false));
         }
+        mockMvc.perform(as(soqm, get("/api/permissions/{id}", control.getId()), null))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.permissions.locked").value(false))
+                .andExpect(jsonPath("$.permissions.completedEdit").value(true));
 
         Control unchanged = controlRepository.findById(control.getId()).orElseThrow();
         assertThat(unchanged.getControlDescription()).isNull();
-        assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getControlStepsPerformed())
-                .isEqualTo("Steps performed");
+        assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getProcessOwnerComments())
+                .isEqualTo("Process owner comments");
 
         String newId = control.getControlId() + "-R";
         mockMvc.perform(as(soqm, post("/api/controls/{id}/rename-id", control.getId()), null)

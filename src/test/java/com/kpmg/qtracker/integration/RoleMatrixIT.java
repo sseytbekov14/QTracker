@@ -147,12 +147,12 @@ class RoleMatrixIT {
 
     private static final List<String> CONTROL_OPS = List.of(
             "In Controls list", "In component list", "View page", "Program on page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
-            "Assign", "Upload", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
+            "Edit, no reason", "Fixed field", "Operation Date", "Assign", "Upload", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)");
 
     /** The operations that change a control: none may pass where the page shows a notice. */
     private static final List<String> WRITES = List.of("Save details", "Steps field", "Operator's Program", "Edit control",
-            "Assign", "Upload", "Rename ID", "Rename ±KDN", "Step", "Return",
+            "Edit, no reason", "Fixed field", "Operation Date", "Assign", "Upload", "Rename ID", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review");
 
     /** The working statuses in order; "Move to X" is POST /api/workflow/move, a return when X is earlier. */
@@ -170,6 +170,9 @@ class RoleMatrixIT {
      * forms in turn; the other controls are "HR-RM-n", the kdn-inside row's "X-KDN-RM-n" (not a KDN control).
      */
     private static final List<String> KDN_ID_FORMS = List.of("KDN-RM-%d", "KDNRM%d", "kdn-rm-%d", "Kdn_RM_%d");
+
+    /** The reason every write sends: only a change of a completed control in place needs one (CompletedEdit). */
+    private static final String REASON = ",\"editReason\":\"Matrix check\"";
 
     private static final List<String> USER_OPS = List.of(
             "Create control", "Export button", "Assignment picker", "Admin Panel", "Admin Panel change", "KDN block");
@@ -231,7 +234,8 @@ class RoleMatrixIT {
                     String expected = expectedControlOp(who, status, op);
                     boolean matches = "Notice".equals(op) ? expected.equals(actual) : expected.equals("ok") == actual.equals("ok")
                             && (!expected.equals("not yet") || actual.equals("not yet"))
-                            && !actual.startsWith("5") && expected.equals("400") == actual.equals("400");
+                            && !actual.startsWith("5") && expected.equals("400") == actual.equals("400")
+                            && (!expected.equals("403") || actual.equals("403"));
                     if (!matches) {
                         mismatches.add(status + " | " + who.label() + " | " + op + ": expected " + expected + ", got " + actual);
                     }
@@ -296,8 +300,10 @@ class RoleMatrixIT {
         // A draft someone is only shared with opens once initiated, except for those who see it anyway
         boolean notYet = "DRAFT".equals(status) && shared && !(active && (seesAll || kdnUser));
         boolean writer = active && who.level() != AccessLevel.READ_ONLY;
-        // A completed control is locked for everyone, SoQM included (decision 4); renaming is not an edit
-        boolean soqmEdits = soqm && !"COMPLETED".equals(status);
+        // A completed control: SoQM Team changes it in place with a reason, its schedule, SoQM Year and status
+        // fixed; everyone else only reads it (decision of 2026-10-09). Renaming is not an edit
+        boolean completed = "COMPLETED".equals(status);
+        boolean soqmEdits = soqm;
         // A User with Edit acts only in the field they are listed in (also with All controls)
         boolean actsInStep = writer && who.level() == AccessLevel.PARTICIPANT && listed
                 && (who.scope() != AccessScope.KDN || who.kdnControl());
@@ -305,7 +311,7 @@ class RoleMatrixIT {
                 || ("REVIEW".equals(status) && inCO) || ("PROCESS_OWNER_REVIEW".equals(status) && inPO));
         // Control Steps Performed and Results: one field for both steps, the Facilitator's in In Progress and the
         // Control Operator's in Review; Control Operator's Program: SoQM Team only (the Control Operator sends it,
-        // SoQM Team puts it in), every status but Completed; SoQM both
+        // SoQM Team puts it in), in every status; SoQM both
         boolean stepsField = soqmEdits || (actsInStep && (("IN_PROGRESS".equals(status) && inF)
                 || ("REVIEW".equals(status) && inCO)));
         boolean operatorField = soqmEdits;
@@ -333,6 +339,10 @@ class RoleMatrixIT {
             case "Steps field" -> sees && writer && stepsField ? "ok" : "refused";
             case "Operator's Program" -> sees && writer && operatorField ? "ok" : "refused";
             case "Edit control", "Assign" -> soqmEdits ? "ok" : "refused";
+            // The same change without a reason: refused only on a completed control, where it needs one
+            case "Edit, no reason" -> !soqmEdits ? "refused" : completed ? "400" : "ok";
+            // Another frequency (Edit control) or Control Operation Date (Assign): fixed on a completed control
+            case "Fixed field", "Operation Date" -> !soqmEdits ? "refused" : completed ? "403" : "ok";
             case "Rename ID" -> soqm ? "ok" : "refused";
             // "KDN" appearing at or going from the start of the ID changes who sees the control: SoQM gives a comment
             case "Rename ±KDN, no comment" -> soqm ? "400" : "refused";
@@ -403,22 +413,33 @@ class RoleMatrixIT {
                 ? answer(get("/api/controls/{id}/export/completed", control.getId()), session) : "n/a");
         row.put("Save details", answer(post("/api/control-details").with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlId\":" + control.getId() + ",\"" + stepFieldOf(who, status) + "\":\"Saved by " + who.key() + "\"}"), session));
+                .content("{\"controlId\":" + control.getId() + ",\"" + stepFieldOf(who, status) + "\":\"Saved by " + who.key() + "\"" + REASON + "}"), session));
         row.put("Steps field", answer(post("/api/control-details").with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlId\":" + control.getId() + ",\"controlStepsPerformed\":\"Steps by " + who.key() + "\"}"), session));
+                .content("{\"controlId\":" + control.getId() + ",\"controlStepsPerformed\":\"Steps by " + who.key() + "\"" + REASON + "}"), session));
         row.put("Operator's Program", answer(post("/api/control-details").with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlId\":" + control.getId() + ",\"controlOperatorReview\":\"Review by " + who.key() + "\"}"), session));
+                .content("{\"controlId\":" + control.getId() + ",\"controlOperatorReview\":\"Review by " + who.key() + "\"" + REASON + "}"), session));
         row.put("Edit control", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlDescription\":\"Changed by " + who.key() + "\"}"), session));
+                .content("{\"controlDescription\":\"Changed by " + who.key() + "\"" + REASON + "}"), session));
+        row.put("Edit, no reason", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlDescription\":\"Changed again by " + who.key() + "\"}"), session));
+        row.put("Fixed field", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlFrequency\":\"Quarterly\"" + REASON + "}"), session));
+        row.put("Operation Date", answer(post("/api/control-assignment").with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlId\":" + control.getId() + ",\"controlOperationDate\":\""
+                        + today().plusDays(11) + "\"" + REASON + "}"), session));
         row.put("Assign", answer(post("/api/control-assignment").with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlId\":" + control.getId() + "}"), session));
+                .content("{\"controlId\":" + control.getId() + REASON + "}"), session));
         row.put("Upload", answer(multipart("/api/attachments/upload/{id}", control.getId())
                 .file(new MockMultipartFile("attachmentDetails", "matrix-" + who.key() + ".pdf", "application/pdf",
                         "%PDF-1.4 matrix".getBytes(StandardCharsets.UTF_8)))
+                .param("editReason", "Matrix check")
                 .with(csrf().asHeader()), session));
         row.put("Rename ID", answer(post("/api/controls/{id}/rename-id", control.getId()).with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)

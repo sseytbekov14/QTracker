@@ -367,11 +367,15 @@ public class FileAttachmentController {
 
             boolean removed = controlAttachmentService.removeFromControl(control, tabLabel, decodedFilename);
 
+            // A completed control changed in place only hides the file (AccessPolicy.editsAfterCompletion): off the
+            // list and its upload record, so nobody sees or downloads it, but kept on disk (a later upload of the
+            // same name gets another name, FileStorageService.saveFile)
+            boolean hideOnly = permission.isCompletedEdit();
             // Both tabs share the control folder; keep the file on disk while the other tab still lists it
             String otherPath = ControlAttachment.TAB_DETAILS.equals(tabLabel)
                     ? control.getAttachmentDocumentsPath()
                     : control.getAttachmentDetailsPath();
-            if (removed && !ControlAttachmentService.isListed(otherPath, decodedFilename.trim())) {
+            if (removed && !hideOnly && !ControlAttachmentService.isListed(otherPath, decodedFilename.trim())) {
                 try {
                     fileStorageService.deleteFile(decodedFilename, controlRenameService.attachmentFolders(control));
                 } catch (Exception e) {
@@ -380,11 +384,11 @@ public class FileAttachmentController {
             }
 
             if (removed) {
-                logAttachmentChange(currentUser, control, "ATTACHMENT_REMOVED", tabLabel, decodedFilename, "",
-                        CompletedEdit.reasonOf(permission, editReason));
+                logAttachmentChange(currentUser, control, hideOnly ? "ATTACHMENT_HIDDEN" : "ATTACHMENT_REMOVED",
+                        tabLabel, decodedFilename, "", CompletedEdit.reasonOf(permission, editReason));
             }
             response.put("success", true);
-            response.put("message", "File deleted");
+            response.put("message", hideOnly ? "File hidden" : "File deleted");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             response.put("success", false);
