@@ -2,7 +2,8 @@
 .gitignore
 .idea
 .vscode
-target
+target/**
+!target/*.jar
 node_modules
 dist
 build

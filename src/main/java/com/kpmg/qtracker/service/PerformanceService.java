@@ -68,23 +68,7 @@ public class PerformanceService implements IPerformanceService {
             dto.setAssignedTo("Not assigned");
         }
 
-        // Actual operation date from control creation
-        if (control.getCreatedAt() != null) {
-            dto.setActualOperationDate(control.getCreatedAt().toLocalDate());
-        }
-
         return dto;
-    }
-
-    /**
-     * Save soqmYear directly into controls table.
-     */
-    @Override
-    public void saveSoqmYear(Long controlId, String soqmYear) {
-        Control control = controlService.getControlById(controlId)
-                .orElseThrow(() -> new RuntimeException("Control not found: " + controlId));
-        control.setSoqmYear(soqmYear);
-        controlService.save(control);
     }
 
     @Override

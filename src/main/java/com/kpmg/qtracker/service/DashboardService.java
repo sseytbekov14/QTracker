@@ -3,24 +3,24 @@ package com.kpmg.qtracker.service;
 import com.kpmg.qtracker.dto.DashboardCalendarEventDTO;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.dto.DashboardChartDataDTO;
+import com.kpmg.qtracker.dto.DashboardDeadlineCountdownDTO;
 import com.kpmg.qtracker.dto.DashboardDeadlineCountdownItemDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlRepository;
-import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
-import com.kpmg.qtracker.repository.WorkflowStepRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -35,44 +35,22 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class DashboardService {
-    private static final Logger log = LoggerFactory.getLogger(DashboardService.class);
     private static final DateTimeFormatter TREND_LABEL_FORMAT = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
-    private static final String COMPLETED_SQL = """
-            (
-                COALESCE(UPPER(TRIM(c.performance_status)), 'DRAFT') = 'COMPLETED'
-                OR EXISTS (
-                    SELECT 1
-                    FROM workflow_steps ws
-                    WHERE ws.control_id = c.id
-                      AND ws.completed_at IS NOT NULL
-                )
-                OR EXISTS (
-                    SELECT 1
-                    FROM workflow_history wh
-                    WHERE wh.control_id = c.id
-                      AND (
-                          (wh.to_step IS NOT NULL AND UPPER(TRIM(wh.to_step)) = 'COMPLETED')
-                          OR (
-                              wh.action_type = 'APPROVE'
-                              AND wh.from_step IS NOT NULL
-                              AND UPPER(TRIM(wh.from_step)) = 'PROCESS_OWNER_REVIEW'
-                          )
-                      )
-                )
-            )
-            """;
+    private static final int CALENDAR_DUE_SOON_DAYS = 3;
+    private static final Comparator<DeadlineRow> BY_DEADLINE = Comparator
+            .comparing(DeadlineRow::deadline, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(DeadlineRow::id);
 
     private final ControlRepository controlRepository;
     private final IControlService controlService;
     private final ControlAssignmentService controlAssignmentService;
-    private final WorkflowStepRepository workflowStepRepository;
-    private final WorkflowHistoryRepository workflowHistoryRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     public DashboardChartDataDTO getStatusBreakdown() {
-        DashboardKpiCounts counts = loadKpiCounts();
+        DeadlineOverdue.Counts counts = DeadlineOverdue.count(
+                toDeadlineRows(controlRepository.findAll()), DeadlineRow::status, DeadlineRow::deadline, today());
         Map<String, Long> chartCounts = new LinkedHashMap<>();
         chartCounts.put("Active", counts.active());
         chartCounts.put("Completed", counts.completed());
@@ -130,10 +108,6 @@ public class DashboardService {
         return toChartData(counts);
     }
 
-    public DashboardKpiCounts getKpiCounts() {
-        return loadKpiCounts();
-    }
-
     public DashboardChartDataDTO getMyFrequencyBreakdown(User currentUser) {
         return buildFrequencyBreakdown(findMyScopedNonDraftControls(currentUser));
     }
@@ -143,27 +117,7 @@ public class DashboardService {
     }
 
     public DashboardChartDataDTO getMyOverdueTrend(User currentUser) {
-        List<Control> visibleControls = findMyScopedNonDraftControls(currentUser);
-        LocalDate today = LocalDate.now();
-        LocalDate startDate = today.minusDays(29);
-        Map<LocalDate, Long> grouped = new LinkedHashMap<>();
-        for (LocalDate date = startDate; !date.isAfter(today); date = date.plusDays(1)) {
-            grouped.put(date, 0L);
-        }
-
-        Map<Long, LocalDateTime> completionByControlId = resolveCompletionTimes(visibleControls);
-        for (Control control : visibleControls) {
-            LocalDate deadline = control.getDeadline();
-            if (deadline == null || deadline.isBefore(startDate) || !deadline.isBefore(today)) {
-                continue;
-            }
-            if (isCompletedForDashboard(control, completionByControlId)) {
-                continue;
-            }
-            grouped.computeIfPresent(deadline, (key, value) -> value + 1);
-        }
-
-        return toTrendChartData(grouped);
+        return buildOverdueTrend(toDeadlineRows(findMyScopedNonDraftControls(currentUser)));
     }
 
     public DashboardChartDataDTO getFrequencyBreakdown() {
@@ -171,89 +125,59 @@ public class DashboardService {
     }
 
     public DashboardChartDataDTO getOverdueTrend() {
-        LocalDate today = LocalDate.now();
-        LocalDate startDate = today.minusDays(29);
+        return buildOverdueTrend(toDeadlineRows(controlRepository.findAll()));
+    }
 
+    // Controls still overdue, by deadline day, over the last 30 days
+    private DashboardChartDataDTO buildOverdueTrend(List<DeadlineRow> rows) {
+        LocalDate today = today();
+        LocalDate startDate = today.minusDays(29);
         Map<LocalDate, Long> grouped = new LinkedHashMap<>();
         for (LocalDate date = startDate; !date.isAfter(today); date = date.plusDays(1)) {
             grouped.put(date, 0L);
         }
-
-        List<Object[]> rows = entityManager.createNativeQuery("""
-                SELECT c.control_operation_deadline, COUNT(*)
-                FROM controls c
-                WHERE c.control_operation_deadline >= :startDate
-                  AND c.control_operation_deadline < CURRENT_DATE
-                  AND NOT %s
-                GROUP BY c.control_operation_deadline
-                ORDER BY c.control_operation_deadline
-                """.formatted(COMPLETED_SQL))
-                .setParameter("startDate", startDate)
-                .getResultList();
-
-        for (Object[] row : rows) {
-            LocalDate deadline = toLocalDate(row[0]);
-            if (deadline == null) {
-                continue;
+        for (DeadlineRow row : rows) {
+            if (DeadlineOverdue.isOverdue(row.status(), row.deadline(), today)) {
+                grouped.computeIfPresent(row.deadline(), (key, value) -> value + 1);
             }
-            grouped.computeIfPresent(deadline, (key, value) -> value + toLong(row[1]));
         }
-
         return toTrendChartData(grouped);
     }
 
-    public List<DashboardDeadlineCountdownItemDTO> getDeadlineCountdown(User currentUser, int days, int limit) {
-        if (currentUser == null) {
-            return Collections.emptyList();
-        }
-        DeadlineScopeSql scope = buildDeadlineScope(currentUser);
-        if (scope.blocked()) {
-            return Collections.emptyList();
-        }
-
-        LocalDate startDate = LocalDate.now();
-        LocalDate endDate = startDate.plusDays(Math.max(days, 0));
+    public DashboardDeadlineCountdownDTO getDeadlineCountdown(User currentUser, int days, int limit) {
+        LocalDate today = today();
         int safeLimit = Math.max(1, limit);
+        List<DeadlineRow> rows = visibleDeadlineRows(currentUser);
 
-        String sql = """
-                SELECT c.id,
-                       c.control_id,
-                       c.control_description,
-                       c.control_operation_deadline,
-                       COALESCE(UPPER(TRIM(c.performance_status)), 'DRAFT') AS effective_status
-                FROM controls c
-                %2$s
-                  AND COALESCE(UPPER(TRIM(c.performance_status)), 'DRAFT') <> 'DRAFT'
-                  AND NOT %1$s
-                  AND c.control_operation_deadline >= :startDate
-                  AND c.control_operation_deadline <= :endDate
-                ORDER BY c.control_operation_deadline ASC, c.id ASC
-                """.formatted(COMPLETED_SQL, scope.whereClause());
+        List<DeadlineRow> overdue = rows.stream()
+                .filter(row -> DeadlineOverdue.isOverdue(row.status(), row.deadline(), today))
+                .sorted(BY_DEADLINE)
+                .collect(Collectors.toList());
+        List<DeadlineRow> upcoming = rows.stream()
+                .filter(row -> DeadlineOverdue.isDueSoon(row.status(), row.deadline(), today, days))
+                .sorted(BY_DEADLINE)
+                .limit(safeLimit)
+                .collect(Collectors.toList());
 
-        @SuppressWarnings("unchecked")
-        List<Object[]> rows = applyScopeParameters(entityManager.createNativeQuery(sql), scope)
-                .setParameter("startDate", startDate)
-                .setParameter("endDate", endDate)
-                .setMaxResults(safeLimit)
-                .getResultList();
+        return new DashboardDeadlineCountdownDTO(
+                toDeadlineItems(overdue.stream().limit(safeLimit).collect(Collectors.toList()), today),
+                overdue.size(),
+                toDeadlineItems(upcoming, today)
+        );
+    }
 
+    private List<DashboardDeadlineCountdownItemDTO> toDeadlineItems(List<DeadlineRow> rows, LocalDate today) {
         List<DashboardDeadlineCountdownItemDTO> items = new ArrayList<>();
-        for (Object[] row : rows) {
-            LocalDateTime deadline = toDeadlineDateTime(row[3]);
-            if (row == null || row.length < 5 || row[0] == null || deadline == null) {
-                continue;
-            }
-            Long id = ((Number) row[0]).longValue();
-            String controlId = row[1] != null ? row[1].toString() : "Control";
-            String name = shortenText(row[2] != null ? row[2].toString() : "Untitled Control", 48);
-            String status = row[4] != null ? row[4].toString() : "IN_PROGRESS";
+        for (DeadlineRow row : rows) {
             items.add(new DashboardDeadlineCountdownItemDTO(
-                    id,
-                    controlId,
-                    name,
-                    deadline,
-                    status,
-                    "/view-control/" + id
+                    row.id(),
+                    row.controlId() != null ? row.controlId() : "Control",
+                    shortenText(row.description(), 48),
+                    DeadlineOverdue.endOfDay(row.deadline()),
+                    normalizeStatus(row.status()),
+                    controlPage(row),
+                    DeadlineOverdue.isOverdue(row.status(), row.deadline(), today),
+                    DeadlineOverdue.daysOverdue(row.status(), row.deadline(), today)
             ));
         }
         return items;
@@ -263,52 +187,34 @@ public class DashboardService {
         if (currentUser == null || start == null || end == null || !end.isAfter(start)) {
             return Collections.emptyList();
         }
-        DeadlineScopeSql scope = buildDeadlineScope(currentUser);
-        if (scope.blocked()) {
-            return Collections.emptyList();
+        LocalDate today = today();
+        return visibleDeadlineRows(currentUser).stream()
+                .filter(row -> row.deadline() != null && !row.deadline().isBefore(start) && row.deadline().isBefore(end))
+                .sorted(BY_DEADLINE)
+                .map(row -> new DashboardCalendarEventDTO(
+                        row.controlId() != null ? row.controlId() : "Control",
+                        row.deadline().toString(),
+                        controlPage(row),
+                        calendarColor(row, today)))
+                .collect(Collectors.toList());
+    }
+
+    // A draft opens on its Initiate page (which sends anyone who may not initiate it on to View Control)
+    private String controlPage(DeadlineRow row) {
+        return "DRAFT".equals(normalizeStatus(row.status())) ? "/initiate/" + row.id() : "/view-control/" + row.id();
+    }
+
+    private String calendarColor(DeadlineRow row, LocalDate today) {
+        if (DeadlineOverdue.isCompleted(row.status())) {
+            return "#9BA3B5";
         }
-
-        String sql = """
-                SELECT c.id,
-                       c.control_id,
-                       DATE(c.control_operation_deadline) AS event_start,
-                       CASE
-                           WHEN %1$s THEN '#9BA3B5'
-                           WHEN c.control_operation_deadline < CURRENT_DATE THEN '#C8102E'
-                           WHEN c.control_operation_deadline <= :dueSoonDate THEN '#D4A843'
-                           ELSE '#005EB8'
-                       END AS event_color
-                FROM controls c
-                %2$s
-                  AND c.control_operation_deadline >= :startDate
-                  AND c.control_operation_deadline < :endDate
-                ORDER BY c.control_operation_deadline ASC, c.id ASC
-                """.formatted(COMPLETED_SQL, scope.whereClause());
-
-        @SuppressWarnings("unchecked")
-        List<Object[]> rows = applyScopeParameters(entityManager.createNativeQuery(sql), scope)
-                .setParameter("startDate", start)
-                .setParameter("endDate", end)
-                .setParameter("dueSoonDate", LocalDate.now().plusDays(3))
-                .getResultList();
-
-        List<DashboardCalendarEventDTO> events = new ArrayList<>();
-        for (Object[] row : rows) {
-            LocalDate deadline = toLocalDate(row[2]);
-            if (row == null || row.length < 4 || row[0] == null || deadline == null) {
-                continue;
-            }
-            Long id = ((Number) row[0]).longValue();
-            String controlId = row[1] != null ? row[1].toString() : "Control";
-            String color = row[3] != null ? row[3].toString() : "#005EB8";
-            events.add(new DashboardCalendarEventDTO(
-                    controlId,
-                    deadline.toString(),
-                    "/view-control/" + id,
-                    color
-                ));
+        if (DeadlineOverdue.isOverdue(row.status(), row.deadline(), today)) {
+            return "#C8102E";
         }
-        return events;
+        if (DeadlineOverdue.isDueSoon(row.status(), row.deadline(), today, CALENDAR_DUE_SOON_DAYS)) {
+            return "#D4A843";
+        }
+        return "#005EB8";
     }
 
     private DashboardChartDataDTO buildFrequencyBreakdown(List<Control> controls) {
@@ -372,113 +278,74 @@ public class DashboardService {
         return new DashboardChartDataDTO(labels, values);
     }
 
-    private DashboardKpiCounts loadKpiCounts() {
-        Object[] row = (Object[]) entityManager.createNativeQuery("""
-                SELECT
-                    COUNT(*) AS total_count,
-                    COALESCE(SUM(CASE WHEN %1$s THEN 1 ELSE 0 END), 0) AS completed_count,
-                    COALESCE(SUM(CASE
-                        WHEN NOT %1$s
-                         AND c.control_operation_deadline < CURRENT_DATE
-                        THEN 1 ELSE 0 END), 0) AS overdue_count,
-                    COALESCE(SUM(CASE
-                        WHEN NOT %1$s
-                         AND (c.control_operation_deadline IS NULL OR c.control_operation_deadline >= CURRENT_DATE)
-                        THEN 1 ELSE 0 END), 0) AS active_count
-                FROM controls c
-                """.formatted(COMPLETED_SQL))
-                .getSingleResult();
-
-        DashboardKpiCounts rawCounts = new DashboardKpiCounts(
-                toLong(row[0]),
-                toLong(row[3]),
-                toLong(row[1]),
-                toLong(row[2])
-        );
-
-        if (rawCounts.active() + rawCounts.completed() + rawCounts.overdue() == rawCounts.total()) {
-            return rawCounts;
+    /**
+     * The controls the user's tiles and Controls list cover, with their deadlines: the controls they see,
+     * drafts included as far as they see them ({@link AccessPolicy#canView}).
+     */
+    private List<DeadlineRow> visibleDeadlineRows(User currentUser) {
+        if (currentUser == null || currentUser.getMail() == null || currentUser.getMail().isBlank()) {
+            return Collections.emptyList();
         }
-
-        long adjustedCompleted = Math.min(Math.max(0L, rawCounts.completed()), rawCounts.total());
-        long remainingAfterCompleted = Math.max(0L, rawCounts.total() - adjustedCompleted);
-        long adjustedOverdue = Math.min(Math.max(0L, rawCounts.overdue()), remainingAfterCompleted);
-        long adjustedActive = remainingAfterCompleted - adjustedOverdue;
-
-        log.warn(
-                "Dashboard KPI count drift detected. Raw counts total={}, active={}, completed={}, overdue={}. Using adjusted values active={}, completed={}, overdue={}.",
-                rawCounts.total(),
-                rawCounts.active(),
-                rawCounts.completed(),
-                rawCounts.overdue(),
-                adjustedActive,
-                adjustedCompleted,
-                adjustedOverdue
-        );
-
-        return new DashboardKpiCounts(rawCounts.total(), adjustedActive, adjustedCompleted, adjustedOverdue);
+        return toDeadlineRows(safeControls(controlService.findVisibleControlsForUser(currentUser)));
     }
 
-    private DeadlineScopeSql buildDeadlineScope(User currentUser) {
-        if (currentUser == null) {
-            return new DeadlineScopeSql("WHERE 1 = 0", Collections.emptyMap(), true);
-        }
-
-        StringBuilder where = new StringBuilder("WHERE c.control_operation_deadline IS NOT NULL");
-        Map<String, Object> parameters = new LinkedHashMap<>();
-
-        if (!isSoqmLead(currentUser)) {
-            String email = currentUser.getMail();
-            if (email == null || email.isBlank()) {
-                return new DeadlineScopeSql("WHERE 1 = 0", Collections.emptyMap(), true);
+    private List<DeadlineRow> toDeadlineRows(List<Control> controls) {
+        Map<Long, Control> byId = new LinkedHashMap<>();
+        for (Control control : safeControls(controls)) {
+            if (control.getId() != null) {
+                byId.putIfAbsent(control.getId(), control);
             }
-
-            where.append(" AND COALESCE(UPPER(TRIM(c.performance_status)), 'DRAFT') <> 'DRAFT'");
-            where.append(" AND (");
-            where.append(buildDelimitedMatchCondition("c.facilitator", "scopeEmailToken", "scopeIdToken"));
-            where.append(" OR ");
-            where.append(buildDelimitedMatchCondition("c.control_operator", "scopeEmailToken", "scopeIdToken"));
-            where.append(" OR ");
-            where.append(buildDelimitedMatchCondition("c.process_owner", "scopeEmailToken", "scopeIdToken"));
-            where.append(" OR ");
-            where.append(buildDelimitedMatchCondition("c.control_shared_with", "scopeEmailToken", "scopeIdToken"));
-            where.append(")");
-
-            String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
-            String normalizedId = currentUser.getId() != null
-                    ? String.valueOf(currentUser.getId()).trim().toLowerCase(Locale.ROOT)
-                    : "__no_match__";
-            parameters.put("scopeEmailToken", "%," + normalizedEmail + ",%");
-            parameters.put("scopeIdToken", "%," + normalizedId + ",%");
         }
+        Map<Long, LocalDate> operationDeadlines = findOperationDeadlines(byId.keySet());
+        List<DeadlineRow> rows = new ArrayList<>(byId.size());
+        for (Control control : byId.values()) {
+            rows.add(new DeadlineRow(
+                    control.getId(),
+                    control.getControlId(),
+                    control.getControlDescription(),
+                    control.getPerformanceStatus(),
+                    DeadlineOverdue.deadlineOf(operationDeadlines.get(control.getId()), control.getDeadline())));
+        }
+        return rows;
+    }
 
-        return new DeadlineScopeSql(where.toString(), parameters, false);
+    // The assignment's operation deadline is on the same controls row (mapped by ControlAssignment)
+    private Map<Long, LocalDate> findOperationDeadlines(Collection<Long> controlIds) {
+        if (controlIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery("""
+                SELECT c.id, c.control_operation_deadline
+                FROM controls c
+                WHERE c.id IN (:controlIds)
+                  AND c.control_operation_deadline IS NOT NULL
+                """)
+                .setParameter("controlIds", new ArrayList<>(controlIds))
+                .getResultList();
+        Map<Long, LocalDate> deadlines = new HashMap<>();
+        for (Object[] row : rows) {
+            LocalDate deadline = toLocalDate(row[1]);
+            if (row[0] instanceof Number id && deadline != null) {
+                deadlines.put(id.longValue(), deadline);
+            }
+        }
+        return deadlines;
     }
 
     private List<Control> findMyScopedControls(User currentUser) {
         if (currentUser == null || currentUser.getMail() == null || currentUser.getMail().isBlank()) {
             return Collections.emptyList();
         }
-        List<Control> candidates = controlService.findVisibleControlsForUser(currentUser.getMail(), currentUser.getRole());
+        List<Control> candidates = controlService.findVisibleControlsForUser(currentUser);
+        if (AccessPolicy.chartsCoverEveryVisibleControl(AccessPolicy.Subject.of(currentUser))) {
+            // KDN: every KDN control, as their tiles and Controls list
+            return safeControls(candidates);
+        }
         Predicate<Control> predicate = buildMyScopePredicate(currentUser);
         return safeControls(candidates).stream()
                 .filter(predicate)
                 .collect(Collectors.toList());
-    }
-
-    private String buildDelimitedMatchCondition(String columnName, String emailParam, String idParam) {
-        String normalizedColumn = "LOWER(CONCAT(',', REPLACE(REPLACE(REPLACE(COALESCE(" + columnName + ", ''), ';', ','), ' ', ''), ',,', ','), ','))";
-        return "(" + normalizedColumn + " LIKE :" + emailParam + " OR " + normalizedColumn + " LIKE :" + idParam + ")";
-    }
-
-    private jakarta.persistence.Query applyScopeParameters(jakarta.persistence.Query query, DeadlineScopeSql scope) {
-        if (query == null || scope == null || scope.parameters() == null) {
-            return query;
-        }
-        for (Map.Entry<String, Object> entry : scope.parameters().entrySet()) {
-            query.setParameter(entry.getKey(), entry.getValue());
-        }
-        return query;
     }
 
     private List<Control> findMyScopedNonDraftControls(User currentUser) {
@@ -546,67 +413,11 @@ public class DashboardService {
                 .collect(Collectors.toList());
     }
 
-    private Map<Long, LocalDateTime> resolveCompletionTimes(List<Control> controls) {
-        List<Long> controlIds = safeControls(controls).stream()
-                .map(Control::getId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .collect(Collectors.toList());
-        if (controlIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        Map<Long, LocalDateTime> completionByControlId = new HashMap<>();
-        mergeCompletionRows(completionByControlId, workflowStepRepository.findLatestCompletedAtByControlIds(controlIds));
-        mergeCompletionRows(completionByControlId, workflowHistoryRepository.findLatestCompletionTimestampByControlIds(controlIds));
-        return completionByControlId;
-    }
-
-    private void mergeCompletionRows(Map<Long, LocalDateTime> target, List<Object[]> rows) {
-        if (target == null || rows == null || rows.isEmpty()) {
-            return;
-        }
-        for (Object[] row : rows) {
-            if (row == null || row.length < 2 || !(row[0] instanceof Number) || !(row[1] instanceof LocalDateTime)) {
-                continue;
-            }
-            Long controlId = ((Number) row[0]).longValue();
-            LocalDateTime completionTime = (LocalDateTime) row[1];
-            LocalDateTime existing = target.get(controlId);
-            if (existing == null || completionTime.isAfter(existing)) {
-                target.put(controlId, completionTime);
-            }
-        }
-    }
-
-    private boolean isCompletedForDashboard(Control control, Map<Long, LocalDateTime> completionByControlId) {
-        if (control == null) {
-            return false;
-        }
-        if ("COMPLETED".equals(normalizeStatus(control.getPerformanceStatus()))) {
-            return true;
-        }
-        return control.getId() != null
-                && completionByControlId != null
-                && completionByControlId.containsKey(control.getId());
-    }
-
     private String normalizeStatus(String status) {
         if (status == null || status.isBlank()) {
             return "DRAFT";
         }
         return status.trim().toUpperCase(Locale.ROOT);
-    }
-
-    private boolean isSoqmLead(User currentUser) {
-        if (currentUser == null || currentUser.getRole() == null) {
-            return false;
-        }
-        String normalized = currentUser.getRole().trim()
-                .replace('-', '_')
-                .replace(' ', '_')
-                .toUpperCase(Locale.ROOT);
-        return "SOQM_TEAM".equals(normalized);
     }
 
     private String normalizeFrequency(String frequency) {
@@ -692,20 +503,6 @@ public class DashboardService {
         return null;
     }
 
-    private LocalDateTime toDeadlineDateTime(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof LocalDateTime localDateTime) {
-            return localDateTime.withSecond(0).withNano(0);
-        }
-        if (value instanceof java.sql.Timestamp timestamp) {
-            return timestamp.toLocalDateTime().withSecond(0).withNano(0);
-        }
-        LocalDate localDate = toLocalDate(value);
-        return localDate != null ? localDate.atTime(23, 59) : null;
-    }
-
     private long toLong(Object value) {
         if (value instanceof Number number) {
             return number.longValue();
@@ -724,9 +521,11 @@ public class DashboardService {
         return trimmed.substring(0, Math.max(0, maxLength - 3)).trim() + "...";
     }
 
-    public record DashboardKpiCounts(long total, long active, long completed, long overdue) {
+    private LocalDate today() {
+        return DeadlineOverdue.today(Instant.now());
     }
 
-    private record DeadlineScopeSql(String whereClause, Map<String, Object> parameters, boolean blocked) {
+    /** What the deadline views need of a control; {@code deadline} is already resolved by DeadlineOverdue.deadlineOf. */
+    private record DeadlineRow(Long id, String controlId, String description, String status, LocalDate deadline) {
     }
 }

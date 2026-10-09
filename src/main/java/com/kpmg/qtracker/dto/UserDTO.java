@@ -11,4 +11,7 @@ public class UserDTO {
     private String role;
     private String username;
     private Boolean enabled;
+    /** Shared With picker of a control: what a place there gives the user (AccessPolicy.SharedAccess) and its mark. */
+    private String sharedAccess;
+    private String sharedNote;
 }

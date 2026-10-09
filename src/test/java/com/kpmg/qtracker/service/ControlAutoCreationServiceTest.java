@@ -8,6 +8,8 @@ import com.kpmg.qtracker.repository.ControlRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -135,6 +137,51 @@ class ControlAutoCreationServiceTest {
         verify(notificationService, times(1))
                 .sendAutoCreatedNotification(any(Control.class), anyString(), anyString(), any(LocalDate.class));
         verify(controlAssignmentService, times(1)).recalculateSchedule(99L);
+    }
+
+    /** The new cycle gets the 14 days; the cycle it was created from keeps the deadline it had. */
+    @ParameterizedTest
+    @CsvSource({
+            "Monthly,     2026-09-30, 2026-10-30, 2026-11-13, 2026-11-30",
+            "Quarterly,   2026-07-31, 2026-10-31, 2026-11-14, 2027-01-31",
+            "Recurring,   2025-11-30, 2026-02-28, 2026-03-14, 2026-05-28",
+            "Semi Annual, 2027-08-31, 2028-02-29, 2028-03-14, 2028-08-29",
+            "Annual,      2027-02-28, 2028-02-28, 2028-03-13, 2029-02-28"
+    })
+    void autoCreatedCycle_getsFourteenDays_andThePreviousCycleKeepsItsDeadline(String frequency,
+                                                                               LocalDate previousDate,
+                                                                               LocalDate today,
+                                                                               LocalDate expectedDeadline,
+                                                                               LocalDate expectedNext) {
+        Control previous = controlWithFrequency(frequency);
+        LocalDate previousDeadline = previousDate.plusDays(7);
+        previous.setDeadline(previousDeadline);
+        ControlAssignment previousAssignment = assignmentWithDates(previousDate, today);
+        previousAssignment.setControlOperationDeadline(previousDeadline);
+
+        when(assignmentRepository.existsByBaseControlIdAndOperationDate(anyString(), anyString(), any(LocalDate.class)))
+                .thenReturn(false);
+        when(controlRepository.existsByControlId(anyString())).thenReturn(false);
+        when(controlRepository.save(any(Control.class))).thenAnswer(invocation -> {
+            Control saved = invocation.getArgument(0);
+            saved.setId(300L);
+            return saved;
+        });
+        when(assignmentRepository.save(any(ControlAssignment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(controlAssignmentService.getAssignmentByControlId(any(Long.class)))
+                .thenReturn(assignmentDtoWithSoqm("soqm@example.test"));
+
+        ControlAutoCreationService.AutoCreationResult result =
+                autoCreationService.createNextOccurrenceIfDue(previous, previousAssignment, today);
+
+        assertTrue(result.created());
+        assertEquals(today, result.newAssignment().getControlOperationDate());
+        assertEquals(expectedDeadline, result.newAssignment().getControlOperationDeadline());
+        assertEquals(expectedDeadline, result.newControl().getDeadline());
+        assertEquals(expectedNext, result.newAssignment().getNextControlOperationDate());
+        assertEquals(previousDeadline, previous.getDeadline());
+        assertEquals(previousDeadline, previousAssignment.getControlOperationDeadline());
+        assertEquals(today, previousAssignment.getNextControlOperationDate());
     }
 
     @Test
@@ -707,27 +754,9 @@ class ControlAutoCreationServiceTest {
         return assignment;
     }
 
+    // 14 calendar days for every frequency (ControlScheduleCalculator.DEADLINE)
     private LocalDate expectedDeadline(LocalDate operationDate, String frequency) {
-        if (operationDate == null) {
-            return null;
-        }
-        String normalized = frequency == null ? "" : frequency.toLowerCase();
-        if (normalized.contains("monthly")) {
-            return operationDate.plusDays(7);
-        }
-        if (normalized.contains("quarterly")) {
-            return operationDate.plusDays(14);
-        }
-        if (normalized.contains("recurring")) {
-            return operationDate.plusDays(14);
-        }
-        if (normalized.contains("ad") && normalized.contains("hoc")) {
-            return operationDate.plusDays(14);
-        }
-        if (normalized.contains("annual") || normalized.contains("semi")) {
-            return operationDate.plusMonths(1);
-        }
-        return null;
+        return operationDate == null ? null : operationDate.plusDays(14);
     }
 }
 

@@ -1,12 +1,15 @@
 package com.kpmg.qtracker.config;
 
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.security.CsrfAccessDeniedHandler;
 import com.kpmg.qtracker.security.DevAuthenticationProvider;
+import com.kpmg.qtracker.security.LoginNameResolver;
 import com.kpmg.qtracker.security.LoginAttemptService;
 import com.kpmg.qtracker.security.RateLimitingFilter;
 import com.kpmg.qtracker.security.UserPrincipal;
 import com.kpmg.qtracker.security.UserPrincipalService;
 import com.kpmg.qtracker.security.UserEnabledGuardFilter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -22,29 +25,47 @@ import org.springframework.security.web.header.writers.XXssProtectionHeaderWrite
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * The filter chains of the web application. Not created for a one-off command (QtrackerApplication.runCommand),
+ * which runs without a web server and so without HttpSecurity, also in the dev profile.
+ */
 @Configuration
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class SecurityConfig {
 
     private final CorrelationIdFilter correlationIdFilter;
     private final RateLimitingFilter rateLimitingFilter;
     private final UserEnabledGuardFilter userEnabledGuardFilter;
+    private final CsrfAccessDeniedHandler csrfAccessDeniedHandler;
 
     public SecurityConfig(CorrelationIdFilter correlationIdFilter,
                           RateLimitingFilter rateLimitingFilter,
-                          UserEnabledGuardFilter userEnabledGuardFilter) {
+                          UserEnabledGuardFilter userEnabledGuardFilter,
+                          CsrfAccessDeniedHandler csrfAccessDeniedHandler) {
         this.correlationIdFilter = correlationIdFilter;
         this.rateLimitingFilter = rateLimitingFilter;
         this.userEnabledGuardFilter = userEnabledGuardFilter;
+        this.csrfAccessDeniedHandler = csrfAccessDeniedHandler;
+    }
+
+    /**
+     * The same CSRF rules for every chain, with no exceptions: the token lives in a cookie (so it outlives the
+     * session and an expired session still ends in the login redirect), pages send it as a header
+     * (fragments/csrf.html + js/csrf.js) or as the hidden field Thymeleaf adds to th:action forms.
+     */
+    private void configureCsrf(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+                .exceptionHandling(exceptions -> exceptions
+                        .accessDeniedHandler(csrfAccessDeniedHandler));
     }
 
     @Bean
     @Profile("ssodev")
     public SecurityFilterChain securityFilterChainSso(HttpSecurity http) throws Exception {
+        configureCsrf(http);
         http
-            .csrf(csrf -> csrf
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                .ignoringRequestMatchers("/api/**", "/notifications/mark-all-read")
-            )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/login").permitAll()
@@ -68,7 +89,7 @@ public class SecurityConfig {
                 )
                 .headers(headers -> headers
                         .addHeaderWriter(new StaticHeadersWriter("Content-Security-Policy",
-                        "default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https: ws: wss:; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")))
+                        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")))
                 .sessionManagement(session -> session
                         .sessionFixation(fixation -> fixation.migrateSession()))
                 .oauth2Login(Customizer.withDefaults())
@@ -84,11 +105,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChainDev(HttpSecurity http,
                                                       AuthenticationProvider devAuthenticationProvider,
                                                       UserRepository userRepository) throws Exception {
+        configureCsrf(http);
         http
-                .csrf(csrf -> csrf
-                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                    .ignoringRequestMatchers("/api/**", "/notifications/mark-all-read")
-                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/login").permitAll()
@@ -112,7 +130,7 @@ public class SecurityConfig {
                 )
                 .headers(headers -> headers
                         .addHeaderWriter(new StaticHeadersWriter("Content-Security-Policy",
-                        "default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https: ws: wss:; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")))
+                        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")))
                 .sessionManagement(session -> session
                         .sessionFixation(fixation -> fixation.migrateSession()))
                 .authenticationProvider(devAuthenticationProvider)
@@ -123,7 +141,6 @@ public class SecurityConfig {
                             if (authentication.getPrincipal() instanceof UserPrincipal principal) {
                                 userRepository.findById(principal.getId()).ifPresent(sessionUser -> {
                                     request.getSession(true).setAttribute("currentUser", sessionUser);
-                                    request.getSession().setAttribute("userRole", sessionUser.getRole());
                                 });
                             }
                             response.sendRedirect("/");
@@ -149,7 +166,9 @@ public class SecurityConfig {
     public AuthenticationProvider devAuthenticationProvider(UserPrincipalService userPrincipalService,
                                                             PasswordEncoder passwordEncoder,
                                                             LoginAttemptService loginAttemptService,
-                                                            UserRepository userRepository) {
-        return new DevAuthenticationProvider(userPrincipalService, passwordEncoder, loginAttemptService, userRepository);
+                                                            UserRepository userRepository,
+                                                            LoginNameResolver loginNameResolver) {
+        return new DevAuthenticationProvider(userPrincipalService, passwordEncoder, loginAttemptService, userRepository,
+                loginNameResolver);
     }
 }

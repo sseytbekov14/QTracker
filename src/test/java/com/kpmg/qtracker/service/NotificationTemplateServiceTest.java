@@ -7,6 +7,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -40,6 +41,23 @@ class NotificationTemplateServiceTest {
             assertNotNull(template.getBody(), "body should not be null for " + type);
             assertFalse(template.getBody().trim().isEmpty(), "body should not be blank for " + type);
         }
+    }
+
+    @Test
+    void render_submitSubjects_nameTheRecipientStep() {
+        LocalDate deadline = LocalDate.of(2026, 2, 4);
+
+        assertEquals("Control sent to Control Operator", subjectOf(
+                NotificationTemplateService.TemplateType.FACILITATOR_TO_OPERATOR, deadline));
+        // Goes to the SoQM lead: it used to say "ready for review by Control Operator"
+        assertEquals("Control sent to SoQM Head/Delegate", subjectOf(
+                NotificationTemplateService.TemplateType.OPERATOR_TO_SOQM, deadline));
+        assertEquals("Control sent to Process Owner", subjectOf(
+                NotificationTemplateService.TemplateType.SOQM_TO_OWNER, deadline));
+    }
+
+    private String subjectOf(NotificationTemplateService.TemplateType type, LocalDate deadline) {
+        return service.render(type, control, deadline, false, "Test User", "SoQM Head/Delegate").getSubject();
     }
 
     @Test

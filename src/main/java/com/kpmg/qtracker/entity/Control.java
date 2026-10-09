@@ -67,10 +67,10 @@ public class Control {
 
     private LocalDate controlOperationDate;
 
-    @Column(name = "attachment_details_path", length = 500)
+    @Column(name = "attachment_details_path", columnDefinition = "TEXT")
     private String attachmentDetailsPath;
 
-    @Column(name = "attachment_documents_path", length = 500)
+    @Column(name = "attachment_documents_path", columnDefinition = "TEXT")
     private String attachmentDocumentsPath;
 
     @Column(name = "soqm_year")
@@ -84,6 +84,13 @@ public class Control {
 
     @Column(name = "return_to_soqm_team_comment", length = 2000)
     private String returnToSoqmTeamComment;
+
+    /**
+     * When SoQM last returned the control from Completed (business decision 4); null once it is completed
+     * again. While set, no overdue notice goes out for it: its deadline is not changed.
+     */
+    @Column(name = "reopened_at")
+    private LocalDateTime reopenedAt;
 
     @PrePersist
     @PreUpdate

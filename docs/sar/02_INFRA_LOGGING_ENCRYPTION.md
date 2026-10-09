@@ -2,10 +2,18 @@
 ## Document 02: Infrastructure, Logging, Encryption & Data Flow
 ### Sections: 4 (Infrastructure), 9 (Logging & Audit), 11 (Encryption)
 
-**Document Version:** 1.0
+**Document Version:** 1.2
 **Prepared for Environment:** STAGE
-**Date:** 2026-07-24
+**Date:** 2026-10-02
 **Classification:** INTERNAL — RESTRICTED
+
+**Revision History**
+
+| Version | Date | Changes |
+|---|---|---|
+| 1.0 | 2026-07-24 | Initial issue |
+| 1.1 | 2026-10-02 | **3.3:** the service layer of the Level 1 data flow diagram names `PermissionService` instead of `AuthorizationPolicy`, which has been removed from the application |
+| 1.2 | 2026-10-02 | **9:** `USER_ACCESS_UPDATE` entries now record the role, additional role, admin access and status before the change; until this fix both value columns held the values after the change and the description read "No access fields changed" |
 
 ---
 
@@ -161,7 +169,7 @@ QTracker maintains a tamper-evident audit trail in the `admin_audit_log` Postgre
 | Last login timestamp recorded | — | `users.last_login_at` (database) |
 | Workflow action denied (403) | HTTP 403 response logged | Application log |
 | User created | `USER_CREATE` | `admin_audit_log` |
-| User role / access updated | `USER_ACCESS_UPDATE` | `admin_audit_log` |
+| User role / access updated | `USER_ACCESS_UPDATE` (values before and after the change; entries written before the 1.2 fix hold the new values in both, see Revision History) | `admin_audit_log` |
 | User email changed | `USER_EMAIL_UPDATE` | `admin_audit_log` |
 | Control fields edited | `EDIT` (with field-level diff) | `admin_audit_log` |
 | Control deleted | — | `admin_audit_log` |
@@ -253,7 +261,7 @@ flowchart LR
     end
 
     subgraph SERVICES["Service Layer"]
-        AUTHZ["AuthorizationPolicy\nControlPermissionService"]
+        AUTHZ["PermissionService\nControlPermissionService"]
         AUDIT["AdminAuditService\n→ admin_audit_log"]
         FSVC["FileStorageService\n(path sanitization + storage)"]
         WFSVC["WorkflowService\n→ workflow_history"]

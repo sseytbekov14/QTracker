@@ -16,6 +16,18 @@ public class ControlHistoryEntryDTO {
     private String tableType;
     private List<FieldChangeDTO> fieldChanges;
 
+    // Workflow moves only: the statuses, the role whose step it was, whether SoQM made it for the people
+    // assigned to that step, and who they were (names with e-mails)
+    private String fromStep;
+    private String toStep;
+    private String actedAs;
+    private boolean onBehalf;
+    private String assignedPerformer;
+
+    // Edits only: a change SoQM Team made to the completed control without returning it, and why (CompletedEdit)
+    private boolean editedAfterCompletion;
+    private String reason;
+
     public String getFormattedTime() {
         if (createdAt == null) return "";
         return createdAt.format(DateTimeFormatter.ofPattern("MM/dd/yyyy h:mm a", Locale.US));

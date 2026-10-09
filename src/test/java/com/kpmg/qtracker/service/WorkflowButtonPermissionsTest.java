@@ -6,6 +6,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.repository.WorkflowStepRepository;
+import com.kpmg.qtracker.support.TestUsers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,8 +26,8 @@ import static org.mockito.Mockito.when;
  * Тесты бизнес-логики: Кнопки Workflow — кто видит какие кнопки.
  *
  * Покрывает WorkflowServiceImpl.getAvailableButtons() — критическая логика
- * определения доступных действий в зависимости от роли пользователя
- * и текущего статуса контроля.
+ * определения доступных действий: по месту пользователя на контроле,
+ * его уровню доступа (AccessPolicy) и текущему статусу контроля.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Workflow — доступные кнопки действий по ролям")
@@ -38,6 +39,7 @@ class WorkflowButtonPermissionsTest {
     @Mock private ControlService controlService;
     @Mock private UserService userService;
     @Mock private NotificationService notificationService;
+    @Mock private ControlPermissionService controlPermissionService;
 
     @InjectMocks
     private WorkflowServiceImpl workflowService;
@@ -61,8 +63,7 @@ class WorkflowButtonPermissionsTest {
         void assignedFacilitatorSeesSubmitButton() {
             setupControl("IN_PROGRESS");
             setupUserWithRole(FAC_EMAIL, "FACILITATOR");
-            when(controlAssignmentService.getUserRolesForControl(CONTROL_ID, FAC_EMAIL))
-                    .thenReturn(List.of("FACILITATOR"));
+            givenPlaces(List.of("FACILITATOR"));
 
             List<WorkflowButtonDTO> buttons = workflowService.getAvailableButtons(CONTROL_ID, FAC_EMAIL);
 
@@ -75,8 +76,7 @@ class WorkflowButtonPermissionsTest {
         void facilitatorSeesNoButtonsAtReview() {
             setupControl("REVIEW");
             setupUserWithRole(FAC_EMAIL, "FACILITATOR");
-            when(controlAssignmentService.getUserRolesForControl(CONTROL_ID, FAC_EMAIL))
-                    .thenReturn(List.of("FACILITATOR"));
+            givenPlaces(List.of("FACILITATOR"));
 
             List<WorkflowButtonDTO> buttons = workflowService.getAvailableButtons(CONTROL_ID, FAC_EMAIL);
 
@@ -89,8 +89,7 @@ class WorkflowButtonPermissionsTest {
         void unassignedUserSeesNoFacilitatorButtons() {
             setupControl("IN_PROGRESS");
             setupUserWithRole(OTHER_EMAIL, "FACILITATOR");
-            when(controlAssignmentService.getUserRolesForControl(CONTROL_ID, OTHER_EMAIL))
-                    .thenReturn(List.of()); // не назначен
+            givenPlaces(List.of());
 
             List<WorkflowButtonDTO> buttons = workflowService.getAvailableButtons(CONTROL_ID, OTHER_EMAIL);
 
@@ -111,8 +110,7 @@ class WorkflowButtonPermissionsTest {
         void controlOperatorSeesCorrectButtonsAtReview() {
             setupControl("REVIEW");
             setupUserWithRole(CO_EMAIL, "CONTROL_OPERATOR");
-            when(controlAssignmentService.getUserRolesForControl(CONTROL_ID, CO_EMAIL))
-                    .thenReturn(List.of("CONTROL_OPERATOR"));
+            givenPlaces(List.of("CONTROL_OPERATOR"));
 
             List<WorkflowButtonDTO> buttons = workflowService.getAvailableButtons(CONTROL_ID, CO_EMAIL);
 
@@ -125,8 +123,7 @@ class WorkflowButtonPermissionsTest {
         void controlOperatorSeesNoButtonsAtInProgress() {
             setupControl("IN_PROGRESS");
             setupUserWithRole(CO_EMAIL, "CONTROL_OPERATOR");
-            when(controlAssignmentService.getUserRolesForControl(CONTROL_ID, CO_EMAIL))
-                    .thenReturn(List.of("CONTROL_OPERATOR"));
+            givenPlaces(List.of("CONTROL_OPERATOR"));
 
             List<WorkflowButtonDTO> buttons = workflowService.getAvailableButtons(CONTROL_ID, CO_EMAIL);
 
@@ -139,8 +136,7 @@ class WorkflowButtonPermissionsTest {
         void returnToFacilitatorRequiresComment() {
             setupControl("REVIEW");
             setupUserWithRole(CO_EMAIL, "CONTROL_OPERATOR");
-            when(controlAssignmentService.getUserRolesForControl(CONTROL_ID, CO_EMAIL))
-                    .thenReturn(List.of("CONTROL_OPERATOR"));
+            givenPlaces(List.of("CONTROL_OPERATOR"));
 
             List<WorkflowButtonDTO> buttons = workflowService.getAvailableButtons(CONTROL_ID, CO_EMAIL);
 
@@ -164,8 +160,7 @@ class WorkflowButtonPermissionsTest {
         void soqmTeamSeesAllButtonsAtSoqmReview() {
             setupControl("SOQM_HEAD_REVIEW");
             setupUserWithRole(SOQM_EMAIL, "SOQM_TEAM");
-            when(controlAssignmentService.getUserRolesForControl(CONTROL_ID, SOQM_EMAIL))
-                    .thenReturn(List.of("SOQM_TEAM"));
+            givenPlaces(List.of("SOQM_TEAM"));
 
             List<WorkflowButtonDTO> buttons = workflowService.getAvailableButtons(CONTROL_ID, SOQM_EMAIL);
 
@@ -179,8 +174,7 @@ class WorkflowButtonPermissionsTest {
         void soqmTeamSeesNoButtonsAtInProgress() {
             setupControl("IN_PROGRESS");
             setupUserWithRole(SOQM_EMAIL, "SOQM_TEAM");
-            when(controlAssignmentService.getUserRolesForControl(CONTROL_ID, SOQM_EMAIL))
-                    .thenReturn(List.of("SOQM_TEAM"));
+            givenPlaces(List.of("SOQM_TEAM"));
 
             List<WorkflowButtonDTO> buttons = workflowService.getAvailableButtons(CONTROL_ID, SOQM_EMAIL);
 
@@ -196,18 +190,16 @@ class WorkflowButtonPermissionsTest {
     class ProcessOwnerButtonTests {
 
         @Test
-        @DisplayName("Process Owner видит 4 кнопки при PROCESS_OWNER_REVIEW")
+        @DisplayName("Process Owner видит Complete и возврат к Control Operator при PROCESS_OWNER_REVIEW")
         void processOwnerSeesAllButtonsAtPOReview() {
             setupControl("PROCESS_OWNER_REVIEW");
             setupUserWithRole(PO_EMAIL, "PROCESS_OWNER");
-            when(controlAssignmentService.getUserRolesForControl(CONTROL_ID, PO_EMAIL))
-                    .thenReturn(List.of("PROCESS_OWNER"));
+            givenPlaces(List.of("PROCESS_OWNER"));
 
             List<WorkflowButtonDTO> buttons = workflowService.getAvailableButtons(CONTROL_ID, PO_EMAIL);
 
             assertThat(buttons).extracting(WorkflowButtonDTO::getAction)
-                    .contains("COMPLETE", "RETURN_TO_FACILITATOR",
-                              "SEND_FOR_REVISION", "SUBMIT_FOR_SOQM_REVIEW");
+                    .containsExactly("COMPLETE", "SEND_FOR_REVISION");
         }
 
         @Test
@@ -215,8 +207,7 @@ class WorkflowButtonPermissionsTest {
         void completeButtonDoesNotRequireComment() {
             setupControl("PROCESS_OWNER_REVIEW");
             setupUserWithRole(PO_EMAIL, "PROCESS_OWNER");
-            when(controlAssignmentService.getUserRolesForControl(CONTROL_ID, PO_EMAIL))
-                    .thenReturn(List.of("PROCESS_OWNER"));
+            givenPlaces(List.of("PROCESS_OWNER"));
 
             List<WorkflowButtonDTO> buttons = workflowService.getAvailableButtons(CONTROL_ID, PO_EMAIL);
 
@@ -232,8 +223,7 @@ class WorkflowButtonPermissionsTest {
         void processOwnerSeesNoButtonsAtSoqmReview() {
             setupControl("SOQM_HEAD_REVIEW");
             setupUserWithRole(PO_EMAIL, "PROCESS_OWNER");
-            when(controlAssignmentService.getUserRolesForControl(CONTROL_ID, PO_EMAIL))
-                    .thenReturn(List.of("PROCESS_OWNER"));
+            givenPlaces(List.of("PROCESS_OWNER"));
 
             List<WorkflowButtonDTO> buttons = workflowService.getAvailableButtons(CONTROL_ID, PO_EMAIL);
 
@@ -244,8 +234,11 @@ class WorkflowButtonPermissionsTest {
 
     // ─── Вспомогательные методы ─────────────────────────────────────────
 
+    private Control control;
+    private User user;
+
     private void setupControl(String status) {
-        Control control = new Control();
+        control = new Control();
         control.setId(CONTROL_ID);
         control.setControlId("HR-001");
         control.setPerformanceStatus(status);
@@ -253,9 +246,16 @@ class WorkflowButtonPermissionsTest {
     }
 
     private void setupUserWithRole(String email, String role) {
-        User user = new User();
-        user.setMail(email);
-        user.setRole(role);
+        user = TestUsers.user(email, role);
         when(userService.getUserByEmail(email)).thenReturn(Optional.of(user));
+    }
+
+    /** The user's places on the control (FACILITATOR, CONTROL_OPERATOR, SOQM_TEAM, PROCESS_OWNER), resolved by the policy. */
+    private void givenPlaces(List<String> places) {
+        AccessPolicy.ControlFacts facts = new AccessPolicy.ControlFacts(control.getPerformanceStatus(), false,
+                places.contains("FACILITATOR"), places.contains("CONTROL_OPERATOR"),
+                places.contains("SOQM_TEAM"), places.contains("PROCESS_OWNER"), false);
+        when(controlPermissionService.resolve(control, user))
+                .thenReturn(AccessPolicy.resolve(AccessPolicy.Subject.of(user), facts));
     }
 }

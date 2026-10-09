@@ -4,6 +4,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.repository.NotificationRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.util.RoleDisplayMapper;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,9 +14,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +33,8 @@ public class NotificationService {
     private final StatusDisplayMapper statusDisplayMapper;
     private static final String TYPE_AUTO_CREATED = "CONTROL_AUTO_CREATED";
     private static final String TYPE_INITIATE = "INITIATE";
-    private static final long RETURN_DEDUPE_WINDOW_MINUTES = 5;
+    /** In-app copy to the assigned people when SoQM made their step's move for them. */
+    public static final String TYPE_ON_BEHALF = "ON_BEHALF";
     private static final java.time.format.DateTimeFormatter AUTO_CREATE_DATE_FORMAT =
             java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy");
     
@@ -129,13 +134,7 @@ public class NotificationService {
         if (control == null || recipientEmails == null || recipientEmails.isEmpty()) {
             return;
         }
-        Set<String> unique = new LinkedHashSet<>();
-        for (String email : recipientEmails) {
-            if (email != null && !email.isBlank()) {
-                unique.add(email.trim());
-            }
-        }
-        for (String email : unique) {
+        for (String email : uniqueRecipients(recipientEmails)) {
             createNotification(email, control, templateType, resubmitted);
         }
     }
@@ -143,7 +142,7 @@ public class NotificationService {
     @Transactional
     public void sendReturnNotifications(Control control,
                                         List<String> recipientEmails,
-                                        String performedByRole,
+                                        String performedByRole,  // the step the actor acted in, e.g. "SoQM Team"
                                         String performedByName,
                                         String returnedToLabel,
                                         String returnComment,
@@ -161,30 +160,10 @@ public class NotificationService {
                         notificationType
                 );
 
-        Set<String> unique = new LinkedHashSet<>();
-        for (String email : recipientEmails) {
-            if (email != null && !email.isBlank()) {
-                unique.add(email.trim());
-            }
-        }
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime start = now.minusMinutes(RETURN_DEDUPE_WINDOW_MINUTES);
-        LocalDateTime end = now.plusSeconds(1);
-
-        for (String email : unique) {
+        // Every return is a separate guarded status change, so each one is announced,
+        // even when the same control comes back to the same person within minutes
+        for (String email : uniqueRecipients(recipientEmails)) {
             userRepository.findByMail(email).ifPresent(user -> {
-                boolean alreadySent = notificationRepository
-                        .existsByControlIdAndUserIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                                control.getId(),
-                                user.getId(),
-                                notificationType,
-                                start,
-                                end
-                        );
-                if (alreadySent) {
-                    return;
-                }
-
                 Notification notif = new Notification();
                 notif.setUserId(user.getId());
                 notif.setControlId(control.getId());
@@ -203,12 +182,68 @@ public class NotificationService {
         }
     }
 
+    /**
+     * In-app only, no e-mail: tells the people assigned to a step that a SoQM user made its move for them
+     * (business decision 3; TODO: BUSINESS CONFIRMATION: whether this copy is wanted). The usual notice of
+     * the move goes out as well, to the ones whose step it is now.
+     */
+    @Transactional
+    public void sendOnBehalfCopy(Control control,
+                                 List<String> recipientEmails,
+                                 String actorName,
+                                 String stepLabel,
+                                 String moveLabel,
+                                 String fromStatus,
+                                 String toStatus,
+                                 String comment) {
+        if (control == null || recipientEmails == null || recipientEmails.isEmpty()) {
+            return;
+        }
+        String controlName = control.getControlId() != null ? control.getControlId() : "Control";
+        StringBuilder message = new StringBuilder()
+                .append(normalizeActorName(actorName, "SoQM")).append(" (SoQM) made the ").append(stepLabel)
+                .append(" step for you: ").append(moveLabel).append(", ")
+                .append(statusDisplayMapper.display(fromStatus)).append(" -> ")
+                .append(statusDisplayMapper.display(toStatus)).append('.');
+        if (comment != null && !comment.isBlank()) {
+            message.append("\nComment: ").append(comment.trim());
+        }
+        for (String email : uniqueRecipients(recipientEmails)) {
+            userRepository.findByMail(email).ifPresent(user -> {
+                Notification notif = new Notification();
+                notif.setUserId(user.getId());
+                notif.setControlId(control.getId());
+                notif.setType(TYPE_ON_BEHALF);
+                notif.setTitle("SoQM acted for you on " + controlName);
+                notif.setMessage(message.toString());
+                notif.setLink(notificationTemplateService.buildControlLink(control));
+                notif.setIsRead(false);
+                notificationRepository.save(notif);
+            });
+        }
+    }
+
+    /**
+     * One notification per person: a person who holds several fields of the control (e.g. Facilitator and
+     * Control Operator) is listed once, also when the fields spell the address in a different case.
+     */
+    private static List<String> uniqueRecipients(List<String> recipientEmails) {
+        Map<String, String> unique = new LinkedHashMap<>();
+        for (String email : recipientEmails) {
+            if (email != null && !email.isBlank()) {
+                unique.putIfAbsent(email.trim().toLowerCase(Locale.ROOT), email.trim());
+            }
+        }
+        return new ArrayList<>(unique.values());
+    }
+
+    /** Who returned the control: their name, else the step they acted in ("Control Operator"), else "User". */
     private String normalizeActorName(String performedByName, String performedByRole) {
         String name = performedByName != null ? performedByName.trim() : "";
         if (!name.isEmpty()) {
             return name;
         }
-        return mapRoleLabel(performedByRole);
+        return performedByRole != null && !performedByRole.isBlank() ? performedByRole.trim() : "User";
     }
 
     private void createNotification(String email,
@@ -219,7 +254,7 @@ public class NotificationService {
             return;
         }
         userRepository.findByMail(email).ifPresent(user -> {
-            String roleLabel = mapRoleLabel(user.getRole());
+            String roleLabel = RoleDisplayMapper.access(user);
             LocalDate templateDate = resolveTemplateDate(control, templateType);
             NotificationTemplateService.NotificationTemplate template =
                     notificationTemplateService.render(
@@ -244,11 +279,11 @@ public class NotificationService {
             if (emailChannel != null) {
                 emailChannel.send(email, template.getSubject(), template.getBody());
             }
-            log.debug("Notification created: controlId={}, userId={}, email={}, role={}, templateType={}, subject={}",
+            log.debug("Notification created: controlId={}, userId={}, email={}, access={}, templateType={}, subject={}",
                     control.getId(),
                     user.getId(),
                     email,
-                    user.getRole(),
+                    user.getAccessLevel(),
                     templateType,
                     template.getSubject());
         });
@@ -274,34 +309,14 @@ public class NotificationService {
             if (emailChannel != null) {
                 emailChannel.send(email, template.getSubject(), template.getBody());
             }
-            log.debug("Notification created: controlId={}, userId={}, email={}, role={}, templateType={}, subject={}",
+            log.debug("Notification created: controlId={}, userId={}, email={}, access={}, templateType={}, subject={}",
                     control.getId(),
                     user.getId(),
                     email,
-                    user.getRole(),
+                    user.getAccessLevel(),
                     template.getNotificationType(),
                     template.getSubject());
         });
-    }
-
-    private String mapRoleLabel(String role) {
-        if (role == null) {
-            return "User";
-        }
-        switch (role) {
-            case "FACILITATOR":
-                return "Facilitator";
-            case "CONTROL_OPERATOR":
-                return "Control Operator";
-            case "SOQM_TEAM":
-                return "SoQM Head/Delegate";
-            case "PROCESS_OWNER":
-                return "Process Owner";
-            case "ADMIN":
-                return "Admin";
-            default:
-                return "User";
-        }
     }
 
     private String buildSubmitTitle(NotificationTemplateService.TemplateType templateType) {
@@ -401,13 +416,21 @@ public class NotificationService {
         notificationRepository.findById(notificationId).ifPresent(notif -> {
             if (!notif.getIsRead()) {
                 notif.setIsRead(true);
-                notif.setReadAt(LocalDateTime.now());
+                notif.setReadAt(LocalDateTime.now(Notification.ZONE));
                 notificationRepository.save(notif);
                 log.debug("Marked notification {} as read", notificationId);
             }
         });
     }
     
+    /**
+     * The notification if it belongs to the user; empty when it does not exist or is someone else's
+     */
+    public Optional<Notification> findForUser(Long notificationId, Long userId) {
+        return notificationRepository.findById(notificationId)
+                .filter(notif -> notif.getUserId() != null && notif.getUserId().equals(userId));
+    }
+
     /**
      * Mark all notifications as read for a user
      */

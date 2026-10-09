@@ -62,7 +62,6 @@ public class UserEnabledGuardFilter extends OncePerRequestFilter {
             HttpSession session = request.getSession(false);
             if (session != null) {
                 session.removeAttribute("currentUser");
-                session.removeAttribute("userRole");
                 session.removeAttribute("SPRING_SECURITY_CONTEXT");
                 session.setAttribute("SPRING_SECURITY_LAST_EXCEPTION", new DisabledException(DISABLED_MESSAGE));
             }
@@ -75,6 +74,13 @@ public class UserEnabledGuardFilter extends OncePerRequestFilter {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             request.getRequestDispatcher("/login?error").forward(request, response);
             return;
+        }
+
+        // The session keeps a copy of the user taken at login; refresh it so access level, scope and admin
+        // changes made by an administrator apply on the next request, not after re-login
+        HttpSession session = request.getSession(false);
+        if (session != null && session.getAttribute("currentUser") instanceof User) {
+            session.setAttribute("currentUser", dbUserOpt.get());
         }
 
         filterChain.doFilter(request, response);

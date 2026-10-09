@@ -11,7 +11,9 @@ import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.enums.WorkflowActionType;
 import com.kpmg.qtracker.repository.AdminAuditLogRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
+import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
+import com.kpmg.qtracker.util.EmailList;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +26,15 @@ public class ControlHistoryService {
     private final ControlAssignmentService controlAssignmentService;
     private final AdminAuditLogRepository adminAuditLogRepository;
     private final WorkflowHistoryRepository workflowHistoryRepository;
+    private final UserRepository userRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /**
+     * The assignment fields as Edit Control logs them (ControlTabsController): their values are e-mails, shown as
+     * on View Control, each with the person's name, in the stored order.
+     */
+    private static final Set<String> PEOPLE_FIELDS =
+            Set.of("Facilitator", "Control Operator", "SoQM Team", "Process Owner", "Control Shared With");
 
     public List<ControlHistoryEntryDTO> getControlHistory(Long controlId) {
         List<ControlHistoryEntryDTO> entries = new ArrayList<>();
@@ -66,11 +76,22 @@ public class ControlHistoryService {
             if (log.getChangedFields() == null && log.getPreviousValues() == null && log.getNewValues() == null) {
                 continue;
             }
+            // A workflow move is shown from its history entry below; its audit entry is for the audit trail
+            if (WorkflowMoveService.AUDIT_ACTION.equals(log.getActionType())) {
+                continue;
+            }
             List<FieldChangeDTO> changes = parseFieldChanges(log);
             if (changes.isEmpty()) {
                 continue;
             }
             ControlHistoryEntryDTO editEntry = new ControlHistoryEntryDTO();
+            // A change SoQM Team made to the completed control in place: marked, with its reason next to the values
+            if (CompletedEdit.isMarked(log.getActionDescription())) {
+                editEntry.setEditedAfterCompletion(true);
+                changes.stream().filter(change -> CompletedEdit.REASON_FIELD.equals(change.getField()))
+                        .findFirst().ifPresent(reason -> editEntry.setReason(reason.getNewValue()));
+                changes.removeIf(change -> CompletedEdit.REASON_FIELD.equals(change.getField()));
+            }
             editEntry.setEventName(mapAuditActionName(log));
             editEntry.setTableType("DIFF");
             editEntry.setCreatedAt(log.getCreatedAt());
@@ -90,6 +111,11 @@ public class ControlHistoryService {
             if (history.getComments() != null && !history.getComments().isBlank()) {
                 workflowEntry.setEventDetails(history.getComments());
             }
+            workflowEntry.setFromStep(history.getFromStep());
+            workflowEntry.setToStep(history.getToStep());
+            workflowEntry.setActedAs(history.getActedAs());
+            workflowEntry.setOnBehalf(history.isOnBehalf());
+            workflowEntry.setAssignedPerformer(describePeople(history.getAssignedPerformer()));
             entries.add(workflowEntry);
         }
 
@@ -130,6 +156,21 @@ public class ControlHistoryService {
         }
     }
 
+    /** "Jane Doe (jane@x.kz), bob@x.kz": the names of the e-mails that belong to users. */
+    private String describePeople(String emails) {
+        if (emails == null || emails.isBlank()) {
+            return null;
+        }
+        List<String> people = new ArrayList<>();
+        for (String mail : EmailList.parse(emails)) {
+            people.add(userRepository.findByMail(mail)
+                    .map(user -> user.getDisplayName() != null && !user.getDisplayName().isBlank()
+                            ? user.getDisplayName() + " (" + mail + ")" : mail)
+                    .orElse(mail));
+        }
+        return String.join(", ", people);
+    }
+
     private List<FieldChangeDTO> parseFieldChanges(AdminAuditLog log) {
         List<String> fields = parseFieldList(log.getChangedFields());
         Map<String, Object> previous = parseJsonMap(log.getPreviousValues());
@@ -145,6 +186,10 @@ public class ControlHistoryService {
         for (String field : fields) {
             String oldValue = valueToString(previous.get(field));
             String newValue = valueToString(updated.get(field));
+            if (PEOPLE_FIELDS.contains(field)) {
+                oldValue = Objects.toString(describePeople(oldValue), "");
+                newValue = Objects.toString(describePeople(newValue), "");
+            }
             String label = normalizeFieldLabel(field);
             changes.add(new FieldChangeDTO(label, oldValue, newValue));
         }
@@ -182,6 +227,10 @@ public class ControlHistoryService {
 
     private String valueToString(Object value) {
         if (value == null) return "";
+        if (value instanceof java.util.Collection<?> items) {
+            // A list of people (e.g. the KDN users gaining access on a rename): one line, comma separated
+            return items.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(", "));
+        }
         return String.valueOf(value);
     }
 
@@ -213,6 +262,13 @@ public class ControlHistoryService {
                 return "SoQM Head/Team Comments";
             case "process_owner_comments":
                 return "Process Owner Comments";
+            case ControlStepsFields.STEPS_LABEL:
+            case "control_steps_performed":
+                return ControlStepsFields.STEPS_LABEL;
+            case ControlStepsFields.OPERATOR_PROGRAM_LABEL:
+            case ControlStepsFields.FORMER_OPERATOR_REVIEW_LABEL:
+            case "control_operator_review":
+                return ControlStepsFields.OPERATOR_PROGRAM_LABEL;
             default:
                 return humanizeFieldLabel(field);
         }
@@ -243,6 +299,9 @@ public class ControlHistoryService {
                     break;
                 case "soqm":
                     result.add("SoQM");
+                    break;
+                case "kdn":
+                    result.add("KDN");
                     break;
                 default:
                     result.add(Character.toUpperCase(lower.charAt(0)) + lower.substring(1));
@@ -275,8 +334,12 @@ public class ControlHistoryService {
                 return "Attachment Added" + tabSuffix;
             case "ATTACHMENT_REMOVED":
                 return "Attachment Removed" + tabSuffix;
+            case "ATTACHMENT_HIDDEN":
+                return "Attachment Hidden" + tabSuffix;
             case "ATTACHMENT_REPLACED":
                 return "Attachment Replaced" + tabSuffix;
+            case ControlRenameService.AUDIT_ACTION:
+                return "Rename Control ID";
             default:
                 return "Edit Control";
         }

@@ -45,6 +45,8 @@ public class ControlResponseDTO {
     private boolean performanceInitiated;
     private boolean goToPerformanceCycle;
     private boolean overdue;
+    // Completed on a day after the deadline ("Closed late"); never overdue
+    private boolean closedLate;
     private boolean sharedViewOnly;
     // Workflow fields
     private String workflowStatus;

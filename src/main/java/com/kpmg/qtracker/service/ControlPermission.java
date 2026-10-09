@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+/** What one user may do on one control, as {@link AccessPolicy#resolve} works it out. */
 public final class ControlPermission {
     public static final String FIELD_CONTROL_STEPS_PERFORMED = "controlStepsPerformed";
     public static final String FIELD_PROCESS_OWNER_COMMENTS = "processOwnerComments";
@@ -14,11 +15,12 @@ public final class ControlPermission {
     private final boolean canUseWorkflowActions;
     private final boolean canEditAll;
     private final boolean sharedViewer;
-    private final boolean sharedCompleted;
     private final boolean facilitator;
     private final boolean controlOperator;
     private final boolean soqmLead;
     private final boolean processOwner;
+    private final boolean locked;
+    private final boolean completedEdit;
 
     public ControlPermission(boolean canView,
                              boolean canEdit,
@@ -26,11 +28,31 @@ public final class ControlPermission {
                              boolean canUseWorkflowActions,
                              boolean canEditAll,
                              boolean sharedViewer,
-                             boolean sharedCompleted,
                              boolean facilitator,
                              boolean controlOperator,
                              boolean soqmLead,
                              boolean processOwner) {
+        this(canView, canEdit, allowedEditableFields, canUseWorkflowActions, canEditAll, sharedViewer,
+                facilitator, controlOperator, soqmLead, processOwner, false, false);
+    }
+
+    /**
+     * @param soqmLead      the user is SoQM: performs the SoQM steps, acts for the others, renames, reopens
+     * @param locked        a completed control the user may not change ({@link AccessPolicy#isLocked})
+     * @param completedEdit a completed control the user changes in place ({@link AccessPolicy#editsAfterCompletion})
+     */
+    public ControlPermission(boolean canView,
+                             boolean canEdit,
+                             Set<String> allowedEditableFields,
+                             boolean canUseWorkflowActions,
+                             boolean canEditAll,
+                             boolean sharedViewer,
+                             boolean facilitator,
+                             boolean controlOperator,
+                             boolean soqmLead,
+                             boolean processOwner,
+                             boolean locked,
+                             boolean completedEdit) {
         this.canView = canView;
         this.canEdit = canEdit;
         this.allowedEditableFields = Collections.unmodifiableSet(
@@ -39,11 +61,12 @@ public final class ControlPermission {
         this.canUseWorkflowActions = canUseWorkflowActions;
         this.canEditAll = canEditAll;
         this.sharedViewer = sharedViewer;
-        this.sharedCompleted = sharedCompleted;
         this.facilitator = facilitator;
         this.controlOperator = controlOperator;
         this.soqmLead = soqmLead;
         this.processOwner = processOwner;
+        this.locked = locked;
+        this.completedEdit = completedEdit;
     }
 
     public static ControlPermission denied() {
@@ -51,7 +74,6 @@ public final class ControlPermission {
                 false,
                 false,
                 Set.of(),
-                false,
                 false,
                 false,
                 false,
@@ -86,10 +108,6 @@ public final class ControlPermission {
         return sharedViewer;
     }
 
-    public boolean isSharedCompleted() {
-        return sharedCompleted;
-    }
-
     public boolean isFacilitator() {
         return facilitator;
     }
@@ -108,6 +126,43 @@ public final class ControlPermission {
 
     public boolean canEditStepsPerformed() {
         return allowedEditableFields.contains(FIELD_CONTROL_STEPS_PERFORMED);
+    }
+
+    /** A completed control the user may not change ({@link AccessPolicy#isLocked}, {@link AccessPolicy#LOCKED_MESSAGE}). */
+    public boolean isLocked() {
+        return locked;
+    }
+
+    /** A completed control the user changes in place, as SoQM Team ({@link AccessPolicy#editsAfterCompletion}). */
+    public boolean isCompletedEdit() {
+        return completedEdit;
+    }
+
+    /** The control is completed: locked for the user, or changed in place by them. */
+    public boolean isCompleted() {
+        return locked || completedEdit;
+    }
+
+    /** Why the user may not change the control: the completed-control rule first, else the given message. */
+    public String editRefusal(String otherwise) {
+        return locked && canView ? AccessPolicy.LOCKED_MESSAGE : otherwise;
+    }
+
+    /**
+     * Who saves Control Steps Performed and Results: SoQM, or the participant whose step it is (the Facilitator in
+     * In Progress, the Control Operator in Review).
+     */
+    public boolean canWriteStepsPerformed() {
+        return canEditAll || canEditStepsPerformed();
+    }
+
+    /**
+     * Who saves Control Operator's Program: SoQM Team only, in every status but Completed (locked, as every other
+     * field); the Control Operator sends the text once and SoQM Team puts it in, the Changelog names who saved
+     * it. Everyone else who sees the control reads it.
+     */
+    public boolean canWriteOperatorReview() {
+        return canEditAll;
     }
 
     public boolean canEditProcessOwnerComments() {

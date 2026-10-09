@@ -2,10 +2,18 @@
 ## Document 01: Architecture, API Inventory, Authentication & Session Security
 ### Sections: 1 (Application Overview), 5 (Authentication), 6 (Authorization / RBAC), 7 (Session Management), 8 (File Upload Security)
 
-**Document Version:** 1.0
+**Document Version:** 1.2
 **Prepared for Environment:** STAGE
-**Date:** 2026-07-24
+**Date:** 2026-10-02
 **Classification:** INTERNAL — RESTRICTED
+
+**Revision History**
+
+| Version | Date | Changes |
+|---|---|---|
+| 1.0 | 2026-07-24 | Initial issue |
+| 1.1 | 2026-10-02 | Brought in line with the application. **3.2:** unauthenticated API requests are redirected to `/login`, not answered with `401`. **3.2.1–3.2.4:** per-control reads (changelog, Details / Assignment / Documents tabs, attachment info and download) follow the read rule of 5.4; `GET /api/users`, `/api/users/all` and `/api/users/role/{role}` listed with their access; removed `GET /api/controls`, `/api/controls/component/{component}`, `/api/workflow/{controlId}/status`, `/api/attachments/view/{filename}`, `/api/users/{email}` (deleted from the application) and `GET /api/controls/{id}` (never existed). **3.2.5:** `/api/roles` and `/api/notifications` deleted from the application; the four placeholder rows replaced by the real workflow transition, initiate, permission and dashboard endpoints. **5.4:** rewritten — one read rule for pages and API (`PermissionService`), and reads are not filtered by field: SoQM Head/Team and Process Owner comments are visible, read-only, to everyone who may read the control (the former statement that they were hidden from Facilitators and Control Operators was not accurate); `AuthorizationPolicy` removed from the application. **7.1:** current filename sanitizer and the path checks on download and delete. **7.4:** download serves only files the control lists. **7.6:** 10 MB per-file upload limit. Diagram sources `02_application_dfd_level1.mmd` and `06_workflow_rbac_state_machine.mmd` updated accordingly; their PNG renderings have not been redrawn yet |
+| 1.2 | 2026-10-02 | **3.2.4:** `POST /api/users/{id}/access` keeps a stored role or additional role when the request leaves it blank; `NONE` clears the additional role. **3.2.2:** `GET /api/workflow/my-approvals` removed from the application together with the unused My Approvals page |
 
 ---
 
@@ -95,23 +103,22 @@ All `(managed)` versions are resolved from the Spring Boot 3.5.7 BOM, which pins
 
 ### 3.2 Authenticated REST API Endpoints (`/api/**`)
 
-All endpoints below require an active authenticated session. Unauthenticated requests return `401 Unauthorized`.
+All endpoints below require an active authenticated session. Spring Security answers an unauthenticated request with a redirect (`302`) to the login page `/login` — under the `ssodev` profile into the OAuth 2.0 login flow — the same as for the HTML pages; it does not return `401 Unauthorized`.
 
 #### 3.2.1 Controls (`/api/controls`)
 
 | Method | Path | Controller | Allowed Roles | Description |
 |---|---|---|---|---|
-| `GET` | `/api/controls` | `ControlController` | All authenticated | List all controls |
 | `POST` | `/api/controls` | `ControlController` | `SOQM_TEAM` only | Create a new control |
-| `GET` | `/api/controls/{id}` | `ControlController` | Assigned / SOQM_TEAM | Get control by DB ID |
 | `PUT` | `/api/controls/{id}` | `ControlController` | Assigned users (role-filtered) | Update control fields |
-| `DELETE` | `/api/controls/{id}` | `ControlController` | `SOQM_TEAM` only | Delete control |
 | `GET` | `/api/controls/user/{email}` | `ControlController` | All authenticated | Controls assigned to user |
-| `GET` | `/api/controls/component/{component}` | `ControlController` | All authenticated | Controls by component |
 | `GET` | `/api/controls/generate-id` | `ControlController` | All authenticated | Generate control ID suggestion |
 | `GET` | `/api/controls/check-id-unique` | `ControlController` | All authenticated | Validate control ID uniqueness |
 | `POST` | `/api/controls/{id}/rename-id` | `ControlController` | `SOQM_TEAM` | Rename control ID |
-| `GET` | `/api/controls/{id}/changelog` | `ControlController` | All authenticated | Control change history |
+| `GET` | `/api/controls/{id}/changelog` | `ControlController` | Users who may read the control (Section 5.4) | Control change history |
+| `GET` | `/api/control-details?controlId=` | `ControlTabsController` | Users who may read the control (Section 5.4) | Details tab of a control |
+| `GET` | `/api/control-assignment?controlId=` | `ControlTabsController` | Users who may read the control (Section 5.4) | Assignment tab of a control |
+| `GET` | `/api/control-documents?controlId=` | `ControlTabsController` | Users who may read the control (Section 5.4) | Documents tab of a control |
 | `GET` | `/api/controls/export/excel` | `ControlController` | `SOQM_TEAM` only | Export controls to .xlsx |
 | `GET` | `/api/controls/{id}/export/completed` | `ControlController` | `SOQM_TEAM` + SharedWith | Export completed control to .xlsx |
 
@@ -120,10 +127,6 @@ All endpoints below require an active authenticated session. Unauthenticated req
 | Method | Path | Controller | Allowed Roles | Description |
 |---|---|---|---|---|
 | `POST` | `/api/workflow/perform-action` | `WorkflowController` | Assigned users | Generic workflow action dispatch |
-| `GET` | `/api/workflow/{controlId}/status` | `WorkflowController` | Assigned users | Get current workflow status |
-| `POST` | `/api/workflow/approve` | `WorkflowController` | Assigned approvers | Approve current step |
-| `POST` | `/api/workflow/return` | `WorkflowController` | Assigned approvers | Return step for revision |
-| `GET` | `/api/workflow/my-approvals` | `WorkflowController` | All authenticated | List controls pending user's approval |
 | `POST` | `/api/workflow/submit-to-process-owner` | `WorkflowController` | `SOQM_TEAM` | Move to PROCESS_OWNER_REVIEW |
 | `POST` | `/api/workflow/return-to-operator` | `WorkflowController` | `SOQM_TEAM` | Return to REVIEW (Control Operator) |
 | `POST` | `/api/workflow/complete-control` | `WorkflowController` | `PROCESS_OWNER` | Mark control COMPLETED |
@@ -134,32 +137,35 @@ All endpoints below require an active authenticated session. Unauthenticated req
 | Method | Path | Controller | Allowed Roles | Description |
 |---|---|---|---|---|
 | `POST` | `/api/attachments/upload/{controlId}` | `FileAttachmentController` | Assigned users | Upload file(s) to control |
-| `GET` | `/api/attachments/download/{filename}` | `FileAttachmentController` | Assigned users | Download file |
-| `GET` | `/api/attachments/view/{filename}` | `FileAttachmentController` | Assigned users | Inline view (PDF, image) |
-| `GET` | `/api/attachments/info/{controlId}` | `FileAttachmentController` | Assigned users | Get attachment metadata |
-| `DELETE` | `/api/attachments/delete/{controlId}` | `FileAttachmentController` | Assigned users | Remove attachment |
+| `GET` | `/api/attachments/download/{filename}?controlId=` | `FileAttachmentController` | Users who may read the control (Section 5.4); only a file the control lists | Download file |
+| `GET` | `/api/attachments/info/{controlId}` | `FileAttachmentController` | Users who may read the control (Section 5.4) | Get attachment metadata |
+| `DELETE` | `/api/attachments/delete/{controlId}` | `FileAttachmentController` | Uploader in the same workflow stage, or `SOQM_TEAM` | Remove attachment |
 
 #### 3.2.4 Users (`/api/users`, `/api/admin`)
 
 | Method | Path | Controller | Allowed Roles | Description |
 |---|---|---|---|---|
-| `GET` | `/api/users` | `UserController` | All authenticated | List all users (DTO, no passwords) |
-| `GET` | `/api/users/{email}` | `UserController` | All authenticated | Get user by email |
+| `GET` | `/api/users` | `UserController` | `SOQM_TEAM`, Admin | List all users (DTO, no passwords) |
+| `GET` | `/api/users/all` | `ControlTabsController` | `SOQM_TEAM`, Admin: every user; others: with `?controlId=` of a control they may read (Section 5.4), only the people assigned to or sharing that control, name and e-mail | Users for the Assignment tab |
+| `GET` | `/api/users/role/{role}` | `ControlTabsController` | `SOQM_TEAM`, Admin | Users by role for the assignment pickers |
 | `POST` | `/api/users` | `UserController` | `adminAccess=true` | Create new user |
-| `POST` | `/api/users/{id}/access` | `UserController` | `adminAccess=true` | Update user role/access |
+| `POST` | `/api/users/{id}/access` | `UserController` | `adminAccess=true` | Update user role/access. A blank `role` or `secondaryRole` keeps the stored value as it is (also one outside the role lists, e.g. `ADMIN`); `secondaryRole=NONE` clears the additional role |
 | `PUT` | `/api/admin/users/{id}/email` | `UserController` | `adminAccess=true` | Update user email |
 
 #### 3.2.5 Supporting Endpoints
 
 | Method | Path | Controller | Description |
 |---|---|---|---|
-| `GET` | `/api/roles` | `RoleController` | List available roles |
-| `GET` | `/api/notifications` | `NotificationApiController` | Get user notifications |
 | `POST` | `/notifications/mark-all-read` | View controller | Mark notifications read |
-| `GET` | `/api/workflow-transitions` | `WorkflowTransitionController` | Workflow transition definitions |
-| `GET` | `/api/permissions` | `PermissionController` | User permission query |
-| `GET` | `/api/performance` | `PerformanceController` | Performance metrics |
-| `GET` | `/api/dashboard` | `DashboardController` | Dashboard summary data |
+| `POST` | `/api/workflow/submit-to-control-operator` | `WorkflowTransitionController` | `IN_PROGRESS` → `REVIEW`; assigned Facilitator only |
+| `POST` | `/api/workflow/submit-to-soqm-lead` | `WorkflowTransitionController` | `REVIEW` → `SOQM_HEAD_REVIEW`; assigned Control Operator only |
+| `POST` | `/api/workflow/return-to-facilitator` | `WorkflowTransitionController` | `REVIEW` → `IN_PROGRESS`; assigned Control Operator only |
+| `POST` | `/api/workflow/shared-submit-to-soqm-lead` | `WorkflowTransitionController` | `COMPLETED` → `SOQM_HEAD_REVIEW`; a Shared With user only |
+| `POST` | `/api/performance/initiate` | `PerformanceController` | `DRAFT` → `IN_PROGRESS`; SoQM Team, admins or the creator, once the required fields are filled |
+| `GET` | `/api/permissions/{controlId}`, `/api/permissions/{controlId}/can-edit` | `PermissionController` | The calling user's own permissions on a control |
+| `GET` | `/api/dashboard/admin/status`, `/component-breakdown`, `/frequency`, `/overdue-trend` | `DashboardController` | Dashboard charts over all controls; `SOQM_TEAM` only |
+| `GET` | `/api/dashboard/my/frequency`, `/component`, `/overdue-trend` | `MyDashboardController` | Dashboard charts over the calling user's visible controls |
+| `GET` | `/api/dashboard/deadline-countdown`, `/api/dashboard/deadline-calendar` | `DashboardDeadlineController` | Deadline block and calendar over the calling user's visible controls |
 
 ### 3.3 OpenAPI Specification
 
@@ -249,7 +255,7 @@ The `FACILITATOR` role is used in workflow assignment. The `SOQM_TEAM` role corr
 | Edit control fields | ✅ all | ✅ limited | ✅ PO comments only | ✅ limited | ✅ |
 | Modify SoQM Comments | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Modify Process Owner Comments | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Delete control | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Soft delete (Control Status = Deleted) | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Export controls (bulk) | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Export completed control | ✅ | ❌ | ❌ | ❌ unless SharedWith | ✅ |
 | Submit to Control Operator | ✅ | ❌ | ❌ | ✅ | ✅ |
@@ -305,13 +311,15 @@ DRAFT ──[SUBMIT_FOR_REVIEW / INITIATE]────────────�
 
 Data segregation between users is enforced at two independent levels.
 
-**Level 1 — Service Layer (`ControlPermissionService`, `AuthorizationPolicy`):**
-Every API call that reads or modifies a control resolves a `ControlPermission` object via `controlPermissionService.resolve(control, currentUser)`. This service queries `ControlAssignment` to determine whether the current user is present in the `facilitator`, `controlOperator`, `soqmLead`, `processOwner`, or `controlSharedWith` lists. `SOQM_TEAM` users have global read access; all other roles are restricted to their assigned controls.
+**Level 1 — Service Layer (`ControlPermissionService`, `PermissionService`):**
+Every request that reads or modifies a control resolves a `ControlPermission` object via `ControlPermissionService.resolve(control, currentUser)`. This service queries `ControlAssignment` to determine whether the current user is present in the `facilitator`, `controlOperator`, `soqmLead`, `processOwner`, or `controlSharedWith` lists. Users with `admin_access` and users with a SoQM role (`SOQM_TEAM`) can view every control; the creator and the users in those lists can view that control; users with the `KDN` role can view only controls whose ID starts with `KDN`, read-only.
+
+Reading a single control follows one rule for the pages and the REST API, `PermissionService.readAccess`: the user must be able to view the control, and a control still in `DRAFT` stays closed to users it is only shared with (`controlSharedWith` and no other assignment) until it is initiated. View Control and Performance Cycle apply it; the per-control REST reads apply it through `PermissionService.requireReadable` before loading any data and answer `403` (`ACCESS_DENIED`) when it refuses and `404` (`NOT_FOUND`) for an unknown control. Control lists and dashboard figures use `ControlScope`: admins and SoQM roles see all controls including drafts; users with the `KDN` role see the KDN controls; everyone else sees the controls they are assigned to or that are shared with them, without drafts.
 
 **Level 2 — Field-level Isolation:**
-- `AuthorizationPolicy.filterReadableFields()` strips `soqmHeadComments` from DTO responses for `FACILITATOR` and `CONTROL_OPERATOR` roles
+- Reads are not filtered by field: everyone who may read a control sees all of its fields, including SoQM Head/Team Comments and Process Owner Comments, which are shown read-only to users who may not edit them
 - `ControlController.updateControl()` enforces role-based write restrictions: only `SOQM_TEAM` may write `soqmHeadComments`; only `PROCESS_OWNER` may write `processOwnerComments`
-- `AuthorizationPolicy.validateEditableFields()` throws `AccessDeniedException` on any attempt to modify a restricted field
+- `POST /api/control-details` keeps every field the user may not edit at its stored value (`ControlTabsController.mergeControlDetails`): SoQM Head/Team Comments and the descriptive fields only with full edit rights (`admin_access` or a SoQM role); Process Owner Comments also by the assigned Process Owner during `PROCESS_OWNER_REVIEW`; Control Steps Performed also by the assigned Facilitator or Control Operator during their stage; on a completed control shared with them, users with the Facilitator or Control Operator role may edit Control Steps Performed and users with the Process Owner role Process Owner Comments
 
 Row-level security is not applied at the database layer. Isolation is enforced entirely by the application service layer. The database uses a single application-level credential; no per-user row restrictions exist at the DBMS level.
 
@@ -354,21 +362,23 @@ File uploads are handled by `FileAttachmentController` (REST) and stored and ret
 
 ### 7.1 Path Traversal Prevention
 
-`FileStorageService` applies two sanitization functions before constructing any file system path:
+`FileStorageService` sanitizes the names it stores:
 
 ```java
-// Filename sanitization — retains only alphanumeric, dot, underscore, dash
-private String sanitizeFilename(String filename) {
-    return filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+// Filename sanitization on upload — keeps letters and digits of any alphabet, dot, underscore, dash
+private static String sanitizeFilename(String filename) {
+    return filename.replaceAll("[^\\p{L}\\p{N}._-]", "_");
 }
 
-// Folder name sanitization — same character whitelist applied to control subdirectory name
+// Folder name sanitization — applied to the control subdirectory name
 private String sanitizeFolderName(String folder) {
     return folder.replaceAll("[^a-zA-Z0-9._-]", "_");
 }
 ```
 
-Files are stored in isolated, control-specific subdirectories under the path configured by `file.upload.dir`. The subdirectory name is derived from the control's business ID and sanitized prior to use, preventing directory traversal via crafted input.
+Files are stored in isolated, control-specific subdirectories under the path configured by `file.upload.dir`. The subdirectory name is derived from the control's business ID and sanitized prior to use. Files uploaded before control subdirectories were introduced remain in the upload root and are still served when their control lists them.
+
+For download and delete the requested name is checked in the application code itself, independently of the request firewall of Spring Security: a name containing `/`, `\`, `:` or a control character, and the names `.` and `..`, are refused; the control folder must resolve to a direct child of the upload root, and the resolved file must lie directly in that folder. A download is additionally limited to the files the control lists (Section 7.4).
 
 ### 7.2 File Count Limit
 
@@ -386,7 +396,7 @@ if (existingCount + incomingCount > 50) {
 
 ### 7.4 Access Control for Downloads
 
-Download and view endpoints (`GET /api/attachments/download/{filename}`, `GET /api/attachments/view/{filename}`) require an active authenticated session. `AuthorizationPolicy.checkAttachmentAccess()` resolves the control that owns the requested file and verifies the requesting user is assigned to that control via `ControlPermission` before serving content.
+`GET /api/attachments/download/{filename}?controlId=` applies the control read rule of Section 5.4 (`PermissionService.requireReadable`: `403` when the user may not read the control, `404` for an unknown control) and then serves the file only if that control lists it — in `attachment_details_path`, `attachment_documents_path` or `control_attachments`; any other name returns `404`. `GET /api/attachments/info/{controlId}`, which returns the control's file lists, applies the same read rule.
 
 ### 7.5 Audit Logging for Attachments
 
@@ -394,5 +404,5 @@ All file upload and deletion events are persisted to the `admin_audit_log` table
 
 ### 7.6 Known Limitations (STAGE)
 
-- **File size limit:** No application-layer file size cap is currently configured. Noted for remediation prior to Production go-live. Currently mitigated by network isolation and the 50-file count limit.
+- **File size limit:** Each uploaded file is limited to **10 MB** (`file.upload.max-file-size-mb` and `spring.servlet.multipart.max-file-size`, both set from `FILE_UPLOAD_MAX_FILE_SIZE_MB`, default 10) and one upload request to 100 MB (`spring.servlet.multipart.max-request-size`, `FILE_UPLOAD_MAX_REQUEST_SIZE_MB`). A request over these limits is refused while the upload is parsed, before anything is stored, with `413` (`FILE_TOO_LARGE`); `FileAttachmentController` checks the per-file limit once more and answers `400` naming the file.
 - **File content validation:** MIME type is determined by file extension only; magic-byte inspection is not performed. Noted for remediation prior to Production go-live. Currently mitigated by network isolation and the extension whitelist enforced at the MIME-type resolution layer.

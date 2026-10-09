@@ -1,29 +1,57 @@
 package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.enums.AccessRight;
+import com.kpmg.qtracker.enums.UserRole;
+import com.kpmg.qtracker.enums.Visibility;
+import com.kpmg.qtracker.service.AccessPolicy;
+import com.kpmg.qtracker.service.AdminAuditTrail;
 import com.kpmg.qtracker.service.UserService;
+import com.kpmg.qtracker.util.RoleDisplayMapper;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 
 @Controller
 @RequestMapping("/admin")
 @RequiredArgsConstructor
 public class AdminViewController {
 
+    private static final Logger logger = LoggerFactory.getLogger(AdminViewController.class);
+    private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+
     private final UserService userService;
-    private final AdminAuditService adminAuditService;
+    private final AdminAuditTrail adminAuditTrail;
+
+    /** One row of the users table: the user, their access as people see it, and whether it is the viewer. */
+    public record UserRow(User user, AccessPolicy.Profile profile, String summary, String lastLogin, boolean self) {
+
+        public String role() {
+            return profile.role().name();
+        }
+
+        public String visibility() {
+            return profile.visibility() != null ? profile.visibility().name() : "";
+        }
+
+        public String access() {
+            return profile.access() != null ? profile.access().name() : "";
+        }
+    }
 
     @GetMapping("/users")
     public String users(Model model, HttpSession session) {
@@ -31,52 +59,64 @@ public class AdminViewController {
         if (currentUser == null) {
             return "redirect:/login";
         }
-        if (!isAdmin(currentUser)) {
+        AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
+        if (!AccessPolicy.canOpenAdminPanel(subject)) {
             return "redirect:/";
         }
 
-        List<User> users = userService.getAllUsers().stream()
-                .sorted(Comparator.comparing(User::getDisplayName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
-                .toList();
+        // A failure to read the users leaves a clear message on the page instead of an error page
+        List<UserRow> rows;
+        boolean loadError = false;
+        try {
+            rows = userService.getAllUsers().stream()
+                    .sorted(Comparator.comparing(User::getDisplayName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                    .map(user -> row(user, currentUser))
+                    .toList();
+        } catch (RuntimeException ex) {
+            logger.error("Admin Panel: the users could not be loaded", ex);
+            rows = List.of();
+            loadError = true;
+        }
 
-        model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userTitle", currentUser.getRole());
-        model.addAttribute("userEmail", currentUser.getMail());
-        model.addAttribute("userRole", currentUser.getRole());
-        model.addAttribute("users", users);
-        model.addAttribute("allowedRoles", userService.getAllowedRoles());
-        model.addAttribute("auditLogs", adminAuditService.getRecentLogs());
+        model.addAttribute("rows", rows);
+        model.addAttribute("usersLoadError", loadError);
+        model.addAttribute("roles", UserRole.values());
+        model.addAttribute("visibilities", Visibility.values());
+        model.addAttribute("accessRights", AccessRight.values());
+        // What each role can do and the values it fixes, for the user dialog
+        Map<String, List<String>> roleCanDo = new LinkedHashMap<>();
+        Map<String, List<RoleDisplayMapper.FixedValue>> roleFixedValues = new LinkedHashMap<>();
+        for (UserRole role : UserRole.values()) {
+            roleCanDo.put(role.name(), RoleDisplayMapper.canDo(role));
+            roleFixedValues.put(role.name(), RoleDisplayMapper.fixedValues(role));
+        }
+        model.addAttribute("roleCanDo", roleCanDo);
+        model.addAttribute("roleFixedValues", roleFixedValues);
+        model.addAttribute("accessHints", RoleDisplayMapper.hints());
+        model.addAttribute("roleSummaries", RoleDisplayMapper.roleSummaries());
+        model.addAttribute("canManageUsers", AccessPolicy.canManageUsers(subject));
+        AdminAuditTrail.Trail trail = adminAuditTrail.latest();
+        model.addAttribute("auditTrail", trail.entries());
+        model.addAttribute("auditCounts", trail.counts());
+        model.addAttribute("auditGroups", AdminAuditTrail.Group.values());
+        model.addAttribute("auditLimit", AdminAuditTrail.LIMIT);
+        model.addAttribute("auditUserAccessCount", trail.counts().get(AdminAuditTrail.Group.USER_ACCESS));
+        // Names for the "Target user" column, by e-mail
+        Map<String, String> userNames = new HashMap<>();
+        rows.forEach(row -> {
+            if (row.user().getMail() != null) {
+                userNames.put(row.user().getMail().toLowerCase(Locale.ROOT), row.user().getDisplayName());
+            }
+        });
+        model.addAttribute("userNames", userNames);
 
         return "admin-users";
     }
 
-    @PostMapping("/users/{id}/update")
-    public String updateUser(@PathVariable Long id,
-                             @RequestParam String role,
-                             @RequestParam(required = false) String secondaryRole,
-                             @RequestParam(defaultValue = "false") boolean adminAccess,
-                             @RequestParam(defaultValue = "false") boolean enabled,
-                             HttpSession session,
-                             RedirectAttributes redirectAttributes) {
-        User currentUser = (User) session.getAttribute("currentUser");
-        if (currentUser == null) {
-            return "redirect:/login";
-        }
-        if (!isAdmin(currentUser)) {
-            return "redirect:/";
-        }
-
-        try {
-            userService.updateUserAccess(id, role, secondaryRole, adminAccess, enabled, currentUser.getId());
-            redirectAttributes.addFlashAttribute("successMessage", "User updated successfully");
-        } catch (IllegalArgumentException ex) {
-            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
-        }
-
-        return "redirect:/admin/users";
-    }
-
-    private boolean isAdmin(User user) {
-        return userService.hasAdminAccess(user);
+    private static UserRow row(User user, User viewer) {
+        AccessPolicy.Profile profile = AccessPolicy.Profile.of(user);
+        return new UserRow(user, profile, RoleDisplayMapper.summary(profile),
+                user.getLastLoginAt() != null ? user.getLastLoginAt().format(DATE_TIME) : "",
+                Objects.equals(user.getId(), viewer.getId()));
     }
 }

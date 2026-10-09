@@ -2,13 +2,16 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <th:block th:replace="~{fragments/csrf :: csrf}"></th:block>
     <title th:text="'Control - ' + ${control.controlId}">Control - Sultan</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/style.css?v=8" rel="stylesheet">
-    <link href="/css/view-control.css?v=7" rel="stylesheet">
+    <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css?v=17" rel="stylesheet">
+    <link href="/css/view-control.css?v=24" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
-        /* Control Operator Program validation styling */
+        /* Control Operator action buttons validation styling */
         .co-action-btn:disabled {
             opacity: 0.5 !important;
             cursor: not-allowed !important;
@@ -117,9 +120,12 @@
         }
 
         textarea[name="controlStepsPerformed"][disabled],
-        textarea[name="controlStepsPerformed"][readonly] {
+        textarea[name="controlStepsPerformed"][readonly],
+        textarea[name="controlOperatorReview"][disabled],
+        textarea[name="controlOperatorReview"][readonly] {
             background-color: #f7f8fa !important;
         }
+
         
         .role-restricted-label {
             position: relative;
@@ -136,21 +142,36 @@
             box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.15) !important;
         }
 
-        /* KPMG Upload Zone */
+        /* KPMG Upload Zone — redesigned */
         .kpmg-upload-zone {
             border: 2px dashed #d8dce5;
-            border-radius: 8px;
+            border-radius: 12px;
             background: #f7f8fa;
-            transition: border-color 0.2s, background 0.2s;
+            transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
             cursor: pointer;
+            position: relative;
+            overflow: hidden;
         }
-        .kpmg-upload-zone:hover,
-        .kpmg-upload-zone.drag-over {
+        .kpmg-upload-zone:hover {
             border-color: #00338D;
             background: #eef2f9;
+            box-shadow: 0 0 0 4px rgba(0,51,141,0.07);
+        }
+        .kpmg-upload-zone.drag-over {
+            border-color: #00338D;
+            background: linear-gradient(135deg, #eef2f9 0%, #dce8ff 100%);
+            box-shadow: 0 0 0 5px rgba(0,51,141,0.13);
+            transform: scale(1.012);
+        }
+        .kpmg-upload-zone.drag-over .kpmg-upload-icon {
+            animation: kpmg-bounce 0.5s ease infinite alternate;
+        }
+        @keyframes kpmg-bounce {
+            from { transform: translateY(0); }
+            to   { transform: translateY(-6px); }
         }
         .kpmg-upload-zone[data-disabled="true"] {
-            opacity: 0.55;
+            opacity: 0.5;
             pointer-events: none;
             cursor: not-allowed;
         }
@@ -159,17 +180,23 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 20px 16px;
+            padding: 16px 16px 14px;
             position: relative;
         }
+        .kpmg-upload-icon { margin-bottom: 4px; transition: transform 0.3s; }
         .kpmg-upload-text {
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             font-weight: 600;
-            color: #5c6478;
+            color: #3a4260;
+            margin-bottom: 0px;
         }
         .kpmg-upload-hint {
             font-size: 0.72rem;
             color: #9ba3b5;
+        }
+        .kpmg-upload-types {
+            font-size: 0.68rem;
+            color: #b0b8cc;
             margin-top: 2px;
         }
         .kpmg-upload-input {
@@ -182,235 +209,203 @@
         }
         .kpmg-upload-zone[data-disabled="true"] .kpmg-upload-input {
             pointer-events: none;
-            cursor: not-allowed;
         }
-        .kpmg-file-list {
-            font-size: 0.8rem;
-            color: #5c6478;
-            line-height: 1.7;
-        }
-        .kpmg-file-badge {
-            display: inline-flex;
-            align-items: center;
-            margin: 2px 4px 2px 0;
-            border-radius: 4px;
-            overflow: hidden;
-            background: #00338D;
-        }
-        .kpmg-file-badge .badge {
-            font-size: 0.72rem;
-            font-weight: 500;
-            padding: 4px 8px;
-            border-radius: 4px 0 0 4px;
-            background: #00338D !important;
-            color: #fff !important;
-            margin: 0;
-        }
-        .kpmg-file-badge .badge:hover {
-            background: #005EB8 !important;
-        }
-        .kpmg-file-delete {
+        /* Progress bar */
+        .kpmg-upload-progress {
             display: none;
-            border: none;
-            background: #c8102e;
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 0 0 10px 10px;
+            overflow: hidden;
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+        }
+        .kpmg-upload-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00338D, #005EB8, #00338D);
+            background-size: 200% 100%;
+            animation: kpmg-progress-shimmer 1.4s linear infinite;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        @keyframes kpmg-progress-shimmer {
+            0%   { background-position: 200% center; }
+            100% { background-position: -200% center; }
+        }
+        .kpmg-upload-zone.uploading .kpmg-upload-progress { display: block; }
+        /* File list header */
+        .kpmg-file-list-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #3a4260;
+            padding: 10px 0 6px;
+        }
+        .kpmg-file-count-badge {
+            background: #00338D;
             color: #fff;
-            font-size: 0.78rem;
+            border-radius: 20px;
+            font-size: 0.68rem;
             font-weight: 700;
-            padding: 3px 7px;
+            padding: 1px 7px;
+            line-height: 1.6;
+        }
+        /* File cards */
+        .kpmg-file-cards { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+        .kpmg-file-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: #fff;
+            border: 1px solid #e8ecf4;
+            border-radius: 8px;
+            transition: box-shadow 0.18s, border-color 0.18s;
+        }
+        .kpmg-file-card:hover { border-color: #b0c4e8; box-shadow: 0 2px 8px rgba(0,51,141,0.08); }
+        .kpmg-file-card-icon {
+            flex-shrink: 0;
+            width: 32px; height: 32px;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .kpmg-file-card-icon.type-pdf   { background: #fff0f0; }
+        .kpmg-file-card-icon.type-excel { background: #f0fff4; }
+        .kpmg-file-card-icon.type-word  { background: #eff5ff; }
+        .kpmg-file-card-icon.type-image { background: #fff8f0; }
+        .kpmg-file-card-icon.type-other { background: #f4f5f7; }
+        .kpmg-file-card-name {
+            flex: 1;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #2d3552;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+        .kpmg-file-card-size {
+            font-size: 0.7rem;
+            color: #9ba3b5;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .kpmg-file-card-actions {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .kpmg-file-card-btn {
+            width: 28px; height: 28px;
+            border: none;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
             cursor: pointer;
+            transition: background 0.18s, transform 0.15s;
+            background: transparent;
+        }
+        .kpmg-file-card-btn:hover { transform: scale(1.12); }
+        .kpmg-file-card-btn.download-btn { color: #00338D; }
+        .kpmg-file-card-btn.download-btn:hover { background: #eef2f9; }
+        .kpmg-file-card-btn.delete-btn  { color: #c8102e; display: none; }
+        .kpmg-file-card-btn.delete-btn:hover  { background: #fff0f2; }
+        .edit-mode-active .kpmg-file-card-btn.delete-btn { display: flex; }
+        /* Toast notifications */
+        .kpmg-toast-container {
+            position: fixed;
+            top: 20px; right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .kpmg-toast {
+            min-width: 260px;
+            max-width: 380px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+            animation: kpmg-toast-in 0.3s cubic-bezier(.2,.8,.4,1) forwards;
+        }
+        .kpmg-toast.toast-error   { background: #c8102e; }
+        .kpmg-toast.toast-warning { background: #e67e22; }
+        .kpmg-toast.toast-success { background: #00a86b; }
+        @keyframes kpmg-toast-in {
+            from { opacity: 0; transform: translateX(30px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        /* Footer button hierarchy */
+        /* Who may only look (the access notice is shown): no upload zones and no "remove" on Shared With chips,
+           which the server would refuse anyway (AccessPolicy.notice) */
+        body:has(#accessBanner) .kpmg-upload-zone,
+        body:has(#accessBanner) #sharedWithField .sw-chip-remove,
+        body:has(#accessBanner) #sharedWithSearch {
+            display: none;
+        }
+
+        #editBtn {
+            background: #00338D;
+            border-color: #00338D;
+            color: #fff;
+            font-weight: 600;
+            padding: 7px 22px;
+            border-radius: 6px;
+            transition: background 0.18s, box-shadow 0.18s;
+        }
+        #editBtn:hover {
+            background: #00278a;
+            border-color: #00278a;
+            box-shadow: 0 2px 10px rgba(0,51,141,0.25);
+        }
+        /* Rename ID dropdown */
+        .kpmg-more-menu { position: relative; }
+        .kpmg-more-menu-btn {
+            border: 1px solid #d8dce5;
+            border-radius: 6px;
+            background: #fff;
+            color: #5c6478;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 1rem;
             line-height: 1;
-            border-radius: 0 4px 4px 0;
+            transition: background 0.15s, border-color 0.15s;
         }
-        .kpmg-file-delete:hover {
-            background: #a00d24;
+        .kpmg-more-menu-btn:hover { background: #f0f2f8; border-color: #b0b8cc; }
+        .kpmg-more-dropdown {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 0;
+            min-width: 150px;
+            background: #fff;
+            border: 1px solid #e2e6f0;
+            border-radius: 8px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.12);
+            z-index: 200;
+            overflow: hidden;
         }
-        .edit-mode-active .kpmg-file-delete {
-            display: inline-block;
+        .kpmg-more-dropdown.open { display: block; }
+        .kpmg-more-dropdown-item {
+            display: block;
+            width: 100%;
+            padding: 9px 14px;
+            font-size: 0.82rem;
+            color: #3a4260;
+            background: transparent;
+            border: none;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.15s;
         }
-
-        body.theme-dark .role-restricted-field:disabled,
-        body.theme-dark .role-restricted-field[readonly],
-        body.theme-dark textarea[name="controlStepsPerformed"][disabled],
-        body.theme-dark textarea[name="controlStepsPerformed"][readonly] {
-            background-color: var(--surface-bg-2) !important;
-            color: var(--text-primary) !important;
-            border-color: var(--border) !important;
-        }
-
-        body.theme-dark .role-restricted-field:disabled::placeholder,
-        body.theme-dark .role-restricted-field[readonly]::placeholder {
-            color: var(--text-secondary);
-        }
-
-        body.theme-dark .kpmg-upload-zone {
-            border-color: var(--border);
-            background: var(--surface-bg-2);
-        }
-
-        body.theme-dark .kpmg-upload-zone:hover,
-        body.theme-dark .kpmg-upload-zone.drag-over {
-            border-color: var(--link);
-            background: var(--hover-bg);
-        }
-
-        body.theme-dark .kpmg-upload-text,
-        body.theme-dark .kpmg-file-list {
-            color: var(--text-primary);
-        }
-
-        body.theme-dark .kpmg-upload-hint {
-            color: var(--text-secondary);
-        }
-
-        body.theme-dark #changelogBtn {
-            background: var(--surface-bg-2);
-            color: var(--text-primary);
-            border-color: var(--border);
-        }
-
-        body.theme-dark #changelogBtn:hover {
-            background: var(--hover-bg);
-            color: var(--link);
-            border-color: var(--link);
-        }
-
-        body.theme-dark #changelogModal .modal-content {
-            background: var(--surface-bg);
-            color: var(--text-primary);
-            border-color: var(--border) !important;
-        }
-
-        body.theme-dark #changelogModal .modal-header {
-            background: var(--surface-bg);
-            border-bottom-color: var(--divider) !important;
-        }
-
-        body.theme-dark #changelogModal .modal-title {
-            color: var(--text-primary) !important;
-        }
-
-        body.theme-dark #changelogModal .modal-body {
-            background: var(--surface-bg);
-            color: var(--text-primary);
-        }
-
-        body.theme-dark #changelogModal .btn-group .changelog-filter-btn {
-            background: var(--surface-bg-2);
-            color: var(--text-secondary);
-            border-color: var(--border);
-        }
-
-        body.theme-dark #changelogModal .btn-group .changelog-filter-btn.active,
-        body.theme-dark #changelogModal .btn-group .changelog-filter-btn:hover {
-            background: var(--link);
-            color: #ffffff;
-            border-color: var(--link);
-        }
-
-        body.theme-dark #changelogModal #changelogCount,
-        body.theme-dark #changelogModal #changelogLoading,
-        body.theme-dark #changelogModal #changelogEmpty {
-            color: var(--text-secondary) !important;
-        }
-
-        body.theme-dark #changelogModal .timeline-item,
-        body.theme-dark #changelogModal .changelog-entry,
-        body.theme-dark #changelogModal .card,
-        body.theme-dark #changelogModal .list-group-item {
-            background: var(--surface-bg-2) !important;
-            color: var(--text-primary) !important;
-            border-color: var(--border) !important;
-        }
-
-        body.theme-dark #changelogModal .changelog-entry,
-        body.theme-dark #changelogModal .changelog-card,
-        body.theme-dark #changelogModal .changelog-body,
-        body.theme-dark #changelogModal .changelog-header,
-        body.theme-dark #changelogModal .changelog-workflow-block,
-        body.theme-dark #changelogModal .changelog-change-row,
-        body.theme-dark #changelogModal #changelogList > div,
-        body.theme-dark #changelogModal #changelogList > div > div {
-            background: var(--surface-bg-2) !important;
-            color: var(--text-primary) !important;
-            border-color: var(--border) !important;
-        }
-
-        body.theme-dark #changelogModal .changelog-date,
-        body.theme-dark #changelogModal .changelog-user,
-        body.theme-dark #changelogModal .changelog-field,
-        body.theme-dark #changelogModal .changelog-old,
-        body.theme-dark #changelogModal .changelog-count,
-        body.theme-dark #changelogModal .changelog-arrow {
-            color: var(--text-secondary) !important;
-        }
-
-        body.theme-dark #changelogModal .changelog-event-title,
-        body.theme-dark #changelogModal .changelog-new,
-        body.theme-dark #changelogModal .changelog-workflow-action,
-        body.theme-dark #changelogModal .changelog-workflow-comment {
-            color: var(--text-primary) !important;
-        }
-
-        body.theme-dark #changelogModal .changelog-step {
-            background: rgba(127, 176, 255, 0.14) !important;
-            color: var(--text-primary) !important;
-            border: 1px solid var(--border);
-        }
-
-        body.theme-dark #renameIdModal .modal-content {
-            background: var(--surface-bg);
-            color: var(--text-primary);
-            border-color: var(--border);
-        }
-
-        body.theme-dark #renameIdModal .modal-header,
-        body.theme-dark #renameIdModal .modal-footer {
-            background: var(--surface-bg);
-            border-color: var(--divider);
-        }
-
-        body.theme-dark #renameIdModal .modal-title {
-            color: var(--text-primary);
-        }
-
-        body.theme-dark #renameIdModal .modal-body {
-            background: var(--surface-bg);
-            color: var(--text-primary);
-        }
-
-        body.theme-dark #renameIdModal .form-label,
-        body.theme-dark #renameIdModal .form-text {
-            color: var(--text-secondary) !important;
-        }
-
-        body.theme-dark #renameIdModal .form-control {
-            background: var(--input-bg);
-            color: var(--input-text);
-            border-color: var(--border);
-        }
-
-        body.theme-dark #renameIdModal .form-control:focus {
-            border-color: var(--link);
-            box-shadow: 0 0 0 2px rgba(127, 176, 255, 0.15);
-        }
-
-        body.theme-dark #renameIdModal .btn-secondary {
-            background: var(--surface-bg-2);
-            color: var(--text-primary);
-            border-color: var(--border);
-        }
-
-        body.theme-dark #renameIdModal .btn-secondary:hover {
-            background: var(--hover-bg);
-            color: var(--text-primary);
-            border-color: var(--link);
-        }
-
-        body.theme-dark #renameIdModal #confirmRenameBtn:disabled {
-            background-color: var(--surface-bg-2) !important;
-            border-color: var(--border) !important;
-            color: var(--text-secondary) !important;
-        }
+        .kpmg-more-dropdown-item:hover { background: #f0f4ff; color: #00338D; }
 
         /* Character counter for textareas with maxlength */
         .char-counter {
@@ -428,30 +423,22 @@
             color: #dc3545;
             font-weight: 700;
         }
-        body.theme-dark .char-counter {
-            color: var(--text-secondary);
-        }
-        body.theme-dark .char-counter.warning {
-            color: #f0ad4e;
-        }
-        body.theme-dark .char-counter.danger {
-            color: #e74c3c;
-        }
     </style>
 </head>
 <body>
 <script>
 (function() {
+    // One light theme; a dark theme saved by the former switch is dropped
+    document.body.classList.add('theme-light');
     try {
-        var savedTheme = localStorage.getItem('qtrackerTheme');
-        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+        localStorage.removeItem('qtrackerTheme');
     } catch (error) {
-        document.body.classList.add('theme-light');
+        // Storage may be blocked; nothing is read from it
     }
 })();
 </script>
 
-<input type="hidden" id="currentUserRole" th:value="${userRole}">
+<input type="hidden" id="canEditAll" th:value="${canEditAll}">
 <input type="hidden" id="currentPerformanceStatus" name="performanceStatus" th:value="${performanceStatus}">
 <input type="hidden" id="isFacilitator" th:value="${isFacilitator}">
 <input type="hidden" id="isControlOperator" th:value="${isControlOperator}">
@@ -460,10 +447,15 @@
 <input type="hidden" id="isSharedViewer" th:value="${isSharedViewer}">
 <input type="hidden" id="canUseWorkflowActions" th:value="${canUseWorkflowActions}">
 <input type="hidden" id="allowedEditableFields" th:value="${allowedEditableFieldsCsv}">
+<!-- A completed control: locked for this user, or changed in place by SoQM Team (AccessPolicy.isLocked) -->
+<input type="hidden" id="controlLocked" th:value="${completedLocked}">
+<input type="hidden" id="completedEdit" th:value="${completedEdit}">
 
 <div class="container-fluid">
     <div class="row">
-        <div class="col-12">
+        <div th:replace="~{fragments/sidebar :: sidebar('controls')}"></div>
+
+        <div class="col-md-10">
             <div class="view-control-container">
 
                 <nav class="app-breadcrumb" aria-label="breadcrumb">
@@ -477,17 +469,98 @@
                     <span class="app-breadcrumb-separator">/</span>
                     <a href="/controls" class="app-breadcrumb-link">Controls</a>
                     <span class="app-breadcrumb-separator">/</span>
-                    <span class="app-breadcrumb-current">Control Details</span>
+                    <span class="app-breadcrumb-current control-id-display" th:text="${control.controlId}">Control</span>
                 </nav>
 
-                <div class="control-header">
-                    <h2>Control Details</h2>
-                    <h4>ID: <span class="control-id-display" th:text="${control.controlId}">Sultan</span></h4>
-                    <p class="mb-0">
-                        Created by: <span th:text="${control.createdBy.displayName}">ccg-nrc-pa</span>
-                        ( <span th:text="${control.createdBy.mail}">acrecg-nrc-pa@kpmg.com</span>)
-                        on <span th:text="${#temporals.format(control.createdAt, 'dd.MM.yyyy')}">25.11.2025</span>
+                <div class="control-header"
+                     th:with="st=${performanceStatus},
+                              stLabel=${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">
+                    <div class="vc-header-row">
+                        <div>
+                            <div class="vc-header-label">Control</div>
+                            <h1 class="vc-title">
+                                <span class="control-id-display" th:text="${control.controlId}">HR-CTRL-MF-1</span>
+                                <span class="vc-badge"
+                                      th:classappend="${st == 'COMPLETED'} ? 'vc-status-completed'
+                                         : (${st == 'IN_PROGRESS'} ? 'vc-status-progress'
+                                         : (${st == 'REVIEW'} ? 'vc-status-review'
+                                         : (${st == 'SOQM_HEAD_REVIEW'} ? 'vc-status-soqm'
+                                         : (${st == 'PROCESS_OWNER_REVIEW'} ? 'vc-status-po' : 'vc-status-draft'))))"
+                                      th:text="${stLabel}">In Progress</span>
+                                <span class="vc-badge vc-kdn-badge" th:if="${kdnControlMark}"
+                                      title="Control ID starts with KDN: KDN users see this control">KDN control</span>
+                                <span th:if="${overdue}" class="vc-badge vc-status-overdue">Overdue</span>
+                                <span th:if="${yourTurn}" class="vc-badge vc-your-turn"><i class="bi bi-person-check" aria-hidden="true"></i> Your turn</span>
+                            </h1>
+                        </div>
+                        <a th:if="${canInitiate}" th:href="@{/initiate/{id}(id=${control.id})}" class="vc-header-action"
+                           title="Check what the draft still needs, choose the SoQM Year and initiate it">
+                            <i class="bi bi-play-circle" aria-hidden="true"></i>Initiate…
+                        </a>
+                    </div>
+                    <p class="vc-desc" th:if="${control.controlDescription != null and !#strings.isEmpty(control.controlDescription)}"
+                       th:text="${control.controlDescription}">Description</p>
+                    <ul class="vc-facts">
+                        <li th:if="${control.component != null}"><span>Component</span><strong th:text="${control.component}">HR</strong></li>
+                        <li th:if="${control.controlFrequency != null}"><span>Frequency</span><strong th:text="${control.controlFrequency}">Monthly</strong></li>
+                        <li><span>Deadline</span>
+                            <strong th:if="${deadline != null}" th:classappend="${overdue} ? 'vc-fact-overdue'"
+                                    th:text="${#temporals.format(deadline, 'dd.MM.yyyy')}">05.10.2026</strong>
+                            <strong th:if="${deadline == null}" class="vc-fact-empty">Not set</strong></li>
+                        <li><span>Created</span>
+                            <strong th:text="${(control.createdBy != null ? control.createdBy.displayName + ' · ' : '')
+                                     + (control.createdAt != null ? #temporals.format(control.createdAt, 'dd.MM.yyyy') : '')}"
+                                    th:title="${control.createdBy != null} ? ${control.createdBy.mail} : null">Name · 01.10.2026</strong></li>
+                    </ul>
+                </div>
+
+                <!-- Workflow progress -->
+                <div class="vc-stepper">
+                    <div th:replace="~{fragments/workflow-stepper :: stepper(${workflowStepIndex}, ${facilitatorNames}, ${operatorNames}, ${soqmNames}, ${ownerNames})}"></div>
+                    <!-- Your step: the one field it needs (WorkflowRequiredFieldService.stepField), Required / Filled live -->
+                    <p class="vc-turn-hint" id="stepFieldHint" th:if="${yourTurn and stepField != null}"
+                       th:attr="data-step-field=${stepField.field()},data-step-required=${stepField.required()}">
+                        <i class="bi bi-info-circle" aria-hidden="true"></i>
+                        <span>
+                            <strong>Your step:</strong>
+                            <th:block th:text="${stepField.check()} ? 'check' : 'fill'">fill</th:block>
+                            <a href="#details" class="vc-turn-hint-link" data-vc-tab="details"
+                               th:attr="data-vc-field=${stepField.field()}"
+                               th:text="${stepField.label()}">SoQM Head/Team Comments</a><th:block th:unless="${stepField.required()}"> (optional)</th:block>
+                            on the Details tab (press Edit to change it), then
+                            <th:block th:text="${stepField.actions()} + '.'">Send to Process Owner or Return to Operator.</th:block>
+                        </span>
+                        <span class="vc-step-state" id="stepFieldState" aria-live="polite"></span>
                     </p>
+                </div>
+
+                <!-- Who may only look: a calm notice instead of buttons the server would refuse (AccessPolicy.notice) -->
+                <div class="access-banner" id="accessBanner" role="status" th:if="${accessNotice != 'NONE'}"
+                     th:attr="data-notice=${accessNotice}">
+                    <i class="bi" th:classappend="${accessNotice == 'COMPLETED'} ? 'bi-lock'
+                        : (${accessNotice == 'READ_ONLY'} ? 'bi-eye' : 'bi-person-dash')" aria-hidden="true"></i>
+                    <div>
+                        <p class="access-banner-title" th:text="${accessNotice == 'COMPLETED'} ? 'This control is completed and locked'
+                            : (${accessNotice == 'READ_ONLY'} ? 'You have read-only access to this control'
+                            : 'You are not assigned to this control')">You have read-only access to this control</p>
+                        <p class="access-banner-text" th:text="${accessNotice == 'COMPLETED'}
+                            ? 'You can view it, read its history and download its documents. Only SoQM Team can change it.'
+                            : (${accessNotice == 'READ_ONLY'}
+                            ? 'You can view it, read its history and download its documents. Editing and workflow steps are not available to you.'
+                            : 'You can view it. Only the people assigned to it edit it and perform its steps; ask SoQM Team if you should be one of them.')">Text</p>
+                    </div>
+                </div>
+
+                <!-- SoQM Team on a completed control: changes in place, each save with a reason (AccessPolicy.editsAfterCompletion) -->
+                <div class="access-banner access-banner-completed-edit" id="completedEditBanner" role="status" th:if="${completedEdit}">
+                    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                    <div>
+                        <p class="access-banner-title">This control is completed. Your changes are recorded with a reason</p>
+                        <p class="access-banner-text">Use Edit (completed control) to change it: it stays Completed, and every save
+                            asks for a reason and shows in the Changelog as &ldquo;Edited after completion&rdquo;. The Control
+                            Operation Date, the frequency, the deadline, the next date, the SoQM Year and the Control Status
+                            stay as they are. To rework it in the workflow, use Move / Return.</p>
+                    </div>
                 </div>
 
                 <ul class="nav nav-tabs" id="controlTabs">
@@ -521,20 +594,25 @@
                                                th:value="${control.controlId}" name="controlId" id="controlId">
                                     </div>
                                     <div class="col-md-3 mb-3">
-                                        <label class="form-label required-field">Control Frequency</label>
-                                        <select class="form-control readonly-field" name="controlFrequency" readonly>
+                                        <label class="form-label required-field" for="controlFrequency">Control Frequency</label>
+                                        <select class="form-control readonly-field" name="controlFrequency" id="controlFrequency" readonly th:data-stored-value="${control.controlFrequency}"
+                                                data-completed-fixed="controlFrequencyFixedHint">
                                             <option value="">Select Frequency</option>
                                             <option value="Monthly" th:selected="${control.controlFrequency == 'Monthly'}">Monthly</option>
                                             <option value="Quarterly" th:selected="${control.controlFrequency == 'Quarterly'}">Quarterly</option>
-                                            <option value="Ad-hoc" th:selected="${control.controlFrequency == 'Ad-hoc' or control.controlFrequency == 'As-required/at least annually'}">Ad-hoc</option>
+                                            <!--/* "As-required/at least annually" is Annual on the server (ControlFrequency), so it is not shown as Ad-hoc: the select keeps it as its own option */-->
+                                            <option value="Ad-hoc" th:selected="${control.controlFrequency == 'Ad-hoc'}">Ad-hoc</option>
                                             <option value="Recurring" th:selected="${control.controlFrequency == 'Recurring' or control.controlFrequency == 'Recurring/other'}">Recurring</option>
                                             <option value="Annual" th:selected="${control.controlFrequency == 'Annual' or control.controlFrequency == 'Annually'}">Annual</option>
                                             <option value="Semi Annual" th:selected="${control.controlFrequency == 'Semi Annual' or control.controlFrequency == 'Semi-annually'}">Semi Annual</option>
                                         </select>
+                                        <div class="completed-fixed-hint" id="controlFrequencyFixedHint" th:if="${completedEdit}">
+                                            <i class="bi bi-lock" aria-hidden="true"></i> Stays as it is on a completed control
+                                        </div>
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label">Control Category</label>
-                                        <select class="form-control readonly-field" name="controlCategory" readonly>
+                                        <select class="form-control readonly-field" name="controlCategory" readonly th:data-stored-value="${control.controlCategory}">
                                             <option value="">Select Category</option>
                                             <option value="New" th:selected="${control.controlCategory == 'New'}">New</option>
                                             <option value="Enhanced" th:selected="${control.controlCategory == 'Enhanced'}">Enhanced</option>
@@ -543,7 +621,7 @@
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field">Control Type</label>
-                                        <select class="form-control readonly-field" name="controlType" readonly>
+                                        <select class="form-control readonly-field" name="controlType" readonly th:data-stored-value="${control.controlType}">
                                             <option value="">Select Type</option>
                                             <option value="Manual" th:selected="${control.controlType == 'Manual'}">Manual</option>
                                             <option value="Automated" th:selected="${control.controlType == 'Automated'}">Automated</option>
@@ -555,7 +633,7 @@
                                 <div class="row">
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field">Component</label>
-                                        <select class="form-control readonly-field" name="component" readonly>
+                                        <select class="form-control readonly-field" name="component" readonly th:data-stored-value="${control.component}">
                                             <option value="">Select Component</option>
                                             <option value="HR" th:selected="${control.component == 'HR'}">Human Resources (HR)</option>
                                             <option value="A&C" th:selected="${control.component == 'A&C'}">Acceptance and Continuance (A&C)</option>
@@ -572,7 +650,7 @@
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field">Operated By</label>
-                                        <select class="form-control readonly-field" name="operatedBy" readonly>
+                                        <select class="form-control readonly-field" name="operatedBy" readonly th:data-stored-value="${control.operatedBy}">
                                             <option value="">Select Operator</option>
                                             <option value="Member Firm" th:selected="${control.operatedBy == 'Member Firm'}">Member Firm</option>
                                             <option value="Network" th:selected="${control.operatedBy == 'Network'}">Network</option>
@@ -581,18 +659,22 @@
                                         </select>
                                     </div>
                                     <div class="col-md-3 mb-3">
-                                        <label class="form-label">Control Status</label>
-                                        <select class="form-control readonly-field" name="controlStatus" readonly>
+                                        <label class="form-label" for="controlStatusSelect">Control Status</label>
+                                        <select class="form-control readonly-field" name="controlStatus" id="controlStatusSelect" readonly th:data-stored-value="${control.controlStatus}"
+                                                data-completed-fixed="controlStatusFixedHint">
                                             <option value="">Select Status</option>
                                             <option value="NOT_APPLICABLE" th:selected="${control.controlStatus == 'NOT_APPLICABLE'}">Not Applicable</option>
                                             <option value="ACTIVE" th:selected="${control.controlStatus == 'ACTIVE'}">Active</option>
                                             <option value="DELETED" th:selected="${control.controlStatus == 'DELETED'}">Deleted</option>
                                             <option value="SUPERSEDED" th:selected="${control.controlStatus == 'SUPERSEDED'}">Superseded</option>
                                         </select>
+                                        <div class="completed-fixed-hint" id="controlStatusFixedHint" th:if="${completedEdit}">
+                                            <i class="bi bi-lock" aria-hidden="true"></i> Stays as it is on a completed control
+                                        </div>
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field">Priority</label>
-                                        <select class="form-control readonly-field" name="priority" readonly>
+                                        <select class="form-control readonly-field" name="priority" readonly th:data-stored-value="${control.priority}">
                                             <option value="">Select Priority</option>
                                             <option value="High" th:selected="${control.priority == 'High'}">High</option>
                                             <option value="Medium" th:selected="${control.priority == 'Medium'}">Medium</option>
@@ -604,12 +686,24 @@
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label required-field">Non-Audit Services Control Applicability</label>
-                                        <select class="form-control readonly-field" name="nonAuditServicesApplicability" readonly>
+                                        <select class="form-control readonly-field" name="nonAuditServicesApplicability" readonly th:data-stored-value="${control.nonAuditServicesApplicability}">
                                             <option value="">Select Applicability</option>
                                             <option value="ALL" th:selected="${control.nonAuditServicesApplicability == 'ALL'}">ALL</option>
                                             <option value="AFS" th:selected="${control.nonAuditServicesApplicability == 'AFS'}">AFS</option>
                                             <option value="Elected (Audit, Assurance, ORS only)" th:selected="${control.nonAuditServicesApplicability == 'Elected (Audit, Assurance, ORS only)'}">Elected (Audit, Assurance, ORS only)</option>
                                         </select>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label" for="soqmYear">SoQM Year</label>
+                                        <select class="form-control readonly-field" name="soqmYear" id="soqmYear" readonly th:data-stored-value="${control.soqmYear}"
+                                                data-completed-fixed="soqmYearFixedHint">
+                                            <option value="" th:unless="${#lists.contains(soqmYearOptions, control.soqmYear)}">Not set</option>
+                                            <option th:each="year : ${soqmYearOptions}" th:value="${year}" th:text="${year}"
+                                                    th:selected="${year == control.soqmYear}">1 OCT 2026 - 30 SEP 2027</option>
+                                        </select>
+                                        <div class="completed-fixed-hint" id="soqmYearFixedHint" th:if="${completedEdit}">
+                                            <i class="bi bi-lock" aria-hidden="true"></i> Stays as it is on a completed control
+                                        </div>
                                     </div>
                                 </div>
 
@@ -638,7 +732,7 @@
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Process Name</label>
-                                        <input type="text" class="form-control" name="processName"
+                                        <input type="text" class="form-control" name="processName" maxlength="255"
                                                placeholder="Enter process name">
                                     </div>
                                     <div class="col-md-6 mb-3">
@@ -654,12 +748,12 @@
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">References to this Control</label>
-                                        <input type="text" class="form-control" name="referencesToControl"
+                                        <input type="text" class="form-control" name="referencesToControl" maxlength="255"
                                                placeholder="Enter references">
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Department</label>
-                                        <input type="text" class="form-control" name="department"
+                                        <input type="text" class="form-control" name="department" maxlength="255"
                                                placeholder="Enter department">
                                     </div>
                                 </div>
@@ -672,23 +766,35 @@
                                     </div>
                                 </div>
 
+                                <!-- Control Operator's Program: shown to everyone who sees the control (ControlStepsFields);
+                                     the Control Operator sends it once, SoQM Team puts it in; read-only to everyone else -->
+                                <div class="row" id="operatorReviewRow">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label" for="controlOperatorReview"><span th:text="${operatorProgramLabel}">Control Operator's Program</span></label>
+                                        <textarea class="form-control" id="controlOperatorReview" name="controlOperatorReview" rows="8" maxlength="2000"
+                                                  placeholder="Not filled yet"
+                                                  data-edit-placeholder="Paste the program the Control Operator sent"></textarea>
+                                    </div>
+                                </div>
+
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Other Related Controls</label>
-                                        <input type="text" class="form-control" name="otherRelatedControls"
+                                        <input type="text" class="form-control" name="otherRelatedControls" maxlength="255"
                                                placeholder="Enter other related controls">
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">IT Applications</label>
-                                        <input type="text" class="form-control" name="itApplications"
+                                        <input type="text" class="form-control" name="itApplications" maxlength="255"
                                                placeholder="Enter IT applications">
                                     </div>
                                 </div>
 
                                 <div class="row">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label">Control steps performed and results</label>
-                                        <textarea class="form-control" name="controlStepsPerformed" rows="8" maxlength="2000"
+                                        <label class="form-label" for="controlStepsPerformed"><span th:text="${stepsLabel}">Control Steps Performed and Results</span><span class="step-required-mark" aria-hidden="true"
+                                                th:if="${stepField != null and stepField.required() and stepField.field() == 'controlStepsPerformed'}">&nbsp;*</span></label>
+                                        <textarea class="form-control" id="controlStepsPerformed" name="controlStepsPerformed" rows="8" maxlength="2000"
                                                   placeholder="Describe control steps and results"></textarea>
                                         <div class="required-hint d-none" id="controlStepsSubmitHint">
                                             This field is required before submission.
@@ -698,27 +804,33 @@
 
                                 <div class="row">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label">SoQM Head/Team Comments</label>
+                                        <label class="form-label">SoQM Head/Team Comments<span class="step-required-mark" aria-hidden="true"
+                                                th:if="${stepField != null and stepField.field() == 'soqmHeadComments'}"> *</span></label>
                                         <textarea class="form-control role-restricted-field" 
                                                   id="soqmHeadComments"
                                                   name="soqmHeadComments" 
                                                   rows="8"
                                                   maxlength="2000"
-                                                  data-allowed-roles="SOQM_TEAM,ADMIN"
                                                   placeholder="Enter SoQM head/team comments"></textarea>
+                                        <div class="required-hint d-none" id="soqmHeadCommentsStepHint">
+                                            Required for your step: fill it to Send to Process Owner or Return to Operator.
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div class="row">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label">Process Owner Comments</label>
+                                        <label class="form-label">Process Owner Comments<span class="step-required-mark" aria-hidden="true"
+                                                th:if="${stepField != null and stepField.field() == 'processOwnerComments'}"> *</span></label>
                                         <textarea class="form-control role-restricted-field" 
                                                   id="processOwnerComments"
                                                   name="processOwnerComments" 
                                                   rows="8"
                                                   maxlength="2000"
-                                                  data-allowed-roles="PROCESS_OWNER,ADMIN"
                                                   placeholder="Enter process owner comments"></textarea>
+                                        <div class="required-hint d-none" id="processOwnerCommentsStepHint">
+                                            Required for your step: fill it to Complete or Return to Control Operator.
+                                        </div>
                                     </div>
                                 </div>
 
@@ -727,19 +839,21 @@
                                         <label class="form-label">Attachment (Details)</label>
                                         <div class="kpmg-upload-zone" id="detailsUploadZone">
                                             <div class="kpmg-upload-inner">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="#9ba3b5" viewBox="0 0 16 16" class="mb-2">
-                                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.1A1.5 1.5 0 0 0 2.5 14h11a1.5 1.5 0 0 0 1.5-1.5v-2.1a.5.5 0 0 1 1 0v2.1a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5v-2.1a.5.5 0 0 1 .5-.5z"/>
-                                                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
-                                                </svg>
-                                                <span class="kpmg-upload-text">Choose files or drag & drop</span>
-                                                <span class="kpmg-upload-hint">Up to 50 files</span>
-                                                <input type="file" class="kpmg-upload-input" name="attachedFile" id="attachmentDetailsInput" multiple>
+                                                <div class="kpmg-upload-icon">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00338D" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                                        <polyline points="16 16 12 12 8 16"></polyline>
+                                                        <line x1="12" y1="12" x2="12" y2="21"></line>
+                                                        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+                                                    </svg>
+                                                </div>
+                                                <span class="kpmg-upload-text">Drop files here or click to browse</span>
+                                                <span class="kpmg-upload-hint">Up to 50 files at once</span>
+                                                <span class="kpmg-upload-types">PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG</span>
+                                                <input type="file" class="kpmg-upload-input" name="attachedFile" id="attachmentDetailsInput" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg">
                                             </div>
+                                            <div class="kpmg-upload-progress"><div class="kpmg-upload-progress-bar" id="detailsProgressBar"></div></div>
                                         </div>
-                                        <a id="downloadDetailsBtn" href="#" class="btn btn-outline-info btn-sm mt-1" style="display: none;" download>
-                                            <i class="bi bi-download"></i> Download
-                                        </a>
-                                        <div class="kpmg-file-list mt-2" id="detailsFileInfo"></div>
+                                        <div id="detailsFileInfo"></div>
                                     </div>
                                 </div>
                             </div>
@@ -752,6 +866,10 @@
 
                             <div class="form-section">
                                 <h5 class="mb-3">Assignment Details</h5>
+                                <p class="vc-soqm-only-note d-none">
+                                    <i class="bi bi-lock" aria-hidden="true"></i>
+                                    Only SoQM Team can change the assignment.
+                                </p>
 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
@@ -869,29 +987,43 @@
 
                                 <div class="row">
                                     <div class="col-12 mb-3">
-                                        <label class="form-label">Control Shared With</label>
-                                        <div class="facilitator-dropdown">
-                                            <div class="selected-user-display">
-                                                <div class="form-control control-shared-input"
-                                                     id="sharedWithInput"
-                                                     onclick="viewControl.toggleSharedWithDropdown()"
-                                                     style="cursor: pointer; min-height: 38px; display: flex; align-items: center; flex-wrap: wrap; gap: 5px; padding: 5px;">
-                                                    <span id="sharedWithPlaceholder" style="color: #999;">Select users...</span>
-                                                    <div id="sharedWithSelectedTags"></div>
+                                        <!-- Control Shared With: the people as the server describes them (ViewController
+                                             sharedWithPeople, AccessPolicy.sharedAccess); shared-with.js adds the search
+                                             for SoQM Team in edit mode. The marks are for SoQM Team only. -->
+                                        <div class="sw-field" id="sharedWithField"
+                                             th:with="swCount=${#lists.size(sharedWithPeople)}"
+                                             th:classappend="${swCount > 6} ? 'is-collapsed'"
+                                             th:attr="data-notes=${sharedWithNotes},data-editable=${canEditAll},data-control-id=${control.id}">
+                                            <div class="sw-head">
+                                                <span class="form-label mb-0" id="sharedWithLabel">Control Shared With</span>
+                                                <span class="sw-count" id="sharedWithCount" th:hidden="${swCount == 0}"
+                                                      th:text="${swCount == 1} ? '1 person' : |${swCount} people|">0 people</span>
+                                                <span class="sw-unsaved" id="sharedWithUnsaved" th:if="${canEditAll}" hidden>Not saved yet</span>
+                                            </div>
+                                            <p class="sw-hint" id="sharedWithHint" th:text="${sharedWithHint}">Can view this control and download files, no editing</p>
+                                            <div class="sw-box" id="sharedWithBox">
+                                                <ul class="sw-chips" id="sharedWithChips" aria-labelledby="sharedWithLabel" aria-describedby="sharedWithHint"><li class="sw-chip"
+                                                        th:each="person : ${sharedWithPeople}"
+                                                        th:classappend="${sharedWithNotes and person.access != null} ? ${'is-' + #strings.replace(#strings.toLowerCase(person.accessName()), '_', '-')} : ''"
+                                                        th:attr="data-mail=${person.mail},data-name=${person.name},data-access=${sharedWithNotes ? person.accessName() : null},data-note=${sharedWithNotes ? person.note : null},data-refusal=${sharedWithNotes ? person.saveRefusal : null}"><span class="sw-chip-text"><span class="sw-chip-name" th:text="${person.name}">Name</span><span class="sw-chip-mail" th:if="${person.named()}" th:text="${person.mail}">name@example.com</span><span class="sw-note" th:if="${sharedWithNotes and person.note != null}" th:text="${person.note}">Disabled</span></span></li></ul>
+                                                <p class="sw-empty" id="sharedWithEmpty" th:hidden="${swCount > 0}" th:text="${sharedWithEmpty}">Not shared with anyone</p>
+                                                <div class="sw-search" id="sharedWithSearch" th:if="${canEditAll}" hidden>
+                                                    <svg class="sw-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                                                    <input type="text" class="sw-search-input" id="sharedWithSearchInput"
+                                                           role="combobox" aria-autocomplete="list" aria-expanded="false"
+                                                           aria-controls="sharedWithListbox" aria-labelledby="sharedWithLabel"
+                                                           aria-describedby="sharedWithKeys" autocomplete="off" spellcheck="false"
+                                                           placeholder="Search by name or e-mail">
                                                 </div>
                                             </div>
-                                            <div class="dropdown-users" id="sharedWithDropdown" style="display: none;">
-                                                <div class="dropdown-search p-2">
-                                                    <input type="text"
-                                                           class="form-control form-control-sm"
-                                                           id="sharedWithSearchInput"
-                                                           placeholder="Find items..."
-                                                           oninput="viewControl.filterSharedWithList()">
-                                                </div>
-                                                <div class="users-list" style="max-height: 200px; overflow-y: auto;">
-                                                    <div class="list-group list-group-flush" id="sharedWithUsersList"></div>
-                                                </div>
-                                            </div>
+                                            <div class="sw-error" id="sharedWithError" role="alert" hidden></div>
+                                            <ul class="sw-listbox" id="sharedWithListbox" role="listbox" aria-multiselectable="true"
+                                                aria-labelledby="sharedWithLabel" th:if="${canEditAll}" hidden></ul>
+                                            <button type="button" class="sw-more" id="sharedWithMore" th:if="${swCount > 6}"
+                                                    aria-expanded="false" aria-controls="sharedWithChips"
+                                                    th:text="|Show all ${swCount}|">Show all</button>
+                                            <span class="visually-hidden" id="sharedWithKeys" th:if="${canEditAll}">Up and down arrows move through the list, Enter adds or removes the person, Backspace in an empty search removes the last person, Escape closes the list.</span>
+                                            <span class="visually-hidden" id="sharedWithStatus" aria-live="polite"></span>
                                             <input type="hidden" name="controlSharedWith" id="controlSharedWithHidden">
                                         </div>
                                     </div>
@@ -899,9 +1031,12 @@
 
                                 <div class="row">
                                     <div class="col-md-4 mb-3">
-                                        <label class="form-label required-field">Control Operation Date</label>
-                                        <input type="date" class="form-control" name="controlOperationDate"
-                                               id="controlOperationDate">
+                                        <label class="form-label required-field" for="controlOperationDate">Control Operation Date</label>
+                                        <input type="text" class="form-control" name="controlOperationDate"
+                                               id="controlOperationDate" placeholder="dd.mm.yyyy" inputmode="numeric"
+                                               aria-describedby="controlOperationDateFeedback" data-date-picker
+                                               data-completed-fixed="scheduleFixedHint">
+                                        <div class="invalid-feedback" id="controlOperationDateFeedback">Enter the date as dd.mm.yyyy</div>
                                     </div>
                                     <div class="col-md-4 mb-3">
                                         <label class="form-label">Control Operation Deadline</label>
@@ -922,6 +1057,10 @@
                                                style="background-color: #f7f8fa; pointer-events: none;">
                                     </div>
                                 </div>
+                                <div class="completed-fixed-hint mb-3" id="scheduleFixedHint" th:if="${completedEdit}">
+                                    <i class="bi bi-lock" aria-hidden="true"></i> The Control Operation Date, the deadline and the next date
+                                    stay as they are on a completed control; changing the people does not move them.
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -938,19 +1077,21 @@
                                         <label class="form-label">Attachment (Documents)</label>
                                         <div class="kpmg-upload-zone" id="documentsUploadZone">
                                             <div class="kpmg-upload-inner">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="#9ba3b5" viewBox="0 0 16 16" class="mb-2">
-                                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.1A1.5 1.5 0 0 0 2.5 14h11a1.5 1.5 0 0 0 1.5-1.5v-2.1a.5.5 0 0 1 1 0v2.1a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5v-2.1a.5.5 0 0 1 .5-.5z"/>
-                                                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
-                                                </svg>
-                                                <span class="kpmg-upload-text">Choose files or drag & drop</span>
-                                                <span class="kpmg-upload-hint">Up to 50 files</span>
-                                                <input type="file" class="kpmg-upload-input" name="attachment" id="attachmentDocumentsInput" multiple>
+                                                <div class="kpmg-upload-icon">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00338D" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                                        <polyline points="16 16 12 12 8 16"></polyline>
+                                                        <line x1="12" y1="12" x2="12" y2="21"></line>
+                                                        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+                                                    </svg>
+                                                </div>
+                                                <span class="kpmg-upload-text">Drop files here or click to browse</span>
+                                                <span class="kpmg-upload-hint">Up to 50 files at once</span>
+                                                <span class="kpmg-upload-types">PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG</span>
+                                                <input type="file" class="kpmg-upload-input" name="attachment" id="attachmentDocumentsInput" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg">
                                             </div>
+                                            <div class="kpmg-upload-progress"><div class="kpmg-upload-progress-bar" id="documentsProgressBar"></div></div>
                                         </div>
-                                        <a id="downloadDocumentsBtn" href="#" class="btn btn-outline-info btn-sm mt-1" style="display: none;" download>
-                                            <i class="bi bi-download"></i> Download
-                                        </a>
-                                        <div class="kpmg-file-list mt-2" id="documentsFileInfo"></div>
+                                        <div id="documentsFileInfo"></div>
                                     </div>
                                 </div>
 
@@ -962,6 +1103,10 @@
                                             <option value="Available">Available</option>
                                             <option value="Not Available">Not Available</option>
                                         </select>
+                                        <p class="vc-soqm-only-note d-none">
+                                            <i class="bi bi-lock" aria-hidden="true"></i>
+                                            Only SoQM Team can change SoQM Development Materials.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -969,19 +1114,123 @@
                     </div>
                 </div>
 
+                <script>
+                    // One tab at a time; the active tab is kept in the URL hash (#control, #details,
+                    // #assignment, #documents). replaceState, so Back leaves the page instead of cycling tabs.
+                    (function () {
+                        var TABS = ['control', 'details', 'assignment', 'documents'];
+                        var nav = document.getElementById('controlTabs');
+                        if (!nav) return;
+
+                        function tabName(value) {
+                            var name = String(value || '').replace(/^#/, '').replace(/-tab$/, '');
+                            return TABS.indexOf(name) >= 0 ? name : null;
+                        }
+
+                        function linkFor(name) {
+                            return nav.querySelector('a[href="#' + name + '-tab"]');
+                        }
+
+                        // Runs before the first paint, so Bootstrap is not loaded yet: switch the classes by hand
+                        var initial = tabName(window.location.hash);
+                        if (initial && initial !== 'control') {
+                            nav.querySelectorAll('.nav-link.active').forEach(function (link) {
+                                link.classList.remove('active');
+                            });
+                            document.querySelectorAll('#controlTabsContent > .tab-pane.active').forEach(function (pane) {
+                                pane.classList.remove('active', 'show');
+                            });
+                            linkFor(initial).classList.add('active');
+                            document.getElementById(initial + '-tab').classList.add('active', 'show');
+                        }
+
+                        // onShown runs once the pane is visible (Bootstrap fades the old pane out first)
+                        function show(name, onShown) {
+                            var link = linkFor(name);
+                            if (!link) return;
+                            if (link.classList.contains('active') || !window.bootstrap) {
+                                if (onShown) onShown();
+                                return;
+                            }
+                            if (onShown) link.addEventListener('shown.bs.tab', onShown, { once: true });
+                            bootstrap.Tab.getOrCreateInstance(link).show();
+                        }
+
+                        // Opens the tab that holds the field (validation errors on a hidden tab)
+                        function revealField(field, onShown) {
+                            var pane = field && field.closest ? field.closest('#controlTabsContent > .tab-pane') : null;
+                            var name = pane ? tabName(pane.id) : null;
+                            if (name) {
+                                show(name, onShown);
+                            } else if (onShown) {
+                                onShown();
+                            }
+                        }
+
+                        nav.addEventListener('shown.bs.tab', function (event) {
+                            var name = tabName(event.target.getAttribute('href'));
+                            if (name && tabName(window.location.hash) !== name) {
+                                history.replaceState(history.state, '', '#' + name);
+                            }
+                        });
+
+                        window.addEventListener('hashchange', function () {
+                            var name = tabName(window.location.hash);
+                            if (name) show(name);
+                        });
+
+                        document.addEventListener('click', function (event) {
+                            var trigger = event.target.closest ? event.target.closest('[data-vc-tab]') : null;
+                            if (!trigger) return;
+                            event.preventDefault();
+                            // A link naming a field (the "Your step" hint) also scrolls to it and focuses it
+                            var fieldName = trigger.getAttribute('data-vc-field');
+                            show(trigger.getAttribute('data-vc-tab'), fieldName ? function () {
+                                var field = document.querySelector('[name="' + fieldName + '"]');
+                                if (!field) return;
+                                field.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                                field.focus({ preventScroll: true });
+                            } : null);
+                        });
+
+                        window.ViewControlTabs = { show: show, revealField: revealField };
+                    })();
+                </script>
+
+                <!-- Toast container -->
+                <div class="kpmg-toast-container" id="kpmgToastContainer"></div>
+
                 <div class="action-buttons">
                     <div class="d-flex justify-content-between align-items-center">
-                        <!-- ����� �������: Home, Changelog, Rename ID -->
+                        <!-- Left: Home, Changelog, and More (Rename ID) -->
                         <div class="d-flex align-items-center gap-2">
-                            <a href="/" class="btn btn-outline-secondary">Home</a>
-                            <button class="btn btn-outline-secondary" id="changelogBtn">Changelog</button>
-                            <button class="btn btn-outline-secondary" id="renameIdBtn" th:if="${userRole == 'SOQM_TEAM'}">Rename ID</button>
+                            <button class="btn btn-outline-secondary" id="changelogBtn"><i class="bi bi-clock-history" aria-hidden="true"></i> Changelog</button>
+                            <!-- Rename ID as dropdown (SoQM only, also on a completed control, as the server checks) -->
+                            <div class="kpmg-more-menu" id="kpmgMoreMenuWrapper" th:if="${canRenameId}">
+                                <button class="kpmg-more-menu-btn" id="kpmgMoreMenuBtn" type="button" title="More actions">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <circle cx="5"  cy="12" r="2"/>
+                                        <circle cx="12" cy="12" r="2"/>
+                                        <circle cx="19" cy="12" r="2"/>
+                                    </svg>
+                                </button>
+                                <div class="kpmg-more-dropdown" id="kpmgMoreDropdown">
+                                    <button class="kpmg-more-dropdown-item" id="renameIdBtn" type="button">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-1px">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                        </svg>
+                                        Rename ID
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- ������ �������: Workflow ������ + Back + Edit -->
+                        <!-- Right: Workflow buttons + Back + Edit (primary) -->
                         <div class="d-flex align-items-center gap-2">
-                            <!-- Workflow ������ (����� ������������ �����������) -->
-                            <div id="workflow-buttons-container" class="d-inline-flex align-items-center gap-2">
+                            <!-- Workflow buttons -->
+                            <div id="workflow-buttons-container" class="d-inline-flex align-items-center gap-2"
+                                 th:if="${accessNotice == 'NONE'}">
                                 <!-- 1. Submit to Control Operator button for FACILITATOR -->
                                 <button type="button"
                                         class="btn btn-primary workflow-submit-btn"
@@ -990,7 +1239,6 @@
                                         title="Submit this control to Control Operator for review">
                                     Submit for Review
                                 </button>
-
 
                                 <!-- 2. Submit to SoQM Team button for CONTROL_OPERATOR -->
                                 <button type="button"
@@ -1042,19 +1290,35 @@
                                     Complete
                                 </button>
 
-                                <!-- 7. Return to SoQM Team button for PROCESS_OWNER -->
+                                <!-- 7. Return to Control Operator button for PROCESS_OWNER -->
                                 <button type="button"
                                         class="btn btn-warning workflow-submit-btn po-action-btn"
-                                        id="returnToSoqmLeadBtn"
+                                        id="ownerReturnToOperatorBtn"
                                         style="display: none;"
                                         disabled
-                                        title="Return this control to SoQM Team for revision">
-                                    Return for SoQM Team Review
+                                        title="Return this control to the Control Operator for revision">
+                                    Return to Control Operator
+                                </button>
+
+                                <!-- 8. SoQM: move the control on or back for any role (AccessPolicy.move) -->
+                                <button type="button"
+                                        class="btn btn-outline-primary"
+                                        id="soqmMoveBtn"
+                                        th:if="${!#lists.isEmpty(soqmMoves)}"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#soqmMoveModal"
+                                        title="Move this control on or back for any Control role">
+                                    Move / Return&hellip;
                                 </button>
                             </div>
 
                             <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Back</button>
-                            <button class="btn btn-outline-secondary" id="editBtn" th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or userRole == 'SOQM_TEAM')}">Edit</button>
+                            <button class="btn" id="editBtn"
+                                    th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or canEditAll)}"
+                                    th:text="${completedEdit} ? 'Edit (completed control)' : 'Edit'"
+                                    th:attr="aria-describedby=${completedEdit} ? 'completedEditBanner' : null">
+                                Edit
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1081,8 +1345,24 @@
                                     <label for="newControlId" class="form-label required-field">New Control ID</label>
                                     <input type="text" class="form-control" id="newControlId"
                                            th:value="${control.controlId}" placeholder="Enter new Control ID">
-                                    <div class="form-text">Control ID must be unique across the system</div>
+                                    <div class="form-text">Control ID must be unique across the system.
+                                        <span id="renameKdnHint" th:text="${kdnIdHint} + '.'">IDs starting with KDN are visible to KDN users.</span></div>
                                     <div id="controlIdError" class="text-danger mt-1" style="display: none;"></div>
+                                </div>
+                                <!-- Shown when the new ID makes this a KDN control or stops it being one (rename-preview) -->
+                                <div class="rename-kdn-confirm" id="renameKdnConfirm" role="alert" hidden>
+                                    <p class="rename-kdn-title"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                                        <span id="renameKdnTitle">This control will stop being a KDN control</span></p>
+                                    <p class="rename-kdn-text" id="renameKdnText"></p>
+                                    <p class="rename-kdn-users-label" id="renameKdnUsersLabel" hidden></p>
+                                    <ul class="rename-kdn-users" id="renameKdnUsers" hidden></ul>
+                                </div>
+                                <div class="mb-0">
+                                    <label for="renameComment" class="form-label">Comment <span class="required-mark" id="renameCommentRequired" aria-hidden="true" hidden>*</span></label>
+                                    <textarea class="form-control" id="renameComment" rows="2" maxlength="1000"
+                                              aria-describedby="renameCommentHelp"
+                                              placeholder="Why the Control ID changes"></textarea>
+                                    <div class="form-text" id="renameCommentHelp">Required when the new ID makes this a KDN control or stops it being one: KDN users then gain or lose access.</div>
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -1238,9 +1518,11 @@
                                     Are you sure you want to return this control to the <strong>Facilitator</strong> for revision?
                                 </p>
                                 <div class="mb-3">
-                                    <label for="returnComments" class="form-label">Comments (optional)</label>
-                                    <textarea class="form-control" id="returnComments" rows="3" maxlength="2000"
+                                    <label for="returnComments" class="form-label">Reason for the return <span class="text-danger" aria-hidden="true">*</span></label>
+                                    <textarea class="form-control" id="returnComments" rows="3" maxlength="2000" required
+                                              aria-describedby="returnCommentsError"
                                               placeholder="Provide feedback for the Facilitator..."></textarea>
+                                    <div class="invalid-feedback" id="returnCommentsError">Enter the reason for the return.</div>
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -1293,9 +1575,11 @@
                                     Are you sure you want to return this control to the <strong>Control Operator</strong> for revision?
                                 </p>
                                 <div class="mb-3">
-                                    <label for="returnOperatorComments" class="form-label">Comments (optional)</label>
-                                    <textarea class="form-control" id="returnOperatorComments" rows="3" maxlength="2000"
+                                    <label for="returnOperatorComments" class="form-label">Reason for the return <span class="text-danger" aria-hidden="true">*</span></label>
+                                    <textarea class="form-control" id="returnOperatorComments" rows="3" maxlength="2000" required
+                                              aria-describedby="returnOperatorCommentsError"
                                               placeholder="Provide feedback for the Control Operator..."></textarea>
+                                    <div class="invalid-feedback" id="returnOperatorCommentsError">Enter the reason for the return.</div>
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -1305,6 +1589,91 @@
                                 <button type="button" class="btn btn-warning" id="confirmReturnOperatorBtn">
                                     Confirm Return
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SoQM: move the control on or back for any role -->
+                <div class="modal fade" id="soqmMoveModal" tabindex="-1" aria-labelledby="soqmMoveTitle"
+                     th:if="${!#lists.isEmpty(soqmMoves)}">
+                    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="soqmMoveTitle">Move the control</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="soqm-move-now">
+                                    Now: <strong th:text="${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">In Progress</strong>.
+                                    <span th:unless="${completedControl}">As SoQM Team you can make the step of any Control role: on to the next status or back to an earlier one.</span>
+                                </p>
+                                <p class="soqm-move-now" th:if="${completedControl}" id="soqmMoveCompletedNote">
+                                    A completed control is locked for everyone. Returning it keeps its values, its deadline
+                                    and the completion in the history; it can be changed again from the step it goes back to.
+                                </p>
+                                <fieldset class="mb-3">
+                                    <legend class="form-label fw-bold soqm-move-legend">Move to</legend>
+                                    <div class="form-check soqm-move-option" th:each="m, it : ${soqmMoves}">
+                                        <input class="form-check-input" type="radio" name="soqmMoveTarget"
+                                               th:id="${'soqmMoveTarget' + it.index}"
+                                               th:value="${m.target}"
+                                               th:attr="data-comment-required=${m.commentRequired},
+                                                        data-on-behalf=${m.onBehalf},
+                                                        data-acting-for=${m.actingFor},
+                                                        data-assigned=${m.assigned},
+                                                        data-return=${m.returnMove}">
+                                        <label class="form-check-label" th:for="${'soqmMoveTarget' + it.index}">
+                                            <span class="soqm-move-label" th:text="${m.label}">Submit to Control Operator</span>
+                                            <span class="soqm-move-status" th:text="${m.statusLabel}"
+                                                  th:unless="${#strings.endsWith(m.label, m.statusLabel)}">Review</span>
+                                            <span class="soqm-move-behalf" th:if="${m.onBehalf}"
+                                                  th:text="${'for the ' + m.actingFor}">for the Facilitator</span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div class="soqm-move-note d-none" id="soqmMoveNote" role="note"></div>
+                                <div class="mb-1">
+                                    <label for="soqmMoveComment" class="form-label">Comment
+                                        <span class="text-danger d-none" id="soqmMoveCommentMark" aria-hidden="true">*</span></label>
+                                    <textarea class="form-control" id="soqmMoveComment" rows="3" maxlength="2000"
+                                              aria-describedby="soqmMoveCommentError"
+                                              placeholder="Why the control moves, for the history and the notification"></textarea>
+                                    <div class="invalid-feedback" id="soqmMoveCommentError">Enter a comment: a return and a step made for a Control role need one.</div>
+                                </div>
+                                <div class="text-danger small mt-2 d-none" id="soqmMoveError" role="alert"></div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="soqmMoveConfirmBtn" disabled>Move</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SoQM Team saving a completed control in place, or hiding one of its files: the reason (CompletedEdit) -->
+                <div class="modal fade" id="completedEditReasonModal" tabindex="-1" th:if="${completedEdit}"
+                     aria-labelledby="completedEditReasonTitle" aria-describedby="completedEditReasonIntro">
+                    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="completedEditReasonTitle">Save changes to a completed control</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="completed-edit-intro" id="completedEditReasonIntro">The control stays Completed. The
+                                    Changelog shows your changes as &ldquo;Edited after completion&rdquo;, with your name and this reason.</p>
+                                <label for="completedEditReason" class="form-label">Reason
+                                    <span class="text-danger" aria-hidden="true">*</span></label>
+                                <textarea class="form-control" id="completedEditReason" rows="3" maxlength="500" required
+                                          aria-required="true" aria-describedby="completedEditReasonHelp completedEditReasonError"
+                                          placeholder="Why the completed control changes"></textarea>
+                                <div class="form-text" id="completedEditReasonHelp">Required, up to 500 characters.</div>
+                                <div class="invalid-feedback" id="completedEditReasonError">Enter the reason for this change.</div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="completedEditReasonConfirm">Save changes</button>
                             </div>
                         </div>
                     </div>
@@ -1334,45 +1703,18 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Modal for Return to SoQM Team confirmation -->
-                <div class="modal fade" id="returnSoqmLeadModal" tabindex="-1">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header bg-warning text-dark">
-                                <h5 class="modal-title">Return Control to SoQM Team</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <p class="mb-3">
-                                    Are you sure you want to return this control to the <strong>SoQM Team</strong> for revision?
-                                </p>
-                                <div class="mb-3">
-                                    <label for="returnSoqmLeadComments" class="form-label">Comments (optional)</label>
-                                    <textarea class="form-control" id="returnSoqmLeadComments" rows="3" maxlength="2000"
-                                              placeholder="Provide feedback for the SoQM Team..."></textarea>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                                    Cancel
-                                </button>
-                                <button type="button" class="btn btn-warning" id="confirmReturnSoqmLeadBtn">
-                                    Confirm Return
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
 </div>
 <div th:replace="fragments/app-modal :: appModal"></div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/vendor/bootstrap.bundle.min.js"></script>
 <script src="/js/date-format.js?v=2"></script>
-<script src="/js/app-modal.js?v=3"></script>
-<script src="/js/view-control.js?v=3.6"></script>
+<script src="/js/date-picker.js?v=2"></script>
+<script src="/js/app-modal.js?v=5"></script>
+<script src="/js/shared-with.js?v=3"></script>
+<script src="/js/view-control.js?v=7.4"></script>
+<script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {
@@ -1389,7 +1731,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitToProcessOwnerBtn = document.getElementById('submitToProcessOwnerBtn');
     const returnToOperatorBtn = document.getElementById('returnToOperatorBtn');
     const completeControlBtn = document.getElementById('completeControlBtn');
-    const returnToSoqmLeadBtn = document.getElementById('returnToSoqmLeadBtn');
+    const ownerReturnToOperatorBtn = document.getElementById('ownerReturnToOperatorBtn');
     
     const editBtn = document.getElementById('editBtn');
     const renameIdBtn = document.getElementById('renameIdBtn');
@@ -1441,6 +1783,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     const filled = !!soqmCommentsField.value.trim();
                     submitToProcessOwnerBtn.disabled = !filled;
                     if (returnToOperatorBtn) returnToOperatorBtn.disabled = !filled;
+                    // A disabled button says what it waits for
+                    submitToProcessOwnerBtn.title = filled ? 'Submit this control to Process Owner for review'
+                        : 'Fill SoQM Head/Team Comments to enable';
+                    if (returnToOperatorBtn) {
+                        returnToOperatorBtn.title = filled ? 'Return this control to Control Operator for revision'
+                            : 'Fill SoQM Head/Team Comments to enable';
+                    }
                 };
                 toggleBtns(); // set initial state based on existing value
                 soqmCommentsField.addEventListener('input', toggleBtns);
@@ -1453,15 +1802,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // PROCESS OWNER: Show "Complete" and "Return to SoQM Team" buttons
+    // PROCESS OWNER: Show "Complete" and "Return to Control Operator" buttons
     if (canUseWorkflowActions && isProcessOwner && performanceStatus === 'PROCESS_OWNER_REVIEW') {
         if (completeControlBtn) {
             completeControlBtn.style.display = 'inline-block';
             console.log('   ? Complete button shown for Process Owner');
         }
-        if (returnToSoqmLeadBtn) {
-            returnToSoqmLeadBtn.style.display = 'inline-block';
-            console.log('   ? Return to SoQM Team button shown for Process Owner');
+        if (ownerReturnToOperatorBtn) {
+            ownerReturnToOperatorBtn.style.display = 'inline-block';
         }
 
         // Keep buttons disabled until Process Owner Comments is filled
@@ -1470,7 +1818,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const togglePoBtns = () => {
                 const filled = !!poCommentsField.value.trim();
                 if (completeControlBtn) completeControlBtn.disabled = !filled;
-                if (returnToSoqmLeadBtn) returnToSoqmLeadBtn.disabled = !filled;
+                if (ownerReturnToOperatorBtn) ownerReturnToOperatorBtn.disabled = !filled;
+                // A disabled button says what it waits for
+                if (completeControlBtn) {
+                    completeControlBtn.title = filled ? 'Complete this control' : 'Fill Process Owner Comments to enable';
+                }
+                if (ownerReturnToOperatorBtn) {
+                    ownerReturnToOperatorBtn.title = filled ? 'Return this control to the Control Operator for revision'
+                        : 'Fill Process Owner Comments to enable';
+                }
             };
             togglePoBtns();
             poCommentsField.addEventListener('input', togglePoBtns);
@@ -1493,42 +1849,71 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ============================================
+    // YOUR STEP: THE FIELD IT NEEDS
+    // ============================================
+    // The field named in the "Your step" hint is red with a note under it until it has a value, for every
+    // role (Facilitator and Control Operator: Control steps; SoQM: SoQM Head/Team
+    // Comments; Process Owner: Process Owner Comments); the hint shows Required / Filled. A field the step
+    // may leave empty (data-step-required="false") is never red and shows Optional / Filled. The values
+    // arrive later (loadDetailsData fires input).
+    const stepHintEl = document.getElementById('stepFieldHint');
+    if (stepHintEl && canUseWorkflowActions) {
+        const stepFieldName = stepHintEl.getAttribute('data-step-field');
+        const stepRequired = stepHintEl.getAttribute('data-step-required') !== 'false';
+        const stepField = document.querySelector('textarea[name="' + stepFieldName + '"]');
+        const stepState = document.getElementById('stepFieldState');
+        const fieldNote = document.getElementById(
+            stepFieldName === 'controlStepsPerformed' ? 'controlStepsSubmitHint' : stepFieldName + 'StepHint');
+        const updateStepField = () => {
+            const filled = !!(stepField && stepField.value.trim());
+            if (stepField && stepRequired) {
+                stepField.classList.toggle('field-required-error', !filled);
+                stepField.setAttribute('aria-required', 'true');
+            }
+            if (fieldNote && stepRequired) fieldNote.classList.toggle('d-none', filled);
+            if (stepState) {
+                stepState.textContent = filled ? 'Filled' : stepRequired ? 'Required' : 'Optional';
+                stepState.classList.toggle('is-filled', filled);
+                stepState.classList.toggle('is-optional', !filled && !stepRequired);
+            }
+            stepHintEl.classList.toggle('is-done', filled);
+        };
+        updateStepField();
+        if (stepField) {
+            stepField.addEventListener('input', updateStepField);
+            stepField.addEventListener('change', updateStepField);
+        }
+    }
+
+    // ============================================
     // CONTROL STEPS REQUIRED BEFORE SUBMIT ACTIONS
     // ============================================
+    // The field each submit needs: the steps field, for the Facilitator's submit and for Submit to SoQM Team
+    // alike; Control Operator's Program is required by no step
     const controlSteps = document.querySelector('textarea[name="controlStepsPerformed"]');
-    const controlStepsHint = document.getElementById('controlStepsSubmitHint');
-    const submitButtons = [];
+    const stepsLabel = document.querySelector('label[for="controlStepsPerformed"] span')?.textContent || 'Control Steps Performed and Results';
+    const submitRequirements = [];
 
     if (canUseWorkflowActions && isFacilitator && performanceStatus === 'IN_PROGRESS') {
-        submitButtons.push(submitToOperatorBtn);
+        submitRequirements.push({ btn: submitToOperatorBtn, field: controlSteps,
+            hint: document.getElementById('controlStepsSubmitHint'), label: stepsLabel });
     }
     if (canUseWorkflowActions && isControlOperator && performanceStatus === 'REVIEW') {
-        submitButtons.push(document.getElementById('submitToSoqmLeadBtn'));
+        submitRequirements.push({ btn: document.getElementById('submitToSoqmLeadBtn'), field: controlSteps,
+            hint: document.getElementById('controlStepsSubmitHint'), label: stepsLabel });
     }
 
-    if (submitButtons.length > 0) {
-        console.log('?? Control steps submission validation for buttons:', submitButtons.length);
-
-        function isControlStepsFilled() {
-            if (!controlSteps) {
-                console.warn('?? controlStepsPerformed element not found');
-                return false;
-            }
-            const filled = controlSteps.value && controlSteps.value.trim().length > 0;
-            console.log('   isControlStepsFilled:', filled, '(value length:', (controlSteps.value || '').length + ')');
-            return filled;
-        }
-
+    if (submitRequirements.length > 0) {
         function updateSubmitButtons() {
-            const isFilled = isControlStepsFilled();
-            submitButtons.forEach(btn => {
+            submitRequirements.forEach(({ btn, field, hint, label }) => {
                 if (!btn) return;
+                const isFilled = Boolean(field && field.value && field.value.trim().length > 0);
                 if (isFilled) {
-                    if (controlSteps) {
-                        controlSteps.classList.remove('field-required-error');
+                    if (field) {
+                        field.classList.remove('field-required-error');
                     }
-                    if (controlStepsHint) {
-                        controlStepsHint.classList.add('d-none');
+                    if (hint) {
+                        hint.classList.add('d-none');
                     }
                     btn.disabled = false;
                     btn.removeAttribute('disabled');
@@ -1537,16 +1922,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     btn.style.opacity = '1';
                     btn.style.pointerEvents = 'auto';
                 } else {
-                    if (controlSteps) {
-                        controlSteps.classList.add('field-required-error');
+                    if (field) {
+                        field.classList.add('field-required-error');
                     }
-                    if (controlStepsHint) {
-                        controlStepsHint.classList.remove('d-none');
+                    if (hint) {
+                        hint.classList.remove('d-none');
                     }
                     btn.disabled = true;
                     btn.setAttribute('disabled', 'disabled');
-                    btn.setAttribute('data-original-title', btn.title);
-                    btn.title = 'Fill Control steps performed and results to enable submission';
+                    if (!btn.hasAttribute('data-original-title')) {
+                        btn.setAttribute('data-original-title', btn.title);
+                    }
+                    btn.title = 'Fill ' + label + ' to enable submission';
                     btn.style.cursor = 'not-allowed';
                     btn.style.opacity = '0.5';
                     btn.style.pointerEvents = 'none';
@@ -1556,25 +1943,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
         updateSubmitButtons();
 
-        if (controlSteps) {
-            controlSteps.addEventListener('input', updateSubmitButtons);
-            controlSteps.addEventListener('change', updateSubmitButtons);
-            controlSteps.addEventListener('blur', updateSubmitButtons);
-        }
+        new Set(submitRequirements.map(requirement => requirement.field).filter(Boolean)).forEach(field => {
+            field.addEventListener('input', updateSubmitButtons);
+            field.addEventListener('change', updateSubmitButtons);
+            field.addEventListener('blur', updateSubmitButtons);
+        });
     }
 
     // ============================================
     // ROLE-BASED FIELD RESTRICTIONS
     // ============================================
     function applyRoleBasedRestrictions() {
-        const currentUserRole = document.getElementById('currentUserRole')?.value || 'UNKNOWN';
         const restrictedFields = document.querySelectorAll('.role-restricted-field');
         const canEditAll = Boolean(window.qtrackerPermissions && window.qtrackerPermissions.canEditAll);
         const canEditProcessOwnerComments = Boolean(window.qtrackerPermissions && window.qtrackerPermissions.canEditProcessOwnerComments);
         const editNavPanel = document.getElementById('editNavPanel');
         const isEditMode = editNavPanel && !editNavPanel.classList.contains('d-none');
         
-        console.log('?? Applying role-based restrictions for role:', currentUserRole);
+        console.log('?? Applying field restrictions from the permissions');
 
         const themeStyles = getComputedStyle(document.body);
         const restrictedBackground = themeStyles.getPropertyValue('--surface-bg-2').trim() || '#f7f8fa';
@@ -1607,7 +1993,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     label.classList.add('role-restricted-label');
                 }
                 
-                console.log(`   ?? RESTRICTED: ${fieldName} is read-only for ${currentUserRole}`);
+                console.log(`   ?? RESTRICTED: ${fieldName} is read-only`);
             } else {
                 // Enable field for this role
                 field.disabled = false;
@@ -1624,7 +2010,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     label.classList.remove('role-restricted-label');
                 }
                 
-                console.log(`   ? ALLOWED: ${fieldName} is editable for ${currentUserRole}`);
+                console.log(`   ? ALLOWED: ${fieldName} is editable`);
             }
         });
     }
@@ -1653,26 +2039,55 @@ document.addEventListener('DOMContentLoaded', function() {
 
         console.log('?? Status-based restriction:', { statusValue, normalizedStatus, isEditMode });
 
-        if ((canEditAll || canEditStepsPerformed) && isEditMode) {
-            controlStepsField.disabled = false;
-            controlStepsField.readOnly = false;
-            controlStepsField.removeAttribute('disabled');
-            controlStepsField.removeAttribute('readonly');
-            controlStepsField.style.cursor = '';
-            controlStepsField.style.backgroundColor = '';
-            controlStepsField.style.color = '';
-            controlStepsField.style.borderColor = '';
+        // Control Operator's Program: SoQM Team only (canEditAll, never on a completed control)
+        setStepsFieldEditable(controlStepsField, (canEditAll || canEditStepsPerformed) && isEditMode);
+        setStepsFieldEditable(document.querySelector('textarea[name="controlOperatorReview"]'),
+            canEditAll && isEditMode);
+
+        function setStepsFieldEditable(field, editable) {
+            if (!field) {
+                return;
+            }
+            if (editable) {
+                field.disabled = false;
+                field.readOnly = false;
+                field.removeAttribute('disabled');
+                field.removeAttribute('readonly');
+                field.style.cursor = '';
+                field.style.backgroundColor = '';
+                field.style.color = '';
+                field.style.borderColor = '';
+                return;
+            }
+            field.disabled = true;
+            field.readOnly = true;
+            field.setAttribute('disabled', 'disabled');
+            field.setAttribute('readonly', 'readonly');
+            field.style.cursor = 'not-allowed';
+            field.style.backgroundColor = restrictedBackground;
+            field.style.color = restrictedText;
+            field.style.borderColor = restrictedBorder;
+        }
+    }
+
+    // Control Operator's Program read-only and empty reads "Not filled yet"; the hint to write appears only
+    // while the field can be written (whichever script makes it editable or read-only)
+    (function operatorProgramPlaceholder() {
+        const program = document.querySelector('textarea[name="controlOperatorReview"]');
+        if (!program) {
             return;
         }
-        controlStepsField.disabled = true;
-        controlStepsField.readOnly = true;
-        controlStepsField.setAttribute('disabled', 'disabled');
-        controlStepsField.setAttribute('readonly', 'readonly');
-        controlStepsField.style.cursor = 'not-allowed';
-        controlStepsField.style.backgroundColor = restrictedBackground;
-        controlStepsField.style.color = restrictedText;
-        controlStepsField.style.borderColor = restrictedBorder;
-    }
+        const editPlaceholder = program.getAttribute('data-edit-placeholder') || '';
+        const update = () => {
+            const readOnly = program.disabled || program.readOnly;
+            const text = readOnly ? 'Not filled yet' : editPlaceholder;
+            if (program.getAttribute('placeholder') !== text) {
+                program.setAttribute('placeholder', text);
+            }
+        };
+        new MutationObserver(update).observe(program, { attributes: true, attributeFilter: ['readonly', 'disabled'] });
+        update();
+    })();
 
     // Apply restrictions on page load
     applyRoleBasedRestrictions();
@@ -1708,258 +2123,397 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ============================================
-// FILE ATTACHMENT UPLOAD & DOWNLOAD SYSTEM
+// FILE ATTACHMENT UPLOAD & DOWNLOAD SYSTEM (v2)
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('?? Initializing file attachment system...');
-    
-    // Get numeric control ID from hidden input
+
+    // ── Toast helper ──────────────────────────────────────────────────
+    function showToast(message, type = 'error', durationMs = 4000) {
+        const container = document.getElementById('kpmgToastContainer');
+        if (!container) return;
+        const icons = {
+            error:   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+            warning: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            success: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+        };
+        const toast = document.createElement('div');
+        toast.className = `kpmg-toast toast-${type}`;
+        toast.innerHTML = `${icons[type] || ''}<span>${message}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(30px)'; toast.style.transition = 'all 0.3s ease'; setTimeout(() => toast.remove(), 320); }, durationMs);
+    }
+
+    // ── File type icon helper ─────────────────────────────────────────
+    function getFileIconHTML(filename) {
+        const ext = (filename.split('.').pop() || '').toLowerCase();
+        if (ext === 'pdf') return { cls: 'type-pdf', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e53e3e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/></svg>' };
+        if (['xlsx','xls','csv'].includes(ext)) return { cls: 'type-excel', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38a169" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="8" y1="9" x2="10" y2="9"/></svg>' };
+        if (['docx','doc'].includes(ext)) return { cls: 'type-word', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3182ce" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>' };
+        if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) return { cls: 'type-image', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dd6b20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' };
+        return { cls: 'type-other', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#718096" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' };
+    }
+
+    // ── Format file size ──────────────────────────────────────────────
+    function formatSize(bytes) {
+        if (!bytes || bytes === 0) return '';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // ── Blocked extensions ────────────────────────────────────────────
+    const BLOCKED_EXTS = ['.crdownload', '.tmp', '.part', '.download'];
+    const ALLOWED_EXTS = ['.pdf','.docx','.doc','.xlsx','.xls','.csv','.png','.jpg','.jpeg'];
+    // Must match file.upload.max-file-size-mb / spring.servlet.multipart.max-request-size on the server
+    const MAX_FILE_SIZE_MB = 10;
+    const MAX_REQUEST_SIZE_MB = 100;
+
+    // Names already uploaded per tab (lower-cased stored names), filled by loadExistingAttachments()
+    const existingNames = { details: new Set(), documents: new Set() };
+
+    // Same rule as FileStorageService.toStoredFilename(): the name the server will store the file under
+    function toStoredFilename(name) {
+        const safe = (name || 'unknown').replace(/[^\p{L}\p{N}._-]/gu, '_');
+        const dot = safe.lastIndexOf('.');
+        let base = safe, ext = '';
+        if (dot > 0 && dot < safe.length - 1) { base = safe.substring(0, dot); ext = safe.substring(dot + 1); }
+        if (!base.trim()) base = 'file';
+        return ext ? base + '.' + ext : base;
+    }
+
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function validateFiles(files) {
+        const blocked = [];
+        const disallowed = [];
+        const tooLarge = [];
+        const empty = [];
+        const valid = [];
+        Array.from(files).forEach(file => {
+            const lower = file.name.toLowerCase();
+            if (BLOCKED_EXTS.some(e => lower.endsWith(e))) {
+                blocked.push(file.name);
+            } else if (!ALLOWED_EXTS.some(e => lower.endsWith(e))) {
+                disallowed.push(file.name);
+            } else if (file.size === 0) {
+                empty.push(file.name);
+            } else if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+                tooLarge.push(`${file.name} (${formatSize(file.size)})`);
+            } else {
+                valid.push(file);
+            }
+        });
+        if (blocked.length) showToast(`Blocked file(s): ${escapeHtml(blocked.join(', '))} — incomplete downloads are not allowed.`, 'error');
+        if (disallowed.length) showToast(`Unsupported type(s): ${escapeHtml(disallowed.join(', '))}. Allowed: PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG.`, 'warning');
+        if (empty.length) showToast(`Empty file(s) skipped: ${escapeHtml(empty.join(', '))}.`, 'warning');
+        if (tooLarge.length) showToast(`File(s) too large: ${escapeHtml(tooLarge.join(', '))}. Maximum size is ${MAX_FILE_SIZE_MB} MB per file.`, 'error', 6000);
+        return valid;
+    }
+
+    // Display name for a stored file; strips the legacy "yyyyMMdd_HHmmss_xxxxxxxx_" prefix
+    function toDisplayName(rawName) {
+        return rawName.replace(/^\d{8}_\d{6}_[0-9a-fA-F]{8}_/, '') || rawName;
+    }
+
+    // ── Render file cards into a container ────────────────────────────
+    // deletableNames: stored names the current user may delete (from /api/attachments/info);
+    // without it no delete button is shown, e.g. for files selected but not uploaded yet
+    function renderFileCards(containerEl, files, controlIdVal, type, deletableNames) {
+        if (!containerEl) return;
+        if (!files || files.length === 0) { containerEl.innerHTML = ''; return; }
+        let html = `<div class="kpmg-file-list-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#00338D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+            <span>Files</span>
+            <span class="kpmg-file-count-badge">${files.length}</span>
+        </div><div class="kpmg-file-cards">`;
+        files.forEach(file => {
+            const rawName = typeof file === 'string' ? file : file.name;
+            const displayName = escapeHtml(typeof file === 'string' ? toDisplayName(rawName) : rawName);
+            const sizeStr = (file && file.size) ? formatSize(file.size) : '';
+            const icon = getFileIconHTML(displayName);
+            const encodedFile = encodeURIComponent(rawName);
+            const downloadHref = `/api/attachments/download/${encodedFile}?controlId=${controlIdVal}`;
+            const canDelete = Boolean(deletableNames && deletableNames.has(rawName.trim()));
+            // On a completed control a delete only hides the file (FileAttachmentController)
+            const deleteLabel = window.qtrackerPermissions && window.qtrackerPermissions.completedEdit ? 'Hide file' : 'Delete file';
+            html += `<div class="kpmg-file-card">
+                <div class="kpmg-file-card-icon ${icon.cls}">${icon.svg}</div>
+                <span class="kpmg-file-card-name" title="${displayName}">${displayName}</span>
+                ${sizeStr ? `<span class="kpmg-file-card-size">${sizeStr}</span>` : ''}
+                <div class="kpmg-file-card-actions">
+                    <a href="${downloadHref}" class="kpmg-file-card-btn download-btn" download data-filename="${escapeHtml(rawName)}" title="Download file">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </a>
+                    ${canDelete ? `<button type="button" class="kpmg-file-card-btn delete-btn kpmg-file-delete" data-file="${encodedFile}" data-type="${type}" title="${deleteLabel}" aria-label="${deleteLabel}: ${displayName}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                    </button>` : ''}
+                </div>
+            </div>`;
+        });
+        html += '</div>';
+        containerEl.innerHTML = html;
+    }
+
+    // ── Progress bar helpers ──────────────────────────────────────────
+    function showProgress(zone, barEl) {
+        if (zone) zone.classList.add('uploading');
+        if (barEl) { barEl.style.width = '0%'; }
+    }
+    function animateProgress(barEl, targetPct, durationMs) {
+        if (!barEl) return;
+        const start = performance.now();
+        const from = parseFloat(barEl.style.width) || 0;
+        function step(now) {
+            const p = Math.min((now - start) / durationMs, 1);
+            barEl.style.width = (from + (targetPct - from) * p) + '%';
+            if (p < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
+    function hideProgress(zone, barEl) {
+        if (barEl) barEl.style.width = '100%';
+        setTimeout(() => { if (zone) zone.classList.remove('uploading'); if (barEl) barEl.style.width = '0%'; }, 500);
+    }
+
+    // ── Main init ─────────────────────────────────────────────────────
     const idInput = document.querySelector('input[name="id"]');
     const controlId = idInput ? idInput.value : null;
-    
     if (!controlId || isNaN(controlId)) {
-        console.warn('?? Numeric control ID not found, file attachment disabled');
+        console.warn('Numeric control ID not found, file attachment disabled');
         return;
     }
-    
-    console.log('? Control ID for attachments:', controlId);
-    
-    // DOM Elements
-    const detailsInput = document.getElementById('attachmentDetailsInput');
-    const documentsInput = document.getElementById('attachmentDocumentsInput');
-    const downloadDetailsBtn = document.getElementById('downloadDetailsBtn');
-    const downloadDocumentsBtn = document.getElementById('downloadDocumentsBtn');
+
+    const detailsInput    = document.getElementById('attachmentDetailsInput');
+    const documentsInput  = document.getElementById('attachmentDocumentsInput');
     const detailsFileInfo = document.getElementById('detailsFileInfo');
     const documentsFileInfo = document.getElementById('documentsFileInfo');
-    
-    // Upload zone elements
-    const detailsZone = document.getElementById('detailsUploadZone');
-    const documentsZone = document.getElementById('documentsUploadZone');
+    const detailsZone     = document.getElementById('detailsUploadZone');
+    const documentsZone   = document.getElementById('documentsUploadZone');
+    const detailsBar      = document.getElementById('detailsProgressBar');
+    const documentsBar    = document.getElementById('documentsProgressBar');
 
-    // Upload zones start disabled; they are enabled when entering Edit mode via enableFileInputs()
-    if (detailsZone) detailsZone.setAttribute('data-disabled', 'true');
-    if (detailsInput) detailsInput.disabled = true;
+    // Start disabled
+    if (detailsZone)   detailsZone.setAttribute('data-disabled', 'true');
+    if (detailsInput)  detailsInput.disabled = true;
     if (documentsZone) documentsZone.setAttribute('data-disabled', 'true');
     if (documentsInput) documentsInput.disabled = true;
 
     // Drag & drop visual feedback
     [detailsZone, documentsZone].forEach(zone => {
         if (!zone) return;
-        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+        zone.addEventListener('dragover', e => { e.preventDefault(); if (zone.getAttribute('data-disabled') !== 'true') zone.classList.add('drag-over'); });
         zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-        zone.addEventListener('drop', () => zone.classList.remove('drag-over'));
+        zone.addEventListener('drop', e => { zone.classList.remove('drag-over'); });
     });
-    
-    // Load existing attachments on page load
+
+    // Load existing on page load
     loadExistingAttachments();
-    
-    // Use DataTransfer objects to accumulate selected files
-    const detailsDataTransfer = new DataTransfer();
-    const documentsDataTransfer = new DataTransfer();
 
-    // Show selected file name when user selects a file
-    if (detailsInput) {
-        detailsInput.addEventListener('change', function() {
-            if (this.files.length > 0) {
-                // Append newly selected files to DataTransfer
-                Array.from(this.files).forEach(file => {
-                    let isDuplicate = false;
-                    for (let i = 0; i < detailsDataTransfer.items.length; i++) {
-                        if (detailsDataTransfer.items[i].getAsFile().name === file.name) {
-                            isDuplicate = true;
-                            break;
-                        }
-                    }
-                    if (!isDuplicate) {
-                        detailsDataTransfer.items.add(file);
-                    }
-                });
-                
-                // Update input's files list
-                this.files = detailsDataTransfer.files;
+    // Accumulate files
+    const detailsDT   = new DataTransfer();
+    const documentsDT = new DataTransfer();
 
-                const count = this.files.length;
-                if (count > 50) {
-                    alert('?? Maximum 50 files allowed. Please select fewer files.');
-                    detailsDataTransfer.items.clear();
-                    this.value = '';
-                    if (detailsFileInfo) detailsFileInfo.textContent = '';
+    function handleFileChange(input, dt, zone, barEl, fileInfoEl, label) {
+        if (!input) return;
+        input.addEventListener('change', function() {
+            const raw = Array.from(this.files);
+            const valid = validateFiles(raw);
+            const alreadyAttached = [];
+            const alreadySelected = [];
+            valid.forEach(file => {
+                const stored = toStoredFilename(file.name).toLowerCase();
+                if (existingNames[label].has(stored)) {
+                    alreadyAttached.push(file.name);
                     return;
                 }
-                const fileNames = Array.from(this.files).map(f => f.name).join(', ');
-                if (detailsFileInfo) detailsFileInfo.textContent = `?? Selected ${count} file(s): ${fileNames.substring(0, 100)}${fileNames.length > 100 ? '...' : ''}`;
-                console.log(`?? Details files selected: ${count}`, this.files);
-            }
-        });
-    }
-    
-    if (documentsInput) {
-        documentsInput.addEventListener('change', function() {
-            if (this.files.length > 0) {
-                // Append newly selected files to DataTransfer
-                Array.from(this.files).forEach(file => {
-                    let isDuplicate = false;
-                    for (let i = 0; i < documentsDataTransfer.items.length; i++) {
-                        if (documentsDataTransfer.items[i].getAsFile().name === file.name) {
-                            isDuplicate = true;
-                            break;
-                        }
-                    }
-                    if (!isDuplicate) {
-                        documentsDataTransfer.items.add(file);
-                    }
-                });
-                
-                // Update input's files list
-                this.files = documentsDataTransfer.files;
-
-                const count = this.files.length;
-                if (count > 50) {
-                    alert('?? Maximum 50 files allowed. Please select fewer files.');
-                    documentsDataTransfer.items.clear();
-                    this.value = '';
-                    if (documentsFileInfo) documentsFileInfo.textContent = '';
+                const dup = Array.from(dt.files).some(f => toStoredFilename(f.name).toLowerCase() === stored);
+                if (dup) {
+                    alreadySelected.push(file.name);
                     return;
                 }
-                const fileNames = Array.from(this.files).map(f => f.name).join(', ');
-                if (documentsFileInfo) documentsFileInfo.textContent = `?? Selected ${count} file(s): ${fileNames.substring(0, 100)}${fileNames.length > 100 ? '...' : ''}`;
-                console.log('?? Documents files selected:', count);
+                dt.items.add(file);
+            });
+            if (alreadyAttached.length) {
+                showToast(`Already attached: ${escapeHtml(alreadyAttached.join(', '))}. Delete the existing file or rename the new one.`, 'warning', 6000);
             }
+            if (alreadySelected.length) {
+                showToast(`Already selected: ${escapeHtml(alreadySelected.join(', '))}.`, 'warning');
+            }
+            this.files = dt.files;
+            const count = dt.files.length + existingNames[label].size;
+            if (count > 50) {
+                showToast(`Maximum 50 files allowed (${existingNames[label].size} already attached). Please select fewer files.`, 'warning');
+                dt.items.clear();
+                this.value = '';
+                if (fileInfoEl) fileInfoEl.innerHTML = '';
+                return;
+            }
+            // Show pending card list (local files, no size from server)
+            renderFileCards(fileInfoEl, Array.from(dt.files), controlId, label);
         });
     }
-    
+
+    handleFileChange(detailsInput,   detailsDT,   detailsZone,   detailsBar,   detailsFileInfo,   'details');
+    handleFileChange(documentsInput, documentsDT, documentsZone, documentsBar, documentsFileInfo, 'documents');
+
     // Flag to prevent multiple uploads
     let filesAlreadyUploaded = false;
-    
-    // Global function to upload attachments (called from save functions)
+
     window.uploadAttachments = async function() {
-        console.log('?? uploadAttachments() called');
-        
-        // Prevent duplicate uploads
-        if (filesAlreadyUploaded) {
-            console.log('?? Files already uploaded, skipping');
-            return Promise.resolve({ success: true, skipped: true });
-        }
-        
+        if (filesAlreadyUploaded) return Promise.resolve({ success: true, skipped: true });
         const formData = new FormData();
         let hasFiles = false;
-        
         if (detailsInput && detailsInput.files.length > 0) {
-            // Add all selected files for Details
-            Array.from(detailsInput.files).forEach(file => {
-                formData.append('attachmentDetails', file);
-                console.log('?? Adding details file:', file.name);
-            });
+            Array.from(detailsInput.files).forEach(f => formData.append('attachmentDetails', f));
             hasFiles = true;
         }
-        
         if (documentsInput && documentsInput.files.length > 0) {
-            // Add all selected files for Documents
-            Array.from(documentsInput.files).forEach(file => {
-                formData.append('attachmentDocuments', file);
-                console.log('?? Adding documents file:', file.name);
-            });
+            Array.from(documentsInput.files).forEach(f => formData.append('attachmentDocuments', f));
             hasFiles = true;
         }
-        
-        if (!hasFiles) {
-            console.log('?? No files selected for upload');
-            return Promise.resolve();
+        if (!hasFiles) return Promise.resolve();
+        // A completed control changed in place: the reason given at Save (CompletedEdit)
+        if (window.qtrackerCompletedEditReason) {
+            formData.append('editReason', window.qtrackerCompletedEditReason);
         }
-        
-        // Mark as uploaded to prevent duplicates
+
+        const totalBytes = [...(detailsInput?.files || []), ...(documentsInput?.files || [])]
+            .reduce((sum, f) => sum + f.size, 0);
+        if (totalBytes > MAX_REQUEST_SIZE_MB * 1024 * 1024) {
+            showToast(`Total size of selected files is ${formatSize(totalBytes)}. Maximum per upload is ${MAX_REQUEST_SIZE_MB} MB.`, 'error', 6000);
+            return Promise.resolve({ success: false, error: 'Total upload size exceeded' });
+        }
+
         filesAlreadyUploaded = true;
-        
-        console.log('?? Uploading files to /api/attachments/upload/' + controlId);
-        
+        showProgress(detailsZone, detailsBar);
+        showProgress(documentsZone, documentsBar);
+        animateProgress(detailsBar,   80, 1500);
+        animateProgress(documentsBar, 80, 1500);
+
         try {
-            const response = await fetch('/api/attachments/upload/' + controlId, {
-                method: 'POST',
-                body: formData
-            });
-            
-            const data = await response.json();
-            console.log('?? Upload response:', data);
-            
-            if (data.success) {
-                console.log('? Files uploaded successfully');
+            const response = await fetch('/api/attachments/upload/' + controlId, { method: 'POST', body: formData });
+            const text = await response.text();
+            let data;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (e) {
+                data = { success: false, message: response.status === 413 ? 'File is too large.' : 'Unexpected server response (' + response.status + ').' };
+            }
+            hideProgress(detailsZone, detailsBar);
+            hideProgress(documentsZone, documentsBar);
+            if (response.ok && data.success) {
+                showToast('Files uploaded successfully!', 'success');
+                detailsDT.items.clear();
+                documentsDT.items.clear();
+                if (detailsInput) detailsInput.value = '';
+                if (documentsInput) documentsInput.value = '';
+                filesAlreadyUploaded = false;
                 loadExistingAttachments();
             } else {
-                console.error('? Upload failed:', data.error);
+                data.success = false;
+                showToast('Upload failed: ' + escapeHtml(data.message || data.error || 'Unknown error'), 'error', 8000);
+                filesAlreadyUploaded = false;
             }
-            
             return data;
         } catch (error) {
-            console.error('? Upload error:', error);
+            hideProgress(detailsZone, detailsBar);
+            hideProgress(documentsZone, documentsBar);
+            showToast('Upload error: ' + error.message, 'error');
+            filesAlreadyUploaded = false;
             return { success: false, error: error.message };
         }
     };
-    
-    // Load existing attachment info from server
+
     function loadExistingAttachments() {
         fetch('/api/attachments/info/' + controlId)
-            .then(response => response.json())
+            .then(r => r.json())
             .then(data => {
-                console.log('?? Existing attachments:', data);
-                
-                // Show Details attachments if exist (semicolon-separated list)
+                const toNameSet = list => new Set((list || '').split(';').map(f => f.trim().toLowerCase()).filter(Boolean));
+                existingNames.details = toNameSet(data.attachmentDetailsPath);
+                existingNames.documents = toNameSet(data.attachmentDocumentsPath);
+
                 if (data.attachmentDetailsPath && detailsFileInfo) {
                     const files = data.attachmentDetailsPath.split(';').filter(f => f.trim());
-                    if (files.length > 0) {
-                        const fileLinks = files.map(file => {
-                            const filename = file.split('_').slice(2).join('_') || file;
-                            return `<span class="kpmg-file-badge"><a href="/api/attachments/download/${encodeURIComponent(file)}?controlId=${controlId}" class="badge text-decoration-none" download>${filename}</a><button type="button" class="kpmg-file-delete" data-file="${encodeURIComponent(file)}" data-type="details" title="Remove file">&times;</button></span>`;
-                        }).join(' ');
-                        detailsFileInfo.innerHTML = `?? Files (${files.length}): ${fileLinks}`;
-                        if (downloadDetailsBtn) downloadDetailsBtn.style.display = 'none';
-                    }
-                } else if (detailsFileInfo) {
-                    detailsFileInfo.innerHTML = '';
-                }
-                
-                // Show Documents attachments if exist (semicolon-separated list)
+                    renderFileCards(detailsFileInfo, files, controlId, 'details', new Set(data.deletableDetails || []));
+                } else if (detailsFileInfo) { detailsFileInfo.innerHTML = ''; }
+
                 if (data.attachmentDocumentsPath && documentsFileInfo) {
                     const files = data.attachmentDocumentsPath.split(';').filter(f => f.trim());
-                    if (files.length > 0) {
-                        const fileLinks = files.map(file => {
-                            const filename = file.split('_').slice(2).join('_') || file;
-                            return `<span class="kpmg-file-badge"><a href="/api/attachments/download/${encodeURIComponent(file)}?controlId=${controlId}" class="badge text-decoration-none" download>${filename}</a><button type="button" class="kpmg-file-delete" data-file="${encodeURIComponent(file)}" data-type="documents" title="Remove file">&times;</button></span>`;
-                        }).join(' ');
-                        documentsFileInfo.innerHTML = `?? Files (${files.length}): ${fileLinks}`;
-                        if (downloadDocumentsBtn) downloadDocumentsBtn.style.display = 'none';
-                    }
-                } else if (documentsFileInfo) {
-                    documentsFileInfo.innerHTML = '';
-                }
+                    renderFileCards(documentsFileInfo, files, controlId, 'documents', new Set(data.deletableDocuments || []));
+                } else if (documentsFileInfo) { documentsFileInfo.innerHTML = ''; }
             })
-            .catch(error => console.warn('?? Could not load attachments:', error));
+            .catch(err => console.warn('Could not load attachments:', err));
     }
 
-    // Delete file handler (event delegation)
+    // Delete handler (event delegation)
     document.addEventListener('click', async function(e) {
         const btn = e.target.closest('.kpmg-file-delete');
         if (!btn) return;
         e.preventDefault();
         const file = btn.getAttribute('data-file');
         const type = btn.getAttribute('data-type');
+        // A completed control changed in place only hides the file, with a reason (CompletedEdit)
+        let reasonParam = '';
+        if (window.qtrackerPermissions && window.qtrackerPermissions.completedEdit) {
+            const reason = await askCompletedEditReason({
+                title: 'Hide this file',
+                intro: 'Nobody sees or downloads the file any more; it is kept for the records. The control stays Completed and the Changelog shows the change as \u201cEdited after completion\u201d, with your name and this reason.',
+                confirmText: 'Hide file'
+            });
+            if (reason === null) return;
+            reasonParam = '&editReason=' + encodeURIComponent(reason);
+        }
         try {
-            const resp = await fetch(`/api/attachments/delete/${controlId}?filename=${file}&type=${type}`, { method: 'DELETE' });
+            const resp = await fetch(`/api/attachments/delete/${controlId}?filename=${file}&type=${type}${reasonParam}`, { method: 'DELETE' });
             const data = await resp.json();
-            if (data.success) {
-                loadExistingAttachments();
-            } else {
-                alert(data.message || 'Failed to delete file');
+            if (data.success) { loadExistingAttachments(); showToast((data.message || 'File deleted') + '.', 'success', 2500); }
+            else { showToast(data.message || 'Failed to delete file', 'error'); }
+        } catch (err) { showToast('Failed to delete file: ' + err.message, 'error'); }
+    });
+
+    // Download through fetch: an error comes back as JSON, which the browser would otherwise save as the file
+    const FILE_UNAVAILABLE = 'File is not available. Contact SoQM Team';
+    document.addEventListener('click', async function(e) {
+        const link = e.target.closest('a.download-btn');
+        if (!link) return;
+        e.preventDefault();
+        try {
+            const resp = await fetch(link.href);
+            if (resp.redirected && new URL(resp.url).pathname === '/login') { window.location.href = '/login'; return; }
+            const contentType = resp.headers.get('Content-Type') || '';
+            if (!resp.ok || contentType.includes('application/json') || contentType.includes('text/html')) {
+                showToast(FILE_UNAVAILABLE, 'error');
+                return;
             }
+            const url = URL.createObjectURL(await resp.blob());
+            const save = document.createElement('a');
+            save.href = url;
+            save.download = link.dataset.filename || '';
+            document.body.appendChild(save);
+            save.click();
+            save.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
         } catch (err) {
-            console.error('Delete error:', err);
-            alert('Failed to delete file');
+            showToast(FILE_UNAVAILABLE, 'error');
         }
     });
-    
-    // Expose function globally for Cancel button to call
+
+    // More menu (Rename ID dropdown) toggle
+    const moreBtn = document.getElementById('kpmgMoreMenuBtn');
+    const moreDropdown = document.getElementById('kpmgMoreDropdown');
+    if (moreBtn && moreDropdown) {
+        moreBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            moreDropdown.classList.toggle('open');
+        });
+        document.addEventListener('click', function() { moreDropdown.classList.remove('open'); });
+    }
+
     window.reloadExistingAttachments = loadExistingAttachments;
-    
-    console.log('? File attachment system initialized');
+    console.log('File attachment system v2 initialized');
+
 });
 </script>
 </body>

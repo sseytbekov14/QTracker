@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import com.kpmg.qtracker.util.EmailList;
 
 @Service
 public class MonthlyNotificationService {
@@ -32,6 +33,8 @@ public class MonthlyNotificationService {
     static final String TYPE_DAY6 = "MONTHLY_DAY6";
     static final String TYPE_OVERDUE_1 = "MONTHLY_OVERDUE1";
     static final String TYPE_OVERDUE_REPEAT = "MONTHLY_OVERDUE_REPEAT";
+    // Working days after the operation date; ReminderDays keeps them on or before the deadline
+    private static final int[] REMINDER_DAYS = {3, 6};
 
     private static final String STATUS_IN_PROGRESS = "IN_PROGRESS";
     private static final String STATUS_REVIEW = "REVIEW";
@@ -159,8 +162,8 @@ public class MonthlyNotificationService {
 
             Control control = buildControl(row);
             List<String> recipients = collectRecipients(
-                    splitEmails(row.getFacilitator()),
-                    splitEmails(row.getControlOperator())
+                    EmailList.parse(row.getFacilitator()),
+                    EmailList.parse(row.getControlOperator())
             );
             if (recipients.isEmpty()) {
                 skipped++;
@@ -294,7 +297,8 @@ public class MonthlyNotificationService {
                 skipped++;
                 continue;
             }
-            if (!today.equals(workingDaysService.addWorkingDays(operationDate, dayOffset))) {
+            if (!ReminderDays.isDue(workingDaysService, today, operationDate, row.getDeadlineDate(),
+                    dayOffset, REMINDER_DAYS)) {
                 continue;
             }
             Long controlId = row.getControlId();
@@ -307,8 +311,8 @@ public class MonthlyNotificationService {
                 continue;
             }
             List<String> recipients = collectRecipients(
-                    splitEmails(row.getFacilitator()),
-                    splitEmails(row.getControlOperator())
+                    EmailList.parse(row.getFacilitator()),
+                    EmailList.parse(row.getControlOperator())
             );
             if (recipients.isEmpty()) {
                 skipped++;
@@ -527,10 +531,10 @@ public class MonthlyNotificationService {
     private List<String> overdueRecipientsForRole(Role role, ReminderControlProjection row) {
         Set<String> recipients = new LinkedHashSet<>();
         switch (role) {
-            case FACILITATOR -> addRecipients(recipients, splitEmails(row.getFacilitator()));
-            case CONTROL_OPERATOR -> addRecipients(recipients, splitEmails(row.getControlOperator()));
-            case SOQM_TEAM -> addRecipients(recipients, splitEmails(row.getSoqmLead()));
-            case PROCESS_OWNER -> addRecipients(recipients, splitEmails(row.getProcessOwner()));
+            case FACILITATOR -> addRecipients(recipients, EmailList.parse(row.getFacilitator()));
+            case CONTROL_OPERATOR -> addRecipients(recipients, EmailList.parse(row.getControlOperator()));
+            case SOQM_TEAM -> addRecipients(recipients, EmailList.parse(row.getSoqmLead()));
+            case PROCESS_OWNER -> addRecipients(recipients, EmailList.parse(row.getProcessOwner()));
         }
         return new ArrayList<>(recipients);
     }
@@ -547,20 +551,6 @@ public class MonthlyNotificationService {
         }
     }
 
-    private List<String> splitEmails(String raw) {
-        if (raw == null || raw.trim().isEmpty()) {
-            return List.of();
-        }
-        String[] parts = raw.split(",");
-        List<String> results = new ArrayList<>();
-        for (String part : parts) {
-            String trimmed = part.trim();
-            if (!trimmed.isEmpty()) {
-                results.add(trimmed);
-            }
-        }
-        return results;
-    }
 
     private String normalizeStatus(String status) {
         return status.trim()

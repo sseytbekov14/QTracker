@@ -11,7 +11,6 @@ const viewControl = (function() {
     let controlOperatorUsers = [];
     let soqmLeadUsers = [];
     let processOwnerUsers = [];
-    let sharedWithUsers = [];
     let fullEditEnabled = false;
     let canEditStepsPerformed = false;
     let canEditProcessOwnerComments = false;
@@ -24,24 +23,22 @@ const viewControl = (function() {
     let isControlOperatorDropdownOpen = false;
     let isSoqmLeadDropdownOpen = false;
     let isProcessOwnerDropdownOpen = false;
-    let isSharedWithDropdownOpen = false;
     let currentWorkflowButton = null;
     let currentControlId = null;
     let selectedUser = null;
     let selectedControlOperator = null;
     let selectedSoqmLead = null;
     let selectedProcessOwner = null;
-    let selectedSharedWithUsers = []; // Array instead of single user
     let editModeSnapshot = null;
 
-    function isSoqmLeadRole() {
-        const role = document.getElementById('currentUserRole')?.value || '';
-        return role === 'SOQM_TEAM';
+    // SoQM and admins, as the server decides it (ControlPermission.canEditAll)
+    function hasFullEditRights() {
+        return document.getElementById('canEditAll')?.value === 'true';
     }
 
     async function loadPermissions(controlId) {
         if (!controlId) {
-            fullEditEnabled = isSoqmLeadRole();
+            fullEditEnabled = hasFullEditRights();
             canEditStepsPerformed = false;
             canEditProcessOwnerComments = false;
             canUseWorkflowActions = document.getElementById('canUseWorkflowActions')?.value !== 'false';
@@ -53,6 +50,8 @@ const viewControl = (function() {
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
+                locked: document.getElementById('controlLocked')?.value === 'true',
+                completedEdit: document.getElementById('completedEdit')?.value === 'true',
                 allowedEditableFields: allowedEditableFields
             };
             return;
@@ -80,16 +79,19 @@ const viewControl = (function() {
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
+                locked: Boolean(permissions.locked),
+                completedEdit: Boolean(permissions.completedEdit),
                 allowedEditableFields: allowedEditableFields
             };
         } catch (error) {
-            console.warn('Permissions fetch failed, falling back to role check:', error);
-            fullEditEnabled = isSoqmLeadRole();
-            const roleValue = document.getElementById('currentUserRole')?.value || '';
-            canEditStepsPerformed = roleValue === 'FACILITATOR' || roleValue === 'CONTROL_OPERATOR';
-            canEditProcessOwnerComments = (document.getElementById('currentUserRole')?.value || '') === 'PROCESS_OWNER';
+            console.warn('Permissions fetch failed, falling back to the flags of the page:', error);
+            fullEditEnabled = hasFullEditRights();
+            // The same permission the server rendered the page with
+            allowedEditableFields = (document.getElementById('allowedEditableFields')?.value || '')
+                .split(',').map(field => field.trim()).filter(Boolean);
+            canEditStepsPerformed = allowedEditableFields.includes('controlStepsPerformed');
+            canEditProcessOwnerComments = allowedEditableFields.includes('processOwnerComments');
             canUseWorkflowActions = document.getElementById('canUseWorkflowActions')?.value !== 'false';
-            allowedEditableFields = [];
             stepsPerformedEditOnly = canEditStepsPerformed && !fullEditEnabled;
             processOwnerCommentsEditOnly = canEditProcessOwnerComments
                 && !fullEditEnabled
@@ -99,6 +101,8 @@ const viewControl = (function() {
                 canEditProcessOwnerComments: canEditProcessOwnerComments,
                 canEditAll: fullEditEnabled,
                 canUseWorkflowActions: canUseWorkflowActions,
+                locked: document.getElementById('controlLocked')?.value === 'true',
+                completedEdit: document.getElementById('completedEdit')?.value === 'true',
                 allowedEditableFields: allowedEditableFields
             };
         }
@@ -132,11 +136,14 @@ const viewControl = (function() {
         return `${formId}:${name}:${index}`;
     }
 
+    // A stored address may differ in case or spaces from the user's (old data, imports): the same person,
+    // as the server compares them (EmailList)
     function findUserByEmail(email) {
-        if (!email) {
+        const wanted = String(email || '').trim().toLowerCase();
+        if (!wanted) {
             return null;
         }
-        return allUsers.find(user => user && user.mail === email) || null;
+        return allUsers.find(user => user && String(user.mail || '').trim().toLowerCase() === wanted) || null;
     }
 
     function captureEditModeSnapshot() {
@@ -160,7 +167,8 @@ const viewControl = (function() {
             controlOperatorMail: document.getElementById('controlOperatorHidden')?.value || '',
             soqmLeadMail: document.getElementById('soqmLeadHidden')?.value || '',
             processOwnerMail: document.getElementById('processOwnerHidden')?.value || '',
-            sharedWithMails: selectedSharedWithUsers.map(user => user.mail).filter(Boolean)
+            // Control Shared With keeps its people itself (shared-with.js), unknown addresses included
+            sharedWith: typeof SharedWithField !== 'undefined' ? SharedWithField.snapshot() : null
         };
     }
 
@@ -190,9 +198,6 @@ const viewControl = (function() {
         selectedControlOperator = findUserByEmail(editModeSnapshot.controlOperatorMail);
         selectedSoqmLead = findUserByEmail(editModeSnapshot.soqmLeadMail);
         selectedProcessOwner = findUserByEmail(editModeSnapshot.processOwnerMail);
-        selectedSharedWithUsers = (editModeSnapshot.sharedWithMails || [])
-            .map(findUserByEmail)
-            .filter(Boolean);
 
         const facilitatorInput = document.getElementById('facilitatorInput');
         if (facilitatorInput) facilitatorInput.value = selectedUser ? selectedUser.displayName : '';
@@ -214,15 +219,23 @@ const viewControl = (function() {
         const processOwnerHidden = document.getElementById('processOwnerHidden');
         if (processOwnerHidden) processOwnerHidden.value = editModeSnapshot.processOwnerMail || '';
 
-        updateSharedWithDisplay();
-        updateSharedWithHidden();
+        if (typeof SharedWithField !== 'undefined') {
+            SharedWithField.restore(editModeSnapshot.sharedWith);
+        }
         normalizeAssignmentDateFieldsForDisplay();
+
+        // Marks left by a refused Save belong to the edit that is being cancelled
+        document.querySelectorAll('#controlForm .is-invalid, #detailsForm .is-invalid, #assignmentForm .is-invalid, #documentsForm .is-invalid')
+            .forEach(field => field.classList.remove('is-invalid'));
+        document.getElementById('controlOperationDate')?.removeAttribute('aria-invalid');
     }
 
     async function loadAllUsers() {
         try {
-            const response = await fetch('/api/users/all');
-            allUsers = await response.json();
+            // SoQM Team and admins get every user; others only the people on this control
+            const controlId = document.querySelector('input[name="id"]')?.value || '';
+            const response = await fetch('/api/users/all?controlId=' + encodeURIComponent(controlId));
+            allUsers = response.ok ? await response.json() : [];
             console.log('вњ… Р—Р°РіСЂСѓР¶РµРЅРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№:', allUsers.length);
             return allUsers;
         } catch (error) {
@@ -233,7 +246,9 @@ const viewControl = (function() {
 
     async function loadUsersByRole(role) {
         try {
-            const response = await fetch(`/api/users/role/${role}`);
+            // The people this field accepts; with the control, so KDN-scope users show only on KDN controls
+            const controlId = document.querySelector('input[name="id"]')?.value || '';
+            const response = await fetch(`/api/users/role/${role}?controlId=` + encodeURIComponent(controlId));
             const users = await response.json();
             console.log(`вњ… Р—Р°РіСЂСѓР¶РµРЅРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ СЃ СЂРѕР»СЊСЋ ${role}:`, users.length);
             return users;
@@ -253,85 +268,6 @@ const viewControl = (function() {
     // Workflow variables
     let currentWorkflowAction = null;
     let currentWorkflowRequiresComment = false;
-
-// Global function for showing workflow buttons by status and role
-window.showWorkflowButtonsByStatusAndRole = function(status, userRole) {
-    if (!areWorkflowActionsAllowed()) {
-        hideWorkflowActionsUi();
-        return;
-    }
-    console.log('рџ” Р“Р›РћР‘РђР›Р¬РќРђРЇ Р¤РЈРќРљР¦РРЇ: РџРћРљРђР— РљРќРћРџРћРљ');
-    console.log('   РЎС‚Р°С‚СѓСЃ:', status);
-    console.log('   Р РѕР»СЊ:', userRole);
-
-    const container = document.getElementById('workflow-buttons-container');
-    if (!container) {
-        console.error('вќЊ РљРѕРЅС‚РµР№РЅРµСЂ РЅРµ РЅР°Р№РґРµРЅ');
-        return;
-    }
-
-    const buttons = container.querySelectorAll('.workflow-btn');
-    console.log(`   РќР°Р№РґРµРЅРѕ РєРЅРѕРїРѕРє: ${buttons.length}`);
-
-    // РџРѕРєР°Р·С‹РІР°РµРј РІСЃРµ РєРЅРѕРїРєРё РґР»СЏ СѓРєР°Р·Р°РЅРЅРѕР№ СЂРѕР»Рё
-    buttons.forEach(btn => {
-        if (btn.dataset.role === userRole) {
-            btn.style.display = 'inline-block';
-            btn.disabled = false;
-            btn.removeAttribute('disabled');
-            console.log(`   вњ… РџРѕРєР°Р·С‹РІР°РµРј: "${btn.textContent.trim()}"`);
-        } else {
-            btn.style.display = 'none';
-        }
-    });
-
-    container.style.display = 'inline-flex';
-
-    console.log('вњ… РљРЅРѕРїРєРё РґРѕР»Р¶РЅС‹ Р±С‹С‚СЊ РІРёРґРЅС‹!');
-};
-
-// РЎРѕР·РґР°РґРёРј РїСЂРѕСЃС‚СѓСЋ РіР»РѕР±Р°Р»СЊРЅСѓСЋ С„СѓРЅРєС†РёСЋ
-window.showAllWorkflowButtons = function() {
-    if (!areWorkflowActionsAllowed()) {
-        hideWorkflowActionsUi();
-        return;
-    }
-    console.log('=== РџРћРљРђР— Р’РЎР•РҐ РљРќРћРџРћРљ ===');
-
-    // РџРѕР»СѓС‡Р°РµРј РґР°РЅРЅС‹Рµ
-    const userRole = document.getElementById('currentUserRole').value;
-    const status = document.getElementById('currentPerformanceStatus').value;
-
-    console.log('Р’Р°С€Р° СЂРѕР»СЊ:', userRole);
-    console.log('РЎС‚Р°С‚СѓСЃ:', status);
-
-    // РќР°С…РѕРґРёРј РІСЃРµ РєРЅРѕРїРєРё
-    const buttons = document.querySelectorAll('.workflow-btn');
-    console.log(`РќР°Р№РґРµРЅРѕ РєРЅРѕРїРѕРє: ${buttons.length}`);
-
-    // РџРѕРєР°Р·С‹РІР°РµРј РІСЃРµ РєРЅРѕРїРєРё РґР»СЏ РІР°С€РµР№ СЂРѕР»Рё
-    let visibleCount = 0;
-    buttons.forEach(btn => {
-        if (btn.dataset.role === userRole) {
-            btn.style.display = 'inline-block';
-            btn.disabled = false;
-            btn.removeAttribute('disabled');
-            visibleCount++;
-            console.log(`вњ… "${btn.textContent.trim()}" - РџРћРљРђР—РђРќРћ`);
-        } else {
-            btn.style.display = 'none';
-        }
-    });
-
-    // РџРѕРєР°Р·С‹РІР°РµРј РєРѕРЅС‚РµР№РЅРµСЂ Р±РµР· СЂР°РјРєРё
-    const container = document.getElementById('workflow-buttons-container');
-    if (container && areWorkflowActionsAllowed()) {
-        container.style.display = 'inline-flex';
-    }
-
-    console.log(`рџЋ‰ РџРѕРєР°Р·Р°РЅРѕ ${visibleCount} РєРЅРѕРїРѕРє РґР»СЏ ${userRole}`);
-    console.log('=== РљРћРќР•Р¦ ===');
-};
 
     // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ workflow РєРЅРѕРїРѕРє (РґРѕР±Р°РІРёС‚СЊ РІ init РјРµС‚РѕРґ)
 function handleWorkflowButtonClick(event) {
@@ -541,7 +477,7 @@ function confirmWorkflowAction() {
 
             } else {
                 const error = await response.text();
-                showErrorMessage('Error: ' + error);
+                showErrorMessage('Error: ' + serverErrorText(error));
             }
 
         } catch (error) {
@@ -718,12 +654,14 @@ function confirmWorkflowAction() {
         closeUserDropdown();
     }
 
+    // The display boxes are always read-only text; Edit unlocks them by dropping readonly-field
     function isAssignmentDropdownEditable(inputId) {
         const input = document.getElementById(inputId);
         if (!input) {
             return true;
         }
-        return !(input.disabled || input.readOnly || input.classList.contains('readonly-field'));
+        return !(input.disabled || input.classList.contains('readonly-field')
+            || input.getAttribute('aria-disabled') === 'true');
     }
 
     // ========== CONTROL OPERATOR FUNCTIONS ==========
@@ -1020,191 +958,6 @@ function confirmWorkflowAction() {
         closeProcessOwnerDropdown();
     }
 
-    // ========== CONTROL SHARED WITH FUNCTIONS ==========
-    function toggleSharedWithDropdown() {
-        if (!isAssignmentDropdownEditable('sharedWithInput')) {
-            return;
-        }
-        const dropdown = document.getElementById('sharedWithDropdown');
-        if (!isSharedWithDropdownOpen) {
-            dropdown.style.display = 'block';
-            isSharedWithDropdownOpen = true;
-
-            const searchInput = document.getElementById('sharedWithSearchInput');
-            if (searchInput) searchInput.value = '';
-
-            if (sharedWithUsers.length === 0) {
-                loadAllUsers().then((users) => {
-                    sharedWithUsers = onlyActiveUsers(users);
-                    displaySharedWithList(sharedWithUsers);
-                });
-            } else {
-                displaySharedWithList(sharedWithUsers);
-            }
-
-            setTimeout(() => {
-                if (!areWorkflowActionsAllowed()) {
-                    hideWorkflowActionsUi();
-                    return;
-                }
-                const searchInput = document.getElementById('sharedWithSearchInput');
-                if (searchInput) searchInput.focus();
-            }, 100);
-        } else {
-            closeSharedWithDropdown();
-        }
-    }
-
-    function closeSharedWithDropdown() {
-        const dropdown = document.getElementById('sharedWithDropdown');
-        dropdown.style.display = 'none';
-        isSharedWithDropdownOpen = false;
-    }
-
-    function displaySharedWithList(users) {
-        const usersList = document.getElementById('sharedWithUsersList');
-        if (!usersList) return;
-
-        usersList.innerHTML = '';
-
-        if (users.length === 0) {
-            usersList.innerHTML = '<div class="no-users-message">No users found</div>';
-            return;
-        }
-
-        const sortedUsers = [...users].sort((a, b) => a.displayName.localeCompare(b.displayName));
-
-        sortedUsers.forEach(user => {
-            const isSelected = selectedSharedWithUsers.some(u => u.mail === user.mail);
-            
-            const listItem = document.createElement('div');
-            listItem.className = 'list-group-item p-2';
-            listItem.style.cursor = 'pointer';
-            listItem.style.display = 'flex';
-            listItem.style.alignItems = 'center';
-            listItem.style.gap = '10px';
-            listItem.innerHTML = `
-                <input type="checkbox" 
-                       ${isSelected ? 'checked' : ''} 
-                       class="form-check-input"
-                       style="margin: 0;">
-                <div style="flex: 1;">
-                    <div style="font-weight: 500;">${user.displayName}</div>
-                    <div style="font-size: 12px; color: #666;">${user.mail}</div>
-                </div>
-            `;
-            
-            listItem.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleSharedWithUser(user);
-            });
-            
-            usersList.appendChild(listItem);
-        });
-    }
-
-    function toggleSharedWithUser(user) {
-        const index = selectedSharedWithUsers.findIndex(u => u.mail === user.mail);
-        
-        if (index === -1) {
-            // Add user
-            selectedSharedWithUsers.push(user);
-        } else {
-            // Remove user
-            selectedSharedWithUsers.splice(index, 1);
-        }
-        
-        updateSharedWithDisplay();
-        updateSharedWithHidden();
-        displaySharedWithList(sharedWithUsers);
-    }
-
-    function updateSharedWithDisplay() {
-        const placeholder = document.getElementById('sharedWithPlaceholder');
-        const tagsContainer = document.getElementById('sharedWithSelectedTags');
-        
-        if (selectedSharedWithUsers.length === 0) {
-            placeholder.style.display = 'inline';
-            tagsContainer.innerHTML = '';
-        } else {
-            placeholder.style.display = 'none';
-            tagsContainer.innerHTML = '';
-            
-            selectedSharedWithUsers.forEach((user, index) => {
-                const span = document.createElement('span');
-                span.className = 'badge bg-primary';
-                span.style.display = 'flex';
-                span.style.alignItems = 'center';
-                span.style.gap = '5px';
-                
-                const nameSpan = document.createElement('span');
-                nameSpan.textContent = user.displayName;
-                
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'btn-close btn-close-white';
-                btn.setAttribute('aria-label', 'Remove');
-                btn.style.marginLeft = '5px';
-                btn.style.padding = '0';
-                btn.style.fontSize = '12px';
-                
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    removeSharedWithUser(user.mail);
-                });
-                
-                span.appendChild(nameSpan);
-                span.appendChild(btn);
-                tagsContainer.appendChild(span);
-            });
-        }
-    }
-
-    function removeSharedWithUser(mail) {
-        const index = selectedSharedWithUsers.findIndex(u => u.mail === mail);
-        if (index !== -1) {
-            selectedSharedWithUsers.splice(index, 1);
-            updateSharedWithDisplay();
-            updateSharedWithHidden();
-            displaySharedWithList(sharedWithUsers);
-        }
-    }
-
-    function updateSharedWithHidden() {
-        const hiddenInput = document.getElementById('controlSharedWithHidden');
-        if (hiddenInput) {
-            hiddenInput.value = JSON.stringify(selectedSharedWithUsers.map(u => u.mail));
-        }
-    }
-
-    function filterSharedWithList() {
-        const searchInput = document.getElementById('sharedWithSearchInput');
-        if (!searchInput) return;
-
-        const query = searchInput.value.trim().toLowerCase();
-        if (query === '') {
-            displaySharedWithList(sharedWithUsers);
-            return;
-        }
-
-        const filteredUsers = sharedWithUsers.filter(user => {
-            if (!user) return false;
-            
-            return (user.displayName && user.displayName.toLowerCase().startsWith(query)) ||
-                   (user.username && user.username.toLowerCase().startsWith(query)) ||
-                   (user.mail && user.mail.toLowerCase().startsWith(query));
-        });
-
-        displaySharedWithList(filteredUsers);
-    }
-
-    function selectSharedWithUser(user) {
-        // Legacy function - now using toggleSharedWithUser instead
-        toggleSharedWithUser(user);
-    }
-
     // ========== DATA LOADING FUNCTIONS ==========
     async function loadAssignmentData(controlId) {
         try {
@@ -1220,7 +973,7 @@ function confirmWorkflowAction() {
 
                     // Facilitator
                     if (assignmentData.facilitator && Array.isArray(assignmentData.facilitator) && assignmentData.facilitator.length > 0) {
-                        const user = allUsers.find(u => u.mail === assignmentData.facilitator[0]);
+                        const user = findUserByEmail(assignmentData.facilitator[0]);
                         if (user) {
                             selectUser(user);
                         }
@@ -1228,7 +981,7 @@ function confirmWorkflowAction() {
 
                     // Control Operator
                     if (assignmentData.controlOperator && Array.isArray(assignmentData.controlOperator) && assignmentData.controlOperator.length > 0) {
-                        const user = allUsers.find(u => u.mail === assignmentData.controlOperator[0]);
+                        const user = findUserByEmail(assignmentData.controlOperator[0]);
                         if (user) {
                             selectControlOperator(user);
                         }
@@ -1236,7 +989,7 @@ function confirmWorkflowAction() {
 
                     // SoQM Team
                     if (assignmentData.soqmLead && Array.isArray(assignmentData.soqmLead) && assignmentData.soqmLead.length > 0) {
-                        const user = allUsers.find(u => u.mail === assignmentData.soqmLead[0]);
+                        const user = findUserByEmail(assignmentData.soqmLead[0]);
                         if (user) {
                             selectSoqmLead(user);
                         }
@@ -1244,24 +997,13 @@ function confirmWorkflowAction() {
 
                     // Process Owner
                     if (assignmentData.processOwner && Array.isArray(assignmentData.processOwner) && assignmentData.processOwner.length > 0) {
-                        const user = allUsers.find(u => u.mail === assignmentData.processOwner[0]);
+                        const user = findUserByEmail(assignmentData.processOwner[0]);
                         if (user) {
                             selectProcessOwner(user);
                         }
                     }
 
-                    // Control Shared With - multiple users
-                    if (assignmentData.controlSharedWith && Array.isArray(assignmentData.controlSharedWith) && assignmentData.controlSharedWith.length > 0) {
-                        selectedSharedWithUsers = [];
-                        assignmentData.controlSharedWith.forEach(email => {
-                            const user = allUsers.find(u => u.mail === email);
-                            if (user) {
-                                selectedSharedWithUsers.push(user);
-                            }
-                        });
-                        updateSharedWithDisplay();
-                        updateSharedWithHidden();
-                    }
+                    // Control Shared With is rendered by the server with every stored address (shared-with.js)
 
                     // Р”Р°С‚С‹
                     const form = document.getElementById('assignmentForm');
@@ -1299,8 +1041,8 @@ function confirmWorkflowAction() {
                                 nextDateInput.dataset.isoValue = assignmentData.nextControlOperationDate;
                             }
                         }
+                        // The deadline and the next date are shown as stored; the preview runs only on a change
                         normalizeAssignmentDateFieldsForDisplay();
-                        updateCalculatedDates();
                     }
                 }
             }
@@ -1333,11 +1075,18 @@ function confirmWorkflowAction() {
                             const field = form.querySelector(`[name="${key}"]`);
                             if (field && field.type !== 'file' && detailsDataCache[key] !== undefined && detailsDataCache[key] !== null) {
                                 field.value = detailsDataCache[key];
+                                if (field.tagName === 'SELECT') {
+                                    keepStoredSelectValue(field, detailsDataCache[key]);
+                                }
                             }
                         });
                         const stepsField = form.querySelector('textarea[name="controlStepsPerformed"]');
                         if (stepsField) {
                             stepsField.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        const reviewField = form.querySelector('textarea[name="controlOperatorReview"]');
+                        if (reviewField) {
+                            reviewField.dispatchEvent(new Event('input', { bubbles: true }));
                         }
                         const soqmField = form.querySelector('textarea[name="soqmHeadComments"]');
                         if (soqmField) {
@@ -1365,7 +1114,9 @@ function confirmWorkflowAction() {
                     const form = document.getElementById('documentsForm');
                     if (form) {
                         if (documentsData.soqmDevelopmentMaterials) {
-                            form.querySelector('[name="soqmDevelopmentMaterials"]').value = documentsData.soqmDevelopmentMaterials;
+                            const materialsField = form.querySelector('[name="soqmDevelopmentMaterials"]');
+                            materialsField.value = documentsData.soqmDevelopmentMaterials;
+                            keepStoredSelectValue(materialsField, documentsData.soqmDevelopmentMaterials);
                         }
                     }
                 }
@@ -1407,8 +1158,7 @@ function confirmWorkflowAction() {
             'facilitatorInput',
             'controlOperatorInput',
             'soqmLeadInput',
-            'processOwnerInput',
-            'sharedWithInput'
+            'processOwnerInput'
         ];
 
         dropdownInputs.forEach(id => {
@@ -1557,7 +1307,8 @@ function makeAllFormsEditable() {
     // 3. ASSIGNMENT TAB
     console.log('рџ”„ Processing Assignment tab fields...');
     const assignmentFields = document.querySelectorAll('#assignmentForm input, #assignmentForm select');
-    const alwaysReadonlyFields = [];
+    // Calculated by the server from the Control Operation Date and the frequency
+    const alwaysReadonlyFields = ['controlOperationDeadline', 'nextControlOperationDate'];
     const canEditAssignment = true;
 
     assignmentFields.forEach(field => {
@@ -1602,8 +1353,7 @@ function makeAllFormsEditable() {
         'facilitatorInput',
         'controlOperatorInput',
         'soqmLeadInput',
-        'processOwnerInput',
-        'sharedWithInput'
+        'processOwnerInput'
     ];
 
     dropdownInputs.forEach(id => {
@@ -1611,9 +1361,12 @@ function makeAllFormsEditable() {
         if (input) {
             console.log(`  рџ“ќ Processing dropdown: ${id}`);
             if (canEditAssignment) {
+                // The box only shows who is selected; the choice is made in its list
                 input.classList.remove('readonly-field');
-                input.readOnly = false;
+                input.removeAttribute('aria-disabled');
+                if (input.tagName === 'INPUT') input.readOnly = true;
                 input.style.pointerEvents = 'auto';
+                input.style.cursor = '';
                 input.style.backgroundColor = '';
             } else {
                 input.classList.add('readonly-field');
@@ -1628,7 +1381,6 @@ function makeAllFormsEditable() {
     console.log('✅ All forms are now editable');
     enableFileInputs();
     normalizeAssignmentDateFieldsForDisplay();
-    updateCalculatedDates();
 
     // 6. РџСЂРѕРІРµСЂРєР° СЂРµР·СѓР»СЊС‚Р°С‚Р°
     console.log('=== FINAL CHECK ===');
@@ -1642,14 +1394,17 @@ function makeAllFormsEditable() {
         console.log('  Style pointerEvents:', controlFreq.style.pointerEvents);
     }
 }
-function validateFieldLengths(formElement) {
-    if (!formElement) return true;
+// Every form Save sends, checked at once before the first request, so one message covers them all
+function validateFieldLengths(...formElements) {
     let isValid = true;
-    const elements = formElement.querySelectorAll('input[maxlength], textarea[maxlength]');
+    let firstInvalid = null;
+    const elements = formElements.filter(Boolean)
+        .flatMap(form => Array.from(form.querySelectorAll('input[maxlength], textarea[maxlength]')));
     elements.forEach(el => {
         const maxLength = parseInt(el.getAttribute('maxlength'), 10);
         if (el.value && el.value.length > maxLength) {
             isValid = false;
+            firstInvalid = firstInvalid || el;
             el.classList.add('is-invalid');
             console.error(`Field ${el.name || el.id} exceeds max length of ${maxLength}`);
         } else {
@@ -1657,11 +1412,15 @@ function validateFieldLengths(formElement) {
         }
     });
     
+    if (!isValid) {
+        revealFieldTab(firstInvalid);
+    }
     if (!isValid && typeof showAppModal === 'function') {
         showAppModal({
             variant: 'danger',
             title: 'Validation Error',
-            message: 'Some fields exceed their maximum allowed length. Please check the highlighted fields.'
+            message: 'Some fields exceed their maximum allowed length. Please check the highlighted fields.',
+            onClose: () => focusField(firstInvalid)
         });
     }
     
@@ -1684,6 +1443,9 @@ function initCharCounters() {
 
 document.addEventListener('DOMContentLoaded', function() {
     initCharCounters();
+    document.querySelectorAll('#controlForm select[data-stored-value]').forEach(select => {
+        keepStoredSelectValue(select, select.dataset.storedValue);
+    });
 });
 
 function saveControlData(controlId) {
@@ -1691,16 +1453,15 @@ function saveControlData(controlId) {
 
     const controlForm = document.getElementById('controlForm');
     if (!controlForm) {
-        return Promise.reject('Control form not found');
-    }
-
-    if (!validateFieldLengths(controlForm)) {
-        return Promise.reject('Validation failed');
+        return Promise.reject(new Error('Control form not found'));
     }
 
     const getControlValue = (selector) => {
         const element = controlForm.querySelector(selector);
-        return element ? element.value : '';
+        if (!element) {
+            return '';
+        }
+        return element.tagName === 'SELECT' ? selectValueForSave(element) : element.value;
     };
 
     const controlData = {
@@ -1712,8 +1473,11 @@ function saveControlData(controlId) {
         controlStatus: isBlankValue(getControlValue('[name="controlStatus"]')) ? null : getControlValue('[name="controlStatus"]'),
         priority: getControlValue('[name="priority"]'),
         nonAuditServicesApplicability: getControlValue('[name="nonAuditServicesApplicability"]'),
+        // A blank choice ("Not set") leaves the stored year as it is
+        soqmYear: isBlankValue(getControlValue('[name="soqmYear"]')) ? null : getControlValue('[name="soqmYear"]'),
         controlDescription: getControlValue('[name="controlDescription"]'),
-        prp: getControlValue('[name="prp"]')
+        prp: getControlValue('[name="prp"]'),
+        editReason: completedEditReasonForSave()
     };
 
     console.log('Control data to send:', controlData);
@@ -1730,7 +1494,7 @@ function saveControlData(controlId) {
         console.log('рџ“Ґ Control save response status:', response.status);
 
         if (!response.ok) {
-            const errorText = await response.text();
+            const errorText = serverErrorText(await response.text());
             throw new Error(`Control save failed: ${errorText}`);
         }
 
@@ -1750,18 +1514,11 @@ function saveControlData(controlId) {
 .then(data => {
     console.log('вњ… Control saved successfully:', data);
 
-    // РџРѕРєР°Р·С‹РІР°РµРј Р°Р»РµСЂС‚
-    showAppModal({
-        variant: 'success',
-        title: 'Saved Successfully',
-        message: 'Control information has been saved'
-    });
-
     return data;
 })
     .catch(error => {
         console.error('вќЊ Error saving control:', error);
-        alert('Error saving control: ' + error.message);
+        // saveControlChanges shows the one message for the whole Save
         throw error;
     });
 }
@@ -1823,8 +1580,7 @@ function saveControlData(controlId) {
             'facilitatorInput',
             'controlOperatorInput',
             'soqmLeadInput',
-            'processOwnerInput',
-            'sharedWithInput'
+            'processOwnerInput'
         ];
 
         dropdownInputs.forEach(id => {
@@ -1870,10 +1626,28 @@ function saveControlData(controlId) {
         if (editBtn) editBtn.classList.add('d-none');
 
         makeAllFormsEditable();
+        lockCompletedFixedFields();
+        // Control Shared With: SoQM Team adds and removes people
+        if (typeof SharedWithField !== 'undefined') {
+            SharedWithField.setEditing(fullEditEnabled);
+        }
+
+        // Without full rights only Details fields are editable (Assignment and Documents are saved by SoQM Team only)
+        toggleSoqmOnlyNotes(!fullEditEnabled);
+        if (!fullEditEnabled && window.ViewControlTabs) {
+            ViewControlTabs.show('details');
+        }
+    }
+
+    function toggleSoqmOnlyNotes(visible) {
+        document.querySelectorAll('.vc-soqm-only-note').forEach(note => {
+            note.classList.toggle('d-none', !visible);
+        });
     }
 
     function switchToReadOnlyMode() {
         restoreFromEditModeSnapshot();
+        window.qtrackerCompletedEditReason = null;
         document.body.classList.remove('edit-mode-active');
 
         const actionButtons = document.querySelector('.action-buttons');
@@ -1893,6 +1667,10 @@ function saveControlData(controlId) {
         }
 
         makeAllFormsReadOnly();
+        if (typeof SharedWithField !== 'undefined') {
+            SharedWithField.setEditing(false);
+        }
+        toggleSoqmOnlyNotes(false);
     }
 
     function checkControlIdUnique(newControlId, currentControlId) {
@@ -1914,7 +1692,7 @@ function saveControlData(controlId) {
             });
     }
 
-function renameControlId(newControlId) {
+function renameControlId(newControlId, comment) {
         const controlPrimaryKey = document.querySelector('input[name="id"]').value;
         console.log('Primary key to rename:', controlPrimaryKey);
         console.log('New control_id value:', newControlId);
@@ -1922,14 +1700,14 @@ function renameControlId(newControlId) {
         return fetch('/api/controls/' + controlPrimaryKey + '/rename-id', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ newControlId: newControlId })
+            body: JSON.stringify({ newControlId: newControlId, comment: comment })
         })
         .then(response => {
             if (response.ok) {
                 return response.json();
             } else {
                 return response.text().then(text => {
-                    throw new Error(text || 'Failed to rename Control ID');
+                    throw new Error(serverErrorText(text) || 'Failed to rename Control ID');
                 });
             }
         });
@@ -1966,8 +1744,10 @@ function renameControlId(newControlId) {
         }
         if (!isoDateValue) {
             input.value = '';
+            delete input.dataset.isoValue;
             return;
         }
+        input.dataset.isoValue = isoDateValue;
         if (input.type === 'date') {
             input.value = isoDateValue;
             return;
@@ -2010,18 +1790,74 @@ function renameControlId(newControlId) {
 
         if (!operationDateInput) return;
 
-        const isReadOnly = operationDateInput.readOnly || operationDateInput.disabled || operationDateInput.classList.contains('readonly-field');
-        const isoValue = formatDateForApi(operationDateInput.value || operationDateInput.dataset.isoValue || '');
+        // Only a real dd.mm.yyyy date is rewritten (1.2.2026 to 01.02.2026); other text stays for the user to fix
+        const isoValue = readOperationDate(operationDateInput);
         if (!isoValue) return;
 
         operationDateInput.dataset.isoValue = isoValue;
-        if (isReadOnly) {
-            operationDateInput.type = 'text';
-            operationDateInput.value = formatDateDisplay(isoValue);
-        } else {
-            operationDateInput.type = 'date';
-            operationDateInput.value = isoValue;
+        operationDateInput.value = formatDateDisplay(isoValue);
+    }
+
+    // The Control Operation Date is typed as dd.mm.yyyy only. Returns the ISO date, '' for an empty field,
+    // or null for text that is not a real dd.mm.yyyy date (31.02.2026, 15/10/2026, 2026-10-15, 15.10.26)
+    function readOperationDate(input) {
+        const text = input ? String(input.value || '').trim() : '';
+        if (!text) {
+            return '';
         }
+        const date = window.QTrackerDate ? window.QTrackerDate.parseDisplayDate(text) : null;
+        return date ? toIsoDate(date) : null;
+    }
+
+    function setOperationDateError(input, invalid) {
+        input.classList.toggle('is-invalid', invalid);
+        if (invalid) {
+            input.setAttribute('aria-invalid', 'true');
+        } else {
+            input.removeAttribute('aria-invalid');
+        }
+    }
+
+    // A Control Operation Date in the past is allowed, but its deadline may have passed too, so the control
+    // turns overdue on saving: ask first. Only a date changed in this edit is asked about.
+    async function confirmPastOperationDate() {
+        const input = document.querySelector('input[name="controlOperationDate"]');
+        const isoValue = readOperationDate(input);
+        const atEditStart = editModeSnapshot?.fieldValues?.['id:controlOperationDate']?.value || '';
+        if (!isoValue || isoValue === readOperationDate({ value: atEditStart })
+            || isoValue >= toIsoDate(new Date())) {
+            return true;
+        }
+
+        const deadlineIso = formatDateForApi(document.querySelector('input[name="controlOperationDeadline"]')?.value || '');
+        let message = `${formatDateDisplay(isoValue)} is before today.`;
+        if (deadlineIso && deadlineIso < toIsoDate(new Date())) {
+            message += ` Its deadline, ${formatDateDisplay(deadlineIso)}, has passed too, so the control will be overdue as soon as it is saved.`;
+        } else if (deadlineIso) {
+            message += ` The deadline will be ${formatDateDisplay(deadlineIso)}.`;
+        }
+        const confirmed = await showConfirmModal({
+            title: 'Save a Control Operation Date in the past?',
+            message: message,
+            confirmText: 'Save',
+            cancelText: 'Change the date'
+        });
+        if (!confirmed) {
+            revealFieldTab(input);
+            focusField(input);
+        }
+        return confirmed;
+    }
+
+    // Leaving the field (or picking a day): a real date is written as dd.mm.yyyy, other text is marked
+    function checkOperationDateField(input) {
+        const isoValue = readOperationDate(input);
+        if (isoValue) {
+            input.value = formatDateDisplay(isoValue);
+            input.dataset.isoValue = isoValue;
+        }
+        setOperationDateError(input, isoValue === null);
+        updateCalculatedDates();
     }
 
     function formatDateForApi(dateString) {
@@ -2044,22 +1880,6 @@ function renameControlId(newControlId) {
             return null;
         }
     }
-
-function showRequiredFieldMessage(message, field) {
-    if (window.showAppModal) {
-        showAppModal({
-            variant: 'warning',
-            title: 'Missing Required Field',
-            message: message,
-            autoCloseMs: 0
-        });
-    } else {
-        alert(message);
-    }
-    if (field && typeof field.focus === 'function') {
-        field.focus();
-    }
-}
 
     function isBlankValue(value) {
         return value === null || value === undefined || String(value).trim() === '';
@@ -2124,18 +1944,70 @@ function showRequiredFieldMessage(message, field) {
                     field.classList.add('is-invalid');
                 }
                 if (!firstInvalid) {
-                    firstInvalid = { field, label };
+                    firstInvalid = { field, message: `${label} is required.` };
                 }
             }
         });
 
+        // Text that is not a dd.mm.yyyy date would reach the server as no date at all
+        const operationDateField = assignmentForm?.querySelector('[name="controlOperationDate"]');
+        if (operationDateField && readOperationDate(operationDateField) === null) {
+            setOperationDateError(operationDateField, true);
+            if (!firstInvalid) {
+                firstInvalid = {
+                    field: operationDateField,
+                    title: 'Control Operation Date',
+                    message: 'Enter the date as dd.mm.yyyy'
+                };
+            }
+        }
+
+        // The server calculates the deadline from the frequency; one it does not know would refuse the
+        // assignment after the Control tab is already saved
+        const frequencyField = controlForm?.querySelector('[name="controlFrequency"]');
+        const frequency = frequencyField ? String(frequencyField.value || '').trim() : '';
+        if (!firstInvalid && !isLimitedFieldEdit() && frequency && readOperationDate(operationDateField)
+            && !normalizeControlFrequency(frequency)) {
+            frequencyField.classList.add('is-invalid');
+            firstInvalid = {
+                field: frequencyField,
+                title: 'Control Frequency',
+                message: `"${frequency}" is not one of Monthly, Quarterly, Ad-hoc, Recurring, Annual, Semi Annual, `
+                    + 'so the Control Operation Deadline cannot be calculated. Choose one of them.'
+            };
+        }
+
+        // Control Shared With: people the server would refuse there are named under the field, before anything is sent
+        if (!isLimitedFieldEdit() && typeof SharedWithField !== 'undefined') {
+            const sharedWithRefusal = SharedWithField.validate();
+            if (sharedWithRefusal && !firstInvalid) {
+                firstInvalid = {
+                    field: SharedWithField.focusTarget(),
+                    title: 'Control Shared With',
+                    message: sharedWithRefusal
+                };
+            }
+        }
+
         if (firstInvalid) {
-            showRequiredFieldMessage(`${firstInvalid.label} is required.`, firstInvalid.field);
+            showMissingFieldMessage(firstInvalid.message, firstInvalid.field, firstInvalid.title);
             return false;
         }
 
         return true;
     }
+
+// Without full rights Save sends only the Details fields the user may change
+function isLimitedFieldEdit() {
+    const permissions = window.qtrackerPermissions || {};
+    return !permissions.canEditAll
+        && Boolean(permissions.canEditStepsPerformed || permissions.canEditProcessOwnerComments);
+}
+
+// A reload keeps the #tab hash. Assigning the same URL with a hash would only scroll, not reload.
+function reloadKeepingTab() {
+    window.location.reload();
+}
 
 function saveControlChanges() {
     console.log('=== START SAVE CONTROL CHANGES ===');
@@ -2145,11 +2017,7 @@ function saveControlChanges() {
         return Promise.reject('Control ID not found');
     }
 
-    const permissions = window.qtrackerPermissions || {};
-    const isLimitedFieldEdit = !permissions.canEditAll
-        && (permissions.canEditStepsPerformed || permissions.canEditProcessOwnerComments);
-
-    if (isLimitedFieldEdit) {
+    if (isLimitedFieldEdit()) {
         console.log('Limited field edit mode: saving Details tab only');
         return saveDetailsData(controlId)
             .then(() => {
@@ -2158,7 +2026,7 @@ function saveControlChanges() {
                     title: 'Saved Successfully',
                     message: 'Allowed control fields have been saved',
                     autoCloseMs: 2500,
-                    redirectUrl: '/view-control/' + controlId
+                    onClose: reloadKeepingTab
                 });
                 return { success: true };
             })
@@ -2184,7 +2052,7 @@ function saveControlChanges() {
                 title: 'Saved Successfully',
                 message: 'All control data has been saved',
                 autoCloseMs: 2500,
-                redirectUrl: '/view-control/' + controlId
+                onClose: reloadKeepingTab
             });
 
             return { success: true };
@@ -2205,11 +2073,6 @@ function saveControlChanges() {
 function saveAssignmentData(controlId) {
     console.log('=== SAVE ASSIGNMENT DATA ===');
 
-    const assignmentForm = document.getElementById('assignmentForm');
-    if (assignmentForm && !validateFieldLengths(assignmentForm)) {
-        return Promise.reject('Validation failed');
-    }
-
     // РџРѕР»СѓС‡Р°РµРј email Р·РЅР°С‡РµРЅРёСЏ
     const getEmailValue = (id) => {
         const element = document.getElementById(id);
@@ -2222,28 +2085,22 @@ function saveAssignmentData(controlId) {
     const soqmLead = getEmailValue('soqmLeadHidden');
     const processOwner = getEmailValue('processOwnerHidden');
     
-    // Control Shared With - get multiple users
+    // Control Shared With: the addresses shared-with.js holds; until it has filled the field, null keeps the stored list
     const controlSharedWithElement = document.getElementById('controlSharedWithHidden');
-    let controlSharedWith = [];
-    if (controlSharedWithElement && controlSharedWithElement.value) {
+    let controlSharedWith = null;
+    if (controlSharedWithElement && controlSharedWithElement.dataset.ready === 'true') {
         try {
-            const parsed = JSON.parse(controlSharedWithElement.value);
-            controlSharedWith = Array.isArray(parsed) ? parsed : [];
+            const parsed = JSON.parse(controlSharedWithElement.value || '[]');
+            controlSharedWith = Array.isArray(parsed) ? parsed : null;
         } catch (e) {
-            controlSharedWith = [];
+            controlSharedWith = null;
         }
     }
 
     // РџРѕР»СѓС‡Р°РµРј РґР°С‚С‹
-    const getDateValue = (name) => {
-        const element = document.querySelector(`input[name="${name}"]`);
-        const value = element ? element.value : null;
-        return formatDateForApi(value);
-    };
-
-    const controlOperationDate = getDateValue('controlOperationDate');
-    const controlOperationDeadline = getDateValue('controlOperationDeadline');
-    const nextControlOperationDate = getDateValue('nextControlOperationDate');
+    // The deadline and the next date are calculated by the server, so they are not sent.
+    // Save has already refused a date that is not dd.mm.yyyy.
+    const controlOperationDate = readOperationDate(document.querySelector('input[name="controlOperationDate"]')) || null;
 
     // РџСЂРѕРІРµСЂСЏРµРј controlId
     const numericControlId = parseInt(controlId, 10);
@@ -2260,8 +2117,7 @@ function saveAssignmentData(controlId) {
         processOwner: processOwner,
         controlSharedWith: controlSharedWith,
         controlOperationDate: controlOperationDate,
-        controlOperationDeadline: controlOperationDeadline,
-        nextControlOperationDate: nextControlOperationDate
+        editReason: completedEditReasonForSave()
     };
 
     console.log('рџ“¤ Sending assignment data:', assignmentData);
@@ -2297,7 +2153,11 @@ function saveAssignmentData(controlId) {
             }
 
             console.error('вќЊ Server error:', errorMessage);
-            throw new Error(errorMessage);
+            // A refusal that names Control Shared With is also shown under that field
+            if (typeof SharedWithField !== 'undefined') {
+                SharedWithField.showServerError(serverErrorText(errorMessage));
+            }
+            throw new Error('Assignment save failed: ' + serverErrorText(errorMessage));
         }
 
         // Р•СЃР»Рё РѕС‚РІРµС‚ РїСѓСЃС‚РѕР№ РёР»Рё РЅРµ JSON - РІРѕР·РІСЂР°С‰Р°РµРј success
@@ -2318,6 +2178,9 @@ function saveAssignmentData(controlId) {
     })
     .then(data => {
         console.log('вњ… Assignment saved successfully, response data:', data);
+        if (typeof SharedWithField !== 'undefined') {
+            SharedWithField.markSaved();
+        }
 
         // Upload file attachments if any
         if (window.uploadAttachments) {
@@ -2325,34 +2188,12 @@ function saveAssignmentData(controlId) {
             window.uploadAttachments();
         }
 
-        // РџРѕРєР°Р·С‹РІР°РµРј Р°Р»РµСЂС‚
-        showAppModal({
-            variant: 'success',
-            title: 'Saved Successfully',
-            message: 'Assignment data has been saved'
-        });
-
-        // Р РµРґРёСЂРµРєС‚ С‡РµСЂРµР· 2 СЃРµРєСѓРЅРґС‹ (РїРѕСЃР»Рµ Р·Р°РєСЂС‹С‚РёСЏ Р°Р»РµСЂС‚Р°)
-
-        updateCalculatedDates();
         return data;
     })
     .catch(error => {
         console.error('вќЊ Save error:', error);
 
-        let userMessage = 'Error saving assignment data. ';
-
-        if (error.message.includes('1 saves failed')) {
-            userMessage = 'Validation failed on server. Please check all required fields.';
-        } else if (error.message.includes('400')) {
-            userMessage = 'Bad request. Please check your data.';
-        } else if (error.message.includes('500')) {
-            userMessage = 'Server error. Please try again later.';
-        } else {
-            userMessage += error.message;
-        }
-
-        alert(userMessage);
+        // saveControlChanges shows the one message for the whole Save
         throw error;
     });
 }
@@ -2360,15 +2201,11 @@ function saveAssignmentData(controlId) {
 function saveDetailsData(controlId) {
     console.log('=== SAVE DETAILS DATA ===');
 
-    const detailsForm = document.getElementById('detailsForm');
-    if (detailsForm && !validateFieldLengths(detailsForm)) {
-        return Promise.reject('Validation failed');
-    }
-
     const detailsData = buildDetailsPayload(controlId);
     if (!detailsData) {
-        return Promise.reject('Details form not found');
+        return Promise.reject(new Error('Details form not found'));
     }
+    detailsData.editReason = completedEditReasonForSave();
 
     console.log('Details data to send:', detailsData);
 
@@ -2381,7 +2218,7 @@ function saveDetailsData(controlId) {
         console.log('рџ“Ґ Details response status:', response.status);
 
         if (!response.ok) {
-            const errorText = await response.text();
+            const errorText = serverErrorText(await response.text());
             throw new Error(`Details save failed: ${errorText}`);
         }
 
@@ -2408,26 +2245,12 @@ function saveDetailsData(controlId) {
             window.uploadAttachments();
         }
 
-        showAppModal({
-            variant: 'success',
-            title: 'Saved Successfully',
-            message: 'Details have been saved'
-        });
-
-        // Р РµРґРёСЂРµРєС‚ С‡РµСЂРµР· 2.1 СЃРµРєСѓРЅРґС‹
-
         return data;
     })
     .catch(error => {
         console.error('вќЊ Error saving details:', error);
 
-        showAppModal({
-            variant: 'error',
-            title: 'Save Failed',
-            message: 'Error saving details: ' + error.message,
-            autoCloseMs: 0
-        });
-
+        // The caller shows the one message for the whole Save
         throw error;
     });
 }
@@ -2443,12 +2266,16 @@ function saveDocumentsData(controlId) {
 
     const getDocumentsValue = (selector) => {
         const element = documentsForm.querySelector(selector);
-        return element ? element.value : '';
+        if (!element) {
+            return '';
+        }
+        return element.tagName === 'SELECT' ? selectValueForSave(element) : element.value;
     };
 
     const documentsData = {
         controlId: parseInt(controlId),
-        soqmDevelopmentMaterials: getDocumentsValue('[name="soqmDevelopmentMaterials"]')
+        soqmDevelopmentMaterials: getDocumentsValue('[name="soqmDevelopmentMaterials"]'),
+        editReason: completedEditReasonForSave()
     };
 
     console.log('Documents data to send:', documentsData);
@@ -2462,7 +2289,7 @@ function saveDocumentsData(controlId) {
         console.log('рџ“Ґ Documents response status:', response.status);
 
         if (!response.ok) {
-            const errorText = await response.text().catch(() => 'Unknown error');
+            const errorText = serverErrorText(await response.text().catch(() => 'Unknown error'));
             console.error('вќЊ Documents save failed:', errorText);
             throw new Error(`Documents save failed: ${errorText}`);
         }
@@ -2500,28 +2327,13 @@ function saveDocumentsData(controlId) {
         window.uploadAttachments();
     }
 
-    showAppModal({
-        variant: 'success',
-        title: 'Saved Successfully',
-        message: 'Documents have been saved'
-    });
-
-    // Р РµРґРёСЂРµРєС‚ С‡РµСЂРµР· 2.1 СЃРµРєСѓРЅРґС‹
-
     return data;
 })
     .catch(error => {
         console.error('вќЊ Unexpected error in saveDocumentsData:', error);
 
-        showAppModal({
-            variant: 'error',
-            title: 'Save Failed',
-            message: 'Error saving documents: ' + error.message,
-            autoCloseMs: 0
-        });
-
-        // РќРµ Р±СЂРѕСЃР°РµРј РѕС€РёР±РєСѓ РґР°Р»СЊС€Рµ
-        return { success: false, caughtError: error.message };
+        // saveControlChanges shows the one message for the whole Save, so a failure here is not hidden
+        throw error;
     });
 }
 
@@ -2531,8 +2343,11 @@ function saveDocumentsData(controlId) {
         if (!operationDateInput) {
             return;
         }
-        const isoValue = formatDateForApi(operationDateInput.value || operationDateInput.dataset.isoValue || '');
+        const isoValue = readOperationDate(operationDateInput);
         if (!isoValue) {
+            // No date or no real one: no deadline and next date either, rather than those of the previous date
+            setDateFieldValue(document.querySelector('input[name="controlOperationDeadline"]'), '');
+            setDateFieldValue(document.querySelector('input[name="nextControlOperationDate"]'), '');
             return;
         }
         const operationDate = parseIsoDate(isoValue);
@@ -2545,69 +2360,73 @@ function saveDocumentsData(controlId) {
         console.log('Updated calculated dates');
     }
 
+    // Reads the frequency as ControlFrequency.tryFromValue does, in the same order, so an older stored
+    // spelling gives the server's dates ("As-required/at least annually" is Annual there).
+    // null: blank, or not a frequency the server knows.
     function normalizeControlFrequency(controlFrequency) {
-        if (!controlFrequency) {
+        const value = String(controlFrequency || '').trim().toLowerCase();
+        if (!value) {
             return null;
         }
-        const normalized = controlFrequency.toLowerCase().replace(/\s+/g, ' ').trim();
-        const compact = normalized.replace(/[-\s]/g, '');
-
-        if (normalized.includes('recurr')) {
-            return 'recurring';
-        }
-        if (normalized.includes('quarter')) {
-            return 'quarterly';
-        }
-        if (normalized.includes('month')) {
+        if (value.includes('month')) {
             return 'monthly';
         }
-        if ((normalized.includes('ad') && normalized.includes('hoc'))
-            || normalized.includes('as-required')
-            || normalized.includes('at least annually')) {
+        if (value.includes('quarter')) {
+            return 'quarterly';
+        }
+        if (value.includes('recurr')) {
+            return 'recurring';
+        }
+        if (value.includes('ad') && value.includes('hoc')) {
             return 'ad-hoc';
         }
-        if (compact.includes('semiannual')) {
+        if (value.includes('semi')) {
             return 'semi annual';
         }
-        if (normalized.includes('annual') || normalized.includes('annually')) {
+        if (value.includes('annual')) {
             return 'annual';
         }
         return null;
     }
 
-    // UI regression examples (matches ControlScheduleCalculator):
-    // OperationDate=2026-02-06
-    // Monthly:   deadline=2026-02-13, next=2026-03-06
-    // Quarterly: deadline=2026-02-20, next=2026-05-06
-    // Recurring: deadline=2026-02-20, next=2026-05-06
-    // Ad-hoc:    deadline=2026-02-20, next=(none)
-    // Annual:    deadline=2026-03-06, next=2027-02-06
-    // Semi Annual: deadline=2026-03-06, next=2026-08-06
-    function calculateDeadline(operationDate, controlFrequency) {
-        const date = new Date(operationDate.getFullYear(), operationDate.getMonth(), operationDate.getDate());
-        const normalized = normalizeControlFrequency(controlFrequency);
+    // As LocalDate.plusMonths: a day the target month does not have becomes its last day
+    // (31.01.2026 + 1 month = 28.02.2026), where Date.setMonth would roll over to 03.03.2026
+    function plusMonths(date, months) {
+        const result = new Date(date.getFullYear(), date.getMonth() + months, 1);
+        const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+        result.setDate(Math.min(date.getDate(), lastDay));
+        return result;
+    }
 
-        if (!normalized) {
+    // UI regression examples (matches ControlScheduleCalculator; SchedulePreviewParityTest runs these functions):
+    // OperationDate=2026-02-06, every frequency: deadline=2026-02-20
+    // Monthly:   next=2026-03-06
+    // Quarterly: next=2026-05-06
+    // Recurring: next=2026-05-06
+    // Ad-hoc:    next=(none)
+    // Annual:    next=2027-02-06
+    // Semi Annual: next=2026-08-06
+    // OperationDate=2026-01-31, Monthly: next=2026-02-28
+    function calculateDeadline(operationDate, controlFrequency) {
+        // ControlScheduleCalculator.DEADLINE: the same number of days, counted the same way, for every frequency
+        const deadlineDays = 14;
+        const deadlineInWorkingDays = false;
+        if (!normalizeControlFrequency(controlFrequency)) {
             return null;
         }
 
-        switch (normalized) {
-            case 'quarterly':
-            case 'recurring':
-            case 'ad-hoc':
-                date.setDate(date.getDate() + 14);
-                break;
-            case 'semi annual':
-            case 'annual':
-                date.setMonth(date.getMonth() + 1);
-                break;
-            case 'monthly':
-                date.setDate(date.getDate() + 7);
-                break;
-            default:
-                return null;
+        const date = new Date(operationDate.getFullYear(), operationDate.getMonth(), operationDate.getDate());
+        if (!deadlineInWorkingDays) {
+            date.setDate(date.getDate() + deadlineDays);
+            return date;
         }
-
+        // Monday to Friday, as WorkingDaysService counts them
+        for (let left = deadlineDays; left > 0;) {
+            date.setDate(date.getDate() + 1);
+            if (date.getDay() !== 0 && date.getDay() !== 6) {
+                left--;
+            }
+        }
         return date;
     }
 
@@ -2621,18 +2440,14 @@ function saveDocumentsData(controlId) {
 
         switch (normalized) {
             case 'monthly':
-                date.setMonth(date.getMonth() + 1);
-                return date;
+                return plusMonths(date, 1);
             case 'quarterly':
             case 'recurring':
-                date.setMonth(date.getMonth() + 3);
-                return date;
+                return plusMonths(date, 3);
             case 'semi annual':
-                date.setMonth(date.getMonth() + 6);
-                return date;
+                return plusMonths(date, 6);
             case 'annual':
-                date.setMonth(date.getMonth() + 12);
-                return date;
+                return plusMonths(date, 12);
             case 'ad-hoc':
                 return null;
             default:
@@ -2644,22 +2459,11 @@ function saveDocumentsData(controlId) {
         const deadline = calculateDeadline(operationDate, controlFrequency);
         const nextOperationDate = calculateNextOperationDate(operationDate, controlFrequency);
 
-        const deadlineInput = document.querySelector('input[name="controlOperationDeadline"]');
-        const nextDateInput = document.querySelector('input[name="nextControlOperationDate"]');
-
-        if (deadlineInput && deadline) {
-            setDateFieldValue(deadlineInput, toIsoDate(deadline));
-            console.log('Set deadline to:', deadlineInput.value);
-        }
-        if (nextDateInput) {
-            if (nextOperationDate) {
-                setDateFieldValue(nextDateInput, toIsoDate(nextOperationDate));
-                console.log('Set next date to:', nextDateInput.value);
-            } else if (normalizeControlFrequency(controlFrequency) === 'ad-hoc') {
-                setDateFieldValue(nextDateInput, '');
-                console.log('Cleared next date for ad-hoc');
-            }
-        }
+        // Empty where there is nothing to show: Ad-hoc has no next date, an unknown frequency neither date
+        setDateFieldValue(document.querySelector('input[name="controlOperationDeadline"]'),
+            deadline ? toIsoDate(deadline) : '');
+        setDateFieldValue(document.querySelector('input[name="nextControlOperationDate"]'),
+            nextOperationDate ? toIsoDate(nextOperationDate) : '');
     }
 
 
@@ -2682,9 +2486,6 @@ function saveDocumentsData(controlId) {
         filterSoqmLeadList: filterSoqmLeadList,
         toggleProcessOwnerDropdown: toggleProcessOwnerDropdown,
         filterProcessOwnerList: filterProcessOwnerList,
-        toggleSharedWithDropdown: toggleSharedWithDropdown,
-        filterSharedWithList: filterSharedWithList,
-        removeSharedWithUser: removeSharedWithUser,
         goBack: goBack,
 
         init: async function() {
@@ -2694,8 +2495,7 @@ function saveDocumentsData(controlId) {
                 { id: 'facilitatorSearchInput', handler: filterUserList },
                 { id: 'controlOperatorSearchInput', handler: filterControlOperatorList },
                 { id: 'soqmLeadSearchInput', handler: filterSoqmLeadList },
-                { id: 'processOwnerSearchInput', handler: filterProcessOwnerList },
-                { id: 'sharedWithSearchInput', handler: filterSharedWithList }
+                { id: 'processOwnerSearchInput', handler: filterProcessOwnerList }
             ];
 
             searchInputs.forEach(({ id, handler }) => {
@@ -2721,19 +2521,8 @@ function saveDocumentsData(controlId) {
                     if (isControlOperatorDropdownOpen) closeControlOperatorDropdown();
                     if (isSoqmLeadDropdownOpen) closeSoqmLeadDropdown();
                     if (isProcessOwnerDropdownOpen) closeProcessOwnerDropdown();
-                    if (isSharedWithDropdownOpen) closeSharedWithDropdown();
                 }
             });
-
-            const lastActiveTab = localStorage.getItem('lastActiveTab');
-            if (lastActiveTab) {
-                const tabElement = document.querySelector(`a[href="${lastActiveTab}"]`);
-                if (tabElement) {
-                    const tab = new bootstrap.Tab(tabElement);
-                    tab.show();
-                }
-                localStorage.removeItem('lastActiveTab');
-            }
 
             // LOAD DATA BEFORE INITIALIZING READONLY MODE
             const controlId = document.querySelector('input[name="id"]').value;
@@ -2769,8 +2558,24 @@ function saveDocumentsData(controlId) {
 
                     console.log('=== SAVE BUTTON CLICKED ===');
 
-                    if (!validateControlSaveRequiredFields()) {
+                    // Everything is checked before the first request: a refused field must not leave
+                    // the tabs saved before it
+                    if (!validateControlSaveRequiredFields()
+                        || !validateFieldLengths(document.getElementById('controlForm'),
+                            document.getElementById('assignmentForm'),
+                            document.getElementById('detailsForm'))) {
                         return;
+                    }
+                    if (!(await confirmPastOperationDate())) {
+                        return;
+                    }
+                    // A completed control changed in place: every save says why (CompletedEdit on the server)
+                    if (window.qtrackerPermissions && window.qtrackerPermissions.completedEdit) {
+                        const reason = await askCompletedEditReason();
+                        if (reason === null) {
+                            return;
+                        }
+                        window.qtrackerCompletedEditReason = reason;
                     }
 
                     saveEditBtn.disabled = true;
@@ -2787,23 +2592,9 @@ function saveDocumentsData(controlId) {
                     } catch (error) {
                         console.error('вќЊ Save error in button handler:', error);
 
+                        // saveControlChanges has already shown the message
                         saveEditBtn.disabled = false;
                         saveEditBtn.textContent = originalText;
-
-                        let errorMessage = error.message;
-
-                        if (errorMessage.includes('Validation failed') || errorMessage.includes('invalid')) {
-                            alert('Validation error: ' + errorMessage);
-                        } else if (errorMessage.includes('failed')) {
-                            const match = errorMessage.match(/Status (\d+): (.*)/);
-                            if (match) {
-                                alert(`Server error (${match[1]}): ${match[2]}`);
-                            } else {
-                                alert('Error saving changes: ' + errorMessage);
-                            }
-                        } else {
-                            alert('Error: ' + errorMessage);
-                        }
                     }
                 });
             }
@@ -2816,26 +2607,18 @@ function saveDocumentsData(controlId) {
                 });
             }
 
-            const handleOperationDateChange = function() {
-                console.log('Control Operation Date changed:', this.value);
-
-                const isoValue = formatDateForApi(this.value || this.dataset.isoValue || '');
-                if (isoValue) {
-                    const operationDate = parseIsoDate(isoValue);
-                    if (!operationDate) {
-                        return;
-                    }
-                    const controlFrequency = document.querySelector('#controlForm [name="controlFrequency"]')?.value
-                        || document.querySelector('[name="controlFrequency"]')?.value;
-                    console.log('Control Frequency:', controlFrequency);
-                    applyAssignmentDatePreview(operationDate, controlFrequency);
-                }
-            };
-
             const operationDateInput = document.querySelector('input[name="controlOperationDate"]');
             if (operationDateInput) {
-                operationDateInput.addEventListener('change', handleOperationDateChange);
-                operationDateInput.addEventListener('input', handleOperationDateChange);
+                // While typing the preview follows the text, and a date put right loses its mark at once
+                operationDateInput.addEventListener('input', function() {
+                    if (readOperationDate(this) !== null) {
+                        setOperationDateError(this, false);
+                    }
+                    updateCalculatedDates();
+                });
+                operationDateInput.addEventListener('change', function() {
+                    checkOperationDateField(this);
+                });
             }
 
             document.querySelector('#controlForm select[name="controlFrequency"]')?.addEventListener('change', function() {
@@ -2856,6 +2639,53 @@ function saveDocumentsData(controlId) {
                 const originalControlId = currentControlId.trim();
 
                 newControlIdInput.value = currentControlId;
+                const renameCommentInput = document.getElementById('renameComment');
+                if (renameCommentInput) {
+                    renameCommentInput.value = '';
+                }
+                // A new ID that makes this a KDN control or stops it being one: explained and confirmed first
+                const kdnConfirmBox = document.getElementById('renameKdnConfirm');
+                const kdnCommentMark = document.getElementById('renameCommentRequired');
+                let kdnConfirmFor = null;
+
+                function hideKdnConfirm() {
+                    kdnConfirmFor = null;
+                    if (kdnConfirmBox) kdnConfirmBox.hidden = true;
+                    if (kdnCommentMark) kdnCommentMark.hidden = true;
+                    if (renameCommentInput) renameCommentInput.removeAttribute('aria-required');
+                    confirmRenameBtn.textContent = 'Rename';
+                }
+
+                function showKdnConfirm(newId, preview) {
+                    kdnConfirmFor = newId;
+                    document.getElementById('renameKdnTitle').textContent = preview.title;
+                    document.getElementById('renameKdnText').textContent = preview.explanation;
+                    const people = preview.becomesKdn ? preview.gaining : preview.losing;
+                    const label = document.getElementById('renameKdnUsersLabel');
+                    const list = document.getElementById('renameKdnUsers');
+                    label.textContent = preview.becomesKdn ? 'Gaining access:' : 'Losing access:';
+                    list.replaceChildren.apply(list, (people || []).map(function(mail) {
+                        const item = document.createElement('li');
+                        item.textContent = mail;
+                        return item;
+                    }));
+                    label.hidden = !people || people.length === 0;
+                    list.hidden = label.hidden;
+                    kdnConfirmBox.hidden = false;
+                    kdnCommentMark.hidden = false;
+                    renameCommentInput.setAttribute('aria-required', 'true');
+                    confirmRenameBtn.textContent = 'Confirm rename';
+                }
+
+                async function renamePreview(newId) {
+                    const response = await fetch('/api/controls/' + document.querySelector('input[name="id"]').value
+                        + '/rename-preview?newControlId=' + encodeURIComponent(newId));
+                    if (!response.ok) {
+                        throw new Error(serverErrorText(await response.text()) || 'Could not check the new Control ID');
+                    }
+                    return response.json();
+                }
+                hideKdnConfirm();
                 controlIdError.style.display = 'none';
                 controlIdError.textContent = '';
 
@@ -2865,6 +2695,10 @@ function saveDocumentsData(controlId) {
                 function checkIfValueChanged() {
                     const currentValue = newControlIdInput.value;
                     const trimmedCurrent = currentValue.trim();
+                    if (kdnConfirmFor !== null && kdnConfirmFor !== trimmedCurrent) {
+                        // Another ID: its KDN change is checked again on Rename
+                        hideKdnConfirm();
+                    }
 
                     if (trimmedCurrent === '') {
                         confirmRenameBtn.disabled = true;
@@ -2927,7 +2761,22 @@ function saveDocumentsData(controlId) {
                             throw new Error('Control ID already exists. Please choose a different ID.');
                         }
 
-                        const updatedControl = await renameControlId(newControlId);
+                        // A new ID that makes the control a KDN control or stops it being one changes who sees it:
+                        // the dialog says who gains or loses access and asks for a comment and a second click
+                        const renameComment = renameCommentInput ? renameCommentInput.value.trim() : '';
+                        if (kdnConfirmFor !== newControlId) {
+                            const preview = await renamePreview(newControlId);
+                            if (preview.kdnChange) {
+                                showKdnConfirm(newControlId, preview);
+                                renameBtn.disabled = false;
+                                renameCommentInput.focus();
+                                return;
+                            }
+                        } else if (!renameComment) {
+                            renameBtn.textContent = 'Confirm rename';
+                            throw new Error('A comment is required: KDN users gain or lose access with this rename.');
+                        }
+                        const updatedControl = await renameControlId(newControlId, renameComment);
 
                         document.title = 'Control - ' + updatedControl.controlId;
 
@@ -2955,7 +2804,7 @@ function saveDocumentsData(controlId) {
                         controlIdError.style.display = 'block';
 
                         renameBtn.disabled = false;
-                        renameBtn.textContent = 'Rename';
+                        renameBtn.textContent = kdnConfirmFor !== null ? 'Confirm rename' : 'Rename';
                         checkIfValueChanged();
                     }
                 };
@@ -2981,7 +2830,7 @@ function saveDocumentsData(controlId) {
 
                     confirmRenameBtn.disabled = false;
                     confirmRenameBtn.classList.remove('btn-disabled');
-                    confirmRenameBtn.textContent = 'Rename';
+                    hideKdnConfirm();
 
                     modalElement.removeEventListener('hidden.bs.modal', cleanup);
                 });
@@ -3009,50 +2858,10 @@ function saveDocumentsData(controlId) {
             });
 
             // ========== WORKFLOW INITIALIZATION ==========
-            console.log('=== WORKFLOW INITIALIZATION ===');
-
-            // РџРѕР»СѓС‡Р°РµРј Р·РЅР°С‡РµРЅРёСЏ РёР· СЃРєСЂС‹С‚С‹С… РїРѕР»РµР№
-            const userRoleElement = document.getElementById('currentUserRole');
-            const statusElement = document.getElementById('currentPerformanceStatus');
-            const controlIdElement = document.querySelector('input[name="id"]');
-
-            console.log('User Role value:', userRoleElement?.value);
-            console.log('Status value:', statusElement?.value);
-            console.log('Control ID value:', controlIdElement?.value);
-
-            // РџСЂРѕРІРµСЂСЏРµРј workflow РєРѕРЅС‚РµР№РЅРµСЂ
-            const workflowContainer = document.getElementById('workflow-buttons-container');
-            console.log('Workflow container exists:', !!workflowContainer);
-
-            if (workflowContainer) {
-                const buttons = workflowContainer.querySelectorAll('.workflow-btn');
-                console.log(`Found ${buttons.length} workflow buttons`);
-            }
-
-            // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј workflow РєРЅРѕРїРєРё РµСЃР»Рё РµСЃС‚СЊ РґР°РЅРЅС‹Рµ
-            const userRole = userRoleElement?.value;
-            const performanceStatus = statusElement?.value;
-            const controlIdValue = controlIdElement?.value;
-
+            // The step buttons come from the server's permission flags (page script); hide them all
+            // when the user may not act on this control
             if (!areWorkflowActionsAllowed()) {
                 hideWorkflowActionsUi();
-            } else if (userRole && performanceStatus && controlIdValue) {
-                console.log('рџ”„ Initializing workflow buttons...');
-                console.log(`   User Role: "${userRole}"`);
-                console.log(`   Status: "${performanceStatus}"`);
-                console.log(`   Control ID: "${controlIdValue}"`);
-
-                // в…в…в…в… Р’Р«Р—РћР’ Р¤РЈРќРљР¦РР РџРћРљРђР—Рђ РљРќРћРџРћРљ в…в…в…в…
-                showWorkflowButtonsByStatusAndRole(performanceStatus, userRole);
-
-                // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё РєР»РёРєРѕРІ
-                document.querySelectorAll('.workflow-btn').forEach(btn => {
-                    btn.addEventListener('click', handleWorkflowButtonClick);
-                });
-
-                console.log('вњ… Workflow buttons initialized');
-            } else {
-                console.warn('вљ пёЏ Cannot init workflow buttons: missing data');
             }
 
             // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРє РґР»СЏ РєРЅРѕРїРєРё Confirm РІ РјРѕРґР°Р»РєРµ workflow
@@ -3082,7 +2891,6 @@ function saveDocumentsData(controlId) {
                     hideWorkflowActionsUi();
                     return;
                 }
-                const currentUserRole = document.getElementById('currentUserRole')?.value;
                 const currentStatus = document.getElementById('currentPerformanceStatus')?.value;
                 const workflowStatusInput = document.querySelector('input[name="performanceStatus"]');
                 const workflowStatus = workflowStatusInput ? workflowStatusInput.value : '';
@@ -3091,14 +2899,20 @@ function saveDocumentsData(controlId) {
                 const isSoqmLeadFlag = document.getElementById('isSoqmLead')?.value === 'true';
                 const isProcessOwnerFlag = document.getElementById('isProcessOwner')?.value === 'true';
 
-                console.log('Final check - Role:', currentUserRole, 'Performance Status:', currentStatus, 'Workflow Status:', workflowStatus);
+                console.log('Final check - Performance Status:', currentStatus, 'Workflow Status:', workflowStatus);
                 console.log('Is Facilitator for this control:', isFacilitatorFlag);
                 console.log('Is Control Operator for this control:', isControlOperatorFlag);
                 console.log('Is SoQM Team for this control:', isSoqmLeadFlag);
                 console.log('Is Process Owner for this control:', isProcessOwnerFlag);
 
-                if (currentUserRole === 'SOQM_TEAM') {
-                    console.log('вњ… SoQM Team role override - editing enabled for all statuses');
+                // A completed control the user may not change (AccessPolicy.isLocked, from /api/permissions)
+                if (window.qtrackerPermissions && window.qtrackerPermissions.locked) {
+                    lockControlForm();
+                    return;
+                }
+
+                if (hasFullEditRights()) {
+                    console.log('Full edit rights (SoQM, admin) - editing enabled for all statuses');
                     return;
                 }
 
@@ -3152,16 +2966,6 @@ function saveDocumentsData(controlId) {
                             console.log('рџ”’ Control in PROCESS_OWNER_REVIEW - locking for non-Process Owner');
                             lockControlForm();
                         }
-                    } else if (workflowStatus === 'COMPLETED') {
-                        // Check if user is shared viewer and allow field-level edit
-                        const isSharedViewerFlag = document.getElementById('isSharedViewer')?.value === 'true';
-                        if (isSharedViewerFlag) {
-                            console.log('вњ… Shared viewer on COMPLETED control - field-level edit via permissions');
-                            // Keep the Edit button visible; permissions still restrict editable fields.
-                        } else {
-                            console.log('рџ”’ Control COMPLETED - locking form');
-                            lockControlForm();
-                        }
                     } else {
                         // Control is in other workflow status - lock it
                         console.log('рџ”’ Control in workflow - locking form');
@@ -3186,6 +2990,134 @@ function saveDocumentsData(controlId) {
     };
 })();
 
+// A completed control changed in place keeps its schedule, SoQM Year and Control Status
+// (AccessPolicy.COMPLETED_FIXED_FIELDS): in edit mode those fields stay read-only, described by the hint next to them
+function lockCompletedFixedFields() {
+    if (!(window.qtrackerPermissions && window.qtrackerPermissions.completedEdit)) {
+        return;
+    }
+    document.querySelectorAll('[data-completed-fixed]').forEach(field => {
+        field.disabled = true;
+        field.readOnly = true;
+        field.classList.remove('editable-field', 'editable-select');
+        field.classList.add('readonly-field');
+        field.style.pointerEvents = 'none';
+        const hintId = field.getAttribute('data-completed-fixed');
+        const describedBy = (field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+        if (hintId && document.getElementById(hintId) && !describedBy.includes(hintId)) {
+            describedBy.push(hintId);
+            field.setAttribute('aria-describedby', describedBy.join(' '));
+        }
+    });
+}
+
+// The reason SoQM Team gave for saving a completed control in place; undefined (not sent) for any other save
+function completedEditReasonForSave() {
+    return window.qtrackerCompletedEditReason || undefined;
+}
+
+// SoQM Team saving a completed control in place, or hiding one of its files: the reason every such change needs
+// (CompletedEdit on the server). Resolves with the trimmed reason, or null when the dialog closes without one.
+function askCompletedEditReason(options) {
+    const modalEl = document.getElementById('completedEditReasonModal');
+    if (!modalEl || typeof bootstrap === 'undefined') {
+        return Promise.resolve(null);
+    }
+    const settings = options || {};
+    const title = document.getElementById('completedEditReasonTitle');
+    const intro = document.getElementById('completedEditReasonIntro');
+    const field = document.getElementById('completedEditReason');
+    const confirmBtn = document.getElementById('completedEditReasonConfirm');
+    [title, intro, confirmBtn].forEach(el => {
+        if (el.dataset.defaultText === undefined) {
+            el.dataset.defaultText = el.textContent.replace(/\s+/g, ' ').trim();
+        }
+    });
+    title.textContent = settings.title || title.dataset.defaultText;
+    intro.textContent = settings.intro || intro.dataset.defaultText;
+    confirmBtn.textContent = settings.confirmText || confirmBtn.dataset.defaultText;
+    field.value = '';
+    field.classList.remove('is-invalid');
+    field.removeAttribute('aria-invalid');
+
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    return new Promise(resolve => {
+        let reason = null;
+        const confirm = () => {
+            const value = field.value.trim();
+            if (!value) {
+                field.classList.add('is-invalid');
+                field.setAttribute('aria-invalid', 'true');
+                field.focus();
+                return;
+            }
+            reason = value;
+            modal.hide();
+        };
+        // Ctrl+Enter saves from the text box; Enter alone starts a new line
+        const onKey = event => {
+            if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                event.preventDefault();
+                confirm();
+            }
+        };
+        const onInput = () => {
+            if (field.value.trim()) {
+                field.classList.remove('is-invalid');
+                field.removeAttribute('aria-invalid');
+            }
+        };
+        const onShown = () => field.focus();
+        confirmBtn.addEventListener('click', confirm);
+        field.addEventListener('keydown', onKey);
+        field.addEventListener('input', onInput);
+        modalEl.addEventListener('shown.bs.modal', onShown);
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            confirmBtn.removeEventListener('click', confirm);
+            field.removeEventListener('keydown', onKey);
+            field.removeEventListener('input', onInput);
+            modalEl.removeEventListener('shown.bs.modal', onShown);
+            resolve(reason);
+        }, { once: true });
+        modal.show();
+    });
+}
+
+// Save endpoints answer a refused change with "VALIDATION_ERROR: <reason>"; the user sees only the reason.
+// Global, as the save code both inside and outside the IIFE uses it.
+function serverErrorText(text) {
+    const raw = String(text || '');
+    // JSON error bodies (ErrorResponse, e.g. CSRF_INVALID) carry the readable text in "message"
+    if (raw.trim().startsWith('{')) {
+        try {
+            const json = JSON.parse(raw);
+            if (json && typeof json.message === 'string' && json.message) {
+                return json.message;
+            }
+        } catch (e) {
+            // not JSON after all: show it as it is
+        }
+    }
+    return raw.replace(/^\s*VALIDATION_ERROR:\s*/, '');
+}
+
+// A stored value that none of the select's options carries (older or imported data) gets an option of its
+// own, so the select shows it instead of the placeholder and Save does not blank it
+function keepStoredSelectValue(select, value) {
+    if (!select || value === null || value === undefined || String(value).trim() === '' || select.value !== '') {
+        return;
+    }
+    const option = new Option(value, value, true, true);
+    option.dataset.storedValue = 'true';
+    select.add(option);
+}
+
+// While that option is still selected the field is unchanged; null makes the server keep the stored value
+function selectValueForSave(select) {
+    const selected = select.options[select.selectedIndex];
+    return selected && selected.dataset.storedValue === 'true' ? null : select.value;
+}
+
 // Global access helper for workflow checks used outside the IIFE scope.
 function areWorkflowActionsAllowed() {
     if (window.qtrackerPermissions
@@ -3203,7 +3135,10 @@ function buildDetailsPayload(controlId) {
 
     const getDetailsValue = (selector) => {
         const element = detailsForm.querySelector(selector);
-        return element ? element.value : '';
+        if (!element) {
+            return '';
+        }
+        return element.tagName === 'SELECT' ? selectValueForSave(element) : element.value;
     };
 
     const payload = {
@@ -3216,6 +3151,10 @@ function buildDetailsPayload(controlId) {
         otherRelatedControls: getDetailsValue('[name="otherRelatedControls"]'),
         itApplications: getDetailsValue('[name="itApplications"]'),
         controlStepsPerformed: getDetailsValue('[name="controlStepsPerformed"]'),
+        // Always on the page; without the right to change it, applyDetailsPermissions sends null (kept as stored)
+        controlOperatorReview: detailsForm.querySelector('[name="controlOperatorReview"]')
+            ? getDetailsValue('[name="controlOperatorReview"]')
+            : null,
         soqmHeadComments: getDetailsValue('[name="soqmHeadComments"]'),
         processOwnerComments: getDetailsValue('[name="processOwnerComments"]')
     };
@@ -3291,20 +3230,37 @@ function showSavedSuccessfullyModal(options) {
     });
 }
 
-function showWorkflowRequirementMessage(message, field) {
-    if (window.showAppModal) {
-        showAppModal({
-            variant: 'warning',
-            title: 'Missing Required Field',
-            message: message,
-            autoCloseMs: 0
-        });
-    } else {
-        alert(message);
+// The field may sit on a hidden tab: open that tab right away, focus the field once the message is closed
+function revealFieldTab(field) {
+    if (field && window.ViewControlTabs) {
+        ViewControlTabs.revealField(field);
     }
+}
+
+function focusField(field) {
     if (field && typeof field.focus === 'function') {
         field.focus();
     }
+}
+
+function showMissingFieldMessage(message, field, title) {
+    revealFieldTab(field);
+    if (window.showAppModal) {
+        showAppModal({
+            variant: 'warning',
+            title: title || 'Missing Required Field',
+            message: message,
+            autoCloseMs: 0,
+            onClose: () => focusField(field)
+        });
+    } else {
+        alert(message);
+        focusField(field);
+    }
+}
+
+function showWorkflowRequirementMessage(message, field) {
+    showMissingFieldMessage(message, field);
 }
 
 function isBlankValueForWorkflow(value) {
@@ -3312,6 +3268,9 @@ function isBlankValueForWorkflow(value) {
 }
 
 function getWorkflowRoleRequirement() {
+    // The field's name as the page shows it (ControlStepsFields.STEPS_LABEL)
+    const stepsLabel = document.querySelector('label[for="controlStepsPerformed"] span')?.textContent
+        || 'Control Steps Performed and Results';
     const isFacilitator = document.getElementById('isFacilitator')?.value === 'true';
     const isControlOperator = document.getElementById('isControlOperator')?.value === 'true';
     const isSoqmLead = document.getElementById('isSoqmLead')?.value === 'true';
@@ -3321,21 +3280,37 @@ function getWorkflowRoleRequirement() {
     if (isFacilitator && performanceStatus === 'IN_PROGRESS') {
         return {
             field: document.querySelector('textarea[name="controlStepsPerformed"]'),
-            message: 'To submit, please fill: Control steps performed and results'
+            message: 'To submit, please fill: ' + stepsLabel
         };
     }
 
+    // Submit to SoQM Team checks the steps field; Control Operator's Program is required by no step
     if (isControlOperator && performanceStatus === 'REVIEW') {
         return {
             field: document.querySelector('textarea[name="controlStepsPerformed"]'),
-            message: 'To submit, please fill: Control steps performed and results'
+            message: 'To submit, please fill: ' + stepsLabel
         };
     }
 
     if (isSoqmLead && performanceStatus === 'SOQM_HEAD_REVIEW') {
+        const soqmComments = document.querySelector('textarea[name="soqmHeadComments"]');
+        if (soqmComments && isBlankValueForWorkflow(soqmComments.value)) {
+            return {
+                field: soqmComments,
+                message: 'To continue, please fill: SoQM Head/Team Comments'
+            };
+        }
         return {
             field: document.querySelector('textarea[name="controlStepsPerformed"]'),
-            message: 'To submit, please fill: Control steps performed and results'
+            message: 'To submit, please fill: ' + stepsLabel
+        };
+    }
+
+    // Process Owner comments are required for Complete / Return and are saved before the action
+    if (isProcessOwner && performanceStatus === 'PROCESS_OWNER_REVIEW') {
+        return {
+            field: document.querySelector('textarea[name="processOwnerComments"]'),
+            message: 'To continue, please fill: Process Owner Comments'
         };
     }
 
@@ -3374,7 +3349,7 @@ function saveDetailsDataSilently(controlId) {
     })
     .then(async response => {
         if (!response.ok) {
-            const errorText = await response.text();
+            const errorText = serverErrorText(await response.text());
             throw new Error(errorText || 'Details save failed');
         }
         detailsDataCache = { ...(detailsDataCache || {}), ...detailsData };
@@ -3546,9 +3521,8 @@ document.addEventListener('click', async (event) => {
     const returnToFacilitatorBtn = event.target.closest('#returnToFacilitatorBtn');
     const submitToSoqmLeadBtn = event.target.closest('#submitToSoqmLeadBtn');
     const returnToOperatorBtn = event.target.closest('#returnToOperatorBtn');
-    const returnToSoqmLeadBtn = event.target.closest('#returnToSoqmLeadBtn');
-    const sharedSubmitToSoqmBtn = event.target.closest('#sharedSubmitToSoqmBtn');
-    if (!reviewBtn && !processOwnerBtn && !returnToFacilitatorBtn && !submitToSoqmLeadBtn && !returnToOperatorBtn && !returnToSoqmLeadBtn && !sharedSubmitToSoqmBtn) {
+    const ownerReturnToOperatorBtn = event.target.closest('#ownerReturnToOperatorBtn');
+    if (!reviewBtn && !processOwnerBtn && !returnToFacilitatorBtn && !submitToSoqmLeadBtn && !returnToOperatorBtn && !ownerReturnToOperatorBtn) {
         return;
     }
 
@@ -3598,7 +3572,8 @@ document.addEventListener('click', async (event) => {
         return;
     }
 
-    if (returnToOperatorBtn) {
+    // SoQM (from SoQM review) and the Process Owner (from Process Owner review) return the same way
+    if (returnToOperatorBtn || ownerReturnToOperatorBtn) {
         console.log('Return to Operator clicked');
         if (!await ensureWorkflowRoleReady()) {
             return;
@@ -3610,30 +3585,6 @@ document.addEventListener('click', async (event) => {
         }
         return;
     }
-
-    if (returnToSoqmLeadBtn) {
-        console.log('Return to SoQM Team clicked');
-        if (!await ensureWorkflowRoleReady()) {
-            return;
-        }
-        const modalElement = document.getElementById('returnSoqmLeadModal');
-        if (modalElement) {
-            const modal = new bootstrap.Modal(modalElement);
-            modal.show();
-        }
-    }
-
-    if (sharedSubmitToSoqmBtn) {
-        console.log('Shared Submit for SoQM Team clicked');
-        if (!await ensureWorkflowRoleReady()) {
-            return;
-        }
-        const modalElement = document.getElementById('sharedSubmitSoqmModal');
-        if (modalElement) {
-            const modal = new bootstrap.Modal(modalElement);
-            modal.show();
-        }
-    }
 });
 
 document.addEventListener('submit', (event) => {
@@ -3642,7 +3593,7 @@ document.addEventListener('submit', (event) => {
         return;
     }
 
-    if (form.querySelector('#submitForReviewBtn, #submitToProcessOwnerBtn, #submitToSoqmLeadBtn, #returnToFacilitatorBtn, #returnToOperatorBtn, #returnToSoqmLeadBtn, #sharedSubmitToSoqmBtn')) {
+    if (form.querySelector('#submitForReviewBtn, #submitToProcessOwnerBtn, #submitToSoqmLeadBtn, #returnToFacilitatorBtn, #returnToOperatorBtn, #ownerReturnToOperatorBtn')) {
         event.preventDefault();
     }
 });
@@ -3722,32 +3673,6 @@ async function confirmSubmitToSoqmLead() {
     });
 }
 
-// ========== SHARED SUBMIT TO SoQM Team (Shared viewer в†’ SoQM Team from COMPLETED) ==========
-async function confirmSharedSubmitToSoqmLead() {
-    console.log('рџ” Confirm Shared Submit to SoQM Team');
-
-    if (!await ensureWorkflowRoleReady()) {
-        return;
-    }
-
-    const controlIdElement = document.querySelector('input[name="id"]');
-    const controlId = controlIdElement ? controlIdElement.value : null;
-
-    if (!controlId) {
-        alert('Error: Control ID not found');
-        return;
-    }
-
-    submitWorkflowActionWithModal({
-        url: '/api/workflow/shared-submit-to-soqm-lead?controlId=' + controlId,
-        confirmBtnId: 'confirmSharedSubmitSoqmBtn',
-        confirmModalId: 'sharedSubmitSoqmModal',
-        successRedirectUrl: '/',
-        successLogMessage: 'Shared Submit for SoQM Team success -> showing popup',
-        successTimerMs: 2500
-    });
-}
-
 // ========== RETURN TO FACILITATOR HANDLERS (Control Operator в†’ Facilitator) ==========
 async function confirmReturnToFacilitator() {
     console.log('рџ” Confirm Return to Facilitator');
@@ -3764,15 +3689,13 @@ async function confirmReturnToFacilitator() {
         return;
     }
 
-    // Get optional comments
-    const commentsElement = document.getElementById('returnComments');
-    const comments = commentsElement ? commentsElement.value.trim() : '';
-
-    // Build request URL with optional comments parameter
-    let url = '/api/workflow/return-to-facilitator?controlId=' + controlId;
-    if (comments) {
-        url += '&comments=' + encodeURIComponent(comments);
+    // Every return needs a reason (the server refuses one without)
+    const comments = requiredReturnComment('returnComments');
+    if (comments === null) {
+        return;
     }
+    const url = '/api/workflow/return-to-facilitator?controlId=' + controlId
+        + '&comments=' + encodeURIComponent(comments);
 
     submitWorkflowActionWithModal({
         url: url,
@@ -4072,7 +3995,7 @@ function buildChangelogCard(entry) {
 
     const actorEl = document.createElement('div');
     actorEl.className = 'changelog-user';
-    if (entryType === 'workflow') {
+    if (entryType === 'workflow' && !actorName && !actorEmail) {
         actorEl.textContent = 'Workflow event';
     } else if (actorName && actorEmail) {
         actorEl.textContent = `${actorName} `;
@@ -4105,7 +4028,10 @@ function buildChangelogCard(entry) {
         const actionLine = document.createElement('div');
         actionLine.className = 'changelog-workflow-action';
 
-        const transition = inferWorkflowTransition(entry.eventName);
+        // The statuses the server recorded; old entries without them are read from the event name
+        const transition = entry.fromStep && entry.toStep
+            ? { from: entry.fromStep, to: entry.toStep }
+            : inferWorkflowTransition(entry.eventName);
         actionLine.textContent = buildWorkflowSummary(entry.eventName, transition);
         const fromStep = transition.from || 'Unknown';
         const toStep = transition.to || 'Unknown';
@@ -4131,6 +4057,15 @@ function buildChangelogCard(entry) {
         workflowBlock.appendChild(actionLine);
         workflowBlock.appendChild(flowLine);
 
+        // SoQM made the move for the people assigned to that step
+        if (entry.onBehalf) {
+            const behalfLine = document.createElement('div');
+            behalfLine.className = 'changelog-workflow-on-behalf';
+            behalfLine.textContent = 'On behalf of the ' + (entry.actedAs || 'assigned person')
+                + (entry.assignedPerformer ? ' (assigned: ' + entry.assignedPerformer + ')' : '');
+            workflowBlock.appendChild(behalfLine);
+        }
+
         if (shouldShowWorkflowComment(entry)) {
             const commentLine = document.createElement('div');
             commentLine.className = 'changelog-workflow-comment';
@@ -4149,6 +4084,21 @@ function buildChangelogCard(entry) {
         title.className = 'changelog-event-title';
         title.textContent = entry.eventName || 'Field Changes';
         body.appendChild(title);
+
+        // A change SoQM Team made to the completed control without returning it, with its reason (CompletedEdit)
+        if (entry.editedAfterCompletion) {
+            const mark = document.createElement('span');
+            mark.className = 'changelog-completed-edit';
+            mark.textContent = 'Edited after completion';
+            title.appendChild(document.createTextNode(' '));
+            title.appendChild(mark);
+            if (entry.reason) {
+                const reasonLine = document.createElement('div');
+                reasonLine.className = 'changelog-completed-edit-reason';
+                reasonLine.textContent = 'Reason: ' + entry.reason;
+                body.appendChild(reasonLine);
+            }
+        }
 
         changes.changes.forEach(change => {
             const row = document.createElement('div');
@@ -4387,12 +4337,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.log('вњ… Confirm Submit to SoQM Team handler added');
     }
 
-    const confirmSharedSubmitSoqmBtn = document.getElementById('confirmSharedSubmitSoqmBtn');
-    if (confirmSharedSubmitSoqmBtn) {
-        confirmSharedSubmitSoqmBtn.addEventListener('click', confirmSharedSubmitToSoqmLead);
-        console.log('вњ… Confirm Shared Submit to SoQM Team handler added');
-    }
-
     const confirmReturnFacilitatorBtn = document.getElementById('confirmReturnFacilitatorBtn');
     if (confirmReturnFacilitatorBtn) {
         confirmReturnFacilitatorBtn.addEventListener('click', confirmReturnToFacilitator);
@@ -4418,12 +4362,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         confirmCompleteControlBtn.addEventListener('click', confirmCompleteControl);
         console.log('вњ… Confirm Complete Control handler added');
     }
-
-    const confirmReturnSoqmLeadBtn = document.getElementById('confirmReturnSoqmLeadBtn');
-    if (confirmReturnSoqmLeadBtn) {
-        confirmReturnSoqmLeadBtn.addEventListener('click', confirmReturnToSoqmLead);
-        console.log('вњ… Confirm Return to SoQM Team handler added');
-    }
 });
 
 async function confirmReturnToOperator() {
@@ -4441,15 +4379,13 @@ async function confirmReturnToOperator() {
         return;
     }
 
-    // Get optional comments
-    const commentsElement = document.getElementById('returnOperatorComments');
-    const comments = commentsElement ? commentsElement.value.trim() : '';
-
-    // Build request URL with optional comments parameter
-    let url = '/api/workflow/return-to-operator?controlId=' + controlId;
-    if (comments) {
-        url += '&comments=' + encodeURIComponent(comments);
+    // Every return needs a reason (the server refuses one without)
+    const comments = requiredReturnComment('returnOperatorComments');
+    if (comments === null) {
+        return;
     }
+    const url = '/api/workflow/return-to-operator?controlId=' + controlId
+        + '&comments=' + encodeURIComponent(comments);
 
     submitWorkflowActionWithModal({
         url: url,
@@ -4500,7 +4436,7 @@ async function confirmCompleteControl() {
     .then(response => {
         if (!response.ok) {
             return response.text().then(text => {
-                throw new Error('Error completing control: ' + text);
+                throw new Error('Error completing control: ' + serverErrorText(text));
             });
         }
         return response.text();
@@ -4536,39 +4472,27 @@ async function confirmCompleteControl() {
     });
 }
 
-async function confirmReturnToSoqmLead() {
-    console.log('рџ” Confirm Return to SoQM Team');
-
-    if (!await ensureWorkflowRoleReady()) {
-        return;
+/**
+ * The return comment from a return modal, trimmed; null (and the field marked) when it is empty.
+ * The mark goes as soon as something is typed.
+ */
+function requiredReturnComment(textareaId) {
+    const field = document.getElementById(textareaId);
+    const value = field ? field.value.trim() : '';
+    if (value) {
+        field.classList.remove('is-invalid');
+        return value;
     }
-    
-    const controlIdElement = document.querySelector('input[name="id"]');
-    const controlId = controlIdElement ? controlIdElement.value : null;
-    
-    if (!controlId) {
-        alert('Error: Control ID not found');
-        return;
+    if (field) {
+        field.classList.add('is-invalid');
+        field.setAttribute('aria-invalid', 'true');
+        field.addEventListener('input', () => {
+            field.classList.remove('is-invalid');
+            field.removeAttribute('aria-invalid');
+        }, { once: true });
+        field.focus();
     }
-
-    // Get optional comments
-    const commentsElement = document.getElementById('returnSoqmLeadComments');
-    const comments = commentsElement ? commentsElement.value.trim() : '';
-
-    // Build request URL with optional comments parameter
-    let url = '/api/workflow/return-to-soqm-lead?controlId=' + controlId;
-    if (comments) {
-        url += '&comments=' + encodeURIComponent(comments);
-    }
-
-    submitWorkflowActionWithModal({
-        url: url,
-        confirmBtnId: 'confirmReturnSoqmLeadBtn',
-        confirmModalId: 'returnSoqmLeadModal',
-        successRedirectUrl: '/controls',
-        successLogMessage: 'Return to SoQM Team success -> showing popup',
-        successTimerMs: 2500
-    });
+    return null;
 }
 
 window.viewControl = viewControl;

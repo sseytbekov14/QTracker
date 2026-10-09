@@ -3,9 +3,13 @@ package com.kpmg.qtracker.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.enums.ControlFrequency;
 import com.kpmg.qtracker.service.*;
+import com.kpmg.qtracker.util.RoleDisplayMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -31,6 +35,7 @@ public class ControlTabsController {
     private final SemiAnnualNotificationService semiAnnualNotificationService;
     private final NotificationService notificationService;
     private final ControlPermissionService controlPermissionService;
+    private final PermissionService permissionService;
 
     @PostMapping("/api/control-details")
     public ResponseEntity<?> saveControlDetails(@Valid @RequestBody ControlDetailsDTO detailsDTO, HttpSession session) {
@@ -52,14 +57,12 @@ public class ControlTabsController {
             ControlPermission permission = controlPermissionService.resolve(control, currentUser, assignment);
             if (!permission.canEdit()) {
                 return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: User does not have permission to edit this control");
+                        .body("VALIDATION_ERROR: " + permission.editRefusal("User does not have permission to edit this control"));
             }
             ControlDetailsDTO existingDetails = controlDetailsService.getDetailsByControlId(detailsDTO.getControlId());
-            if (permission.isSharedCompleted()) {
-                String validationError = validateSharedCompletedDetailsUpdate(existingDetails, detailsDTO, permission);
-                if (validationError != null) {
-                    return ResponseEntity.status(403).body(validationError);
-                }
+            String stepsRefusal = stepsFieldRefusal(existingDetails, detailsDTO, permission);
+            if (stepsRefusal != null) {
+                return ResponseEntity.status(403).body("VALIDATION_ERROR: " + stepsRefusal);
             }
             ControlDetailsDTO mergedDetails = mergeControlDetails(existingDetails, detailsDTO, permission);
             Map<String, String> previousValues = new LinkedHashMap<>();
@@ -80,14 +83,22 @@ public class ControlTabsController {
                     existingDetails.getOtherRelatedControls(), mergedDetails.getOtherRelatedControls());
             collectChange(changedFields, previousValues, newValues, "IT Applications",
                     existingDetails.getItApplications(), mergedDetails.getItApplications());
-            collectChange(changedFields, previousValues, newValues, "Control Steps Performed and Results",
+            collectChange(changedFields, previousValues, newValues, ControlStepsFields.STEPS_LABEL,
                     existingDetails.getControlStepsPerformed(), mergedDetails.getControlStepsPerformed());
+            collectChange(changedFields, previousValues, newValues, ControlStepsFields.OPERATOR_PROGRAM_LABEL,
+                    existingDetails.getControlOperatorReview(), mergedDetails.getControlOperatorReview());
             collectChange(changedFields, previousValues, newValues, "SoQM Head/Team Comments",
                     existingDetails.getSoqmHeadComments(), mergedDetails.getSoqmHeadComments());
             collectChange(changedFields, previousValues, newValues, "Process Owner Comments",
                     existingDetails.getProcessOwnerComments(), mergedDetails.getProcessOwnerComments());
+            Optional<String> reasonRefusal = CompletedEdit.refusal(permission, !changedFields.isEmpty(),
+                    detailsDTO.getEditReason());
+            if (reasonRefusal.isPresent()) {
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + reasonRefusal.get());
+            }
             controlDetailsService.saveDetails(mergedDetails);
-            logChanges(session, detailsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues);
+            logChanges(session, detailsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues,
+                    CompletedEdit.reasonOf(permission, detailsDTO.getEditReason()));
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error saving details: " + e.getMessage());
@@ -114,15 +125,29 @@ public class ControlTabsController {
             Control control = controlService.getControlById(assignmentDTO.getControlId()).orElse(null);
             ControlAssignmentDTO existingAssignment = controlAssignmentService.getAssignmentByControlId(assignmentDTO.getControlId());
             ControlPermission permission = controlPermissionService.resolve(control, currentUser, existingAssignment);
-            if (!permission.canEdit()) {
+            // Participants must not reassign roles (e.g. appoint themselves Process Owner and complete alone)
+            if (!permission.canEditAll()) {
                 return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: User does not have permission to edit this control");
+                        .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Team can change control assignment"));
             }
-            if (permission.isSharedCompleted()) {
-                return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: Shared users on COMPLETED controls cannot edit assignment fields");
+            // A completed control changed in place keeps its schedule (AccessPolicy.COMPLETED_FIXED_FIELDS): another
+            // Control Operation Date is refused, the deadline and the next date are never taken from the request
+            boolean keepSchedule = permission.isCompletedEdit();
+            if (keepSchedule && assignmentDTO.getControlOperationDate() != null
+                    && (existingAssignment == null
+                    || !assignmentDTO.getControlOperationDate().equals(existingAssignment.getControlOperationDate()))) {
+                return ResponseEntity.status(403).body("VALIDATION_ERROR: "
+                        + AccessPolicy.completedFixedMessage("Control Operation Date"));
             }
             ControlAssignmentDTO mergedAssignment = mergeControlAssignment(existingAssignment, assignmentDTO);
+            String missingField = findMissingAssignmentField(mergedAssignment);
+            if (missingField != null) {
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + missingField + " is required");
+            }
+            String frequencyError = keepSchedule ? null : findScheduleFrequencyError(control, mergedAssignment);
+            if (frequencyError != null) {
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + frequencyError);
+            }
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
             List<String> changedFields = new ArrayList<>();
@@ -139,12 +164,24 @@ public class ControlTabsController {
                     existingAssignment.getControlSharedWith(), mergedAssignment.getControlSharedWith());
             collectChange(changedFields, previousValues, newValues, "Control Operation Date",
                     existingAssignment.getControlOperationDate(), mergedAssignment.getControlOperationDate());
-            collectChange(changedFields, previousValues, newValues, "Control Operation Deadline",
-                    existingAssignment.getControlOperationDeadline(), mergedAssignment.getControlOperationDeadline());
-            collectChange(changedFields, previousValues, newValues, "Next Control Operation Date",
-                    existingAssignment.getNextControlOperationDate(), mergedAssignment.getNextControlOperationDate());
+            Optional<String> reasonRefusal = CompletedEdit.refusal(permission, !changedFields.isEmpty(),
+                    assignmentDTO.getEditReason());
+            if (reasonRefusal.isPresent()) {
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + reasonRefusal.get());
+            }
 
-            controlAssignmentService.saveAssignment(mergedAssignment);
+            ControlAssignment saved;
+            try {
+                saved = controlAssignmentService.saveAssignment(mergedAssignment, keepSchedule);
+            } catch (IllegalArgumentException refused) {
+                // Someone who may not hold that field (read-only, wrong level, KDN scope on a non-KDN control)
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + refused.getMessage());
+            }
+            // The service calculates both from the date and the frequency; the log shows what it stored
+            collectChange(changedFields, previousValues, newValues, "Control Operation Deadline",
+                    existingAssignment.getControlOperationDeadline(), saved.getControlOperationDeadline());
+            collectChange(changedFields, previousValues, newValues, "Next Control Operation Date",
+                    existingAssignment.getNextControlOperationDate(), saved.getNextControlOperationDate());
 
             // Send notifications to newly shared users
             List<String> oldShared = existingAssignment != null && existingAssignment.getControlSharedWith() != null
@@ -161,7 +198,8 @@ public class ControlTabsController {
                 }
             }
 
-            logChanges(session, assignmentDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues);
+            logChanges(session, assignmentDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues,
+                    CompletedEdit.reasonOf(permission, assignmentDTO.getEditReason()));
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error saving assignment: " + e.getMessage());
@@ -183,13 +221,10 @@ public class ControlTabsController {
             Control control = controlService.getControlById(documentsDTO.getControlId()).orElse(null);
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(documentsDTO.getControlId());
             ControlPermission permission = controlPermissionService.resolve(control, currentUser, assignment);
-            if (!permission.canEdit()) {
+            // SoQM Development Materials belong to the SoQM Team, not to the stage participants
+            if (!permission.canEditAll()) {
                 return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: User does not have permission to edit this control");
-            }
-            if (permission.isSharedCompleted()) {
-                return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: Shared users on COMPLETED controls cannot edit document fields");
+                        .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Team can change SoQM Development Materials"));
             }
             ControlDocumentsDTO existingDocuments = controlDocumentsService.getDocumentsByControlId(documentsDTO.getControlId());
             ControlDocumentsDTO mergedDocuments = mergeControlDocuments(existingDocuments, documentsDTO);
@@ -200,34 +235,102 @@ public class ControlTabsController {
             collectChange(changedFields, previousValues, newValues, "SoQM Development Materials",
                     existingDocuments.getSoqmDevelopmentMaterials(), mergedDocuments.getSoqmDevelopmentMaterials());
 
+            Optional<String> reasonRefusal = CompletedEdit.refusal(permission, !changedFields.isEmpty(),
+                    documentsDTO.getEditReason());
+            if (reasonRefusal.isPresent()) {
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + reasonRefusal.get());
+            }
             controlDocumentsService.saveDocuments(mergedDocuments);
-            logChanges(session, documentsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues);
+            logChanges(session, documentsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues,
+                    CompletedEdit.reasonOf(permission, documentsDTO.getEditReason()));
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error saving documents: " + e.getMessage());
         }
     }
 
-    // Get all users for assignment dropdowns
+    /**
+     * SoQM and admins get every user, for the assignment pickers. Anyone else gets only the people
+     * on the control they may read, by name and e-mail, so View Control can show who is assigned.
+     */
     @GetMapping("/api/users/all")
-    public ResponseEntity<List<UserDTO>> getAllUsers() {
-        List<UserDTO> users = userService.getAllUsers().stream()
-                .map(this::convertToUserDTO)
+    public ResponseEntity<List<UserDTO>> getAllUsers(@RequestParam(required = false) Long controlId,
+                                                     HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (AccessPolicy.canListAllUsers(AccessPolicy.Subject.of(currentUser))) {
+            List<UserDTO> users = userService.getAllUsers().stream()
+                    .map(this::convertToUserDTO)
+                    .toList();
+            return ResponseEntity.ok(users);
+        }
+        if (currentUser != null && controlId == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        permissionService.requireReadable(controlId, currentUser);
+
+        ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
+        Set<String> mails = new LinkedHashSet<>();
+        for (List<String> group : List.of(nullToEmpty(assignment.getFacilitator()),
+                nullToEmpty(assignment.getControlOperator()), nullToEmpty(assignment.getSoqmLead()),
+                nullToEmpty(assignment.getProcessOwner()), nullToEmpty(assignment.getControlSharedWith()))) {
+            group.stream().filter(mail -> mail != null && !mail.isBlank()).map(String::trim).forEach(mails::add);
+        }
+        Map<Long, UserDTO> people = new LinkedHashMap<>();
+        for (String mail : mails) {
+            userService.getUserByEmail(mail).ifPresent(user -> people.putIfAbsent(user.getId(), nameAndMail(user)));
+        }
+        return ResponseEntity.ok(new ArrayList<>(people.values()));
+    }
+
+    /**
+     * The people an assignment picker offers (FACILITATOR, CONTROL_OPERATOR, SOQM_TEAM, PROCESS_OWNER,
+     * SHARED_WITH): enabled users the field accepts ({@link AccessPolicy#isOfferedFor}); with the control,
+     * KDN-scope users only for a KDN control. Only SoQM assigns people, so only SoQM gets the lists.
+     */
+    @GetMapping("/api/users/role/{role}")
+    public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable String role,
+                                                        @RequestParam(required = false) Long controlId,
+                                                        HttpSession session) {
+        if (!AccessPolicy.isSoqm(AccessPolicy.Subject.of((User) session.getAttribute("currentUser")))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        Optional<AccessPolicy.Slot> slot = AccessPolicy.Slot.forPicker(role);
+        if (slot.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        Control control = controlId == null ? null : controlService.getControlById(controlId).orElse(null);
+        boolean kdnControl = control != null && AccessPolicy.isKdnControl(control.getControlId());
+        // Shared With of a control: what a place there would give each person (a draft opens once initiated, ...)
+        ControlAssignmentDTO assignment = control != null && slot.get() == AccessPolicy.Slot.SHARED_WITH
+                ? controlAssignmentService.getAssignmentByControlId(control.getId()) : null;
+        List<UserDTO> users = userService.getUsersOfferedFor(slot.get(), kdnControl).stream()
+                .map(user -> {
+                    UserDTO dto = convertToUserDTO(user);
+                    if (assignment != null) {
+                        AccessPolicy.SharedAccess access = permissionService.sharedAccess(control, user, assignment);
+                        dto.setSharedAccess(access != null ? access.name() : null);
+                        dto.setSharedNote(RoleDisplayMapper.sharedNote(access));
+                    }
+                    return dto;
+                })
                 .toList();
         return ResponseEntity.ok(users);
     }
 
-    // Get users filtered by role
-    @GetMapping("/api/users/role/{role}")
-    public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable String role) {
-        List<UserDTO> users = userService.getUsersByRole(role).stream()
-                .map(this::convertToUserDTO)
-                .toList();
-        return ResponseEntity.ok(users);
+    private static List<String> nullToEmpty(List<String> values) {
+        return values == null ? List.of() : values;
+    }
+
+    private UserDTO nameAndMail(User user) {
+        UserDTO dto = new UserDTO();
+        dto.setDisplayName(user.getDisplayName());
+        dto.setMail(user.getMail());
+        return dto;
     }
 
     @GetMapping("/api/control-details")
-    public ResponseEntity<ControlDetailsDTO> getControlDetails(@RequestParam Long controlId) {
+    public ResponseEntity<ControlDetailsDTO> getControlDetails(@RequestParam Long controlId, HttpSession session) {
+        permissionService.requireReadable(controlId, (User) session.getAttribute("currentUser"));
         try {
             ControlDetailsDTO details = controlDetailsService.getDetailsByControlId(controlId);
             return ResponseEntity.ok(details);
@@ -237,7 +340,8 @@ public class ControlTabsController {
     }
 
     @GetMapping("/api/control-assignment")
-    public ResponseEntity<ControlAssignmentDTO> getControlAssignment(@RequestParam Long controlId) {
+    public ResponseEntity<ControlAssignmentDTO> getControlAssignment(@RequestParam Long controlId, HttpSession session) {
+        permissionService.requireReadable(controlId, (User) session.getAttribute("currentUser"));
         try {
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
             return ResponseEntity.ok(assignment);
@@ -247,7 +351,8 @@ public class ControlTabsController {
     }
 
     @GetMapping("/api/control-documents")
-    public ResponseEntity<ControlDocumentsDTO> getControlDocuments(@RequestParam Long controlId) {
+    public ResponseEntity<ControlDocumentsDTO> getControlDocuments(@RequestParam Long controlId, HttpSession session) {
+        permissionService.requireReadable(controlId, (User) session.getAttribute("currentUser"));
         try {
             ControlDocumentsDTO documents = controlDocumentsService.getDocumentsByControlId(controlId);
             return ResponseEntity.ok(documents);
@@ -261,20 +366,29 @@ public class ControlTabsController {
         dto.setId(user.getId());
         dto.setDisplayName(user.getDisplayName());
         dto.setMail(user.getMail());
-        dto.setTitle(user.getRole());
-        dto.setRole(user.getRole());
+        dto.setTitle(RoleDisplayMapper.access(user));
+        dto.setRole(AccessPolicy.Profile.of(user).role().name());
         dto.setEnabled(Boolean.TRUE.equals(user.getEnabled()));
         return dto;
     }
 
+    /**
+     * @param completedEditReason the reason of a change SoQM Team makes to a completed control in place
+     *                            (CompletedEdit): the entry is marked "Edited after completion" and holds it; else null
+     */
     private void logChanges(HttpSession session,
                             Long controlId,
                             String description,
                             List<String> changedFields,
                             Map<String, String> previousValues,
-                            Map<String, String> newValues) {
+                            Map<String, String> newValues,
+                            String completedEditReason) {
         if (changedFields.isEmpty()) {
             return;
+        }
+        if (completedEditReason != null) {
+            description = CompletedEdit.describe(description);
+            CompletedEdit.addReason(changedFields, newValues, completedEditReason);
         }
 
         User currentUser = session != null ? (User) session.getAttribute("currentUser") : null;
@@ -304,56 +418,6 @@ public class ControlTabsController {
         }
     }
 
-    private String validateSharedCompletedDetailsUpdate(ControlDetailsDTO existing,
-                                                        ControlDetailsDTO incoming,
-                                                        ControlPermission permission) {
-        if (incoming == null || permission == null || !permission.isSharedCompleted()) {
-            return null;
-        }
-        ControlDetailsDTO safeExisting = existing != null ? existing : new ControlDetailsDTO();
-        Set<String> allowed = permission.getAllowedEditableFields();
-
-        if (!allowed.contains(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED)
-                && hasForbiddenChange(incoming.getControlStepsPerformed(), safeExisting.getControlStepsPerformed())) {
-            return sharedCompletedDeniedMessage(permission);
-        }
-        if (!allowed.contains(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS)
-                && hasForbiddenChange(incoming.getProcessOwnerComments(), safeExisting.getProcessOwnerComments())) {
-            return sharedCompletedDeniedMessage(permission);
-        }
-
-        if (hasForbiddenChange(incoming.getProcessName(), safeExisting.getProcessName())
-                || hasForbiddenChange(incoming.getHomogeneity(), safeExisting.getHomogeneity())
-                || hasForbiddenChange(incoming.getReferencesToControl(), safeExisting.getReferencesToControl())
-                || hasForbiddenChange(incoming.getDepartment(), safeExisting.getDepartment())
-                || hasForbiddenChange(incoming.getProcessActivities(), safeExisting.getProcessActivities())
-                || hasForbiddenChange(incoming.getOtherRelatedControls(), safeExisting.getOtherRelatedControls())
-                || hasForbiddenChange(incoming.getItApplications(), safeExisting.getItApplications())
-                || hasForbiddenChange(incoming.getSoqmHeadComments(), safeExisting.getSoqmHeadComments())) {
-            return sharedCompletedDeniedMessage(permission);
-        }
-        return null;
-    }
-
-    private String sharedCompletedDeniedMessage(ControlPermission permission) {
-        Set<String> allowed = permission != null ? permission.getAllowedEditableFields() : Set.of();
-        if (allowed.isEmpty()) {
-            return "VALIDATION_ERROR: Shared users on COMPLETED controls cannot edit fields for this role";
-        }
-        return "VALIDATION_ERROR: Shared users on COMPLETED controls can edit only: " + String.join(", ", allowed);
-    }
-
-    private boolean hasForbiddenChange(String incoming, String existing) {
-        if (incoming == null) {
-            return false;
-        }
-        return !Objects.equals(normalizeString(incoming), normalizeString(existing));
-    }
-
-    private String normalizeString(String value) {
-        return value == null ? "" : value.trim();
-    }
-
     private ControlDetailsDTO mergeControlDetails(ControlDetailsDTO existing,
                                                   ControlDetailsDTO incoming,
                                                   ControlPermission permission) {
@@ -364,7 +428,8 @@ public class ControlTabsController {
         merged.setControlId(controlId);
 
         boolean allowAll = permission != null && permission.canEditAll();
-        boolean allowSteps = permission != null && permission.canEditStepsPerformed();
+        boolean allowSteps = permission != null && permission.canWriteStepsPerformed();
+        boolean allowOperatorReview = permission != null && permission.canWriteOperatorReview();
         boolean allowProcessOwner = permission != null && permission.canEditProcessOwnerComments();
 
         merged.setProcessName(resolveString(existing != null ? existing.getProcessName() : null,
@@ -383,13 +448,45 @@ public class ControlTabsController {
                 incoming != null ? incoming.getItApplications() : null, allowAll));
 
         merged.setControlStepsPerformed(resolveString(existing != null ? existing.getControlStepsPerformed() : null,
-                incoming != null ? incoming.getControlStepsPerformed() : null, allowAll || allowSteps));
+                incoming != null ? incoming.getControlStepsPerformed() : null, allowSteps));
+        merged.setControlOperatorReview(resolveString(existing != null ? existing.getControlOperatorReview() : null,
+                incoming != null ? incoming.getControlOperatorReview() : null, allowOperatorReview));
         merged.setProcessOwnerComments(resolveString(existing != null ? existing.getProcessOwnerComments() : null,
                 incoming != null ? incoming.getProcessOwnerComments() : null, allowAll || allowProcessOwner));
         merged.setSoqmHeadComments(resolveString(existing != null ? existing.getSoqmHeadComments() : null,
                 incoming != null ? incoming.getSoqmHeadComments() : null, allowAll));
 
         return merged;
+    }
+
+    /**
+     * Why a save may not change a steps field, or null. Other fields the user may not change are kept as
+     * stored, but the two steps fields belong to one step each, so changing the other one is refused (the
+     * page never sends that: view-control.js sends null for every field the user cannot change).
+     */
+    static String stepsFieldRefusal(ControlDetailsDTO existing, ControlDetailsDTO incoming, ControlPermission permission) {
+        if (incoming == null || permission == null) {
+            return null;
+        }
+        if (changes(existing != null ? existing.getControlStepsPerformed() : null, incoming.getControlStepsPerformed())
+                && !permission.canWriteStepsPerformed()) {
+            return ControlStepsFields.STEPS_LABEL + " is filled in by the Facilitator while the control is In Progress"
+                    + " and by the Control Operator while it is in Review";
+        }
+        if (changes(existing != null ? existing.getControlOperatorReview() : null, incoming.getControlOperatorReview())
+                && !permission.canWriteOperatorReview()) {
+            return ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the SoQM Team";
+        }
+        return null;
+    }
+
+    /** A value sent (not null) that differs from the stored one; line breaks as a textarea sends them, ends trimmed. */
+    private static boolean changes(String stored, String incoming) {
+        return incoming != null && !comparableText(incoming).equals(comparableText(stored));
+    }
+
+    private static String comparableText(String value) {
+        return value == null ? "" : value.replace("\r\n", "\n").trim();
     }
 
     private ControlDocumentsDTO mergeControlDocuments(ControlDocumentsDTO existing,
@@ -424,10 +521,7 @@ public class ControlTabsController {
                 incoming != null ? incoming.getControlSharedWith() : null));
         merged.setControlOperationDate(resolveDate(existing != null ? existing.getControlOperationDate() : null,
                 incoming != null ? incoming.getControlOperationDate() : null));
-        merged.setControlOperationDeadline(resolveDate(existing != null ? existing.getControlOperationDeadline() : null,
-                incoming != null ? incoming.getControlOperationDeadline() : null));
-        merged.setNextControlOperationDate(resolveDate(existing != null ? existing.getNextControlOperationDate() : null,
-                incoming != null ? incoming.getNextControlOperationDate() : null));
+        // The deadline and the next date are not taken from the request: saveAssignment calculates them
 
         return merged;
     }
@@ -437,6 +531,50 @@ public class ControlTabsController {
             return existingValue;
         }
         return incomingValue != null ? incomingValue : existingValue;
+    }
+
+    /** Required assignment fields (same as the Save validation in view-control.js). */
+    private String findMissingAssignmentField(ControlAssignmentDTO assignment) {
+        if (!hasAnyEmail(assignment.getFacilitator())) {
+            return "Facilitator";
+        }
+        if (!hasAnyEmail(assignment.getControlOperator())) {
+            return "Control Operator";
+        }
+        if (!hasAnyEmail(assignment.getSoqmLead())) {
+            return "SoQM Team / Delegate";
+        }
+        if (!hasAnyEmail(assignment.getProcessOwner())) {
+            return "Process Owner";
+        }
+        if (assignment.getControlOperationDate() == null) {
+            return "Control Operation Date";
+        }
+        return null;
+    }
+
+    /**
+     * saveAssignment calculates the deadline and the next date from the control's frequency, so with an
+     * operation date the frequency must be one it knows; otherwise the save failed with "frequency must
+     * not be null" or "Unsupported frequency". Same check as Save in view-control.js.
+     */
+    private String findScheduleFrequencyError(Control control, ControlAssignmentDTO assignment) {
+        if (assignment.getControlOperationDate() == null) {
+            return null;
+        }
+        String frequency = control != null ? control.getControlFrequency() : null;
+        if (frequency == null || frequency.isBlank()) {
+            return "Control Frequency is required to calculate the Control Operation Deadline";
+        }
+        if (ControlFrequency.tryFromValue(frequency).isEmpty()) {
+            return "Control Frequency \"" + frequency.trim() + "\" is not one of " + ControlFrequency.OFFERED
+                    + ", so the Control Operation Deadline cannot be calculated";
+        }
+        return null;
+    }
+
+    private boolean hasAnyEmail(List<String> emails) {
+        return emails != null && emails.stream().anyMatch(e -> e != null && !e.isBlank());
     }
 
     private List<String> resolveList(List<String> existingValue, List<String> incomingValue) {

@@ -58,3 +58,7 @@ qtracker-backup-*.sql/
 ### Generated Java upgrade workspace artifacts ###
 .github/java-upgrade/
 .github/
+
+### Data migration input (personal data, never commit) ###
+/migration/
+*.csv

@@ -28,13 +28,6 @@ public interface WorkflowHistoryRepository extends JpaRepository<WorkflowHistory
            "AND (h.toStep = :stageName OR h.fromStep = :stageName)")
     boolean hasReachedStage(@Param("controlId") Long controlId, @Param("stageName") String stageName);
 
-    @Query("SELECT CASE WHEN COUNT(h) > 0 THEN true ELSE false END " +
-           "FROM WorkflowHistory h WHERE h.controlId = :controlId " +
-           "AND h.performedByEmail = :email " +
-           "AND h.fromStep = 'COMPLETED' " +
-           "AND h.actionType = com.kpmg.qtracker.enums.WorkflowActionType.SUBMIT_TO_SOQM_TEAM")
-    boolean hasSharedSubmitted(@Param("controlId") Long controlId, @Param("email") String email);
-
     @Query("SELECT h.controlId, MAX(h.createdAt) " +
            "FROM WorkflowHistory h " +
            "WHERE h.controlId IN :controlIds " +

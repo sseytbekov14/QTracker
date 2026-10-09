@@ -2,8 +2,9 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Login - QTracker</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
 * {
@@ -270,11 +271,12 @@ body {
 <body>
 <script>
 (function() {
+    // One light theme; a dark theme saved by the former switch is dropped
+    document.body.classList.add('theme-light');
     try {
-        var savedTheme = localStorage.getItem('qtrackerTheme');
-        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+        localStorage.removeItem('qtrackerTheme');
     } catch (error) {
-        document.body.classList.add('theme-light');
+        // Storage may be blocked; nothing is read from it
     }
 })();
 </script>
@@ -304,9 +306,11 @@ body {
             <div class="login-card-body">
                 <form th:action="@{/login}" method="post">
                     <div class="mb-field">
-                        <label for="username" class="form-label">Login</label>
+                        <label for="username" class="form-label"
+                               th:text="${usernameLogin} ? 'Username' : 'Email'">Email</label>
                         <input type="text" class="form-control" id="username" name="username" required
-                               placeholder="Enter username or email" autocomplete="username">
+                               th:placeholder="${usernameLogin} ? 'Enter your username or email' : 'Enter your email'"
+                               placeholder="Enter your email" autocomplete="username">
                     </div>
 
                     <div class="mb-field">

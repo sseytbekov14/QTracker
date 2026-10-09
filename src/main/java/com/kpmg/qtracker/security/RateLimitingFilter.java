@@ -28,7 +28,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
         String method = request.getMethod();
         boolean loginAttempt = path.startsWith("/login") && "POST".equalsIgnoreCase(method);
-        boolean enumerationRead = (path.startsWith("/api/users") || path.startsWith("/api/roles") || path.startsWith("/api/notifications"))
+        boolean enumerationRead = path.startsWith("/api/users")
                 && "GET".equalsIgnoreCase(method);
         boolean highRiskWrite = path.startsWith("/api/") && (
                 "POST".equalsIgnoreCase(method)
@@ -68,7 +68,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         if (path.startsWith("/api/attachments") || path.startsWith("/api/controls/export")) {
             return 20;
         }
-        if (path.startsWith("/api/users") || path.startsWith("/api/roles") || path.startsWith("/api/notifications")) {
+        if (path.startsWith("/api/users")) {
             return 120;
         }
         return 120;
@@ -84,7 +84,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         if (path.startsWith("/api/controls/export")) {
             return "export:" + method;
         }
-        if (path.startsWith("/api/users") || path.startsWith("/api/roles") || path.startsWith("/api/notifications")) {
+        if (path.startsWith("/api/users")) {
             return "enumeration:" + method;
         }
         return "api:" + method;

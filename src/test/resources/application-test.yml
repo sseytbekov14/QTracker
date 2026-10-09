@@ -28,6 +28,10 @@ spring:
   flyway:
     enabled: false
 
+auth:
+  username-login:
+    enabled: true
+
 file:
   upload:
     dir: ${FILE_UPLOAD_DIR:target/test-uploads}

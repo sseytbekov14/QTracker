@@ -217,6 +217,33 @@ class ReminderNotificationServiceTest {
         );
     }
 
+    /** With 14 days to the deadline the second reminder goes out on the deadline day, never after it. */
+    @ParameterizedTest
+    @MethodSource("reminder2Cases")
+    void reminder2AfterTheDeadline_goesOutOnTheDeadlineDay(Long controlId, String frequency, int dayOffset) {
+        Control onTheDeadline = controlWithFrequency(controlId, frequency);
+        service.processControl(onTheDeadline, assignmentWithDates(TODAY.minusDays(14), TODAY), TODAY);
+
+        verify(notificationService).sendTemplateNotifications(
+                eq(onTheDeadline),
+                any(),
+                eq(NotificationTemplateService.TemplateType.REMINDER_2_OPEN),
+                eq(false)
+        );
+        assertLoggedDates(TODAY);
+
+        Control pastTheDeadline = controlWithFrequency(controlId + 1000, frequency);
+        LocalDate operationDate = workingDaysService.addWorkingDays(TODAY, -dayOffset);
+        service.processControl(pastTheDeadline, assignmentWithDates(operationDate, operationDate.plusDays(14)), TODAY);
+
+        verify(notificationService, never()).sendTemplateNotifications(
+                eq(pastTheDeadline),
+                any(),
+                eq(NotificationTemplateService.TemplateType.REMINDER_2_OPEN),
+                eq(false)
+        );
+    }
+
     @ParameterizedTest
     @MethodSource("notDueReminderCases")
     void doesNotSendReminderWhenNotDue(Long controlId, String frequency, int dayOffset) {
@@ -509,6 +536,29 @@ class ReminderNotificationServiceTest {
 
         verify(notificationService, never()).sendTemplateNotifications(any(), any(), any(), anyBoolean());
         verify(logRepository, never()).save(any());
+    }
+
+    @Test
+    void overdue1ReachesEveryAssignee_whenStoredListsUseSemicolons() {
+        Control control = controlWithFrequency(60L, "Monthly");
+        LocalDate operationDate = workingDaysService.addWorkingDays(TODAY, -20);
+        LocalDate deadlineDate = workingDaysService.addWorkingDays(TODAY, -2);
+        ControlAssignmentDTO assignment = assignmentWithDates(operationDate, deadlineDate);
+        // Stored as one column value, the way older rows and auto-created copies keep it
+        assignment.setFacilitator(List.of("fac1@kpmg.kz; fac2@kpmg.kz"));
+        assignment.setControlOperator(List.of("op1@kpmg.kz;op2@kpmg.kz"));
+
+        ReminderControlProjection row = projectionFor(control, assignment);
+        when(controlRepository.findAllForReminders()).thenReturn(List.of(row));
+
+        service.runDailyReminders(TODAY);
+
+        verify(notificationService).sendTemplateNotifications(
+                any(Control.class),
+                eq(List.of("fac1@kpmg.kz", "fac2@kpmg.kz", "op1@kpmg.kz", "op2@kpmg.kz")),
+                eq(NotificationTemplateService.TemplateType.DEADLINE),
+                eq(false)
+        );
     }
 
     private Control controlWithFrequency(Long id, String frequency) {

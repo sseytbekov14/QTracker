@@ -54,6 +54,18 @@ public class NotificationTypeDisplayMapper {
             return new Display("Status Update", CLASS_DEFAULT);
         }
 
+        if ("ON_BEHALF".equals(normalized)) {
+            return new Display("Done for you by SoQM", CLASS_DEFAULT);
+        }
+
+        if ("RETURN_TO_SOQM_TEAM".equals(normalized)) {
+            return new Display("Returned to SoQM Team", CLASS_DEFAULT);
+        }
+
+        if ("RETURN_TO_PROCESS_OWNER".equals(normalized)) {
+            return new Display("Returned to Process Owner", CLASS_DEFAULT);
+        }
+
         if ("COMMENT".equals(normalized)) {
             return new Display("Comment", CLASS_DEFAULT);
         }

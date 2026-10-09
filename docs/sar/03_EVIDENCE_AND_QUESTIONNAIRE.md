@@ -2,10 +2,17 @@
 ## Document 03: Evidence Package & Security Questionnaire Responses
 ### Sections: 2 (CI/CD & Deployment), 3 (Infrastructure), 10 (Host Security), 12 (Backup & DR), 13 (Security Testing), 14 (Incident Management), 15 (Compliance)
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Prepared for Environment:** STAGE
-**Date:** 2026-07-24
+**Date:** 2026-10-02
 **Classification:** INTERNAL — RESTRICTED
+
+**Revision History**
+
+| Version | Date | Changes |
+|---|---|---|
+| 1.0 | 2026-07-24 | Initial issue |
+| 1.1 | 2026-10-02 | **Q15.1:** risk 5 (file upload size) resolved — 10 MB per file and 100 MB per request are enforced. **Q15.2:** data segregation statement names `PermissionService` (`AuthorizationPolicy` has been removed) and states that reads are not filtered by field. **Q15.3:** item 6 (file upload size limit) completed |
 
 ---
 
@@ -244,7 +251,7 @@ Account deactivation takes effect on the next HTTP request made by the affected 
 | 2 | No SSO integration active in STAGE | Low | Low | Local BCrypt auth with brute-force protection; no production user credentials in STAGE | Low | Accepted for STAGE only |
 | 3 | Application and database co-located on single server | Low | Medium | PostgreSQL port not externally exposed; Docker internal network only; full DB access requires host-level compromise | Low | Accepted for STAGE |
 | 4 | No external penetration test performed | Medium | Medium | Peer code review; built-in security controls; closed network isolation; pentest required before Production | Medium | Accepted for STAGE; mandatory before Production |
-| 5 | No application-layer file size upload limit | Low | Low | 50-file count limit enforced; Docker volume bounds storage; extension whitelist applied | Low | Accepted for STAGE; remediation prior to Production go-live |
+| 5 | Oversized file uploads | Low | Low | 10 MB per file and 100 MB per request enforced by the application (Document 01, Section 7.6); 50-file count limit; Docker volume bounds storage; extension whitelist applied | Low | Resolved — limit in place |
 | 6 | No container image vulnerability scanning | Low | Low | Adoptium base image actively maintained; images rebuilt on each deployment; Spring BOM version control | Low | Accepted for STAGE; required before Production |
 | 7 | Log retention not formally configured | Low | Low | Logs present in Docker stdout with UUID correlation; formal retention policy to be applied | Low | Accepted for STAGE |
 
@@ -260,7 +267,7 @@ Account deactivation takes effect on the next HTTP request made by the affected 
 | Application performs input sanitization for file uploads | Confirmed — filename and folder sanitization applied; extension-based MIME whitelist enforced |
 | HTTPS is planned and application code is ready | Confirmed — HSTS headers pre-configured; pending IT Infrastructure certificate provisioning (#INFRA-10482) |
 | SSO integration is planned and application code is ready | Confirmed — `ssodev` Spring profile and `.oauth2Login()` implemented; pending IT Infrastructure IdP parameters (#INFRA-10482) |
-| Data segregation enforced between users | Confirmed — `ControlPermissionService` and `AuthorizationPolicy` enforce role/assignment-based isolation at the service layer |
+| Data segregation enforced between users | Confirmed — `ControlPermissionService` and `PermissionService` enforce role/assignment-based isolation at the service layer, for the pages and the REST API alike; reads are not filtered by field (see Document 01, Section 5.4) |
 
 ### Q15.3 — Outstanding items required before Production go-live
 
@@ -271,7 +278,7 @@ Account deactivation takes effect on the next HTTP request made by the affected 
 | 3 | External penetration test / OWASP Top 10 assessment | Security team | Critical — Pre-Production |
 | 4 | Container image vulnerability scanning (Trivy / GitLab Container Scanning) | DevOps | High — Pre-Production |
 | 5 | OWASP Dependency-Check integration in CI pipeline | Development team | High — Next sprint |
-| 6 | File upload size limit (`spring.servlet.multipart.max-file-size`) | Development team | Medium — Next sprint |
+| 6 | File upload size limit (`spring.servlet.multipart.max-file-size`) | Development team | Completed — 10 MB per file, 100 MB per request |
 | 7 | File content (magic byte) validation | Development team | Medium — Pre-Production |
 | 8 | Log aggregation and SIEM integration | IT Infrastructure | High — Pre-Production |
 | 9 | Formal backup policy documentation and off-site backup verification | Server administrator | High — STAGE + Pre-Production |

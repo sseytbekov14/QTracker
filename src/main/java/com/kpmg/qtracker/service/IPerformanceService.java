@@ -6,6 +6,5 @@ import java.util.Optional;
 
 public interface IPerformanceService {
     PerformanceDTO buildPerformanceDTO(Control control);
-    void saveSoqmYear(Long controlId, String soqmYear);
     String getPerformanceStatusByControlId(Long controlId);
 }

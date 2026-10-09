@@ -6,6 +6,7 @@ import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.dto.ControlDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlAuditChangeService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
@@ -16,6 +17,7 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
+import com.kpmg.qtracker.service.PermissionService;
 import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +45,8 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 @WebMvcTest(controllers = ControlController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -83,10 +87,16 @@ class ControlControllerSecurityTest {
     private ControlPermissionService controlPermissionService;
 
     @MockBean
+    private PermissionService permissionService;
+
+    @MockBean
     private com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;
 
     @MockBean
     private StatusDisplayMapper statusDisplayMapper;
+
+    @MockBean
+    private com.kpmg.qtracker.service.ControlRenameService controlRenameService;
 
     private ControlDTO requestBody;
 
@@ -98,6 +108,9 @@ class ControlControllerSecurityTest {
         requestBody.setControlCategory("Manual");
         requestBody.setControlType("Preventive");
         requestBody.setComponent("HR");
+        requestBody.setOperatedBy("Network");
+        requestBody.setPriority("High");
+        requestBody.setNonAuditServicesApplicability("Applicable");
     }
 
     @Test
@@ -217,6 +230,35 @@ class ControlControllerSecurityTest {
     }
 
     @Test
+    void createControl_whenAdminWithoutSoqmLevel_returns403() throws Exception {
+        User sessionUser = userWithRole("ADMIN");
+        sessionUser.setAdminAccess(true);
+
+        mockMvc.perform(post("/api/controls")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestBody))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Only SoQM Team can create controls")));
+
+        verify(controlService, never()).createControl(any(Control.class));
+    }
+
+    @Test
+    void createControl_whenReadOnly_isRefusedByTheGeneralCheck() throws Exception {
+        User sessionUser = userWithRole("READ_ONLY");
+
+        mockMvc.perform(post("/api/controls")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestBody))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"code\":\"READ_ONLY\"")));
+
+        verify(controlService, never()).createControl(any(Control.class));
+    }
+
+    @Test
     void createControl_whenUnauthenticated_returns401() throws Exception {
         mockMvc.perform(post("/api/controls")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -224,6 +266,138 @@ class ControlControllerSecurityTest {
                 .andExpect(status().isUnauthorized());
 
         verify(controlService, never()).createControl(any(Control.class));
+    }
+
+    @Test
+    void createControl_whenRequiredFieldBlank_returns400() throws Exception {
+        requestBody.setPriority("  ");
+
+        mockMvc.perform(post("/api/controls")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestBody))
+                        .sessionAttr("currentUser", userWithRole("SOQM_TEAM")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Priority is required"));
+
+        verify(controlService, never()).createControl(any(Control.class));
+    }
+
+    @Test
+    void updateControl_whenRequiredFieldSentBlank_returns400() throws Exception {
+        User sessionUser = userWithRole("SOQM_TEAM");
+        Control existing = new Control();
+        existing.setId(201L);
+        existing.setControlId("CTRL-201");
+        existing.setControlFrequency("Monthly");
+
+        ControlDTO updateRequest = new ControlDTO();
+        updateRequest.setControlFrequency("Monthly");
+        updateRequest.setOperatedBy("");
+
+        when(controlService.getControlById(201L)).thenReturn(Optional.of(existing));
+        when(controlAssignmentService.getAssignmentByControlId(201L)).thenReturn(new ControlAssignmentDTO());
+        when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
+                        false, false, false, true, false));
+
+        mockMvc.perform(put("/api/controls/201")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("VALIDATION_ERROR: Operated By is required"));
+
+        verify(controlService, never()).updateControl(any(Control.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.CsvSource({
+            "Control Frequency, controlFrequency, Quarterly",
+            "SoQM Year,         soqmYear,         1 OCT 2027 - 30 SEP 2028",
+            "Control Status,    controlStatus,    SUPERSEDED"
+    })
+    void updateControl_completedControlChangedInPlace_refusesAFixedField(String label, String field, String value)
+            throws Exception {
+        User sessionUser = userWithRole("SOQM_TEAM");
+        Control existing = completedForEditInPlace(sessionUser, 202L);
+
+        mockMvc.perform(put("/api/controls/202")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"" + field + "\":\"" + value + "\",\"controlDescription\":\"Changed\"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string("VALIDATION_ERROR: " + label + " cannot be changed on a completed control"));
+
+        verify(controlService, never()).updateControl(any(Control.class));
+        org.assertj.core.api.Assertions.assertThat(existing.getControlDescription()).isNull();
+    }
+
+    @Test
+    void updateControl_completedControlChangedInPlace_theSameFixedValuesAreNotApplied() throws Exception {
+        User sessionUser = userWithRole("SOQM_TEAM");
+        Control existing = completedForEditInPlace(sessionUser, 203L);
+        when(controlService.updateControl(any(Control.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // The page sends the stored values back, the frequency in another spelling
+        mockMvc.perform(put("/api/controls/203")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlFrequency\":\"monthly\",\"soqmYear\":\"1 OCT 2026 - 30 SEP 2027\","
+                                + "\"controlStatus\":\"active\",\"controlDescription\":\"Changed\","
+                                + "\"editReason\":\" Description was wrong \"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(existing.getControlDescription()).isEqualTo("Changed");
+        org.assertj.core.api.Assertions.assertThat(existing.getControlFrequency()).isEqualTo("Monthly");
+        org.assertj.core.api.Assertions.assertThat(existing.getControlStatus()).isEqualTo("ACTIVE");
+        verify(controlAssignmentService, never()).recalculateSchedule(any());
+        // The audit entry: marked, the changed field with its values, and the reason
+        verify(adminAuditService).logActionWithChanges(eq(sessionUser.getMail()), any(), eq("EDIT"), eq(existing),
+                eq("Edit Control - Edited after completion"),
+                eq("[\"control_description\",\"Reason\"]"),
+                eq("{\"control_description\":null}"),
+                eq("{\"control_description\":\"Changed\",\"Reason\":\"Description was wrong\"}"));
+    }
+
+    @Test
+    void updateControl_completedControlChangedInPlace_withoutAReason_returns400_andSavesNothing() throws Exception {
+        User sessionUser = userWithRole("SOQM_TEAM");
+        Control existing = completedForEditInPlace(sessionUser, 204L);
+
+        mockMvc.perform(put("/api/controls/204")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlDescription\":\"Changed\",\"editReason\":\"  \"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("VALIDATION_ERROR: Give a reason for changing a completed control"));
+        verify(controlService, never()).updateControl(any(Control.class));
+        verify(adminAuditService, never()).logActionWithChanges(any(), any(), any(), any(), any(), any(), any(), any());
+
+        // Nothing changed: nothing to explain, nothing saved
+        Control unchanged = completedForEditInPlace(sessionUser, 205L);
+        mockMvc.perform(put("/api/controls/205")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlFrequency\":\"Monthly\"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isOk());
+        verify(controlService, never()).updateControl(unchanged);
+    }
+
+    /** A completed control SoQM Team changes in place (AccessPolicy.editsAfterCompletion). */
+    private Control completedForEditInPlace(User sessionUser, Long id) {
+        Control existing = new Control();
+        existing.setId(id);
+        existing.setControlId("CTRL-" + id);
+        existing.setControlFrequency("Monthly");
+        existing.setSoqmYear("1 OCT 2026 - 30 SEP 2027");
+        existing.setControlStatus("ACTIVE");
+        existing.setPerformanceStatus("COMPLETED");
+        when(controlService.getControlById(id)).thenReturn(Optional.of(existing));
+        when(controlAssignmentService.getAssignmentByControlId(id)).thenReturn(new ControlAssignmentDTO());
+        when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
+                .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
+                        false, false, false, true, false, false, true));
+        return existing;
     }
 
     @Test
@@ -250,7 +424,7 @@ class ControlControllerSecurityTest {
         when(controlAssignmentService.getAssignmentByControlId(200L)).thenReturn(new ControlAssignmentDTO());
         when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
-                        false, false, false, false, true, false));
+                        false, false, false, true, false));
 
         mockMvc.perform(put("/api/controls/200")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -287,7 +461,7 @@ class ControlControllerSecurityTest {
         when(controlAssignmentService.getAssignmentByControlId(210L)).thenReturn(new ControlAssignmentDTO());
         when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
-                        false, false, false, false, true, false));
+                        false, false, false, true, false));
 
         mockMvc.perform(put("/api/controls/210")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -354,7 +528,7 @@ class ControlControllerSecurityTest {
         when(controlAssignmentService.getAssignmentByControlId(211L)).thenReturn(new ControlAssignmentDTO());
         when(controlPermissionService.resolve(eq(existing), eq(sessionUser), any(ControlAssignmentDTO.class)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true,
-                        false, false, false, false, true, false));
+                        false, false, false, true, false));
 
         mockMvc.perform(put("/api/controls/211")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -449,7 +623,7 @@ class ControlControllerSecurityTest {
 
     private User userWithRole(String role) {
         User user = new User();
-        user.setRole(role);
+        TestUsers.withRole(user, role);
         user.setMail(role.toLowerCase() + "@kpmg.com");
         user.setDisplayName(role + " User");
         return user;

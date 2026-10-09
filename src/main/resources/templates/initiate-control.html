@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <th:block th:replace="~{fragments/csrf :: csrf}"></th:block>
+    <title th:text="${control.controlId} + ' - Initiate - QTracker'">Initiate - QTracker</title>
+    <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css?v=17" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <style>
+        :root {
+            --kpmg-blue: #00338D;
+            --kpmg-blue-light: #005EB8;
+            --kpmg-gray-50: #f7f8fa;
+            --kpmg-gray-100: #eef0f4;
+            --kpmg-gray-200: #d8dce5;
+            --kpmg-gray-400: #9ba3b5;
+            --kpmg-gray-600: #5c6478;
+            --kpmg-gray-800: #2d3340;
+            --kpmg-green: #009a44;
+            --kpmg-red: #c8102e;
+        }
+        body { background: var(--kpmg-gray-50); }
+        .page-wrapper { max-width: 1100px; margin: 0 auto; padding: 16px 20px 32px; }
+
+        .page-breadcrumb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-size: 0.78rem; color: var(--kpmg-gray-600); }
+        .page-breadcrumb a { color: var(--kpmg-blue); text-decoration: none; font-weight: 500; }
+        .page-breadcrumb a:hover { text-decoration: underline; }
+
+        /* Header */
+        .ic-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            background: var(--kpmg-blue);
+            color: #fff;
+            padding: 16px 24px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+        .ic-header-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.75); }
+        .ic-header h1 { font-size: 1.2rem; font-weight: 700; margin: 2px 0 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .ic-header .ic-desc { margin: 4px 0 0; font-size: 0.82rem; color: rgba(255,255,255,0.85); max-width: 640px; }
+        .btn-ic-secondary {
+            display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+            padding: 8px 16px; border-radius: 4px; font-size: 0.82rem; font-weight: 600; text-decoration: none;
+            border: 1px solid rgba(255,255,255,0.5); color: #fff;
+        }
+        .btn-ic-secondary:hover { background: rgba(255,255,255,0.12); color: #fff; }
+        .btn-ic-secondary:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+        .status-badge { display: inline-block; padding: 3px 9px; border-radius: 3px; font-size: 0.72rem; font-weight: 600; }
+        .status-draft { background: var(--kpmg-gray-200); color: var(--kpmg-gray-600); }
+
+        /* Cards */
+        .ic-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; align-items: start; }
+        .ic-card { background: #fff; border: 1px solid var(--kpmg-gray-200); border-radius: 6px; }
+        .ic-card-title {
+            display: flex; align-items: center; gap: 8px;
+            padding: 12px 18px; border-bottom: 1px solid var(--kpmg-gray-100);
+            font-size: 0.86rem; font-weight: 700; color: var(--kpmg-gray-800); margin: 0;
+        }
+        .ic-card-title i { color: var(--kpmg-blue); }
+        .ic-card-title .ic-summary { margin-left: auto; font-size: 0.75rem; font-weight: 600; }
+        .ic-summary.is-ready { color: var(--kpmg-green); }
+        .ic-summary.is-missing { color: var(--kpmg-red); }
+
+        /* Checklist */
+        .ic-list { list-style: none; margin: 0; padding: 4px 18px 8px; }
+        .ic-item {
+            display: grid; grid-template-columns: 22px 190px 1fr; gap: 10px; align-items: baseline;
+            padding: 9px 0; border-bottom: 1px dashed var(--kpmg-gray-100); font-size: 0.84rem;
+        }
+        .ic-item:last-child { border-bottom: none; }
+        .ic-item .bi { font-size: 0.95rem; }
+        .ic-item.is-done .bi { color: var(--kpmg-green); }
+        .ic-item.is-missing .bi { color: var(--kpmg-red); }
+        .ic-label { font-weight: 500; color: var(--kpmg-gray-600); }
+        .ic-value { color: var(--kpmg-gray-800); font-weight: 500; overflow-wrap: anywhere; }
+        .ic-missing { color: var(--kpmg-red); font-weight: 600; }
+        .ic-fix { margin-left: 6px; color: var(--kpmg-blue); font-weight: 500; }
+
+        /* Initiate */
+        .ic-body { padding: 14px 18px 18px; font-size: 0.82rem; color: var(--kpmg-gray-600); }
+        .ic-body p { margin: 0 0 12px; }
+        .ic-body .form-label { font-weight: 600; color: var(--kpmg-gray-800); }
+        .ic-body .form-text { margin-top: 4px; font-size: 0.75rem; }
+        .ic-not-ready { color: var(--kpmg-red); font-weight: 600; }
+        .ic-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+        .btn-ic-primary {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 20px; border: none; border-radius: 4px;
+            background: var(--kpmg-blue); color: #fff; font-size: 0.84rem; font-weight: 600;
+        }
+        .btn-ic-primary:hover:not(:disabled) { background: var(--kpmg-blue-light); }
+        .btn-ic-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-ic-primary:focus-visible { outline: 2px solid var(--kpmg-blue-light); outline-offset: 2px; }
+
+        @media (max-width: 991.98px) {
+            .ic-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 575.98px) {
+            .page-wrapper { padding: 12px 8px 24px; }
+            .ic-item { grid-template-columns: 22px 1fr; }
+            .ic-item > :last-child { grid-column: 2; }
+        }
+
+        /* Dark theme */
+    </style>
+</head>
+<body>
+<script>
+(function() {
+    // One light theme; a dark theme saved by the former switch is dropped
+    document.body.classList.add('theme-light');
+    try {
+        localStorage.removeItem('qtrackerTheme');
+    } catch (error) {
+        // Storage may be blocked; nothing is read from it
+    }
+})();
+</script>
+<div class="container-fluid">
+    <div class="row">
+        <div th:replace="~{fragments/sidebar :: sidebar('controls')}"></div>
+
+        <div class="col-md-10">
+            <div class="page-wrapper">
+
+                <nav class="page-breadcrumb" aria-label="Breadcrumb">
+                    <a href="/">Dashboard</a>
+                    <span aria-hidden="true">/</span>
+                    <a href="/controls">Controls</a>
+                    <span aria-hidden="true">/</span>
+                    <a th:href="@{/view-control/{id}(id=${control.id})}" th:text="${control.controlId}">HR-CTRL-MF-1</a>
+                    <span aria-hidden="true">/</span>
+                    <span aria-current="page">Initiate</span>
+                </nav>
+
+                <!-- Header -->
+                <div class="ic-header">
+                    <div>
+                        <div class="ic-header-label">Initiate control</div>
+                        <h1>
+                            <span th:text="${control.controlId}">HR-CTRL-MF-1</span>
+                            <span class="status-badge status-draft">Draft</span>
+                        </h1>
+                        <p class="ic-desc" th:if="${control.controlDescription != null and !#strings.isEmpty(control.controlDescription)}"
+                           th:text="${control.controlDescription}">Description</p>
+                    </div>
+                    <a th:href="@{/view-control/{id}(id=${control.id})}" class="btn-ic-secondary">
+                        Open control<i class="bi bi-arrow-right" aria-hidden="true"></i>
+                    </a>
+                </div>
+
+                <div class="ic-grid">
+                    <!-- What the draft needs -->
+                    <section class="ic-card" aria-labelledby="icChecklistTitle">
+                        <h2 class="ic-card-title" id="icChecklistTitle">
+                            <i class="bi bi-list-check" aria-hidden="true"></i>Checklist
+                            <span class="ic-summary is-ready" th:if="${initiationReady}">Everything is in place</span>
+                            <span class="ic-summary is-missing" th:unless="${initiationReady}"
+                                  th:text="${missingCount} + (${missingCount == 1} ? ' item missing' : ' items missing')">1 item missing</span>
+                        </h2>
+                        <ul class="ic-list">
+                            <li class="ic-item" th:each="row : ${initiationRows}" th:classappend="${row.done()} ? 'is-done' : 'is-missing'">
+                                <i class="bi" th:classappend="${row.done()} ? 'bi-check-circle-fill' : 'bi-x-circle'" aria-hidden="true"></i>
+                                <span class="ic-label" th:text="${row.label()}">Facilitator</span>
+                                <span th:if="${row.done()}" class="ic-value" th:text="${row.value()}">Aigerim Facilitator</span>
+                                <span th:unless="${row.done()}">
+                                    <span class="ic-missing">Missing</span>
+                                    <a class="ic-fix" th:href="@{'/view-control/' + ${control.id} + '#' + ${row.tab()}}"
+                                       th:text="${row.tab() == 'control'} ? 'Fill in on the Control tab' : 'Fill in on the Assignment tab'">Fill in on the Assignment tab</a>
+                                </span>
+                            </li>
+                        </ul>
+                    </section>
+
+                    <!-- SoQM Year and the action -->
+                    <section class="ic-card" aria-labelledby="icInitiateTitle">
+                        <h2 class="ic-card-title" id="icInitiateTitle"><i class="bi bi-play-circle" aria-hidden="true"></i>Initiate</h2>
+                        <div class="ic-body">
+                            <p>The status changes from <strong>Draft</strong> to <strong>In Progress</strong> and the
+                                Facilitator gets an e-mail. This cannot be undone.</p>
+                            <label for="initiateSoqmYear" class="form-label">SoQM Year</label>
+                            <select class="form-select form-select-sm" id="initiateSoqmYear" required aria-describedby="initiateSoqmYearHint">
+                                <option th:each="year : ${soqmYearOptions}" th:value="${year}" th:text="${year}"
+                                        th:selected="${year == initiateSoqmYear}">1 OCT 2026 - 30 SEP 2027</option>
+                            </select>
+                            <div class="form-text" id="initiateSoqmYearHint">
+                                Later only SoQM Team can change it, with Edit on the Control tab.</div>
+                            <div class="ic-actions">
+                                <button type="button" class="btn-ic-primary" id="initiateBtn"
+                                        th:attr="data-control-id=${control.id},aria-describedby=${initiationReady ? null : 'initiateNotReady'}"
+                                        th:disabled="${!initiationReady}">
+                                    <i class="bi bi-play-fill" aria-hidden="true"></i>Initiate
+                                </button>
+                            </div>
+                            <p class="ic-not-ready mt-2 mb-0 text-end" id="initiateNotReady" th:unless="${initiationReady}">
+                                Fill in the missing items first.</p>
+                        </div>
+                    </section>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="fragments/app-modal :: appModal"></div>
+<script src="/js/vendor/bootstrap.bundle.min.js"></script>
+<script src="/js/app-modal.js?v=5"></script>
+<script>
+// Confirm, initiate, then show the control's performance cycle
+(function () {
+    var button = document.getElementById('initiateBtn');
+    var yearSelect = document.getElementById('initiateSoqmYear');
+    if (!button || !yearSelect) return;
+
+    button.addEventListener('click', async function () {
+        if (!yearSelect.value) {
+            yearSelect.focus();
+            return;
+        }
+        var confirmed = await showConfirmModal({
+            title: 'Initiate this control?',
+            message: 'SoQM Year ' + yearSelect.value + '. The Facilitator gets an e-mail; this cannot be undone.',
+            confirmText: 'Initiate',
+            variant: 'primary'
+        });
+        if (!confirmed) return;
+
+        button.disabled = true;
+        var body = new URLSearchParams();
+        body.append('controlId', button.dataset.controlId);
+        body.append('soqmYear', yearSelect.value);
+        try {
+            var response = await fetch('/api/performance/initiate', { method: 'POST', body: body });
+            if (!response.ok) {
+                var text = await response.text();
+                var message = text;
+                try {
+                    // JSON error bodies (e.g. CSRF_INVALID) carry the readable text in "message"
+                    message = JSON.parse(text).message || text;
+                } catch (e) {
+                    // plain text, e.g. "Required fields are missing: ..."
+                }
+                throw new Error(message || 'The server did not initiate the control.');
+            }
+            window.location.href = '/performance-cycle/' + button.dataset.controlId + '?status=initiated';
+        } catch (error) {
+            button.disabled = false;
+            showAppModal({ variant: 'error', title: 'Initiation Failed', message: error.message, autoCloseMs: 0 });
+        }
+    });
+})();
+</script>
+</body>
+</html>

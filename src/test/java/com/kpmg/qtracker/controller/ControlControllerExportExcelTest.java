@@ -3,6 +3,7 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlAuditChangeService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
@@ -12,6 +13,7 @@ import com.kpmg.qtracker.service.ControlHistoryService;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
+import com.kpmg.qtracker.service.PermissionService;
 import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import org.apache.poi.ss.usermodel.Row;
@@ -73,15 +75,21 @@ class ControlControllerExportExcelTest {
     private ControlPermissionService controlPermissionService;
 
     @MockBean
+    private PermissionService permissionService;
+
+    @MockBean
     private com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;
 
     @MockBean
     private StatusDisplayMapper statusDisplayMapper;
 
+    @MockBean
+    private com.kpmg.qtracker.service.ControlRenameService controlRenameService;
+
     @Test
     void exportExcel_includesExpectedHeadersAndOrder() throws Exception {
         User currentUser = user("SoQM User");
-        currentUser.setRole("SOQM_TEAM");
+        TestUsers.withRole(currentUser, "SOQM_TEAM");
         currentUser.setMail("soqm@kpmg.kz");
 
         Control control = new Control();
@@ -147,7 +155,7 @@ class ControlControllerExportExcelTest {
     @Test
     void exportExcel_whenNotSoqm_returns403() throws Exception {
         User currentUser = user("Operator User");
-        currentUser.setRole("CONTROL_OPERATOR");
+        TestUsers.withRole(currentUser, "CONTROL_OPERATOR");
         currentUser.setMail("operator@kpmg.kz");
 
         mockMvc.perform(get("/api/controls/export/excel")

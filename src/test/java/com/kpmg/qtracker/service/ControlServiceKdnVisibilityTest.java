@@ -1,10 +1,14 @@
 package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.enums.AccessLevel;
+import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,13 +17,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyIterable;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+/** Control lists through the access policy: scope KDN (every KDN control), scope OWN with drafts, and users who see everything. */
 @ExtendWith(MockitoExtension.class)
 class ControlServiceKdnVisibilityTest {
+
+    private static final String MAIL = "kdn@kpmg.kz";
 
     @Mock
     private ControlRepository controlRepository;
@@ -50,43 +58,134 @@ class ControlServiceKdnVisibilityTest {
     }
 
     @Test
-    void kdnRoleSeesOnlyControlsWithKdnPrefix() {
-        Control kdnControl = new Control();
-        kdnControl.setId(3L);
-        kdnControl.setControlId("KDN-3001");
+    void kdnScope_seesEveryKdnControl_onItOrNot_draftsIncluded_andNoOther() {
+        User other = TestUsers.user("soqm@kpmg.kz", AccessLevel.SOQM, AccessScope.ALL, false);
+        Control kdnAssigned = control(3L, "KDN-3001", "IN_PROGRESS");
+        Control hrAssigned = control(4L, "HR-3002", "IN_PROGRESS");
+        Control kdnShared = control(7L, "kdn-7001", "COMPLETED");
+        Control kdnDraftOfOthers = control(8L, "KDN-8", null);
+        kdnDraftOfOthers.setCreatedBy(other);
+        Control kdnNobody = control(9L, "KDN009", "REVIEW");
+        Control kdnInside = control(10L, "X-KDN-10", "REVIEW");
+        everyControl(List.of(kdnInside, kdnNobody, kdnDraftOfOthers, kdnShared, hrAssigned, kdnAssigned),
+                List.of(assignment(3L, MAIL, null), assignment(4L, MAIL, null), assignment(7L, null, MAIL),
+                        assignment(10L, MAIL, null)));
 
-        Control hrControl = new Control();
-        hrControl.setId(4L);
-        hrControl.setControlId("HR-3002");
+        List<Control> visible = controlService.findVisibleControlsForUser(
+                TestUsers.user(MAIL, AccessLevel.READ_ONLY, AccessScope.KDN, false));
 
-        when(userRepository.findByMail("kdn@kpmg.kz")).thenReturn(Optional.empty());
-        when(controlRepository.findAllByOrderByIdDesc()).thenReturn(List.of(hrControl, kdnControl));
-
-        List<Control> visible = controlService.findVisibleControlsForUser("kdn@kpmg.kz", "KDN");
-
-        assertThat(visible).extracting(Control::getControlId).containsExactly("KDN-3001");
+        assertThat(visible).extracting(Control::getControlId)
+                .containsExactly("KDN009", "KDN-8", "kdn-7001", "KDN-3001");
     }
 
     @Test
-    void secondaryKdnRoleAlsoGetsKdnOnlyVisibility() {
-        User user = new User();
-        user.setMail("mixed@kpmg.kz");
-        user.setRole("FACILITATOR");
-        user.setSecondaryRole("KDN");
+    void kdnScope_seesEveryIdStartingWithKdn_inAnyCase() {
+        List<Control> controls = List.of(
+                control(39L, null, "REVIEW"),
+                control(38L, "", "REVIEW"),
+                control(37L, "KD-N-37", "REVIEW"),
+                control(36L, "HR-36", "REVIEW"),
+                control(35L, "  KDN-35  ", "REVIEW"),
+                control(34L, "kdn-5", "DRAFT"),
+                control(33L, "X-KDN-12", "COMPLETED"),
+                control(32L, "KDN001", "REVIEW"),
+                control(31L, "KDN-001", "IN_PROGRESS"));
+        everyControl(controls, List.of());
 
-        Control kdnControl = new Control();
-        kdnControl.setId(5L);
-        kdnControl.setControlId("KDN-5001");
+        List<Control> visible = controlService.findVisibleControlsForUser(
+                TestUsers.user(MAIL, AccessLevel.READ_ONLY, AccessScope.KDN, false));
 
-        Control govControl = new Control();
-        govControl.setId(6L);
-        govControl.setControlId("GOV-5002");
+        assertThat(visible).extracting(Control::getId).containsExactly(35L, 34L, 32L, 31L);
+    }
 
-        when(userRepository.findByMail("mixed@kpmg.kz")).thenReturn(Optional.of(user));
-        when(controlRepository.findAllByOrderByIdDesc()).thenReturn(List.of(govControl, kdnControl));
+    @Test
+    void ownScope_seesAssignedAndSharedControls_draftsIncluded() {
+        Control draftAssigned = control(10L, "HR-10", "DRAFT");
+        Control draftShared = control(11L, "HR-11", null);
+        Control running = control(12L, "GOV-12", "REVIEW");
+        candidates(List.of(draftAssigned, draftShared, running),
+                List.of(assignment(10L, MAIL, null), assignment(11L, null, MAIL), assignment(12L, "b" + MAIL, null)));
 
-        List<Control> visible = controlService.findVisibleControlsForUser("mixed@kpmg.kz", "FACILITATOR");
+        List<Control> visible = controlService.findVisibleControlsForUser(
+                TestUsers.user(MAIL, AccessLevel.READ_ONLY, AccessScope.OWN, false));
 
-        assertThat(visible).extracting(Control::getControlId).containsExactly("KDN-5001");
+        // "bkdn@kpmg.kz" contains the address but is someone else
+        assertThat(visible).extracting(Control::getControlId).containsExactly("HR-11", "HR-10");
+    }
+
+    @Test
+    void soqmTeamAndAllControls_seeEveryControl_butAnOldAdminFlagGivesNothing() {
+        Control kdn = control(1L, "KDN-1", "DRAFT");
+        Control hr = control(2L, "HR-2", "COMPLETED");
+        when(controlRepository.findAllByOrderByIdDesc()).thenReturn(List.of(hr, kdn));
+
+        for (User user : List.of(
+                TestUsers.user("soqm@kpmg.kz", AccessLevel.SOQM, AccessScope.ALL, false),
+                TestUsers.user("all@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.ALL, false),
+                TestUsers.user("alledit@kpmg.kz", AccessLevel.PARTICIPANT, AccessScope.ALL, false))) {
+            assertThat(controlService.findVisibleControlsForUser(user))
+                    .as(user.getMail())
+                    .extracting(Control::getControlId)
+                    .containsExactly("HR-2", "KDN-1");
+        }
+        // The stored admin flag of a KDN user (before V11) does not open every control: only the KDN ones
+        when(controlAssignmentRepository.findAllById(anyIterable())).thenReturn(List.of());
+        assertThat(controlService.findVisibleControlsForUser(
+                TestUsers.user("admin@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, true)))
+                .extracting(Control::getControlId).containsExactly("KDN-1");
+    }
+
+    @Test
+    void myControls_alsoSeeTheControlsTheUserCreated() {
+        User creator = TestUsers.user(MAIL, AccessLevel.PARTICIPANT, AccessScope.OWN, false);
+        creator.setId(78L);
+        Control created = control(22L, "HR-22", "REVIEW");
+        created.setCreatedBy(creator);
+        when(controlRepository.findByCreatedByMailOrderByCreatedAtDesc(MAIL)).thenReturn(List.of(created));
+        when(controlAssignmentRepository.findAllById(anyIterable())).thenReturn(List.of());
+        when(controlRepository.findAllById(anyIterable())).thenReturn(List.of(created));
+
+        assertThat(controlService.findVisibleControlsForUser(creator))
+                .extracting(Control::getControlId).containsExactly("HR-22");
+    }
+
+    @Test
+    void disabledUser_seesNothing() {
+        User disabled = TestUsers.user("soqm@kpmg.kz", AccessLevel.SOQM, AccessScope.ALL, true);
+        disabled.setEnabled(false);
+        Control control = control(5L, "HR-5", "REVIEW");
+        candidates(List.of(control), List.of(assignment(5L, "soqm@kpmg.kz", null)));
+
+        assertThat(controlService.findVisibleControlsForUser(disabled)).isEmpty();
+    }
+
+    /** KDN: every control is a candidate, newest first, as the repository gives them. */
+    private void everyControl(List<Control> controls, List<ControlAssignment> assignments) {
+        when(controlRepository.findAllByOrderByIdDesc()).thenReturn(controls);
+        when(controlAssignmentRepository.findAllById(anyIterable())).thenReturn(assignments);
+    }
+
+    private void candidates(List<Control> controls, List<ControlAssignment> assignments) {
+        List<Long> ids = controls.stream().map(Control::getId).toList();
+        lenient().when(controlAssignmentRepository.findControlIdsByFacilitator(MAIL)).thenReturn(ids);
+        lenient().when(controlAssignmentRepository.findControlIdsByFacilitator("soqm@kpmg.kz")).thenReturn(ids);
+        when(controlAssignmentRepository.findAllById(anyIterable())).thenReturn(assignments);
+        when(controlRepository.findAllById(anyIterable())).thenReturn(controls);
+    }
+
+    private Control control(Long id, String controlId, String status) {
+        Control control = new Control();
+        control.setId(id);
+        control.setControlId(controlId);
+        control.setPerformanceStatus(status);
+        return control;
+    }
+
+    private ControlAssignment assignment(Long controlId, String facilitator, String sharedWith) {
+        ControlAssignment assignment = new ControlAssignment();
+        assignment.setControlId(controlId);
+        assignment.setFacilitator(facilitator);
+        assignment.setControlSharedWith(sharedWith);
+        return assignment;
     }
 }

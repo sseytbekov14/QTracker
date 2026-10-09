@@ -26,7 +26,7 @@ flowchart LR
 
     subgraph SERVICES["Service and Authorization Layer"]
         direction TB
-        A1["AuthorizationPolicy\n+ ControlPermissionService\nRole-based access check\nField-level read/write isolation"]:::authz
+        A1["PermissionService\n+ ControlPermissionService\nRole/assignment-based access check\nField-level write restrictions"]:::authz
         S1["WorkflowServiceImpl\nState machine transitions\nworkflow_history persistence"]:::svc
         S2["FileStorageService\nFilename and folder sanitization\nPath traversal prevention"]:::svc
         S3["AdminAuditService\nField-level before/after diff\nadmin_audit_log persistence"]:::svc

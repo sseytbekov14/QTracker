@@ -3,6 +3,7 @@ package com.kpmg.qtracker.service;
 import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
+import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
@@ -20,6 +21,8 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 import com.kpmg.qtracker.service.WorkflowService; // ✅
+import com.kpmg.qtracker.util.EmailList;
+import com.kpmg.qtracker.util.RoleDisplayMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -95,63 +98,69 @@ public class ControlService implements IControlService {
         return controlRepository.findAllByOrderByIdDesc();
     }
 
+    /**
+     * The controls the user sees ({@link AccessPolicy#canView}): every control for SoQM Team and All
+     * controls; every KDN control for KDN; otherwise the ones they are assigned to, shared with or created.
+     */
     @Override
-    public List<Control> findVisibleControlsForUser(String userEmail, String userRole) {
-        if (userEmail == null || userEmail.isBlank()) {
+    public List<Control> findVisibleControlsForUser(User user) {
+        if (user == null || user.getMail() == null || user.getMail().isBlank()) {
             return Collections.emptyList();
         }
-        Optional<User> userOpt = userRepository.findByMail(userEmail);
-        boolean isKdnRole = hasRole(userRole, "KDN")
-                || userOpt.map(user -> hasRole(user.getRole(), "KDN") || hasRole(user.getSecondaryRole(), "KDN")).orElse(false);
-
-        if (isKdnRole) {
-            return getAllControls().stream()
-                    .filter(this::isKdnControl)
-                    .collect(Collectors.toList());
-        }
-
-        if (userOpt.isPresent() && Boolean.TRUE.equals(userOpt.get().getAdminAccess())) {
+        AccessPolicy.Subject subject = AccessPolicy.Subject.of(user);
+        if (AccessPolicy.seesAllControls(subject)) {
             return getAllControls();
         }
-        if (isAdminRole(userRole)) {
-            return getAllControls();
+        String userEmail = user.getMail();
+
+        List<Control> candidates;
+        if (AccessPolicy.seesWithoutBeingOn(subject)) {
+            // KDN: every control is a candidate, the policy keeps the KDN ones (the rule stays in one place)
+            candidates = getAllControls();
+        } else {
+            // LIKE finds the address anywhere in a column, including inside another address
+            // (a@kpmg.kz in ba@kpmg.kz); the policy below checks whole addresses
+            Set<Long> candidateIds = new LinkedHashSet<>();
+            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByFacilitator(userEmail));
+            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlOperator(userEmail));
+            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsBySoqmLead(userEmail));
+            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByProcessOwner(userEmail));
+            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlSharedWith(userEmail));
+            // My controls also cover the controls the user created
+            controlRepository.findByCreatedByMailOrderByCreatedAtDesc(userEmail)
+                    .forEach(control -> candidateIds.add(control.getId()));
+            if (candidateIds.isEmpty()) {
+                return Collections.emptyList();
+            }
+            candidates = controlRepository.findAllById(candidateIds);
         }
-
-        Set<Long> visibleControlIds = new LinkedHashSet<>();
-        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByFacilitator(userEmail));
-        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByControlOperator(userEmail));
-        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsBySoqmLead(userEmail));
-        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByProcessOwner(userEmail));
-        addVisibleIds(visibleControlIds, controlAssignmentRepository.findControlIdsByControlSharedWith(userEmail));
-
-        if (visibleControlIds.isEmpty()) {
+        if (candidates.isEmpty()) {
             return Collections.emptyList();
         }
 
-        List<Control> visibleControls = controlRepository.findAllById(visibleControlIds);
+        Map<Long, ControlAssignment> assignments = controlAssignmentRepository.findAllById(
+                        candidates.stream().map(Control::getId).filter(Objects::nonNull).toList()).stream()
+                .collect(Collectors.toMap(ControlAssignment::getControlId, assignment -> assignment, (a, b) -> a));
+        List<Control> visibleControls = candidates.stream()
+                .filter(control -> AccessPolicy.canView(subject,
+                        facts(control, assignments.get(control.getId()), user)))
+                .collect(Collectors.toList());
         visibleControls.sort(Comparator.comparing(Control::getId, Comparator.nullsLast(Long::compareTo)).reversed());
         return visibleControls;
     }
 
-    private boolean hasRole(String role, String expectedRole) {
-        if (role == null || role.isBlank()) {
-            return false;
-        }
-        return normalizeRole(role).equals(normalizeRole(expectedRole));
-    }
-
-    private String normalizeRole(String role) {
-        return role.trim()
-                .replace('-', '_')
-                .replace(' ', '_')
-                .toUpperCase(Locale.ROOT);
-    }
-
-    private boolean isKdnControl(Control control) {
-        if (control == null || control.getControlId() == null) {
-            return false;
-        }
-        return control.getControlId().trim().toUpperCase(Locale.ROOT).startsWith("KDN");
+    private AccessPolicy.ControlFacts facts(Control control, ControlAssignment assignment, User user) {
+        boolean hasAssignment = assignment != null;
+        String userEmail = user.getMail();
+        return new AccessPolicy.ControlFacts(
+                control.getPerformanceStatus(),
+                AccessPolicy.isKdnControl(control.getControlId()),
+                hasAssignment && EmailList.contains(assignment.getFacilitator(), userEmail),
+                hasAssignment && EmailList.contains(assignment.getControlOperator(), userEmail),
+                hasAssignment && EmailList.contains(assignment.getSoqmLead(), userEmail),
+                hasAssignment && EmailList.contains(assignment.getProcessOwner(), userEmail),
+                hasAssignment && EmailList.contains(assignment.getControlSharedWith(), userEmail),
+                ControlPermissionService.isCreator(control, user));
     }
 
     @Override
@@ -193,33 +202,12 @@ public class ControlService implements IControlService {
         return controls;
     }
 
-    @Override
-    public List<Control> getControlsByComponent(String component) {
-        return controlRepository.findByComponentOrderByCreatedAtDesc(component);
-    }
-
 
 
     @Override
     public boolean isControlIdUnique(String controlId) {
         Optional<Control> existingControl = controlRepository.findByControlId(controlId);
         return existingControl.isEmpty();
-    }
-
-    public Control renameControlId(Long id, String newControlId) {
-        Control control = controlRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
-
-        if (control.getControlId().equals(newControlId)) {
-            return control;
-        }
-
-        if (controlRepository.existsByControlId(newControlId)) {
-            throw new RuntimeException("Control ID '" + newControlId + "' already exists. Please choose a different ID.");
-        }
-
-        control.setControlId(newControlId);
-        return controlRepository.save(control);
     }
 
     @Override
@@ -468,9 +456,7 @@ public class ControlService implements IControlService {
         }
 
         // ★ Если deadline не загружен из assignment, берём из control_controls
-        if (dto.getDeadline() == null && control.getDeadline() != null) {
-            dto.setDeadline(control.getDeadline());
-        }
+        dto.setDeadline(DeadlineOverdue.deadlineOf(dto.getDeadline(), control.getDeadline()));
         
         // Use performance_status for workflow display
         String performanceStatus = control.getPerformanceStatus();
@@ -551,7 +537,7 @@ public class ControlService implements IControlService {
         dto.setId(user.getId());
         dto.setDisplayName(user.getDisplayName());
         dto.setMail(user.getMail());
-        dto.setTitle(user.getRole());
+        dto.setTitle(RoleDisplayMapper.access(user));
         return dto;
     }
 
@@ -568,8 +554,8 @@ public class ControlService implements IControlService {
                 );
             }
 
-            control.setCreatedAt(LocalDateTime.now());
-            control.setUpdatedAt(LocalDateTime.now());
+            control.setCreatedAt(LocalDateTime.now(Notification.ZONE));
+            control.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
 
             // Set initial workflow status to DRAFT
             if (control.getPerformanceStatus() == null || control.getPerformanceStatus().isEmpty()) {
@@ -592,7 +578,7 @@ public class ControlService implements IControlService {
     @Override
     public Control save(Control control) {
         logger.info("Saving control with ID: {}", control.getControlId());
-        control.setUpdatedAt(LocalDateTime.now());
+        control.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
         return controlRepository.save(control);
     }
 
@@ -609,11 +595,6 @@ public class ControlService implements IControlService {
     @Override
     public Optional<Control> getControlById(Long id) {
         return controlRepository.findById(id);
-    }
-
-    @Override
-    public void deleteControl(Long id) {
-        controlRepository.deleteById(id);
     }
 
     @Override
@@ -686,7 +667,7 @@ public class ControlService implements IControlService {
 
     @Override
     public Control updateControl(Control control) {
-        control.setUpdatedAt(LocalDateTime.now());
+        control.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
         return controlRepository.save(control);
     }
 
@@ -800,26 +781,9 @@ public class ControlService implements IControlService {
     public List<String> getFacilitatorsForControl(Long controlId) {
         Optional<ControlAssignment> assignment = controlAssignmentRepository.findByControlId(controlId);
         if (assignment.isPresent()) {
-            String facilitatorStr = assignment.get().getFacilitator();
-            if (facilitatorStr != null && !facilitatorStr.trim().isEmpty()) {
-                return java.util.Arrays.stream(facilitatorStr.split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .collect(java.util.stream.Collectors.toList());
-            }
+            return new ArrayList<>(EmailList.parse(assignment.get().getFacilitator()));
         }
         return new ArrayList<>();
-    }
-
-    private boolean isAdminRole(String userRole) {
-        if (userRole == null) {
-            return false;
-        }
-        String normalized = userRole.trim()
-                .replace('-', '_')
-                .replace(' ', '_')
-                .toUpperCase(java.util.Locale.ROOT);
-        return "ADMIN".equals(normalized) || normalized.startsWith("SOQM");
     }
 
     private void addVisibleIds(Set<Long> target, List<Long> source) {
@@ -833,36 +797,4 @@ public class ControlService implements IControlService {
         }
     }
 
-    /**
-     * Check if control has reached user's workflow stage
-     * @param controlId Control ID
-     * @param userRole User role (FACILITATOR, CONTROL_OPERATOR, SOQM_TEAM, PROCESS_OWNER)
-     * @return true if control reached that workflow stage
-     */
-    public boolean hasReachedUserStage(Long controlId, String userRole) {
-        String stageName = mapRoleToStageName(userRole);
-        if (stageName == null) {
-            return false; // Unknown role
-        }
-        return workflowService.hasReachedStage(controlId, stageName);
-    }
-
-    /**
-     * Map user role to workflow stage name
-     */
-    private String mapRoleToStageName(String userRole) {
-        if (userRole == null) return null;
-        switch (userRole.toUpperCase()) {
-            case "FACILITATOR":
-                return "IN_PROGRESS";
-            case "CONTROL_OPERATOR":
-                return "REVIEW";
-            case "SOQM_TEAM":
-                return "SOQM_HEAD_REVIEW";
-            case "PROCESS_OWNER":
-                return "PROCESS_OWNER_REVIEW";
-            default:
-                return null;
-        }
-    }
 }

@@ -34,13 +34,13 @@ Mapped to real modules and classes:
   - `WorkflowController`, `WorkflowTransitionController`, `WorkflowApiController`
   - `WorkflowServiceImpl`, `WorkflowRequiredFieldService`
 - Role-based authorization and permission checks
-  - `SecurityConfig`, `AuthorizationPolicy`, `ControlPermissionService`, `PermissionService`
+  - `SecurityConfig`, `ControlPermissionService`, `PermissionService`, `ControlScope`
 - Notifications (in-app and email)
-  - `NotificationApiController`, `NotificationService`, `NotificationTemplateService`, `EmailNotificationService`
+  - `NotificationService`, `NotificationTemplateService`, `EmailNotificationService`
 - Reminder and auto-creation scheduling
   - `ControlReminderScheduler`, `ControlAutoCreationScheduler`
   - `ReminderNotificationService`, `ControlAutoCreationService`
-- Attachment upload/download/view/delete
+- Attachment upload/download/delete
   - `FileAttachmentController`, `FileStorageService`
 - Dashboard and performance endpoints
   - `DashboardController`, `MyDashboardController`, `DashboardDeadlineController`, `PerformanceController`
@@ -210,8 +210,9 @@ Authentication:
 
 Authorization:
 - Endpoint protection configured in `SecurityConfig`
-- Fine-grained checks in `AuthorizationPolicy` and `ControlPermissionService`
-- Roles used in business logic: `FACILITATOR`, `CONTROL_OPERATOR`, `SOQM_LEAD`, `PROCESS_OWNER`, `ADMIN`
+- Per-control permissions in `ControlPermissionService`; one read rule for pages and the REST API in `PermissionService.readAccess` / `requireReadable` (no field is hidden on read)
+- Roles (`users.role`): `FACILITATOR`, `CONTROL_OPERATOR`, `PROCESS_OWNER`, `SOQM_TEAM`, `KDN` (read-only, KDN controls only); optional secondary role `FACILITATOR`, `CONTROL_OPERATOR` or `PROCESS_OWNER`
+- Administration through the `admin_access` flag, independent of the role; the dev seeder's `ADMIN` role sees all controls in lists but has no other admin rights
 
 Request protection:
 - CSRF token repository enabled (with configured exclusions)
@@ -227,7 +228,7 @@ Attachment handling:
 
 Security considerations in implementation:
 - Filename and folder sanitization
-- Access checks before file operations through `AuthorizationPolicy`
+- Read access to the control checked through `PermissionService.requireReadable` before file reads; a download serves only a file the control lists
 
 ## How to Build
 Build with Maven Wrapper:

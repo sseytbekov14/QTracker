@@ -170,6 +170,31 @@ class QuarterlyDay5Day12ReminderServiceTest {
     }
 
     @Test
+    void day12AfterTheDeadline_goesOutOnTheDeadlineDay_notAfterIt() {
+        // Today (Friday 06.02.2026) is the deadline of a control operated 14 days ago; its 12th working day
+        // would be 10.02. A control whose 12th working day is today passed its deadline on 04.02.
+        LocalDate today = LocalDate.now(clock);
+        LocalDate dueToday = today.minusDays(14);
+        LocalDate twelveWorkingDaysAgo = workingDaysService.addWorkingDays(today, -12);
+        ReminderControlProjection deadlineToday = projectionFor(34L, "CTRL-34", "Quarterly", "IN_PROGRESS",
+                dueToday, today, "facilitator@kpmg.kz", null, null, null);
+        ReminderControlProjection pastDeadline = projectionFor(35L, "CTRL-35", "Quarterly", "IN_PROGRESS",
+                twelveWorkingDaysAgo, twelveWorkingDaysAgo.plusDays(14), "facilitator@kpmg.kz", null, null, null);
+
+        when(controlRepository.findQuarterlyDay5Day12Candidates()).thenReturn(List.of(deadlineToday, pastDeadline));
+        when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/34");
+        when(userRepository.findByMail("facilitator@kpmg.kz"))
+                .thenReturn(Optional.of(userWithId(5L, "facilitator@kpmg.kz")));
+
+        service.runDailyReminders();
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository, times(1)).save(captor.capture());
+        assertThat(captor.getValue().getControlId()).isEqualTo(34L);
+        assertThat(captor.getValue().getType()).isEqualTo(QuarterlyNotificationService.TYPE_DAY12);
+    }
+
+    @Test
     void dedupeSkipsWhenAlreadySentToday() {
         LocalDate today = LocalDate.now(clock);
         LocalDate operationDate = workingDaysService.addWorkingDays(today, -5);

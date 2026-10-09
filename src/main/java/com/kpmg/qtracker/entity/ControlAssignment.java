@@ -12,12 +12,17 @@ public class ControlAssignment {
     @Column(name = "id")
     private Long controlId;
 
-    private String facilitator; // JSON array of user emails
-    private String controlOperator; // JSON array of user emails
-    @Column(name = "soqm_team")
-    private String soqmLead; // JSON array of user emails
-    private String processOwner; // JSON array of user emails
-    private String controlSharedWith; // JSON array of user emails
+    // Comma-separated user emails; TEXT so several users per role don't overflow the column
+    @Column(columnDefinition = "TEXT")
+    private String facilitator;
+    @Column(columnDefinition = "TEXT")
+    private String controlOperator;
+    @Column(name = "soqm_team", columnDefinition = "TEXT")
+    private String soqmLead;
+    @Column(columnDefinition = "TEXT")
+    private String processOwner;
+    @Column(columnDefinition = "TEXT")
+    private String controlSharedWith;
 
     private LocalDate controlOperationDate;
     private LocalDate controlOperationDeadline;

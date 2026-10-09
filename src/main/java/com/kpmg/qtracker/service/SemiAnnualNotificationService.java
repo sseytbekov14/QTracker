@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import com.kpmg.qtracker.util.EmailList;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +35,8 @@ public class SemiAnnualNotificationService {
     static final String TYPE_DAY25 = "ANNUAL_SEMI_DAY25";
     static final String TYPE_OVERDUE_1 = "ANNUAL_SEMI_OVERDUE1";
     static final String TYPE_OVERDUE_REPEAT = "ANNUAL_SEMI_OVERDUE_REPEAT";
+    // Working days after the operation date; ReminderDays keeps them on or before the deadline
+    private static final int[] REMINDER_DAYS = {5, 25};
 
     private static final String STATUS_IN_PROGRESS = "IN_PROGRESS";
     private static final String STATUS_REVIEW = "REVIEW";
@@ -90,8 +93,8 @@ public class SemiAnnualNotificationService {
 
             Control control = buildControl(row);
             List<String> recipients = collectRecipients(
-                    splitEmails(row.getFacilitator()),
-                    splitEmails(row.getControlOperator())
+                    EmailList.parse(row.getFacilitator()),
+                    EmailList.parse(row.getControlOperator())
             );
             if (recipients.isEmpty()) {
                 skipped++;
@@ -139,7 +142,7 @@ public class SemiAnnualNotificationService {
                 skipped++;
                 continue;
             }
-            String notificationType = determineDayType(today, operationDate);
+            String notificationType = determineDayType(today, operationDate, row.getDeadlineDate());
             if (notificationType == null) {
                 continue;
             }
@@ -157,8 +160,8 @@ public class SemiAnnualNotificationService {
                 continue;
             }
             List<String> recipients = collectRecipients(
-                    splitEmails(row.getFacilitator()),
-                    splitEmails(row.getControlOperator())
+                    EmailList.parse(row.getFacilitator()),
+                    EmailList.parse(row.getControlOperator())
             );
             if (recipients.isEmpty()) {
                 skipped++;
@@ -252,11 +255,11 @@ public class SemiAnnualNotificationService {
         return new OverdueRunSummary(today, processed, sent, deduped, skipped);
     }
 
-    private String determineDayType(LocalDate today, LocalDate operationDate) {
-        if (today.equals(workingDaysService.addWorkingDays(operationDate, 5))) {
+    private String determineDayType(LocalDate today, LocalDate operationDate, LocalDate deadline) {
+        if (ReminderDays.isDue(workingDaysService, today, operationDate, deadline, 5, REMINDER_DAYS)) {
             return TYPE_DAY5;
         }
-        if (today.equals(workingDaysService.addWorkingDays(operationDate, 25))) {
+        if (ReminderDays.isDue(workingDaysService, today, operationDate, deadline, 25, REMINDER_DAYS)) {
             return TYPE_DAY25;
         }
         return null;
@@ -479,10 +482,10 @@ public class SemiAnnualNotificationService {
     private List<String> overdueRecipientsForRole(Role role, ReminderControlProjection row) {
         Set<String> recipients = new LinkedHashSet<>();
         switch (role) {
-            case FACILITATOR -> addRecipients(recipients, splitEmails(row.getFacilitator()));
-            case CONTROL_OPERATOR -> addRecipients(recipients, splitEmails(row.getControlOperator()));
-            case SOQM_TEAM -> addRecipients(recipients, splitEmails(row.getSoqmLead()));
-            case PROCESS_OWNER -> addRecipients(recipients, splitEmails(row.getProcessOwner()));
+            case FACILITATOR -> addRecipients(recipients, EmailList.parse(row.getFacilitator()));
+            case CONTROL_OPERATOR -> addRecipients(recipients, EmailList.parse(row.getControlOperator()));
+            case SOQM_TEAM -> addRecipients(recipients, EmailList.parse(row.getSoqmLead()));
+            case PROCESS_OWNER -> addRecipients(recipients, EmailList.parse(row.getProcessOwner()));
         }
         return new ArrayList<>(recipients);
     }
@@ -499,20 +502,6 @@ public class SemiAnnualNotificationService {
         }
     }
 
-    private List<String> splitEmails(String raw) {
-        if (raw == null || raw.trim().isEmpty()) {
-            return List.of();
-        }
-        String[] parts = raw.split(",");
-        List<String> results = new ArrayList<>();
-        for (String part : parts) {
-            String trimmed = part.trim();
-            if (!trimmed.isEmpty()) {
-                results.add(trimmed);
-            }
-        }
-        return results;
-    }
 
     private String normalizeStatus(String status) {
         return status.trim()

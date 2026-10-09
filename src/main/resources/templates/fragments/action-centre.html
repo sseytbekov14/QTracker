@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--/*
+  One card of the Action Centre grid (dashboard.html, pane-action): a component, or KDN (the KDN controls).
+  c: ViewController.ComponentSummary; href: where the card leads, the list of those controls (/component/{code}).
+  The five counters are the list's own (ComponentControlsList.Counts); drafts count in the total only.
+*/-->
+<a th:fragment="card(c, href)"
+   class="ac-card"
+   th:href="@{${href}}"
+   th:classappend="${c.total() == 0} ? 'is-empty' : (${c.overdue() > 0} ? 'has-overdue' : '')">
+    <div class="ac-card-head">
+        <span class="ac-code" th:text="${c.code()}">HR</span>
+    </div>
+    <div class="ac-name" th:text="${c.name()}">Human Resources</div>
+    <th:block th:if="${c.total() > 0}">
+        <dl class="ac-stats">
+            <div class="ac-stat"><dt>Total</dt><dd th:text="${c.total()}">0</dd></div>
+            <div class="ac-stat"><dt>In progress</dt><dd th:text="${c.inProgress()}">0</dd></div>
+            <div class="ac-stat"><dt>In review</dt><dd th:text="${c.inReview()}">0</dd></div>
+            <div class="ac-stat ac-stat-done"><dt>Completed</dt><dd th:text="${c.completed()}">0</dd></div>
+            <div class="ac-stat" th:classappend="${c.overdue() > 0} ? 'ac-stat-late'"><dt>Overdue</dt><dd th:text="${c.overdue()}">0</dd></div>
+        </dl>
+        <div class="ac-progress" role="img"
+             th:attr="aria-label=${c.completedPercent()} + '% completed, ' + ${c.overdue()} + ' overdue'">
+            <span class="ac-progress-completed" th:style="'width:' + ${c.completed() * 100.0 / c.total()} + '%'"></span>
+            <span class="ac-progress-overdue" th:style="'width:' + ${c.overdue() * 100.0 / c.total()} + '%'"></span>
+        </div>
+    </th:block>
+    <div th:if="${c.total() == 0}" class="ac-counts">No controls</div>
+    <span class="ac-view-all"><span th:text="${c.viewAllLabel()}">View all HR controls</span><i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+</a>
+</body>
+</html>

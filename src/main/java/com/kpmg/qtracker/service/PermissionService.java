@@ -3,14 +3,20 @@ package com.kpmg.qtracker.service;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.exception.ControlReadDeniedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
 
 @Service
 @RequiredArgsConstructor
 public class PermissionService {
 
     private final ControlPermissionService controlPermissionService;
+    private final IControlService controlService;
 
     public ControlPermission resolve(Control control, User user) {
         return controlPermissionService.resolve(control, user);
@@ -32,35 +38,60 @@ public class PermissionService {
         return resolve(control, user).canUseWorkflowActions();
     }
 
-    public boolean isSharedOnly(Control control, User user) {
-        return isSharedOnly(control, user, resolve(control, user));
+    /**
+     * The one read rule for a control, for its pages and the API alike ({@link AccessPolicy#readAccess}):
+     * the user must see it, and a draft stays closed to users it is only shared with.
+     */
+    public AccessPolicy.ReadAccess readAccess(Control control, User user, ControlAssignmentDTO assignment) {
+        AccessPolicy.ControlFacts facts = controlPermissionService.facts(control, user, assignment);
+        if (facts == null) {
+            return AccessPolicy.ReadAccess.DENIED;
+        }
+        return AccessPolicy.readAccess(AccessPolicy.Subject.of(user), facts);
     }
 
-    public boolean isSharedOnly(Control control, User user, ControlPermission permission) {
-        if (control == null || user == null || permission == null) {
-            return false;
-        }
-        if (!permission.isSharedViewer()) {
-            return false;
-        }
-        if (isCreator(control, user)) {
-            return false;
-        }
-        return !(permission.canEditAll()
-                || permission.isFacilitator()
-                || permission.isControlOperator()
-                || permission.isSoqmLead()
-                || permission.isProcessOwner());
+    public AccessPolicy.ReadAccess readAccess(Control control, User user) {
+        return readAccess(control, user, null);
     }
 
-    private boolean isCreator(Control control, User user) {
-        if (control.getCreatedBy() == null) {
-            return false;
+    /** What a place in Control Shared With gives the user on the control ({@link AccessPolicy#sharedAccess}). */
+    public AccessPolicy.SharedAccess sharedAccess(Control control, User user, ControlAssignmentDTO assignment) {
+        return AccessPolicy.sharedAccess(AccessPolicy.Subject.of(user),
+                controlPermissionService.facts(control, user, assignment));
+    }
+
+    /** Control Shared With of the control as View Control shows it, each person with what the place gives them. */
+    public List<SharedWithPeople.Person> sharedWithPeople(Control control, ControlAssignmentDTO assignment,
+                                                          Function<String, Optional<User>> users) {
+        if (control == null || assignment == null) {
+            return List.of();
         }
-        String creatorEmail = control.getCreatedBy().getMail();
-        String userEmail = user.getMail();
-        return creatorEmail != null
-                && userEmail != null
-                && creatorEmail.equalsIgnoreCase(userEmail);
+        return SharedWithPeople.describe(assignment.getControlSharedWith(),
+                AccessPolicy.isKdnControl(control.getControlId()), users,
+                user -> sharedAccess(control, user, assignment));
+    }
+
+    /** The Excel export of one completed control ({@link AccessPolicy#canExportCompletedControl}). */
+    public boolean canExportCompletedControl(Control control, User user) {
+        return AccessPolicy.canExportCompletedControl(AccessPolicy.Subject.of(user),
+                controlPermissionService.facts(control, user, null));
+    }
+
+    /**
+     * For API reads, called before anything is loaded: the control when {@link #readAccess} allows it,
+     * otherwise a {@link ControlReadDeniedException} (401 without a user, 404 for an unknown control, 403).
+     */
+    public Control requireReadable(Long controlId, User user) {
+        if (user == null) {
+            throw ControlReadDeniedException.unauthenticated();
+        }
+        Control control = controlId == null ? null : controlService.getControlById(controlId).orElse(null);
+        if (control == null) {
+            throw ControlReadDeniedException.notFound();
+        }
+        if (readAccess(control, user) != AccessPolicy.ReadAccess.ALLOWED) {
+            throw ControlReadDeniedException.forbidden();
+        }
+        return control;
     }
 }

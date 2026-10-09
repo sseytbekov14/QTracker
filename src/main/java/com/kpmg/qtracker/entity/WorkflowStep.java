@@ -50,6 +50,8 @@ public class WorkflowStep {
 
     @PrePersist
     protected void onCreate() {
-        assignedAt = LocalDateTime.now();
+        if (assignedAt == null) {
+            assignedAt = LocalDateTime.now(Notification.ZONE);
+        }
     }
 }

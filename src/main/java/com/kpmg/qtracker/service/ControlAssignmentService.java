@@ -17,6 +17,7 @@ import java.util.*;import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import com.kpmg.qtracker.util.EmailList;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +44,15 @@ public class ControlAssignmentService {
 
     @Transactional
     public ControlAssignment saveAssignment(ControlAssignmentDTO assignmentDTO) {
+        return saveAssignment(assignmentDTO, false);
+    }
+
+    /**
+     * @param keepSchedule keep the stored Control Operation Date, deadline and next date as they are, whatever the
+     *                     request holds, and leave the control's deadline alone: a completed control changed in place
+     *                     (AccessPolicy.COMPLETED_FIXED_FIELDS), whose people change but whose dates do not
+     */
+    public ControlAssignment saveAssignment(ControlAssignmentDTO assignmentDTO, boolean keepSchedule) {
         log.debug("saveAssignment: controlId={}, facilitators={}, operators={}, owners={}, soqm={}",
                 assignmentDTO.getControlId(),
                 assignmentDTO.getFacilitator(),
@@ -50,13 +60,13 @@ public class ControlAssignmentService {
                 assignmentDTO.getProcessOwner(),
                 assignmentDTO.getSoqmLead());
         
-        // Обновляем валидацию
-        validateUsersHaveRole(assignmentDTO.getControlOperator(), "CONTROL_OPERATOR",
-                "User must have CONTROL_OPERATOR role to be assigned as Control Operator");
-        validateUsersHaveRole(assignmentDTO.getSoqmLead(), "SOQM_TEAM",
-                "User must have SOQM_TEAM role to be assigned as SOQM Team");
-        validateUsersHaveRole(assignmentDTO.getProcessOwner(), "PROCESS_OWNER",
-                "User must have PROCESS_OWNER role to be assigned as Process Owner");
+        Optional<Control> controlOpt = controlRepository.findById(assignmentDTO.getControlId());
+        boolean kdnControl = controlOpt.map(control -> AccessPolicy.isKdnControl(control.getControlId())).orElse(false);
+        validateAssignees(assignmentDTO.getFacilitator(), AccessPolicy.Slot.FACILITATOR, kdnControl);
+        validateAssignees(assignmentDTO.getControlOperator(), AccessPolicy.Slot.CONTROL_OPERATOR, kdnControl);
+        validateAssignees(assignmentDTO.getSoqmLead(), AccessPolicy.Slot.SOQM_LEAD, kdnControl);
+        validateAssignees(assignmentDTO.getProcessOwner(), AccessPolicy.Slot.PROCESS_OWNER, kdnControl);
+        validateAssignees(assignmentDTO.getControlSharedWith(), AccessPolicy.Slot.SHARED_WITH, kdnControl);
 
         Optional<ControlAssignment> existingAssignment = assignmentRepository.findByControlId(assignmentDTO.getControlId());
         ControlAssignment assignment = existingAssignment.orElse(new ControlAssignment());
@@ -66,12 +76,23 @@ public class ControlAssignmentService {
             operationDate = existingAssignment.get().getControlOperationDate();
         }
 
-        Optional<Control> controlOpt = controlRepository.findById(assignmentDTO.getControlId());
         String frequencyValue = controlOpt.map(Control::getControlFrequency).orElse(null);
 
+        // A save that keeps the operation date keeps the stored schedule: a control set up under an earlier
+        // deadline rule keeps its deadline until its date (or its frequency, recalculateSchedule) changes
         LocalDate deadline = null;
         LocalDate nextDate = null;
-        if (operationDate != null) {
+        ControlAssignment stored = existingAssignment.orElse(null);
+        if (keepSchedule && stored != null) {
+            operationDate = stored.getControlOperationDate();
+            deadline = stored.getControlOperationDeadline();
+            nextDate = stored.getNextControlOperationDate();
+        } else if (operationDate != null && stored != null
+                && operationDate.equals(stored.getControlOperationDate())
+                && stored.getControlOperationDeadline() != null) {
+            deadline = stored.getControlOperationDeadline();
+            nextDate = stored.getNextControlOperationDate();
+        } else if (operationDate != null) {
             ControlFrequency frequency = ControlFrequency.fromValue(frequencyValue);
             deadline = scheduleCalculator.calculateDeadline(frequency, operationDate);
             nextDate = scheduleCalculator.calculateNextDate(frequency, operationDate);
@@ -105,7 +126,7 @@ public class ControlAssignmentService {
                 saved.getControlId(), saved.getFacilitator(), saved.getProcessOwner());
 
         // ★ Обновляем deadline в таблице control_controls
-        if (controlOpt.isPresent() && deadline != null) {
+        if (controlOpt.isPresent() && deadline != null && !keepSchedule) {
             Control control = controlOpt.get();
             control.setDeadline(deadline);
             controlRepository.save(control);
@@ -145,104 +166,25 @@ public class ControlAssignmentService {
         });
     }
 
-    // Методы проверки ролей — Facilitator and Control Operator are interchangeable
-    public boolean isUserFacilitator(Long controlId, String userEmail) {
-        Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && hasAnyRole(user.get(), Set.of("FACILITATOR", "CONTROL_OPERATOR"));
-    }
-
-    public boolean isUserControlOperator(Long controlId, String userEmail) {
-        Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && hasAnyRole(user.get(), Set.of("CONTROL_OPERATOR", "FACILITATOR"));
-    }
-
-    public boolean isUserSoqmLead(Long controlId, String userEmail) {
-        Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && hasAnyRole(user.get(), Set.of("SOQM_TEAM"));
-    }
-
-    public boolean isUserProcessOwner(Long controlId, String userEmail) {
-        Optional<User> user = userRepository.findByMail(userEmail);
-        return user.isPresent() && hasAnyRole(user.get(), Set.of("PROCESS_OWNER"));
-    }
-
-    public List<String> getUserRolesForControl(Long controlId, String userEmail) {
-        List<String> roles = new ArrayList<>();
-        Optional<User> user = userRepository.findByMail(userEmail);
-
-        if (user.isPresent()) {
-            if (Boolean.TRUE.equals(user.get().getAdminAccess())) {
-                roles.add("ADMIN");
-                return roles;
-            }
-            if (hasAnyRole(user.get(), Set.of("SOQM_TEAM"))) {
-                roles.add("SOQM_TEAM");
-                return roles;
-            }
-        }
-
-        // Check assignment-based roles for this specific control
-        Optional<ControlAssignment> assignmentOpt = assignmentRepository.findByControlId(controlId);
-        if (assignmentOpt.isPresent()) {
-            ControlAssignment assignment = assignmentOpt.get();
-
-            if (containsEmail(assignment.getFacilitator(), userEmail)) {
-                roles.add("FACILITATOR");
-            }
-            if (containsEmail(assignment.getControlOperator(), userEmail)) {
-                roles.add("CONTROL_OPERATOR");
-            }
-            if (containsEmail(assignment.getProcessOwner(), userEmail)) {
-                roles.add("PROCESS_OWNER");
-            }
-            if (containsEmail(assignment.getSoqmLead(), userEmail)) {
-                roles.add("SOQM_TEAM");
-            }
-        }
-
-        // Fallback: if no assignment-based roles found, use global role
-        if (roles.isEmpty() && user.isPresent()) {
-            addUserRoles(roles, user.get());
-        }
-
-        return roles;
-    }
-
-    private boolean containsEmail(String fieldValue, String email) {
-        if (fieldValue == null || fieldValue.isBlank() || email == null) {
-            return false;
-        }
-        return java.util.Arrays.stream(fieldValue.split("[,;]"))
-                .map(String::trim)
-                .anyMatch(e -> e.equalsIgnoreCase(email));
-    }
-
-    // ★ ДОБАВИТЬ метод для получения пользователей по роли
-    public List<User> getUsersByRole(String role) {
-        return userRepository.findByRoleIgnoreCaseOrSecondaryRoleIgnoreCase(role, role);
-    }
-
-    // Обновленная валидация
-    private void validateUsersHaveRole(List<String> userEmails, String requiredRole, String errorMessage) {
-        if (userEmails == null || userEmails.isEmpty()) {
+    /**
+     * Everyone put in an assignment field must be allowed there ({@link AccessPolicy#assignmentRefusal}):
+     * an existing user, a participant in Facilitator / Control Operator / Process Owner, a SoQM user in
+     * SoQM Team / Delegate, nobody read-only except in Shared With, a KDN-scope user only on a KDN control.
+     */
+    private void validateAssignees(List<String> userEmails, AccessPolicy.Slot slot, boolean kdnControl) {
+        if (userEmails == null) {
             return;
         }
-
-        // Facilitator and Control Operator are interchangeable roles
-        Set<String> allowedRoles = new HashSet<>();
-        allowedRoles.add(requiredRole);
-        if ("FACILITATOR".equals(requiredRole) || "CONTROL_OPERATOR".equals(requiredRole)) {
-            allowedRoles.add("FACILITATOR");
-            allowedRoles.add("CONTROL_OPERATOR");
-        }
-
         for (String email : userEmails) {
-            Optional<User> user = userRepository.findByMail(email);
-            boolean hasRole = user.isPresent() && hasAnyRole(user.get(), allowedRoles);
-
-            if (!hasRole) {
-                throw new RuntimeException(errorMessage + ": " + email);
+            if (email == null || email.isBlank()) {
+                continue;
             }
+            AccessPolicy.Subject candidate = userRepository.findByMail(email.trim())
+                    .map(AccessPolicy.Subject::of)
+                    .orElse(null);
+            AccessPolicy.assignmentRefusal(candidate, slot, kdnControl).ifPresent(reason -> {
+                throw new IllegalArgumentException(slot.getLabel() + ": " + email.trim() + " " + reason);
+            });
         }
     }
 
@@ -253,43 +195,8 @@ public class ControlAssignmentService {
         return String.join(",", list);
     }
 
-    private boolean hasAnyRole(User user, Set<String> expectedRoles) {
-        if (user == null || expectedRoles == null || expectedRoles.isEmpty()) {
-            return false;
-        }
-        return getUserRoles(user).stream().anyMatch(expectedRoles::contains);
-    }
-
-    private Set<String> getUserRoles(User user) {
-        Set<String> roles = new LinkedHashSet<>();
-        if (user.getRole() != null && !user.getRole().isBlank()) {
-            roles.add(user.getRole().trim().toUpperCase());
-        }
-        if (user.getSecondaryRole() != null && !user.getSecondaryRole().isBlank()) {
-            roles.add(user.getSecondaryRole().trim().toUpperCase());
-        }
-        return roles;
-    }
-
-    private void addUserRoles(List<String> target, User user) {
-        if (user == null) {
-            return;
-        }
-        for (String role : getUserRoles(user)) {
-            if (!target.contains(role)) {
-                target.add(role);
-            }
-        }
-    }
-
     private List<String> convertStringToList(String str) {
-        if (str == null || str.trim().isEmpty()) {
-            return new ArrayList<>();
-        }
-        return java.util.Arrays.stream(str.split("[,;]"))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toList();
+        return new ArrayList<>(EmailList.parse(str));
     }
 
     private ControlAssignmentDTO convertToDTO(ControlAssignment assignment) {

@@ -8,10 +8,13 @@ import com.kpmg.qtracker.dto.ControlDetailsDTO;
 import com.kpmg.qtracker.dto.ControlDocumentsDTO;
 import com.kpmg.qtracker.dto.PerformanceDTO;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.CompletedEdit;
 import com.kpmg.qtracker.service.ControlAuditChangeService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
@@ -19,8 +22,12 @@ import com.kpmg.qtracker.service.ControlDocumentsService;
 import com.kpmg.qtracker.service.ControlHistoryService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
+import com.kpmg.qtracker.service.ControlRenameService;
+import com.kpmg.qtracker.service.ControlStepsFields;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
+import com.kpmg.qtracker.service.PermissionService;
+import com.kpmg.qtracker.service.SoqmYear;
 import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
 import jakarta.servlet.http.HttpServletResponse;
@@ -60,21 +67,11 @@ public class ControlController {
     private final ControlHistoryService controlHistoryService;
     private final ControlAuditChangeService controlAuditChangeService;
     private final ControlPermissionService controlPermissionService;
+    private final PermissionService permissionService;
     private final StatusDisplayMapper statusDisplayMapper;
     private final com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;
+    private final ControlRenameService controlRenameService;
     private static final Logger logger = LoggerFactory.getLogger(ControlController.class);
-
-    @GetMapping
-    public ResponseEntity<?> getAllControls(HttpSession session) {
-        User currentUser = (User) session.getAttribute("currentUser");
-        if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        List<ControlResponseDTO> controls = controlService.findVisibleControlsForUser(currentUser.getMail(), currentUser.getRole()).stream()
-                .map(this::convertToResponseDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(controls);
-    }
 
     /**
      * Generate a Control ID automatically based on component and frequency.
@@ -102,6 +99,28 @@ public class ControlController {
         }
     }
 
+    /**
+     * What renaming to the new ID would do to KDN access (who gains or loses it), for the confirmation in
+     * the Rename ID dialog. SoQM only, like the rename; nothing is saved.
+     */
+    @GetMapping("/{id}/rename-preview")
+    public ResponseEntity<?> renamePreview(@PathVariable Long id,
+                                           @RequestParam(required = false) String newControlId,
+                                           HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Optional<Control> control = controlService.findById(id);
+        if (control.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!AccessPolicy.canRenameId(controlPermissionService.resolve(control.get(), currentUser))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not authorized to rename controls");
+        }
+        return ResponseEntity.ok(controlRenameService.preview(control.get(), newControlId));
+    }
+
     @PostMapping("/{id}/rename-id")
     public ResponseEntity<?> renameControlId(@PathVariable Long id,
                                              @RequestBody Map<String, String> request,
@@ -112,7 +131,8 @@ public class ControlController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
             Control control = controlService.findById(id).orElseThrow(() -> new RuntimeException("Control not found"));
-            if (!controlPermissionService.resolve(control, currentUser).canEditAll()) {
+            // Renaming is SoQM's, also on a completed control (not an edit of its content)
+            if (!AccessPolicy.canRenameId(controlPermissionService.resolve(control, currentUser))) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not authorized to rename controls");
             }
             
@@ -121,7 +141,8 @@ public class ControlController {
                 return ResponseEntity.badRequest().body("Control ID cannot be empty");
             }
 
-            Control updatedControl = controlService.renameControlId(id, newControlId);
+            // A rename that makes the control a KDN control or stops it being one needs a comment
+            Control updatedControl = controlRenameService.rename(id, newControlId, request.get("comment"), currentUser);
             return ResponseEntity.ok(updatedControl);
 
         } catch (Exception e) {
@@ -135,23 +156,19 @@ public class ControlController {
         if (currentUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        if (!currentUser.getMail().equalsIgnoreCase(email) && !Boolean.TRUE.equals(currentUser.getAdminAccess())) {
+        if (!currentUser.getMail().equalsIgnoreCase(email)
+                && !AccessPolicy.seesAllControls(AccessPolicy.Subject.of(currentUser))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        List<ControlResponseDTO> controls = controlService.getUserControls(email).stream()
-                .map(this::convertToResponseDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(controls);
-    }
-
-    @GetMapping("/component/{component}")
-    public ResponseEntity<?> getControlsByComponent(@PathVariable String component, HttpSession session) {
-        User currentUser = (User) session.getAttribute("currentUser");
-        if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        List<Control> created = controlService.getUserControls(email);
+        if (!AccessPolicy.seesAllControls(AccessPolicy.Subject.of(currentUser))) {
+            // Only what the user sees (AccessPolicy.canView): a KDN user's old non-KDN controls stay out
+            Set<Long> visible = controlService.findVisibleControlsForUser(currentUser).stream()
+                    .map(Control::getId)
+                    .collect(Collectors.toSet());
+            created = created.stream().filter(control -> visible.contains(control.getId())).toList();
         }
-        List<ControlResponseDTO> controls = controlService.getControlsByComponent(component).stream()
-                .filter(c -> controlPermissionService.resolve(controlService.findById(c.getId()).get(), currentUser).canView())
+        List<ControlResponseDTO> controls = created.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(controls);
@@ -159,17 +176,7 @@ public class ControlController {
 
     @GetMapping("/{id}/changelog")
     public ResponseEntity<?> getControlChangelog(@PathVariable Long id, HttpSession session) {
-        User currentUser = (User) session.getAttribute("currentUser");
-        if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        java.util.Optional<Control> controlOpt = controlService.findById(id);
-        if (controlOpt.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        if (!controlPermissionService.resolve(controlOpt.get(), currentUser).canView()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        permissionService.requireReadable(id, (User) session.getAttribute("currentUser"));
         return ResponseEntity.ok(controlHistoryService.getControlHistory(id));
     }
 
@@ -183,9 +190,9 @@ public class ControlController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("success", false, "message", "User not authenticated"));
             }
-            if (!"SOQM_TEAM".equals(currentUser.getRole())) {
+            if (!AccessPolicy.canCreateControls(AccessPolicy.Subject.of(currentUser))) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("success", false, "message", "Only SOQM_TEAM can create controls"));
+                        .body(Map.of("success", false, "message", "Only SoQM Team can create controls"));
             }
 
             // Проверяем, не пустой ли Control ID
@@ -196,6 +203,14 @@ public class ControlController {
                 errorResponse.put("message", "Control ID cannot be empty");
                 errorResponse.put("timestamp", LocalDateTime.now());
                 return ResponseEntity.badRequest().body(errorResponse);
+            }
+
+            String missingField = findMissingRequiredField(controlDTO, true);
+            if (missingField != null) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false,
+                                "error", "REQUIRED_FIELD",
+                                "message", missingField + " is required"));
             }
 
             User user = userService.getUserByEmail(currentUser.getMail())
@@ -304,7 +319,7 @@ public class ControlController {
                 response.getWriter().write("User not authenticated");
                 return;
             }
-            if (!"SOQM_TEAM".equals(currentUser.getRole())) {
+            if (!AccessPolicy.canExportAllControls(AccessPolicy.Subject.of(currentUser))) {
                 response.setStatus(HttpStatus.FORBIDDEN.value());
                 response.setContentType("text/plain");
                 response.getWriter().write("Forbidden");
@@ -434,7 +449,7 @@ public class ControlController {
             }
 
             // ★ ГЕНЕРАЦИЯ ИМЕНИ ФАЙЛА
-            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String timestamp = LocalDateTime.now(Notification.ZONE).format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
             String userPart = "all";
             if (userEmail != null && !userEmail.isEmpty()) {
                 userPart = userEmail.split("@")[0];
@@ -504,20 +519,39 @@ public class ControlController {
             if (currentUser == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
             }
-            String userRole = currentUser.getRole();
-            boolean userIsAdmin = Boolean.TRUE.equals(currentUser.getAdminAccess());
-            
             Control existingControl = controlService.getControlById(id)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(id);
             ControlPermission permission = controlPermissionService.resolve(existingControl, currentUser, assignment);
             if (!permission.canEdit()) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body("VALIDATION_ERROR: User does not have permission to edit this control");
+                        .body("VALIDATION_ERROR: " + permission.editRefusal("User does not have permission to edit this control"));
             }
-            if (permission.isSharedCompleted()) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body("VALIDATION_ERROR: Shared users can edit only allowed fields in Control Details");
+            // Fields not sent (null) are left unchanged; a required field sent as blank is rejected
+            String missingField = findMissingRequiredField(controlDTO, false);
+            if (missingField != null) {
+                return ResponseEntity.badRequest()
+                        .body("VALIDATION_ERROR: " + missingField + " is required");
+            }
+            // A blank SoQM Year leaves the stored one; any other value must be a real SoQM year
+            String requestedSoqmYear = controlDTO.getSoqmYear() == null || controlDTO.getSoqmYear().isBlank()
+                    ? null : controlDTO.getSoqmYear().trim();
+            controlDTO.setSoqmYear(requestedSoqmYear);
+            // A completed control changed in place keeps its frequency, SoQM Year and Control Status
+            // (AccessPolicy.COMPLETED_FIXED_FIELDS): a change is refused, the same value sent is not applied
+            if (permission.isCompletedEdit()) {
+                String fixedField = findChangedCompletedFixedField(controlDTO, existingControl);
+                if (fixedField != null) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body("VALIDATION_ERROR: " + AccessPolicy.completedFixedMessage(fixedField));
+                }
+                controlDTO.setControlFrequency(null);
+                controlDTO.setSoqmYear(null);
+                controlDTO.setControlStatus(null);
+                requestedSoqmYear = null;
+            }
+            if (requestedSoqmYear != null && !SoqmYear.isValid(requestedSoqmYear)) {
+                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + SoqmYear.invalidMessage());
             }
             String previousFrequency = existingControl.getControlFrequency();
             String requestedFrequency = controlDTO.getControlFrequency();
@@ -530,43 +564,24 @@ public class ControlController {
                             .body("VALIDATION_ERROR: Control Frequency must be one of Monthly, Quarterly, Ad-hoc, Recurring, Annual, Semi Annual");
                 }
             }
+            if (!permission.canEditAll()) {
+                String lockedField = findChangedRestrictedField(controlDTO, existingControl, canonicalFrequency, permission);
+                if (lockedField != null) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body("VALIDATION_ERROR: " + lockedField + " can be changed only by SoQM Team");
+                }
+            }
 
-            // ============================================
-            // ROLE-BASED FIELD RESTRICTIONS VALIDATION
-            // ============================================
-            // Facilitator/Control Operator CANNOT modify SoQM and Process Owner comments
-            if ("CONTROL_OPERATOR".equals(userRole) || "FACILITATOR".equals(userRole)) {
-                if (controlDTO.getSoqmHeadComments() != null && 
-                    !controlDTO.getSoqmHeadComments().equals(existingControl.getSoqmHeadComments())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: Facilitator/Control Operator cannot modify SoQM Head/Team Comments");
-                }
-                if (controlDTO.getProcessOwnerComments() != null && 
-                    !controlDTO.getProcessOwnerComments().equals(existingControl.getProcessOwnerComments())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: Facilitator/Control Operator cannot modify Process Owner Comments");
-                }
+            // Without full edit rights every field checked above is unchanged, so only the Process Owner
+            // comment may still differ. A request that changes nothing is not saved: updatedAt, the audit
+            // log, a legacy frequency spelling and the schedule stay as they are.
+            boolean changesProcessOwnerComments = controlDTO.getProcessOwnerComments() != null
+                    && permission.canEditProcessOwnerComments()
+                    && !normalizeValue(controlDTO.getProcessOwnerComments())
+                            .equals(normalizeValue(existingControl.getProcessOwnerComments()));
+            if (!permission.canEditAll() && !changesProcessOwnerComments) {
+                return ResponseEntity.ok(convertToResponseDTO(existingControl));
             }
-            
-            // SoQM Team CAN modify soqmHeadComments but NOT processOwnerComments
-            if ("SOQM_TEAM".equals(userRole)) {
-                if (controlDTO.getProcessOwnerComments() != null && 
-                    !controlDTO.getProcessOwnerComments().equals(existingControl.getProcessOwnerComments())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: SoQM Team cannot modify Process Owner Comments");
-                }
-            }
-            
-            // Process Owner CAN modify processOwnerComments but NOT soqmHeadComments
-            if ("PROCESS_OWNER".equals(userRole)) {
-                if (controlDTO.getSoqmHeadComments() != null && 
-                    !controlDTO.getSoqmHeadComments().equals(existingControl.getSoqmHeadComments())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: Process Owner cannot modify SoQM Head/Team Comments");
-                }
-            }
-            
-            // ADMIN can modify everything
 
             // ============================================
             // UPDATE ALLOWED FIELDS
@@ -598,6 +613,9 @@ public class ControlController {
             if (controlDTO.getHomogeneity() != null) {
                 existingControl.setHomogeneity(controlDTO.getHomogeneity());
             }
+            if (requestedSoqmYear != null) {
+                existingControl.setSoqmYear(requestedSoqmYear);
+            }
             // NOTE: DO NOT update performanceStatus here - it should only change via workflow transitions (Submit buttons)
             if (controlDTO.getControlStatus() != null && !controlDTO.getControlStatus().isBlank()) {
                 existingControl.setControlStatus(controlDTO.getControlStatus().trim());
@@ -608,17 +626,32 @@ public class ControlController {
             if (controlDTO.getPrp() != null) {
                 existingControl.setPrp(controlDTO.getPrp());
             }
-            // Set role-specific comments
-            if (controlDTO.getSoqmHeadComments() != null
-                    && ("SOQM_TEAM".equals(userRole) || userIsAdmin)) {
+            // The review comments: SoQM's, and the Process Owner's (in their step, or SoQM filling them in for
+            // the Process Owner: business decision 3; the audit entry below names who wrote them)
+            if (controlDTO.getSoqmHeadComments() != null && permission.canEditAll()) {
                 existingControl.setSoqmHeadComments(controlDTO.getSoqmHeadComments());
             }
             if (controlDTO.getProcessOwnerComments() != null
-                    && ("PROCESS_OWNER".equals(userRole) || userIsAdmin)) {
+                    && (permission.canEditAll() || permission.canEditProcessOwnerComments())) {
                 existingControl.setProcessOwnerComments(controlDTO.getProcessOwnerComments());
             }
-            
-            existingControl.setUpdatedAt(LocalDateTime.now());
+
+            // A completed control changed in place (CompletedEdit): a request that changes nothing is not saved,
+            // one that changes something needs a reason. Nothing is called before returning, so the changed
+            // entity is never written.
+            String completedEditReason = null;
+            if (permission.isCompletedEdit()) {
+                if (!controlAuditChangeService.diff(originalSnapshot, existingControl).hasChanges()) {
+                    return ResponseEntity.ok(convertToResponseDTO(existingControl));
+                }
+                Optional<String> reasonRefusal = CompletedEdit.refusal(permission, true, controlDTO.getEditReason());
+                if (reasonRefusal.isPresent()) {
+                    return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + reasonRefusal.get());
+                }
+                completedEditReason = CompletedEdit.reasonOf(permission, controlDTO.getEditReason());
+            }
+
+            existingControl.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
 
             Control updatedControl = controlService.updateControl(existingControl);
             if (canonicalFrequency != null
@@ -630,15 +663,22 @@ public class ControlController {
             if (auditChangeSet.hasChanges()) {
                 try {
                     ObjectMapper mapper = new ObjectMapper();
+                    List<String> changedFields = new ArrayList<>(auditChangeSet.getChangedFields());
+                    Map<String, String> newValues = new LinkedHashMap<>(auditChangeSet.getNewValues());
+                    String description = "Edit Control";
+                    if (completedEditReason != null) {
+                        description = CompletedEdit.describe(description);
+                        CompletedEdit.addReason(changedFields, newValues, completedEditReason);
+                    }
                     adminAuditService.logActionWithChanges(
                             currentUser.getMail(),
                             currentUser.getDisplayName(),
                             "EDIT",
                             updatedControl,
-                            "Edit Control",
-                            mapper.writeValueAsString(auditChangeSet.getChangedFields()),
+                            description,
+                            mapper.writeValueAsString(changedFields),
                             mapper.writeValueAsString(auditChangeSet.getPreviousValues()),
-                            mapper.writeValueAsString(auditChangeSet.getNewValues())
+                            mapper.writeValueAsString(newValues)
                     );
                 } catch (Exception e) {
                     logger.warn("Failed to log control changes: {}", e.getMessage());
@@ -663,14 +703,9 @@ public class ControlController {
             Control control = controlService.getControlById(id)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
 
-            // Allow SOQM_TEAM or users the control is shared with
-            boolean isSoqmLead = "SOQM_TEAM".equals(currentUser.getRole());
-            ControlAssignmentDTO assignmentCheck = controlAssignmentService.getAssignmentByControlId(id);
-            boolean isSharedWith = assignmentCheck != null
-                    && assignmentCheck.getControlSharedWith() != null
-                    && assignmentCheck.getControlSharedWith().stream()
-                        .anyMatch(e -> e != null && e.equalsIgnoreCase(currentUser.getMail()));
-            if (!isSoqmLead && !isSharedWith) {
+            // SoQM, or a user the control is shared with
+            if (!AccessPolicy.canExportCompletedControl(AccessPolicy.Subject.of(currentUser),
+                    controlPermissionService.facts(control, currentUser, null))) {
                 response.setStatus(HttpStatus.FORBIDDEN.value());
                 response.setContentType("text/plain");
                 response.getWriter().write("Forbidden");
@@ -728,7 +763,7 @@ public class ControlController {
 
             rowNum = addRow(sheet, rowNum, "Created By",
                     control.getCreatedBy() != null ? control.getCreatedBy().getDisplayName() : null);
-            rowNum = addRow(sheet, rowNum, "Created At", formatDateTime(control.getCreatedAt()));
+            rowNum = addRow(sheet, rowNum, "Created", formatDateTime(control.getCreatedAt()));
             rowNum = addRow(sheet, rowNum, "Updated At", formatDateTime(control.getUpdatedAt()));
             rowNum = addRow(sheet, rowNum, "Deadline", formatDate(control.getDeadline()));
 
@@ -737,23 +772,26 @@ public class ControlController {
                 rowNum = addRow(sheet, rowNum, "Control Operator(s)", joinList(assignment.getControlOperator()));
                 rowNum = addRow(sheet, rowNum, "SoQM Team/Delegate(s)", joinList(assignment.getSoqmLead()));
                 rowNum = addRow(sheet, rowNum, "Process Owner(s)", joinList(assignment.getProcessOwner()));
-                rowNum = addRow(sheet, rowNum, "Shared With", joinList(assignment.getControlSharedWith()));
+                // The name View Control and the Changelog give the field; addresses in the stored order
+                rowNum = addRow(sheet, rowNum, "Control Shared With", joinList(assignment.getControlSharedWith()));
                 rowNum = addRow(sheet, rowNum, "Control Operation Date", formatDate(assignment.getControlOperationDate()));
                 rowNum = addRow(sheet, rowNum, "Control Operation Deadline", formatDate(assignment.getControlOperationDeadline()));
                 rowNum = addRow(sheet, rowNum, "Next Control Operation Date", formatDate(assignment.getNextControlOperationDate()));
             }
 
             rowNum = addRow(sheet, rowNum, "SoQM Year", performanceDTO.getSoqmYear());
-            rowNum = addRow(sheet, rowNum, "Actual Operation Date", formatDate(performanceDTO.getActualOperationDate()));
             rowNum = addRow(sheet, rowNum, "Performance Status", performanceStatus);
 
             if (details != null) {
                 rowNum = addRow(sheet, rowNum, "Process Name", details.getProcessName());
                 rowNum = addRow(sheet, rowNum, "Department", details.getDepartment());
                 rowNum = addRow(sheet, rowNum, "Process Activities", details.getProcessActivities());
+                // In the order of View Control's Details: the Program (put in by SoQM Team) right after Process
+                // Activities; an empty value has no row, as every field
+                rowNum = addRow(sheet, rowNum, ControlStepsFields.OPERATOR_PROGRAM_LABEL, details.getControlOperatorReview());
                 rowNum = addRow(sheet, rowNum, "Other Related Controls", details.getOtherRelatedControls());
                 rowNum = addRow(sheet, rowNum, "IT Applications", details.getItApplications());
-                rowNum = addRow(sheet, rowNum, "Control Steps Performed and Results", details.getControlStepsPerformed());
+                rowNum = addRow(sheet, rowNum, ControlStepsFields.STEPS_LABEL, details.getControlStepsPerformed());
             }
 
             if (documents != null) {
@@ -785,24 +823,6 @@ public class ControlController {
             response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
             response.setContentType("text/plain");
             response.getWriter().write("Error generating Excel: " + e.getMessage());
-        }
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteControl(@PathVariable Long id) {
-        try {
-            logger.info("Deleting control with ID: {}", id);
-
-            Control control = controlService.getControlById(id)
-                    .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
-
-            controlService.deleteControl(id);
-            logger.info("Control deleted successfully: {}", id);
-
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            logger.error("Error deleting control: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body("Error deleting control: " + e.getMessage());
         }
     }
 
@@ -952,6 +972,97 @@ public class ControlController {
 
     private static String normalizeValue(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    /**
+     * Returns the label of the first required Control field that is missing, or null.
+     * requireAll=true (create): every required field must be present and non-blank.
+     * requireAll=false (update): only fields that were sent are checked, and they must not be blank.
+     */
+    private String findMissingRequiredField(ControlDTO dto, boolean requireAll) {
+        Map<String, String> required = new LinkedHashMap<>();
+        required.put("Control Frequency", dto.getControlFrequency());
+        required.put("Control Type", dto.getControlType());
+        required.put("Component", dto.getComponent());
+        required.put("Operated By", dto.getOperatedBy());
+        required.put("Priority", dto.getPriority());
+        required.put("Non-Audit Services Control Applicability", dto.getNonAuditServicesApplicability());
+        for (Map.Entry<String, String> field : required.entrySet()) {
+            String value = field.getValue();
+            boolean missing = value == null ? requireAll : value.isBlank();
+            if (missing) {
+                return field.getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * First master field whose sent value differs from the stored one. Participants without full edit
+     * rights may send the stored values back unchanged, so values are compared, not presence.
+     */
+    private String findChangedRestrictedField(ControlDTO dto, Control existing, String canonicalFrequency,
+                                              ControlPermission permission) {
+        if (canonicalFrequency != null) {
+            String storedFrequency = canonicalizeFrequency(existing.getControlFrequency());
+            if (!Objects.equals(canonicalFrequency,
+                    storedFrequency != null ? storedFrequency : normalizeValue(existing.getControlFrequency()))) {
+                return "Control Frequency";
+            }
+        }
+        Map<String, String[]> fields = new LinkedHashMap<>();
+        fields.put("Control Category", new String[]{dto.getControlCategory(), existing.getControlCategory()});
+        fields.put("Control Type", new String[]{dto.getControlType(), existing.getControlType()});
+        fields.put("Component", new String[]{dto.getComponent(), existing.getComponent()});
+        fields.put("Operated By", new String[]{dto.getOperatedBy(), existing.getOperatedBy()});
+        fields.put("References to Control", new String[]{dto.getReferencesToControl(), existing.getReferencesToControl()});
+        fields.put("Priority", new String[]{dto.getPriority(), existing.getPriority()});
+        fields.put("Non-audit Services Applicability",
+                new String[]{dto.getNonAuditServicesApplicability(), existing.getNonAuditServicesApplicability()});
+        fields.put("Homogeneity", new String[]{dto.getHomogeneity(), existing.getHomogeneity()});
+        fields.put("SoQM Year", new String[]{dto.getSoqmYear(), existing.getSoqmYear()});
+        // A blank status is ignored by the update, so only a non-blank one can change it
+        fields.put("Control Status", new String[]{
+                dto.getControlStatus() == null || dto.getControlStatus().isBlank() ? null : dto.getControlStatus(),
+                existing.getControlStatus()});
+        fields.put("Control Description", new String[]{dto.getControlDescription(), existing.getControlDescription()});
+        fields.put("PRP", new String[]{dto.getPrp(), existing.getPrp()});
+        fields.put("SoQM Head/Team Comments", new String[]{dto.getSoqmHeadComments(), existing.getSoqmHeadComments()});
+        if (!permission.canEditProcessOwnerComments()) {
+            fields.put("Process Owner Comments",
+                    new String[]{dto.getProcessOwnerComments(), existing.getProcessOwnerComments()});
+        }
+        for (Map.Entry<String, String[]> field : fields.entrySet()) {
+            String sent = field.getValue()[0];
+            if (sent != null && !normalizeValue(sent).equals(normalizeValue(field.getValue()[1]))) {
+                return field.getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The first field of a completed control that stays as it is (AccessPolicy.COMPLETED_FIXED_FIELDS) whose sent
+     * value differs from the stored one, or null. A frequency counts as the same in another spelling of it.
+     */
+    private String findChangedCompletedFixedField(ControlDTO dto, Control existing) {
+        String sentFrequency = dto.getControlFrequency();
+        if (sentFrequency != null && !sentFrequency.isBlank()
+                && !normalizeValue(sentFrequency).equalsIgnoreCase(normalizeValue(existing.getControlFrequency()))) {
+            String canonical = canonicalizeFrequency(sentFrequency);
+            if (canonical == null || !canonical.equals(canonicalizeFrequency(existing.getControlFrequency()))) {
+                return "Control Frequency";
+            }
+        }
+        if (dto.getSoqmYear() != null && !dto.getSoqmYear().trim().equals(normalizeValue(existing.getSoqmYear()))) {
+            return "SoQM Year";
+        }
+        String sentStatus = dto.getControlStatus();
+        if (sentStatus != null && !sentStatus.isBlank()
+                && !sentStatus.trim().equalsIgnoreCase(normalizeValue(existing.getControlStatus()))) {
+            return "Control Status";
+        }
+        return null;
     }
 
     private String canonicalizeFrequency(String raw) {

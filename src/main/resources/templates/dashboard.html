@@ -2,6 +2,8 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <th:block th:replace="~{fragments/csrf :: csrf}"></th:block>
     <title>Dashboard - QTracker</title>
     <script>
         (function() {
@@ -17,10 +19,9 @@
             document.documentElement.classList.add('tab-init-pending');
         })();
     </script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.css" rel="stylesheet">
-    <link href="/css/style.css?v=6" rel="stylesheet">
+    <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css?v=17" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
 :root {
@@ -37,6 +38,7 @@
     --kpmg-green: #009a44;
     --kpmg-red: #c8102e;
     --kpmg-amber: #d4a843;
+    --kpmg-amber-text: #8a6100;
 }
 
 body {
@@ -73,22 +75,6 @@ body.theme-light {
     --dashboard-hover-bg: #f0f4fa;
 }
 
-body.theme-dark {
-    --text-color: #e9eef8;
-    --muted-text: #b8c3d8;
-    --link-color: #7fb0ff;
-    --card-title: #f3f7ff;
-    --border-color: #3a4e6a;
-    --gridline: rgba(132, 150, 178, 0.28);
-    --dashboard-bg: #101722;
-    --dashboard-card-bg: #182332;
-    --dashboard-text: var(--text-color);
-    --dashboard-muted-text: var(--muted-text);
-    --dashboard-border: var(--border-color);
-    --dashboard-chart-grid: var(--gridline);
-    --dashboard-hover-bg: #223149;
-}
-
 /* Hide tab panes until hash-based tab restore is applied to avoid initial flicker */
 html.tab-init-pending #mainTabContent {
     visibility: hidden;
@@ -104,33 +90,13 @@ html.tab-init-pending #mainTabContent {
 .page-header h1 { font-size: 1.35rem; font-weight: 600; margin: 0; }
 .page-header .subtitle { font-size: 0.78rem; color: rgba(255,255,255,0.65); margin: 2px 0 0 0; }
 .dashboard-header-panel {
-    position: relative;
-    padding-right: 74px;
-}
-.dashboard-theme-toggle {
-    position: absolute;
-    top: 20px;
-    right: 28px;
-    width: 34px;
-    height: 34px;
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--kpmg-white);
-    font-size: 0.95rem;
-    line-height: 1;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 24px;
 }
-.dashboard-theme-toggle:hover,
-.dashboard-theme-toggle:focus {
-    background: rgba(255, 255, 255, 0.14);
-    color: var(--kpmg-white);
-    border-color: rgba(255, 255, 255, 0.3);
-    box-shadow: none;
-}
+.dashboard-header-panel h1 { font-size: 1.15rem; }
 
 /* Stats strip */
 .stats-strip {
@@ -152,7 +118,7 @@ html.tab-init-pending #mainTabContent {
 .stats-strip .stat-num { font-size: 1.5rem; font-weight: 700; line-height: 1; }
 .stats-strip .stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--kpmg-gray-600); margin-top: 4px; font-weight: 600; }
 .stats-strip .stat-block.total .stat-num { color: var(--kpmg-blue); }
-.stats-strip .stat-block.active .stat-num { color: var(--kpmg-amber); }
+.stats-strip .stat-block.active .stat-num { color: var(--kpmg-amber-text); }
 .stats-strip .stat-block.completed .stat-num { color: var(--kpmg-green); }
 .stats-strip .stat-block.overdue .stat-num { color: var(--kpmg-red); }
 
@@ -168,97 +134,6 @@ html.tab-init-pending #mainTabContent {
 }
 #pane-dashboard .stats-strip .stat-label {
     color: var(--muted-text);
-}
-
-/* Quick actions */
-.quick-actions {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
-}
-.quick-action-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
-    background: var(--kpmg-white);
-    border: 1px solid var(--kpmg-gray-200);
-    color: var(--kpmg-gray-800);
-    font-size: 0.82rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.15s;
-}
-.quick-action-btn:hover {
-    border-color: var(--kpmg-blue);
-    color: var(--kpmg-blue);
-    background: #f0f4fa;
-    text-decoration: none;
-}
-.quick-action-btn i {
-    font-size: 1rem;
-    color: var(--kpmg-blue);
-}
-#pane-dashboard .quick-action-btn {
-    background: var(--dashboard-card-bg);
-    border-color: var(--dashboard-border);
-    color: var(--text-color);
-}
-#pane-dashboard .quick-action-btn:hover {
-    background: var(--dashboard-hover-bg);
-    color: var(--link-color);
-}
-
-/* Component grid */
-.component-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1px;
-    background: var(--kpmg-gray-200);
-    border: 1px solid var(--kpmg-gray-200);
-}
-.comp-card {
-    background: var(--kpmg-white);
-    padding: 14px 16px;
-    cursor: pointer;
-    transition: background 0.1s;
-}
-.comp-card:hover {
-    background: #f0f4fa;
-}
-.comp-card h6 {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--kpmg-gray-800);
-    margin: 0 0 6px 0;
-}
-.comp-card .comp-count {
-    font-size: 0.7rem;
-    color: var(--kpmg-gray-600);
-}
-.comp-card .comp-count strong {
-    color: var(--kpmg-blue);
-    font-weight: 700;
-}
-body.theme-dark #pane-action .component-grid {
-    background: var(--surface-bg);
-    border-color: var(--surface-bg);
-}
-body.theme-dark #pane-action .comp-card {
-    background: var(--surface-bg);
-    color: var(--text-primary);
-}
-body.theme-dark #pane-action .comp-card:hover {
-    background: var(--hover-bg);
-}
-body.theme-dark #pane-action .comp-card h6 {
-    color: var(--text-primary);
-}
-body.theme-dark #pane-action .comp-card .comp-count {
-    color: var(--text-secondary);
-}
-body.theme-dark #pane-action .comp-card .comp-count strong {
-    color: var(--link);
 }
 
 /* Section title */
@@ -291,81 +166,360 @@ body.theme-dark #pane-action .comp-card .comp-count strong {
     color: var(--muted-text) !important;
 }
 
-/* Notification items */
-.notif-list { margin: 0; }
-.notif-item {
+/* Compact header for the Action Centre / Notifications tabs */
+.pane-header {
     display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 12px 16px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 24px;
+}
+.pane-header h1 { font-size: 1.15rem; }
+
+/* ── Action Centre ── */
+.ac-body { padding-top: 16px; }
+.ac-summary,
+.ac-card {
+    display: block;
     background: var(--kpmg-white);
     border: 1px solid var(--kpmg-gray-200);
-    margin-bottom: -1px;
+    border-radius: 6px;
+    color: var(--kpmg-gray-800);
     text-decoration: none;
-    color: inherit;
+    transition: border-color 0.12s, box-shadow 0.12s;
+}
+.ac-summary:hover,
+.ac-card:hover {
+    border-color: var(--kpmg-blue-light);
+    box-shadow: 0 2px 10px rgba(0, 51, 141, 0.1);
+    color: var(--kpmg-gray-800);
+    text-decoration: none;
+}
+.ac-summary:focus-visible,
+.ac-card:focus-visible {
+    outline: 2px solid var(--kpmg-blue);
+    outline-offset: 2px;
+}
+.ac-summary {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 8px 24px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+}
+.ac-summary-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+.ac-summary-stats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 18px;
+    font-size: 0.82rem;
+    color: var(--kpmg-gray-600);
+}
+.ac-summary-stats strong { font-size: 1.05rem; color: var(--kpmg-gray-800); margin-right: 2px; }
+.ac-summary .ac-progress { grid-column: 1 / -1; }
+.ac-stat-overdue strong { color: var(--kpmg-red); }
+.ac-stat-overdue.is-zero strong { color: var(--kpmg-gray-800); }
+.ac-stat-completed strong { color: var(--kpmg-green); }
+
+.ac-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+}
+.ac-card { padding: 12px 14px; }
+.ac-card.has-overdue { border-left: 3px solid var(--kpmg-red); }
+.ac-card.is-empty { background: var(--kpmg-gray-50); }
+.ac-card.is-empty .ac-name,
+.ac-card.is-empty .ac-counts { color: var(--kpmg-gray-600); }
+.ac-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.ac-code {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: #e6ecf6;
+    color: var(--kpmg-blue);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+.ac-code-all { background: var(--kpmg-blue); color: var(--kpmg-white); }
+.ac-card.is-empty .ac-code { background: var(--kpmg-gray-100); color: var(--kpmg-gray-600); }
+.ac-name {
+    font-size: 0.86rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.ac-counts {
+    font-size: 0.76rem;
+    color: var(--kpmg-gray-600);
+    margin-bottom: 8px;
+}
+/* The card's five counters, the same as its list's */
+.ac-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 14px;
+    margin: 0 0 8px;
+}
+/* label left, number right; Total across the card */
+.ac-stat {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 0;
+}
+.ac-stat:first-child { grid-column: 1 / -1; padding-bottom: 2px; border-bottom: 1px solid var(--kpmg-gray-100); }
+.ac-stat dt { font-size: 0.74rem; font-weight: 500; color: var(--kpmg-gray-600); }
+.ac-stat dd { margin: 0; font-size: 0.86rem; font-weight: 700; color: var(--kpmg-gray-800); }
+.ac-stat:first-child dd { font-size: 1rem; }
+.ac-stat-done dd { color: #00843a; }
+.ac-stat-late dd { color: var(--kpmg-red); }
+.ac-view-all {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--kpmg-blue);
+}
+.ac-card:hover .ac-view-all span { text-decoration: underline; }
+/* Stacked bar: completed (green) + overdue (red); the rest is active */
+.ac-progress {
+    display: flex;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: #d6e4f5;
+}
+.ac-progress-completed { background: var(--kpmg-green); }
+.ac-progress-overdue { background: var(--kpmg-red); }
+.ac-legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    font-size: 0.74rem;
+    color: var(--kpmg-gray-600);
+}
+.ac-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 5px;
+    border-radius: 2px;
+    vertical-align: -1px;
+}
+.ac-swatch-completed { background: var(--kpmg-green); }
+.ac-swatch-overdue { background: var(--kpmg-red); }
+.ac-swatch-active { background: #d6e4f5; }
+
+/* ── Notifications ── */
+.notif-body { padding-top: 16px; }
+.notif-filter {
+    display: inline-flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.notif-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 14px;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 14px;
+    background: var(--kpmg-white);
+    color: var(--kpmg-gray-800);
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+.notif-filter-btn:hover { border-color: var(--kpmg-blue); color: var(--kpmg-blue); }
+.notif-filter-btn.is-active { background: var(--kpmg-blue); border-color: var(--kpmg-blue); color: var(--kpmg-white); font-weight: 600; }
+.notif-filter-btn:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
+.notif-filter-count {
+    min-width: 18px;
+    padding: 0 6px;
+    border-radius: 9px;
+    background: var(--kpmg-red);
+    color: #ffffff;
+    font-size: 0.66rem;
+    font-weight: 700;
+    line-height: 16px;
+}
+.notif-group + .notif-group { margin-top: 6px; }
+.notif-date-header {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--kpmg-gray-600);
+    font-weight: 700;
+    padding: 10px 2px 6px;
+}
+.notif-list {
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 6px;
+    overflow: hidden;
+}
+/* Row = link (icon, text, time) + "Mark as read" button for unread rows: a button cannot sit inside a link */
+.notif-item {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--kpmg-gray-100);
     transition: background 0.1s;
 }
-.notif-item:hover {
-    background: #f0f4fa;
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover { background: #f5f7fa; }
+.notif-link {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 16px;
     color: inherit;
     text-decoration: none;
 }
+.notif-link:hover { color: inherit; text-decoration: none; }
+.notif-link:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: -2px; }
+/* Unread: tinted background, accent stripe on the left, bold text, blue time and dot */
 .notif-item.unread {
-    border-left: 3px solid var(--kpmg-blue);
-    background: #f5f8fc;
+    background: #eef4fc;
+    box-shadow: inset 3px 0 0 var(--kpmg-blue-light);
 }
-.notif-item.unread .notif-msg { font-weight: 600; }
-.notif-type-badge {
-    font-size: 0.65rem;
-    font-weight: 600;
-    padding: 2px 6px;
-    border-radius: 2px;
+.notif-item.unread:hover { background: #e3edf9; }
+.notif-item.unread .notif-msg { font-weight: 700; color: var(--kpmg-gray-800); }
+.notif-item.unread .notif-time { color: var(--kpmg-blue-light); font-weight: 600; }
+/* Read: muted */
+.notif-item:not(.unread) .notif-msg { color: var(--kpmg-gray-600); }
+.notif-item:not(.unread) .notif-icon { opacity: 0.7; }
+.notif-mark-read {
+    width: 30px;
+    height: 30px;
+    margin-right: 12px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 50%;
+    background: var(--kpmg-white);
+    color: var(--kpmg-blue-light);
+    font-size: 1rem;
+}
+.notif-mark-read:hover { background: #e6ecf6; border-color: var(--kpmg-blue-light); }
+.notif-mark-read:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
+.notif-mark-read:disabled { opacity: 0.5; }
+.notif-icon {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #e6ecf6;
+    color: var(--kpmg-blue);
+    font-size: 1rem;
+}
+.notif-icon.badge-activated { background: #e6ecf6; color: var(--kpmg-blue); }
+.notif-icon.badge-reminder { background: #fdf4e1; color: #8a6100; }
+.notif-icon.badge-overdue { background: #fdecef; color: var(--kpmg-red); }
+.notif-icon.badge-completed { background: #e3f4ea; color: #0d6b35; }
+.notif-icon.badge-auto-created { background: #efe7f7; color: #5b2d8a; }
+.notif-icon.icon-return { background: #fff0e3; color: #a24a00; }
+.notif-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.notif-msg {
+    font-size: 0.86rem;
+    color: var(--kpmg-gray-800);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.notif-msg { font-size: 0.82rem; color: var(--kpmg-gray-800); }
-.notif-meta { font-size: 0.75rem; color: var(--kpmg-gray-400); margin-top: 2px; }
-.notif-time { font-size: 0.72rem; color: var(--kpmg-gray-400); white-space: nowrap; }
-.notif-new-badge { font-size: 0.6rem; padding: 2px 5px; border-radius: 2px; background: var(--kpmg-amber); color: var(--kpmg-white); font-weight: 600; }
-.notif-date-header { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--kpmg-gray-400); font-weight: 600; padding: 8px 0 4px 0; }
-.notif-empty { text-align: center; padding: 40px; color: var(--kpmg-gray-400); font-size: 0.85rem; background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); }
-
-body.theme-dark #pane-notifications .notif-item {
-    background: var(--surface-bg);
-    color: var(--text-primary);
-    border-color: var(--border);
+.notif-item.unread .notif-msg { font-weight: 700; }
+.notif-meta { font-size: 0.75rem; color: var(--kpmg-gray-600); margin-top: 2px; display: flex; gap: 6px; }
+.notif-control { font-weight: 600; color: var(--kpmg-blue); }
+.notif-side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.notif-time { font-size: 0.74rem; color: var(--kpmg-gray-600); white-space: nowrap; }
+.notif-unread-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--kpmg-blue-light);
 }
-body.theme-dark #pane-notifications .notif-item:hover {
-    background: var(--hover-bg);
+.notif-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--kpmg-gray-600);
+    font-size: 0.85rem;
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 6px;
 }
-body.theme-dark #pane-notifications .notif-item.unread {
-    background: rgba(0, 94, 184, 0.14);
-}
-body.theme-dark #pane-notifications .notif-msg {
-    color: var(--text-primary);
-}
-body.theme-dark #pane-notifications .notif-meta,
-body.theme-dark #pane-notifications .notif-time,
-body.theme-dark #pane-notifications .notif-date-header,
-body.theme-dark #pane-notifications .notif-item .text-muted,
-body.theme-dark #pane-notifications .notif-empty {
-    color: var(--text-secondary) !important;
-}
-body.theme-dark #pane-notifications .notif-empty {
-    background: var(--surface-bg);
-    border-color: var(--border);
-}
+.notif-empty i { display: block; font-size: 2rem; margin-bottom: 8px; color: var(--kpmg-gray-400); }
 
 /* Mark all read btn */
 .btn-mark-read {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     background: var(--kpmg-white);
     color: var(--kpmg-blue);
     border: none;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     font-weight: 600;
-    padding: 4px 12px;
-    border-radius: 3px;
+    padding: 7px 14px;
+    border-radius: 4px;
 }
-.btn-mark-read:hover { background: var(--kpmg-gray-100); }
+.btn-mark-read:hover { background: #e6ecf6; }
+.btn-mark-read:focus-visible { outline: 2px solid var(--kpmg-white); outline-offset: 2px; }
+
+@media (max-width: 575.98px) {
+    .ac-summary { grid-template-columns: 1fr; }
+    .ac-summary-stats { justify-content: flex-start; }
+    .pane-header { flex-wrap: wrap; }
+    .notif-link { gap: 10px; padding: 10px 12px; align-items: flex-start; }
+    .notif-icon { width: 30px; height: 30px; font-size: 0.9rem; }
+    .notif-msg {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    .notif-meta { flex-wrap: wrap; }
+    .notif-side { flex-direction: column; align-items: flex-end; gap: 6px; }
+    .notif-mark-read { margin-right: 10px; }
+}
+
+.notif-more {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 4px;
+    font-size: 0.78rem;
+    color: var(--kpmg-gray-600);
+}
+.notif-more-link {
+    font-weight: 600;
+    color: var(--link-color);
+    text-decoration: none;
+}
+.notif-more-link:hover { text-decoration: underline; }
 
 /* Compact alert */
 .compact-alert {
@@ -383,13 +537,14 @@ body.theme-dark #pane-notifications .notif-empty {
 
 /* Deadlines block */
 .deadlines-block {
-    --deadlines-height: 420px;
+    --deadlines-height: 300px;
 }
 .deadlines-block .deadlines-panel {
     height: var(--deadlines-height);
 }
-.deadlines-block .deadlines-list {
-    height: var(--deadlines-height);
+.deadlines-block .deadlines-list.deadlines-panel {
+    height: auto;
+    max-height: var(--deadlines-height);
     overflow-y: auto;
     border: 1px solid var(--dashboard-border);
     background: var(--dashboard-card-bg);
@@ -403,38 +558,83 @@ body.theme-dark #pane-notifications .notif-empty {
     border-bottom: none;
 }
 .deadlines-block .deadline-link {
-    font-size: 0.76rem;
+    font-size: 0.82rem;
     font-weight: 700;
     color: var(--link-color);
     text-decoration: none;
 }
 .deadlines-block .deadline-name {
-    font-size: 0.7rem;
+    font-size: 0.76rem;
     color: var(--muted-text);
     margin-top: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 170px;
+    max-width: 220px;
 }
 .deadlines-block .deadline-date {
-    font-size: 0.66rem;
+    font-size: 0.72rem;
     color: var(--muted-text);
     margin-top: 3px;
 }
 .deadlines-block .deadline-remaining {
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
     color: var(--dashboard-text);
 }
 .deadlines-block .deadline-remaining.is-overdue {
     color: var(--kpmg-red);
 }
+.deadlines-block .deadline-group-title {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted-text);
+    background: var(--dashboard-card-bg);
+    border-bottom: 1px solid var(--dashboard-border);
+}
+.deadlines-block .deadline-group-title.is-overdue {
+    color: var(--kpmg-red);
+}
+.deadlines-block .deadline-group-count {
+    display: inline-block;
+    min-width: 18px;
+    margin-left: 4px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--kpmg-red);
+    color: #ffffff;
+    text-align: center;
+}
+.deadlines-block .deadline-group-link {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--link-color);
+    text-decoration: none;
+}
+.deadlines-block .deadline-item.is-overdue {
+    border-left: 3px solid var(--kpmg-red);
+}
+.deadlines-block .deadline-empty {
+    padding: 12px 10px;
+    color: var(--muted-text);
+    font-size: 0.82rem;
+}
 .deadlines-block .deadline-status {
     display: inline-block;
     margin-top: 4px;
     padding: 2px 6px;
-    font-size: 0.58rem;
+    font-size: 0.64rem;
     font-weight: 600;
     border-radius: 2px;
     color: #ffffff;
@@ -453,7 +653,7 @@ body.theme-dark #pane-notifications .notif-empty {
 }
 .deadlines-block #deadlineCalendarWrapper .fc {
     height: 100%;
-    font-size: 12px;
+    font-size: 13px;
     color: var(--dashboard-text);
 }
 .deadlines-block #deadlineCalendarWrapper .fc-toolbar {
@@ -464,22 +664,22 @@ body.theme-dark #pane-notifications .notif-empty {
     margin-bottom: 0.2rem;
 }
 .deadlines-block #deadlineCalendarWrapper .fc-toolbar-title {
-    font-size: 0.76rem;
+    font-size: 0.9rem;
     font-weight: 600;
     color: var(--card-title);
 }
 .deadlines-block #deadlineCalendarWrapper .fc-button {
-    padding: 0.14rem 0.32rem;
-    font-size: 0.6rem;
+    padding: 0.2rem 0.45rem;
+    font-size: 0.72rem;
     line-height: 1.2;
 }
 .deadlines-block #deadlineCalendarWrapper .fc-col-header-cell-cushion {
-    font-size: 0.6rem;
+    font-size: 0.7rem;
     padding: 1px 2px;
     color: var(--muted-text);
 }
 .deadlines-block #deadlineCalendarWrapper .fc-daygrid-day-number {
-    font-size: 0.6rem;
+    font-size: 0.72rem;
     padding: 1px 2px;
     color: var(--text-color);
 }
@@ -490,7 +690,7 @@ body.theme-dark #pane-notifications .notif-empty {
     border-color: var(--dashboard-border);
 }
 .deadlines-block #deadlineCalendarWrapper .fc-daygrid-day-frame {
-    min-height: 40px;
+    min-height: 28px;
     padding: 1px 0;
 }
 .deadlines-block #deadlineCalendarWrapper .fc-theme-standard td,
@@ -498,7 +698,26 @@ body.theme-dark #pane-notifications .notif-empty {
     border-color: var(--dashboard-border);
 }
 .deadlines-block #deadlineCalendarWrapper .fc-daygrid-day.fc-day-today {
-    background: rgba(0, 94, 184, 0.08);
+    background: rgba(0, 94, 184, 0.1);
+}
+/* FullCalendar renders day numbers / weekday names as <a>; Bootstrap underlines every link */
+.deadlines-block #deadlineCalendarWrapper a.fc-daygrid-day-number,
+.deadlines-block #deadlineCalendarWrapper a.fc-col-header-cell-cushion {
+    text-decoration: none;
+}
+/* Today: filled circle on the day number */
+.deadlines-block #deadlineCalendarWrapper .fc-day-today .fc-daygrid-day-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    margin: 2px;
+    padding: 0 4px;
+    border-radius: 10px;
+    background: var(--kpmg-blue);
+    color: #ffffff;
+    font-weight: 700;
 }
 .deadlines-block #deadlineCalendarWrapper .fc-daygrid-day-events {
     margin-top: 1px;
@@ -506,10 +725,10 @@ body.theme-dark #pane-notifications .notif-empty {
 .deadlines-block #deadlineCalendarWrapper .fc-daygrid-event {
     margin-top: 1px;
     padding: 0 1px;
-    font-size: 0.56rem;
+    font-size: 0.7rem;
     border-radius: 2px;
     line-height: 1.15;
-    min-height: 14px;
+    min-height: 16px;
 }
 .deadlines-block #deadlineCalendarWrapper .fc-event-main {
     overflow: hidden;
@@ -521,13 +740,13 @@ body.theme-dark #pane-notifications .notif-empty {
 }
 .deadlines-block #deadlineCalendarWrapper .fc-daygrid-dot-event {
     margin-top: 1px;
-    font-size: 0.56rem;
+    font-size: 0.7rem;
 }
 .deadlines-block #deadlineCalendarWrapper .fc-daygrid-event-dot {
     margin-right: 3px;
 }
 .deadlines-block #deadlineCalendarWrapper .fc-daygrid-more-link {
-    font-size: 0.58rem;
+    font-size: 0.7rem;
     color: var(--link-color);
 }
 .deadlines-block #deadlineCalendarWrapper .fc-button-primary {
@@ -568,7 +787,182 @@ body.theme-dark #pane-notifications .notif-empty {
         overflow: visible;
     }
     .deadlines-block #deadlineCalendar {
-        min-height: 320px;
+        min-height: 260px;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .stats-strip .stat-num { font-size: 1.25rem; }
+}
+
+/* Chart container with loading / empty / error overlay */
+.chart-box {
+    position: relative;
+    height: 160px;
+}
+.chart-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: var(--muted-text);
+    background: var(--dashboard-card-bg);
+}
+.chart-state[hidden] { display: none; }
+.chart-note {
+    margin-top: 6px;
+    font-size: 0.74rem;
+    color: var(--muted-text);
+}
+.chart-note:empty { display: none; }
+.chart-state .btn-retry {
+    font-size: 0.75rem;
+    padding: 2px 10px;
+    border: 1px solid var(--dashboard-border);
+    background: transparent;
+    color: var(--link-color);
+    border-radius: 3px;
+}
+
+/* Clickable KPI blocks */
+a.stat-block {
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.12s;
+}
+a.stat-block:hover {
+    background: var(--dashboard-hover-bg);
+    text-decoration: none;
+}
+a.stat-block:focus-visible,
+.action-item:focus-visible,
+.action-queue-all:focus-visible {
+    outline: 2px solid var(--link-color);
+    outline-offset: -2px;
+}
+
+/* Awaiting my action */
+.action-queue {
+    background: var(--dashboard-card-bg);
+    border: 1px solid var(--dashboard-border);
+    padding: 16px;
+    margin-bottom: 24px;
+}
+.action-queue-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.action-queue .section-title {
+    margin: 0;
+    color: var(--card-title);
+}
+.action-queue-count {
+    display: inline-block;
+    min-width: 20px;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: var(--kpmg-blue);
+    color: #ffffff;
+    font-size: 0.7rem;
+    text-align: center;
+    letter-spacing: 0;
+}
+.action-queue-all {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--link-color);
+    text-decoration: none;
+}
+.action-queue-all:hover { text-decoration: underline; }
+.action-queue-empty {
+    padding: 14px 4px 6px;
+    color: var(--muted-text);
+    font-size: 0.85rem;
+}
+.action-queue-empty i {
+    color: var(--kpmg-green);
+    margin-right: 6px;
+}
+.action-queue-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.action-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--dashboard-border);
+    border-left: 3px solid var(--kpmg-blue-light);
+    margin-bottom: -1px;
+    color: var(--text-color);
+    text-decoration: none;
+    transition: background 0.12s;
+}
+.action-item:hover {
+    background: var(--dashboard-hover-bg);
+    color: var(--text-color);
+    text-decoration: none;
+}
+.action-item.is-overdue { border-left-color: var(--kpmg-red); }
+.action-item-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.action-item-id {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--link-color);
+}
+.action-item-desc {
+    font-size: 0.78rem;
+    color: var(--muted-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.action-item-step {
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.action-item-deadline {
+    font-size: 0.78rem;
+    color: var(--muted-text);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.action-badge {
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #ffffff;
+}
+.action-badge.overdue { background: var(--kpmg-red); }
+.action-item-arrow { color: var(--muted-text); }
+@media (max-width: 767.98px) {
+    .action-item {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .action-item-step,
+    .action-item-arrow {
+        display: none;
     }
 }
 </style>
@@ -576,58 +970,19 @@ body.theme-dark #pane-notifications .notif-empty {
 <body>
 <script>
 (function() {
+    // One light theme; a dark theme saved by the former switch is dropped
+    document.body.classList.add('theme-light');
     try {
-        var savedTheme = localStorage.getItem('qtrackerTheme');
-        document.body.classList.add(savedTheme === 'dark' ? 'theme-dark' : 'theme-light');
+        localStorage.removeItem('qtrackerTheme');
     } catch (error) {
-        document.body.classList.add('theme-light');
+        // Storage may be blocked; nothing is read from it
     }
 })();
 </script>
 <div class="container-fluid">
     <div class="row">
         <!-- Sidebar -->
-        <div class="col-md-2 sidebar p-3">
-            <div class="sidebar-content">
-                <div class="d-flex align-items-center mb-3">
-                    <a href="/" class="me-2">
-                        <img src="/images/kpmg_white.png" alt="KPMG" style="height: 45px; width: auto;">
-                    </a>
-                    <h6 class="mb-0" th:text="${userName}">Full Name</h6>
-                </div>
-                <small class="text-muted" th:text="${userTitle}">Title</small><br>
-                <small class="text-muted" th:text="${userEmail}">email@kpmg.kz</small>
-                <hr>
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" id="sidebarDashboard">Dashboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" id="sidebarActionCentre">Action Centre</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" id="sidebarNotifications">
-                            Notifications
-                            <span th:if="${unreadNotifications != null and unreadNotifications > 0}"
-                                  class="notif-pill"
-                                  th:text="${unreadNotifications}">0</span>
-                        </a>
-                    </li>
-                    <li class="nav-item" th:if="${userIsAdmin}">
-                        <a class="nav-link" href="/admin/users">Admin Panel</a>
-                    </li>
-                </ul>
-            </div>
-            <div class="mt-2">
-                <a href="/logout" class="btn btn-outline-secondary btn-sm">Logout</a>
-            </div>
-            <div class="sidebar-footer">
-                <hr class="my-2">
-                <small class="text-muted">Registered to</small><br>
-                <small><strong>KPMG Kazakhstan</strong></small><br>
-                <small><strong>QTracker | FY26</strong></small>
-            </div>
-        </div>
+        <div th:replace="~{fragments/sidebar :: sidebar('')}"></div>
 
         <!-- Main Content -->
         <div class="col-md-10">
@@ -656,86 +1011,115 @@ body.theme-dark #pane-notifications .notif-empty {
 
                         <!-- Header -->
                         <div class="page-header dashboard-header-panel">
-                            <h1 th:text="'Welcome, ' + ${userName}">Welcome</h1>
-                            <p class="subtitle" th:text="'Today you have ' + (${totalControls} ?: 0) + ' controls to manage'"></p>
-                            <button type="button"
-                                    id="dashboardThemeToggle"
-                                    class="btn dashboard-theme-toggle"
-                                    title="Switch theme"
-                                    aria-label="Switch theme"><i class="bi bi-moon-fill"></i></button>
+                            <div class="dashboard-header-text">
+                                <h1 th:text="'Welcome, ' + ${userName}">Welcome</h1>
+                                <p class="subtitle" th:if="${actionItemsTotal != null and actionItemsTotal > 0}"
+                                   th:text="${actionItemsTotal} + (${actionItemsTotal == 1} ? ' control is' : ' controls are') + ' awaiting your action'
+                                            + (${actionItemsOverdue > 0} ? ' · ' + ${actionItemsOverdue} + ' overdue' : '')"></p>
+                                <p class="subtitle" th:if="${actionItemsTotal != null and actionItemsTotal == 0}">Nothing is awaiting your action</p>
+                            </div>
                         </div>
 
                         <!-- Stats -->
                         <div class="stats-strip">
-                            <div class="stat-block total">
+                            <a class="stat-block total" href="/controls" title="Open all controls">
                                 <span class="stat-num" th:text="${totalControls}">0</span>
                                 <span class="stat-label">Total Controls</span>
-                            </div>
-                            <div class="stat-block active">
+                            </a>
+                            <a class="stat-block active" href="/controls?scope=active" title="Open active controls">
                                 <span class="stat-num" th:text="${activeControls}">0</span>
                                 <span class="stat-label">Active</span>
-                            </div>
-                            <div class="stat-block completed">
+                            </a>
+                            <a class="stat-block completed" href="/controls?filter=COMPLETED" title="Open completed controls">
                                 <span class="stat-num" th:text="${completedControls}">0</span>
                                 <span class="stat-label">Completed</span>
-                            </div>
-                            <div class="stat-block overdue">
+                            </a>
+                            <a class="stat-block overdue" href="/controls?filter=OVERDUE" title="Open overdue controls">
                                 <span class="stat-num" th:text="${overdueControls}">0</span>
                                 <span class="stat-label">Overdue</span>
+                            </a>
+                        </div>
+
+                        <!-- Awaiting my action: controls where the current workflow step is the user's -->
+                        <section class="action-queue" th:if="${actionItems != null}" aria-labelledby="actionQueueTitle">
+                            <div class="action-queue-header">
+                                <h2 id="actionQueueTitle" class="section-title">
+                                    Awaiting my action
+                                    <span class="action-queue-count" th:text="${actionItemsTotal}">0</span>
+                                </h2>
+                                <a th:if="${actionItemsTotal > #lists.size(actionItems)}"
+                                   class="action-queue-all"
+                                   th:href="${userIsSoqm} ? '/controls?status=SOQM_HEAD_REVIEW' : '/controls?scope=active'"
+                                   th:text="'View all (' + ${actionItemsTotal} + ')'">View all</a>
                             </div>
-                        </div>
 
-                        <!-- Quick Actions -->
-                        <div class="quick-actions">
-                            <a href="/controls" class="quick-action-btn">
-                                <i class="bi bi-list-check"></i>
-                                My Items
-                            </a>
-                            <a href="/new-control" class="quick-action-btn"
-                               th:if="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_TEAM')}">
-                                <i class="bi bi-plus-lg"></i>
-                                New Control
-                            </a>
-                        </div>
+                            <div th:if="${#lists.isEmpty(actionItems)}" class="action-queue-empty">
+                                <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                                You're all caught up — no controls are waiting for you.
+                            </div>
 
-                        <div th:if="${userRole != null}"
-                             id="dashboardCharts"
-                             th:attr="data-user-role=${userRole}"
+                            <ul th:unless="${#lists.isEmpty(actionItems)}" class="action-queue-list">
+                                <li th:each="item : ${actionItems}">
+                                    <a class="action-item"
+                                       th:href="@{/view-control/{id}(id=${item.id})}"
+                                       th:classappend="${item.overdue} ? 'is-overdue'">
+                                        <span class="action-item-main">
+                                            <span class="action-item-id" th:text="${item.controlId}">HR-CTRL-MF-1</span>
+                                            <span class="action-item-desc" th:text="${item.controlDescription}">Description</span>
+                                        </span>
+                                        <span class="action-item-step" th:switch="${item.performanceStatus}">
+                                            <span th:case="'IN_PROGRESS'">Complete &amp; submit for review</span>
+                                            <span th:case="'REVIEW'">Review as Control Operator</span>
+                                            <span th:case="'SOQM_HEAD_REVIEW'">SoQM review</span>
+                                            <span th:case="'PROCESS_OWNER_REVIEW'">Process Owner approval</span>
+                                            <span th:case="*" th:text="${item.performanceStatusDisplay}">Status</span>
+                                        </span>
+                                        <span class="action-item-deadline">
+                                            <span th:if="${item.overdue}" class="action-badge overdue">Overdue</span>
+                                            <span th:if="${item.deadline != null}"
+                                                  th:text="'Due ' + ${#temporals.format(item.deadline, 'dd.MM.yyyy')}">Due 01.01.2026</span>
+                                            <span th:if="${item.deadline == null}" class="text-muted">No deadline</span>
+                                        </span>
+                                        <i class="bi bi-chevron-right action-item-arrow" aria-hidden="true"></i>
+                                    </a>
+                                </li>
+                            </ul>
+                        </section>
+
+                        <div id="dashboardCharts"
+                             th:attr="data-organisation-charts=${organisationCharts}"
                              style="padding-top: 4px;">
                             <div class="row g-3">
                                 <div class="col-12 col-lg-6">
-                                    <div class="dashboard-surface-card" style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
-                                        <div class="section-title" style="margin-bottom: 14px;"
-                                             th:text="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_TEAM')} ? 'CONTROLS BY FREQUENCY' : 'CONTROLS BY FREQUENCY'">
-                                            CONTROLS BY FREQUENCY
-                                        </div>
-                                        <div style="position: relative; height: 200px;">
-                                            <canvas id="statusBreakdownChart"></canvas>
+                                    <div class="dashboard-surface-card" style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 12px 14px;">
+                                        <div class="section-title" style="margin-bottom: 8px;">CONTROLS BY FREQUENCY</div>
+                                        <div class="chart-box">
+                                            <canvas id="statusBreakdownChart" role="img" aria-label="Controls by frequency chart"></canvas>
+                                            <div class="chart-state" data-chart-state="statusBreakdownChart" role="status">Loading…</div>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-12 col-lg-6">
-                                    <div class="dashboard-surface-card" style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
-                                        <div class="section-title" style="margin-bottom: 14px;"
-                                             th:text="${userRole != null and #strings.equalsIgnoreCase(#strings.trim(userRole), 'SOQM_TEAM')} ? 'CONTROLS BY COMPONENT' : 'CONTROLS BY COMPONENT'">
-                                            CONTROLS BY COMPONENT
+                                    <div class="dashboard-surface-card" style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 12px 14px;">
+                                        <div class="section-title" style="margin-bottom: 8px;">CONTROLS BY COMPONENT</div>
+                                        <div class="chart-box">
+                                            <canvas id="frequencyChart" role="img" aria-label="Controls by component chart"></canvas>
+                                            <div class="chart-state" data-chart-state="frequencyChart" role="status">Loading…</div>
                                         </div>
-                                        <div style="position: relative; height: 200px;">
-                                            <canvas id="frequencyChart"></canvas>
-                                        </div>
+                                        <div class="chart-note" id="componentZeroNote"></div>
                                     </div>
                                 </div>
                                 <div class="col-12">
-                                    <div class="dashboard-surface-card" style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 16px;">
+                                    <div class="dashboard-surface-card" style="background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); padding: 12px 14px;">
                                         <div class="row g-3 deadlines-block">
                                             <div class="col-12 col-xl-4">
-                                                <div class="section-title" style="margin-bottom: 14px;">DEADLINE COUNTDOWN (FROM LAST 3 DAYS)</div>
+                                                <div class="section-title" style="margin-bottom: 8px;">DEADLINES — OVERDUE &amp; NEXT 3 DAYS</div>
                                                 <div id="deadlineCountdownList"
                                                      class="deadlines-list deadlines-panel">
                                                 </div>
                                             </div>
                                             <div class="col-12 col-xl-8">
-                                                <div class="section-title" style="margin-bottom: 14px;">DEADLINE CALENDAR</div>
+                                                <div class="section-title" style="margin-bottom: 8px;">DEADLINE CALENDAR</div>
                                                 <div id="deadlineCalendarWrapper" class="deadlines-panel">
                                                     <div id="deadlineCalendar">
                                                     </div>
@@ -752,61 +1136,50 @@ body.theme-dark #pane-notifications .notif-empty {
                     <!-- ========== ACTION CENTRE ========== -->
                     <div class="tab-pane fade" id="pane-action" role="tabpanel">
 
-                        <div class="page-header">
-                            <h1>Action Centre</h1>
-                            <p class="subtitle">Monitor control performance by component</p>
+                        <div class="page-header pane-header">
+                            <div>
+                                <h1>Action Centre</h1>
+                                <p class="subtitle">Control performance by component — click a component to see its controls</p>
+                            </div>
                         </div>
 
-                        <div style="padding-top: 20px;">
-                            <div class="section-title">Components</div>
+                        <div class="ac-body" th:if="${componentSummaries != null}">
+                            <!-- Overall -->
+                            <a class="ac-summary" href="/component/ALL" th:with="all=${componentSummaryAll}">
+                                <div class="ac-summary-title">
+                                    <span class="ac-code ac-code-all">ALL</span>
+                                    <span>All components</span>
+                                </div>
+                                <div class="ac-summary-stats">
+                                    <span><strong th:text="${all.total()}">0</strong> controls</span>
+                                    <span class="ac-stat-active"><strong th:text="${all.active()}">0</strong> active</span>
+                                    <span class="ac-stat-overdue" th:classappend="${all.overdue() == 0} ? 'is-zero'"><strong th:text="${all.overdue()}">0</strong> overdue</span>
+                                    <span class="ac-stat-completed"><strong th:text="${all.completed()}">0</strong> completed</span>
+                                </div>
+                                <div class="ac-progress" role="img"
+                                     th:attr="aria-label=${all.completedPercent()} + '% completed'">
+                                    <span class="ac-progress-completed" th:style="'width:' + ${all.total() == 0 ? 0 : all.completed() * 100.0 / all.total()} + '%'"></span>
+                                    <span class="ac-progress-overdue" th:style="'width:' + ${all.total() == 0 ? 0 : all.overdue() * 100.0 / all.total()} + '%'"></span>
+                                </div>
+                            </a>
 
-                            <div class="component-grid">
-                                <div class="comp-card clickable-component" data-component="HR">
-                                    <h6>Human Resources (HR)</h6>
-                                    <div class="comp-count">Active: <strong th:text="${componentStats.get('HR')}">0</strong></div>
-                                </div>
-                                <div class="comp-card clickable-component" data-component="EP">
-                                    <h6>Engagement Performance (EP)</h6>
-                                    <div class="comp-count">Active: <strong th:text="${componentStats.get('EP')}">0</strong></div>
-                                </div>
-                                <div class="comp-card clickable-component" data-component="A&C">
-                                    <h6>Acceptance &amp; Continuance (A&amp;C)</h6>
-                                    <div class="comp-count">Active: <strong th:text="${componentStats.get('A&C')}">0</strong></div>
-                                </div>
-                                <div class="comp-card clickable-component" data-component="RER">
-                                    <h6>Relevant Ethical Requirements (RER)</h6>
-                                    <div class="comp-count">Active: <strong th:text="${componentStats.get('RER')}">0</strong></div>
-                                </div>
-
-                                <div class="comp-card clickable-component" data-component="INTR">
-                                    <h6>Intellectual Resources (INTR)</h6>
-                                    <div class="comp-count">Active: <strong th:text="${componentStats.get('INTR')}">0</strong></div>
-                                </div>
-                                <div class="comp-card clickable-component" data-component="I&C">
-                                    <h6>Information &amp; Communication (I&amp;C)</h6>
-                                    <div class="comp-count">Active: <strong th:text="${componentStats.get('I&C')}">0</strong></div>
-                                </div>
-                                <div class="comp-card clickable-component" data-component="GOV">
-                                    <h6>Governance (GOV)</h6>
-                                    <div class="comp-count">Active: <strong th:text="${componentStats.get('GOV')}">0</strong></div>
-                                </div>
-                                <div class="comp-card clickable-component" data-component="TECHR">
-                                    <h6>Technological Resources (TECHR)</h6>
-                                    <div class="comp-count">Active: <strong th:text="${componentStats.get('TECHR')}">0</strong></div>
-                                </div>
-
-                                <div class="comp-card clickable-component" data-component="M&R">
-                                    <h6>Monitoring &amp; Remediation (M&amp;R)</h6>
-                                    <div class="comp-count">Active: <strong th:text="${componentStats.get('M&R')}">0</strong></div>
-                                </div>
-                                <div class="comp-card clickable-component" data-component="RAP">
-                                    <h6>Risk Assessment Process (RAP)</h6>
-                                    <div class="comp-count">Active: <strong th:text="${componentStats.get('RAP')}">0</strong></div>
-                                </div>
-                                <div class="comp-card clickable-component" data-component="All" style="border-left: 3px solid var(--kpmg-blue);">
-                                    <h6>All Components</h6>
-                                    <div class="comp-count">Active: <strong th:text="${componentStats.get('All')}">0</strong></div>
-                                </div>
+                            <!-- Components -->
+                            <!--/* KDN is one more card: first for KDN users, last for the others */-->
+                            <div class="ac-grid">
+                                <th:block th:if="${kdnUser and kdnSummary != null}">
+                                    <a th:replace="~{fragments/action-centre :: card(${kdnSummary}, ${kdnHref})}"></a>
+                                </th:block>
+                                <th:block th:each="c : ${componentSummaries}">
+                                    <a th:replace="~{fragments/action-centre :: card(${c}, ${'/component/' + c.code()})}"></a>
+                                </th:block>
+                                <th:block th:if="${!kdnUser and kdnSummary != null}">
+                                    <a th:replace="~{fragments/action-centre :: card(${kdnSummary}, ${kdnHref})}"></a>
+                                </th:block>
+                            </div>
+                            <div class="ac-legend" aria-hidden="true">
+                                <span><i class="ac-swatch ac-swatch-completed"></i>Completed</span>
+                                <span><i class="ac-swatch ac-swatch-overdue"></i>Overdue</span>
+                                <span><i class="ac-swatch ac-swatch-active"></i>Active</span>
                             </div>
                         </div>
                     </div>
@@ -814,61 +1187,83 @@ body.theme-dark #pane-notifications .notif-empty {
                     <!-- ========== NOTIFICATIONS ========== -->
                     <div class="tab-pane fade" id="pane-notifications" role="tabpanel">
 
-                        <div class="page-header d-flex justify-content-between align-items-center">
+                        <div class="page-header pane-header">
                             <div>
                                 <h1>Notifications</h1>
-                                <p class="subtitle">Stay updated with your control activities</p>
+                                <p class="subtitle" id="notifSubtitle"
+                                   th:text="${unreadNotifications != null and unreadNotifications > 0} ? (${unreadNotifications} + ' unread') : 'You are all caught up'">
+                                    Stay updated</p>
                             </div>
-                            <form method="post" action="/notifications/mark-all-read" class="m-0">
-                                <button type="submit" class="btn-mark-read">Mark all as read</button>
+                            <form method="post" th:action="@{/notifications/mark-all-read}" class="m-0" id="notifMarkAllForm"
+                                  th:if="${unreadNotifications != null and unreadNotifications > 0}">
+                                <button type="submit" class="btn-mark-read"><i class="bi bi-check2-all" aria-hidden="true"></i>Mark all as read</button>
                             </form>
                         </div>
 
-                        <div style="padding-top: 16px;">
-                            <div th:if="${notificationGroups == null or #lists.isEmpty(notificationGroups)}"
-                                 class="notif-empty">
+                        <div class="notif-body" id="notifBody"
+                             th:attr="data-unread-count=${unreadNotifications != null ? unreadNotifications : 0}">
+                            <div th:if="${notificationGroups == null or #lists.isEmpty(notificationGroups)}" class="notif-empty">
+                                <i class="bi bi-bell-slash" aria-hidden="true"></i>
                                 <div class="fw-semibold">No notifications yet</div>
-                                <div class="small mt-1">You're all caught up!</div>
+                                <div class="small mt-1">Workflow updates and reminders will appear here.</div>
                             </div>
 
                             <div th:if="${notificationGroups != null and !#lists.isEmpty(notificationGroups)}">
-                                <div th:each="group : ${notificationGroups}">
-                                    <div class="notif-date-header"
-                                         th:text="${!#lists.isEmpty(group.notifications) and group.notifications[0].timestamp != null ? #temporals.format(group.notifications[0].timestamp, 'dd.MM.yyyy') : group.dateLabel}">
-                                        Date
-                                    </div>
+                                <div class="notif-filter" role="group" aria-label="Show notifications">
+                                    <button type="button" class="notif-filter-btn is-active" data-notif-filter="all" aria-pressed="true">All</button>
+                                    <button type="button" class="notif-filter-btn" data-notif-filter="unread" aria-pressed="false">
+                                        Unread<span th:if="${unreadNotifications != null and unreadNotifications > 0}"
+                                                    class="notif-filter-count" th:text="${unreadNotifications}">0</span>
+                                    </button>
+                                </div>
+
+                                <div class="notif-group" th:each="group : ${notificationGroups}">
+                                    <div class="notif-date-header" th:text="${group.dateLabel}">Date</div>
                                     <div class="notif-list">
-                                        <a th:each="n : ${group.notifications}"
-                                           th:href="@{/notification/{id}(id=${n.id})}"
-                                           class="notif-item"
-                                           th:classappend="${!n.read} ? 'unread' : ''">
-
-                                            <div class="flex-shrink-0" style="min-width: 60px; text-align: center;">
-                                                <span class="notif-type-badge"
-                                                      th:classappend="${n.badgeClass}"
-                                                      th:text="${n.displayLabel}">Type</span>
-                                                <div style="font-size: 0.68rem; color: var(--kpmg-gray-400); margin-top: 3px;"
-                                                     th:text="${n.component}">Comp</div>
-                                            </div>
-
-                                            <div class="flex-grow-1">
-                                                <div class="d-flex justify-content-between align-items-baseline">
-                                                    <div class="notif-msg" th:text="${n.message}">Message</div>
-                                                    <div class="notif-time ms-2"
-                                                         th:text="${n.timestamp != null ? #temporals.format(n.timestamp, 'h:mm a') : ''}">Time</div>
-                                                </div>
-                                                <div class="notif-meta">
-                                                    <span class="fw-semibold" th:text="${n.controlIdNumber}">CTRL-000</span>
-                                                    <span class="mx-1">&middot;</span>
-                                                    <span th:text="${n.by}">User</span>
-                                                </div>
-                                            </div>
-
-                                            <div class="flex-shrink-0 d-flex flex-column align-items-end gap-1">
-                                                <span th:if="${!n.read}" class="notif-new-badge">New</span>
-                                            </div>
+                                        <div th:each="n : ${group.notifications}"
+                                             class="notif-item"
+                                             th:classappend="${!n.read} ? 'unread' : ''"
+                                             th:attr="data-notif-id=${n.id}"
+                                             th:with="isReturn=${n.type != null and #strings.startsWith(n.type, 'RETURN')}">
+                                        <a class="notif-link" th:href="@{/notification/{id}(id=${n.id})}">
+                                            <span class="notif-icon" aria-hidden="true"
+                                                  th:classappend="${isReturn} ? 'icon-return' : ${n.badgeClass}">
+                                                <i class="bi" th:classappend="${isReturn} ? 'bi-arrow-return-left'
+                                                    : (${n.badgeClass == 'badge-activated'} ? 'bi-play-circle'
+                                                    : (${n.badgeClass == 'badge-reminder'} ? 'bi-alarm'
+                                                    : (${n.badgeClass == 'badge-overdue'} ? 'bi-exclamation-triangle'
+                                                    : (${n.badgeClass == 'badge-completed'} ? 'bi-check2-circle'
+                                                    : (${n.badgeClass == 'badge-auto-created'} ? 'bi-plus-circle' : 'bi-arrow-left-right')))))"></i>
+                                            </span>
+                                            <span class="notif-main">
+                                                <span class="notif-msg" th:text="${n.message}">Message</span>
+                                                <span class="notif-meta">
+                                                    <span class="notif-control" th:if="${n.controlIdNumber != null}" th:text="${n.controlIdNumber}">CTRL-000</span>
+                                                    <span th:if="${n.controlIdNumber != null}" aria-hidden="true">·</span>
+                                                    <span th:text="${n.displayLabel}">Workflow Update</span>
+                                                </span>
+                                            </span>
+                                            <span class="notif-side">
+                                                <span class="notif-time" th:text="${n.timestamp != null ? #temporals.format(n.timestamp, 'HH:mm') : ''}">Time</span>
+                                                <span th:if="${!n.read}" class="notif-unread-dot" title="Unread"></span>
+                                                <span th:if="${!n.read}" class="visually-hidden">Unread</span>
+                                            </span>
                                         </a>
+                                        <button type="button" class="notif-mark-read" th:if="${!n.read}"
+                                                title="Mark as read" aria-label="Mark as read">
+                                            <i class="bi bi-check2" aria-hidden="true"></i>
+                                        </button>
+                                        </div>
                                     </div>
+                                </div>
+                                <div class="notif-empty notif-empty-filtered" id="notifNoUnread" hidden>
+                                    <i class="bi bi-check2-all" aria-hidden="true"></i>
+                                    <div class="fw-semibold">No unread notifications</div>
+                                </div>
+                                <div class="notif-more" th:if="${notificationsTotal != null and notificationsTotal > notificationsShown}">
+                                    <span th:text="'Showing ' + ${notificationsShown} + ' of ' + ${notificationsTotal}">Showing 50 of 120</span>
+                                    <a class="notif-more-link"
+                                       th:href="@{/(notifLimit=${notificationsNextLimit})} + '#notifications'">Show more</a>
                                 </div>
                             </div>
                         </div>
@@ -892,7 +1287,7 @@ body.theme-dark #pane-notifications .notif-empty {
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/vendor/bootstrap.bundle.min.js"></script>
 <script>
 // Run synchronously right after Bootstrap is available � before any paint.
 (function() {
@@ -911,29 +1306,23 @@ body.theme-dark #pane-notifications .notif-empty {
     document.documentElement.classList.remove('tab-init-pending');
 })();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.js"></script>
+<script src="/js/vendor/chart.umd.min.js"></script>
+<script src="/js/vendor/chartjs-plugin-datalabels.min.js"></script>
+<script src="/js/vendor/fullcalendar.global.min.js"></script>
 <script>
 let statusBreakdownChartInstance;
 let frequencyChartInstance;
-let overdueTrendChartInstance;
 let deadlineCalendarInstance;
 let deadlineCountdownRefreshHandle;
 let deadlineCountdownTickHandle;
 let dashboardLeftChartData;
 let dashboardRightChartData;
 
-const DASHBOARD_THEME_STORAGE_KEY = 'qtrackerTheme';
-
 if (window.Chart && window.ChartDataLabels) {
     Chart.register(ChartDataLabels);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    applyDashboardTheme(getStoredDashboardTheme());
-    initializeDashboardThemeToggle();
-
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('success') === 'true') {
         showSuccessAlert('Control created successfully!');
@@ -962,14 +1351,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('sidebarDashboard').addEventListener('click', function(e) { e.preventDefault(); new bootstrap.Tab(document.getElementById('tab-dashboard')).show(); });
     document.getElementById('sidebarActionCentre').addEventListener('click', function(e) { e.preventDefault(); new bootstrap.Tab(document.getElementById('tab-action')).show(); });
     document.getElementById('sidebarNotifications').addEventListener('click', function(e) { e.preventDefault(); new bootstrap.Tab(document.getElementById('tab-notifications')).show(); });
-
-    // Component card clicks
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.clickable-component')) {
-            const comp = e.target.closest('.clickable-component').getAttribute('data-component');
-            window.location.href = '/component/' + comp;
-        }
-    });
 
     const dashboardCharts = document.getElementById('dashboardCharts');
     if (dashboardCharts && window.Chart) {
@@ -1000,94 +1381,73 @@ function hideSuccessAlert() {
     if (a) a.style.display = 'none';
 }
 
-function getStoredDashboardTheme() {
-    try {
-        const storedTheme = localStorage.getItem(DASHBOARD_THEME_STORAGE_KEY);
-        return storedTheme === 'dark' ? 'dark' : 'light';
-    } catch (error) {
-        return 'light';
-    }
-}
+async function initializeAdminDashboardCharts() {
+    const dashboardCharts = document.getElementById('dashboardCharts');
+    // Organisation-wide charts for SoQM (the server decides), charts of the user's own controls for everyone else
+    const organisationCharts = Boolean(dashboardCharts && dashboardCharts.dataset
+        && dashboardCharts.dataset.organisationCharts === 'true');
+    const leftChartEndpoint = organisationCharts
+        ? '/api/dashboard/admin/frequency'
+        : '/api/dashboard/my/frequency';
+    const rightChartEndpoint = organisationCharts
+        ? '/api/dashboard/admin/component-breakdown'
+        : '/api/dashboard/my/component';
 
-function initializeDashboardThemeToggle() {
-    const toggleButton = document.getElementById('dashboardThemeToggle');
-    if (!toggleButton) {
-        return;
-    }
-
-    updateDashboardThemeToggleIcon();
-    toggleButton.addEventListener('click', function() {
-        const nextTheme = document.body.classList.contains('theme-dark') ? 'light' : 'dark';
-        applyDashboardTheme(nextTheme);
-        rerenderDashboardCharts();
+    // Each block loads on its own: one failing request must not blank the others
+    initializeDeadlineSection();
+    loadChart('statusBreakdownChart', leftChartEndpoint, function(data) {
+        dashboardLeftChartData = data;
+        renderStatusBreakdownChart(data);
+    });
+    loadChart('frequencyChart', rightChartEndpoint, function(data) {
+        dashboardRightChartData = data;
+        renderFrequencyChart(data);
     });
 }
 
-function applyDashboardTheme(theme) {
-    const normalizedTheme = theme === 'dark' ? 'dark' : 'light';
-    document.body.classList.remove('theme-light', 'theme-dark');
-    document.body.classList.add('theme-' + normalizedTheme);
-
+async function loadChart(canvasId, url, render) {
+    setChartState(canvasId, 'loading');
     try {
-        localStorage.setItem(DASHBOARD_THEME_STORAGE_KEY, normalizedTheme);
+        const data = await fetchDashboardChartData(url);
+        if (!hasChartData(data)) {
+            setChartState(canvasId, 'empty');
+            return;
+        }
+        render(data);
+        setChartState(canvasId, null);
     } catch (error) {
-        // Ignore localStorage failures and keep the current in-memory theme.
+        console.error('Unable to load chart ' + canvasId + '.', error);
+        setChartState(canvasId, 'error', function() {
+            loadChart(canvasId, url, render);
+        });
     }
-
-    updateDashboardThemeToggleIcon();
 }
 
-function updateDashboardThemeToggleIcon() {
-    const toggleButton = document.getElementById('dashboardThemeToggle');
-    if (!toggleButton) {
+function hasChartData(data) {
+    return !!data && Array.isArray(data.values) && data.values.some(function(value) {
+        return Number(value) > 0;
+    });
+}
+
+function setChartState(canvasId, state, onRetry) {
+    const overlay = document.querySelector('[data-chart-state="' + canvasId + '"]');
+    if (!overlay) {
         return;
     }
-
-    const isDarkMode = document.body.classList.contains('theme-dark');
-    toggleButton.innerHTML = isDarkMode
-        ? '<i class="bi bi-brightness-high-fill"></i>'
-        : '<i class="bi bi-moon-fill"></i>';
-}
-
-function rerenderDashboardCharts() {
-    const dashboardCharts = document.getElementById('dashboardCharts');
-    if (!dashboardCharts || !window.Chart || !dashboardLeftChartData || !dashboardRightChartData) {
+    if (!state) {
+        overlay.hidden = true;
+        overlay.textContent = '';
         return;
     }
-
-    renderStatusBreakdownChart(dashboardLeftChartData);
-    renderFrequencyChart(dashboardRightChartData);
-
-    if (deadlineCalendarInstance) {
-        deadlineCalendarInstance.updateSize();
-    }
-}
-
-async function initializeAdminDashboardCharts() {
-    try {
-        const dashboardCharts = document.getElementById('dashboardCharts');
-        const userRole = dashboardCharts && dashboardCharts.dataset ? (dashboardCharts.dataset.userRole || '') : '';
-        const normalizedRole = userRole.trim().toUpperCase().replace(/[- ]/g, '_');
-        const isSoqmLead = normalizedRole === 'SOQM_TEAM';
-        const leftChartEndpoint = isSoqmLead
-            ? '/api/dashboard/admin/frequency'
-            : '/api/dashboard/my/frequency';
-        const rightChartEndpoint = isSoqmLead
-            ? '/api/dashboard/admin/component-breakdown'
-            : '/api/dashboard/my/component';
-
-        const [statusData, frequencyData] = await Promise.all([
-            fetchDashboardChartData(leftChartEndpoint),
-            fetchDashboardChartData(rightChartEndpoint)
-        ]);
-
-        dashboardLeftChartData = statusData;
-        dashboardRightChartData = frequencyData;
-        renderStatusBreakdownChart(statusData);
-        renderFrequencyChart(frequencyData);
-        initializeDeadlineSection();
-    } catch (error) {
-        console.error('Unable to load dashboard chart data.', error);
+    overlay.hidden = false;
+    if (state === 'loading') {
+        overlay.textContent = 'Loading…';
+    } else if (state === 'empty') {
+        overlay.textContent = 'No controls to show yet';
+    } else {
+        overlay.innerHTML = '<span>Could not load the chart.</span>'
+            + '<button type="button" class="btn-retry">Retry</button>';
+        overlay.querySelector('.btn-retry').addEventListener('click', onRetry);
     }
 }
 
@@ -1121,7 +1481,8 @@ function getDashboardChartPalette() {
         amber: rootStyles.getPropertyValue('--kpmg-amber').trim(),
         text: themeStyles.getPropertyValue('--text-color').trim() || themeStyles.getPropertyValue('--dashboard-text').trim() || rootStyles.getPropertyValue('--kpmg-gray-800').trim(),
         mutedText: themeStyles.getPropertyValue('--muted-text').trim() || themeStyles.getPropertyValue('--dashboard-muted-text').trim() || rootStyles.getPropertyValue('--kpmg-gray-600').trim(),
-        chartGrid: themeStyles.getPropertyValue('--gridline').trim() || themeStyles.getPropertyValue('--dashboard-chart-grid').trim() || 'rgba(216, 220, 229, 0.45)'
+        chartGrid: themeStyles.getPropertyValue('--gridline').trim() || themeStyles.getPropertyValue('--dashboard-chart-grid').trim() || 'rgba(216, 220, 229, 0.45)',
+        cardBg: themeStyles.getPropertyValue('--dashboard-card-bg').trim() || '#ffffff'
     };
 }
 
@@ -1217,15 +1578,18 @@ function renderStatusBreakdownChart(data) {
 
     const palette = getDashboardChartPalette();
     const chartData = normalizeChartData(data, 'No Data');
+    // Wide card: legend on the right so the ring can use the full height
+    const legendPosition = canvas.parentElement && canvas.parentElement.clientWidth > 420 ? 'right' : 'bottom';
 
     statusBreakdownChartInstance = new Chart(canvas, {
         type: 'doughnut',
+        plugins: [doughnutCenterTotal(palette)],
         data: {
             labels: chartData.labels,
             datasets: [{
                 data: chartData.values,
                 backgroundColor: chartData.labels.map(getFrequencyChartColor),
-                borderColor: '#ffffff',
+                borderColor: palette.cardBg,
                 borderWidth: 2,
                 hoverOffset: 2
             }]
@@ -1237,14 +1601,23 @@ function renderStatusBreakdownChart(data) {
             cutout: '62%',
             plugins: {
                 legend: {
-                    position: 'bottom',
+                    position: legendPosition,
                     labels: {
-                        color: palette.mutedText,
+                        color: palette.text,
                         boxWidth: 12,
                         boxHeight: 12,
-                        padding: 14,
+                        padding: 12,
                         font: {
-                            size: 11
+                            size: 12
+                        },
+                        // "Monthly 5" instead of just "Monthly"
+                        generateLabels: function(chart) {
+                            const items = Chart.overrides.doughnut.plugins.legend.labels.generateLabels(chart);
+                            const values = chart.data.datasets[0].data;
+                            items.forEach(function(item) {
+                                item.text = item.text + '  ' + values[item.index];
+                            });
+                            return items;
                         }
                     }
                 },
@@ -1278,7 +1651,7 @@ function renderStatusBreakdownChart(data) {
                         const backgroundColor = context && context.dataset && Array.isArray(context.dataset.backgroundColor)
                             ? context.dataset.backgroundColor[context.dataIndex]
                             : null;
-                        return getChartDataLabelColor(backgroundColor, palette);
+                        return readableTextOn(backgroundColor);
                     },
                     formatter: function(value) {
                         return value > 0 ? value : '';
@@ -1292,35 +1665,55 @@ function renderStatusBreakdownChart(data) {
                     offset: 0,
                     clamp: false,
                     clip: false,
-                    textStrokeColor: 'rgba(255, 255, 255, 0.18)',
-                    textStrokeWidth: 1
                 }
             }
         }
     });
 }
 
+const FREQUENCY_COLORS = {
+    'MONTHLY': '#00338D',
+    'QUARTERLY': '#0091DA',
+    'RECURRING': '#6D2077',
+    'ANNUAL': '#00A3A1',
+    'SEMI ANNUAL': '#EAAA00',
+    'AD-HOC': '#F68D2E',
+    'AD HOC': '#F68D2E'
+};
+
+// Draws the total number of controls in the middle of the ring
+function doughnutCenterTotal(palette) {
+    return {
+        id: 'doughnutCenterTotal',
+        afterDraw: function(chart) {
+            const meta = chart.getDatasetMeta(0);
+            if (!meta || !meta.data || !meta.data.length) {
+                return;
+            }
+            const total = chart.data.datasets[0].data.reduce(function(sum, value) {
+                return sum + Number(value || 0);
+            }, 0);
+            const center = meta.data[0];
+            const fontFamily = Chart.defaults.font.family;
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = palette.text;
+            ctx.font = '700 22px ' + fontFamily;
+            ctx.fillText(String(total), center.x, center.y - 8);
+            ctx.fillStyle = palette.mutedText;
+            ctx.font = '11px ' + fontFamily;
+            ctx.fillText(total === 1 ? 'control' : 'controls', center.x, center.y + 12);
+            ctx.restore();
+        }
+    };
+}
+
 function getFrequencyChartColor(label) {
-    const normalized = (label || '').trim().toUpperCase();
-    if (normalized === 'MONTHLY') {
-        return '#0D47A1';
-    }
-    if (normalized === 'QUARTERLY') {
-        return '#1565C0';
-    }
-    if (normalized === 'RECURRING') {
-        return '#1E88E5';
-    }
-    if (normalized === 'ANNUAL') {
-        return '#42A5F5';
-    }
-    if (normalized === 'SEMI ANNUAL') {
-        return '#90CAF9';
-    }
-    if (normalized === 'AD-HOC' || normalized === 'AD HOC') {
-        return '#2E75B6';
-    }
-    return '#B0BEC5';
+    // Key computed separately: an opening square bracket followed by a parenthesis is Thymeleaf inline syntax
+    const key = String(label || '').trim().toUpperCase();
+    return FREQUENCY_COLORS[key] || '#9BA3B5';
 }
 
 function formatChartTooltipValue(label, value, values) {
@@ -1331,24 +1724,6 @@ function formatChartTooltipValue(label, value, values) {
         : 0;
     const percentage = total > 0 ? ((value / total) * 100) : 0;
     return label + ': ' + value + ' (' + percentage.toFixed(1) + '%)';
-}
-
-function getChartDataLabelColor(backgroundColor, palette) {
-    if (!backgroundColor || typeof backgroundColor !== 'string') {
-        return palette.text;
-    }
-
-    const hex = backgroundColor.replace('#', '').trim();
-    if (hex.length !== 6) {
-        return palette.text;
-    }
-
-    const red = parseInt(hex.substring(0, 2), 16);
-    const green = parseInt(hex.substring(2, 4), 16);
-    const blue = parseInt(hex.substring(4, 6), 16);
-    const luminance = ((0.299 * red) + (0.587 * green) + (0.114 * blue)) / 255;
-
-    return luminance > 0.64 ? palette.text : '#ffffff';
 }
 
 function renderFrequencyChart(data) {
@@ -1364,22 +1739,67 @@ function renderFrequencyChart(data) {
     const palette = getDashboardChartPalette();
     const chartData = normalizeChartData(data, 'No Data');
 
+    // Largest first; components without controls are listed in a note instead of empty bars
+    const rows = chartData.labels.map(function(label, index) {
+        return { label: label, value: Number(chartData.values[index] || 0) };
+    });
+    const withControls = rows.filter(function(row) { return row.value > 0; })
+        .sort(function(a, b) { return b.value - a.value; });
+    const withoutControls = rows.filter(function(row) { return row.value <= 0; })
+        .map(function(row) { return row.label; });
+    const note = document.getElementById('componentZeroNote');
+    if (note) {
+        note.textContent = withoutControls.length ? 'No controls: ' + withoutControls.join(', ') : '';
+    }
+
+    const options = buildCartesianOptions(palette);
+    options.indexAxis = 'y';
+    options.layout = { padding: { right: 16 } };
+    options.scales = {
+        x: {
+            beginAtZero: true,
+            grace: '15%',
+            grid: { color: palette.chartGrid, drawBorder: false },
+            ticks: { color: palette.mutedText, precision: 0, font: { size: 11 } }
+        },
+        y: {
+            grid: { display: false },
+            ticks: { color: palette.text, font: { size: 12, weight: '600' } }
+        }
+    };
+    options.plugins.datalabels.anchor = 'end';
+    options.plugins.datalabels.align = 'right';
+    options.onClick = function(event, elements, chart) {
+        if (!elements.length) {
+            return;
+        }
+        const label = chart.data.labels[elements[0].index];
+        if (COMPONENT_CODES.includes(label)) {
+            window.location.href = '/component/' + encodeURIComponent(label);
+        }
+    };
+    options.onHover = function(event, elements) {
+        event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+    };
+
     frequencyChartInstance = new Chart(canvas, {
         type: 'bar',
         data: {
-            labels: chartData.labels,
+            labels: withControls.map(function(row) { return row.label; }),
             datasets: [{
-                data: chartData.values,
+                data: withControls.map(function(row) { return row.value; }),
                 backgroundColor: palette.blueLight,
                 borderColor: palette.blue,
                 borderWidth: 1,
-                borderRadius: 4,
-                maxBarThickness: 36
+                borderRadius: 3,
+                maxBarThickness: 22
             }]
         },
-        options: buildCartesianOptions(palette)
+        options: options
     });
 }
+
+const COMPONENT_CODES = ['HR', 'A&C', 'EP', 'INTR', 'I&C', 'RER', 'M&R', 'GOV', 'TECHR', 'RAP'];
 
 async function initializeDeadlineSection() {
     await loadDeadlineCountdown();
@@ -1390,7 +1810,7 @@ async function initializeDeadlineSection() {
     if (deadlineCountdownTickHandle) {
         clearInterval(deadlineCountdownTickHandle);
     }
-    deadlineCountdownTickHandle = setInterval(updateDeadlineCountdownTimers, 1000);
+    deadlineCountdownTickHandle = setInterval(updateDeadlineCountdownTimers, 60000);
     updateDeadlineCountdownTimers();
     initializeDeadlineCalendar();
 }
@@ -1406,41 +1826,66 @@ async function loadDeadlineCountdown() {
         renderDeadlineCountdown(items);
     } catch (error) {
         console.error('Unable to load deadline countdown.', error);
-        container.innerHTML = '<div style="padding: 16px; color: var(--kpmg-gray-400); font-size: 0.82rem;">Unable to load deadlines.</div>';
+        container.innerHTML = '<div style="padding: 16px; color: var(--muted-text); font-size: 0.82rem;">Unable to load deadlines.</div>';
     }
 }
 
-function renderDeadlineCountdown(items) {
+// Overdue group first (days overdue come from the server, counted in Almaty), then the next 3 days
+function renderDeadlineCountdown(data) {
     const container = document.getElementById('deadlineCountdownList');
     if (!container) {
         return;
     }
 
-    if (!Array.isArray(items) || items.length === 0) {
-        container.innerHTML = '<div style="padding: 16px; color: var(--kpmg-gray-400); font-size: 0.82rem;">No upcoming deadlines in the next 3 days.</div>';
-        return;
-    }
+    const overdue = data && Array.isArray(data.overdue) ? data.overdue : [];
+    const upcoming = data && Array.isArray(data.upcoming) ? data.upcoming : [];
+    const overdueTotal = data && typeof data.overdueTotal === 'number' ? data.overdueTotal : overdue.length;
 
-    container.innerHTML = items.map(function(item, index) {
-        const urgency = getDeadlineUrgency(item.deadline);
-        return '<div class="deadline-item" data-deadline="' + escapeAttribute(item.deadline || '') + '">'
-            + '<div class="d-flex justify-content-between align-items-start gap-2">'
-            + '<div style="min-width: 0;">'
-            + '<a href="' + escapeAttribute(item.url || '#') + '" class="deadline-link">'
-            + escapeHtml(item.controlId || 'Control')
-            + '</a>'
-            + '<div class="deadline-name">' + escapeHtml(item.name || 'Untitled Control') + '</div>'
-            + '<div class="deadline-date">' + escapeHtml(formatDeadlineDateTime(item.deadline)) + '</div>'
+    let html = '';
+    if (overdue.length > 0) {
+        html += '<div class="deadline-group-title is-overdue">'
+            + '<span>Overdue <span class="deadline-group-count">' + overdueTotal + '</span></span>'
+            + (overdueTotal > overdue.length
+                ? '<a href="/controls?filter=OVERDUE" class="deadline-group-link">View all</a>'
+                : '')
             + '</div>'
-            + '<div class="text-end" style="white-space: nowrap;">'
-            + '<div class="deadline-remaining" data-deadline-text>' + escapeHtml(formatTimeLeft(item.deadline)) + '</div>'
-            + '<div><span class="deadline-status" style="background: ' + urgency.color + ';">' + escapeHtml(urgency.label) + '</span></div>'
-            + '</div>'
-            + '</div>'
-            + '</div>';
-    }).join('');
+            + overdue.map(renderDeadlineItem).join('');
+    }
+    html += '<div class="deadline-group-title">Next 3 days</div>';
+    html += upcoming.length > 0
+        ? upcoming.map(renderDeadlineItem).join('')
+        : '<div class="deadline-empty">No upcoming deadlines in the next 3 days.</div>';
+    container.innerHTML = html;
 
     updateDeadlineCountdownTimers();
+}
+
+function renderDeadlineItem(item) {
+    const urgency = item.overdue ? { label: 'OVERDUE', color: getDashboardChartPalette().red } : getDeadlineUrgency(item.deadline);
+    const remaining = item.overdue
+        ? '<div class="deadline-remaining is-overdue">' + escapeHtml(formatDaysOverdue(item.daysOverdue)) + '</div>'
+        : '<div class="deadline-remaining" data-deadline-text>' + escapeHtml(formatTimeLeft(item.deadline)) + '</div>';
+    return '<div class="deadline-item' + (item.overdue ? ' is-overdue' : '') + '"'
+        + (item.overdue ? '' : ' data-deadline="' + escapeAttribute(item.deadline || '') + '"') + '>'
+        + '<div class="d-flex justify-content-between align-items-start gap-2">'
+        + '<div style="min-width: 0;">'
+        + '<a href="' + escapeAttribute(item.url || '#') + '" class="deadline-link">'
+        + escapeHtml(item.controlId || 'Control')
+        + '</a>'
+        + '<div class="deadline-name">' + escapeHtml(item.name || 'Untitled Control') + '</div>'
+        + '<div class="deadline-date">' + escapeHtml(formatDeadlineDateTime(item.deadline)) + '</div>'
+        + '</div>'
+        + '<div class="text-end" style="white-space: nowrap;">'
+        + remaining
+        + '<div><span class="deadline-status" style="background: ' + urgency.color + '; color: ' + readableTextOn(urgency.color) + ';">' + escapeHtml(urgency.label) + '</span></div>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
+}
+
+function formatDaysOverdue(days) {
+    const count = Math.max(1, Number(days) || 0);
+    return count + (count === 1 ? ' day' : ' days') + ' overdue';
 }
 
 function initializeDeadlineCalendar() {
@@ -1488,9 +1933,8 @@ function initializeDeadlineCalendar() {
             info.el.setAttribute('title', formatCalendarTooltip(info.event));
         },
         eventContent: function(arg) {
-            const shortTitle = truncateCalendarLabel(arg.event.title || '');
             return {
-                html: '<span>' + escapeHtml(shortTitle) + '</span>'
+                html: '<span>' + escapeHtml(arg.event.title || 'Control') + '</span>'
             };
         }
     });
@@ -1500,30 +1944,60 @@ function initializeDeadlineCalendar() {
 
 function normalizeDeadlineCalendarEvent(event) {
     const safeEvent = event || {};
-    const title = (safeEvent.title || '').split(' - ')[0] || 'Control';
+    const fullId = (safeEvent.title || '').split(' - ')[0] || 'Control';
     return {
-        title: title,
+        title: shortControlId(fullId),
         start: safeEvent.start,
         url: safeEvent.url,
-        color: safeEvent.color
+        color: safeEvent.color,
+        textColor: readableTextOn(safeEvent.color),
+        extendedProps: { fullId: fullId }
     };
 }
 
+// "HR-CTRL-MF-424/FY26/Central/OCT" -> "HR-CTRL-MF-424": the suffix is the same for most controls
+// Dark text on light backgrounds (amber, grey), white on dark ones
+function readableTextOn(hexColor) {
+    const hex = String(hexColor || '').replace('#', '').trim();
+    if (hex.length !== 6) {
+        return '#ffffff';
+    }
+    const luminance = (0.299 * parseInt(hex.substring(0, 2), 16)
+        + 0.587 * parseInt(hex.substring(2, 4), 16)
+        + 0.114 * parseInt(hex.substring(4, 6), 16)) / 255;
+    return luminance > 0.6 ? '#1a1f2e' : '#ffffff';
+}
+
+function shortControlId(controlId) {
+    const text = String(controlId || '').trim();
+    return text.split('/')[0] || text || 'Control';
+}
+
+// The deadline carries the Almaty offset ("2026-10-01T23:59:00+05:00"); its date part is the due day
+// in Almaty, whatever the browser timezone
+function deadlineDueDay(deadline) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(deadline || ''));
+    return match ? { year: match[1], month: match[2], day: match[3] } : null;
+}
+
+// Whole days from today in Almaty to the due day: 0 = today, 1 = tomorrow
+function daysUntilDueInAlmaty(deadline) {
+    const due = deadlineDueDay(deadline);
+    if (!due) {
+        return NaN;
+    }
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty' }).format(new Date());
+    return Math.round((Date.parse(due.year + '-' + due.month + '-' + due.day + 'T00:00:00Z')
+        - Date.parse(today + 'T00:00:00Z')) / 86400000);
+}
+
 function formatDeadlineDateTime(deadline) {
-    if (!deadline) {
-        return 'No deadline';
-    }
-    const date = new Date(deadline);
-    if (Number.isNaN(date.getTime())) {
-        return 'No deadline';
-    }
-    return date.toLocaleString([], {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+    const due = deadlineDueDay(deadline);
+    return due ? 'Due ' + due.day + '.' + due.month + '.' + due.year : 'No deadline';
+}
+
+function formatDate(date) {
+    return pad2(date.getDate()) + '.' + pad2(date.getMonth() + 1) + '.' + date.getFullYear();
 }
 
 function formatTimeLeft(deadline) {
@@ -1535,7 +2009,8 @@ function formatTimeLeft(deadline) {
         return 'No deadline';
     }
 
-    return formatDuration(target - Date.now());
+    const diff = target - Date.now();
+    return diff < 0 ? 'Overdue by ' + formatDuration(-diff) : formatDuration(diff) + ' left';
 }
 
 function updateDeadlineCountdownTimers() {
@@ -1548,42 +2023,28 @@ function updateDeadlineCountdownTimers() {
         }
 
         const diff = target - Date.now();
-        if (diff < 0) {
-            display.textContent = 'OVERDUE by ' + formatDuration(Math.abs(diff));
-            display.classList.add('is-overdue');
-        } else {
-            display.textContent = formatDuration(diff);
-            display.classList.remove('is-overdue');
-        }
+        display.textContent = formatTimeLeft(deadline);
+        display.classList.toggle('is-overdue', diff < 0);
     });
 }
 
+// "2d 5h", "5h 12m", "12m" — minute precision is enough for day-based deadlines
 function formatDuration(diffMs) {
-    const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
-    const days = Math.floor(totalSeconds / 86400);
-    const hours = Math.floor((totalSeconds % 86400) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return days + 'd ' + pad2(hours) + ':' + pad2(minutes) + ':' + pad2(seconds);
+    const totalMinutes = Math.max(0, Math.floor(diffMs / 60000));
+    const days = Math.floor(totalMinutes / 1440);
+    const hours = Math.floor((totalMinutes % 1440) / 60);
+    const minutes = totalMinutes % 60;
+    if (days > 0) {
+        return days + 'd ' + hours + 'h';
+    }
+    if (hours > 0) {
+        return hours + 'h ' + minutes + 'm';
+    }
+    return Math.max(minutes, 1) + 'm';
 }
 
 function pad2(value) {
     return String(value).padStart(2, '0');
-}
-
-function getStatusBadgeColor(status) {
-    const palette = getDashboardChartPalette();
-    const normalized = (status || '').trim().toUpperCase();
-    if (normalized === 'COMPLETED') {
-        return palette.gray400;
-    }
-    if (normalized === 'REVIEW' || normalized === 'PROCESS_OWNER_REVIEW' || normalized === 'SOQM_HEAD_REVIEW') {
-        return palette.blue;
-    }
-    if (normalized === 'OVERDUE') {
-        return palette.red;
-    }
-    return palette.amber;
 }
 
 function getDeadlineUrgency(deadline) {
@@ -1591,44 +2052,30 @@ function getDeadlineUrgency(deadline) {
     if (!deadline) {
         return { label: 'DUE SOON', color: palette.blueLight };
     }
-    const target = new Date(deadline);
-    if (Number.isNaN(target.getTime())) {
+    const daysLeft = daysUntilDueInAlmaty(deadline);
+    if (Number.isNaN(daysLeft)) {
         return { label: 'DUE SOON', color: palette.blueLight };
     }
 
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfTomorrow = new Date(startOfToday);
-    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
-    const startOfDayAfterTomorrow = new Date(startOfTomorrow);
-    startOfDayAfterTomorrow.setDate(startOfDayAfterTomorrow.getDate() + 1);
-
-    if (target.getTime() < now.getTime()) {
+    // A deadline today is not overdue until the Almaty day ends
+    if (daysLeft < 0) {
         return { label: 'OVERDUE', color: palette.red };
     }
-    if (target.getTime() < startOfTomorrow.getTime()) {
+    if (daysLeft === 0) {
         return { label: 'DUE TODAY', color: palette.amber };
     }
-    if (target.getTime() < startOfDayAfterTomorrow.getTime()) {
+    if (daysLeft === 1) {
         return { label: 'DUE TOMORROW', color: palette.blue };
     }
     return { label: 'DUE SOON', color: palette.blueLight };
-}
-
-function truncateCalendarLabel(value) {
-    const text = String(value || '').trim();
-    if (text.length <= 12) {
-        return text || 'Control';
-    }
-    return text.substring(0, 12).trim() + '...';
 }
 
 function formatCalendarTooltip(event) {
     if (!event) {
         return '';
     }
-    const title = event.title || 'Control';
-    const deadline = event.start ? event.start.toLocaleDateString() : '';
+    const title = (event.extendedProps && event.extendedProps.fullId) || event.title || 'Control';
+    const deadline = event.start ? formatDate(event.start) : '';
     return deadline ? title + ' | Deadline: ' + deadline : title;
 }
 
@@ -1644,6 +2091,148 @@ function escapeHtml(value) {
 function escapeAttribute(value) {
     return escapeHtml(value);
 }
+
+// Notifications: All / Unread filter (client-side, on the loaded page of notifications) and Mark as read
+document.addEventListener('DOMContentLoaded', function() {
+    const body = document.getElementById('notifBody');
+    if (!body) {
+        return;
+    }
+    const buttons = document.querySelectorAll('[data-notif-filter]');
+    const noUnread = document.getElementById('notifNoUnread');
+    let unreadOnly = false;
+    let unreadCount = parseInt(body.dataset.unreadCount, 10) || 0;
+
+    function applyFilter() {
+        let shown = 0;
+        document.querySelectorAll('#pane-notifications .notif-group').forEach(function(group) {
+            let groupShown = 0;
+            group.querySelectorAll('.notif-item').forEach(function(item) {
+                const visible = !unreadOnly || item.classList.contains('unread');
+                item.hidden = !visible;
+                if (visible) {
+                    groupShown++;
+                }
+            });
+            group.hidden = groupShown === 0;
+            shown += groupShown;
+        });
+        if (noUnread) {
+            noUnread.hidden = shown > 0;
+        }
+    }
+
+    buttons.forEach(function(button) {
+        button.addEventListener('click', function() {
+            unreadOnly = button.dataset.notifFilter === 'unread';
+            buttons.forEach(function(other) {
+                const active = other === button;
+                other.classList.toggle('is-active', active);
+                other.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+            applyFilter();
+        });
+    });
+
+    // Subtitle, Unread filter badge, Mark all button and the sidebar badge
+    function showUnreadCount(count) {
+        unreadCount = Math.max(0, count);
+        const subtitle = document.getElementById('notifSubtitle');
+        if (subtitle) {
+            subtitle.textContent = unreadCount > 0 ? unreadCount + ' unread' : 'You are all caught up';
+        }
+        const markAll = document.getElementById('notifMarkAllForm');
+        if (markAll) {
+            markAll.hidden = unreadCount === 0;
+        }
+        document.querySelectorAll('.notif-filter-count, #sidebarNotifications .notif-pill').forEach(function(badge) {
+            if (unreadCount === 0) {
+                badge.remove();
+                return;
+            }
+            badge.textContent = unreadCount;
+            if (badge.classList.contains('notif-pill')) {
+                badge.setAttribute('aria-label', unreadCount + ' unread');
+            }
+        });
+    }
+
+    function showAsRead(item) {
+        item.classList.remove('unread');
+        item.querySelectorAll('.notif-unread-dot, .notif-side .visually-hidden, .notif-mark-read').forEach(function(el) {
+            el.remove();
+        });
+    }
+
+    function readHeaders() {
+        const token = document.querySelector('meta[name="_csrf"]');
+        const header = document.querySelector('meta[name="_csrf_header"]');
+        const headers = { 'Accept': 'application/json' };
+        if (token && header) {
+            headers[header.content] = token.content;
+        }
+        return headers;
+    }
+
+    document.querySelectorAll('#pane-notifications .notif-item').forEach(function(item) {
+        // Opening a notification marks it read on the server: show that now, so Back (page cache) is correct too
+        const link = item.querySelector('.notif-link');
+        function openedUnread(event) {
+            if (event.type === 'auxclick' && event.button !== 1) {
+                return;
+            }
+            if (item.classList.contains('unread')) {
+                showAsRead(item);
+                showUnreadCount(unreadCount - 1);
+            }
+        }
+        link.addEventListener('click', openedUnread);
+        link.addEventListener('auxclick', openedUnread);
+
+        const markRead = item.querySelector('.notif-mark-read');
+        if (!markRead) {
+            return;
+        }
+        markRead.addEventListener('click', function() {
+            // Read before disabling: a disabled button loses focus
+            const hadFocus = document.activeElement === markRead;
+            markRead.disabled = true;
+            fetch('/notifications/' + encodeURIComponent(item.dataset.notifId) + '/read', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: readHeaders()
+            }).then(function(response) {
+                const json = (response.headers.get('Content-Type') || '').indexOf('application/json') !== -1;
+                if (!response.ok || response.redirected || !json) {
+                    throw new Error('Mark as read failed: ' + response.status);
+                }
+                return response.json();
+            }).then(function(result) {
+                showAsRead(item);
+                showUnreadCount(result.unread);
+                applyFilter();
+                if (hadFocus) {
+                    // The button is gone (and under Unread the row too): keep keyboard focus in the list
+                    const target = !item.hidden ? link : Array.prototype.find.call(
+                        document.querySelectorAll('#pane-notifications .notif-item:not([hidden]) .notif-link'),
+                        function(other) { return item.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING; });
+                    if (target) {
+                        target.focus();
+                    }
+                }
+            }).catch(function() {
+                // Session expired or the notification is gone: the reloaded page shows the real state
+                window.location.reload();
+            });
+        });
+    });
+
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            applyFilter();
+        }
+    });
+});
 
 function normalizeChartData(data, fallbackLabel) {
     if (!data || !Array.isArray(data.labels) || !Array.isArray(data.values) || data.labels.length === 0) {

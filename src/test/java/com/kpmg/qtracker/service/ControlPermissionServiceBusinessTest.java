@@ -3,6 +3,7 @@ package com.kpmg.qtracker.service;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -57,8 +58,8 @@ class ControlPermissionServiceBusinessTest {
     class AdminTests {
 
         @Test
-        @DisplayName("Admin с adminAccess=true может видеть и редактировать любой контроль")
-        void adminHasFullAccess() {
+        @DisplayName("SoQM с флагом admin может видеть и редактировать любой контроль")
+        void soqmAdminHasFullAccess() {
             User admin = makeUser(ADMIN_EMAIL, "SOQM_TEAM", true);
             Control control = makeControl(1L, "HR-001", "IN_PROGRESS");
             ControlAssignmentDTO assignment = emptyAssignment();
@@ -69,6 +70,20 @@ class ControlPermissionServiceBusinessTest {
             assertThat(perm.canEdit()).isTrue();
             assertThat(perm.canEditAll()).isTrue();
             assertThat(perm.canUseWorkflowActions()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Флаг admin без уровня SoQM даёт только просмотр")
+        void adminWithoutSoqmLevelOnlyViews() {
+            User admin = makeUser(ADMIN_EMAIL, "ADMIN", true);
+            Control control = makeControl(1L, "HR-001", "IN_PROGRESS");
+
+            ControlPermission perm = permissionService.resolve(control, admin, emptyAssignment());
+
+            assertThat(perm.canView()).isTrue();
+            assertThat(perm.canEdit()).isFalse();
+            assertThat(perm.canEditAll()).isFalse();
+            assertThat(perm.getAllowedEditableFields()).isEmpty();
         }
 
         @Test
@@ -157,18 +172,69 @@ class ControlPermissionServiceBusinessTest {
     class ControlOperatorTests {
 
         @Test
-        @DisplayName("Control Operator может редактировать Steps Performed при статусе REVIEW")
-        void controlOperatorCanEditStepsAtReviewStatus() {
+        @DisplayName("Control Operator, другой человек, чем Facilitator, на REVIEW пишет Control Steps Performed and Results")
+        void controlOperatorWritesTheStepsFieldAtReviewStatus() {
             User user = makeUser(CO_EMAIL, "CONTROL_OPERATOR", false);
             Control control = makeControl(1L, "HR-001", "REVIEW");
             ControlAssignmentDTO assignment = assignmentWithControlOperator(CO_EMAIL);
+            assignment.setFacilitator(List.of(FAC_EMAIL));
 
             ControlPermission perm = permissionService.resolve(control, user, assignment);
 
             assertThat(perm.canView()).isTrue();
             assertThat(perm.canEdit()).isTrue();
-            assertThat(perm.getAllowedEditableFields())
-                    .contains(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
+            assertThat(perm.getAllowedEditableFields()).containsExactly(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
+            assertThat(perm.canWriteStepsPerformed()).isTrue();
+            // Control Operator's Program: SoQM Team only
+            assertThat(perm.canWriteOperatorReview()).isFalse();
+        }
+
+        @Test
+        @DisplayName("Facilitator и Control Operator — один человек: на REVIEW пишет Control Steps Performed and Results")
+        void samePersonInBothSlots_writesTheStepsFieldAtReview() {
+            User user = makeUser(CO_EMAIL, "CONTROL_OPERATOR", false);
+            Control control = makeControl(1L, "HR-001", "REVIEW");
+            ControlAssignmentDTO assignment = assignmentWithControlOperator(CO_EMAIL);
+            // the same person, spelled differently, next to a second Facilitator
+            assignment.setFacilitator(List.of(FAC_EMAIL, " Operator@Test.com "));
+
+            ControlPermission perm = permissionService.resolve(control, user, assignment);
+
+            assertThat(perm.getAllowedEditableFields()).contains(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
+            assertThat(perm.canWriteStepsPerformed()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Несколько Control Operator: любой из них пишет Control Steps Performed and Results")
+        void anyOfSeveralOperatorsWritesTheStepsField() {
+            User second = makeUser("second-op@test.com", "CONTROL_OPERATOR", false);
+            Control control = makeControl(1L, "HR-001", "REVIEW");
+            ControlAssignmentDTO assignment = new ControlAssignmentDTO();
+            assignment.setFacilitator(List.of(FAC_EMAIL));
+            assignment.setControlOperator(List.of(CO_EMAIL, "second-op@test.com"));
+
+            ControlPermission perm = permissionService.resolve(control, second, assignment);
+
+            assertThat(perm.getAllowedEditableFields()).contains(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
+        }
+
+        @Test
+        @DisplayName("SoQM правит оба поля, один человек Facilitator и Control Operator или разные")
+        void soqmWritesBothStepsFields_onePersonOrNot() {
+            User soqm = makeUser(SOQM_EMAIL, "SOQM_TEAM", false);
+            Control control = makeControl(1L, "HR-001", "SOQM_HEAD_REVIEW");
+            ControlAssignmentDTO split = assignmentWithControlOperator(CO_EMAIL);
+            split.setFacilitator(List.of(FAC_EMAIL));
+            ControlAssignmentDTO onePerson = assignmentWithControlOperator(FAC_EMAIL);
+            onePerson.setFacilitator(List.of(FAC_EMAIL));
+
+            ControlPermission splitPerm = permissionService.resolve(control, soqm, split);
+            ControlPermission onePerm = permissionService.resolve(control, soqm, onePerson);
+
+            assertThat(splitPerm.canWriteStepsPerformed()).isTrue();
+            assertThat(splitPerm.canWriteOperatorReview()).isTrue();
+            assertThat(onePerm.canWriteStepsPerformed()).isTrue();
+            assertThat(onePerm.canWriteOperatorReview()).isTrue();
         }
 
         @Test
@@ -231,8 +297,8 @@ class ControlPermissionServiceBusinessTest {
     class SharedViewerTests {
 
         @Test
-        @DisplayName("Shared viewer с ролью FACILITATOR может редактировать Steps в COMPLETED контроле")
-        void sharedFacilitatorCanEditStepsOnCompletedControl() {
+        @DisplayName("Shared viewer только смотрит COMPLETED контроль: ни одного поля для правки")
+        void sharedParticipantOnlyViewsCompletedControl() {
             User user = makeUser(FAC_EMAIL, "FACILITATOR", false);
             Control control = makeControl(1L, "HR-001", "COMPLETED");
 
@@ -243,14 +309,13 @@ class ControlPermissionServiceBusinessTest {
 
             assertThat(perm.canView()).isTrue();
             assertThat(perm.isSharedViewer()).isTrue();
-            assertThat(perm.isSharedCompleted()).isTrue();
-            assertThat(perm.getAllowedEditableFields())
-                    .contains(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
+            assertThat(perm.canEdit()).isFalse();
+            assertThat(perm.getAllowedEditableFields()).isEmpty();
         }
 
         @Test
-        @DisplayName("Shared viewer НЕ может использовать workflow actions на COMPLETED контроле")
-        void sharedViewerCannotUseWorkflowActionsOnCompletedControl() {
+        @DisplayName("Shared viewer не выполняет ни один шаг workflow на COMPLETED контроле")
+        void sharedViewerPerformsNoWorkflowStepOnCompletedControl() {
             User user = makeUser(OTHER_EMAIL, "FACILITATOR", false);
             Control control = makeControl(1L, "HR-001", "COMPLETED");
 
@@ -259,7 +324,9 @@ class ControlPermissionServiceBusinessTest {
 
             ControlPermission perm = permissionService.resolve(control, user, assignment);
 
-            assertThat(perm.canUseWorkflowActions()).isFalse();
+            for (WorkflowTransition transition : WorkflowTransition.values()) {
+                assertThat(AccessPolicy.isActor(transition.getActor(), perm)).as(transition.name()).isFalse();
+            }
         }
     }
 
@@ -330,9 +397,7 @@ class ControlPermissionServiceBusinessTest {
     // ─── Вспомогательные методы ─────────────────────────────────────────
 
     private User makeUser(String email, String role, boolean adminAccess) {
-        User user = new User();
-        user.setMail(email);
-        user.setRole(role);
+        User user = TestUsers.user(email, role);
         user.setAdminAccess(adminAccess);
         return user;
     }

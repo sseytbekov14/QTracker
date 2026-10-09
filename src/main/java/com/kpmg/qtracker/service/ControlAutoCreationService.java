@@ -3,6 +3,7 @@ package com.kpmg.qtracker.service;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
+import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.enums.ControlFrequency;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
@@ -182,8 +183,8 @@ public class ControlAutoCreationService {
         control.setControlDescription(previousControl.getControlDescription());
         control.setPrp(previousControl.getPrp());
         control.setCreatedBy(previousControl.getCreatedBy());
-        control.setCreatedAt(LocalDateTime.now());
-        control.setUpdatedAt(LocalDateTime.now());
+        control.setCreatedAt(LocalDateTime.now(Notification.ZONE));
+        control.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
         control.setDeadline(deadline);
 
         control.setSoqmHeadComments(null);
@@ -279,9 +280,9 @@ public class ControlAutoCreationService {
             log.warn("Auto-create: failed to resolve SoQM assignee for control {}", control.getId(), ex);
         }
         if (recipientEmail == null && control.getCreatedBy() != null) {
-            String creatorRole = control.getCreatedBy().getRole();
             String creatorEmail = control.getCreatedBy().getMail();
-            if ("SOQM_TEAM".equals(creatorRole) && creatorEmail != null && !creatorEmail.isBlank()) {
+            if (AccessPolicy.isSoqm(AccessPolicy.Subject.of(control.getCreatedBy()))
+                    && creatorEmail != null && !creatorEmail.isBlank()) {
                 recipientEmail = creatorEmail.trim();
             }
         }

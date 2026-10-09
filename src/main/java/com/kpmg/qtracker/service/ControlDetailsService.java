@@ -27,6 +27,7 @@ public class ControlDetailsService {
         updateIfPresent(detailsDTO.getOtherRelatedControls(), details::setOtherRelatedControls);
         updateIfPresent(detailsDTO.getItApplications(), details::setItApplications);
         updateIfPresent(detailsDTO.getControlStepsPerformed(), details::setControlStepsPerformed);
+        updateIfPresent(detailsDTO.getControlOperatorReview(), details::setControlOperatorReview);
         updateIfPresent(detailsDTO.getSoqmHeadComments(), details::setSoqmHeadComments);
         updateIfPresent(detailsDTO.getProcessOwnerComments(), details::setProcessOwnerComments);
 
@@ -56,6 +57,7 @@ public class ControlDetailsService {
         dto.setOtherRelatedControls(details.getOtherRelatedControls());
         dto.setItApplications(details.getItApplications());
         dto.setControlStepsPerformed(details.getControlStepsPerformed());
+        dto.setControlOperatorReview(details.getControlOperatorReview());
         dto.setSoqmHeadComments(details.getSoqmHeadComments());
         dto.setProcessOwnerComments(details.getProcessOwnerComments());
         return dto;

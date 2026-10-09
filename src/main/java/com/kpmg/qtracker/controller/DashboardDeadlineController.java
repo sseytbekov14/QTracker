@@ -1,7 +1,7 @@
 package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.dto.DashboardCalendarEventDTO;
-import com.kpmg.qtracker.dto.DashboardDeadlineCountdownItemDTO;
+import com.kpmg.qtracker.dto.DashboardDeadlineCountdownDTO;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.DashboardService;
 import jakarta.servlet.http.HttpSession;
@@ -25,7 +25,7 @@ public class DashboardDeadlineController {
     private final DashboardService dashboardService;
 
     @GetMapping("/deadline-countdown")
-    public ResponseEntity<List<DashboardDeadlineCountdownItemDTO>> getDeadlineCountdown(
+    public ResponseEntity<DashboardDeadlineCountdownDTO> getDeadlineCountdown(
             @RequestParam(defaultValue = "3") int days,
             @RequestParam(defaultValue = "10") int limit,
             HttpSession session) {

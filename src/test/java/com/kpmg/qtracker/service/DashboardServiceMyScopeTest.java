@@ -4,9 +4,8 @@ import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.dto.DashboardChartDataDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.repository.ControlRepository;
-import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
-import com.kpmg.qtracker.repository.WorkflowStepRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,12 +29,6 @@ class DashboardServiceMyScopeTest {
     @Mock
     private ControlAssignmentService controlAssignmentService;
 
-    @Mock
-    private WorkflowStepRepository workflowStepRepository;
-
-    @Mock
-    private WorkflowHistoryRepository workflowHistoryRepository;
-
     private DashboardService dashboardService;
 
     @BeforeEach
@@ -43,9 +36,7 @@ class DashboardServiceMyScopeTest {
         dashboardService = new DashboardService(
                 controlRepository,
                 controlService,
-                controlAssignmentService,
-                workflowStepRepository,
-                workflowHistoryRepository
+                controlAssignmentService
         );
     }
 
@@ -59,7 +50,7 @@ class DashboardServiceMyScopeTest {
         Control draftVisible = buildControl(103L, "Recurring", "GOV");
         draftVisible.setPerformanceStatus("DRAFT");
 
-        when(controlService.findVisibleControlsForUser("reviewer@kpmg.kz", "FACILITATOR"))
+        when(controlService.findVisibleControlsForUser(currentUser))
                 .thenReturn(List.of(monthlyVisible, quarterlyNotVisible, annualVisibleById, draftVisible));
         when(controlAssignmentService.getAssignmentByControlId(100L))
                 .thenReturn(assignment(List.of("reviewer@kpmg.kz"), List.of(), List.of(), List.of()));
@@ -87,7 +78,7 @@ class DashboardServiceMyScopeTest {
         Control draftVisible = buildControl(203L, "Recurring", "RAP");
         draftVisible.setPerformanceStatus("DRAFT");
 
-        when(controlService.findVisibleControlsForUser("operator@kpmg.kz", "CONTROL_OPERATOR"))
+        when(controlService.findVisibleControlsForUser(currentUser))
                 .thenReturn(List.of(hrVisible, acVisibleShared, govNotVisible, draftVisible));
         when(controlAssignmentService.getAssignmentByControlId(200L))
                 .thenReturn(assignment(List.of(), List.of("operator@kpmg.kz"), List.of(), List.of()));
@@ -105,11 +96,32 @@ class DashboardServiceMyScopeTest {
         assertThat(result.getValues().stream().mapToLong(Long::longValue).sum()).isEqualTo(2L);
     }
 
+    @Test
+    void kdnCharts_coverEveryKdnControlTheySee_onItOrNot() {
+        User kdn = TestUsers.user("kdn@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.READ_ONLY,
+                com.kpmg.qtracker.enums.AccessScope.KDN, false);
+        kdn.setId(11L);
+        Control onIt = buildControl(300L, "Monthly", "HR");
+        Control notOnIt = buildControl(301L, "Monthly", "GOV");
+        Control draft = buildControl(302L, "Annual", "GOV");
+        draft.setPerformanceStatus("DRAFT");
+        when(controlService.findVisibleControlsForUser(kdn)).thenReturn(List.of(onIt, notOnIt, draft));
+
+        DashboardChartDataDTO frequency = dashboardService.getMyFrequencyBreakdown(kdn);
+        DashboardChartDataDTO component = dashboardService.getMyComponentBreakdown(kdn);
+
+        // No assignment is looked at; drafts stay out of the charts as for everyone
+        assertThat(frequency.getLabels()).containsExactly("Monthly");
+        assertThat(frequency.getValues()).containsExactly(2L);
+        assertThat(component.getLabels()).containsExactly("HR", "GOV");
+        assertThat(component.getValues()).containsExactly(1L, 1L);
+    }
+
     private User buildUser(Long id, String email, String role) {
         User user = new User();
         user.setId(id);
         user.setMail(email);
-        user.setRole(role);
+        TestUsers.withRole(user, role);
         return user;
     }
 

@@ -36,24 +36,145 @@
     border-bottom: 3px solid var(--kpmg-blue-light);
 }
 
-.control-header h2 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin-bottom: 4px;
-    letter-spacing: 0.3px;
+.vc-header-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px 16px;
 }
-
-.control-header h4 {
-    font-size: 0.88rem;
+/* Draft: link to the Initiate page, for SoQM, admins and the creator */
+.vc-header-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 8px 16px;
+    border-radius: 4px;
+    background: var(--kpmg-white);
+    color: var(--kpmg-blue);
+    font-size: 0.82rem;
     font-weight: 600;
-    margin-bottom: 2px;
-    color: rgba(255,255,255,0.9);
+    text-decoration: none;
+}
+.vc-header-action:hover { background: #e6ecf6; color: var(--kpmg-blue); }
+.vc-header-action:focus-visible { outline: 2px solid var(--kpmg-white); outline-offset: 2px; }
+
+.vc-header-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.75);
+}
+.vc-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 2px 0 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+.vc-desc {
+    margin: 6px 0 0;
+    max-width: 760px;
+    font-size: 0.84rem;
+    color: rgba(255, 255, 255, 0.88);
+}
+.vc-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 3px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0;
+}
+/* Control ID starting with KDN (SoQM Team only): KDN users see the control */
+.vc-kdn-badge { background: #f3ecfa; color: #5b2a86; }
+/* same status palette as the Controls list */
+.vc-status-draft { background: #d8dce5; color: #5c6478; }
+.vc-status-progress { background: #fff3cd; color: #6b5104; }
+.vc-status-review { background: #cce5ff; color: #004085; }
+.vc-status-soqm { background: #e2d5f1; color: #4a2d7a; }
+.vc-status-po { background: #d1f0ef; color: #0b5c5a; }
+.vc-status-completed { background: #d4edda; color: #155724; }
+.vc-status-overdue { background: #c8102e; color: #ffffff; }
+.vc-your-turn { background: #ffffff; color: var(--kpmg-blue); }
+.vc-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 28px;
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    font-size: 0.8rem;
+}
+.vc-facts li { display: flex; flex-direction: column; }
+.vc-facts span { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(255, 255, 255, 0.7); }
+.vc-facts strong { font-weight: 600; color: #ffffff; }
+.vc-facts .vc-fact-overdue { color: #ffb3bf; }
+.vc-facts .vc-fact-empty { font-weight: 400; color: rgba(255, 255, 255, 0.7); }
+
+/* Workflow progress strip between the header and the tabs */
+.vc-stepper {
+    background: var(--kpmg-white);
+    border-left: 1px solid var(--kpmg-gray-200);
+    border-right: 1px solid var(--kpmg-gray-200);
+    padding: 16px 24px 12px;
+}
+.vc-turn-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 12px 0 0;
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: #e6ecf6;
+    color: var(--kpmg-blue);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+.vc-turn-hint-link {
+    color: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+}
+.vc-turn-hint-link:hover { color: inherit; text-decoration: none; }
+/* Required / Filled state of the field the step needs; the hint turns green once it is filled */
+.vc-step-state {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: #fbecee;
+    color: #a01025;
+    border: 1px solid #f1c3cb;
+}
+.vc-step-state:empty { display: none; }
+.vc-step-state.is-filled { background: #e8f6ee; color: #146c3a; border-color: #b9e2c9; }
+/* A field the step may leave empty (Control Operator's Program when it is not required) */
+.vc-step-state.is-optional { background: var(--surface-bg-2, #f1f3f6); color: var(--text-muted, #5c6478); border-color: var(--border, #d8dce5); }
+.vc-turn-hint.is-done { background: #eef7f1; color: #146c3a; }
+.step-required-mark { color: #dc3545; font-weight: 700; }
+/* Phone: the text takes the width, the Required / Filled state goes under it */
+@media (max-width: 575.98px) {
+    .vc-turn-hint { flex-wrap: wrap; align-items: flex-start; }
+    .vc-turn-hint > span:not(.vc-step-state) { flex: 1 1 calc(100% - 24px); min-width: 0; }
+    .vc-step-state { margin-left: 20px; }
 }
 
-.control-header p {
-    font-size: 0.74rem;
-    color: rgba(255,255,255,0.6);
-    margin: 0;
+/* Edit mode without full rights: why Assignment / SoQM Development Materials stay read-only */
+.vc-soqm-only-note {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0 12px;
+    font-size: 0.78rem;
+    color: var(--kpmg-gray-600);
 }
 
 /* ── Tabs ── */
@@ -248,14 +369,41 @@ textarea.readonly-field::-webkit-resizer {
     min-height: 36px;
     white-space: normal;
 }
+#workflow-buttons-container .btn-primary,
+#workflow-buttons-container .btn-success:not(#completeControlBtn) {
+    background: var(--kpmg-blue);
+    border-color: var(--kpmg-blue);
+    color: #ffffff;
+}
+#workflow-buttons-container .btn-primary:hover,
+#workflow-buttons-container .btn-success:not(#completeControlBtn):hover {
+    background: var(--kpmg-blue-dark);
+    border-color: var(--kpmg-blue-dark);
+}
+#workflow-buttons-container #completeControlBtn {
+    background: #009a44;
+    border-color: #009a44;
+    color: #ffffff;
+}
+#workflow-buttons-container #completeControlBtn:hover { background: #007d37; border-color: #007d37; }
+#workflow-buttons-container .btn-warning {
+    background: #ffffff;
+    border: 1px solid #b86e00;
+    color: #8a5300;
+}
+#workflow-buttons-container .btn-warning:hover { background: #fff4e5; color: #6b4100; }
+#workflow-buttons-container .workflow-submit-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+#workflow-buttons-container .workflow-submit-btn:focus-visible,
+.action-buttons .btn:focus-visible {
+    outline: 2px solid var(--kpmg-blue);
+    outline-offset: 2px;
+    box-shadow: none;
+}
 
 /* ── User Dropdowns ── */
-.facilitator-dropdown {
-    border: 1px solid var(--kpmg-gray-200);
-    border-radius: 4px;
-    padding: 10px;
-    background: var(--kpmg-gray-50);
-}
 
 .selected-users-container {
     display: flex;
@@ -387,11 +535,11 @@ textarea.readonly-field::-webkit-resizer {
     right: 0;
     background: var(--kpmg-white);
     border: 1px solid var(--kpmg-gray-200);
-    border-top: none;
-    border-radius: 0 0 4px 4px;
+    border-radius: 4px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     z-index: 1000;
-    margin-top: -1px;
+    margin-top: 2px;
+    overflow: hidden;
 }
 
 .dropdown-search {
@@ -411,7 +559,7 @@ textarea.readonly-field::-webkit-resizer {
 }
 
 .compact-user-item:hover {
-    background-color: var(--kpmg-gray-50);
+    background-color: #eef3fb;
 }
 
 .compact-user-item.selected {
@@ -581,149 +729,403 @@ textarea.readonly-field::-webkit-resizer {
     background: var(--kpmg-gray-50) !important;
 }
 
-body.theme-dark .view-control-container,
-body.theme-dark .tab-content {
-    color: var(--text-primary);
+/* A field marked invalid stays red, focused or not: the two rules above are !important */
+
+/* ── Date picker (date-picker.js): English calendar for dd.mm.yyyy text inputs ── */
+input[data-date-picker] {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cg fill='none' stroke='%23495057' stroke-width='1.4' stroke-linecap='round'%3e%3crect x='2' y='3' width='12' height='11' rx='1.5'/%3e%3cpath d='M2 6.5h12M5 1.5v3M11 1.5v3'/%3e%3c/g%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 15px 15px;
+    padding-right: 2.25rem;
+}
+.qt-datepicker-host { position: relative; }
+.qt-datepicker {
+    position: absolute;
+    z-index: 1050;
+    width: 264px;
+    margin-top: 2px;
+    padding: 10px;
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    font-size: 0.8rem;
+}
+.qt-datepicker[hidden] { display: none; }
+.qt-datepicker-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.qt-datepicker-title { font-weight: 700; color: var(--kpmg-gray-800); }
+.qt-datepicker-nav {
+    width: 28px; height: 28px; border: none; border-radius: 4px;
+    background: none; color: var(--kpmg-blue); font-size: 1.1rem; line-height: 1;
+}
+.qt-datepicker-nav:hover { background: var(--kpmg-gray-100); }
+.qt-datepicker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.qt-datepicker-weekday { padding: 2px 0; text-align: center; font-size: 0.7rem; font-weight: 600; color: var(--kpmg-gray-500); }
+.qt-datepicker-day {
+    height: 30px; border: none; border-radius: 4px;
+    background: none; color: var(--kpmg-gray-800); font-size: 0.78rem;
+}
+.qt-datepicker-day:hover { background: #eef3fb; }
+.qt-datepicker-day.is-today { box-shadow: inset 0 0 0 1px var(--kpmg-blue-light); }
+.qt-datepicker-day.is-selected { background: var(--kpmg-blue); color: var(--kpmg-white); font-weight: 600; }
+.qt-datepicker-foot {
+    display: flex; justify-content: space-between;
+    margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--kpmg-gray-100);
+}
+.qt-datepicker-link { padding: 2px 4px; border: none; background: none; color: var(--kpmg-blue); font-size: 0.78rem; font-weight: 600; }
+.qt-datepicker-link:hover { text-decoration: underline; }
+.qt-datepicker button:focus-visible { outline: 2px solid var(--kpmg-blue-light); outline-offset: 1px; }
+/* the dark form-control rules set the background shorthand with !important */
+
+/* SoQM Move dialog (workflow-move.js): one row per move, the role SoQM acts for as a chip */
+.soqm-move-now { font-size: 0.85rem; color: var(--kpmg-gray-700, #495057); }
+.soqm-move-legend { font-size: 0.85rem; }
+.soqm-move-option { padding: 6px 8px 6px 2.1rem; border: 1px solid var(--kpmg-gray-100, #eef0f4); border-radius: 4px; margin-bottom: 6px; }
+.soqm-move-option .form-check-label { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.soqm-move-label { font-weight: 600; }
+.soqm-move-status { font-size: 0.78rem; color: var(--kpmg-gray-500, #6c757d); }
+.soqm-move-status::before { content: "\2192\00a0"; }
+.soqm-move-behalf {
+    padding: 1px 6px; border-radius: 3px; font-size: 0.72rem; font-weight: 600;
+    background: #fff4d6; color: #7a5a00;
+}
+.soqm-move-note {
+    margin-bottom: 10px; padding: 6px 10px; border-left: 3px solid #f0b400;
+    background: #fffaf0; font-size: 0.8rem; color: #5c4a14;
 }
 
-body.theme-dark .nav-tabs {
-    background: var(--surface-bg);
-    border-bottom-color: var(--border);
-}
+/* Changelog: a move SoQM made for the participant whose step it was */
+.changelog-workflow-on-behalf { margin-top: 2px; font-size: 0.8rem; font-weight: 600; color: #7a5a00; }
 
-body.theme-dark .nav-tabs .nav-link {
+/* Changelog: a change SoQM Team made to the completed control in place, and its reason */
+.changelog-completed-edit {
+    display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.72rem; font-weight: 600;
+    background: #fff4d6; color: #7a5a00; vertical-align: 1px;
+}
+.changelog-completed-edit-reason { margin: 2px 0 6px; font-size: 0.8rem; color: #5c4a14; overflow-wrap: anywhere; }
+
+/* Rename ID: the new ID makes this a KDN control or stops it being one */
+.rename-kdn-confirm {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border: 1px solid #f0d58c;
+    border-left: 3px solid #b58105;
+    border-radius: 4px;
+    background: #fff8e1;
+    color: #5c4300;
+    font-size: 0.8rem;
+}
+.rename-kdn-confirm[hidden] { display: none; }
+.rename-kdn-title { margin: 0 0 4px; font-weight: 700; display: flex; gap: 6px; align-items: baseline; }
+.rename-kdn-text { margin: 0; }
+.rename-kdn-users-label { margin: 6px 0 2px; font-weight: 600; }
+.rename-kdn-users { margin: 0; padding-left: 18px; max-height: 120px; overflow-y: auto; overflow-wrap: anywhere; }
+
+/* ── Control Shared With (Assignment tab, shared-with.js) ── */
+.sw-head {
+    display: flex;
+    align-items: baseline;
+    gap: 4px 12px;
+    flex-wrap: wrap;
+}
+.sw-head .form-label {
+    margin-right: auto;
+}
+.sw-count {
+    font-size: 0.74rem;
     color: var(--text-secondary);
 }
-
-body.theme-dark .nav-tabs .nav-link.active,
-body.theme-dark .nav-tabs .nav-link:hover {
+.sw-hint {
+    margin: 2px 0 6px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+.sw-box {
+    min-height: 38px;
+    padding: 6px;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 4px;
+    background: var(--kpmg-gray-50);
+}
+.sw-field.is-editing .sw-box {
+    background: var(--kpmg-white);
+    border-color: var(--kpmg-gray-400);
+}
+.sw-field.is-editing .sw-box:focus-within {
+    border-color: var(--kpmg-blue);
+    box-shadow: 0 0 0 2px rgba(0, 51, 141, 0.15);
+}
+.sw-field.has-error .sw-box {
+    border-color: var(--kpmg-red);
+}
+.sw-chips {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.sw-chips:empty {
+    display: none;
+}
+.sw-chip {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+    padding: 5px 8px;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 6px;
+    background: var(--kpmg-white);
+}
+.sw-field.is-collapsed .sw-chip:nth-child(n+7) {
+    display: none;
+}
+.sw-chip-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+}
+.sw-chip-name,
+.sw-option-name {
+    font-size: 0.84rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+.sw-chip-mail,
+.sw-option-mail {
+    font-size: 0.75rem;
+    line-height: 1.35;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+.sw-chip.is-disabled .sw-chip-name {
+    color: var(--text-secondary);
+}
+.sw-field.is-editing .sw-chip.is-refused {
+    border-color: #d9a0a9;
+    background: #fff7f8;
+}
+/* The marks: what a place in Shared With gives the person (AccessPolicy.sharedAccess) */
+.sw-note {
+    margin-top: 3px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1.5;
+    background: var(--kpmg-gray-100);
+    color: var(--kpmg-gray-600);
+}
+.is-not-a-user .sw-note {
+    background: #fff4d6;
+    color: var(--kpmg-amber-text);
+}
+.is-not-seen .sw-note {
+    background: #fdecee;
+    color: #a30d24;
+}
+.is-after-initiation .sw-note {
+    background: #e8eef8;
+    color: var(--kpmg-blue);
+}
+.sw-chip-remove {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin: -3px -5px -3px 0;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--kpmg-gray-600);
+    cursor: pointer;
+}
+.sw-chip-remove:hover {
+    background: var(--kpmg-gray-100);
+    color: var(--kpmg-red);
+}
+.sw-chip-remove:focus-visible,
+.sw-more:focus-visible {
+    outline: 2px solid var(--kpmg-blue);
+    outline-offset: 1px;
+}
+.sw-empty {
+    margin: 0;
+    padding: 3px 4px;
+    font-size: 0.84rem;
+    color: var(--text-secondary);
+}
+.sw-search {
+    position: relative;
+    margin-top: 6px;
+}
+.sw-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--kpmg-gray-600);
+    pointer-events: none;
+}
+.sw-field .sw-search-input {
+    width: 100%;
+    padding: 7px 10px 7px 32px;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 4px;
+    background: var(--kpmg-white) !important;
+    font-size: 0.84rem;
+    color: var(--text-primary);
+}
+.sw-field .sw-search-input::placeholder {
+    color: var(--text-secondary);
+}
+.sw-field .sw-search-input:focus {
+    outline: none;
+    border-color: var(--kpmg-blue);
+    box-shadow: 0 0 0 2px rgba(0, 51, 141, 0.15);
+}
+/* The list opens right under the field, as wide as it, in the page's flow: nothing above it is covered and
+   no edge of the tab cuts it off */
+.sw-listbox {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 4px 0;
+    max-height: 288px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 4px;
+    background: var(--kpmg-white);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.sw-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-height: 44px;
+    padding: 8px 12px;
+    cursor: pointer;
+}
+.sw-option:hover {
+    background: var(--hover-bg);
+}
+.sw-option.is-active {
+    background: #e8eef8;
+    box-shadow: inset 3px 0 0 var(--kpmg-blue);
+}
+.sw-option-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+}
+.sw-check {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    border: 1.5px solid var(--kpmg-gray-600);
+    border-radius: 3px;
+    background: var(--kpmg-white) center / 12px 12px no-repeat;
+}
+.sw-option[aria-selected="true"] .sw-check {
+    border-color: var(--kpmg-blue);
+    background-color: var(--kpmg-blue);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.4' d='m3.5 8.5 3 3 6-7'/%3e%3c/svg%3e");
+}
+.sw-option mark {
+    padding: 0;
+    border-radius: 2px;
+    background: #ffe58a;
+    color: inherit;
+}
+.sw-list-message {
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+.sw-more {
+    margin-top: 4px;
+    padding: 6px 0;
+    border: 0;
+    background: none;
     color: var(--link);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+}
+.sw-error {
+    margin-top: 6px;
+    font-size: 0.8rem;
+    color: var(--kpmg-red);
+}
+.sw-field.has-error .sw-chip.is-invalid {
+    border-color: var(--kpmg-red);
+    box-shadow: 0 0 0 1px var(--kpmg-red);
+}
+.sw-unsaved {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--kpmg-amber-text);
+}
+@media (max-width: 576px) {
+    .sw-chip {
+        flex: 1 1 100%;
+    }
+    .sw-chip-remove {
+        width: 40px;
+        height: 40px;
+        margin: -6px -6px -6px auto;
+    }
+    /* 16px keeps phones from zooming into the search */
+    .sw-field .sw-search-input {
+        padding: 10px 10px 10px 34px;
+        font-size: 16px;
+    }
+    .sw-option {
+        min-height: 52px;
+        padding: 10px 12px;
+    }
+    .sw-listbox {
+        max-height: 55vh;
+    }
+    .sw-more {
+        padding: 10px 0;
+    }
 }
 
-body.theme-dark .form-section,
-body.theme-dark .action-buttons,
-body.theme-dark .facilitator-dropdown,
-body.theme-dark .selected-users-container,
-body.theme-dark .multiple-selection .selected-users-container,
-body.theme-dark .edit-nav-panel {
-    background: var(--surface-bg) !important;
-    color: var(--text-primary) !important;
-    border-color: var(--border) !important;
+/* A completed control SoQM Team changes in place (AccessPolicy.editsAfterCompletion): its banner, the fields that stay
+   as they are with the reason next to them, and the text of the Reason dialog */
+.access-banner.access-banner-completed-edit {
+    border-color: #f0d58c;
+    border-left-color: #c98a00;
+    background: #fffaf0;
 }
-
-body.theme-dark .form-section h5 {
-    color: var(--card-title, var(--text-primary));
+.access-banner.access-banner-completed-edit .bi { color: #9a6a00; }
+.completed-fixed-hint {
+    margin-top: 4px;
+    font-size: 0.76rem;
+    color: #5c6478;
 }
+.completed-fixed-hint .bi { font-size: 0.72rem; }
+.completed-edit-intro { font-size: 0.86rem; color: #3a4260; }
 
-body.theme-dark .form-label,
-body.theme-dark .user-list-item .user-email,
-body.theme-dark .multiple-selection .placeholder-text,
-body.theme-dark .no-users-found {
-    color: var(--text-secondary) !important;
-}
-
-body.theme-dark .readonly-field,
-body.theme-dark .readonly-select {
-    background-color: var(--surface-bg-2) !important;
-    border-color: var(--border) !important;
-    color: var(--text-primary) !important;
-}
-
-body.theme-dark textarea.readonly-field::-webkit-resizer {
-    background-color: var(--surface-bg-2);
-    box-shadow: inset 1px 1px 0 var(--border);
-}
-
-body.theme-dark .selected-user-display input {
-    background: var(--surface-bg-2) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23cfd7e6' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") right 0.75rem center/16px 12px no-repeat !important;
-    border-color: var(--border) !important;
-    color: var(--text-primary) !important;
-}
-
-body.theme-dark .dropdown-users,
-body.theme-dark .multiple-selection .dropdown-users {
-    background: var(--surface-bg) !important;
-    border-color: var(--border) !important;
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35) !important;
-}
-
-body.theme-dark .dropdown-search {
-    background: var(--surface-bg-2) !important;
-    border-bottom-color: var(--border) !important;
-}
-
-body.theme-dark .dropdown-search .form-control {
-    background: var(--surface-bg-2) !important;
-    border-color: var(--border) !important;
-    color: var(--text-primary) !important;
-}
-
-body.theme-dark .dropdown-search .form-control::placeholder {
-    color: var(--text-secondary) !important;
-}
-
-body.theme-dark .editable-field,
-body.theme-dark .editable-select {
-    background-color: var(--input-bg) !important;
-    border-color: var(--border) !important;
-    color: var(--input-text) !important;
-}
-
-body.theme-dark .editable-field:focus,
-body.theme-dark .editable-select:focus {
-    border-color: var(--link) !important;
-    box-shadow: 0 0 0 2px rgba(127, 176, 255, 0.15);
-}
-
-body.theme-dark .action-buttons .btn-outline-secondary,
-body.theme-dark .edit-nav-panel .btn-outline-secondary {
-    background: var(--surface-bg-2);
-    border-color: var(--border);
-    color: var(--text-primary);
-}
-
-body.theme-dark .action-buttons .btn-outline-secondary:hover,
-body.theme-dark .edit-nav-panel .btn-outline-secondary:hover {
-    background: var(--hover-bg) !important;
-    border-color: var(--link) !important;
-    color: var(--link) !important;
-}
-
-body.theme-dark .user-list-item {
-    border-bottom-color: var(--divider);
-}
-
-body.theme-dark .user-list-item:hover {
-    background-color: var(--hover-bg);
-}
-
-body.theme-dark .user-list-item.selected,
-body.theme-dark .selected-user-badge,
-body.theme-dark .multiple-selection .selected-user-badge {
-    background: rgba(0, 94, 184, 0.14);
-}
-
-body.theme-dark .user-list-item .user-name {
-    color: var(--text-primary);
-}
-
-body.theme-dark .compact-user-item {
-    background: var(--surface-bg) !important;
-    border-bottom-color: var(--divider) !important;
-}
-
-body.theme-dark .compact-user-item:hover {
-    background-color: var(--hover-bg) !important;
-}
-
-body.theme-dark .compact-user-item.selected {
-    background-color: rgba(0, 94, 184, 0.14) !important;
-}
-
-body.theme-dark .compact-user-item .user-name {
-    color: var(--text-primary) !important;
-}
-
-body.theme-dark .compact-user-item .user-email {
-    color: var(--text-secondary) !important;
+/* Phone: the action bar wraps instead of pushing the last buttons (Edit, Edit (completed control)) off the screen */
+@media (max-width: 575.98px) {
+    .action-buttons > .d-flex,
+    .action-buttons > .d-flex > .d-flex {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
 }

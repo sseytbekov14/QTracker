@@ -1,15 +1,25 @@
 package com.kpmg.qtracker.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kpmg.qtracker.dto.ErrorResponse;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.entity.ControlAttachment;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.CompletedEdit;
+import com.kpmg.qtracker.service.ControlAttachmentService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
+import com.kpmg.qtracker.service.ControlRenameService;
 import com.kpmg.qtracker.service.FileStorageService;
+import com.kpmg.qtracker.service.PermissionService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -17,24 +27,43 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/attachments")
 @RequiredArgsConstructor
+@Slf4j
 public class FileAttachmentController {
 
     private final FileStorageService fileStorageService;
     private final ControlService controlService;
     private final ControlPermissionService controlPermissionService;
     private final AdminAuditService adminAuditService;
+    private final ControlAttachmentService controlAttachmentService;
+    private final PermissionService permissionService;
+    private final ControlRenameService controlRenameService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static final int MAX_FILES_PER_TAB = 50;
+    static final String FILE_NOT_FOUND = "FILE_NOT_FOUND";
+    static final String FILE_NOT_FOUND_MESSAGE = "File not found";
+    private static final List<String> ALLOWED_EXTENSIONS =
+            List.of(".pdf", ".docx", ".doc", ".xlsx", ".xls", ".csv", ".png", ".jpg", ".jpeg");
+
+    @Value("${file.upload.max-file-size-mb:10}")
+    private long maxFileSizeMb;
 
     /**
      * Upload files for a control
@@ -45,6 +74,7 @@ public class FileAttachmentController {
             @PathVariable Long controlId,
             @RequestParam(value = "attachmentDetails", required = false) MultipartFile[] detailsFiles,
             @RequestParam(value = "attachmentDocuments", required = false) MultipartFile[] documentsFiles,
+            @RequestParam(value = "editReason", required = false) String editReason,
             HttpSession session) {
         
         Map<String, Object> response = new HashMap<>();
@@ -64,86 +94,53 @@ public class FileAttachmentController {
             ControlPermission permission = controlPermissionService.resolve(control, currentUser);
             if (!permission.canEdit()) {
                 response.put("success", false);
-                response.put("message", "You do not have permission to attach files to this control");
+                response.put("message", permission.editRefusal("You do not have permission to attach files to this control"));
                 return ResponseEntity.status(403).body(response);
             }
+            Optional<String> reasonRefusal = CompletedEdit.refusal(permission,
+                    countIncomingFiles(detailsFiles) + countIncomingFiles(documentsFiles) > 0, editReason);
+            if (reasonRefusal.isPresent()) {
+                response.put("success", false);
+                response.put("message", reasonRefusal.get());
+                return ResponseEntity.badRequest().body(response);
+            }
+            String completedEditReason = CompletedEdit.reasonOf(permission, editReason);
             
             String controlFolder = resolveControlFolder(control);
+
+            // Validate everything before writing any file to disk
+            List<String> errors = new ArrayList<>();
+            errors.addAll(validateIncomingFiles(detailsFiles, control.getAttachmentDetailsPath(), "Details"));
+            errors.addAll(validateIncomingFiles(documentsFiles, control.getAttachmentDocumentsPath(), "Documents"));
+            if (!errors.isEmpty()) {
+                response.put("success", false);
+                response.put("message", String.join(" ", errors));
+                response.put("errors", errors);
+                return ResponseEntity.badRequest().body(response);
+            }
+
             List<String> addedDetails = new ArrayList<>();
             List<String> addedDocuments = new ArrayList<>();
-
-            // Save details attachments (multiple files)
-            if (detailsFiles != null && detailsFiles.length > 0) {
-                StringBuilder filenames = new StringBuilder();
-                String oldFiles = control.getAttachmentDetailsPath();
-
-                int existingCount = countExistingFiles(oldFiles);
-                int incomingCount = countIncomingFiles(detailsFiles);
-                if (existingCount + incomingCount > 50) {
-                    response.put("success", false);
-                    response.put("message", "Maximum 50 files allowed for Details attachments.");
-                    return ResponseEntity.badRequest().body(response);
+            try {
+                if (detailsFiles != null && detailsFiles.length > 0) {
+                    saveFiles(detailsFiles, controlFolder, addedDetails);
+                    response.put("detailsFiles", String.join(";", addedDetails));
                 }
-                
-                for (MultipartFile file : detailsFiles) {
-                    if (file != null && !file.isEmpty()) {
-                        String filename = fileStorageService.saveFile(file, controlFolder);
-                        if (filenames.length() > 0) {
-                            filenames.append(";"); // Use semicolon as separator
-                        }
-                        filenames.append(filename);
-                        if (filename != null && !filename.isBlank()) {
-                            addedDetails.add(filename);
-                        }
-                        System.out.println("✅ Details file saved: " + filename);
-                    }
+                if (documentsFiles != null && documentsFiles.length > 0) {
+                    saveFiles(documentsFiles, controlFolder, addedDocuments);
+                    response.put("documentsFiles", String.join(";", addedDocuments));
                 }
-                
-                // Append to existing files or replace
-                String existingFiles = oldFiles != null && !oldFiles.isEmpty() ? oldFiles : "";
-                String newFileList = existingFiles.isEmpty() ? filenames.toString() : existingFiles + ";" + filenames.toString();
-                control.setAttachmentDetailsPath(newFileList);
-                response.put("detailsFiles", filenames.toString());
+
+                // File lists and upload records (author, stage) in one transaction
+                controlAttachmentService.recordUpload(control, addedDetails, addedDocuments, currentUser);
+            } catch (Exception e) {
+                // Don't leave orphaned files on disk when the upload fails midway
+                deleteQuietly(addedDetails, controlFolder);
+                deleteQuietly(addedDocuments, controlFolder);
+                throw e;
             }
-
-            // Save documents attachments (multiple files)
-            if (documentsFiles != null && documentsFiles.length > 0) {
-                StringBuilder filenames = new StringBuilder();
-                String oldFiles = control.getAttachmentDocumentsPath();
-
-                int existingCount = countExistingFiles(oldFiles);
-                int incomingCount = countIncomingFiles(documentsFiles);
-                if (existingCount + incomingCount > 50) {
-                    response.put("success", false);
-                    response.put("message", "Maximum 50 files allowed for Documents attachments.");
-                    return ResponseEntity.badRequest().body(response);
-                }
-                
-                for (MultipartFile file : documentsFiles) {
-                    if (file != null && !file.isEmpty()) {
-                        String filename = fileStorageService.saveFile(file, controlFolder);
-                        if (filenames.length() > 0) {
-                            filenames.append(";");
-                        }
-                        filenames.append(filename);
-                        if (filename != null && !filename.isBlank()) {
-                            addedDocuments.add(filename);
-                        }
-                        System.out.println("✅ Documents file saved: " + filename);
-                    }
-                }
-                
-                // Append to existing files or replace
-                String existingFiles = oldFiles != null && !oldFiles.isEmpty() ? oldFiles : "";
-                String newFileList = existingFiles.isEmpty() ? filenames.toString() : existingFiles + ";" + filenames.toString();
-                control.setAttachmentDocumentsPath(newFileList);
-                response.put("documentsFiles", filenames.toString());
-            }
-
-            // Update control in database
-            controlService.updateControl(control);
-            logAttachmentAdds(currentUser, control, "DETAILS", addedDetails);
-            logAttachmentAdds(currentUser, control, "DOCUMENTS", addedDocuments);
+            logAttachmentAdds(currentUser, control, "DETAILS", addedDetails, completedEditReason);
+            logAttachmentAdds(currentUser, control, "DOCUMENTS", addedDocuments, completedEditReason);
             
             response.put("success", true);
             response.put("message", "Files uploaded successfully");
@@ -153,89 +150,143 @@ public class FileAttachmentController {
             System.err.println("❌ Upload error: " + e.getMessage());
             e.printStackTrace();
             response.put("success", false);
+            response.put("message", "Upload failed: " + e.getMessage());
             response.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
     }
 
     /**
-     * Download a file
-     * GET /api/attachments/download/{filename}
+     * Validates files for one attachment tab: count limit, allowed type, size and duplicate names
+     * (inside the selection and against files already attached to this tab).
      */
-    @GetMapping("/download/{filename:.+}")
-    public ResponseEntity<byte[]> downloadFile(@PathVariable String filename,
-                                               @RequestParam(value = "controlId", required = false) Long controlId,
-                                               HttpSession session) {
-        try {
-            if (controlId == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    private List<String> validateIncomingFiles(MultipartFile[] files, String existingList, String tabLabel) {
+        List<String> errors = new ArrayList<>();
+        if (files == null || files.length == 0) {
+            return errors;
+        }
+
+        if (countExistingFiles(existingList) + countIncomingFiles(files) > MAX_FILES_PER_TAB) {
+            errors.add("Maximum " + MAX_FILES_PER_TAB + " files allowed for " + tabLabel + " attachments.");
+            return errors;
+        }
+
+        Set<String> existingNames = new HashSet<>();
+        if (existingList != null) {
+            for (String name : existingList.split(";")) {
+                if (!name.isBlank()) {
+                    existingNames.add(name.trim().toLowerCase(Locale.ROOT));
+                }
             }
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        long maxBytes = maxFileSizeMb * 1024 * 1024;
+        Set<String> incomingNames = new HashSet<>();
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) {
+                continue;
             }
-            Control control = controlService.findById(controlId)
-                    .orElseThrow(() -> new RuntimeException("Control not found"));
-            if (!controlPermissionService.resolve(control, currentUser).canView()) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            String original = file.getOriginalFilename() != null ? file.getOriginalFilename() : "file";
+            String lower = original.toLowerCase(Locale.ROOT);
+
+            if (ALLOWED_EXTENSIONS.stream().noneMatch(lower::endsWith)) {
+                errors.add("File \"" + original + "\" has an unsupported type. Allowed: PDF, DOCX, DOC, XLSX, XLS, CSV, PNG, JPG, JPEG.");
+                continue;
             }
-            
-            String decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8);
-            String controlFolder = resolveControlFolder(controlId);
-            byte[] fileContent = controlFolder == null
-                    ? fileStorageService.downloadFile(decodedFilename)
-                    : fileStorageService.downloadFile(decodedFilename, controlFolder);
-            String mimeType = fileStorageService.getMimeType(decodedFilename);
-            
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(mimeType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + decodedFilename + "\"")
-                    .body(fileContent);
-                    
-        } catch (Exception e) {
-            System.err.println("❌ Download error: " + e.getMessage());
-            return ResponseEntity.notFound().build();
+            if (file.getSize() > maxBytes) {
+                errors.add("File \"" + original + "\" exceeds the maximum size of " + maxFileSizeMb + " MB.");
+                continue;
+            }
+
+            String storedName = FileStorageService.toStoredFilename(original).toLowerCase(Locale.ROOT);
+            if (existingNames.contains(storedName)) {
+                errors.add("File \"" + original + "\" is already attached in " + tabLabel
+                        + ". Delete the existing file or rename the new one.");
+            } else if (!incomingNames.add(storedName)) {
+                errors.add("File \"" + original + "\" is selected more than once for " + tabLabel + ".");
+            }
+        }
+        return errors;
+    }
+
+    private void saveFiles(MultipartFile[] files, String controlFolder, List<String> saved) throws java.io.IOException {
+        for (MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                String filename = fileStorageService.saveFile(file, controlFolder);
+                if (filename != null && !filename.isBlank()) {
+                    saved.add(filename);
+                }
+            }
+        }
+    }
+
+    private void deleteQuietly(List<String> filenames, String controlFolder) {
+        for (String filename : filenames) {
+            try {
+                fileStorageService.deleteFile(filename, controlFolder);
+            } catch (Exception ignored) {
+                // best effort cleanup
+            }
         }
     }
 
     /**
-     * View a file in browser (for images, PDFs)
-     * GET /api/attachments/view/{filename}
+     * Download a file
+     * GET /api/attachments/download/{filename}
+     * Anyone who may read the control downloads the files it lists. Errors are JSON (ErrorResponse): 400 without
+     * controlId, 401, 403 "Access denied" and 404 "Control not found" (GlobalExceptionHandler), 404 "File not
+     * found" for a file the control does not list or that is missing on disk.
      */
-    @GetMapping("/view/{filename:.+}")
-    public ResponseEntity<byte[]> viewFile(@PathVariable String filename,
-                                           @RequestParam(value = "controlId", required = false) Long controlId,
-                                           HttpSession session) {
+    @GetMapping("/download/{filename:.+}")
+    public ResponseEntity<?> downloadFile(@PathVariable String filename,
+                                          @RequestParam(value = "controlId", required = false) Long controlId,
+                                          HttpSession session) {
+        if (controlId == null) {
+            return error(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "controlId is required");
+        }
+        Control control = permissionService.requireReadable(controlId, getCurrentUser(session));
+        String decodedFilename;
         try {
-            if (controlId == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-            }
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-            }
-            Control control = controlService.findById(controlId)
-                    .orElseThrow(() -> new RuntimeException("Control not found"));
-            if (!controlPermissionService.resolve(control, currentUser).canView()) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-            
-            String decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8);
-            String controlFolder = resolveControlFolder(controlId);
-            byte[] fileContent = controlFolder == null
-                    ? fileStorageService.downloadFile(decodedFilename)
-                    : fileStorageService.downloadFile(decodedFilename, controlFolder);
+            decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8).trim();
+        } catch (IllegalArgumentException e) {
+            return fileNotFound();
+        }
+        // Only a file this control lists; the storage then refuses any name that would leave its folder
+        if (!controlAttachmentService.isAttached(control, decodedFilename)) {
+            return fileNotFound();
+        }
+        try {
+            byte[] fileContent = fileStorageService.downloadFile(decodedFilename,
+                    controlRenameService.attachmentFolders(control));
             String mimeType = fileStorageService.getMimeType(decodedFilename);
-            
+
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(mimeType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + decodedFilename + "\"")
+                    .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition("attachment", decodedFilename))
                     .body(fileContent);
-                    
-        } catch (Exception e) {
-            System.err.println("❌ View error: " + e.getMessage());
-            return ResponseEntity.notFound().build();
+        } catch (NoSuchFileException e) {
+            // Listed on the control but gone from the attachments folder
+            log.warn("Attachment missing on disk: control {} (id {}), file {}",
+                    control.getControlId(), control.getId(), decodedFilename);
+            return fileNotFound();
+        } catch (SecurityException e) {
+            return fileNotFound();
+        } catch (IOException e) {
+            log.error("Attachment could not be read: control {} (id {}), file {} ({})",
+                    control.getControlId(), control.getId(), decodedFilename, e.getClass().getSimpleName());
+            return error(HttpStatus.INTERNAL_SERVER_ERROR, "FILE_UNREADABLE", "The file could not be read");
         }
+    }
+
+    private static ResponseEntity<ErrorResponse> fileNotFound() {
+        return error(HttpStatus.NOT_FOUND, FILE_NOT_FOUND, FILE_NOT_FOUND_MESSAGE);
+    }
+
+    private static ResponseEntity<ErrorResponse> error(HttpStatus status, String code, String message) {
+        String correlationId = MDC.get("correlationId");
+        return ResponseEntity.status(status)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(code, message, correlationId == null ? "N/A" : correlationId));
     }
 
     /**
@@ -243,15 +294,21 @@ public class FileAttachmentController {
      * GET /api/attachments/info/{controlId}
      */
     @GetMapping("/info/{controlId}")
-    public ResponseEntity<Map<String, Object>> getAttachmentInfo(@PathVariable Long controlId) {
+    public ResponseEntity<Map<String, Object>> getAttachmentInfo(@PathVariable Long controlId, HttpSession session) {
+        User currentUser = getCurrentUser(session);
+        Control control = permissionService.requireReadable(controlId, currentUser);
         try {
-            Control control = controlService.getControlById(controlId)
-                    .orElseThrow(() -> new RuntimeException("Control not found: " + controlId));
-            
             Map<String, Object> info = new HashMap<>();
             info.put("controlId", controlId);
             info.put("attachmentDetailsPath", control.getAttachmentDetailsPath());
             info.put("attachmentDocumentsPath", control.getAttachmentDocumentsPath());
+
+            // Lets the page show the delete button only where the delete endpoint would allow it
+            ControlPermission permission = controlPermissionService.resolve(control, currentUser);
+            info.put("deletableDetails", deletableFiles(control, ControlAttachment.TAB_DETAILS,
+                    control.getAttachmentDetailsPath(), currentUser, permission));
+            info.put("deletableDocuments", deletableFiles(control, ControlAttachment.TAB_DOCUMENTS,
+                    control.getAttachmentDocumentsPath(), currentUser, permission));
             
             return ResponseEntity.ok(info);
             
@@ -269,6 +326,7 @@ public class FileAttachmentController {
             @PathVariable Long controlId,
             @RequestParam("filename") String filename,
             @RequestParam("type") String type,
+            @RequestParam(value = "editReason", required = false) String editReason,
             HttpSession session) {
 
         Map<String, Object> response = new HashMap<>();
@@ -283,69 +341,76 @@ public class FileAttachmentController {
                 return ResponseEntity.status(401).body(response);
             }
             
+            String tabLabel = "details".equalsIgnoreCase(type) ? ControlAttachment.TAB_DETAILS : ControlAttachment.TAB_DOCUMENTS;
             ControlPermission permission = controlPermissionService.resolve(control, currentUser);
-            if (!permission.canEdit()) {
+            if (!controlAttachmentService.canDelete(control, tabLabel, decodedFilename.trim(), currentUser, permission)) {
                 response.put("success", false);
-                response.put("message", "You do not have permission to delete files from this control");
+                response.put("message", permission.editRefusal(
+                        "Only the user who uploaded this file (in the same workflow stage) or SoQM Team can delete it"));
                 return ResponseEntity.status(403).body(response);
             }
-            
-            boolean removed = false;
-            String tabLabel = "details".equalsIgnoreCase(type) ? "DETAILS" : "DOCUMENTS";
-
-            String currentPath;
-            if ("details".equalsIgnoreCase(type)) {
-                currentPath = control.getAttachmentDetailsPath();
-            } else {
-                currentPath = control.getAttachmentDocumentsPath();
+            Optional<String> reasonRefusal = CompletedEdit.refusal(permission, true, editReason);
+            if (reasonRefusal.isPresent()) {
+                response.put("success", false);
+                response.put("message", reasonRefusal.get());
+                return ResponseEntity.badRequest().body(response);
             }
 
+            String currentPath = ControlAttachment.TAB_DETAILS.equals(tabLabel)
+                    ? control.getAttachmentDetailsPath()
+                    : control.getAttachmentDocumentsPath();
             if (currentPath == null || currentPath.isBlank()) {
                 response.put("success", false);
                 response.put("message", "No files to delete");
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // Remove the file from the semicolon-separated list
-            String[] files = currentPath.split(";");
-            StringBuilder updated = new StringBuilder();
-            for (String f : files) {
-                if (f.trim().isEmpty()) continue;
-                if (f.trim().equals(decodedFilename.trim())) {
-                    removed = true;
-                    continue; // skip deleted
+            boolean removed = controlAttachmentService.removeFromControl(control, tabLabel, decodedFilename);
+
+            // A completed control changed in place only hides the file (AccessPolicy.editsAfterCompletion): off the
+            // list and its upload record, so nobody sees or downloads it, but kept on disk (a later upload of the
+            // same name gets another name, FileStorageService.saveFile)
+            boolean hideOnly = permission.isCompletedEdit();
+            // Both tabs share the control folder; keep the file on disk while the other tab still lists it
+            String otherPath = ControlAttachment.TAB_DETAILS.equals(tabLabel)
+                    ? control.getAttachmentDocumentsPath()
+                    : control.getAttachmentDetailsPath();
+            if (removed && !hideOnly && !ControlAttachmentService.isListed(otherPath, decodedFilename.trim())) {
+                try {
+                    fileStorageService.deleteFile(decodedFilename, controlRenameService.attachmentFolders(control));
+                } catch (Exception e) {
+                    System.out.println("⚠️ Could not delete physical file: " + e.getMessage());
                 }
-                if (updated.length() > 0) updated.append(";");
-                updated.append(f.trim());
-            }
-
-            String newPath = updated.length() > 0 ? updated.toString() : null;
-            if ("details".equalsIgnoreCase(type)) {
-                control.setAttachmentDetailsPath(newPath);
-            } else {
-                control.setAttachmentDocumentsPath(newPath);
-            }
-            controlService.updateControl(control);
-
-            // Try to delete physical file
-            try {
-                String controlFolder = resolveControlFolder(control);
-                fileStorageService.deleteFile(decodedFilename, controlFolder);
-            } catch (Exception e) {
-                System.out.println("⚠️ Could not delete physical file: " + e.getMessage());
             }
 
             if (removed) {
-                logAttachmentChange(currentUser, control, "ATTACHMENT_REMOVED", tabLabel, decodedFilename, "");
+                logAttachmentChange(currentUser, control, hideOnly ? "ATTACHMENT_HIDDEN" : "ATTACHMENT_REMOVED",
+                        tabLabel, decodedFilename, "", CompletedEdit.reasonOf(permission, editReason));
             }
             response.put("success", true);
-            response.put("message", "File deleted");
+            response.put("message", hideOnly ? "File hidden" : "File deleted");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             response.put("success", false);
             response.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
+    }
+
+    private List<String> deletableFiles(Control control, String tab, String storedList,
+                                        User user, ControlPermission permission) {
+        List<String> deletable = new ArrayList<>();
+        if (user == null || storedList == null || storedList.isBlank()) {
+            return deletable;
+        }
+        for (String part : storedList.split(";")) {
+            String name = part.trim();
+            if (!name.isEmpty() && !deletable.contains(name)
+                    && controlAttachmentService.canDelete(control, tab, name, user, permission)) {
+                deletable.add(name);
+            }
+        }
+        return deletable;
     }
 
     private int countExistingFiles(String storedList) {
@@ -376,27 +441,12 @@ public class FileAttachmentController {
     }
 
     private String resolveControlFolder(Control control) {
-        if (control == null) {
-            return null;
-        }
-        String controlCode = control.getControlId();
-        if (controlCode == null || controlCode.isBlank()) {
-            return String.valueOf(control.getId());
-        }
-        return controlCode;
+        return control == null ? null : FileStorageService.controlFolder(control.getControlId(), control.getId());
     }
 
-    private String resolveControlFolder(Long controlId) {
-        if (controlId == null) {
-            return null;
-        }
-        try {
-            return controlService.getControlById(controlId)
-                    .map(this::resolveControlFolder)
-                    .orElse(null);
-        } catch (Exception e) {
-            return null;
-        }
+    // RFC 6266 header with filename*=UTF-8'' so non-ASCII (e.g. Cyrillic) names download correctly
+    private String contentDisposition(String type, String filename) {
+        return ContentDisposition.builder(type).filename(filename, StandardCharsets.UTF_8).build().toString();
     }
 
     private User getCurrentUser(HttpSession session) {
@@ -406,7 +456,8 @@ public class FileAttachmentController {
         return (User) session.getAttribute("currentUser");
     }
 
-    private void logAttachmentAdds(User user, Control control, String tabLabel, List<String> filenames) {
+    private void logAttachmentAdds(User user, Control control, String tabLabel, List<String> filenames,
+                                   String completedEditReason) {
         if (filenames == null || filenames.isEmpty()) {
             return;
         }
@@ -414,17 +465,21 @@ public class FileAttachmentController {
             if (filename == null || filename.isBlank()) {
                 continue;
             }
-            logAttachmentChange(user, control, "ATTACHMENT_ADDED", tabLabel, "", filename);
+            logAttachmentChange(user, control, "ATTACHMENT_ADDED", tabLabel, "", filename, completedEditReason);
         }
     }
 
+    /**
+     * @param completedEditReason the reason of a change SoQM Team makes to a completed control in place
+     *                            (CompletedEdit): the entry is marked "Edited after completion" and holds it; else null
+     */
     private void logAttachmentChange(User user, Control control, String actionType, String tabLabel,
-                                     String oldFileName, String newFileName) {
+                                     String oldFileName, String newFileName, String completedEditReason) {
         if (user == null || user.getMail() == null || user.getMail().isBlank() || control == null) {
             return;
         }
         String fieldLabel = "Attachment (" + tabLabel + ")";
-        List<String> changedFields = List.of(fieldLabel);
+        List<String> changedFields = new ArrayList<>(List.of(fieldLabel));
         Map<String, String> previousValues = new LinkedHashMap<>();
         Map<String, String> newValues = new LinkedHashMap<>();
         if (oldFileName != null && !oldFileName.isBlank()) {
@@ -432,6 +487,11 @@ public class FileAttachmentController {
         }
         if (newFileName != null && !newFileName.isBlank()) {
             newValues.put(fieldLabel, newFileName);
+        }
+        String description = "Attachment " + tabLabel;
+        if (completedEditReason != null) {
+            description = CompletedEdit.describe(description);
+            CompletedEdit.addReason(changedFields, newValues, completedEditReason);
         }
         try {
             String changedFieldsJson = objectMapper.writeValueAsString(changedFields);
@@ -442,7 +502,7 @@ public class FileAttachmentController {
                     user.getDisplayName(),
                     actionType,
                     control,
-                    "Attachment " + tabLabel,
+                    description,
                     changedFieldsJson,
                     previousJson,
                     newJson

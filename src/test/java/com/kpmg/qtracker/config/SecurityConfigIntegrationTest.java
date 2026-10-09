@@ -2,26 +2,44 @@ package com.kpmg.qtracker.config;
 
 import jakarta.servlet.Filter;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.security.CsrfAccessDeniedHandler;
+import org.springframework.http.HttpMethod;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -34,11 +52,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.flyway.enabled=false"
+        "spring.flyway.enabled=false",
+        // Signs in as the seeded soqm1@qtracker.local
+        "dev.seed-users=true"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles({"test", "dev"})
+@ExtendWith(OutputCaptureExtension.class)
 class SecurityConfigIntegrationTest {
+
+    private static final Set<RequestMethod> WRITE_METHODS =
+            EnumSet.of(RequestMethod.POST, RequestMethod.PUT, RequestMethod.PATCH, RequestMethod.DELETE);
 
     @Autowired
     private MockMvc mockMvc;
@@ -51,6 +75,10 @@ class SecurityConfigIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    @Qualifier("requestMappingHandlerMapping")
+    private RequestMappingHandlerMapping handlerMapping;
 
     @Test
         void apiRequestWithoutAuthenticationRedirectsToLogin() throws Exception {
@@ -92,7 +120,8 @@ class SecurityConfigIntegrationTest {
         MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
         assertThat(session).isNotNull();
         assertThat(session.getAttribute("currentUser")).isNotNull();
-        assertThat(session.getAttribute("userRole")).isEqualTo("SOQM_TEAM");
+        assertThat(((User) session.getAttribute("currentUser")).getAccessLevel())
+                .isEqualTo(com.kpmg.qtracker.enums.AccessLevel.SOQM);
     }
 
     @Test
@@ -111,14 +140,86 @@ class SecurityConfigIntegrationTest {
     }
 
     @Test
-    void apiPostBypassesCsrfProtectionButStillHitsControllerWhenAuthenticated() throws Exception {
+    void apiPostWithCsrfHeaderHitsControllerWhenAuthenticated() throws Exception {
         MockHttpSession session = login("soqm1@qtracker.local", "aaa");
 
         mockMvc.perform(post("/api/controls/999/rename-id")
+                        .with(csrf().asHeader())
                         .session(session)
                         .contentType(APPLICATION_JSON)
                         .content("{\"newControlId\":\"CTRL-999\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void apiPostWithoutCsrfTokenIsForbiddenWithJsonMessage() throws Exception {
+        mockMvc.perform(post("/api/controls/999/rename-id")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"newControlId\":\"CTRL-999\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith(APPLICATION_JSON))
+                .andExpect(jsonPath("$.code").value(CsrfAccessDeniedHandler.CODE))
+                .andExpect(jsonPath("$.message").value(CsrfAccessDeniedHandler.MESSAGE));
+    }
+
+    @Test
+    void apiPostWithInvalidCsrfTokenIsForbidden() throws Exception {
+        mockMvc.perform(post("/api/controls/999/rename-id").with(csrf().asHeader().useInvalidToken()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(CsrfAccessDeniedHandler.CODE));
+    }
+
+    @Test
+    void csrfFailureIsLoggedWithMethodAndPathButWithoutToken(CapturedOutput output) throws Exception {
+        String token = "not-a-real-token-1234567890";
+        mockMvc.perform(post("/api/controls/999/rename-id").header("X-XSRF-TOKEN", token))
+                .andExpect(status().isForbidden());
+
+        assertThat(output.getAll()).contains("CSRF token missing or invalid: POST /api/controls/999/rename-id");
+        assertThat(output.getAll()).doesNotContain(token);
+    }
+
+    @Test
+    void multipartUploadNeedsCsrfTokenAndAcceptsItAsHeader() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("attachmentDetails", "a.pdf", "application/pdf", new byte[] {1});
+
+        mockMvc.perform(multipart("/api/attachments/upload/1").file(file))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(CsrfAccessDeniedHandler.CODE));
+
+        // With the header the request gets past CSRF and only then meets the login check
+        mockMvc.perform(multipart("/api/attachments/upload/1").file(file).with(csrf().asHeader()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("**/login"));
+    }
+
+    @Test
+    void everyApiEndpointThatChangesDataRequiresCsrfToken() throws Exception {
+        List<String> checked = new ArrayList<>();
+        for (RequestMappingInfo info : handlerMapping.getHandlerMethods().keySet()) {
+            Set<RequestMethod> methods = info.getMethodsCondition().getMethods();
+            // A mapping without methods answers all of them, POST included
+            Set<RequestMethod> writeMethods = methods.isEmpty()
+                    ? EnumSet.of(RequestMethod.POST)
+                    : EnumSet.noneOf(RequestMethod.class);
+            methods.stream().filter(WRITE_METHODS::contains).forEach(writeMethods::add);
+            for (String pattern : info.getPatternValues()) {
+                if (!pattern.startsWith("/api/")) {
+                    continue;
+                }
+                String path = pattern.replaceAll("\\{[^}]+}", "1");
+                for (RequestMethod method : writeMethods) {
+                    String name = method + " " + pattern;
+                    mockMvc.perform(request(HttpMethod.valueOf(method.name()), path))
+                            .andExpect(result -> assertThat(result.getResponse().getStatus()).as(name).isEqualTo(403))
+                            .andExpect(jsonPath("$.code").value(CsrfAccessDeniedHandler.CODE));
+                    checked.add(name);
+                }
+            }
+        }
+        // Guards against the scan silently finding nothing (e.g. another mapping bean)
+        assertThat(checked).contains("POST /api/controls", "PUT /api/controls/{id}",
+                "POST /api/attachments/upload/{controlId}", "DELETE /api/attachments/delete/{controlId}");
     }
 
     @Test
@@ -142,7 +243,7 @@ class SecurityConfigIntegrationTest {
         User disabledUser = new User();
         disabledUser.setMail("disabled.user@qtracker.local");
         disabledUser.setDisplayName("Disabled User");
-        disabledUser.setRole("SOQM_TEAM");
+        TestUsers.withRole(disabledUser, "SOQM_TEAM");
         disabledUser.setEnabled(false);
         disabledUser.setPassword(passwordEncoder.encode("aaa"));
         userRepository.save(disabledUser);
@@ -160,7 +261,7 @@ class SecurityConfigIntegrationTest {
                 User user = new User();
                 user.setMail("disable.after.login@qtracker.local");
                 user.setDisplayName("Disable After Login");
-                user.setRole("SOQM_TEAM");
+                TestUsers.withRole(user, "SOQM_TEAM");
                 user.setEnabled(true);
                 user.setPassword(passwordEncoder.encode("aaa"));
                 userRepository.save(user);

@@ -41,7 +41,8 @@ class DevAuthenticationProviderTest {
     @BeforeEach
     void setUp() {
         passwordEncoder = new BCryptPasswordEncoder();
-        provider = new DevAuthenticationProvider(userPrincipalService, passwordEncoder, loginAttemptService, userRepository);
+        provider = new DevAuthenticationProvider(userPrincipalService, passwordEncoder, loginAttemptService, userRepository,
+                new LoginNameResolver(true, "qtracker.local"));
     }
 
     @Test
@@ -53,7 +54,7 @@ class DevAuthenticationProviderTest {
                         "soqm1@qtracker.local",
                         passwordEncoder.encode("aaa"),
                         true,
-                        Set.of("SOQM_TEAM")
+                        Set.of("SOQM")
                 )));
 
         Authentication authentication = provider.authenticate(
@@ -64,7 +65,7 @@ class DevAuthenticationProviderTest {
         assertThat(authentication.getPrincipal()).isInstanceOf(UserPrincipal.class);
         assertThat(authentication.getAuthorities())
                 .extracting("authority")
-                .containsExactly("ROLE_SOQM_TEAM");
+                .containsExactly("ROLE_SOQM");
         verify(loginAttemptService).recordSuccess("soqm1@qtracker.local");
     }
 
@@ -120,4 +121,60 @@ class DevAuthenticationProviderTest {
                 verify(loginAttemptService, never()).recordSuccess("soqm1@qtracker.local");
                 verify(loginAttemptService, never()).recordFailure("soqm1@qtracker.local");
         }
+
+    @Test
+    void username_signsInAsItsAddress_lockoutCountedOnTheAddress() {
+        when(loginAttemptService.isLocked("soqm1@qtracker.local")).thenReturn(false);
+        when(userPrincipalService.loadUserByEmail("soqm1@qtracker.local")).thenReturn(java.util.Optional.of(
+                new UserPrincipalService.UserRecord(7L, "soqm1@qtracker.local", passwordEncoder.encode("aaa"), true,
+                        Set.of("SOQM"))));
+
+        Authentication authentication = provider.authenticate(
+                UsernamePasswordAuthenticationToken.unauthenticated(" SoQM1 ", "aaa"));
+
+        assertThat(((UserPrincipal) authentication.getPrincipal()).getEmail()).isEqualTo("soqm1@qtracker.local");
+        verify(loginAttemptService).recordSuccess("soqm1@qtracker.local");
+    }
+
+    @Test
+    void username_withoutAnAccountOnTheDomain_isTheOnlyAccountWithThatNameOnAnotherDomain() {
+        com.kpmg.qtracker.entity.User firm = new com.kpmg.qtracker.entity.User();
+        firm.setMail("jdoe@firm.test");
+        when(userRepository.existsByMail("jdoe@qtracker.local")).thenReturn(false);
+        when(userRepository.findByMailLocalPart("jdoe")).thenReturn(java.util.List.of(firm));
+        when(userPrincipalService.loadUserByEmail("jdoe@firm.test")).thenReturn(java.util.Optional.of(
+                new UserPrincipalService.UserRecord(9L, "jdoe@firm.test", passwordEncoder.encode("aaa"), true,
+                        Set.of("PARTICIPANT"))));
+
+        Authentication authentication = provider.authenticate(
+                UsernamePasswordAuthenticationToken.unauthenticated("JDoe", "aaa"));
+
+        assertThat(((UserPrincipal) authentication.getPrincipal()).getEmail()).isEqualTo("jdoe@firm.test");
+        verify(loginAttemptService).recordSuccess("jdoe@firm.test");
+    }
+
+    @Test
+    void username_onTwoOtherDomains_isNotGuessed() {
+        com.kpmg.qtracker.entity.User one = new com.kpmg.qtracker.entity.User();
+        one.setMail("jdoe@firm.test");
+        com.kpmg.qtracker.entity.User two = new com.kpmg.qtracker.entity.User();
+        two.setMail("jdoe@other.test");
+        when(userRepository.existsByMail("jdoe@qtracker.local")).thenReturn(false);
+        when(userRepository.findByMailLocalPart("jdoe")).thenReturn(java.util.List.of(one, two));
+
+        assertThatThrownBy(() -> provider.authenticate(
+                UsernamePasswordAuthenticationToken.unauthenticated("jdoe", "aaa")))
+                .isInstanceOf(BadCredentialsException.class);
+        verify(userPrincipalService).loadUserByEmail("jdoe@qtracker.local");
+    }
+
+    @Test
+    void email_isNeverLookedUpByThePartBeforeTheAt() {
+        assertThatThrownBy(() -> provider.authenticate(
+                UsernamePasswordAuthenticationToken.unauthenticated("jdoe@firm.test", "aaa")))
+                .isInstanceOf(BadCredentialsException.class);
+
+        verify(userRepository, never()).findByMailLocalPart(org.mockito.ArgumentMatchers.anyString());
+        verify(userPrincipalService).loadUserByEmail("jdoe@firm.test");
+    }
 }

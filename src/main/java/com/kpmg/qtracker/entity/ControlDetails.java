@@ -26,6 +26,10 @@ public class ControlDetails {
     @Column(length = 2000)
     private String controlStepsPerformed;
 
+    /** Control Operator's Program (ControlStepsFields.OPERATOR_PROGRAM_LABEL); the column keeps its first name. */
+    @Column(name = "control_operator_review", length = 2000)
+    private String controlOperatorReview;
+
     @Column(name = "soqm_head_comments", length = 2000)
     private String soqmHeadComments;
 

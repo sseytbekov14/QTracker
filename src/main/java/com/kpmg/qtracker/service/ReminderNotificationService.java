@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import com.kpmg.qtracker.util.EmailList;
 
 @Service
 @RequiredArgsConstructor
@@ -147,7 +148,10 @@ public class ReminderNotificationService {
         if (offsets == null) {
             return null;
         }
-        LocalDate reminder1Date = workingDaysService.addWorkingDays(operationDate, offsets[0]);
+        // On or before the deadline, never two on one day (ReminderDays)
+        LocalDate[] reminderDates = ReminderDays.dates(workingDaysService, operationDate,
+                assignment.getControlOperationDeadline(), offsets);
+        LocalDate reminder1Date = reminderDates[0];
         if (today.equals(reminder1Date)) {
             boolean responseExists = hasResponse(control);
             return new DueNotification(
@@ -158,7 +162,7 @@ public class ReminderNotificationService {
                     getReminderRecipients(assignment)
             );
         }
-        LocalDate reminder2Date = workingDaysService.addWorkingDays(operationDate, offsets[1]);
+        LocalDate reminder2Date = reminderDates[1];
         if (today.equals(reminder2Date)) {
             boolean responseExists = hasResponse(control);
             return new DueNotification(
@@ -307,22 +311,13 @@ public class ReminderNotificationService {
         dto.setControlId(row.getControlId());
         dto.setControlOperationDate(row.getOperationDate());
         dto.setControlOperationDeadline(row.getDeadlineDate());
-        dto.setFacilitator(splitEmails(row.getFacilitator()));
-        dto.setControlOperator(splitEmails(row.getControlOperator()));
-        dto.setSoqmLead(splitEmails(row.getSoqmLead()));
-        dto.setProcessOwner(splitEmails(row.getProcessOwner()));
+        dto.setFacilitator(EmailList.parse(row.getFacilitator()));
+        dto.setControlOperator(EmailList.parse(row.getControlOperator()));
+        dto.setSoqmLead(EmailList.parse(row.getSoqmLead()));
+        dto.setProcessOwner(EmailList.parse(row.getProcessOwner()));
         return dto;
     }
 
-    private List<String> splitEmails(String raw) {
-        if (raw == null || raw.trim().isEmpty()) {
-            return new ArrayList<>();
-        }
-        return Arrays.stream(raw.split(","))
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .toList();
-    }
 
     @Getter
     public static class ReminderRunSummary {
