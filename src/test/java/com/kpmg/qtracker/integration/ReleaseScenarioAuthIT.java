@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockMultipartFile;
@@ -350,7 +349,6 @@ class ReleaseScenarioAuthIT extends ReleaseScenarioSupport {
     // ---- Swagger, actuator, error pages ----
 
     @Test
-    @Disabled("D-02 (S2): /v3/api-docs and /swagger-ui are open without signing in; fixed in a later commit")
     void swaggerAndTheApiDescription_areClosedWithoutSigningIn() throws Exception {
         for (String path : List.of("/v3/api-docs", "/v3/api-docs/swagger-config", "/swagger-ui/index.html",
                 "/swagger-ui.html")) {
@@ -358,6 +356,10 @@ class ReleaseScenarioAuthIT extends ReleaseScenarioSupport {
             assertThat(outcome(result)).as(path).isIn("login", "404");
             assertThat(body(result)).as(path).doesNotContain("/api/controls").doesNotContain("openapi");
         }
+        // The dev profile turns it on for people who are signed in (off everywhere else: application.yml)
+        MvcResult signedIn = call(login(myEdit("swagger")), get("/v3/api-docs"));
+        assertThat(signedIn.getResponse().getStatus()).isEqualTo(200);
+        assertThat(body(signedIn)).contains("openapi");
     }
 
     @Test

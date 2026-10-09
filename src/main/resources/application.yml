@@ -74,6 +74,14 @@ dev:
   # of the user import
   seed-users: ${DEV_SEED_USERS:false}
 
+# Swagger UI and the API description: off unless SPRINGDOC_ENABLED=true (on in the dev profile); when on,
+# only for people who are signed in (SecurityConfig)
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:false}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:false}
+
 controls:
   auto-create:
     enabled: ${CONTROLS_AUTO_CREATE_ENABLED:true}
