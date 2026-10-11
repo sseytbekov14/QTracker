@@ -30,7 +30,11 @@ public class ControlRowLock {
         if (managed == null) {
             return control;
         }
-        entityManager.refresh(managed, LockModeType.PESSIMISTIC_WRITE);
+        // The lock first (SELECT ... FOR UPDATE waits for a move in progress to commit), then the row read again.
+        // refresh(entity, PESSIMISTIC_WRITE) reads the row before it locks it, so on PostgreSQL the second of two
+        // moves went on with the status it had read before waiting.
+        entityManager.lock(managed, LockModeType.PESSIMISTIC_WRITE);
+        entityManager.refresh(managed);
         return managed;
     }
 }
