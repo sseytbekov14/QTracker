@@ -2,7 +2,6 @@ package com.kpmg.qtracker.integration;
 
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockMultipartFile;
@@ -145,7 +144,6 @@ class ReleaseScenarioFilesIT extends ReleaseScenarioSupport {
     }
 
     @Test
-    @Disabled("D-07 (S2): of two uploads at the same time only one file stays listed; fixed in a later commit")
     void twoUploadsAtTheSameTime_bothFilesAreListed() throws Exception {
         Setup s = setup("IN_PROGRESS");
         for (int round = 0; round < 5; round++) {

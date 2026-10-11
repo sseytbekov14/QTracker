@@ -24,10 +24,13 @@ public class ControlAttachmentService {
 
     private final ControlAttachmentRepository attachmentRepository;
     private final IControlService controlService;
+    /** The file lists live on the control row: one change of them at a time (two uploads at once kept one) */
+    private final ControlRowLock controlRowLock;
 
     /** Appends uploaded file names to the control and records who uploaded them in which stage. */
     @Transactional
     public Control recordUpload(Control control, List<String> detailsFiles, List<String> documentsFiles, User uploader) {
+        control = controlRowLock.lockedFresh(control);
         if (!detailsFiles.isEmpty()) {
             control.setAttachmentDetailsPath(appendToList(control.getAttachmentDetailsPath(), detailsFiles));
         }
@@ -94,6 +97,7 @@ public class ControlAttachmentService {
     /** Removes the file name from the control's list and its upload record; returns whether it was listed. */
     @Transactional
     public boolean removeFromControl(Control control, String tab, String fileName) {
+        control = controlRowLock.lockedFresh(control);
         boolean details = ControlAttachment.TAB_DETAILS.equals(tab);
         String currentPath = details ? control.getAttachmentDetailsPath() : control.getAttachmentDocumentsPath();
         boolean removed = false;
