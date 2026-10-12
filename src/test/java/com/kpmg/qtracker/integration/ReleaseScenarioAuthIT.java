@@ -101,19 +101,28 @@ class ReleaseScenarioAuthIT extends ReleaseScenarioSupport {
         assertThat(signIn(neighbour.getMail(), PASSWORD).getResponse().getRedirectedUrl()).isEqualTo("/");
     }
 
+    /**
+     * Since feature/sso-saml a sign-in counts per name typed and address together (behind the port forward every
+     * client has the same address): the 21st try of one name in a minute is refused, another person from the
+     * same address is not.
+     */
     @Test
-    void moreThanTwentySignInsAMinuteFromOneAddress_areRefusedWith429_anotherAddressIsNot() throws Exception {
+    void moreThanTwentySignInsAMinuteOfOneNameFromOneAddress_areRefusedWith429_anotherNameIsNot() throws Exception {
         String address = "10.66.1." + (1 + next() % 250);
+        String name = "rate-limited-" + RUN + "@release.test";
         for (int i = 0; i < 20; i++) {
             MvcResult result = mockMvc.perform(post("/login").with(csrf()).with(address(address))
-                    .param("username", "nobody-" + i + "-" + RUN + "@release.test")
-                    .param("password", "x")).andReturn();
+                    .param("username", name).param("password", "x-" + i)).andReturn();
             assertThat(result.getResponse().getStatus()).as("attempt %d", i + 1).isEqualTo(302);
         }
         MvcResult limited = mockMvc.perform(post("/login").with(csrf()).with(address(address))
-                .param("username", "nobody@release.test").param("password", "x")).andReturn();
+                .param("username", name).param("password", "x")).andReturn();
         assertThat(limited.getResponse().getStatus()).isEqualTo(429);
         assertThat(body(limited)).contains("RATE_LIMITED");
+
+        MvcResult otherName = mockMvc.perform(post("/login").with(csrf()).with(address(address))
+                .param("username", "somebody-else-" + RUN + "@release.test").param("password", "x")).andReturn();
+        assertThat(otherName.getResponse().getStatus()).isEqualTo(302);
 
         User user = myEdit("rate");
         assertThat(signIn(user.getMail(), PASSWORD).getResponse().getRedirectedUrl()).isEqualTo("/");

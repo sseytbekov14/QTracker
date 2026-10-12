@@ -71,6 +71,16 @@ class ReleaseScenarioProfilesTest {
         assertThat(value("server.forward-headers-strategy", "prod")).isEqualTo("none");
     }
 
+    /** The rate limits come from RATE_LIMIT_* (the defaults are the limits used before). */
+    @Test
+    void rateLimits_comeFromTheEnvironment() {
+        assertThat(value("rate-limit.window-seconds", "prod")).isEqualTo("60");
+        assertThat(value("rate-limit.login", "prod")).isEqualTo("20");
+        assertThat(value("rate-limit.api-write", "prod")).isEqualTo("120");
+        assertThat(value("rate-limit.user-list", "prod")).isEqualTo("120");
+        assertThat(value("rate-limit.heavy", "prod")).isEqualTo("20");
+    }
+
     /** The property as the profile resolves it with no environment variables (placeholders at their default). */
     static String value(String key, String... profiles) {
         MutablePropertySources sources = new MutablePropertySources();

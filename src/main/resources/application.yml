@@ -72,6 +72,15 @@ auth:
     # The login form also takes a username (the domain is added); off: e-mail only
     enabled: ${AUTH_USERNAME_LOGIN_ENABLED:false}
 
+# Too many requests answer 429 (RateLimitingFilter): per window, sign-ins per name typed and address together,
+# the rest per signed-in user (behind the port forward all clients share one address)
+rate-limit:
+  window-seconds: ${RATE_LIMIT_WINDOW_SECONDS:60}
+  login: ${RATE_LIMIT_LOGIN:20}
+  api-write: ${RATE_LIMIT_API_WRITE:120}
+  user-list: ${RATE_LIMIT_USER_LIST:120}
+  heavy: ${RATE_LIMIT_HEAVY:20}
+
 file:
   upload:
     # Folder of the attachments. Give FILE_UPLOAD_DIR as an absolute path. Without it the "uploads" folder of

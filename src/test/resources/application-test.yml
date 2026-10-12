@@ -35,3 +35,10 @@ auth:
 file:
   upload:
     dir: ${FILE_UPLOAD_DIR:target/test-uploads}
+
+# The scenarios make many writes and uploads as one person within a minute; RateLimitingFilterTest covers the
+# limits themselves, ReleaseScenarioAuthIT the sign-in limit (kept at its default)
+rate-limit:
+  api-write: 100000
+  user-list: 100000
+  heavy: 100000

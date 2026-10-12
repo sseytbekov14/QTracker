@@ -50,7 +50,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * The pre-release test pass (ReleaseScenario*IT): one application on its own H2 database with the dev security
  * chain (form login, session, CSRF, the read-only check), made-up people signing in with a password, and controls
  * built for each test. Every name is unique per run, so the classes share the context and run in any order;
- * every request comes from its own address, so RateLimitingFilter (per address) never counts across tests.
+ * every request comes from its own address, so the sign-in limit (per name and address) never counts across
+ * tests; the other limits are per person and set high for the test profile (application-test.yml).
  */
 @SpringBootTest(properties = {
         // H2 by default; -Drelease.db.url=jdbc:postgresql://... (with .driver, .user, .password, .ddl=validate,
