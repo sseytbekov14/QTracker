@@ -3,13 +3,11 @@ package com.kpmg.qtracker.integration;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.enums.AccessScope;
-import com.kpmg.qtracker.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.List;
@@ -31,11 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class SsoChainIT extends SsoTestSupport {
 
     @Autowired
-    private MockMvc mockMvc;
-    @Autowired
     private ApplicationContext context;
-    @Autowired
-    private UserRepository userRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
 

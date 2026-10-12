@@ -6,10 +6,16 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.saml2.provider.service.authentication.OpenSaml4AuthenticationProvider;
+import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
+import org.springframework.security.saml2.provider.service.authentication.Saml2Authentication;
 import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticationException;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -18,6 +24,7 @@ import org.springframework.security.web.savedrequest.RequestCache;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.regex.Pattern;
 
 /**
@@ -37,9 +44,15 @@ public class SsoSignIn {
     private static final Pattern ADDRESS = Pattern.compile("[^\\s\\[\\]<>\"',;:]+@[^\\s\\[\\]<>\"',;:]+");
 
     private final UserRepository userRepository;
+    private final SsoAdmission admission;
+    private final UserPrincipalService principals;
+    private final Converter<OpenSaml4AuthenticationProvider.ResponseToken, Saml2Authentication> saml =
+            OpenSaml4AuthenticationProvider.createDefaultResponseAuthenticationConverter();
 
-    public SsoSignIn(UserRepository userRepository) {
+    public SsoSignIn(UserRepository userRepository, SsoAdmission admission, UserPrincipalService principals) {
         this.userRepository = userRepository;
+        this.admission = admission;
+        this.principals = principals;
     }
 
     /** The SAML provider: Spring's checks of the answer, then QTracker's admission. */
@@ -49,10 +62,26 @@ public class SsoSignIn {
         return provider;
     }
 
-    /** Whether the person Microsoft signed in gets into QTracker. */
+    /**
+     * Whether the person Microsoft signed in gets into QTracker (SsoAdmission). In: the same principal and
+     * authorities as after the password form, so every check downstream (the disabled-user guard, the Admin
+     * Panel, read-only) works unchanged.
+     */
     AbstractAuthenticationToken admit(OpenSaml4AuthenticationProvider.ResponseToken token) {
-        logger.warn("SSO sign-in refused: user=- reason=ADMISSION_NOT_CONFIGURED");
-        throw new AccessNotGrantedException("admission is not configured");
+        Saml2Authentication answer = saml.convert(token);
+        if (answer == null || !(answer.getPrincipal() instanceof Saml2AuthenticatedPrincipal person)) {
+            throw new AccessNotGrantedException("no principal in the answer");
+        }
+        SsoAdmission.Decision decision = admission.admit(SsoIdentity.of(person));
+        if (!decision.admitted()) {
+            throw new AccessNotGrantedException(decision.refusal().name());
+        }
+        UserPrincipal principal = principals.principalOf(decision.user());
+        List<GrantedAuthority> authorities = principal.getRoles().stream()
+                .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
+                .<GrantedAuthority>map(SimpleGrantedAuthority::new)
+                .toList();
+        return UsernamePasswordAuthenticationToken.authenticated(principal, null, authorities);
     }
 
     /** The session user as after the form, then the page that was asked for (or the Dashboard). */
