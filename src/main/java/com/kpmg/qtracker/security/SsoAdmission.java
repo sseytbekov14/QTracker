@@ -139,7 +139,7 @@ public class SsoAdmission {
         if (!Boolean.TRUE.equals(user.getEnabled())) {
             return refusal(Reason.DISABLED, user);
         }
-        if (onServiceDomain(user.getMail())) {
+        if (loginNames.isServiceAddress(user.getMail())) {
             return refusal(Reason.SERVICE_DOMAIN, user);
         }
         return new Decision(user, matchedBy, null);
@@ -154,10 +154,6 @@ public class SsoAdmission {
             }
         }
         return addresses;
-    }
-
-    private boolean onServiceDomain(String mail) {
-        return mail != null && mail.trim().toLowerCase(Locale.ROOT).endsWith("@" + loginNames.domain());
     }
 
     private static Decision refusal(Reason reason, User user) {

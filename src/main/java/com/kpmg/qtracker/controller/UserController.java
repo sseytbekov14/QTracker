@@ -3,6 +3,8 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.dto.UserDTO;
 import com.kpmg.qtracker.entity.AdminAuditLog;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.security.AuthMode;
+import com.kpmg.qtracker.security.LoginNameResolver;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.AdminAuditTrail;
@@ -25,8 +27,14 @@ import java.util.stream.Collectors;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 public class UserController {
+    /** With SSO an address of the user import's service domain cannot sign in (SsoAdmission). */
+    static final String CORPORATE_EMAIL_REQUIRED =
+            "Use the person's corporate e-mail: with SSO they sign in with it at Microsoft";
+
     private final UserService userService;
     private final AdminAuditService adminAuditService;
+    private final AuthMode authMode;
+    private final LoginNameResolver loginNames;
 
     /** Dates as the Admin Panel shows them. */
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
@@ -66,6 +74,11 @@ public class UserController {
             return ResponseEntity.status(403).body("Forbidden");
         }
 
+        // A service address kept as it is (an imported person not moved yet) does not stop other changes
+        if (email != null && serviceAddressWithSso(email) && userService.getUserById(id)
+                .map(user -> !email.trim().equalsIgnoreCase(String.valueOf(user.getMail()).trim())).orElse(true)) {
+            return ResponseEntity.badRequest().body(CORPORATE_EMAIL_REQUIRED);
+        }
         try {
             // The service changes the same managed entity, so the values before the change are copied first
             User before = snapshot(userService.getUserById(id)
@@ -115,8 +128,13 @@ public class UserController {
             return ResponseEntity.status(403).body("Forbidden");
         }
 
+        if (serviceAddressWithSso(email)) {
+            return ResponseEntity.badRequest().body(CORPORATE_EMAIL_REQUIRED);
+        }
         try {
-            User created = userService.createUser(email, displayName, role, visibility, access, enabled);
+            // With SSO no password: nobody signs in with one
+            User created = userService.createUser(email, displayName, role, visibility, access, enabled,
+                    authMode.password());
 
             AdminAuditLog audit = adminAuditService.logActionWithChanges(
                     currentUser.getMail(),
@@ -151,6 +169,9 @@ public class UserController {
             return ResponseEntity.status(403).body("Forbidden");
         }
 
+        if (serviceAddressWithSso(email)) {
+            return ResponseEntity.badRequest().body(CORPORATE_EMAIL_REQUIRED);
+        }
         try {
             User before = userService.getUserById(id)
                     .orElseThrow(() -> new IllegalArgumentException("User not found"));
@@ -180,6 +201,10 @@ public class UserController {
         }
     }
 
+
+    private boolean serviceAddressWithSso(String email) {
+        return authMode.sso() && loginNames.isServiceAddress(email);
+    }
 
     private static User snapshot(User user) {
         User copy = new User();

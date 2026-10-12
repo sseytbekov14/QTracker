@@ -188,11 +188,25 @@ public class UserService {
                            String visibility,
                            String access,
                            Boolean enabled) {
+        return createUser(email, displayName, role, visibility, access, enabled, true);
+    }
+
+    /**
+     * The same, with or without the temporary password: with SSO nobody signs in with a password, so the account
+     * gets none (Admin Panel, AuthMode).
+     */
+    public User createUser(String email,
+                           String displayName,
+                           String role,
+                           String visibility,
+                           String access,
+                           Boolean enabled,
+                           boolean withPassword) {
         if (role == null || role.isBlank()) {
             throw new IllegalArgumentException("Role is required");
         }
         AccessPolicy.Profile profile = profile(role, visibility, access, null);
-        return userRepository.save(newUser(email, displayName, profile, enabled));
+        return userRepository.save(newUser(email, displayName, profile, enabled, withPassword));
     }
 
     /**
@@ -242,7 +256,8 @@ public class UserService {
         user.setAdminAccess(profile.adminAccess());
     }
 
-    private User newUser(String email, String displayName, AccessPolicy.Profile profile, Boolean enabled) {
+    private User newUser(String email, String displayName, AccessPolicy.Profile profile, Boolean enabled,
+                         boolean withPassword) {
         String normalizedEmail = normalizeEmail(email);
         if (userRepository.existsByMail(normalizedEmail)) {
             throw new IllegalArgumentException("User with this email already exists");
@@ -253,7 +268,7 @@ public class UserService {
         user.setDisplayName(resolveDisplayName(displayName, normalizedEmail));
         apply(user, profile);
         user.setEnabled(enabled == null || enabled);
-        user.setPassword(passwordEncoder.encode(DEFAULT_NEW_USER_PASSWORD));
+        user.setPassword(withPassword ? passwordEncoder.encode(DEFAULT_NEW_USER_PASSWORD) : null);
         return user;
     }
 

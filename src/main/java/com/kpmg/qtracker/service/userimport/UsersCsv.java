@@ -53,6 +53,11 @@ public final class UsersCsv {
     }
 
     public static Table read(byte[] bytes) {
+        return read(bytes, REQUIRED, List.of(NAME));
+    }
+
+    /** A file of other columns (any case in the header): the required ones must be there, optional ones are kept. */
+    public static Table read(byte[] bytes, List<String> required, List<String> optional) {
         String encoding;
         String text;
         if (startsWith(bytes, 0xEF, 0xBB, 0xBF)) {
@@ -79,8 +84,8 @@ public final class UsersCsv {
                 return Table.refused(encoding, "the file is empty");
             }
             List<String> header = parsed.get(0).fields().stream().map(String::strip).toList();
-            Map<String, Integer> columns = columns(header);
-            if (!columns.keySet().containsAll(REQUIRED)) {
+            Map<String, Integer> columns = columns(header, required, optional);
+            if (!columns.keySet().containsAll(required)) {
                 continue;
             }
             List<Record> records = new ArrayList<>();
@@ -101,15 +106,15 @@ public final class UsersCsv {
             }
             return new Table(encoding, name(delimiter), header, records, null);
         }
-        return Table.refused(encoding, "no header with the columns " + String.join(", ", REQUIRED)
+        return Table.refused(encoding, "no header with the columns " + String.join(", ", required)
                 + " (separated by commas, semicolons or tabs)");
     }
 
-    // Column name (as in REQUIRED, any case) -> index; Name is kept when present
-    private static Map<String, Integer> columns(List<String> header) {
+    // Column name (as in required/optional, any case) -> index; optional ones are kept when present
+    private static Map<String, Integer> columns(List<String> header, List<String> required, List<String> optional) {
         Map<String, Integer> columns = new LinkedHashMap<>();
-        List<String> known = new ArrayList<>(REQUIRED);
-        known.add(NAME);
+        List<String> known = new ArrayList<>(required);
+        known.addAll(optional);
         for (int i = 0; i < header.size(); i++) {
             String cell = header.get(i).toLowerCase(Locale.ROOT);
             for (String column : known) {

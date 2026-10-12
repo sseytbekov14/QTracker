@@ -867,6 +867,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const ROLE_CAN_DO = /*[[${roleCanDo}]]*/ {};
     const ROLE_FIXED = /*[[${roleFixedValues}]]*/ {};
     const ROLE_SUMMARIES = /*[[${roleSummaries}]]*/ {};
+    // Sign-in with Microsoft: a new user needs the corporate e-mail and gets no password
+    const SSO = /*[[${sso}]]*/ false;
     const MAX_NAME_LENGTH = 255;
     const SEPARATOR = ' · ';
 
@@ -1230,7 +1232,9 @@ document.addEventListener('DOMContentLoaded', function() {
         nameRequiredMark.hidden = create;
         emailRequiredMark.hidden = !dialog.emailEditable;
         nameHint.textContent = create ? 'Leave empty to take the name from the e-mail.' : '';
-        emailHint.textContent = create ? 'The user signs in with this address.'
+        emailHint.textContent = create
+            ? (SSO ? 'Corporate e-mail: the user signs in with it at Microsoft (no password is set).'
+                : 'The user signs in with this address.')
             : dialog.emailEditable ? 'Can be changed until the first sign-in.'
             : 'Cannot be changed: the user has already signed in.';
 

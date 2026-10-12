@@ -2,6 +2,7 @@ package com.kpmg.qtracker;
 
 import com.kpmg.qtracker.config.DeadlineRecalculationCommand;
 import com.kpmg.qtracker.config.SeedUsersRemovalCommand;
+import com.kpmg.qtracker.config.UserEmailUpdateCommand;
 import com.kpmg.qtracker.config.UserImportCommand;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
@@ -18,7 +19,7 @@ import java.time.ZoneId;
 public class QtrackerApplication {
     public static void main(String[] args) {
         if (DeadlineRecalculationCommand.requested(args) || SeedUsersRemovalCommand.requested(args)
-                || UserImportCommand.requested(args)) {
+                || UserImportCommand.requested(args) || UserEmailUpdateCommand.requested(args)) {
             System.exit(SpringApplication.exit(runCommand(args)));
         }
         SpringApplication.run(QtrackerApplication.class, args);
