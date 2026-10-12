@@ -4,7 +4,6 @@ import com.kpmg.qtracker.entity.User;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpSession;
@@ -30,7 +29,6 @@ class ReleaseScenarioQueriesIT extends ReleaseScenarioSupport {
     private EntityManagerFactory entityManagerFactory;
 
     @Test
-    @Disabled("D-11 (S2): every listed control costs about six statements; fixed in the next commit")
     void theControlsListTheDashboardAndAComponentList_readTheControlsWithAFixedNumberOfStatements() throws Exception {
         User me = myEdit("q-me");
         People people = people().facilitator(me).operator(myEdit("q-op")).soqm(soqm("q-soqm")).owner(myEdit("q-po"));

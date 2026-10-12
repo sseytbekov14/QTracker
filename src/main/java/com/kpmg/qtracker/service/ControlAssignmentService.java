@@ -199,6 +199,18 @@ public class ControlAssignmentService {
         return new ArrayList<>(EmailList.parse(str));
     }
 
+    /** The assignments of these controls in one query, by control id; a control without one is left out. */
+    public Map<Long, ControlAssignmentDTO> getAssignmentsByControlIds(Collection<Long> controlIds) {
+        Map<Long, ControlAssignmentDTO> assignments = new HashMap<>();
+        if (controlIds == null || controlIds.isEmpty()) {
+            return assignments;
+        }
+        for (ControlAssignment assignment : assignmentRepository.findAllById(controlIds)) {
+            assignments.put(assignment.getControlId(), convertToDTO(assignment));
+        }
+        return assignments;
+    }
+
     private ControlAssignmentDTO convertToDTO(ControlAssignment assignment) {
         ControlAssignmentDTO dto = new ControlAssignmentDTO();
         dto.setControlId(assignment.getControlId());

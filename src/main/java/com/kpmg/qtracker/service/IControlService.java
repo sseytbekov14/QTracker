@@ -27,6 +27,9 @@ public interface IControlService {
     Control updateControl(Control control);
     String getControlFrequency(Long controlId);
     ControlResponseDTO convertToResponseDTO(Control control);
+
+    /** The rows of a list: the same as convertToResponseDTO for each, with the people read in one query. */
+    List<ControlResponseDTO> convertToResponseDTOs(List<Control> controls);
     Optional<Control> findById(Long id);
     List<String> getFacilitatorsForControl(Long controlId);
 

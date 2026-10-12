@@ -464,17 +464,18 @@ public class ViewController {
         // "Shared" (view only) only for those who see a control because it is shared with them
         boolean seesAll = AccessPolicy.seesWithoutBeingOn(AccessPolicy.Subject.of(currentUser));
         List<Control> visibleControls = controlService.findVisibleControlsForUser(currentUser);
+        List<Control> listed = visibleControls.stream()
+                .filter(control -> control != null && control.getId() != null)
+                .toList();
+        // All rows in one conversion (the people read once, not per control)
         Map<Long, ControlResponseDTO> controlMap = new LinkedHashMap<>();
-        for (Control control : visibleControls) {
-            if (control == null || control.getId() == null) {
-                continue;
-            }
-            ControlResponseDTO dto = controlService.convertToResponseDTO(control);
+        for (ControlResponseDTO dto : controlService.convertToResponseDTOs(listed)) {
+            // The assignment is read again only for a control the person is not assigned to
             boolean sharedOnly = !seesAll
-                    && isSharedWithUser(control.getId(), userEmail)
-                    && !isDirectlyAssignedToUser(dto, userEmail);
+                    && !isDirectlyAssignedToUser(dto, userEmail)
+                    && isSharedWithUser(dto.getId(), userEmail);
             dto.setSharedViewOnly(sharedOnly);
-            controlMap.put(control.getId(), dto);
+            controlMap.put(dto.getId(), dto);
         }
         return new ArrayList<>(controlMap.values());
     }

@@ -429,7 +429,7 @@ class ViewControllerStatusFilterTest {
 
         when(controlService.findVisibleControlsForUser(currentUser))
                 .thenReturn(List.of(sharedControl));
-        when(controlService.convertToResponseDTO(sharedControl)).thenReturn(sharedDto);
+        when(controlService.convertToResponseDTOs(List.of(sharedControl))).thenReturn(List.of(sharedDto));
         when(controlAssignmentService.getAssignmentByControlId(200L)).thenReturn(assignmentDTO);
 
         MvcResult result = mockMvc.perform(get("/controls")
@@ -1993,10 +1993,10 @@ class ViewControllerStatusFilterTest {
             control.setDeadline(dto.getDeadline());
             control.setComponent(dto.getComponent());
             controls.add(control);
-            when(controlService.convertToResponseDTO(control)).thenReturn(dto);
         }
         when(controlService.findVisibleControlsForUser(user))
                 .thenReturn(controls);
+        when(controlService.convertToResponseDTOs(controls)).thenReturn(dtos);
     }
 }
 

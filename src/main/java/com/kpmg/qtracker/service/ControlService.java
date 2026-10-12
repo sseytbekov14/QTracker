@@ -306,6 +306,57 @@ public class ControlService implements IControlService {
 
     @Override
     public ControlResponseDTO convertToResponseDTO(Control control) {
+        ControlAssignmentDTO assignment = null;
+        try {
+            if (this.controlAssignmentService != null) {
+                assignment = this.controlAssignmentService.getAssignmentByControlId(control.getId());
+            }
+        } catch (Exception e) {
+            logger.error("Error getting assignment for control {}: {}", control.getId(), e.getMessage());
+        }
+        return toResponseDTO(control, assignment, userService::getUserByEmail, true);
+    }
+
+    /**
+     * The rows of a list (Controls, dashboard, Action Centre): the assignments of all the controls in one query
+     * and their people in one more, instead of about seven queries per control (N+1).
+     */
+    @Override
+    public List<ControlResponseDTO> convertToResponseDTOs(List<Control> controls) {
+        List<ControlResponseDTO> rows = new ArrayList<>();
+        if (controls == null || controls.isEmpty()) {
+            return rows;
+        }
+        List<Long> ids = controls.stream().map(Control::getId).filter(Objects::nonNull).toList();
+        Map<Long, ControlAssignmentDTO> assignments = this.controlAssignmentService != null
+                ? this.controlAssignmentService.getAssignmentsByControlIds(ids) : Map.of();
+        Set<String> mails = new HashSet<>();
+        for (ControlAssignmentDTO assignment : assignments.values()) {
+            for (List<String> people : Arrays.asList(assignment.getFacilitator(), assignment.getControlOperator(),
+                    assignment.getProcessOwner(), assignment.getSoqmLead())) {
+                if (people != null) {
+                    mails.addAll(people);
+                }
+            }
+        }
+        Map<String, User> users = userService.usersByEmail(mails);
+        java.util.function.Function<String, Optional<User>> lookup = mail -> mail == null ? Optional.empty()
+                : Optional.ofNullable(users.get(mail.trim().toLowerCase(Locale.ROOT)));
+        for (Control control : controls) {
+            // As getAssignmentByControlId: a control without an assignment row gets an empty one
+            rows.add(toResponseDTO(control, assignments.getOrDefault(control.getId(), new ControlAssignmentDTO()), lookup,
+                    false));
+        }
+        return rows;
+    }
+
+    /**
+     * @param workflowStep read the current workflow step (one query); the list pages do not show it, their rows
+     *                     take the workflow status from the performance status
+     */
+    private ControlResponseDTO toResponseDTO(Control control, ControlAssignmentDTO assignment,
+                                             java.util.function.Function<String, Optional<User>> users,
+                                             boolean workflowStep) {
         ControlResponseDTO dto = new ControlResponseDTO();
 
         // Основные данные контроля
@@ -316,7 +367,7 @@ public class ControlService implements IControlService {
         String component = control.getComponent();
         
         // Log raw values for debugging (use INFO level to see in logs)
-        logger.info("🔍 Converting control id={}: raw controlId='{}', raw component='{}'", 
+        logger.debug("🔍 Converting control id={}: raw controlId='{}', raw component='{}'", 
             control.getId(), controlId, component);
         
         // Normalize controlId - handle null, empty, or whitespace-only strings
@@ -349,7 +400,7 @@ public class ControlService implements IControlService {
         }
         
         // Log final values (use INFO level to see in logs)
-        logger.info("✅ Control id={}: final controlId='{}', final component='{}'", 
+        logger.debug("✅ Control id={}: final controlId='{}', final component='{}'", 
             control.getId(), controlId, component);
         
         dto.setControlId(controlId);
@@ -373,7 +424,7 @@ public class ControlService implements IControlService {
         if (control.getCreatedBy() != null) {
             dto.setCreatedBy(control.getCreatedBy().getDisplayName());
             dto.setCreatedByEmail(control.getCreatedBy().getMail());
-            logger.info("Control {}: createdBy='{}', createdByEmail='{}', controlStatus='{}'", 
+            logger.debug("Control {}: createdBy='{}', createdByEmail='{}', controlStatus='{}'", 
                 control.getControlId(), dto.getCreatedBy(), dto.getCreatedByEmail(), dto.getControlStatus());
         } else {
             dto.setCreatedBy("Unknown");
@@ -386,39 +437,37 @@ public class ControlService implements IControlService {
         // Получаем данные assignment
         try {
             if (this.controlAssignmentService != null) {
-                ControlAssignmentDTO assignment = this.controlAssignmentService.getAssignmentByControlId(control.getId());
-
                 if (assignment != null) {
-                    logger.info("📋 Assignment found for control {}: facilitators={}, operators={}, owners={}, soqm={}", 
+                    logger.debug("📋 Assignment found for control {}: facilitators={}, operators={}, owners={}, soqm={}", 
                         control.getId(), assignment.getFacilitator(), assignment.getControlOperator(), 
                         assignment.getProcessOwner(), assignment.getSoqmLead());
                     
                     List<String> facilitators = assignment.getFacilitator();
-                    logger.info("📋 assignment.getFacilitator() returned: {} (type: {})", 
+                    logger.debug("📋 assignment.getFacilitator() returned: {} (type: {})", 
                         facilitators, 
                         facilitators != null ? facilitators.getClass().getName() : "null");
                     
                     if (facilitators != null && !facilitators.isEmpty()) {
-                        facilitators.forEach(fac -> logger.info("   - Facilitator item: '{}'", fac));
+                        facilitators.forEach(fac -> logger.debug("   - Facilitator item: '{}'", fac));
                     } else {
-                        logger.info("   - Facilitator list is null or empty!");
+                        logger.debug("   - Facilitator list is null or empty!");
                     }
                     
                     dto.setFacilitators(facilitators);
-                    logger.info("DTO facilitators set to: {}", dto.getFacilitators());
-                    logger.info("DTO facilitators type: {}", dto.getFacilitators() != null ? dto.getFacilitators().getClass().getName() : "null");
+                    logger.debug("DTO facilitators set to: {}", dto.getFacilitators());
+                    logger.debug("DTO facilitators type: {}", dto.getFacilitators() != null ? dto.getFacilitators().getClass().getName() : "null");
                     if (dto.getFacilitators() != null && !dto.getFacilitators().isEmpty()) {
-                        dto.getFacilitators().forEach(fac -> logger.info("  - In DTO: '{}'", fac));
+                        dto.getFacilitators().forEach(fac -> logger.debug("  - In DTO: '{}'", fac));
                     }
                     
                     dto.setControlOperators(assignment.getControlOperator());
                     dto.setProcessOwners(assignment.getProcessOwner());
                     dto.setSoqmLeads(assignment.getSoqmLead());
 
-                    dto.setFacilitatorUsers(convertEmailsToUserDTOs(assignment.getFacilitator()));
-                    dto.setControlOperatorUsers(convertEmailsToUserDTOs(assignment.getControlOperator()));
-                    dto.setProcessOwnerUsers(convertEmailsToUserDTOs(assignment.getProcessOwner()));
-                    dto.setSoqmLeadUsers(convertEmailsToUserDTOs(assignment.getSoqmLead()));
+                    dto.setFacilitatorUsers(convertEmailsToUserDTOs(assignment.getFacilitator(), users));
+                    dto.setControlOperatorUsers(convertEmailsToUserDTOs(assignment.getControlOperator(), users));
+                    dto.setProcessOwnerUsers(convertEmailsToUserDTOs(assignment.getProcessOwner(), users));
+                    dto.setSoqmLeadUsers(convertEmailsToUserDTOs(assignment.getSoqmLead(), users));
 
                     dto.setControlOperationDate(assignment.getControlOperationDate());
 
@@ -426,7 +475,7 @@ public class ControlService implements IControlService {
                         dto.setDeadline(assignment.getControlOperationDeadline());
                     }
                 } else {
-                    logger.info("📋 No assignment found for control {}", control.getId());
+                    logger.debug("📋 No assignment found for control {}", control.getId());
                 }
             }
         } catch (Exception e) {
@@ -474,7 +523,10 @@ public class ControlService implements IControlService {
         dto.setPerformanceInitiated(isInitiated);
         dto.setGoToPerformanceCycle(isInitiated);
 
-        if (this.workflowService != null) {
+        if (!workflowStep) {
+            dto.setWorkflowStatus(performanceStatus);
+            dto.setWorkflowStatusDisplay(dto.getPerformanceStatusDisplay());
+        } else if (this.workflowService != null) {
             try {
                 // ★ ИСПОЛЬЗУЕМ getCurrentStep() вместо getCurrentWorkflowStatus()
                 WorkflowStepDTO currentStep = workflowService.getCurrentStep(control.getId());
@@ -498,24 +550,25 @@ public class ControlService implements IControlService {
         return dto;
     }
 
-    private List<UserDTO> convertEmailsToUserDTOs(List<String> emails) {
+    private List<UserDTO> convertEmailsToUserDTOs(List<String> emails,
+                                                java.util.function.Function<String, Optional<User>> users) {
         if (emails == null || emails.isEmpty()) {
-            logger.info("convertEmailsToUserDTOs: emails is null or empty");
+            logger.debug("convertEmailsToUserDTOs: emails is null or empty");
             return Collections.emptyList();
         }
 
-        logger.info("convertEmailsToUserDTOs: processing {} emails: {}", emails.size(), emails);
+        logger.debug("convertEmailsToUserDTOs: processing {} emails: {}", emails.size(), emails);
 
         return emails.stream()
                 .map(email -> {
                     try {
-                        Optional<User> userOpt = userService.getUserByEmail(email);
+                        Optional<User> userOpt = users.apply(email);
                         if (userOpt.isPresent()) {
                             User user = userOpt.get();
-                            logger.info("✅ Found user for email {}: {}", email, user.getDisplayName());
+                            logger.debug("✅ Found user for email {}: {}", email, user.getDisplayName());
                             return convertToUserDTO(user);
                         } else {
-                            logger.info("❌ User not found for email: {}", email);
+                            logger.debug("❌ User not found for email: {}", email);
                             UserDTO userDTO = new UserDTO();
                             userDTO.setMail(email);
                             userDTO.setDisplayName(email); // показываем email как имя

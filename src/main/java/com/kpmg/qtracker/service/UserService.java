@@ -66,6 +66,25 @@ public class UserService {
         return names;
     }
 
+    /** The users of these addresses by lower-case e-mail, in one query (no look-up per person). */
+    public Map<String, User> usersByEmail(Collection<String> emails) {
+        List<String> wanted = emails == null ? List.of() : emails.stream()
+                .filter(email -> email != null && !email.isBlank())
+                .map(email -> email.trim().toLowerCase(Locale.ROOT))
+                .distinct()
+                .toList();
+        Map<String, User> users = new HashMap<>();
+        if (wanted.isEmpty()) {
+            return users;
+        }
+        for (User user : userRepository.findByMailLowerIn(wanted)) {
+            if (user.getMail() != null) {
+                users.putIfAbsent(user.getMail().trim().toLowerCase(Locale.ROOT), user);
+            }
+        }
+        return users;
+    }
+
     public Optional<User> getUserById(Long id) {
         return userRepository.findById(id);
     }
