@@ -52,12 +52,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * every request comes from its own address, so RateLimitingFilter (per address) never counts across tests.
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:release-scenario-it;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
-        "spring.datasource.driver-class-name=org.h2.Driver",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.flyway.enabled=false",
+        // H2 by default; -Drelease.db.url=jdbc:postgresql://... (with .driver, .user, .password, .ddl=validate,
+        // .flyway=true) runs the same scenarios on a PostgreSQL database built by the Flyway migrations
+        "spring.datasource.url=${release.db.url:jdbc:h2:mem:release-scenario-it;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}",
+        "spring.datasource.driver-class-name=${release.db.driver:org.h2.Driver}",
+        "spring.datasource.username=${release.db.user:sa}",
+        "spring.datasource.password=${release.db.password:}",
+        "spring.jpa.hibernate.ddl-auto=${release.db.ddl:create-drop}",
+        "spring.flyway.enabled=${release.db.flyway:false}",
         "reminders.enabled=false",
         "controls.auto-create.enabled=false",
         "notifications.email.enabled=false",

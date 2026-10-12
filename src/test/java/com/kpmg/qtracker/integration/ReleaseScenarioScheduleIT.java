@@ -174,8 +174,8 @@ class ReleaseScenarioScheduleIT extends ReleaseScenarioSupport {
     @Test
     void deletedAndSupersededControls_whatTheDailyRunDoesWithThem() throws Exception {
         LocalDate day = uniqueDay();
-        Control deleted = cycleSource("Monthly", day, "Deleted", "COMPLETED");
-        Control superseded = cycleSource("Monthly", day, "Superseded", "COMPLETED");
+        Control deleted = cycleSource("Monthly", day, "DELETED", "COMPLETED");
+        Control superseded = cycleSource("Monthly", day, "SUPERSEDED", "COMPLETED");
         autoCreation.runDailyAutoCreation(day);
         // Observed and written to the report (question Q-04): the run looks only at the next date
         int fromDeleted = createdFrom(deleted, day).size();
