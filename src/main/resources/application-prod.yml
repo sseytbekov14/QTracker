@@ -14,6 +14,13 @@ spring:
 app:
   base-url: ${APP_BASE_URL}
 
+# Sign-in with Microsoft Entra ID; AUTH_PASSWORD_ENABLED=true with AUTH_SSO_ENABLED=false is the way back
+auth:
+  sso:
+    enabled: ${AUTH_SSO_ENABLED:true}
+  password:
+    enabled: ${AUTH_PASSWORD_ENABLED:false}
+
 file:
   upload:
     dir: ${FILE_UPLOAD_DIR}

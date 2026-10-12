@@ -1,5 +1,12 @@
 server:
   port: ${SERVER_PORT:8080}
+  # Whether to trust X-Forwarded-* (scheme, host, client address) from an HTTP proxy in front of the app. Today
+  # there is none: a TCP port forward (netsh portproxy 443 -> 8081) and TLS ends in the app itself (server.ssl),
+  # so the request already carries the real scheme and host and the headers are not sent - and must not be
+  # trusted, anyone could send them. Set SERVER_FORWARD_HEADERS_STRATEGY=native (or framework) only when an
+  # HTTP reverse proxy (IIS ARR, nginx, a load balancer) that ends TLS and sets these headers is put in front
+  # (migration/analysis/8_sso_setup.md).
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
   tomcat:
     # Let Tomcat read an oversized upload so the client gets a JSON error instead of a connection reset
     max-swallow-size: 100MB
@@ -9,9 +16,8 @@ logging:
     root: INFO
     com.kpmg.qtracker: INFO
 
+# No default profile: the start is refused without SPRING_PROFILES_ACTIVE=dev, stage or prod (StartupGuard)
 spring:
-  profiles:
-    active: dev
   flyway:
     baseline-on-migrate: true
     baseline-version: 0
@@ -42,6 +48,15 @@ app:
   base-url: ${APP_BASE_URL:}
 
 auth:
+  # How people sign in (AuthMode): exactly one of SSO (Microsoft Entra ID, SAML) and the password form.
+  # The profiles give their own defaults (prod: SSO; dev and stage: the password); the variables override them.
+  sso:
+    enabled: ${AUTH_SSO_ENABLED:false}
+  password:
+    enabled: ${AUTH_PASSWORD_ENABLED:true}
+  logout:
+    # The Logout link and /logout; empty: off with SSO, on with the password
+    enabled: ${AUTH_LOGOUT_ENABLED:}
   # The domain of the addresses the user import gives people: <username>@<domain>
   username-domain: ${AUTH_USERNAME_DOMAIN:qtracker.local}
   username-login:

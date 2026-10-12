@@ -30,12 +30,11 @@ class ReleaseScenarioProfilesTest {
     /**
      * What stage and prod run with when no environment variable is set: no seed people, no username login, no
      * e-mail, no Swagger, no SQL in the log, no fallback database or attachments folder (they must be given).
-     * dev keeps its conveniences. The profile itself defaults to dev (application.yml): the deployment must set
-     * SPRING_PROFILES_ACTIVE (5_prod_checklist.md).
+     * dev keeps its conveniences. There is no default profile (StartupGuard refuses to start without one).
      */
     @Test
     void stageAndProd_turnOffTheDevConveniences_andNeedTheirSettingsGiven() {
-        assertThat(value("spring.profiles.active")).isEqualTo("dev");
+        assertThat(value("spring.profiles.active")).isNull();
         for (String profile : new String[]{"stage", "prod"}) {
             assertThat(value("dev.seed-users", profile)).as(profile).isEqualTo("false");
             assertThat(value("auth.username-login.enabled", profile)).as(profile).isEqualTo("false");
@@ -53,6 +52,23 @@ class ReleaseScenarioProfilesTest {
         assertThat(value("controls.auto-create.enabled")).isEqualTo("true");
         assertThat(value("spring.servlet.multipart.max-file-size")).isEqualTo("10MB");
         assertThat(value("spring.servlet.multipart.max-request-size")).isEqualTo("100MB");
+    }
+
+    /**
+     * Sign-in: prod with Microsoft Entra ID only, dev and stage with the password until their variables say
+     * otherwise; Logout follows the mode unless set. X-Forwarded-* is not trusted unless a proxy is configured.
+     */
+    @Test
+    void signIn_prodUsesSso_devAndStageThePassword_forwardedHeadersAreNotTrusted() {
+        assertThat(value("auth.sso.enabled", "prod")).isEqualTo("true");
+        assertThat(value("auth.password.enabled", "prod")).isEqualTo("false");
+        for (String profile : new String[]{"dev", "stage"}) {
+            assertThat(value("auth.sso.enabled", profile)).as(profile).isEqualTo("false");
+            assertThat(value("auth.password.enabled", profile)).as(profile).isEqualTo("true");
+        }
+        assertThat(value("auth.logout.enabled", "prod")).isEmpty();
+        assertThat(value("server.forward-headers-strategy")).isEqualTo("none");
+        assertThat(value("server.forward-headers-strategy", "prod")).isEqualTo("none");
     }
 
     /** The property as the profile resolves it with no environment variables (placeholders at their default). */

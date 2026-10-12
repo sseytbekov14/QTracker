@@ -97,8 +97,10 @@ Top-level structure:
 3. Run:
 
 ```powershell
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"
 ```
+
+There is no default profile: without `SPRING_PROFILES_ACTIVE` (or `--spring.profiles.active`) set to `dev`, `stage` or `prod` the application refuses to start (`StartupGuard`).
 
 ### Option B: Docker Compose run
 Run database + app containers together:
@@ -113,7 +115,9 @@ Default host app port is from `APP_PORT` in `.env` (fallback `8081`).
 Repository-defined variables from `application*.yml`, `.env`, `.env.example`, `.env.local`:
 
 ### Core application
-- `SPRING_PROFILES_ACTIVE`
+- `SPRING_PROFILES_ACTIVE` (required: `dev`, `stage` or `prod`)
+- `SERVER_FORWARD_HEADERS_STRATEGY` (default `none`; `native` only behind an HTTP proxy that sets `X-Forwarded-*`)
+- `AUTH_SSO_ENABLED`, `AUTH_PASSWORD_ENABLED` (exactly one is true; prod defaults to SSO, dev and stage to the password), `AUTH_LOGOUT_ENABLED` (default: off with SSO, on with the password)
 - `SERVER_PORT`
 - `APP_PORT`
 - `APP_BASE_URL`
@@ -155,6 +159,8 @@ Note:
 - `.env.local` is a local host-run reference (not automatically consumed by Spring unless exported into environment).
 
 ## Spring Profiles
+
+Exactly one of `dev`, `stage` and `prod` must be given (the tests use `test`); none is the default.
 
 - `dev`
   - Uses dev datasource defaults if env vars are not provided.
