@@ -119,6 +119,7 @@ Repository-defined variables from `application*.yml`, `.env`, `.env.example`, `.
 - `SERVER_FORWARD_HEADERS_STRATEGY` (default `none`; `native` only behind an HTTP proxy that sets `X-Forwarded-*`)
 - `AUTH_SSO_ENABLED`, `AUTH_PASSWORD_ENABLED` (exactly one is true; prod defaults to SSO, dev and stage to the password), `AUTH_LOGOUT_ENABLED` (default: off with SSO, on with the password)
 - `SAML_ENTITY_ID`, `SAML_ACS_URL`, `SAML_METADATA_URI` (required with SSO, no defaults)
+- `AUTH_SSO_DEBUG_ENDPOINT` (default `false`): `GET /me` shows the signed-in person the SAML claims of their own sign-in; a WARN at start when on in prod
 - `SERVER_SERVLET_SESSION_COOKIE_SAME_SITE`, `SERVER_SERVLET_SESSION_COOKIE_SECURE` (with SSO default to `none` and `true`, HttpOnly too: Microsoft's POST to the Assertion Consumer Service is cross-site; HTTPS only)
 - `RATE_LIMIT_WINDOW_SECONDS` (60), `RATE_LIMIT_LOGIN` (20), `RATE_LIMIT_API_WRITE` (120), `RATE_LIMIT_USER_LIST` (120), `RATE_LIMIT_HEAVY` (20): requests per window before 429; sign-ins count per name and address together, the rest per signed-in user (behind the port forward every client has the same address); Microsoft's answers to `/login/saml2/**` are not counted
 - `SERVER_PORT`

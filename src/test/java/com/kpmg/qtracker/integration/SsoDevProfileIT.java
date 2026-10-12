@@ -27,13 +27,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * dev (and stage, the same chain) with SSO switched on by the variables, as on stage before prod: no password
  * form, no username login, pages go to Microsoft. Logout is switched on here (AUTH_LOGOUT_ENABLED=true): it ends
- * the QTracker session only and says so.
+ * the QTracker session only and says so. The debug endpoint /me is on too (AUTH_SSO_DEBUG_ENDPOINT=true).
  */
 @SpringBootTest(properties = {
         "auth.sso.enabled=true",
         "auth.password.enabled=false",
         "auth.username-login.enabled=true",
         "auth.logout.enabled=true",
+        "auth.sso.debug-endpoint=true",
         "app.base-url=" + SsoTestSupport.SITE,
         "auth.sso.entity-id=" + SsoTestSupport.ENTITY_ID,
         "auth.sso.acs-url=" + SsoTestSupport.ACS_URL,
@@ -70,20 +71,8 @@ class SsoDevProfileIT {
 
     @Test
     void logoutSwitchedOn_endsTheQTrackerSession_andSaysTheMicrosoftOneStays() throws Exception {
-        User user = new User();
-        user.setMail("dev-logout-" + UUID.randomUUID().toString().substring(0, 8) + "@corp.example.test");
-        user.setDisplayName("Dev Logout");
-        user.setAccessLevel(AccessLevel.PARTICIPANT);
-        user.setAccessScope(AccessScope.OWN);
-        user.setEnabled(true);
-        userRepository.save(user);
-
-        MockHttpSession session = new MockHttpSession();
-        mockMvc.perform(get(SsoTestSupport.SIGN_ON_PATH).session(session));
-        MvcResult acs = mockMvc.perform(post(SsoTestSupport.ACS_PATH).session(session).param("SAMLResponse",
-                SamlResponses.signed(SamlResponses.Person.of(user.getMail(), UUID.randomUUID().toString()),
-                        SsoTestSupport.authnRequestId(session)))).andReturn();
-        MockHttpSession signedIn = (MockHttpSession) acs.getRequest().getSession(false);
+        User user = person("dev-logout");
+        MockHttpSession signedIn = signIn(user, UUID.randomUUID().toString());
         assertThat(signedIn.getAttribute("currentUser")).isNotNull();
         assertThat(mockMvc.perform(get("/").session(signedIn)).andReturn().getResponse().getContentAsString())
                 .contains("href=\"/logout\"");
@@ -94,5 +83,44 @@ class SsoDevProfileIT {
         assertThat(page).contains("Your Microsoft account stays signed in");
         mockMvc.perform(get("/controls").session(signedIn))
                 .andExpect(redirectedUrlPattern("**" + SsoTestSupport.SIGN_ON_PATH));
+    }
+
+    /** /me shows each person what Microsoft sent about them at their own sign-in, and nothing about others. */
+    @Test
+    void theDebugEndpoint_showsOnlyTheCallersOwnClaims() throws Exception {
+        User anna = person("dev-me-anna");
+        User boris = person("dev-me-boris");
+        String annaObjectId = UUID.randomUUID().toString();
+        String borisObjectId = UUID.randomUUID().toString();
+        MockHttpSession annaSession = signIn(anna, annaObjectId);
+        MockHttpSession borisSession = signIn(boris, borisObjectId);
+
+        String annaClaims = mockMvc.perform(get("/me").session(annaSession))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(annaClaims).contains("\"nameId\":\"" + anna.getMail() + "\"").contains(annaObjectId)
+                .doesNotContain(boris.getMail()).doesNotContain(borisObjectId);
+        assertThat(mockMvc.perform(get("/me").session(borisSession)).andReturn().getResponse().getContentAsString())
+                .contains(borisObjectId).doesNotContain(annaObjectId);
+        // Without a sign-in: to Microsoft, like every page
+        mockMvc.perform(get("/me")).andExpect(redirectedUrlPattern("**" + SsoTestSupport.SIGN_ON_PATH));
+    }
+
+    private User person(String name) {
+        User user = new User();
+        user.setMail(name + "-" + UUID.randomUUID().toString().substring(0, 8) + "@corp.example.test");
+        user.setDisplayName("Dev " + name);
+        user.setAccessLevel(AccessLevel.PARTICIPANT);
+        user.setAccessScope(AccessScope.OWN);
+        user.setEnabled(true);
+        return userRepository.save(user);
+    }
+
+    private MockHttpSession signIn(User user, String objectId) throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        mockMvc.perform(get(SsoTestSupport.SIGN_ON_PATH).session(session));
+        MvcResult acs = mockMvc.perform(post(SsoTestSupport.ACS_PATH).session(session).param("SAMLResponse",
+                SamlResponses.signed(SamlResponses.Person.of(user.getMail(), objectId),
+                        SsoTestSupport.authnRequestId(session)))).andReturn();
+        return (MockHttpSession) acs.getRequest().getSession(false);
     }
 }

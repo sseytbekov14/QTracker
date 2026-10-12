@@ -179,6 +179,15 @@ class SsoChainIT extends SsoTestSupport {
         mockMvc.perform(post("/notifications/mark-all-read").session(session)).andExpect(status().isForbidden());
     }
 
+    /** The debug endpoint is off unless AUTH_SSO_DEBUG_ENDPOINT=true. */
+    @Test
+    void theDebugEndpoint_isOffByDefault() throws Exception {
+        assertThat(context.containsBean("ssoDebugController")).isFalse();
+        User user = person("me", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        MockHttpSession session = signIn("/", SamlResponses.Person.of(user.getMail(), newObjectId())).session();
+        mockMvc.perform(get("/me").session(session)).andExpect(status().isNotFound());
+    }
+
     @Test
     void theRefusalPage_hasNoDetails_andNoWayBack() throws Exception {
         String page = mockMvc.perform(get("/access-not-granted"))

@@ -61,6 +61,9 @@ auth:
     entity-id: ${SAML_ENTITY_ID:}
     acs-url: ${SAML_ACS_URL:}
     metadata-uri: ${SAML_METADATA_URI:}
+    # GET /me: the signed-in person's own SAML claims, for checking the Entra claims on stage; off by default,
+    # a WARN at start when on in prod
+    debug-endpoint: ${AUTH_SSO_DEBUG_ENDPOINT:false}
   password:
     enabled: ${AUTH_PASSWORD_ENABLED:true}
   logout:

@@ -5,10 +5,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
@@ -46,13 +46,16 @@ public class SsoSignIn {
     private final UserRepository userRepository;
     private final SsoAdmission admission;
     private final UserPrincipalService principals;
+    private final boolean keepClaims;
     private final Converter<OpenSaml4AuthenticationProvider.ResponseToken, Saml2Authentication> saml =
             OpenSaml4AuthenticationProvider.createDefaultResponseAuthenticationConverter();
 
-    public SsoSignIn(UserRepository userRepository, SsoAdmission admission, UserPrincipalService principals) {
+    public SsoSignIn(UserRepository userRepository, SsoAdmission admission, UserPrincipalService principals,
+                     @Value("${auth.sso.debug-endpoint:false}") boolean keepClaims) {
         this.userRepository = userRepository;
         this.admission = admission;
         this.principals = principals;
+        this.keepClaims = keepClaims;
     }
 
     /** The SAML provider: Spring's checks of the answer, then QTracker's admission. */
@@ -81,7 +84,8 @@ public class SsoSignIn {
                 .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
                 .<GrantedAuthority>map(SimpleGrantedAuthority::new)
                 .toList();
-        return UsernamePasswordAuthenticationToken.authenticated(principal, null, authorities);
+        // The claims only for the person's own GET /me (SsoDebugController), kept with their sign-in
+        return new SsoAuthenticationToken(principal, authorities, keepClaims ? SsoClaims.of(person) : null);
     }
 
     /** The session user as after the form, then the page that was asked for (or the Dashboard). */
