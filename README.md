@@ -118,6 +118,7 @@ Repository-defined variables from `application*.yml`, `.env`, `.env.example`, `.
 - `SPRING_PROFILES_ACTIVE` (required: `dev`, `stage` or `prod`)
 - `SERVER_FORWARD_HEADERS_STRATEGY` (default `none`; `native` only behind an HTTP proxy that sets `X-Forwarded-*`)
 - `AUTH_SSO_ENABLED`, `AUTH_PASSWORD_ENABLED` (exactly one is true; prod defaults to SSO, dev and stage to the password), `AUTH_LOGOUT_ENABLED` (default: off with SSO, on with the password)
+- `SAML_ENTITY_ID`, `SAML_ACS_URL`, `SAML_METADATA_URI` (required with SSO, no defaults)
 - `SERVER_PORT`
 - `APP_PORT`
 - `APP_BASE_URL`
@@ -171,9 +172,7 @@ Exactly one of `dev`, `stage` and `prod` must be given (the tests use `test`); n
 - `prod`
   - Externalized datasource and file/upload settings.
   - JPA `ddl-auto=validate`, SQL logging disabled.
-- `ssodev`
-  - Enables OAuth2 login in `SecurityConfig`.
-  - Intended for SSO-based authentication path.
+  - Its own security chain; sign-in with Microsoft Entra ID (SAML 2.0) by default.
 
 ## Database and Migrations
 Flyway migration scripts:
@@ -210,9 +209,10 @@ Schedulers under `src/main/java/com/kpmg/qtracker/scheduler`:
 All scheduler cron definitions are in code with `Asia/Almaty` timezone.
 
 ## Security Overview
-Authentication:
-- `dev` profile: form login (`/login`) with `DevAuthenticationProvider`
-- `ssodev` profile: OAuth2 login (`oauth2Login`)
+Authentication (`AuthMode`, exactly one of the two):
+- SSO (`AUTH_SSO_ENABLED=true`, the prod default): SAML 2.0 with Microsoft Entra ID, registration `entra` (`SamlConfig`, `SsoSignIn`). Settings `SAML_ENTITY_ID`, `SAML_ACS_URL` (`https://<site>/login/saml2/sso/entra`), `SAML_METADATA_URI`; the Entra Sign on URL is `APP_BASE_URL/saml2/authenticate/entra`, the service provider metadata is at `/saml2/metadata/entra`. No password form then.
+- Password form (`AUTH_PASSWORD_ENABLED=true`, the dev and stage default): `/login` with `DevAuthenticationProvider`.
+- Without a session `/api/**` answers 401 JSON (`SESSION_EXPIRED`), pages go to the sign-in. Sessions end after 15 minutes without a request.
 
 Authorization:
 - Endpoint protection configured in `SecurityConfig`

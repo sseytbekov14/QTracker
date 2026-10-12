@@ -7,6 +7,10 @@ server:
   # HTTP reverse proxy (IIS ARR, nginx, a load balancer) that ends TLS and sets these headers is put in front
   # (migration/analysis/8_sso_setup.md).
   forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
+  servlet:
+    session:
+      # Signed out after 15 minutes without a request (every request starts the 15 minutes again)
+      timeout: 15m
   tomcat:
     # Let Tomcat read an oversized upload so the client gets a JSON error instead of a connection reset
     max-swallow-size: 100MB
@@ -52,6 +56,11 @@ auth:
   # The profiles give their own defaults (prod: SSO; dev and stage: the password); the variables override them.
   sso:
     enabled: ${AUTH_SSO_ENABLED:false}
+    # SAML 2.0 with Microsoft Entra ID (SamlConfig), read only with SSO on, no defaults: the Identifier of the
+    # Entra application, its Reply URL (https://<site>/login/saml2/sso/entra) and its App Federation Metadata Url
+    entity-id: ${SAML_ENTITY_ID:}
+    acs-url: ${SAML_ACS_URL:}
+    metadata-uri: ${SAML_METADATA_URI:}
   password:
     enabled: ${AUTH_PASSWORD_ENABLED:true}
   logout:

@@ -13,6 +13,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.security.CsrfAccessDeniedHandler;
+import com.kpmg.qtracker.security.SignInEntryPoint;
 import org.springframework.http.HttpMethod;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockMultipartFile;
@@ -80,11 +81,20 @@ class SecurityConfigIntegrationTest {
     @Qualifier("requestMappingHandlerMapping")
     private RequestMappingHandlerMapping handlerMapping;
 
+    /** A script's request without a session: 401 with a JSON message, not the sign-in page (SignInEntryPoint). */
     @Test
-        void apiRequestWithoutAuthenticationRedirectsToLogin() throws Exception {
+    void apiRequestWithoutAuthentication_is401WithAJsonMessage() throws Exception {
         mockMvc.perform(get("/api/users"))
-                                .andExpect(status().is3xxRedirection())
-                                .andExpect(redirectedUrlPattern("**/login"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(SignInEntryPoint.CODE))
+                .andExpect(jsonPath("$.message").value("Session expired, reload the page"));
+    }
+
+    @Test
+    void pageRequestWithoutAuthenticationRedirectsToLogin() throws Exception {
+        mockMvc.perform(get("/controls"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("**/login"));
     }
 
     @Test
@@ -189,8 +199,8 @@ class SecurityConfigIntegrationTest {
 
         // With the header the request gets past CSRF and only then meets the login check
         mockMvc.perform(multipart("/api/attachments/upload/1").file(file).with(csrf().asHeader()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/login"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(SignInEntryPoint.CODE));
     }
 
     @Test
@@ -233,8 +243,7 @@ class SecurityConfigIntegrationTest {
     @Test
         void correlationIdHeaderIsReturnedForUnauthenticatedApiResponses() throws Exception {
         mockMvc.perform(get("/api/users"))
-                                .andExpect(status().is3xxRedirection())
-                                .andExpect(redirectedUrlPattern("**/login"))
+                .andExpect(status().isUnauthorized())
                 .andExpect(header().exists("X-Correlation-Id"));
     }
 

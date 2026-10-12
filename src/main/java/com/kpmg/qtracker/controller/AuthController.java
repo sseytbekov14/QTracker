@@ -1,6 +1,8 @@
 package com.kpmg.qtracker.controller;
 
+import com.kpmg.qtracker.security.AuthMode;
 import com.kpmg.qtracker.security.LoginNameResolver;
+import com.kpmg.qtracker.security.SsoSignIn;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -27,9 +29,14 @@ public class AuthController {
     private static final String MSG_LOCKED = "Too many failed login attempts. Try again later.";
 
     private final LoginNameResolver loginNames;
+    private final AuthMode authMode;
 
+    /** The password form; with SSO there is none and the address leads to the Microsoft sign-in instead. */
     @GetMapping("/login")
     public String loginPage(HttpSession session, Model model, @RequestParam(required = false) String error) {
+        if (!authMode.password()) {
+            return "redirect:/";
+        }
         model.addAttribute("usernameLogin", loginNames.usernameLogin());
         if (error != null) {
             AuthenticationException exception = (AuthenticationException) session.getAttribute("SPRING_SECURITY_LAST_EXCEPTION");
@@ -54,6 +61,31 @@ public class AuthController {
             return MSG_BAD_CREDENTIALS;
         }
         return MSG_BAD_CREDENTIALS;
+    }
+
+    /**
+     * Microsoft signed the person in but QTracker has no active account for them: no details (which account,
+     * why) on the page, they are in the log and the audit trail. No way back to the Dashboard: it would only
+     * come back here.
+     */
+    @GetMapping(SsoSignIn.ACCESS_NOT_GRANTED_PATH)
+    public String accessNotGranted(Model model, HttpServletResponse response) {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        model.addAttribute("title", "Access is not granted");
+        model.addAttribute("text", "Access is not granted, contact SoQM Team.");
+        model.addAttribute("retry", false);
+        return "sign-in-problem";
+    }
+
+    /** The answer of Microsoft could not be used (expired, from another tab, ...): trying again usually helps. */
+    @GetMapping(SsoSignIn.SIGN_IN_FAILED_PATH)
+    public String signInFailed(Model model, HttpServletResponse response) {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        model.addAttribute("title", "Sign-in did not complete");
+        model.addAttribute("text", "The sign-in with Microsoft did not complete. Try again; if it happens again,"
+                + " contact SoQM Team.");
+        model.addAttribute("retry", true);
+        return "sign-in-problem";
     }
 
     /**

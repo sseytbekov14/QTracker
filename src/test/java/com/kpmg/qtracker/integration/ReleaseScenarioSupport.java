@@ -16,6 +16,7 @@ import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.NotificationRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
+import com.kpmg.qtracker.security.SignInEntryPoint;
 import com.kpmg.qtracker.service.DeadlineOverdue;
 import com.kpmg.qtracker.service.FileStorageService;
 import com.kpmg.qtracker.service.SoqmYear;
@@ -196,13 +197,19 @@ abstract class ReleaseScenarioSupport {
         return result.getResponse().getContentAsString(StandardCharsets.UTF_8);
     }
 
-    /** "login" when the answer sends the browser to the sign-in page, else the status code. */
+    /**
+     * "login" when the answer sends the browser to the sign-in page - or, for an /api/** call, answers 401
+     * SESSION_EXPIRED (SignInEntryPoint: the page says "Session expired, reload the page" and the reload signs in) -
+     * else the status code.
+     */
     static String outcome(MvcResult result) {
         int status = result.getResponse().getStatus();
         String location = result.getResponse().getRedirectedUrl();
         String forwarded = result.getResponse().getForwardedUrl();
         if ((status == 302 && location != null && location.contains("/login"))
-                || (forwarded != null && forwarded.startsWith("/login"))) {
+                || (forwarded != null && forwarded.startsWith("/login"))
+                || (status == 401 && new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8)
+                        .contains("\"code\":\"" + SignInEntryPoint.CODE + "\""))) {
             return "login";
         }
         return String.valueOf(status);

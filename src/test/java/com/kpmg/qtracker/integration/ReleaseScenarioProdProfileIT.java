@@ -23,10 +23,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 /**
- * Release test pass, stage I: the prod profile as it is today. It has no security chain of its own (sign-in is to
- * come from Microsoft Entra ID, not built yet), so Spring Boot's default applies: everything needs a sign-in and
- * Swagger is off - but a person of the database cannot get into the application either (5_release_test_report.md,
- * D-09). The only settings given here are the ones prod requires from the environment.
+ * Release test pass, stage I: the prod profile. Since feature/sso-saml it has its own chain with sign-in by
+ * Microsoft Entra ID (SsoChainIT, SsoSignInIT): everything needs a sign-in, Swagger is off and the password form
+ * no longer signs anyone in (5_release_test_report.md, D-09). The only settings given here are the ones prod
+ * requires from the environment, the SAML ones pointing at the test identity provider.
  */
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:release-prod-it;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
@@ -38,7 +38,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "file.upload.dir=target/it-uploads-prod",
         "app.base-url=https://qtracker.example.test",
         "reminders.enabled=false",
-        "controls.auto-create.enabled=false"
+        "controls.auto-create.enabled=false",
+        "auth.sso.entity-id=https://qtracker.example.test/saml/qtracker",
+        "auth.sso.acs-url=https://qtracker.example.test/login/saml2/sso/entra",
+        "auth.sso.metadata-uri=classpath:saml/test-idp-metadata.xml"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles("prod")
@@ -76,7 +79,8 @@ class ReleaseScenarioProdProfileIT {
         MvcResult signIn = mockMvc.perform(post("/login").with(csrf())
                 .param("username", user.getMail()).param("password", "Release#2026")).andReturn();
         MockHttpSession session = (MockHttpSession) signIn.getRequest().getSession(false);
-        MvcResult home = mockMvc.perform(get("/").session(session)).andReturn();
+        // With SSO nothing processes the form, so there may be no session at all
+        MvcResult home = mockMvc.perform(session == null ? get("/") : get("/").session(session)).andReturn();
         // Recorded: wherever the form sends the person, the dashboard does not open for them
         boolean dashboard = home.getResponse().getStatus() == 200 && home.getModelAndView() != null
                 && "dashboard".equals(home.getModelAndView().getViewName());

@@ -29,6 +29,16 @@
 	<properties>
 		<java.version>21</java.version>
 	</properties>
+	<repositories>
+		<!-- OpenSAML (spring-security-saml2-service-provider) is published only here, not on Maven Central -->
+		<repository>
+			<id>shibboleth-releases</id>
+			<url>https://build.shibboleth.net/maven/releases/</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
 	<dependencies>
 
 		<dependency>
@@ -72,6 +82,11 @@
 		<dependency>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<!-- Sign-in with Microsoft Entra ID (SAML 2.0); OpenSAML comes from the Shibboleth repository below -->
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-saml2-service-provider</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.flywaydb</groupId>

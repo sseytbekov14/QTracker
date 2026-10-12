@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  A made-up identity provider for the tests only (SamlTestSupport signs its answers with test-idp.key).
+  It stands where the federation metadata of the Microsoft Entra application is in a deployment (SAML_METADATA_URI).
+-->
+<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                     xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
+                     entityID="https://idp.qtracker.test/tests-only">
+    <md:IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+        <md:KeyDescriptor use="signing">
+            <ds:KeyInfo>
+                <ds:X509Data>
+                    <ds:X509Certificate>MIIDNTCCAh2gAwIBAgIUYGyvZlyeZqvscGnXgw/+UbMk2xswDQYJKoZIhvcNAQELBQAwKTEnMCUGA1UEAwweUVRyYWNrZXIgVGVzdCBJZFAgKHRlc3RzIG9ubHkpMCAXDTI2MTAxMjEwNDc1NVoYDzIxMjYwOTE4MTA0NzU1WjApMScwJQYDVQQDDB5RVHJhY2tlciBUZXN0IElkUCAodGVzdHMgb25seSkwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC4RF99nyqfvOtvUUEIrKHL2wOT3SP13q37BKDrXFgyaJphNDKKCHfCcg7z2DZU77bkQuQL/N3MFQpf1urR4UV3NWfjFucESQB4qeXh/uBQPLFpw1pgujK/Qrf//ePRV1HtSLikGrncWgVBZa1YsuHOqBsqeFuklMWbZywrL5yL4hp+Y2GnnewrPeotnz5TfRwZM5CkYLO+b/hnTOcA3zXVnR5ryp5cVyQUFFHTiDo7qLYEu3jud9rD4yccCMtNzAbw2tscH0fmexWhBcloXynY8tZaYvpJU8toNDXOqmWdwjrgUIsd3ZSesB25bdtMfd3fXTl4ph349sLfwicMtr6hAgMBAAGjUzBRMB0GA1UdDgQWBBT0N71shUexElsIEL8NoEP94dI6ITAfBgNVHSMEGDAWgBT0N71shUexElsIEL8NoEP94dI6ITAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQBoo2fxMb6eLt7pyFzqPfsapCm/HGp6mwQvcsdZ/Mff2ffVAybi2Oy45Vv6J1+r6Ladcw06xvaneJXu76NaDTB3vQDNG4oLA+bCn8K7xyZ3Mvj1BgrU+c8F9WIUxBoHzxR5M13iUgl63LGi6uL1/OniCQ87QxUfkl9lMpcsTVkiL33oHqLoz81MdsbrOnJkcMdeSdJ2zu+r+r6ZkC8pX5yH6A5GLeK/WXYkitRZsF6eyLHi3TDw7LCtI0vELp9F8+AQQU1VnlZaANtYtD6T5VMhmE0wlmDsHYWzHnPZij/jL360HDr2EbP1nDErNiuXvTJGP9V0tT8Wg/7MJz9v4LQi</ds:X509Certificate>
+                </ds:X509Data>
+            </ds:KeyInfo>
+        </md:KeyDescriptor>
+        <md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat>
+        <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+                                Location="https://idp.qtracker.test/tests-only/saml2"/>
+    </md:IDPSSODescriptor>
+</md:EntityDescriptor>
