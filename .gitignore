@@ -62,3 +62,7 @@ qtracker-backup-*.sql/
 ### Data migration input (personal data, never commit) ###
 /migration/
 *.csv
+
+/users.sql
+/qtracker-app.tar*
+/qtracker-deploy/
