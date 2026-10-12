@@ -1,6 +1,7 @@
 package com.kpmg.qtracker.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kpmg.qtracker.controller.AuthController;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.security.AuthMode;
 import com.kpmg.qtracker.security.CsrfAccessDeniedHandler;
@@ -111,7 +112,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/login").permitAll()
-                        .requestMatchers(SsoSignIn.ACCESS_NOT_GRANTED_PATH, SsoSignIn.SIGN_IN_FAILED_PATH).permitAll()
+                        .requestMatchers(SsoSignIn.ACCESS_NOT_GRANTED_PATH, SsoSignIn.SIGN_IN_FAILED_PATH,
+                                AuthController.SIGNED_OUT_PATH).permitAll()
                         .requestMatchers("/images/**", "/css/**", "/js/**", "/webjars/**", "/favicon.ico", "/favicon.svg").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/**").authenticated()
@@ -135,6 +137,14 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionFixation(fixation -> fixation.migrateSession()))
                 .requestCache(cache -> cache.requestCache(requestCache))
+                // Spring's POST /logout as GET /logout (AuthController): only with auth.logout.enabled
+                .logout(logout -> {
+                    if (authMode.logout()) {
+                        logout.logoutSuccessUrl(authMode.sso() ? AuthController.SIGNED_OUT_PATH : "/login?logout");
+                    } else {
+                        logout.disable();
+                    }
+                })
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(new SignInEntryPoint(
                                 authMode.sso() ? SamlConfig.SIGN_ON_PATH : "/login", objectMapper)));

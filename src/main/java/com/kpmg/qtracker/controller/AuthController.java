@@ -15,10 +15,12 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.logout.CookieClearingLogoutHandler;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.server.ResponseStatusException;
 
 @Controller
 @RequiredArgsConstructor
@@ -27,6 +29,8 @@ public class AuthController {
     private static final String MSG_BAD_CREDENTIALS = "Invalid username or password";
     private static final String MSG_DISABLED = "Your account is disabled. Please contact the system administrator.";
     private static final String MSG_LOCKED = "Too many failed login attempts. Try again later.";
+
+    public static final String SIGNED_OUT_PATH = "/signed-out";
 
     private final LoginNameResolver loginNames;
     private final AuthMode authMode;
@@ -91,12 +95,29 @@ public class AuthController {
     /**
      * The Logout link of the sidebar: ends the server session (and with it the Spring Security sign-in) and
      * forgets the CSRF token, like the POST /logout of Spring Security; an old session cookie then opens nothing.
+     * Only with auth.logout.enabled (by default not with SSO): otherwise there is no such address. With SSO it
+     * ends only the QTracker session; the page after it says that the Microsoft one stays.
      */
     @GetMapping("/logout")
     public String logout(HttpServletRequest request, HttpServletResponse response) {
+        if (!authMode.logout()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         new CookieClearingLogoutHandler("XSRF-TOKEN").logout(request, response, authentication);
         new SecurityContextLogoutHandler().logout(request, response, authentication);
-        return "redirect:/login";
+        return authMode.sso() ? "redirect:" + SIGNED_OUT_PATH : "redirect:/login";
+    }
+
+    /** After Logout with SSO: QTracker is closed, the Microsoft session is not (the next visit signs in again). */
+    @GetMapping(SIGNED_OUT_PATH)
+    public String signedOut(Model model) {
+        model.addAttribute("title", "Signed out of QTracker");
+        model.addAttribute("text", "You are signed out of QTracker. Your Microsoft account stays signed in in this"
+                + " browser, so opening QTracker again signs you in without a password: close the browser to end"
+                + " the Microsoft session.");
+        model.addAttribute("retry", true);
+        model.addAttribute("action", "Open QTracker");
+        return "sign-in-problem";
     }
 }

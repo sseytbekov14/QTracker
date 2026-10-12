@@ -1,6 +1,7 @@
 package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.security.AuthMode;
 import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
@@ -22,6 +23,7 @@ public class SidebarModelAdvice {
     // ObjectProvider: @ControllerAdvice beans are loaded into every @WebMvcTest slice, where these may be absent
     private final ObjectProvider<NotificationService> notificationService;
     private final ObjectProvider<NotificationTypeDisplayMapper> notificationTypeDisplayMapper;
+    private final ObjectProvider<AuthMode> authMode;
 
     @ModelAttribute("sidebar")
     public SidebarInfo sidebar(HttpSession session) {
@@ -75,6 +77,18 @@ public class SidebarModelAdvice {
         /** The Admin Panel link. */
         public boolean isAdmin() {
             return AccessPolicy.canOpenAdminPanel(AccessPolicy.Subject.of(user));
+        }
+
+        /** The Logout link (auth.logout.enabled; a slice test without AuthMode keeps it). */
+        public boolean isLogout() {
+            AuthMode mode = authMode.getIfAvailable();
+            return mode == null || mode.logout();
+        }
+
+        /** Signed in with Microsoft: no Logout, a note that the Microsoft session stays instead. */
+        public boolean isSso() {
+            AuthMode mode = authMode.getIfAvailable();
+            return mode != null && mode.sso();
         }
 
         /** Computed lazily, only when a page actually renders the sidebar. */

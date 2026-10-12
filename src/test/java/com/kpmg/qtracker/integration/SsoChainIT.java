@@ -96,6 +96,23 @@ class SsoChainIT extends SsoTestSupport {
         assertThat(userRepository.findById(user.getId()).orElseThrow().getLastLoginAt()).isNull();
     }
 
+    /** prod with SSO: no Logout link and no /logout; the sidebar says the Microsoft session stays instead. */
+    @Test
+    void withSso_thereIsNoLogout_andTheSidebarSaysWhy() throws Exception {
+        User user = person("logout", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        MockHttpSession session = signIn("/", SamlResponses.Person.of(user.getMail(), newObjectId())).session();
+
+        String dashboard = mockMvc.perform(get("/").session(session))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(dashboard).doesNotContain("href=\"/logout\"").contains("Signed in with Microsoft")
+                .contains("the Microsoft session stays open");
+
+        mockMvc.perform(get("/logout").session(session)).andExpect(status().isNotFound());
+        int post = mockMvc.perform(post("/logout").session(session).with(csrf())).andReturn().getResponse().getStatus();
+        assertThat(post).isIn(404, 405);
+        mockMvc.perform(get("/controls").session(session)).andExpect(status().isOk());
+    }
+
     @Test
     void theRefusalPage_hasNoDetails_andNoWayBack() throws Exception {
         String page = mockMvc.perform(get("/access-not-granted"))

@@ -1572,6 +1572,19 @@
     text-decoration: none;
     transition: all 0.12s ease;
 }
+.sidebar-sso-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 0;
+    padding: 6px 2px;
+    color: #c9d1de;
+    font-size: 0.72rem;
+    line-height: 1.35;
+}
+.sidebar-sso-note .bi {
+    margin-top: 1px;
+}
 .sidebar-logout:hover {
     background: rgba(200, 16, 46, 0.2);
     border-color: #c8102e;
