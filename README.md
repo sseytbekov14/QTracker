@@ -119,6 +119,7 @@ Repository-defined variables from `application*.yml`, `.env`, `.env.example`, `.
 - `SERVER_FORWARD_HEADERS_STRATEGY` (default `none`; `native` only behind an HTTP proxy that sets `X-Forwarded-*`)
 - `AUTH_SSO_ENABLED`, `AUTH_PASSWORD_ENABLED` (exactly one is true; prod defaults to SSO, dev and stage to the password), `AUTH_LOGOUT_ENABLED` (default: off with SSO, on with the password)
 - `SAML_ENTITY_ID`, `SAML_ACS_URL`, `SAML_METADATA_URI` (required with SSO, no defaults)
+- `SERVER_SERVLET_SESSION_COOKIE_SAME_SITE`, `SERVER_SERVLET_SESSION_COOKIE_SECURE` (with SSO default to `none` and `true`, HttpOnly too: Microsoft's POST to the Assertion Consumer Service is cross-site; HTTPS only)
 - `SERVER_PORT`
 - `APP_PORT`
 - `APP_BASE_URL`

@@ -71,7 +71,8 @@ public class SecurityConfig {
     }
 
     /**
-     * The same CSRF rules for every chain, with no exceptions: the token lives in a cookie (so it outlives the
+     * The same CSRF rules for every chain, with one exception for SSO (the Assertion Consumer Service, see
+     * {@link #chain}): the token lives in a cookie (so it outlives the
      * session and an expired session still ends in the login redirect), pages send it as a header
      * (fragments/csrf.html + js/csrf.js) or as the hidden field Thymeleaf adds to th:action forms.
      */
@@ -152,6 +153,10 @@ public class SecurityConfig {
         if (authMode.sso()) {
             SsoSignIn sso = ssoSignIn.getObject();
             http
+                    // The one request without QTracker's token: Microsoft's POST of the answer to the Assertion
+                    // Consumer Service (it is signed and answers a request this session made). Nothing else.
+                    .csrf(csrf -> csrf.ignoringRequestMatchers(
+                            PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, SamlConfig.ACS_PATH)))
                     .saml2Login(saml -> saml
                             // Our own page instead of Spring's list of identity providers
                             .loginPage(SamlConfig.SIGN_ON_PATH)

@@ -1,1 +1,1 @@
-org.springframework.boot.env.EnvironmentPostProcessor=com.kpmg.qtracker.config.StartupGuard
+org.springframework.boot.env.EnvironmentPostProcessor=com.kpmg.qtracker.config.StartupGuard,com.kpmg.qtracker.config.SessionCookieDefaults
