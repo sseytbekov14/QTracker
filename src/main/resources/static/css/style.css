@@ -1572,6 +1572,43 @@
     text-decoration: none;
     transition: all 0.12s ease;
 }
+/* js/session.js: the session ended, the page and what was typed stay */
+.session-expired-banner {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: calc(100% - 32px);
+    padding: 10px 14px;
+    border: 1px solid #c8102e;
+    border-left-width: 4px;
+    border-radius: 4px;
+    background: #fff5f6;
+    color: #1f2937;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    font-size: 0.875rem;
+}
+.session-expired-banner strong {
+    display: block;
+    color: #a00d25;
+}
+.session-expired-banner button {
+    flex: none;
+    padding: 5px 12px;
+    border: 0;
+    border-radius: 3px;
+    background: #00338d;
+    color: #ffffff;
+    font-weight: 600;
+}
+.session-expired-banner button:focus-visible {
+    outline: 2px solid #7fb0ff;
+    outline-offset: 2px;
+}
 .sidebar-sso-note {
     display: flex;
     align-items: flex-start;

@@ -113,6 +113,20 @@ class SsoChainIT extends SsoTestSupport {
         mockMvc.perform(get("/controls").session(session)).andExpect(status().isOk());
     }
 
+    /** js/session.js is on the pages; its keepalive answers 204 with a session and 401 JSON without one. */
+    @Test
+    void theKeepalive_keepsASessionOpen_andAnswers401WithoutOne() throws Exception {
+        User user = person("keepalive", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        MockHttpSession session = signIn("/", SamlResponses.Person.of(user.getMail(), newObjectId())).session();
+
+        assertThat(mockMvc.perform(get("/controls").session(session)).andReturn().getResponse().getContentAsString())
+                .contains("/js/session.js?v=");
+        mockMvc.perform(get("/api/session/keepalive").session(session)).andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/session/keepalive"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("SESSION_EXPIRED"));
+    }
+
     @Test
     void theRefusalPage_hasNoDetails_andNoWayBack() throws Exception {
         String page = mockMvc.perform(get("/access-not-granted"))

@@ -212,7 +212,7 @@ All scheduler cron definitions are in code with `Asia/Almaty` timezone.
 Authentication (`AuthMode`, exactly one of the two):
 - SSO (`AUTH_SSO_ENABLED=true`, the prod default): SAML 2.0 with Microsoft Entra ID, registration `entra` (`SamlConfig`, `SsoSignIn`). Settings `SAML_ENTITY_ID`, `SAML_ACS_URL` (`https://<site>/login/saml2/sso/entra`), `SAML_METADATA_URI`; the Entra Sign on URL is `APP_BASE_URL/saml2/authenticate/entra`, the service provider metadata is at `/saml2/metadata/entra`. No password form then.
 - Password form (`AUTH_PASSWORD_ENABLED=true`, the dev and stage default): `/login` with `DevAuthenticationProvider`.
-- Without a session `/api/**` answers 401 JSON (`SESSION_EXPIRED`), pages go to the sign-in. Sessions end after 15 minutes without a request.
+- Without a session `/api/**` answers 401 JSON (`SESSION_EXPIRED`), pages go to the sign-in and come back to the page asked for. Sessions end after 15 minutes without a request; `js/session.js` shows "Session expired, reload the page" on such a 401 (nothing is reloaded or cleared) and, while someone types, calls `GET /api/session/keepalive` at most once in 5 minutes.
 - Logout (`AUTH_LOGOUT_ENABLED`, by default off with SSO): with SSO there is no Logout link and no `/logout`; the sidebar says that the Microsoft session stays open. Switched on with SSO, `/logout` ends only the QTracker session (`/signed-out` says so).
 
 Authorization:
