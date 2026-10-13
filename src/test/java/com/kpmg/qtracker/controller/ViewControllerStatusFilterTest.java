@@ -1651,7 +1651,7 @@ class ViewControllerStatusFilterTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        assertThat(html).contains("role=\"alert\"", "The controls could not be loaded.", "contact SoQM Team",
+        assertThat(html).contains("role=\"alert\"", "The controls could not be loaded.", "contact SoQM Admin Team",
                         "<h1>Performance: Human Resources (HR)</h1>")
                 .doesNotContain("id=\"ccTable\"", "stat-num", "database down");
     }

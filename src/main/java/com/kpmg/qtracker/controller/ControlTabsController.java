@@ -128,7 +128,7 @@ public class ControlTabsController {
             // Participants must not reassign roles (e.g. appoint themselves Process Owner and complete alone)
             if (!permission.canEditAll()) {
                 return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Team can change control assignment"));
+                        .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Admin Team can change control assignment"));
             }
             // A completed control changed in place keeps its schedule (AccessPolicy.COMPLETED_FIXED_FIELDS): another
             // Control Operation Date is refused, the deadline and the next date are never taken from the request
@@ -224,7 +224,7 @@ public class ControlTabsController {
             // SoQM Development Materials belong to the SoQM Team, not to the stage participants
             if (!permission.canEditAll()) {
                 return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Team can change SoQM Development Materials"));
+                        .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Admin Team can change SoQM Development Materials"));
             }
             ControlDocumentsDTO existingDocuments = controlDocumentsService.getDocumentsByControlId(documentsDTO.getControlId());
             ControlDocumentsDTO mergedDocuments = mergeControlDocuments(existingDocuments, documentsDTO);
@@ -475,7 +475,7 @@ public class ControlTabsController {
         }
         if (changes(existing != null ? existing.getControlOperatorReview() : null, incoming.getControlOperatorReview())
                 && !permission.canWriteOperatorReview()) {
-            return ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the SoQM Team";
+            return ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by SoQM Admin Team";
         }
         return null;
     }

@@ -544,10 +544,10 @@
                             : (${accessNotice == 'READ_ONLY'} ? 'You have read-only access to this control'
                             : 'You are not assigned to this control')">You have read-only access to this control</p>
                         <p class="access-banner-text" th:text="${accessNotice == 'COMPLETED'}
-                            ? 'You can view it, read its history and download its documents. Only SoQM Team can change it.'
+                            ? 'You can view it, read its history and download its documents. Only SoQM Admin Team can change it.'
                             : (${accessNotice == 'READ_ONLY'}
                             ? 'You can view it, read its history and download its documents. Editing and workflow steps are not available to you.'
-                            : 'You can view it. Only the people assigned to it edit it and perform its steps; ask SoQM Team if you should be one of them.')">Text</p>
+                            : 'You can view it. Only the people assigned to it edit it and perform its steps; ask SoQM Admin Team if you should be one of them.')">Text</p>
                     </div>
                 </div>
 
@@ -868,7 +868,7 @@
                                 <h5 class="mb-3">Assignment Details</h5>
                                 <p class="vc-soqm-only-note d-none">
                                     <i class="bi bi-lock" aria-hidden="true"></i>
-                                    Only SoQM Team can change the assignment.
+                                    Only SoQM Admin Team can change the assignment.
                                 </p>
 
                                 <div class="row">
@@ -1105,7 +1105,7 @@
                                         </select>
                                         <p class="vc-soqm-only-note d-none">
                                             <i class="bi bi-lock" aria-hidden="true"></i>
-                                            Only SoQM Team can change SoQM Development Materials.
+                                            Only SoQM Admin Team can change SoQM Development Materials.
                                         </p>
                                     </div>
                                 </div>
@@ -1606,7 +1606,7 @@
                             <div class="modal-body">
                                 <p class="soqm-move-now">
                                     Now: <strong th:text="${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">In Progress</strong>.
-                                    <span th:unless="${completedControl}">As SoQM Team you can make the step of any Control role: on to the next status or back to an earlier one.</span>
+                                    <span th:unless="${completedControl}">As SoQM Admin Team you can make the step of any Control role: on to the next status or back to an earlier one.</span>
                                 </p>
                                 <p class="soqm-move-now" th:if="${completedControl}" id="soqmMoveCompletedNote">
                                     A completed control is locked for everyone. Returning it keeps its values, its deadline
@@ -2474,7 +2474,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Download through fetch: an error comes back as JSON, which the browser would otherwise save as the file
-    const FILE_UNAVAILABLE = 'File is not available. Contact SoQM Team';
+    const FILE_UNAVAILABLE = 'File is not available. Contact SoQM Admin Team';
     document.addEventListener('click', async function(e) {
         const link = e.target.closest('a.download-btn');
         if (!link) return;

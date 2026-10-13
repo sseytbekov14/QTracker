@@ -174,9 +174,9 @@ public class UserService {
     }
 
     static final String LAST_SOQM_ROLE =
-            "This is the last active SoQM Team member: their role cannot change until someone else is SoQM Team";
+            "This is the last active SoQM Admin Team member: their role cannot change until someone else is SoQM Admin Team";
     static final String LAST_SOQM_DEACTIVATE =
-            "This is the last active SoQM Team member: they cannot be deactivated until someone else is SoQM Team";
+            "This is the last active SoQM Admin Team member: they cannot be deactivated until someone else is SoQM Admin Team";
 
     /**
      * A new user with a role; no old role. A User without Visibility or Access starts at My controls and

@@ -173,7 +173,7 @@ class WorkflowControllerCompletedRecipientsTest {
         verify(notificationService).sendReturnNotifications(
                 eq(control),
                 eq(List.of("operator@kpmg.kz")),
-                eq("SoQM Team"),
+                eq("SoQM Admin Team"),
                 eq("SoQM Reviewer"),
                 eq("Control Operator"),
                 eq(comment),

@@ -414,7 +414,7 @@ class CompletedEditSoqmIT {
             String page = page(reader, control);
             assertThat(page).as(reader.getMail())
                     .contains("id=\"accessBanner\"", "data-notice=\"COMPLETED\"", "This control is completed and locked",
-                            "Only SoQM Team can change it.")
+                            "Only SoQM Admin Team can change it.")
                     .doesNotContain("id=\"editBtn\"", "id=\"completedEditBanner\"", "id=\"completedEditReasonModal\"",
                             "id=\"workflow-buttons-container\"", "id=\"scheduleFixedHint\"");
         }

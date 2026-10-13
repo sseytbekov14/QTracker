@@ -112,8 +112,8 @@ class RoleMatrixIT {
     private static final AccessScope ALL = AccessScope.ALL;
 
     private static final List<Who> PEOPLE = List.of(
-            new Who("soqm", "SoQM Team", AccessLevel.SOQM, ALL, Place.NONE, false, false, false),
-            new Who("soqm-kdn", "SoQM Team, KDN control", AccessLevel.SOQM, ALL, Place.NONE, true, false, false),
+            new Who("soqm", "SoQM Admin Team", AccessLevel.SOQM, ALL, Place.NONE, false, false, false),
+            new Who("soqm-kdn", "SoQM Admin Team, KDN control", AccessLevel.SOQM, ALL, Place.NONE, true, false, false),
             new Who("part-step", "User · My controls · Edit, assigned", EDIT, MY, Place.STEP, false, false, false),
             new Who("part-none", "User · My controls · Edit, not on it", EDIT, MY, Place.NONE, false, false, false),
             new Who("part-shared", "User · My controls · Edit, shared only", EDIT, MY, Place.SHARED, false, false, false),

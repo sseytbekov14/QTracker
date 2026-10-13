@@ -192,7 +192,7 @@ public class ControlController {
             }
             if (!AccessPolicy.canCreateControls(AccessPolicy.Subject.of(currentUser))) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("success", false, "message", "Only SoQM Team can create controls"));
+                        .body(Map.of("success", false, "message", "Only SoQM Admin Team can create controls"));
             }
 
             // Проверяем, не пустой ли Control ID
@@ -568,7 +568,7 @@ public class ControlController {
                 String lockedField = findChangedRestrictedField(controlDTO, existingControl, canonicalFrequency, permission);
                 if (lockedField != null) {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: " + lockedField + " can be changed only by SoQM Team");
+                            .body("VALIDATION_ERROR: " + lockedField + " can be changed only by SoQM Admin Team");
                 }
             }
 

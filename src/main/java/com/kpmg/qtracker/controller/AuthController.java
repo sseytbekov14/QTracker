@@ -76,7 +76,7 @@ public class AuthController {
     public String accessNotGranted(Model model, HttpServletResponse response) {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         model.addAttribute("title", "Access is not granted");
-        model.addAttribute("text", "Access is not granted, contact SoQM Team.");
+        model.addAttribute("text", "Access is not granted, contact SoQM Admin Team.");
         model.addAttribute("retry", false);
         return "sign-in-problem";
     }
@@ -87,7 +87,7 @@ public class AuthController {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         model.addAttribute("title", "Sign-in did not complete");
         model.addAttribute("text", "The sign-in with Microsoft did not complete. Try again; if it happens again,"
-                + " contact SoQM Team.");
+                + " contact SoQM Admin Team.");
         model.addAttribute("retry", true);
         return "sign-in-problem";
     }

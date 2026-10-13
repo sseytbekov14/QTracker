@@ -96,7 +96,7 @@ public class WorkflowMoveService {
         }
         if (move.commentRequired() && trimmedComment == null) {
             return Outcome.refused(400, move.isReturn() ? RETURN_COMMENT_REQUIRED
-                    : "A comment is required when SoQM acts for the " + move.actingFor().getDisplayName());
+                    : "A comment is required when SoQM Admin Team acts for the " + move.actingFor().getDisplayName());
         }
         if (trimmedComment != null && trimmedComment.length() > MAX_COMMENT) {
             return Outcome.refused(400, COMMENT_TOO_LONG);
@@ -183,7 +183,7 @@ public class WorkflowMoveService {
         next.put("Comment", comment);
         String description = move.label() + ": " + WorkflowMove.displayStatus(move.from()) + " -> "
                 + WorkflowMove.displayStatus(move.to())
-                + (move.onBehalf() ? " (SoQM on behalf of the " + move.actingFor().getDisplayName() + ")" : "");
+                + (move.onBehalf() ? " (SoQM Admin Team on behalf of the " + move.actingFor().getDisplayName() + ")" : "");
         try {
             adminAuditService.logActionWithChanges(user.getMail(), user.getDisplayName(), AUDIT_ACTION, control,
                     description, objectMapper.writeValueAsString(List.of("Performance Status")),

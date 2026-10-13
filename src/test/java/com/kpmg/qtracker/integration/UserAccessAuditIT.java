@@ -102,17 +102,17 @@ class UserAccessAuditIT {
                         .param("role", "SOQM_TEAM")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.audit.action").value("Changed role from User · My controls · Edit to SoQM Team"));
+                .andExpect(jsonPath("$.audit.action").value("Changed role from User · My controls · Edit to SoQM Admin Team"));
         AdminAuditLog toSoqm = latestAccessEntry(admin);
         assertThat(toSoqm.getChangedFields()).isEqualTo("role");
         assertThat(toSoqm.getPreviousValues()).isEqualTo("role=User · My controls · Edit");
-        assertThat(toSoqm.getNewValues()).isEqualTo("role=SoQM Team");
+        assertThat(toSoqm.getNewValues()).isEqualTo("role=SoQM Admin Team");
 
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).session(session)
                         .param("role", "KDN")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.audit.action").value("Changed role from SoQM Team to KDN · All KDN controls · Read Only"));
+                .andExpect(jsonPath("$.audit.action").value("Changed role from SoQM Admin Team to KDN · All KDN controls · Read Only"));
         assertThat(accessEntries(admin)).hasSize(2);
     }
 

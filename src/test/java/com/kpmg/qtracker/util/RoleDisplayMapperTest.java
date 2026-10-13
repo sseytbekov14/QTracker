@@ -20,7 +20,7 @@ class RoleDisplayMapperTest {
 
     @ParameterizedTest(name = "{0} {1}")
     @CsvSource(delimiter = '|', value = {
-            "SOQM        | ALL | SoQM Team",
+            "SOQM        | ALL | SoQM Admin Team",
             "PARTICIPANT | OWN | User · My controls · Edit",
             "PARTICIPANT | ALL | User · All controls · Edit",
             "READ_ONLY   | OWN | User · My controls · Read Only",
@@ -45,7 +45,7 @@ class RoleDisplayMapperTest {
         user.setAccessScope(AccessScope.ALL);
         assertThat(RoleDisplayMapper.role(user)).isEqualTo("User");
         user.setAccessLevel(AccessLevel.SOQM);
-        assertThat(RoleDisplayMapper.role(user)).isEqualTo("SoQM Team");
+        assertThat(RoleDisplayMapper.role(user)).isEqualTo("SoQM Admin Team");
         user.setAccessLevel(AccessLevel.READ_ONLY);
         user.setAccessScope(AccessScope.KDN);
         assertThat(RoleDisplayMapper.role(user)).isEqualTo("KDN");
@@ -84,7 +84,7 @@ class RoleDisplayMapperTest {
     @Test
     void roleSummaries_forTheDialogScript() {
         assertThat(RoleDisplayMapper.roleSummaries()).containsExactly(
-                entry("SOQM_TEAM", "SoQM Team"), entry("KDN", "KDN · All KDN controls · Read Only"));
+                entry("SOQM_TEAM", "SoQM Admin Team"), entry("KDN", "KDN · All KDN controls · Read Only"));
     }
 
     @Test

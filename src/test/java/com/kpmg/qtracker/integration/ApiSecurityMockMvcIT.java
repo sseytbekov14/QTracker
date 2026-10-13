@@ -251,7 +251,7 @@ class ApiSecurityMockMvcIT {
                                 + ",\"processOwner\":[\"" + p.facilitator.getMail() + "\"]}")
                         .session(session))
                 .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString("Only SoQM Team can change control assignment")));
+                .andExpect(content().string(containsString("Only SoQM Admin Team can change control assignment")));
 
         assertThat(assignmentRepository.findByControlId(control.getId()).orElseThrow().getProcessOwner())
                 .isEqualTo(p.owner.getMail());
@@ -446,21 +446,21 @@ class ApiSecurityMockMvcIT {
                         .content(controlForm("Monthly", "GOV", "IN_PROGRESS"))
                         .session(session))
                 .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString("Component can be changed only by SoQM Team")));
+                .andExpect(content().string(containsString("Component can be changed only by SoQM Admin Team")));
 
         mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlForm("Monthly", "HR", "DELETED"))
                         .session(session))
                 .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString("Control Status can be changed only by SoQM Team")));
+                .andExpect(content().string(containsString("Control Status can be changed only by SoQM Admin Team")));
 
         mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlForm("Quarterly", "HR", "IN_PROGRESS"))
                         .session(session))
                 .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString("Control Frequency can be changed only by SoQM Team")));
+                .andExpect(content().string(containsString("Control Frequency can be changed only by SoQM Admin Team")));
 
         Control stored = controlRepository.findById(control.getId()).orElseThrow();
         assertThat(stored.getComponent()).isEqualTo("HR");
@@ -733,7 +733,7 @@ class ApiSecurityMockMvcIT {
                         .content(controlFormWithSoqmYear(newYear))
                         .session(facilitatorSession))
                 .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString("SoQM Year can be changed only by SoQM Team")));
+                .andExpect(content().string(containsString("SoQM Year can be changed only by SoQM Admin Team")));
         mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlFormWithSoqmYear("1 OCT 2025 - 30 SEP 2026"))
@@ -798,7 +798,7 @@ class ApiSecurityMockMvcIT {
                         .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Available\"}")
                         .session(session))
                 .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString("Only SoQM Team can change SoQM Development Materials")));
+                .andExpect(content().string(containsString("Only SoQM Admin Team can change SoQM Development Materials")));
 
         assertThat(documentsRepository.findByControlId(control.getId()).orElseThrow().getSoqmDevelopmentMaterials())
                 .isNull();
@@ -1687,7 +1687,7 @@ class ApiSecurityMockMvcIT {
         assertAssignmentRefused(session, control, p.facilitator.getMail(), kdn.getMail(), p.soqm.getMail(),
                 "Control Operator: " + kdn.getMail() + " sees only KDN controls");
         assertAssignmentRefused(session, control, p.facilitator.getMail(), p.operator.getMail(), p.facilitator.getMail(),
-                "SoQM Team / Delegate: " + p.facilitator.getMail() + " is not SoQM Team");
+                "SoQM Team / Delegate: " + p.facilitator.getMail() + " is not SoQM Admin Team");
 
         // One person may hold several fields; a read-only user may be shared with
         mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader()).with(ownAddress()).session(session)
@@ -1706,7 +1706,7 @@ class ApiSecurityMockMvcIT {
         assertAssignmentRefused(session, kdnControl, readOnly.getMail(), p.operator.getMail(), p.soqm.getMail(),
                 "Facilitator: " + readOnly.getMail() + " has Read Only access and cannot be assigned");
         assertAssignmentRefused(session, kdnControl, kdn.getMail(), kdn.getMail(), kdn.getMail(),
-                "SoQM Team / Delegate: " + kdn.getMail() + " is not SoQM Team");
+                "SoQM Team / Delegate: " + kdn.getMail() + " is not SoQM Admin Team");
         mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader()).with(ownAddress()).session(session)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(assignmentJson(kdnControl, kdn.getMail(), kdn.getMail(), p.soqm.getMail(), null)))
@@ -1803,7 +1803,7 @@ class ApiSecurityMockMvcIT {
                 "Admin Access", "Administrator", "Participant", "Additional Role", "js-secondary-role", "(not in list)");
         // SoQM Team and KDN have no Visibility and Access of their own (Thymeleaf drops the empty attributes)
         assertThat(userRow(html, soqm)).contains("data-role=\"SOQM_TEAM\"",
-                "<span class=\"role-badge is-soqm_team\">SoQM Team</span>", "data-label=\"Access\">SoQM Team</td>")
+                "<span class=\"role-badge is-soqm_team\">SoQM Admin Team</span>", "data-label=\"Access\">SoQM Admin Team</td>")
                 .doesNotContain("data-visibility=\"MY\"", "data-visibility=\"ALL\"", "data-access=\"EDIT\"");
         assertThat(userRow(html, kdn)).contains("data-role=\"KDN\"",
                 "<span class=\"role-badge is-kdn\">KDN</span>",
@@ -1919,7 +1919,7 @@ class ApiSecurityMockMvcIT {
                         .param("role", "SOQM_TEAM")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary").value("SoQM Team"));
+                .andExpect(jsonPath("$.summary").value("SoQM Admin Team"));
         assertThat(userRepository.findById(target.getId()).orElseThrow().getAdminAccess()).isTrue();
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
                         .param("role", "MASTER")

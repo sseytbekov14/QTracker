@@ -100,7 +100,7 @@ class WorkflowControllerTransitionGuardTest {
         call("/api/workflow/complete-control")
                 .andExpect(status().isBadRequest())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
-                        .string("A comment is required when SoQM acts for the Process Owner"));
+                        .string("A comment is required when SoQM Admin Team acts for the Process Owner"));
     }
 
     @Test

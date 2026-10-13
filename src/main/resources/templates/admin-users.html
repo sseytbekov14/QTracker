@@ -552,7 +552,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     </div>
                     <select id="filterRole" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by role">
                         <option value="">All roles</option>
-                        <option th:each="role : ${roles}" th:value="${role.name()}" th:text="${role.displayName}">SoQM Team</option>
+                        <option th:each="role : ${roles}" th:value="${role.name()}" th:text="${role.displayName}">SoQM Admin Team</option>
                     </select>
                     <select id="filterVisibility" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by visibility">
                         <option value="">Any visibility</option>
@@ -793,7 +793,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     <label for="userRole" class="form-label">Role <span class="required-mark" aria-hidden="true">*</span></label>
                     <select id="userRole" class="form-select" aria-describedby="userRole-reason userRole-error" required>
                         <option value="">Choose a role…</option>
-                        <option th:each="role : ${roles}" th:value="${role.name()}" th:text="${role.displayName}">SoQM Team</option>
+                        <option th:each="role : ${roles}" th:value="${role.name()}" th:text="${role.displayName}">SoQM Admin Team</option>
                     </select>
                     <div class="field-reason" id="userRole-reason"></div>
                     <div class="field-error" id="userRole-error" aria-live="polite"></div>
@@ -1246,13 +1246,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 : dialog.lastSoqm && option.value !== 'SOQM_TEAM';
         });
         roleReason.textContent = dialog.self ? 'You cannot change your own role.'
-            : dialog.lastSoqm ? 'This is the last active SoQM Team member: make someone else SoQM Team first.'
+            : dialog.lastSoqm ? 'This is the last active SoQM Admin Team member: make someone else SoQM Admin Team first.'
             : '';
         const statusLocked = dialog.self || dialog.lastSoqm;
         inactiveOption.disabled = statusLocked && user.enabled;
         fields.status.disabled = dialog.self;
         statusReason.textContent = dialog.self ? 'You cannot deactivate your own account.'
-            : dialog.lastSoqm ? 'The last active SoQM Team member cannot be deactivated.'
+            : dialog.lastSoqm ? 'The last active SoQM Admin Team member cannot be deactivated.'
             : '';
 
         saveBtn.textContent = create ? 'Create user' : 'Save';
@@ -1549,10 +1549,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (values.role === 'SOQM_TEAM' && before.role !== 'SOQM_TEAM') {
             changes.push({
                 field: fields.role,
-                title: create ? 'Create ' + who + ' as SoQM Team?' : 'Make ' + who + ' SoQM Team?',
+                title: create ? 'Create ' + who + ' as SoQM Admin Team?' : 'Make ' + who + ' SoQM Admin Team?',
                 text: who + ' will see every control, drafts included, edit any control, assign people, move'
                     + ' controls on or back for any Control role, and manage users and the audit trail in the Admin Panel.',
-                ok: create ? 'Create SoQM Team user' : 'Make SoQM Team'
+                ok: create ? 'Create SoQM Admin Team user' : 'Make SoQM Admin Team'
             });
         }
         const allEdit = values.role === 'USER' && values.visibility === 'ALL' && values.access === 'EDIT';
@@ -1719,7 +1719,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return { message: json.message || 'This page is out of date. Reload the page and try again.', reload: true };
             }
             return {
-                message: 'Only SoQM Team can change users. Your role may have changed: reload the page.',
+                message: 'Only SoQM Admin Team can change users. Your role may have changed: reload the page.',
                 reload: true
             };
         }

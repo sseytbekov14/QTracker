@@ -138,7 +138,7 @@ class StepsFieldSplitIT {
         MvcResult refused = saveResult(control, facSession, REVIEW, "Facilitator writes the review");
         assertThat(refused.getResponse().getStatus()).isEqualTo(403);
         assertThat(refused.getResponse().getContentAsString())
-                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the SoQM Team");
+                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by SoQM Admin Team");
         assertThat(details(control).getControlOperatorReview()).isNull();
 
         setStatus(control, "REVIEW");
@@ -178,7 +178,7 @@ class StepsFieldSplitIT {
         MvcResult program = saveResult(control, opSession, REVIEW, "Operator writes the Program");
         assertThat(program.getResponse().getStatus()).isEqualTo(403);
         assertThat(program.getResponse().getContentAsString())
-                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the SoQM Team");
+                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by SoQM Admin Team");
         assertThat(details(control).getControlOperatorReview()).isNull();
 
         // The page sends null for the fields the user cannot change: that is no change
@@ -251,7 +251,7 @@ class StepsFieldSplitIT {
         MvcResult program = saveResult(control, facSession, REVIEW, "Program as Operator");
         assertThat(program.getResponse().getStatus()).isEqualTo(403);
         assertThat(program.getResponse().getContentAsString())
-                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the SoQM Team");
+                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by SoQM Admin Team");
         assertThat(details(control).getControlOperatorReview()).isNull();
 
         // The other Facilitator is not the Operator: the Review step is not theirs
@@ -315,7 +315,7 @@ class StepsFieldSplitIT {
         MvcResult refused = saveResult(review, login(op), REVIEW, "Program by the Operator");
         assertThat(refused.getResponse().getStatus()).isEqualTo(403);
         assertThat(refused.getResponse().getContentAsString())
-                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the SoQM Team");
+                .contains(ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by SoQM Admin Team");
     }
 
     @Test

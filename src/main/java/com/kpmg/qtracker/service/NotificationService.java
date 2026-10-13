@@ -201,7 +201,7 @@ public class NotificationService {
         }
         String controlName = control.getControlId() != null ? control.getControlId() : "Control";
         StringBuilder message = new StringBuilder()
-                .append(normalizeActorName(actorName, "SoQM")).append(" (SoQM) made the ").append(stepLabel)
+                .append(normalizeActorName(actorName, "SoQM")).append(" (SoQM Admin Team) made the ").append(stepLabel)
                 .append(" step for you: ").append(moveLabel).append(", ")
                 .append(statusDisplayMapper.display(fromStatus)).append(" -> ")
                 .append(statusDisplayMapper.display(toStatus)).append('.');
@@ -214,7 +214,7 @@ public class NotificationService {
                 notif.setUserId(user.getId());
                 notif.setControlId(control.getId());
                 notif.setType(TYPE_ON_BEHALF);
-                notif.setTitle("SoQM acted for you on " + controlName);
+                notif.setTitle("SoQM Admin Team acted for you on " + controlName);
                 notif.setMessage(message.toString());
                 notif.setLink(notificationTemplateService.buildControlLink(control));
                 notif.setIsRead(false);

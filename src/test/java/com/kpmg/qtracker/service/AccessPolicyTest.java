@@ -443,9 +443,9 @@ class AccessPolicyTest {
         assertThat(AccessPolicy.levelScopeRefusal(AccessLevel.PARTICIPANT, AccessScope.KDN))
                 .hasValue("KDN access is always Read Only");
         assertThat(AccessPolicy.assignmentRefusal(who("SOQM"), Slot.PROCESS_OWNER, false))
-                .hasValue("is SoQM Team; Process Owner takes a User with Edit access");
+                .hasValue("is SoQM Admin Team; Process Owner takes a User with Edit access");
         assertThat(AccessPolicy.assignmentRefusal(who("PART"), Slot.SOQM_LEAD, false))
-                .hasValue("is not SoQM Team");
+                .hasValue("is not SoQM Admin Team");
         assertThat(AccessPolicy.assignmentRefusal(null, Slot.FACILITATOR, false))
                 .hasValue("is not a QTracker user");
     }

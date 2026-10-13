@@ -55,11 +55,11 @@ public class NotificationTypeDisplayMapper {
         }
 
         if ("ON_BEHALF".equals(normalized)) {
-            return new Display("Done for you by SoQM", CLASS_DEFAULT);
+            return new Display("Done for you by SoQM Admin Team", CLASS_DEFAULT);
         }
 
         if ("RETURN_TO_SOQM_TEAM".equals(normalized)) {
-            return new Display("Returned to SoQM Team", CLASS_DEFAULT);
+            return new Display("Returned to SoQM Admin Team", CLASS_DEFAULT);
         }
 
         if ("RETURN_TO_PROCESS_OWNER".equals(normalized)) {

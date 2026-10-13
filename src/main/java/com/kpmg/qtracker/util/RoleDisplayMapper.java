@@ -136,8 +136,8 @@ public final class RoleDisplayMapper {
     public static List<FixedValue> fixedValues(UserRole role) {
         return switch (role) {
             case SOQM_TEAM -> List.of(
-                    new FixedValue("Visibility", Visibility.ALL.getDisplayName(), "SoQM Team always sees all controls."),
-                    new FixedValue("Access", "Full", "SoQM Team edits every control."));
+                    new FixedValue("Visibility", Visibility.ALL.getDisplayName(), "SoQM Admin Team always sees all controls."),
+                    new FixedValue("Access", "Full", "SoQM Admin Team edits every control."));
             case KDN -> List.of(
                     new FixedValue("Visibility", KDN_VISIBILITY, "Fixed for KDN: every KDN control, no other."),
                     new FixedValue("Access", AccessRight.READ_ONLY.getDisplayName(), "Fixed for KDN: view and download only."));

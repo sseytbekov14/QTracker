@@ -1,5 +1,7 @@
 package com.kpmg.qtracker.service;
 
+import com.kpmg.qtracker.enums.UserRole;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -24,10 +26,10 @@ public enum WorkflowTransition {
         FACILITATOR("Facilitator"),
         CONTROL_OPERATOR("Control Operator"),
         /** Any SoQM user, assigned to the control or not. */
-        SOQM_TEAM("SoQM Team"),
+        SOQM_TEAM(UserRole.SOQM_TEAM_NAME),
         PROCESS_OWNER("Process Owner"),
         /** Any SoQM user (Initiate). */
-        COORDINATOR("SoQM");
+        COORDINATOR(UserRole.SOQM_TEAM_NAME);
 
         private final String displayName;
 

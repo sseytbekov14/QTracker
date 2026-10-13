@@ -356,7 +356,7 @@ public final class AccessPolicy {
      */
     public static Optional<String> levelScopeRefusal(AccessLevel level, AccessScope scope) {
         if (level == AccessLevel.SOQM && scope != AccessScope.ALL) {
-            return Optional.of("SoQM Team always sees all controls");
+            return Optional.of("SoQM Admin Team always sees all controls");
         }
         if (scope == AccessScope.KDN && level != AccessLevel.READ_ONLY) {
             return Optional.of("KDN access is always Read Only");
@@ -482,7 +482,7 @@ public final class AccessPolicy {
     }
 
     public static final String LOCKED_MESSAGE =
-            "This control is completed and locked: only SoQM Team can change it";
+            "This control is completed and locked: only SoQM Admin Team can change it";
 
     /**
      * What a completed control keeps for everyone, SoQM Team changing it in place included: its schedule (the
@@ -738,10 +738,10 @@ public final class AccessPolicy {
             case SHARED_WITH -> Optional.empty();
             case SOQM_LEAD -> candidate.level() == AccessLevel.SOQM
                     ? Optional.empty()
-                    : Optional.of("is not SoQM Team");
+                    : Optional.of("is not SoQM Admin Team");
             case FACILITATOR, CONTROL_OPERATOR, PROCESS_OWNER -> switch (candidate.level()) {
                 case PARTICIPANT -> Optional.empty();
-                case SOQM -> Optional.of("is SoQM Team; " + slot.getLabel() + " takes a User with Edit access");
+                case SOQM -> Optional.of("is SoQM Admin Team; " + slot.getLabel() + " takes a User with Edit access");
                 case READ_ONLY -> candidate.scope() == AccessScope.KDN && kdnControl
                         ? Optional.empty()
                         : Optional.of("has Read Only access and cannot be assigned");

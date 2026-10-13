@@ -192,7 +192,7 @@ class SsoChainIT extends SsoTestSupport {
     void theRefusalPage_hasNoDetails_andNoWayBack() throws Exception {
         String page = mockMvc.perform(get("/access-not-granted"))
                 .andExpect(status().isForbidden()).andReturn().getResponse().getContentAsString();
-        assertThat(page).contains("Access is not granted, contact SoQM Team.").doesNotContain("Back to Dashboard")
+        assertThat(page).contains("Access is not granted, contact SoQM Admin Team.").doesNotContain("Back to Dashboard")
                 .doesNotContain("href=\"/\"");
     }
 }

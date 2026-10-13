@@ -61,8 +61,8 @@ class ReleaseScenarioMatrixIT extends ReleaseScenarioSupport {
     static final AccessLevel READ = AccessLevel.READ_ONLY;
 
     static final List<Row> ROWS = List.of(
-            new Row("soqm", "SoQM Team", AccessLevel.SOQM, AccessScope.ALL, Place.NONE, false, false, false),
-            new Row("soqm-kdn", "SoQM Team, KDN control", AccessLevel.SOQM, AccessScope.ALL, Place.NONE, true, false, false),
+            new Row("soqm", "SoQM Admin Team", AccessLevel.SOQM, AccessScope.ALL, Place.NONE, false, false, false),
+            new Row("soqm-kdn", "SoQM Admin Team, KDN control", AccessLevel.SOQM, AccessScope.ALL, Place.NONE, true, false, false),
             new Row("my-step", "User · My · Edit, in the field of the step", EDIT, AccessScope.OWN, Place.STEP, false, false, false),
             new Row("my-other", "User · My · Edit, in another step's field", EDIT, AccessScope.OWN, Place.OTHER_STEP, false, false, false),
             new Row("my-none", "User · My · Edit, not on it", EDIT, AccessScope.OWN, Place.NONE, false, false, false),

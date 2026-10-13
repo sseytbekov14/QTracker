@@ -148,7 +148,7 @@ class SoqmOnBehalfIT {
 
         mockMvc.perform(workflowPost("/api/workflow/complete-control", control, soqmLead))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("A comment is required when SoQM acts for the Process Owner"));
+                .andExpect(content().string("A comment is required when SoQM Admin Team acts for the Process Owner"));
         mockMvc.perform(workflowPost("/api/workflow/move", control, soqmLead)
                         .param("targetStatus", "IN_PROGRESS")
                         .param("comments", "   "))
@@ -198,7 +198,7 @@ class SoqmOnBehalfIT {
                 .andExpect(status().isOk());
 
         WorkflowHistory history = lastHistory(control);
-        assertThat(history.getActedAs()).isEqualTo("SoQM Team");
+        assertThat(history.getActedAs()).isEqualTo("SoQM Admin Team");
         assertThat(history.isOnBehalf()).isFalse();
         assertThat(notificationRepository.findByControlIdOrderByCreatedAtDesc(control.getId()))
                 .noneMatch(notice -> NotificationService.TYPE_ON_BEHALF.equals(notice.getType()));
