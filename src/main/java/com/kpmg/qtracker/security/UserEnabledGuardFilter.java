@@ -57,6 +57,12 @@ public class UserEnabledGuardFilter extends OncePerRequestFilter {
 
         Optional<User> dbUserOpt = userRepository.findByMail(email.trim());
         boolean isEnabled = dbUserOpt.map(user -> Boolean.TRUE.equals(user.getEnabled())).orElse(false);
+        // A deleted user's session ends; it does not pass to a user created later with the same address
+        HttpSession current = request.getSession(false);
+        if (isEnabled && current != null && current.getAttribute("currentUser") instanceof User sessionUser
+                && sessionUser.getId() != null && !sessionUser.getId().equals(dbUserOpt.get().getId())) {
+            isEnabled = false;
+        }
         if (!isEnabled) {
             SecurityContextHolder.clearContext();
             HttpSession session = request.getSession(false);

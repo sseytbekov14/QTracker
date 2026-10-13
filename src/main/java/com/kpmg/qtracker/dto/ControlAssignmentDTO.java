@@ -14,6 +14,12 @@ public class ControlAssignmentDTO {
     private List<String> soqmLead;
     private List<String> processOwner;
     private List<String> controlSharedWith;
+    /**
+     * Read only (GET): the addresses of the fields that belong to people deleted from QTracker (lower-case); the
+     * page shows them as "e-mail (deleted user)" and keeps them on Save.
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private List<String> deletedPeople;
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate controlOperationDate;
     @JsonFormat(pattern = "yyyy-MM-dd")

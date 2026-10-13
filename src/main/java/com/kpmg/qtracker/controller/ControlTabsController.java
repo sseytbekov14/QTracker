@@ -344,6 +344,7 @@ public class ControlTabsController {
         permissionService.requireReadable(controlId, (User) session.getAttribute("currentUser"));
         try {
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
+            assignment.setDeletedPeople(List.copyOf(userService.deletedEmails(peopleOf(assignment))));
             return ResponseEntity.ok(assignment);
         } catch (Exception e) {
             return ResponseEntity.ok(new ControlAssignmentDTO()); // возвращаем пустой DTO вместо ошибки
@@ -359,6 +360,18 @@ public class ControlTabsController {
         } catch (Exception e) {
             return ResponseEntity.ok(new ControlDocumentsDTO()); // возвращаем пустой DTO вместо ошибки
         }
+    }
+
+    /** Every address of the people fields and Shared With. */
+    static List<String> peopleOf(ControlAssignmentDTO assignment) {
+        List<String> people = new ArrayList<>();
+        for (List<String> field : java.util.Arrays.asList(assignment.getFacilitator(), assignment.getControlOperator(),
+                assignment.getSoqmLead(), assignment.getProcessOwner(), assignment.getControlSharedWith())) {
+            if (field != null) {
+                people.addAll(field);
+            }
+        }
+        return people;
     }
 
     private UserDTO convertToUserDTO(User user) {

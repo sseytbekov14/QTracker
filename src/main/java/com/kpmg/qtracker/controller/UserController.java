@@ -35,6 +35,7 @@ public class UserController {
     private final AdminAuditService adminAuditService;
     private final AuthMode authMode;
     private final LoginNameResolver loginNames;
+    private final com.kpmg.qtracker.service.UserDeletion userDeletion;
 
     /** Dates as the Admin Panel shows them. */
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
@@ -108,6 +109,49 @@ public class UserController {
             return ResponseEntity.ok(payload);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(ex.getMessage());
+        }
+    }
+
+    /**
+     * Deleting a user, step 1 (SoQM Admin Team only, UserDeletion): the refusals (oneself, the last active SoQM Admin
+     * Team member), the controls not completed that keep the person (first 50 with the person's place on each, the
+     * total) and the token of step 2.
+     */
+    @PostMapping("/users/{id}/delete-check")
+    public ResponseEntity<?> checkUserDeletion(@PathVariable Long id, HttpSession session) {
+        try {
+            com.kpmg.qtracker.service.UserDeletion.Check check =
+                    userDeletion.check(id, (User) session.getAttribute("currentUser"));
+            return ResponseEntity.ok(check);
+        } catch (com.kpmg.qtracker.service.UserDeletion.Refused refused) {
+            return ResponseEntity.status(refused.status()).body(refused.getMessage());
+        }
+    }
+
+    /** What step 2 of a deletion sends: the typed e-mail, the reason, the token of step 1, the acknowledgement. */
+    public record DeletionRequest(String email, String reason, String token, boolean acknowledged) {
+    }
+
+    /**
+     * Deleting a user, step 2: the users row goes; history, logs and the controls' people stay (UserDeletion). The
+     * answer carries the Audit Trail line. 404 for a user already deleted.
+     */
+    @PostMapping("/users/{id}/delete")
+    public ResponseEntity<?> deleteUser(@PathVariable Long id, @RequestBody DeletionRequest request,
+                                        HttpSession session) {
+        try {
+            com.kpmg.qtracker.service.UserDeletion.Done done = userDeletion.delete(id,
+                    (User) session.getAttribute("currentUser"), request.email(), request.reason(), request.token(),
+                    request.acknowledged());
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("deleted", true);
+            payload.put("id", done.userId());
+            payload.put("mail", done.email());
+            payload.put("unfinishedControls", done.unfinishedControls());
+            payload.put("audit", auditPayload(done.audit()));
+            return ResponseEntity.ok(payload);
+        } catch (com.kpmg.qtracker.service.UserDeletion.Refused refused) {
+            return ResponseEntity.status(refused.status()).body(refused.getMessage());
         }
     }
 

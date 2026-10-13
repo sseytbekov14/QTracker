@@ -581,7 +581,7 @@ public class ControlController {
             rowNum = addRow(sheet, rowNum, "Process Owner Comments", control.getProcessOwnerComments());
 
             rowNum = addRow(sheet, rowNum, "Created By",
-                    control.getCreatedBy() != null ? control.getCreatedBy().getDisplayName() : null);
+                    control.creatorName());
             rowNum = addRow(sheet, rowNum, "Created", formatDateTime(control.getCreatedAt()));
             rowNum = addRow(sheet, rowNum, "Updated At", formatDateTime(control.getUpdatedAt()));
             rowNum = addRow(sheet, rowNum, "Deadline", formatDate(control.getDeadline()));
@@ -664,8 +664,8 @@ public class ControlController {
         dto.setSoqmHeadComments(control.getSoqmHeadComments());
         dto.setProcessOwnerComments(control.getProcessOwnerComments());
 
-        if (control.getCreatedBy() != null) {
-            dto.setCreatedBy(control.getCreatedBy().getDisplayName()); // передаем ИМЯ как String
+        if (control.creatorName() != null) {
+            dto.setCreatedBy(control.creatorName()); // передаем ИМЯ как String
         } else {
             dto.setCreatedBy("Unknown");
         }

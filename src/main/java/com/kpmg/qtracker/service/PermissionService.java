@@ -63,12 +63,19 @@ public class PermissionService {
     /** Control Shared With of the control as View Control shows it, each person with what the place gives them. */
     public List<SharedWithPeople.Person> sharedWithPeople(Control control, ControlAssignmentDTO assignment,
                                                           Function<String, Optional<User>> users) {
+        return sharedWithPeople(control, assignment, users, java.util.Set.of());
+    }
+
+    /** @param deleted addresses (lower-case) of people deleted from QTracker */
+    public List<SharedWithPeople.Person> sharedWithPeople(Control control, ControlAssignmentDTO assignment,
+                                                          Function<String, Optional<User>> users,
+                                                          java.util.Set<String> deleted) {
         if (control == null || assignment == null) {
             return List.of();
         }
         return SharedWithPeople.describe(assignment.getControlSharedWith(),
                 AccessPolicy.isKdnControl(control.getControlId()), users,
-                user -> sharedAccess(control, user, assignment));
+                user -> sharedAccess(control, user, assignment), deleted);
     }
 
     /** The Excel export of one completed control ({@link AccessPolicy#canExportCompletedControl}). */

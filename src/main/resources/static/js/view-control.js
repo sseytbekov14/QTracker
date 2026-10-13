@@ -136,14 +136,23 @@ const viewControl = (function() {
         return `${formId}:${name}:${index}`;
     }
 
+    // People deleted from QTracker who still stand in a field (GET /api/control-assignment deletedPeople)
+    let deletedPeople = [];
+
     // A stored address may differ in case or spaces from the user's (old data, imports): the same person,
-    // as the server compares them (EmailList)
+    // as the server compares them (EmailList). A deleted person is shown as "e-mail (deleted user)" and kept.
     function findUserByEmail(email) {
         const wanted = String(email || '').trim().toLowerCase();
         if (!wanted) {
             return null;
         }
-        return allUsers.find(user => user && String(user.mail || '').trim().toLowerCase() === wanted) || null;
+        const user = allUsers.find(user => user && String(user.mail || '').trim().toLowerCase() === wanted);
+        if (user) {
+            return user;
+        }
+        return deletedPeople.includes(wanted)
+            ? { mail: String(email).trim(), displayName: String(email).trim() + ' (deleted user)', deleted: true }
+            : null;
     }
 
     function captureEditModeSnapshot() {
@@ -966,6 +975,7 @@ function confirmWorkflowAction() {
                 const assignmentData = await response.json();
 
                 if (assignmentData && assignmentData.controlId) {
+                    deletedPeople = Array.isArray(assignmentData.deletedPeople) ? assignmentData.deletedPeople : [];
                     // Р—Р°РіСЂСѓР¶Р°РµРј РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ РµСЃР»Рё РµС‰Рµ РЅРµ Р·Р°РіСЂСѓР¶РµРЅС‹
                     if (allUsers.length === 0) {
                         await loadAllUsers();

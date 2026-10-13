@@ -933,8 +933,8 @@ public class ViewController {
 
         // Control Shared With: each person with what the place gives them (AccessPolicy.sharedAccess); the marks
         // (Disabled, Not in the system, ...) for SoQM Team, who change the list
-        model.addAttribute("sharedWithPeople",
-                permissionService.sharedWithPeople(control, assignment, userService::getUserByEmail));
+        model.addAttribute("sharedWithPeople", permissionService.sharedWithPeople(control, assignment,
+                userService::getUserByEmail, userService.deletedEmails(assignment.getControlSharedWith())));
         model.addAttribute("sharedWithNotes", AccessPolicy.seesSharedWithNotes(AccessPolicy.Subject.of(currentUser)));
         model.addAttribute("sharedWithHint", RoleDisplayMapper.SHARED_WITH_HINT);
         model.addAttribute("sharedWithEmpty", RoleDisplayMapper.SHARED_WITH_EMPTY);
@@ -1011,8 +1011,8 @@ public class ViewController {
         dto.setControlDescription(control.getControlDescription());
         dto.setPrp(control.getPrp());
 
-        if (control.getCreatedBy() != null) {
-            dto.setCreatedBy(control.getCreatedBy().getDisplayName());
+        if (control.creatorName() != null) {
+            dto.setCreatedBy(control.creatorName());
         } else {
             dto.setCreatedBy("Unknown");
         }

@@ -54,6 +54,13 @@ public final class SharedWithPeople {
     public static List<Person> describe(List<String> stored, boolean kdnControl,
                                         Function<String, Optional<User>> users,
                                         Function<User, AccessPolicy.SharedAccess> access) {
+        return describe(stored, kdnControl, users, access, Set.of());
+    }
+
+    /** @param deleted addresses (lower-case) of people deleted from QTracker: shown as such and kept on save */
+    public static List<Person> describe(List<String> stored, boolean kdnControl,
+                                        Function<String, Optional<User>> users,
+                                        Function<User, AccessPolicy.SharedAccess> access, Set<String> deleted) {
         if (stored == null || stored.isEmpty()) {
             return Collections.emptyList();
         }
@@ -67,7 +74,7 @@ public final class SharedWithPeople {
             Optional<User> user = users.apply(mail);
             people.add(user.isPresent()
                     ? person(user.get(), access.apply(user.get()), kdnControl)
-                    : unknown(mail));
+                    : deleted.contains(mail.toLowerCase(Locale.ROOT)) ? deletedPerson(mail) : unknown(mail));
         }
         return Collections.unmodifiableList(people);
     }
@@ -80,6 +87,12 @@ public final class SharedWithPeople {
         return new Person(mail, name, access, RoleDisplayMapper.sharedNote(access),
                 AccessPolicy.assignmentRefusal(AccessPolicy.Subject.of(user), AccessPolicy.Slot.SHARED_WITH, kdnControl)
                         .orElse(null));
+    }
+
+    /** Deleted from QTracker: stays in the list as it was until SoQM Admin Team takes it out (it sees nothing). */
+    private static Person deletedPerson(String mail) {
+        return new Person(mail, mail + com.kpmg.qtracker.entity.Control.DELETED_USER_MARK,
+                AccessPolicy.SharedAccess.NOT_A_USER, "Deleted user", null);
     }
 
     private static Person unknown(String mail) {

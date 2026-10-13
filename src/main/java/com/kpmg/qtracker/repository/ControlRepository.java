@@ -12,6 +12,10 @@ import java.util.Optional;
 
 @Repository
 public interface ControlRepository extends JpaRepository<Control, Long> {
+
+    /** The controls a user created (the user's deletion keeps them, with the creator as text). */
+    List<Control> findByCreatedById(Long userId);
+
     List<Control> findByCreatedByMail(String userEmail);
     List<Control> findByComponent(String component);
 

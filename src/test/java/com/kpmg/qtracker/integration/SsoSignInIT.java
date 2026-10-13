@@ -31,6 +31,8 @@ class SsoSignInIT extends SsoTestSupport {
 
     @Autowired
     private AdminAuditLogRepository auditLogRepository;
+    @Autowired
+    private com.kpmg.qtracker.service.UserDeletion userDeletion;
 
     @Test
     void aKnownPerson_getsIn_andComesBackToThePageAskedFor() throws Exception {
@@ -101,6 +103,26 @@ class SsoSignInIT extends SsoTestSupport {
         assertThat(output.getOut()).contains("SSO sign-in refused: user=- reason=UNKNOWN").doesNotContain(stranger);
         assertThat(refusals()).anySatisfy(log -> assertThat(log.getActionDescription())
                 .isEqualTo("SSO sign-in refused (no account) for " + stranger));
+    }
+
+    /** Item 8: a deleted person is refused like an unknown one, and no account is made again for them. */
+    @Test
+    void aDeletedPerson_isRefusedLikeAnUnknownOne_withoutAnAccountBeingCreated(CapturedOutput output) throws Exception {
+        User admin = person("del-admin", AccessLevel.SOQM, AccessScope.ALL);
+        User user = person("deleted", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        String objectId = newObjectId();
+        assertThat(signIn("/", SamlResponses.Person.of(user.getMail(), objectId)).session()
+                .getAttribute("currentUser")).isNotNull();
+        String token = userDeletion.check(user.getId(), admin).token();
+        userDeletion.delete(user.getId(), admin, user.getMail(), "Left the firm", token, false);
+        long before = userRepository.count();
+
+        SignIn again = signIn("/", SamlResponses.Person.of(user.getMail(), objectId));
+
+        assertRefused(again);
+        assertThat(userRepository.count()).isEqualTo(before);
+        assertThat(userRepository.findByMail(user.getMail())).isEmpty();
+        assertThat(output.getOut()).contains("SSO sign-in refused: user=- reason=UNKNOWN");
     }
 
     @Test

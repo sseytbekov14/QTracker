@@ -422,9 +422,9 @@ public class ControlService implements IControlService {
         dto.setControlDescription(control.getControlDescription());
         dto.setPrp(control.getPrp());
 
-        if (control.getCreatedBy() != null) {
-            dto.setCreatedBy(control.getCreatedBy().getDisplayName());
-            dto.setCreatedByEmail(control.getCreatedBy().getMail());
+        if (control.creatorName() != null) {
+            dto.setCreatedBy(control.creatorName());
+            dto.setCreatedByEmail(control.creatorEmail());
             logger.debug("Control {}: createdBy='{}', createdByEmail='{}', controlStatus='{}'", 
                 control.getControlId(), dto.getCreatedBy(), dto.getCreatedByEmail(), dto.getControlStatus());
         } else {

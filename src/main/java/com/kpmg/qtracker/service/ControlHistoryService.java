@@ -49,9 +49,9 @@ public class ControlHistoryService {
             created.setEventName("New Control");
             created.setTableType("SINGLE");
             created.setCreatedAt(control.getCreatedAt());
-            if (control.getCreatedBy() != null) {
-                created.setActorName(control.getCreatedBy().getDisplayName());
-                created.setActorEmail(control.getCreatedBy().getMail());
+            if (control.creatorName() != null) {
+                created.setActorName(control.creatorName());
+                created.setActorEmail(control.creatorEmail());
             }
 
             List<FieldChangeDTO> createdRows = new ArrayList<>();

@@ -23,6 +23,7 @@ import java.util.Optional;
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.kpmg.qtracker.repository.DeletedUserRepository deletedUserRepository;
     /** The temporary password of new accounts (the Admin Panel and the user import of dev and test). */
     public static final String DEFAULT_NEW_USER_PASSWORD = "aaa";
     /** The display_name column length. */
@@ -58,12 +59,53 @@ public class UserService {
         if (wanted.isEmpty()) {
             return names;
         }
+        java.util.Set<String> users = new java.util.HashSet<>();
         for (User user : userRepository.findByMailLowerIn(wanted)) {
+            if (user.getMail() != null) {
+                users.add(user.getMail().trim().toLowerCase(Locale.ROOT));
+            }
             if (user.getMail() != null && user.getDisplayName() != null && !user.getDisplayName().isBlank()) {
                 names.put(user.getMail().trim().toLowerCase(Locale.ROOT), user.getDisplayName().trim());
             }
         }
+        // A person deleted from QTracker who still stands in a control: "e-mail (deleted user)"
+        for (String mail : deletedAmong(wanted, users)) {
+            names.put(mail, mail + com.kpmg.qtracker.entity.Control.DELETED_USER_MARK);
+        }
         return names;
+    }
+
+    /**
+     * Of these addresses, the ones of a user deleted from QTracker and not given to a user since (lower-case), in
+     * at most two queries.
+     */
+    public java.util.Set<String> deletedEmails(Collection<String> emails) {
+        List<String> wanted = emails == null ? List.of() : emails.stream()
+                .filter(email -> email != null && !email.isBlank())
+                .map(email -> email.trim().toLowerCase(Locale.ROOT))
+                .distinct()
+                .toList();
+        if (wanted.isEmpty()) {
+            return java.util.Set.of();
+        }
+        java.util.Set<String> users = new java.util.HashSet<>();
+        for (User user : userRepository.findByMailLowerIn(wanted)) {
+            if (user.getMail() != null) {
+                users.add(user.getMail().trim().toLowerCase(Locale.ROOT));
+            }
+        }
+        return deletedAmong(wanted, users);
+    }
+
+    private java.util.Set<String> deletedAmong(List<String> wanted, java.util.Set<String> users) {
+        List<String> missing = wanted.stream().filter(mail -> !users.contains(mail)).toList();
+        java.util.Set<String> deleted = new java.util.TreeSet<>();
+        if (missing.isEmpty() || deletedUserRepository == null) {
+            return deleted;
+        }
+        deletedUserRepository.findByMailLowerIn(missing).forEach(gone ->
+                deleted.add(gone.getMail().trim().toLowerCase(Locale.ROOT)));
+        return deleted;
     }
 
     /** The users of these addresses by lower-case e-mail, in one query (no look-up per person). */

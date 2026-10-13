@@ -27,6 +27,7 @@ public class ControlAssignmentService {
     private final UserRepository userRepository;
     private final ControlRepository controlRepository;
     private final ControlScheduleCalculator scheduleCalculator;
+    private final com.kpmg.qtracker.repository.DeletedUserRepository deletedUserRepository;
 
     // ★ ДОБАВИТЬ этот метод - его используют другие сервисы!
     public ControlAssignmentDTO getAssignmentByControlId(Long controlId) {
@@ -62,13 +63,19 @@ public class ControlAssignmentService {
         
         Optional<Control> controlOpt = controlRepository.findById(assignmentDTO.getControlId());
         boolean kdnControl = controlOpt.map(control -> AccessPolicy.isKdnControl(control.getControlId())).orElse(false);
-        validateAssignees(assignmentDTO.getFacilitator(), AccessPolicy.Slot.FACILITATOR, kdnControl);
-        validateAssignees(assignmentDTO.getControlOperator(), AccessPolicy.Slot.CONTROL_OPERATOR, kdnControl);
-        validateAssignees(assignmentDTO.getSoqmLead(), AccessPolicy.Slot.SOQM_LEAD, kdnControl);
-        validateAssignees(assignmentDTO.getProcessOwner(), AccessPolicy.Slot.PROCESS_OWNER, kdnControl);
-        validateAssignees(assignmentDTO.getControlSharedWith(), AccessPolicy.Slot.SHARED_WITH, kdnControl);
-
         Optional<ControlAssignment> existingAssignment = assignmentRepository.findByControlId(assignmentDTO.getControlId());
+        ControlAssignment before = existingAssignment.orElse(null);
+        validateAssignees(assignmentDTO.getFacilitator(), AccessPolicy.Slot.FACILITATOR, kdnControl,
+                before == null ? null : before.getFacilitator());
+        validateAssignees(assignmentDTO.getControlOperator(), AccessPolicy.Slot.CONTROL_OPERATOR, kdnControl,
+                before == null ? null : before.getControlOperator());
+        validateAssignees(assignmentDTO.getSoqmLead(), AccessPolicy.Slot.SOQM_LEAD, kdnControl,
+                before == null ? null : before.getSoqmLead());
+        validateAssignees(assignmentDTO.getProcessOwner(), AccessPolicy.Slot.PROCESS_OWNER, kdnControl,
+                before == null ? null : before.getProcessOwner());
+        validateAssignees(assignmentDTO.getControlSharedWith(), AccessPolicy.Slot.SHARED_WITH, kdnControl,
+                before == null ? null : before.getControlSharedWith());
+
         ControlAssignment assignment = existingAssignment.orElse(new ControlAssignment());
 
         LocalDate operationDate = assignmentDTO.getControlOperationDate();
@@ -171,9 +178,17 @@ public class ControlAssignmentService {
      * an existing user, a participant in Facilitator / Control Operator / Process Owner, a SoQM user in
      * SoQM Team / Delegate, nobody read-only except in Shared With, a KDN-scope user only on a KDN control.
      */
-    private void validateAssignees(List<String> userEmails, AccessPolicy.Slot slot, boolean kdnControl) {
+    /**
+     * @param stored the field as stored before this save: a deleted person already there stays
+     *               (AccessPolicy.assignmentRefusal with deletedAndAlreadyThere)
+     */
+    private void validateAssignees(List<String> userEmails, AccessPolicy.Slot slot, boolean kdnControl, String stored) {
         if (userEmails == null) {
             return;
+        }
+        java.util.Set<String> before = new java.util.HashSet<>();
+        for (String mail : EmailList.parse(stored)) {
+            before.add(mail.trim().toLowerCase(java.util.Locale.ROOT));
         }
         for (String email : userEmails) {
             if (email == null || email.isBlank()) {
@@ -182,7 +197,10 @@ public class ControlAssignmentService {
             AccessPolicy.Subject candidate = userRepository.findByMail(email.trim())
                     .map(AccessPolicy.Subject::of)
                     .orElse(null);
-            AccessPolicy.assignmentRefusal(candidate, slot, kdnControl).ifPresent(reason -> {
+            String lower = email.trim().toLowerCase(java.util.Locale.ROOT);
+            boolean deletedAndThere = candidate == null && before.contains(lower) && deletedUserRepository != null
+                    && !deletedUserRepository.findByMailLowerIn(List.of(lower)).isEmpty();
+            AccessPolicy.assignmentRefusal(candidate, slot, kdnControl, deletedAndThere).ifPresent(reason -> {
                 throw new IllegalArgumentException(slot.getLabel() + ": " + email.trim() + " " + reason);
             });
         }

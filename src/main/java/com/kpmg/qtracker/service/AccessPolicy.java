@@ -769,6 +769,46 @@ public final class AccessPolicy {
         };
     }
 
+    /**
+     * As {@link #assignmentRefusal(Subject, Slot, boolean)}, for a save of a control's people: a person deleted from
+     * QTracker (business decision of 2026-10-13) stays where they were until SoQM Admin Team changes it, so a save
+     * that keeps them in the same field is not refused; putting them anywhere new is ("is not a QTracker user").
+     */
+    public static Optional<String> assignmentRefusal(Subject candidate, Slot slot, boolean kdnControl,
+                                                     boolean deletedAndAlreadyThere) {
+        if (candidate == null && deletedAndAlreadyThere) {
+            return Optional.empty();
+        }
+        return assignmentRefusal(candidate, slot, kdnControl);
+    }
+
+    /**
+     * Deleting a user from the Admin Panel (business decision of 2026-10-13): SoQM Admin Team only, never oneself
+     * ({@link #DELETE_SELF}) and never the last active SoQM Admin Team member ({@link #DELETE_LAST_SOQM}); a disabled
+     * user may be deleted. The rest (the two confirmations, what is kept) is UserDeletion's.
+     *
+     * @param activeSoqmLeft active SoQM Admin Team members, the target included
+     */
+    public static Optional<String> userDeletionRefusal(Subject actor, Long actorId, Subject target, Long targetId,
+                                                       long activeSoqmLeft) {
+        if (!isSoqm(actor)) {
+            return Optional.of(DELETE_NOT_ALLOWED);
+        }
+        if (actorId != null && actorId.equals(targetId)) {
+            return Optional.of(DELETE_SELF);
+        }
+        if (target != null && target.enabled() && target.level() == AccessLevel.SOQM && activeSoqmLeft <= 1) {
+            return Optional.of(DELETE_LAST_SOQM);
+        }
+        return Optional.empty();
+    }
+
+    public static final String DELETE_NOT_ALLOWED =
+            "Only " + com.kpmg.qtracker.enums.UserRole.SOQM_TEAM_NAME + " can delete users";
+    public static final String DELETE_SELF = "You cannot delete your own account";
+    public static final String DELETE_LAST_SOQM = "This is the last active "
+            + com.kpmg.qtracker.enums.UserRole.SOQM_TEAM_NAME + " member: they cannot be deleted";
+
     /** Whether a user is offered in the picker of an assignment field (disabled users are not). */
     public static boolean isOfferedFor(Subject candidate, Slot slot, boolean kdnControl) {
         return candidate != null && candidate.enabled() && assignmentRefusal(candidate, slot, kdnControl).isEmpty();

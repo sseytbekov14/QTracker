@@ -176,7 +176,7 @@ class RoleMatrixIT {
 
     private static final List<String> USER_OPS = List.of(
             "Create control", "Export button", "Export list", "Old /controls link", "Assignment picker", "Admin Panel",
-            "Admin Panel change", "KDN page", "Dashboard");
+            "Admin Panel change", "Delete user", "KDN page", "Dashboard");
 
     @Autowired
     private MockMvc mockMvc;
@@ -393,6 +393,8 @@ class RoleMatrixIT {
             case "Old /controls link" -> active;
             // Admin Panel, users and audit: SoQM Team and only SoQM Team
             case "Admin Panel", "Admin Panel change" -> soqm;
+            // Deleting a user (step 1, the check; nobody is deleted here): SoQM Admin Team only (decision of 2026-10-13)
+            case "Delete user" -> soqm;
             // Action Centre "KDN" card: SoQM Team, All controls and KDN always; My controls only with a KDN
             // control among theirs, and no My controls row of the matrix is on one
             // The KDN page and its menu item (decision of 2026-10-13): SoQM Admin Team, All controls and KDN always;
@@ -531,6 +533,8 @@ class RoleMatrixIT {
                 .param("visibility", "MY")
                 .param("access", "EDIT")
                 .param("enabled", "true"), session));
+        row.put("Delete user", answer(post("/api/users/{id}/delete-check", adminTarget.getId()).with(csrf().asHeader()),
+                session));
         MvcResult dashboard = perform(get("/"), session);
         ModelAndView dashboardView = dashboard.getModelAndView();
         row.put("Dashboard", dashboard.getResponse().getStatus() == 200 && dashboardView != null ? "ok"

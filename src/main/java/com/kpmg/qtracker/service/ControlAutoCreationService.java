@@ -189,6 +189,8 @@ public class ControlAutoCreationService {
         control.setControlDescription(previousControl.getControlDescription());
         control.setPrp(previousControl.getPrp());
         control.setCreatedBy(previousControl.getCreatedBy());
+        control.setCreatedByEmail(previousControl.getCreatedByEmail());
+        control.setCreatedByName(previousControl.getCreatedByName());
         control.setCreatedAt(LocalDateTime.now(Notification.ZONE));
         control.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
         control.setDeadline(deadline);
