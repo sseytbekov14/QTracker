@@ -176,7 +176,7 @@ class RoleMatrixIT {
 
     private static final List<String> USER_OPS = List.of(
             "Create control", "Export button", "Export list", "Old /controls link", "Assignment picker", "Admin Panel",
-            "Admin Panel change", "KDN block");
+            "Admin Panel change", "KDN page", "Dashboard");
 
     @Autowired
     private MockMvc mockMvc;
@@ -395,7 +395,11 @@ class RoleMatrixIT {
             case "Admin Panel", "Admin Panel change" -> soqm;
             // Action Centre "KDN" card: SoQM Team, All controls and KDN always; My controls only with a KDN
             // control among theirs, and no My controls row of the matrix is on one
-            case "KDN block" -> active && (soqm || who.scope() == AccessScope.ALL || who.scope() == AccessScope.KDN);
+            // The KDN page and its menu item (decision of 2026-10-13): SoQM Admin Team, All controls and KDN always;
+            // My controls only with a KDN control among theirs, and no My controls row of the matrix is on one
+            case "KDN page" -> active && (soqm || who.scope() == AccessScope.ALL || who.scope() == AccessScope.KDN);
+            // The role KDN has no dashboard (AccessPolicy.KDN_SEES_DASHBOARD): "/" leads to /kdn
+            case "Dashboard" -> active && who.scope() != AccessScope.KDN;
             default -> throw new IllegalArgumentException(op);
         };
     }
@@ -529,9 +533,12 @@ class RoleMatrixIT {
                 .param("enabled", "true"), session));
         MvcResult dashboard = perform(get("/"), session);
         ModelAndView dashboardView = dashboard.getModelAndView();
-        row.put("KDN block", dashboard.getResponse().getStatus() == 200 && dashboardView != null
-                ? (dashboardView.getModel().get("kdnSummary") != null ? "ok" : "hidden")
-                : outcome(dashboard));
+        row.put("Dashboard", dashboard.getResponse().getStatus() == 200 && dashboardView != null ? "ok"
+                : "/kdn".equals(dashboard.getResponse().getRedirectedUrl()) ? "-> /kdn" : outcome(dashboard));
+        MvcResult kdnPage = perform(get("/kdn"), session);
+        String sidebarItem = kdnPage.getResponse().getStatus() == 200
+                && kdnPage.getResponse().getContentAsString().contains("id=\"sidebarKdn\"") ? "ok" : "no menu item!";
+        row.put("KDN page", kdnPage.getResponse().getStatus() == 200 ? sidebarItem : outcome(kdnPage));
         return row;
     }
 
@@ -578,16 +585,22 @@ class RoleMatrixIT {
     }
 
     /**
-     * "ok" when /component/HR and /component/ALL list the control with a row opening its page, and so does
-     * /component/KDN for a KDN control; "absent" when a list leaves it out, "in KDN list!" when a non-KDN control shows up there,
-     * otherwise what the page answered. Searched by Control ID, so no page of the list is missed.
+     * "ok" when /component/HR and /component/ALL list the control with a row opening its page, and so does the KDN
+     * page /kdn for a KDN control (the role KDN has only /kdn); "absent" when a list leaves it out, "in KDN list!" when
+     * a non-KDN control shows up there, otherwise what the page answered. Searched by Control ID, so no page of the
+     * list is missed.
      */
     private String inComponentLists(Control control, MockHttpSession session) throws Exception {
         boolean kdnControl = AccessPolicy.isKdnControl(control.getControlId());
+        User signedIn = session == null ? null : (User) session.getAttribute("currentUser");
+        boolean dashboard = signedIn == null || AccessPolicy.seesDashboard(AccessPolicy.Subject.of(signedIn));
         java.util.Set<String> answers = new java.util.LinkedHashSet<>();
-        for (String path : List.of("/component/HR", "/component/ALL", "/component/KDN")) {
+        for (String path : dashboard ? List.of("/component/HR", "/component/ALL", "/kdn") : List.of("/kdn")) {
             MvcResult result = perform(get(path).param("q", control.getControlId()).param("size", "50"), session);
             ModelAndView mav = result.getModelAndView();
+            if (path.equals("/kdn") && result.getResponse().getStatus() == 403) {
+                continue; // My controls without a KDN control: no KDN page
+            }
             if (result.getResponse().getStatus() != 200 || mav == null || !"component-controls".equals(mav.getViewName())) {
                 answers.add(outcome(result));
                 continue;
@@ -596,7 +609,7 @@ class RoleMatrixIT {
             boolean listed = list.rows().stream().anyMatch(row -> control.getId().equals(row.id())
                     && row.href().equals("/view-control/" + control.getId()))
                     && result.getResponse().getContentAsString().contains("data-href=\"/view-control/" + control.getId() + "\"");
-            if (path.endsWith("KDN") && !kdnControl) {
+            if (path.equals("/kdn") && !kdnControl) {
                 if (listed) {
                     answers.add("in KDN list!");
                 }
@@ -604,7 +617,7 @@ class RoleMatrixIT {
             }
             answers.add(listed ? "ok" : "absent");
         }
-        return answers.size() == 1 ? answers.iterator().next() : String.join(" / ", answers);
+        return answers.isEmpty() ? "absent" : answers.size() == 1 ? answers.iterator().next() : String.join(" / ", answers);
     }
 
     private String page(MockHttpServletRequestBuilder request, MockHttpSession session) throws Exception {

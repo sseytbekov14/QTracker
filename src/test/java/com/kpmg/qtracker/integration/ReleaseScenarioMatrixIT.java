@@ -405,7 +405,11 @@ class ReleaseScenarioMatrixIT extends ReleaseScenarioSupport {
 
     /** Whether the control is a row of the All components list (the Controls page is gone). */
     private String listed(MockHttpSession session, Control control) throws Exception {
-        MvcResult result = call(session, get("/component/ALL").param("q", reload(control).getControlId()));
+        // The role KDN has no Action Centre: its list is the KDN page
+        User signedIn = session == null ? null : (User) session.getAttribute("currentUser");
+        String path = signedIn == null || com.kpmg.qtracker.service.AccessPolicy.seesDashboard(
+                com.kpmg.qtracker.service.AccessPolicy.Subject.of(signedIn)) ? "/component/ALL" : "/kdn";
+        MvcResult result = call(session, get(path).param("q", reload(control).getControlId()));
         ModelAndView mav = result.getModelAndView();
         if (result.getResponse().getStatus() != 200 || mav == null || !"component-controls".equals(mav.getViewName())) {
             return outcome(result);

@@ -75,6 +75,6 @@ class KdnControlsOverviewTest {
     void noKdnControls_zero() {
         assertThat(KdnControlsOverview.kdnControls(List.of(control("HR-1", "REVIEW", TODAY)))).isEmpty();
         assertThat(KdnControlsOverview.kdnControls(null)).isEmpty();
-        assertThat(KdnControlsOverview.CONTROLS_HREF).isEqualTo("/component/KDN");
+        assertThat(KdnControlsOverview.CONTROLS_HREF).isEqualTo("/kdn");
     }
 }

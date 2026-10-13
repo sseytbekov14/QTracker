@@ -1023,15 +1023,17 @@ class ViewControllerStatusFilterTest {
                 dto(743L, "HR-CTRL-MF-151A/FY26/UZB/OCT", "REVIEW", null),
                 dto(744L, "X-KDN-12", "REVIEW", null)));
 
-        MvcResult result = mockMvc.perform(get("/component/kdn").sessionAttr("currentUser", soqm))
+        mockMvc.perform(get("/component/kdn").sessionAttr("currentUser", soqm)).andExpect(redirectedUrl("/kdn"));
+        MvcResult result = mockMvc.perform(get("/kdn").sessionAttr("currentUser", soqm))
                 .andExpect(status().isOk())
                 .andReturn();
 
-        assertThat(result.getModelAndView().getModel()).containsEntry("kdnList", true).containsEntry("listCode", "KDN");
+        assertThat(result.getModelAndView().getModel()).containsEntry("kdnList", true).containsEntry("listCode", "KDN")
+                .containsEntry("kdnPage", true);
         ComponentControlsList.Result list = (ComponentControlsList.Result) result.getModelAndView().getModel().get("list");
         assertThat(list.rows()).extracting(ComponentControlsList.Row::id).containsExactly(742L, 741L);
         assertThat(result.getResponse().getContentAsString())
-                .contains("<h1>Performance: KDN controls (KDN)</h1>", "Performance Status")
+                .contains("<h1>KDN controls</h1>", "Performance Status")
                 .doesNotContain("HR-CTRL-MF-151A", "X-KDN-12");
     }
 
@@ -1173,13 +1175,12 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
-    void dashboard_kdnUser_kdnCardFirst_likeAComponent_andNoActionBlocks() throws Exception {
+    void kdnRole_startsOnTheKdnPage_menuKdnAndNotifications_dashboardActionCentreAndListsLeadThere() throws Exception {
         User kdn = TestUsers.user("kdn-ac@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.READ_ONLY,
                 com.kpmg.qtracker.enums.AccessScope.KDN, false);
         kdn.setId(91L);
         kdn.setDisplayName("KDN Reader");
         java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Almaty"));
-        // KDN users are listed in a step field of old data: still no "Awaiting my action"
         ControlResponseDTO onIt = dto(914L, "KDN-914", "IN_PROGRESS", today.plusDays(9));
         onIt.setFacilitators(List.of("kdn-ac@kpmg.kz"));
         mockVisibleControls(kdn, List.of(
@@ -1188,31 +1189,35 @@ class ViewControllerStatusFilterTest {
                 dto(913L, "KDN-913", "COMPLETED", today.minusDays(9)),
                 onIt));
 
-        MvcResult result = mockMvc.perform(get("/").sessionAttr("currentUser", kdn))
-                .andExpect(status().isOk())
-                .andReturn();
-        String html = result.getResponse().getContentAsString();
-        String pane = actionCentre(html);
+        // No dashboard, no Action Centre, no component list: the KDN page (AccessPolicy.KDN_SEES_DASHBOARD)
+        for (String path : List.of("/", "/action-centre", "/component/HR", "/component/ALL", "/component/KDN")) {
+            mockMvc.perform(get(path).sessionAttr("currentUser", kdn)).andExpect(redirectedUrl("/kdn"));
+        }
+        MvcResult page = mockMvc.perform(get("/kdn").sessionAttr("currentUser", kdn))
+                .andExpect(status().isOk()).andExpect(view().name("component-controls")).andReturn();
+        ComponentControlsList.Result list = (ComponentControlsList.Result) page.getModelAndView().getModel().get("list");
+        assertThat(list.counts()).isEqualTo(new ComponentControlsList.Counts(4, 1, 2, 0, 1, 1));
+        assertThat(list.rows()).extracting(ComponentControlsList.Row::id).containsExactly(911L, 912L, 913L, 914L);
+        String html = page.getResponse().getContentAsString();
+        assertThat(html).contains("<h1>KDN controls</h1>", "id=\"sidebarKdn\"", "aria-current=\"page\">",
+                        "href=\"/notifications\"", "action=\"/kdn\"", "href=\"/kdn?status=OVERDUE\"")
+                .doesNotContain("id=\"sidebarDashboard\"", "id=\"sidebarActionCentre\"", "Action Centre",
+                        "id=\"ccExport\"", "id=\"ccKdn\"");
+        // KDN users only read: no export
+        mockMvc.perform(get("/kdn/export").sessionAttr("currentUser", kdn)).andExpect(status().isForbidden());
 
-        assertThat(html).doesNotContain("<section class=\"action-queue\"", "id=\"actionQueueTitle\"",
-                "awaiting your action", "Nothing is awaiting your action");
-        assertThat(result.getModelAndView().getModel()).doesNotContainKeys("actionItems", "actionItemsTotal")
-                .containsEntry("kdnUser", true);
-        // The first card of the grid, the same card as a component's: badge, name, five counters, bar, link text
-        assertThat(cardLinks(pane)).first().isEqualTo("/component/KDN");
-        assertThat(card(pane, "/component/KDN")).contains("class=\"ac-card has-overdue\"",
-                "<span class=\"ac-code\">KDN</span>", "<div class=\"ac-name\">KDN controls</div>",
-                "<dt>Total</dt><dd>4</dd>", "<dt>In progress</dt><dd>2</dd>", "<dt>In review</dt><dd>0</dd>",
-                "<dt>Completed</dt><dd>1</dd>", "<dt>Overdue</dt><dd>1</dd>", "View all KDN controls",
-                "aria-label=\"25% completed, 1 overdue\"");
-        ViewController.ComponentSummary summary =
-                (ViewController.ComponentSummary) result.getModelAndView().getModel().get("kdnSummary");
-        assertThat(summary).isEqualTo(new ViewController.ComponentSummary("KDN", "KDN controls",
-                new ComponentControlsList.Counts(4, 1, 2, 0, 1, 1)));
+        // Notifications on their own page, without the dashboard and the Action Centre
+        MvcResult notifications = mockMvc.perform(get("/notifications").sessionAttr("currentUser", kdn))
+                .andExpect(status().isOk()).andExpect(view().name("dashboard")).andReturn();
+        assertThat(notifications.getModelAndView().getModel()).containsEntry("notificationsOnly", true)
+                .doesNotContainKeys("actionItems", "componentSummaries", "totalControls");
+        assertThat(notifications.getResponse().getContentAsString())
+                .contains("id=\"pane-notifications\"", "data-notifications-only=\"true\"")
+                .doesNotContain("id=\"pane-dashboard\"", "id=\"pane-action\"", "id=\"sidebarDashboard\"");
     }
 
     @Test
-    void dashboard_soqm_kdnCardLast_actionQueueKept_nonKdnNeverCounted() throws Exception {
+    void soqm_kdnPageInTheMenu_noKdnCardInTheActionCentre_oldKdnLinksLeadToTheKdnPage() throws Exception {
         User soqm = new User();
         soqm.setId(92L);
         TestUsers.withRole(soqm, "SOQM_TEAM");
@@ -1227,47 +1232,47 @@ class ViewControllerStatusFilterTest {
         dtos.add(dto(932L, "X-KDN-932", "IN_PROGRESS", today.minusDays(3)));
         mockVisibleControls(soqm, dtos);
 
-        MvcResult result = mockMvc.perform(get("/").sessionAttr("currentUser", soqm))
-                .andExpect(status().isOk())
-                .andReturn();
-        String html = result.getResponse().getContentAsString();
-        String pane = actionCentre(html);
+        MvcResult dashboard = mockMvc.perform(get("/").sessionAttr("currentUser", soqm)).andExpect(status().isOk()).andReturn();
+        String html = dashboard.getResponse().getContentAsString();
+        assertThat(html).contains("<section class=\"action-queue\"", "id=\"sidebarKdn\"", "id=\"sidebarDashboard\"");
+        assertThat(cardLinks(actionCentre(html))).hasSize(10).doesNotContain("/kdn", "/component/KDN");
+        assertThat(dashboard.getModelAndView().getModel()).doesNotContainKeys("kdnSummary", "kdnHref");
 
-        assertThat(html).contains("<section class=\"action-queue\"", "id=\"actionQueueTitle\"");
-        assertThat(cardLinks(pane)).hasSize(11).last().isEqualTo("/component/KDN");
-        assertThat(card(pane, "/component/KDN")).contains("<dt>Total</dt><dd>10</dd>", "<dt>In review</dt><dd>10</dd>",
-                        "<dt>Completed</dt><dd>0</dd>", "<dt>Overdue</dt><dd>0</dd>")
-                .doesNotContain("ac-stat-late", "has-overdue");
+        MvcResult page = mockMvc.perform(get("/kdn").sessionAttr("currentUser", soqm)).andExpect(status().isOk()).andReturn();
+        ComponentControlsList.Result list = (ComponentControlsList.Result) page.getModelAndView().getModel().get("list");
+        assertThat(list.counts().total()).isEqualTo(10);
+        assertThat(list.counts().inReview()).isEqualTo(10);
+        assertThat(page.getResponse().getContentAsString()).contains("id=\"ccExport\"", "href=\"/kdn/export\"",
+                "class=\"nav-link active\" id=\"sidebarKdn\"");
+        mockMvc.perform(get("/component/KDN").param("status", "REVIEW").param("q", "KDN-0")
+                        .sessionAttr("currentUser", soqm))
+                .andExpect(redirectedUrl("/kdn?q=KDN-0&status=REVIEW"));
     }
 
     @Test
-    void dashboard_noKdnControls_emptyCardForThoseWhoSeeThemAll_nothingForMyControls() throws Exception {
+    void kdnPage_allControlsEvenWithoutKdnControls_myControlsOnlyWithOne() throws Exception {
         User allRead = TestUsers.user("all-ac@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.READ_ONLY,
                 com.kpmg.qtracker.enums.AccessScope.ALL, false);
         allRead.setId(93L);
         mockVisibleControls(allRead, List.of(dto(941L, "HR-941", "REVIEW", null)));
-        String all = mockMvc.perform(get("/").sessionAttr("currentUser", allRead))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        assertThat(card(actionCentre(all), "/component/KDN")).contains("class=\"ac-card is-empty\"",
-                "<span class=\"ac-code\">KDN</span>", "No controls");
+        MvcResult empty = mockMvc.perform(get("/kdn").sessionAttr("currentUser", allRead))
+                .andExpect(status().isOk()).andReturn();
+        assertThat(empty.getResponse().getContentAsString()).contains("There are no KDN controls you can see.",
+                "id=\"sidebarKdn\"");
 
         User mine = TestUsers.user("mine-ac@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.PARTICIPANT,
                 com.kpmg.qtracker.enums.AccessScope.OWN, false);
         mine.setId(94L);
         mockVisibleControls(mine, List.of(dto(942L, "HR-942", "REVIEW", null)));
-        MvcResult none = mockMvc.perform(get("/").sessionAttr("currentUser", mine))
-                .andExpect(status().isOk())
-                .andReturn();
-        assertThat(none.getModelAndView().getModel()).doesNotContainKey("kdnSummary");
-        assertThat(actionCentre(none.getResponse().getContentAsString())).doesNotContain("kdn=1", "KDN");
+        mockMvc.perform(get("/kdn").sessionAttr("currentUser", mine)).andExpect(status().isForbidden());
+        assertThat(mockMvc.perform(get("/").sessionAttr("currentUser", mine)).andReturn().getResponse()
+                .getContentAsString()).doesNotContain("id=\"sidebarKdn\"");
 
         mockVisibleControls(mine, List.of(dto(942L, "HR-942", "REVIEW", null), dto(943L, "KDN-943", "REVIEW", null)));
-        String some = mockMvc.perform(get("/").sessionAttr("currentUser", mine))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        assertThat(card(actionCentre(some), "/component/KDN")).contains("<dt>Total</dt><dd>1</dd>",
-                "<dt>In review</dt><dd>1</dd>");
+        MvcResult some = mockMvc.perform(get("/kdn").sessionAttr("currentUser", mine)).andExpect(status().isOk()).andReturn();
+        assertThat(((ComponentControlsList.Result) some.getModelAndView().getModel().get("list")).counts().total())
+                .isEqualTo(1);
+        assertThat(some.getResponse().getContentAsString()).contains("id=\"sidebarKdn\"");
     }
 
     private void mockVisibleControls(User user, List<ControlResponseDTO> dtos) {
@@ -1275,6 +1280,7 @@ class ViewControllerStatusFilterTest {
         for (ControlResponseDTO dto : dtos) {
             Control control = new Control();
             control.setId(dto.getId());
+            control.setControlId(dto.getControlId());
             control.setPerformanceStatus(dto.getPerformanceStatus());
             control.setCreatedAt(dto.getCreatedAt());
             control.setUpdatedAt(dto.getUpdatedAt());

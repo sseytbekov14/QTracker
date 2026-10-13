@@ -693,7 +693,7 @@ class AccessPolicyTest {
             "PART, 0, false", "PART, 1, true", "RO, 0, false", "RO, 2, true",
             "DISABLED_SOQM, 4, false", "DISABLED_PART, 1, false", "NONE, 1, false"})
     void kdnBlock_seenWithoutBeingOn_orWhenMyControlsHoldSome(String key, long kdnControls, boolean shown) {
-        assertThat(AccessPolicy.showsKdnBlock(who(key), kdnControls)).isEqualTo(shown);
+        assertThat(AccessPolicy.seesKdnPage(who(key), kdnControls)).isEqualTo(shown);
     }
 
     @Test

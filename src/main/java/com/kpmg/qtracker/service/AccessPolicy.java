@@ -306,12 +306,25 @@ public final class AccessPolicy {
     }
 
     /**
-     * The "KDN" card of the Action Centre ({@link KdnControlsOverview}): shown to those who see the KDN
-     * controls without being on them (SoQM Team, All controls, KDN), even before there is one; to My controls
-     * only when some of the controls they see are KDN controls. Which controls it lists is {@link #canView}'s.
+     * The KDN page (/kdn) and its item in the menu (business decision of 2026-10-13, it took the place of the Action
+     * Centre's "KDN controls" card): the role KDN, SoQM Admin Team and a User with All controls always, even before
+     * there is a KDN control; a User with My controls only when some of the controls they see are KDN controls
+     * ({@link #isKdnControl}). Which controls it lists is {@link #canView}'s.
      */
-    public static boolean showsKdnBlock(Subject subject, long visibleKdnControls) {
+    public static boolean seesKdnPage(Subject subject, long visibleKdnControls) {
         return active(subject) && (visibleKdnControls > 0 || seesWithoutBeingOn(subject));
+    }
+
+    /**
+     * Whether the role KDN has the Dashboard and the Action Centre (their pages and menu items). Off (business
+     * decision of 2026-10-13): a KDN user starts on /kdn, the menu has only KDN and Notifications, and the dashboard,
+     * the Action Centre and the component lists lead to /kdn. Set to true to give the dashboard back.
+     */
+    public static final boolean KDN_SEES_DASHBOARD = false;
+
+    /** The Dashboard, the Action Centre and the component lists: everyone but the role KDN ({@link #KDN_SEES_DASHBOARD}). */
+    public static boolean seesDashboard(Subject subject) {
+        return !isKdnUser(subject) || KDN_SEES_DASHBOARD;
     }
 
     /**

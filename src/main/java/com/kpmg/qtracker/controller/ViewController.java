@@ -159,6 +159,10 @@ public class ViewController {
         User currentUser = getCurrentUser(session);
         String userEmail = currentUser.getMail();
         AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
+        // The role KDN starts on the KDN page and has no dashboard (AccessPolicy.KDN_SEES_DASHBOARD)
+        if (!AccessPolicy.seesDashboard(subject)) {
+            return "redirect:" + KdnControlsOverview.CONTROLS_HREF;
+        }
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userEmail", userEmail);
@@ -199,21 +203,38 @@ public class ViewController {
         }
 
         // ===== ACTION CENTRE DATA =====
+        // The component cards; the KDN controls have their own page (/kdn, in the menu)
         addComponentSummaries(model, allControls, todayAlmaty);
-        // KDN: one more card like the components, of the KDN controls the user sees (no query of its own);
-        // first in the grid for KDN users, last for the others; it leads to the list /component/KDN
-        ComponentControlsList.Counts kdn = ComponentControlsList.Counts.of(
-                ComponentControlsList.controlsOf(ComponentControlsList.KDN_CODE, allControls), todayAlmaty);
-        if (AccessPolicy.showsKdnBlock(subject, kdn.total())) {
-            model.addAttribute("kdnSummary",
-                    new ComponentSummary(ComponentControlsList.KDN_CODE, ComponentControlsList.KDN_NAME, kdn));
-            model.addAttribute("kdnHref", KdnControlsOverview.CONTROLS_HREF);
-        }
-        model.addAttribute("kdnUser", AccessPolicy.isKdnUser(subject));
 
-        // ===== NOTIFICATIONS DATA =====
-        // Newest first, NOTIFICATIONS_PAGE_SIZE at a time ("Show more" raises notifLimit).
-        // The limit is applied before mapping because each item loads its control.
+        addNotifications(model, currentUser, notifLimit);
+        return "dashboard";
+    }
+
+    /**
+     * The notifications of the person. Everyone else has them on the dashboard's Notifications tab; the role KDN,
+     * without a dashboard (AccessPolicy.KDN_SEES_DASHBOARD), here on the same page with only that tab.
+     */
+    @GetMapping("/notifications")
+    public String notifications(@RequestParam(value = "notifLimit", required = false) Integer notifLimit,
+                                Model model, HttpSession session) {
+        String redirect = checkAuthAndRedirect(session);
+        if (redirect != null) return redirect;
+
+        User currentUser = getCurrentUser(session);
+        if (AccessPolicy.seesDashboard(AccessPolicy.Subject.of(currentUser))) {
+            return "redirect:/#notifications";
+        }
+        model.addAttribute("userName", currentUser.getDisplayName());
+        model.addAttribute("userEmail", currentUser.getMail());
+        model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
+        model.addAttribute("notificationsOnly", true);
+        addNotifications(model, currentUser, notifLimit);
+        return "dashboard";
+    }
+
+    // Newest first, NOTIFICATIONS_PAGE_SIZE at a time ("Show more" raises notifLimit).
+    // The limit is applied before mapping because each item loads its control.
+    private void addNotifications(Model model, User currentUser, Integer notifLimit) {
         int limit = notifLimit == null || notifLimit < NOTIFICATIONS_PAGE_SIZE
                 ? NOTIFICATIONS_PAGE_SIZE
                 : Math.min(notifLimit, NOTIFICATIONS_MAX_LIMIT);
@@ -230,8 +251,6 @@ public class ViewController {
         model.addAttribute("notificationsShown", notifications.size());
         model.addAttribute("notificationsNextLimit",
                 Math.min(limit + NOTIFICATIONS_PAGE_SIZE, NOTIFICATIONS_MAX_LIMIT));
-
-        return "dashboard";
     }
 
     /**
@@ -528,14 +547,6 @@ public class ViewController {
         return false;
     }
 
-    @GetMapping("/notifications")
-    public String notifications(HttpSession session) {
-        String redirect = checkAuthAndRedirect(session);
-        if (redirect != null) return redirect;
-
-        return "redirect:/#notifications";
-    }
-
     @GetMapping("/notification/{notificationId}")
     public String notificationDetail(@PathVariable String notificationId, Model model, HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
@@ -582,11 +593,12 @@ public class ViewController {
     public String markAllNotificationsRead(HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
+        boolean dashboard = AccessPolicy.seesDashboard(AccessPolicy.Subject.of(getCurrentUser(session)));
 
         User currentUser = getCurrentUser(session);
         notificationService.markAllAsRead(currentUser.getId());
 
-        return "redirect:/#notifications";
+        return dashboard ? "redirect:/#notifications" : "redirect:/notifications";
     }
 
     /** Marks one own notification as read; the answer carries the new unread count for the badges. */
@@ -662,40 +674,112 @@ public class ViewController {
                                       @RequestParam(value = "page", required = false) Integer page,
                                       @RequestParam(value = "size", required = false) Integer size,
                                       @RequestParam(value = "kdn", required = false) String kdnFilter,
-                                      Model model, HttpSession session) {
+                                      Model model, HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
 
+        User currentUser = getCurrentUser(session);
+        // The role KDN has no Action Centre (AccessPolicy.KDN_SEES_DASHBOARD): its lists lead to the KDN page
+        if (!AccessPolicy.seesDashboard(AccessPolicy.Subject.of(currentUser))) {
+            return "redirect:" + KdnControlsOverview.CONTROLS_HREF;
+        }
         String code = listCode(componentName);
         if (code == null) {
             return "redirect:/component/" + ComponentControlsList.ALL_CODE;
         }
+        // The KDN list is the KDN page now; old links keep their search, filter, sorting and page
+        if (ComponentControlsList.KDN_CODE.equals(code)) {
+            org.springframework.web.util.UriComponentsBuilder target = org.springframework.web.util.UriComponentsBuilder
+                    .fromPath(KdnControlsOverview.CONTROLS_HREF);
+            for (String name : List.of("q", "status", "sort", "dir", "page", "size")) {
+                String value = request.getParameter(name);
+                if (value != null && !value.isBlank()) {
+                    target.queryParam(name, value.trim());
+                }
+            }
+            return "redirect:" + target.build().encode().toUriString();
+        }
+        String basePath = org.springframework.web.util.UriComponentsBuilder.fromPath("/component/{code}")
+                .buildAndExpand(code).encode().toUriString();
+        ComponentControlsList.Query query = ComponentControlsList.Query.of(q, status, sort, dir, page, size, kdnFilter);
+        return renderList(code, basePath, query, currentUser, model, null);
+    }
+
+    /**
+     * The KDN page (business decision of 2026-10-13): the KDN controls the user sees, as the Action Centre's lists
+     * show them (counters, ten columns, sorting, search, status filter, pages, Export for SoQM Admin Team). Its item
+     * in the menu and the page itself: AccessPolicy.seesKdnPage; anyone else gets 403. The role KDN starts here.
+     */
+    @GetMapping("/kdn")
+    public String kdnPage(@RequestParam(value = "q", required = false) String q,
+                          @RequestParam(value = "status", required = false) String status,
+                          @RequestParam(value = "sort", required = false) String sort,
+                          @RequestParam(value = "dir", required = false) String dir,
+                          @RequestParam(value = "page", required = false) Integer page,
+                          @RequestParam(value = "size", required = false) Integer size,
+                          Model model, HttpSession session) {
+        String redirect = checkAuthAndRedirect(session);
+        if (redirect != null) return redirect;
+
         User currentUser = getCurrentUser(session);
+        ComponentControlsList.Query query = ComponentControlsList.Query.of(q, status, sort, dir, page, size, null);
+        return renderList(ComponentControlsList.KDN_CODE, KdnControlsOverview.CONTROLS_HREF, query, currentUser, model,
+                count -> {
+                    if (!AccessPolicy.seesKdnPage(AccessPolicy.Subject.of(currentUser), count)) {
+                        throw new ForbiddenException("The KDN page is for those who see KDN controls");
+                    }
+                });
+    }
+
+    /** The KDN page's Excel: as every list's (SoQM Admin Team only). */
+    @GetMapping("/kdn/export")
+    public void exportKdn(@RequestParam(value = "q", required = false) String q,
+                          @RequestParam(value = "status", required = false) String status,
+                          @RequestParam(value = "sort", required = false) String sort,
+                          @RequestParam(value = "dir", required = false) String dir,
+                          HttpServletResponse response, HttpSession session) throws java.io.IOException {
+        exportList(ComponentControlsList.KDN_CODE, q, status, sort, dir, null, response, session);
+    }
+
+    /**
+     * One list page (component-controls.html): the controls of {@code code} the user sees, as {@code query} asks.
+     * {@code admit} checks the number of controls of the list before anything is shown (the KDN page's rule).
+     */
+    private String renderList(String code, String basePath, ComponentControlsList.Query query, User currentUser,
+                              Model model, java.util.function.LongConsumer admit) {
         AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
         boolean kdn = ComponentControlsList.KDN_CODE.equals(code);
-        boolean all = ComponentControlsList.ALL_CODE.equals(code);
+        boolean kdnPage = kdn && KdnControlsOverview.CONTROLS_HREF.equals(basePath);
         String name = listName(code);
+        ListData data = null;
+        RuntimeException failure = null;
+        try {
+            data = listData(code, currentUser);
+        } catch (RuntimeException e) {
+            log.error("Could not load the controls of {} for {}", code, currentUser.getMail(), e);
+            failure = e;
+        }
+        if (admit != null) {
+            admit.accept(data == null ? 0 : data.controls().size());
+        }
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userEmail", currentUser.getMail());
         model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
         model.addAttribute("listCode", code);
         model.addAttribute("listName", name);
-        model.addAttribute("listTitle", "Performance: " + name + " (" + code + ")");
+        model.addAttribute("listTitle", kdnPage ? name : "Performance: " + name + " (" + code + ")");
+        model.addAttribute("listPath", basePath);
         model.addAttribute("kdnList", kdn);
-        model.addAttribute("allList", all);
+        model.addAttribute("kdnPage", kdnPage);
+        model.addAttribute("allList", ComponentControlsList.ALL_CODE.equals(code));
         // The Excel of the list: SoQM Admin Team only (the server refuses everyone else, exportList)
         model.addAttribute("canExport", AccessPolicy.canExportControlLists(subject));
-        ComponentControlsList.Query query = ComponentControlsList.Query.of(q, status, sort, dir, page, size, kdnFilter);
         model.addAttribute("query", query);
-        try {
-            ListData data = listData(code, currentUser);
-            String basePath = org.springframework.web.util.UriComponentsBuilder.fromPath("/component/{code}")
-                    .buildAndExpand(code).encode().toUriString();
+        if (failure == null) {
             model.addAttribute("list", ComponentControlsList.of(basePath, data.controls(), data.names(), query,
                     data.today(), data.marks()));
-        } catch (RuntimeException e) {
-            log.error("Could not load the controls of {} for {}", code, currentUser.getMail(), e);
+        } else {
             model.addAttribute("loadError", true);
         }
         return "component-controls";
@@ -961,9 +1045,16 @@ public class ViewController {
         return "new-control";
     }
 
-    /** The Action Centre is a tab of the dashboard; this address only leads there (old bookmarks). */
+    /**
+     * The Action Centre is a tab of the dashboard; this address only leads there (old bookmarks), or to the KDN
+     * page for the role KDN, who has no Action Centre (AccessPolicy.KDN_SEES_DASHBOARD).
+     */
     @GetMapping("/action-centre")
-    public String actionCentre() {
+    public String actionCentre(HttpSession session) {
+        User currentUser = getCurrentUser(session);
+        if (currentUser != null && !AccessPolicy.seesDashboard(AccessPolicy.Subject.of(currentUser))) {
+            return "redirect:" + KdnControlsOverview.CONTROLS_HREF;
+        }
         return "redirect:/#action-centre";
     }
 

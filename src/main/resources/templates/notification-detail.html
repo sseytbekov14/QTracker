@@ -161,7 +161,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                         <span>Home</span>
                     </a>
                     <span class="app-breadcrumb-separator">/</span>
-                    <a href="/#notifications" class="app-breadcrumb-link">Notifications</a>
+                    <a href="/#notifications" th:href="${sidebar != null ? sidebar.notificationsHref : '/#notifications'}" class="app-breadcrumb-link">Notifications</a>
                     <span class="app-breadcrumb-separator">/</span>
                     <span class="app-breadcrumb-current">Notification</span>
                 </nav>
@@ -177,7 +177,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                         <div class="notif-empty">
                             <i class="bi bi-bell-slash" aria-hidden="true"></i>
                             <p th:text="${error ?: 'Notification not found'}">Notification not found</p>
-                            <a href="/#notifications" class="btn-secondary-action">
+                            <a href="/#notifications" th:href="${sidebar != null ? sidebar.notificationsHref : '/#notifications'}" class="btn-secondary-action">
                                 <i class="bi bi-arrow-left" aria-hidden="true"></i>Back to Notifications
                             </a>
                         </div>
@@ -225,7 +225,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                         </div>
 
                         <div class="notif-actions">
-                            <a href="/#notifications" class="btn-secondary-action">
+                            <a href="/#notifications" th:href="${sidebar != null ? sidebar.notificationsHref : '/#notifications'}" class="btn-secondary-action">
                                 <i class="bi bi-arrow-left" aria-hidden="true"></i>Back to Notifications
                             </a>
                             <a th:if="${controlUrl != null}" th:href="${controlUrl}" class="btn-primary-action">

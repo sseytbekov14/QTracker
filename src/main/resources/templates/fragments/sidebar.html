@@ -3,8 +3,9 @@
 <body>
 <!--
   Shared sidebar. Usage: <div th:replace="~{fragments/sidebar :: sidebar('action')}"></div>
-  active: dashboard | action | notifications | admin | '' (none). The Controls page is gone: its lists are the
-  Action Centre's (/component/ALL and one per component).
+  active: dashboard | action | kdn | notifications | admin | '' (none). The Controls page is gone: its lists are the
+  Action Centre's (/component/ALL and one per component). The role KDN has only KDN and Notifications
+  (AccessPolicy.seesDashboard / seesKdnPage, via SidebarModelAdvice).
   Data comes from SidebarModelAdvice (model attribute "sidebar").
   The ids sidebarDashboard / sidebarActionCentre / sidebarNotifications are used by dashboard.html
   to switch tabs without reloading.
@@ -32,20 +33,27 @@
 
         <nav aria-label="Main navigation">
             <ul class="nav flex-column">
-                <li class="nav-item">
+                <li class="nav-item" th:if="${sidebar == null or sidebar.dashboard}">
                     <a class="nav-link" id="sidebarDashboard" href="/"
                        th:classappend="${active == 'dashboard'} ? 'active'"
                        th:attr="aria-current=${active == 'dashboard'} ? 'page' : null">
                         <i class="bi bi-speedometer2" aria-hidden="true"></i>Dashboard</a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item" th:if="${sidebar == null or sidebar.dashboard}">
                     <a class="nav-link" id="sidebarActionCentre" href="/#action-centre"
                        th:classappend="${active == 'action'} ? 'active'"
                        th:attr="aria-current=${active == 'action'} ? 'page' : null">
                         <i class="bi bi-grid-3x3-gap" aria-hidden="true"></i>Action Centre</a>
                 </li>
+                <li class="nav-item" th:if="${sidebar != null and sidebar.kdnPage}">
+                    <a class="nav-link" id="sidebarKdn" href="/kdn"
+                       th:classappend="${active == 'kdn'} ? 'active'"
+                       th:attr="aria-current=${active == 'kdn'} ? 'page' : null">
+                        <i class="bi bi-globe2" aria-hidden="true"></i>KDN</a>
+                </li>
                 <li class="nav-item">
                     <a class="nav-link" id="sidebarNotifications" href="/#notifications"
+                       th:href="${sidebar != null ? sidebar.notificationsHref : '/#notifications'}"
                        th:classappend="${active == 'notifications'} ? 'active'"
                        th:attr="aria-current=${active == 'notifications'} ? 'page' : null">
                         <i class="bi bi-bell" aria-hidden="true"></i>Notifications

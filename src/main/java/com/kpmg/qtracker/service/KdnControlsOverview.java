@@ -7,14 +7,14 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * The KDN controls among the controls the user already sees (no query of its own, so the Action Centre's KDN card
- * and the list behind it count exactly what the user sees). A KDN control is {@link AccessPolicy#isKdnControl};
- * the card's counters are {@link ComponentControlsList.Counts}, as on the component cards.
+ * The KDN controls among the controls the user already sees (no query of its own, so the KDN page counts exactly
+ * what the user sees). A KDN control is {@link AccessPolicy#isKdnControl}; the page's counters are
+ * {@link ComponentControlsList.Counts}, as on the component lists.
  */
 public final class KdnControlsOverview {
 
-    /** The list of the KDN controls, where the card leads (the same list as a component's). */
-    public static final String CONTROLS_HREF = "/component/" + ComponentControlsList.KDN_CODE;
+    /** The KDN page (in the menu; /component/KDN leads here): the same list as a component's. */
+    public static final String CONTROLS_HREF = "/kdn";
 
     private KdnControlsOverview() {
     }

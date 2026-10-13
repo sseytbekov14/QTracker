@@ -135,7 +135,7 @@ class ReleaseScenarioListsIT extends ReleaseScenarioSupport {
                 .forEach(row -> marked.add(row.id()));
         assertThat(marked).contains(kdnControl.getId()).doesNotContain(hr.getId());
         assertThat(listRows(login(allEdit), "/component/ALL")).noneMatch(ComponentControlsList.Row::kdn);
-        List<ComponentControlsList.Row> kdnRows = listRows(login(kdnUser), "/component/ALL?kdn=1");
+        List<ComponentControlsList.Row> kdnRows = listRows(login(kdnUser), "/kdn");
         assertThat(kdnRows).extracting(ComponentControlsList.Row::id).contains(kdnControl.getId()).doesNotContain(hr.getId());
     }
 

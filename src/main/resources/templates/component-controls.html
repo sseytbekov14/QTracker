@@ -15,12 +15,13 @@
 <!--/*
   The Action Centre's list of a component's controls, of every control the user sees (ALL, which took the place of
   the Controls page) or of the KDN controls (ViewController.controlsByComponent).
-  Model: listCode, listName, listTitle, kdnList, allList, canExport, query (ComponentControlsList.Query),
+  The KDN page (/kdn, kdnPage) is the same list of the KDN controls, with its own menu item and no Action Centre crumb.
+  Model: listCode, listName, listTitle, listPath, kdnList, kdnPage, allList, canExport, query (ComponentControlsList.Query),
   list (ComponentControlsList.Result; absent when loadError), accessDeniedMessage (flash, after a revoked control).
 */-->
 <div class="container-fluid">
     <div class="row">
-        <div th:replace="~{fragments/sidebar :: sidebar('action')}"></div>
+        <div th:replace="~{fragments/sidebar :: sidebar(${kdnPage} ? 'kdn' : 'action')}"></div>
 
         <main class="col-md-10">
             <div class="p-3">
@@ -30,8 +31,10 @@
                         <i class="bi bi-house app-breadcrumb-home-icon" aria-hidden="true"></i>
                         <span>Home</span>
                     </a>
-                    <span class="app-breadcrumb-separator" aria-hidden="true">/</span>
-                    <a href="/#action-centre" class="app-breadcrumb-link">Action Centre</a>
+                    <th:block th:unless="${kdnPage}">
+                        <span class="app-breadcrumb-separator" aria-hidden="true">/</span>
+                        <a href="/#action-centre" class="app-breadcrumb-link">Action Centre</a>
+                    </th:block>
                     <span class="app-breadcrumb-separator" aria-hidden="true">/</span>
                     <span class="app-breadcrumb-current" aria-current="page" th:text="${listName}">Human Resources</span>
                 </nav>
@@ -61,7 +64,7 @@
                     <div>
                         <strong>The controls could not be loaded.</strong>
                         <span>Reload the page. If it happens again, contact SoQM Admin Team.</span>
-                        <a th:href="@{/component/{code}(code=${listCode})}">Reload</a>
+                        <a th:href="${listPath}">Reload</a>
                     </div>
                 </div>
 
@@ -98,7 +101,7 @@
 
                     <!-- Search and status filter: a plain GET form, so it works without scripts too -->
                     <form class="cc-toolbar" method="get" role="search" id="ccFilters"
-                          th:action="@{/component/{code}(code=${listCode})}" th:if="${counts.total() > 0}">
+                          th:action="${listPath}" th:if="${counts.total() > 0}">
                         <div class="cc-field cc-search">
                             <label for="ccSearch">Search</label>
                             <div class="search-box">
@@ -142,7 +145,7 @@
                         <p th:text="${kdnList} ? 'There are no KDN controls you can see.'
                                 : (${allList} ? 'There are no controls you can see.' : 'There are no controls in this component that you can see.')">
                             There are no controls in this component that you can see.</p>
-                        <a href="/#action-centre">Back to Action Centre</a>
+                        <a th:unless="${kdnPage}" href="/#action-centre">Back to Action Centre</a>
                     </div>
 
                     <!-- Controls exist, but none match the search or the filter -->
