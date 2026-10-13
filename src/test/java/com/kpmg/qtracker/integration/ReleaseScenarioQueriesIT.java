@@ -29,15 +29,19 @@ class ReleaseScenarioQueriesIT extends ReleaseScenarioSupport {
     private EntityManagerFactory entityManagerFactory;
 
     @Test
-    void theControlsListTheDashboardAndAComponentList_readTheControlsWithAFixedNumberOfStatements() throws Exception {
+    void allComponentsTheDashboardAComponentListAndTheExport_readTheControlsWithAFixedNumberOfStatements()
+            throws Exception {
         User me = myEdit("q-me");
-        People people = people().facilitator(me).operator(myEdit("q-op")).soqm(soqm("q-soqm")).owner(myEdit("q-po"));
+        User lead = soqm("q-soqm");
+        People people = people().facilitator(me).operator(myEdit("q-op")).soqm(lead).owner(myEdit("q-po"));
         for (int i = 0; i < CONTROLS; i++) {
             control("RS-Q", i % 2 == 0 ? "IN_PROGRESS" : "REVIEW", people);
         }
         MockHttpSession session = login(me);
         Map<String, Long> statements = new LinkedHashMap<>();
-        statements.put("/controls", count(session, get("/controls").param("scope", "all")));
+        statements.put("/component/ALL", count(session, get("/component/ALL")));
+        statements.put("/component/ALL?status=YOUR_TURN", count(session, get("/component/ALL").param("status", "YOUR_TURN")));
+        statements.put("/component/ALL/export (SoQM)", count(login(lead), get("/component/ALL/export")));
         statements.put("/", count(session, get("/")));
         statements.put("/component/HR", count(session, get("/component/HR")));
         // A fixed part (the person, the session, the lists of ids, the completion times) and no part per control

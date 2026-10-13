@@ -200,7 +200,8 @@ class ReleaseScenarioFieldsIT extends ReleaseScenarioSupport {
         assertThat(formulas).as("no formula cells").isEmpty();
         assertThat(values).anyMatch(v -> v.contains("HYPERLINK")).anyMatch(v -> v.contains("<script>"));
         // The list export too
-        MvcResult list = call(session, get("/api/controls/export/excel"));
+        MvcResult list = call(session, get("/component/ALL/export"));
+        assertThat(list.getResponse().getStatus()).isEqualTo(200);
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(list.getResponse().getContentAsByteArray()))) {
             for (Sheet sheet : workbook) {
                 for (Row row : sheet) {

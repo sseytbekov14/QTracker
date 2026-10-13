@@ -23,6 +23,7 @@ body { background: var(--kpmg-gray-50); }
     align-items: center;
     justify-content: space-between;
     gap: 16px;
+    flex-wrap: wrap;
     background: var(--kpmg-blue);
     color: var(--kpmg-white);
     padding: 14px 24px;
@@ -195,6 +196,11 @@ th[aria-sort="descending"] .sort-link .bi { opacity: 1; }
 .status-completed  { background: #d4edda; color: #155724; }
 .status-overdue    { background: var(--kpmg-red); color: var(--kpmg-white); }
 .status-overdue .bi { margin-right: 3px; }
+.status-closed-late { background: transparent; color: var(--kpmg-red); border: 1px solid var(--kpmg-red); }
+.status-reopened   { background: #fde8d7; color: #8a3b00; }
+.status-due-soon   { background: #fff3cd; color: #6b5104; border: 1px solid #e0c46c; }
+.status-your-turn  { background: var(--kpmg-blue); color: var(--kpmg-white); }
+.status-kdn        { background: #f3ecfa; color: #5b2a86; margin-left: 4px; vertical-align: middle; }
 /* Control Status Deleted or Superseded: still listed and counted, marked */
 .status-retired    { background: var(--kpmg-white); color: #3f4656; border: 1px solid #8a93a3; text-decoration: none; }
 
@@ -318,3 +324,15 @@ th[aria-sort="descending"] .sort-link .bi { opacity: 1; }
     .cc-pager { flex-direction: column; align-items: stretch; }
     .cc-sizes { margin-left: 0; }
 }
+
+/* Export to Excel (SoQM Admin Team) and the KDN filter */
+.cc-export {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 4px;
+    border: 1px solid var(--kpmg-blue); color: var(--kpmg-blue); background: var(--kpmg-white);
+    font-size: 0.85rem; font-weight: 600; text-decoration: none; white-space: nowrap;
+}
+.cc-export:hover { background: #e6ecf6; }
+.cc-export:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
+.cc-check { flex-direction: row; align-items: center; gap: 6px; align-self: flex-end; padding-bottom: 8px; }
+.cc-check input { width: 16px; height: 16px; margin: 0; }
+.cc-check label { margin: 0; text-transform: none; letter-spacing: 0; }

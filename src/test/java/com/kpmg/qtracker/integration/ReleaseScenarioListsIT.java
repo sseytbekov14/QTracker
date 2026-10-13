@@ -69,29 +69,22 @@ class ReleaseScenarioListsIT extends ReleaseScenarioSupport {
         assertThat(number(tiles, "overdueControls")).isEqualTo(1L);
         assertThat(number(tiles, "activeControls")).isEqualTo(6L);
 
-        ModelAndView list = call(session, get("/controls").param("scope", "all")).getModelAndView();
-        for (String counter : List.of("totalControls", "completedControls", "overdueControls", "activeControls")) {
-            assertThat(number(list.getModel(), counter)).as(counter).isEqualTo(number(tiles, counter));
+        // The tiles' links: the All components list with the same filter, as many rows as the tile says
+        Map<String, String> links = Map.of("totalControls", "/component/ALL", "activeControls",
+                "/component/ALL?status=ACTIVE", "completedControls", "/component/ALL?status=COMPLETED",
+                "overdueControls", "/component/ALL?status=OVERDUE");
+        String html = body(call(session, get("/")));
+        links.forEach((counter, href) -> assertThat(html).as(counter).contains("href=\"" + href.replace("&", "&amp;") + "\""));
+        for (Map.Entry<String, String> link : links.entrySet()) {
+            assertThat((long) listRows(session, link.getValue()).size()).as(link.getValue())
+                    .isEqualTo(number(tiles, link.getKey()));
         }
-        // Every tile's link lists as many controls as the tile says
-        // Active: see activeTile_equalsTheListBehindItsLink (D-08)
-        for (String key : List.of("statTotalLink", "statCompletedLink", "statOverdueLink")) {
-            ViewController.FilterLink link = (ViewController.FilterLink) list.getModel().get(key);
-            List<ControlResponseDTO> rows = rows(call(session, get(link.href())));
-            String counter = switch (key) {
-                case "statTotalLink" -> "totalControls";
-                case "statActiveLink" -> "activeControls";
-                case "statCompletedLink" -> "completedControls";
-                default -> "overdueControls";
-            };
-            assertThat((long) rows.size()).as("%s %s", key, link.href()).isEqualTo(number(tiles, counter));
-        }
-        List<ControlResponseDTO> all = rows(call(session, get("/controls").param("scope", "all")));
-        assertThat(all).extracting(ControlResponseDTO::getId)
+        List<ComponentControlsList.Row> all = listRows(session, "/component/ALL");
+        assertThat(all).extracting(ComponentControlsList.Row::id)
                 .containsExactlyInAnyOrderElementsOf(controls.stream().map(Control::getId).toList());
-        assertThat(all.stream().filter(ControlResponseDTO::isClosedLate).map(ControlResponseDTO::getId))
+        assertThat(all.stream().filter(ComponentControlsList.Row::closedLate).map(ComponentControlsList.Row::id))
                 .containsExactly(late.getId());
-        assertThat(all.stream().filter(ControlResponseDTO::isOverdue)).hasSize(1);
+        assertThat(all.stream().filter(ComponentControlsList.Row::overdue)).hasSize(1);
 
         // Action Centre cards = the component lists
         ModelAndView centre = call(session, get("/action-centre")).getModelAndView();
@@ -115,9 +108,8 @@ class ReleaseScenarioListsIT extends ReleaseScenarioSupport {
         assertThat(hr.rows()).hasSize(6);
     }
 
+    /** D-08: the Active tile and the list behind it (the Controls page is gone, the list follows the tile's rule). */
     @Test
-    @Disabled("D-08 (S2): the Active tile counts open controls that are not overdue, its link lists all open ones "
-            + "(SoQM / All / KDN) or only the person's turn (My controls); needs a business decision (Q-06)")
     void activeTile_equalsTheListBehindItsLink() throws Exception {
         for (User me : List.of(myEdit("at-my"), allEdit("at-all"))) {
             User soqm = soqm("at-soqm");
@@ -126,9 +118,7 @@ class ReleaseScenarioListsIT extends ReleaseScenarioSupport {
             control("RS-AT", "REVIEW", mine);
             deadline(control("RS-AT", "IN_PROGRESS", mine), today().minusDays(3));
             MockHttpSession session = login(me);
-            ModelAndView list = call(session, get("/controls").param("scope", "all")).getModelAndView();
-            ViewController.FilterLink link = (ViewController.FilterLink) list.getModel().get("statActiveLink");
-            assertThat((long) rows(call(session, get(link.href()))).size()).as(me.getMail())
+            assertThat((long) listRows(session, "/component/ALL?status=ACTIVE").size()).as(me.getMail())
                     .isEqualTo(number(call(session, get("/")).getModelAndView().getModel(), "activeControls"));
         }
     }
@@ -140,27 +130,25 @@ class ReleaseScenarioListsIT extends ReleaseScenarioSupport {
         User allEdit = allEdit("km-all");
         Control kdnControl = control("KDN-KM", "IN_PROGRESS", people().soqm(soqm));
         Control hr = control("HR-KM", "IN_PROGRESS", people().soqm(soqm));
-        @SuppressWarnings("unchecked")
-        Set<Long> marked = (Set<Long>) call(login(soqm), get("/controls").param("scope", "all")).getModelAndView()
-                .getModel().get("kdnControlIds");
+        Set<Long> marked = new java.util.HashSet<>();
+        listRows(login(soqm), "/component/ALL").stream().filter(ComponentControlsList.Row::kdn)
+                .forEach(row -> marked.add(row.id()));
         assertThat(marked).contains(kdnControl.getId()).doesNotContain(hr.getId());
-        Object forOthers = call(login(allEdit), get("/controls").param("scope", "all")).getModelAndView()
-                .getModel().get("kdnControlIds");
-        assertThat(forOthers == null || ((Set<?>) forOthers).isEmpty()).isTrue();
-        List<ControlResponseDTO> kdnRows = rows(call(login(kdnUser), get("/controls").param("kdn", "1")));
-        assertThat(kdnRows).extracting(ControlResponseDTO::getId).contains(kdnControl.getId()).doesNotContain(hr.getId());
+        assertThat(listRows(login(allEdit), "/component/ALL")).noneMatch(ComponentControlsList.Row::kdn);
+        List<ComponentControlsList.Row> kdnRows = listRows(login(kdnUser), "/component/ALL?kdn=1");
+        assertThat(kdnRows).extracting(ComponentControlsList.Row::id).contains(kdnControl.getId()).doesNotContain(hr.getId());
     }
 
     // ---- Excel of the list ----
 
     @Test
-    void excelOfTheList_columnsCyrillicDatesAndOverAThousandRows() throws Exception {
+    void excelOfTheList_theListsColumns_cyrillic_noFormula_twoThousandRows_soqmAdminTeamOnly() throws Exception {
         User soqm = soqm("xl-soqm");
         User named = userRepository.findById(soqm.getId()).orElseThrow();
         named.setDisplayName("Ерлан Тестов ✅");
         userRepository.save(named);
         List<Control> many = new ArrayList<>();
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 2000; i++) {
             Control c = new Control();
             c.setControlId("HR-XL-" + RUN + "-" + i);
             c.setControlFrequency("Monthly");
@@ -173,41 +161,61 @@ class ReleaseScenarioListsIT extends ReleaseScenarioSupport {
             many.add(c);
         }
         controlRepository.saveAll(many);
-        Control dated = control("HR-XLD", "IN_PROGRESS", people().soqm(soqm));
-        deadline(dated, LocalDate.of(2027, 3, 1));
+        Control dated = control("HR-XLD", "PROCESS_OWNER_REVIEW", people().soqm(soqm), c -> c.setControlCategory("=1+2"));
+        ControlAssignment assignment = assignmentRepository.findByControlId(dated.getId()).orElseThrow();
+        assignment.setControlOperationDate(LocalDate.of(2027, 3, 1));
+        assignmentRepository.save(assignment);
+
+        // Everyone else: 403 on every list's export
+        for (User other : List.of(myEdit("xl-my"), allEdit("xl-all"), myRead("xl-ro"), allRead("xl-allro"), kdn("xl-kdn"))) {
+            MockHttpSession session = login(other);
+            for (String path : List.of("/component/ALL/export", "/component/HR/export", "/component/KDN/export")) {
+                assertThat(call(session, get(path)).getResponse().getStatus()).as("%s %s", other.getMail(), path)
+                        .isEqualTo(403);
+            }
+        }
 
         long start = System.nanoTime();
-        MvcResult excel = call(login(soqm), get("/api/controls/export/excel").param("exportType", "all"));
+        MvcResult excel = call(login(soqm), get("/component/ALL/export").param("q", "HR-XL-" + RUN + "-"));
         long millis = (System.nanoTime() - start) / 1_000_000;
         assertThat(excel.getResponse().getStatus()).isEqualTo(200);
         assertThat(excel.getResponse().getHeader("Content-Disposition")).contains(".xlsx");
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(excel.getResponse().getContentAsByteArray()))) {
             Sheet sheet = workbook.getSheetAt(0);
-            assertThat(sheet.getLastRowNum()).as("rows").isGreaterThanOrEqualTo(1001);
+            assertThat(sheet.getLastRowNum()).as("rows: the search HR-XL").isEqualTo(2000);
             List<String> header = new ArrayList<>();
             for (Cell cell : sheet.getRow(0)) {
                 header.add(cell.getStringCellValue());
             }
-            // The workbook's own column names (see the report: they differ from the page labels)
-            assertThat(header).contains("CONTROL ID").doesNotHaveDuplicates();
-            assertThat(new HashSet<>(header)).hasSameSizeAs(header);
-            DataFormatter formatter = new DataFormatter();
-            boolean found = false;
+            assertThat(header).containsExactly("Control ID", "Control Type", "Control Frequency",
+                    "Facilitator / Preparer(s)", "Control Operator", "Process Owner", "SoQM Lead / Delegate",
+                    "Control Category", "Control Operation Date", "Performance Status");
             for (Row row : sheet) {
                 for (Cell cell : row) {
                     assertThat(cell.getCellType()).isNotEqualTo(CellType.FORMULA);
                 }
-                if (row.getRowNum() > 0 && dated.getControlId().equals(formatter.formatCellValue(row.getCell(header.indexOf("CONTROL ID"))))) {
-                    found = true;
-                    StringBuilder line = new StringBuilder();
-                    row.forEach(cell -> line.append(formatter.formatCellValue(cell)).append('|'));
-                    assertThat(line.toString()).contains("Ерлан Тестов ✅");
-                    assertThat(line.toString()).containsAnyOf("2027-03-01", "01.03.2027", "3/1/27", "01/03/2027");
-                }
             }
-            assertThat(found).isTrue();
+            assertThat(sheet.getRow(1).getCell(9).getStringCellValue()).isEqualTo("In Progress");
         }
-        System.out.println("RELEASE-SCENARIO list Excel of " + controlRepository.count() + " controls: " + millis + " ms");
+
+        // The rows asked for: search and status; names, dates and the status as text; a formula stays text
+        MvcResult one = call(login(soqm), get("/component/HR/export").param("q", dated.getControlId())
+                .param("status", "PROCESS_OWNER_REVIEW"));
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(one.getResponse().getContentAsByteArray()))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            assertThat(sheet.getLastRowNum()).isEqualTo(1);
+            DataFormatter formatter = new DataFormatter();
+            StringBuilder line = new StringBuilder();
+            sheet.getRow(1).forEach(cell -> line.append(formatter.formatCellValue(cell)).append('|'));
+            assertThat(line.toString()).contains(dated.getControlId(), "Ерлан Тестов ✅", "01.03.2027",
+                    "Process Owner Review", "=1+2");
+            Cell category = sheet.getRow(1).getCell(7);
+            assertThat(category.getCellType()).isEqualTo(CellType.STRING);
+            assertThat(category.getCellStyle().getQuotePrefixed()).isTrue();
+        }
+        System.out.println("RELEASE-SCENARIO list Excel of 2000 rows (" + controlRepository.count() + " controls): "
+                + millis + " ms");
+        assertThat(millis).as("the export of 2000 rows").isLessThan(20_000);
     }
 
     // ---- Changelog ----
@@ -300,10 +308,4 @@ class ReleaseScenarioListsIT extends ReleaseScenarioSupport {
         return ((Number) model.get(key)).longValue();
     }
 
-    @SuppressWarnings("unchecked")
-    private static List<ControlResponseDTO> rows(MvcResult result) {
-        ModelAndView mav = result.getModelAndView();
-        assertThat(mav).as(result.getRequest().getRequestURI()).isNotNull();
-        return (List<ControlResponseDTO>) mav.getModel().get("controls");
-    }
 }

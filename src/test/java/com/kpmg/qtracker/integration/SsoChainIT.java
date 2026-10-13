@@ -126,7 +126,7 @@ class SsoChainIT extends SsoTestSupport {
         mockMvc.perform(get("/logout").session(session)).andExpect(status().isNotFound());
         int post = mockMvc.perform(post("/logout").session(session).with(csrf())).andReturn().getResponse().getStatus();
         assertThat(post).isIn(404, 405);
-        mockMvc.perform(get("/controls").session(session)).andExpect(status().isOk());
+        mockMvc.perform(get("/component/ALL").session(session)).andExpect(status().isOk());
     }
 
     /** js/session.js is on the pages; its keepalive answers 204 with a session and 401 JSON without one. */
@@ -135,7 +135,7 @@ class SsoChainIT extends SsoTestSupport {
         User user = person("keepalive", AccessLevel.PARTICIPANT, AccessScope.OWN);
         MockHttpSession session = signIn("/", SamlResponses.Person.of(user.getMail(), newObjectId())).session();
 
-        assertThat(mockMvc.perform(get("/controls").session(session)).andReturn().getResponse().getContentAsString())
+        assertThat(mockMvc.perform(get("/component/ALL").session(session)).andReturn().getResponse().getContentAsString())
                 .contains("/js/session.js?v=");
         mockMvc.perform(get("/api/session/keepalive").session(session)).andExpect(status().isNoContent());
         mockMvc.perform(get("/api/session/keepalive"))

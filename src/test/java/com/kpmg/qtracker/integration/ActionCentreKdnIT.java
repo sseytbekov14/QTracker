@@ -194,7 +194,7 @@ class ActionCentreKdnIT {
     @Test
     void notSignedIn_signInPage() throws Exception {
         MvcResult dashboard = perform(get("/"), null);
-        MvcResult controlsList = perform(get("/controls").param("kdn", "1"), null);
+        MvcResult controlsList = perform(get("/component/ALL").param("kdn", "1"), null);
 
         assertThat(dashboard.getResponse().getRedirectedUrl()).contains("/login");
         assertThat(controlsList.getResponse().getRedirectedUrl()).contains("/login");
@@ -350,21 +350,24 @@ class ActionCentreKdnIT {
                 "<dt>Overdue</dt><dd>" + overdue + "</dd>");
     }
 
-    /** /controls?kdn=1 behind the card lists exactly the KDN controls the card counts, with the same numbers. */
+    /** /component/ALL?kdn=1 lists exactly the KDN controls the card counts, with the same numbers. */
     private void assertCardAgreesWithTheControlsList(MvcResult dashboard, MockHttpSession session, List<String> kdnIds)
             throws Exception {
         ViewController.ComponentSummary card =
                 (ViewController.ComponentSummary) dashboard.getModelAndView().getModel().get("kdnSummary");
-        MvcResult all = perform(get("/controls").param("kdn", "1"), session);
-        assertThat(ids(listed(all))).containsExactlyInAnyOrderElementsOf(kdnIds).doesNotContain("X-KDN-AC-6", "HR-AC-7");
-        assertThat(all.getModelAndView().getModel()).containsEntry("totalControls", (int) card.total())
-                .containsEntry("activeControls", (int) card.active())
-                .containsEntry("overdueControls", (int) card.overdue())
-                .containsEntry("completedControls", (int) card.completed());
-        assertThat(listed(perform(get("/controls").param("kdn", "1").param("filter", "COMPLETED"), session)))
-                .hasSize((int) card.completed());
-        assertThat(listed(perform(get("/controls").param("kdn", "1").param("filter", "OVERDUE"), session)))
-                .hasSize((int) card.overdue()).allMatch(ControlResponseDTO::isOverdue);
+        List<ComponentControlsList.Row> all = ListPages.rows(mockMvc, request -> request.with(ownAddress()).session(session),
+                "/component/ALL?kdn=1");
+        assertThat(all.stream().map(ComponentControlsList.Row::controlId).toList())
+                .containsExactlyInAnyOrderElementsOf(kdnIds).doesNotContain("X-KDN-AC-6", "HR-AC-7");
+        ComponentControlsList.Counts allCounts = ListPages.page(mockMvc,
+                request -> request.with(ownAddress()).session(session), "/component/ALL?kdn=1").counts();
+        assertThat(List.of(allCounts.total(), allCounts.active(), allCounts.overdue(), allCounts.completed()))
+                .containsExactly(card.total(), card.active(), card.overdue(), card.completed());
+        assertThat(ListPages.rows(mockMvc, request -> request.with(ownAddress()).session(session),
+                "/component/ALL?kdn=1&status=COMPLETED")).hasSize((int) card.completed());
+        assertThat(ListPages.rows(mockMvc, request -> request.with(ownAddress()).session(session),
+                "/component/ALL?kdn=1&status=OVERDUE")).hasSize((int) card.overdue())
+                .allMatch(ComponentControlsList.Row::overdue);
 
         // The card leads to /component/KDN: the same controls, the same five numbers, and each counter's link
         // lists exactly its number
@@ -398,16 +401,6 @@ class ActionCentreKdnIT {
     private static String actionCentre(MvcResult dashboard) throws Exception {
         String html = dashboard.getResponse().getContentAsString();
         return html.substring(html.indexOf("id=\"pane-action\""), html.indexOf("id=\"pane-notifications\""));
-    }
-
-    @SuppressWarnings("unchecked")
-    private static List<ControlResponseDTO> listed(MvcResult result) {
-        assertThat(result.getResponse().getStatus()).isEqualTo(200);
-        return (List<ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
-    }
-
-    private static List<String> ids(List<ControlResponseDTO> controls) {
-        return controls.stream().map(ControlResponseDTO::getControlId).toList();
     }
 
     // ------------------------------------------------------------------ data and requests

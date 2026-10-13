@@ -614,11 +614,11 @@ class ApiSecurityMockMvcIT {
         String draftPage = "/initiate/" + draft.getId();
         MockHttpSession soqmSession = login(p.soqm.getMail());
 
-        mockMvc.perform(get("/controls").session(soqmSession))
+        // The All components list (in place of the Controls page): every row opens View Control, a draft too
+        mockMvc.perform(get("/component/ALL").param("status", "OVERDUE").param("size", "50").session(soqmSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("href=\"" + draftPage + "\"")))
-                .andExpect(content().string(not(containsString("href=\"/view-control/" + draft.getId() + "\""))))
-                .andExpect(content().string(containsString("href=\"/performance-cycle/" + running.getId() + "\"")));
+                .andExpect(content().string(containsString("href=\"/view-control/" + draft.getId() + "\"")))
+                .andExpect(content().string(containsString("href=\"/view-control/" + running.getId() + "\"")));
         mockMvc.perform(get("/api/dashboard/deadline-countdown").param("limit", "50").session(soqmSession))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.overdue[?(@.id == " + draft.getId() + ")].url").value(draftPage))
@@ -1269,17 +1269,16 @@ class ApiSecurityMockMvcIT {
         }
 
         // The control finished after its deadline is labelled "Closed late" in the list instead
-        MvcResult completed = mockMvc.perform(get("/controls").param("filter", "COMPLETED").session(login(soqm.getMail())))
-                .andExpect(status().isOk())
-                .andReturn();
-        assertThat(controlsIn(completed))
-                .filteredOn(control -> closedLate.getId().equals(control.getId()))
+        MockHttpSession soqmSession = login(soqm.getMail());
+        assertThat(listRows(soqmSession, "/component/ALL?status=COMPLETED"))
+                .filteredOn(row -> closedLate.getId().equals(row.id()))
                 .singleElement()
-                .satisfies(control -> {
-                    assertThat(control.isClosedLate()).isTrue();
-                    assertThat(control.isOverdue()).isFalse();
+                .satisfies(row -> {
+                    assertThat(row.closedLate()).isTrue();
+                    assertThat(row.overdue()).isFalse();
                 });
-        assertThat(completed.getResponse().getContentAsString()).contains(">Closed late<");
+        assertThat(mockMvc.perform(get("/component/ALL").param("status", "COMPLETED").param("q", closedLate.getControlId())
+                        .session(soqmSession)).andReturn().getResponse().getContentAsString()).contains(">Closed late<");
     }
 
     /**
@@ -1298,21 +1297,22 @@ class ApiSecurityMockMvcIT {
                 .andReturn().getResponse().getContentAsString();
         int blockTotal = com.jayway.jsonpath.JsonPath.read(block, "$.overdueTotal");
 
-        MvcResult list = mockMvc.perform(get("/controls").param("filter", "OVERDUE").session(session))
-                .andExpect(status().isOk())
-                .andReturn();
-        List<com.kpmg.qtracker.dto.ControlResponseDTO> listed = controlsIn(list);
+        List<com.kpmg.qtracker.service.ComponentControlsList.Row> listed =
+                listRows(session, "/component/ALL?status=OVERDUE");
+        com.kpmg.qtracker.service.ComponentControlsList.Result list =
+                ListPages.page(mockMvc, request -> request.session(session), "/component/ALL");
 
         assertThat(tile).as("tile vs deadlines block for " + viewer.getRole()).isEqualTo(blockTotal);
         assertThat(listed).as("View all list for " + viewer.getRole()).hasSize(blockTotal);
-        assertThat(list.getModelAndView().getModel().get("overdueControls")).isEqualTo(blockTotal);
-        assertThat(listed).allSatisfy(control -> assertThat(control.isOverdue()).isTrue());
-        return listed.stream().map(com.kpmg.qtracker.dto.ControlResponseDTO::getId).toList();
+        assertThat(list.counts().overdue()).isEqualTo(blockTotal);
+        assertThat(listed).allSatisfy(row -> assertThat(row.overdue()).isTrue());
+        return ListPages.ids(listed);
     }
 
-    @SuppressWarnings("unchecked")
-    private List<com.kpmg.qtracker.dto.ControlResponseDTO> controlsIn(MvcResult result) {
-        return (List<com.kpmg.qtracker.dto.ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
+    /** Every row of an Action Centre list as the person of the session. */
+    private List<com.kpmg.qtracker.service.ComponentControlsList.Row> listRows(MockHttpSession session, String path)
+            throws Exception {
+        return ListPages.rows(mockMvc, request -> request.session(session), path);
     }
 
     @Test
@@ -1342,12 +1342,7 @@ class ApiSecurityMockMvcIT {
         assignment.setFacilitator(" " + facilitator.getMail().toUpperCase());
         assignmentRepository.save(assignment);
 
-        MvcResult list = mockMvc.perform(get("/controls").session(login(facilitator.getMail())))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        assertThat(controlsIn(list)).extracting(com.kpmg.qtracker.dto.ControlResponseDTO::getId)
-                .contains(control.getId());
+        assertThat(ListPages.ids(listRows(login(facilitator.getMail()), "/component/ALL"))).contains(control.getId());
     }
 
     @Test
@@ -1359,17 +1354,10 @@ class ApiSecurityMockMvcIT {
         // "a@kpmg.kz" is part of "ba@kpmg.kz", which a plain LIKE used to treat as a match
         Control baControl = deadlineControl("CTRL-BA-" + suffix(), ba, "IN_PROGRESS", deadline);
 
-        MvcResult asA = mockMvc.perform(get("/controls").session(login(a.getMail())))
-                .andExpect(status().isOk())
-                .andReturn();
-        assertThat(controlsIn(asA)).extracting(com.kpmg.qtracker.dto.ControlResponseDTO::getId)
+        assertThat(ListPages.ids(listRows(login(a.getMail()), "/component/ALL")))
                 .contains(ownControl.getId())
                 .doesNotContain(baControl.getId());
-
-        MvcResult asBa = mockMvc.perform(get("/controls").session(login(ba.getMail())))
-                .andExpect(status().isOk())
-                .andReturn();
-        assertThat(controlsIn(asBa)).extracting(com.kpmg.qtracker.dto.ControlResponseDTO::getId)
+        assertThat(ListPages.ids(listRows(login(ba.getMail()), "/component/ALL")))
                 .contains(baControl.getId())
                 .doesNotContain(ownControl.getId());
     }

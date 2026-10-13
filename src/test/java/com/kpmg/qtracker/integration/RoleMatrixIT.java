@@ -146,7 +146,7 @@ class RoleMatrixIT {
             new Who("anonymous", "not signed in", null, null, Place.NONE, false, false, true));
 
     private static final List<String> CONTROL_OPS = List.of(
-            "In Controls list", "In component list", "View page", "Program on page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
+            "In component list", "View page", "Program on page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
             "Edit, no reason", "Fixed field", "Status / Year", "Operation Date", "Assign", "Upload", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)");
 
@@ -175,7 +175,8 @@ class RoleMatrixIT {
     private static final String REASON = ",\"editReason\":\"Matrix check\"";
 
     private static final List<String> USER_OPS = List.of(
-            "Create control", "Export button", "Assignment picker", "Admin Panel", "Admin Panel change", "KDN block");
+            "Create control", "Export button", "Export list", "Old /controls link", "Assignment picker", "Admin Panel",
+            "Admin Panel change", "KDN block");
 
     @Autowired
     private MockMvc mockMvc;
@@ -327,8 +328,6 @@ class RoleMatrixIT {
                     : soqm || listed ? "NONE" : "NOT_ASSIGNED";
             // The "KDN control" mark on the control's page: SoQM Team only, on a KDN control
             case "KDN mark" -> soqm && who.kdnControl() ? "ok" : "refused";
-            // The Controls list (and the dashboard tiles counted from it) holds every control the user sees
-            case "In Controls list" -> sees ? "ok" : "refused";
             // The Action Centre's lists: the component's (and the KDN list for a KDN control) hold the same
             // controls, each row opening its own control; a non-KDN control is never in the KDN list
             case "In component list" -> sees ? "ok" : "refused";
@@ -388,6 +387,10 @@ class RoleMatrixIT {
         boolean soqm = active && who.level() == AccessLevel.SOQM;
         return switch (op) {
             case "Create control", "Export button", "Assignment picker" -> soqm;
+            // The Excel of a list (All components, a component, KDN): SoQM Admin Team only, 403 for everyone else
+            case "Export list" -> soqm;
+            // The Controls page is gone: its address leads to the All components list for everyone signed in
+            case "Old /controls link" -> active;
             // Admin Panel, users and audit: SoQM Team and only SoQM Team
             case "Admin Panel", "Admin Panel change" -> soqm;
             // Action Centre "KDN" card: SoQM Team, All controls and KDN always; My controls only with a KDN
@@ -404,7 +407,6 @@ class RoleMatrixIT {
         MockHttpSession session = sessions.get(who.key());
 
         Control control = control(who, status);
-        row.put("In Controls list", inControlsList(control, session));
         row.put("In component list", inComponentLists(control, session));
         row.put("View page", page(get("/view-control/{id}", control.getId()), session));
         row.put("Program on page", programOnPage(control, session));
@@ -504,11 +506,19 @@ class RoleMatrixIT {
                 .content("{\"controlId\":\"HR-NEW-" + who.key() + "\",\"controlFrequency\":\"Monthly\","
                         + "\"controlType\":\"Preventive\",\"component\":\"HR\",\"operatedBy\":\"Finance\","
                         + "\"priority\":\"High\",\"nonAuditServicesApplicability\":\"No\"}"), session));
-        MvcResult controls = perform(get("/controls"), session);
+        MvcResult controls = perform(get("/component/ALL"), session);
         ModelAndView mav = controls.getModelAndView();
         row.put("Export button", controls.getResponse().getStatus() == 200 && mav != null
-                ? (Boolean.TRUE.equals(mav.getModel().get("canExportAll")) ? "ok" : "hidden")
+                ? (Boolean.TRUE.equals(mav.getModel().get("canExport")) ? "ok" : "hidden")
                 : outcome(controls));
+        java.util.Set<String> exports = new java.util.LinkedHashSet<>();
+        for (String path : List.of("/component/ALL/export", "/component/HR/export", "/component/KDN/export")) {
+            exports.add(answer(get(path), session));
+        }
+        row.put("Export list", exports.size() == 1 ? exports.iterator().next() : String.join("/", exports));
+        MvcResult old = perform(get("/controls").param("filter", "OVERDUE"), session);
+        row.put("Old /controls link", "/component/ALL?status=OVERDUE".equals(old.getResponse().getRedirectedUrl())
+                ? "ok" : outcome(old));
         row.put("Assignment picker", answer(get("/api/users/role/FACILITATOR"), session));
         MvcResult adminPage = perform(get("/admin/users"), session);
         row.put("Admin Panel", adminPage.getResponse().getStatus() == 200 ? "ok" : outcome(adminPage));
@@ -565,18 +575,6 @@ class RoleMatrixIT {
             return mav != null && "control-not-available".equals(mav.getViewName()) ? "not yet" : outcome(result);
         }
         return result.getResponse().getContentAsString().contains("vc-kdn-badge") ? "ok" : "none";
-    }
-
-    /** "ok" when /controls lists the control, "absent" when it does not, otherwise what the page answered. */
-    private String inControlsList(Control control, MockHttpSession session) throws Exception {
-        MvcResult result = perform(get("/controls"), session);
-        ModelAndView mav = result.getModelAndView();
-        if (result.getResponse().getStatus() != 200 || mav == null || !"controls".equals(mav.getViewName())) {
-            return outcome(result);
-        }
-        @SuppressWarnings("unchecked")
-        List<ControlResponseDTO> listed = (List<ControlResponseDTO>) mav.getModel().get("controls");
-        return listed.stream().anyMatch(dto -> control.getId().equals(dto.getId())) ? "ok" : "absent";
     }
 
     /**

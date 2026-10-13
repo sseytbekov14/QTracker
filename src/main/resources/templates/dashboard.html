@@ -1022,19 +1022,19 @@ a.stat-block:focus-visible,
 
                         <!-- Stats -->
                         <div class="stats-strip">
-                            <a class="stat-block total" href="/controls" title="Open all controls">
+                            <a class="stat-block total" href="/component/ALL" title="Open all controls">
                                 <span class="stat-num" th:text="${totalControls}">0</span>
                                 <span class="stat-label">Total Controls</span>
                             </a>
-                            <a class="stat-block active" href="/controls?scope=active" title="Open active controls">
+                            <a class="stat-block active" href="/component/ALL?status=ACTIVE" title="Open active controls">
                                 <span class="stat-num" th:text="${activeControls}">0</span>
                                 <span class="stat-label">Active</span>
                             </a>
-                            <a class="stat-block completed" href="/controls?filter=COMPLETED" title="Open completed controls">
+                            <a class="stat-block completed" href="/component/ALL?status=COMPLETED" title="Open completed controls">
                                 <span class="stat-num" th:text="${completedControls}">0</span>
                                 <span class="stat-label">Completed</span>
                             </a>
-                            <a class="stat-block overdue" href="/controls?filter=OVERDUE" title="Open overdue controls">
+                            <a class="stat-block overdue" href="/component/ALL?status=OVERDUE" title="Open overdue controls">
                                 <span class="stat-num" th:text="${overdueControls}">0</span>
                                 <span class="stat-label">Overdue</span>
                             </a>
@@ -1049,7 +1049,7 @@ a.stat-block:focus-visible,
                                 </h2>
                                 <a th:if="${actionItemsTotal > #lists.size(actionItems)}"
                                    class="action-queue-all"
-                                   th:href="${userIsSoqm} ? '/controls?status=SOQM_HEAD_REVIEW' : '/controls?scope=active'"
+                                   th:href="${userIsSoqm} ? '/component/ALL?status=SOQM_HEAD_REVIEW' : '/component/ALL?status=YOUR_TURN'"
                                    th:text="'View all (' + ${actionItemsTotal} + ')'">View all</a>
                             </div>
 
@@ -1846,7 +1846,7 @@ function renderDeadlineCountdown(data) {
         html += '<div class="deadline-group-title is-overdue">'
             + '<span>Overdue <span class="deadline-group-count">' + overdueTotal + '</span></span>'
             + (overdueTotal > overdue.length
-                ? '<a href="/controls?filter=OVERDUE" class="deadline-group-link">View all</a>'
+                ? '<a href="/component/ALL?status=OVERDUE" class="deadline-group-link">View all</a>'
                 : '')
             + '</div>'
             + overdue.map(renderDeadlineItem).join('');

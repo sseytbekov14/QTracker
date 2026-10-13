@@ -3,6 +3,7 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.security.AuthMode;
 import com.kpmg.qtracker.service.AccessPolicy;
+import com.kpmg.qtracker.service.ComponentControlsList;
 import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
 import com.kpmg.qtracker.util.RoleDisplayMapper;
@@ -47,7 +48,7 @@ public class SidebarModelAdvice {
             return user.getMail();
         }
 
-        /** The role: SoQM Team, User or KDN. */
+        /** The role: SoQM Admin Team, User or KDN. */
         public String getRole() {
             return RoleDisplayMapper.role(user);
         }
@@ -77,6 +78,15 @@ public class SidebarModelAdvice {
         /** The Admin Panel link. */
         public boolean isAdmin() {
             return AccessPolicy.canOpenAdminPanel(AccessPolicy.Subject.of(user));
+        }
+
+        /** The list a page's breadcrumb leads back to (the Controls page is gone): every control the user sees. */
+        public String getListHref() {
+            return "/component/" + ComponentControlsList.ALL_CODE;
+        }
+
+        public String getListLabel() {
+            return ComponentControlsList.ALL_NAME;
         }
 
         /** The Logout link (auth.logout.enabled; a slice test without AuthMode keeps it). */

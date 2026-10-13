@@ -417,6 +417,7 @@ public class ControlService implements IControlService {
         // Set UI control status (no workflow defaults here)
         String status = control.getControlStatus();
         dto.setControlStatus(status != null && !status.trim().isEmpty() ? status : null);
+        dto.setReopened(control.getReopenedAt() != null);
         
         dto.setControlDescription(control.getControlDescription());
         dto.setPrp(control.getPrp());

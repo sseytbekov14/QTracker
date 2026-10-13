@@ -8,14 +8,15 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=19" rel="stylesheet">
-    <link href="/css/component-controls.css?v=4" rel="stylesheet">
+    <link href="/css/component-controls.css?v=5" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 </head>
 <body class="theme-light">
 <!--/*
-  The Action Centre's list of a component's controls, or of the KDN controls (ViewController.controlsByComponent).
-  Model: listCode, listName, listTitle, kdnList, query (ComponentControlsList.Query),
-  list (ComponentControlsList.Result; absent when loadError).
+  The Action Centre's list of a component's controls, of every control the user sees (ALL, which took the place of
+  the Controls page) or of the KDN controls (ViewController.controlsByComponent).
+  Model: listCode, listName, listTitle, kdnList, allList, canExport, query (ComponentControlsList.Query),
+  list (ComponentControlsList.Result; absent when loadError), accessDeniedMessage (flash, after a revoked control).
 */-->
 <div class="container-fluid">
     <div class="row">
@@ -39,9 +40,19 @@
                     <div>
                         <h1 th:text="${listTitle}">Performance: Human Resources (HR)</h1>
                         <p class="subtitle" th:text="${kdnList} ? 'Controls whose ID starts with KDN, of the controls you can see'
-                                : (${allList} ? 'The controls of every component that you can see'
+                                : (${allList} ? 'Every control you can see, of every component'
                                 : 'The controls of this component that you can see')">The controls of this component that you can see</p>
                     </div>
+                    <!--/* The Excel of the rows asked for: SoQM Admin Team only (the server refuses everyone else) */-->
+                    <a th:if="${canExport and list != null and list.matching() > 0}" class="cc-export" id="ccExport"
+                       th:href="${list.exportHref()}" download>
+                        <i class="bi bi-download" aria-hidden="true"></i>Export to Excel
+                    </a>
+                </div>
+
+                <div th:if="${accessDeniedMessage}" class="cc-error" role="alert">
+                    <i class="bi bi-shield-exclamation" aria-hidden="true"></i>
+                    <div><strong th:text="${accessDeniedMessage}">Access revoked</strong></div>
                 </div>
 
                 <!-- Loading failed: no numbers rather than wrong ones -->
@@ -113,6 +124,11 @@
                         </div>
                         <input type="hidden" name="sort" th:if="${query.sort().name() != 'ID' or query.desc()}" th:value="${query.sort().key()}">
                         <input type="hidden" name="dir" th:if="${query.sort().name() != 'ID' or query.desc()}" th:value="${query.desc()} ? 'desc' : 'asc'">
+                        <!--/* Only the KDN controls of this list (not on the KDN list itself) */-->
+                        <div class="cc-field cc-check" th:unless="${kdnList}">
+                            <input type="checkbox" id="ccKdn" name="kdn" value="1" th:checked="${query.kdn()}">
+                            <label for="ccKdn">KDN controls only</label>
+                        </div>
                         <input type="hidden" name="size" th:if="${query.size() != 25}" th:value="${query.size()}">
                         <div class="cc-actions">
                             <button type="submit" class="cc-btn">Apply</button>
@@ -169,6 +185,7 @@
                                     th:attr="data-href=${row.href()}, data-control-id=${row.controlId()}">
                                     <td data-label="Control ID" class="cc-id">
                                         <a class="control-link" th:href="${row.href()}" th:text="${row.controlId()}">HR-CTRL-1</a>
+                                        <span th:if="${row.kdn()}" class="badge status-kdn" title="Control ID starts with KDN">KDN</span>
                                     </td>
                                     <td data-label="Control Type" th:with="v=${row.type()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Manual</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
                                     <td data-label="Control Frequency" th:with="v=${row.frequency()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Monthly</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
@@ -195,6 +212,10 @@
                                         </span>
                                         <span th:if="${row.overdue()}" class="badge status-overdue" title="Deadline passed">
                                             <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>Overdue</span>
+                                        <span th:if="${row.closedLate()}" class="badge status-closed-late" title="Completed after its deadline">Closed late</span>
+                                        <span th:if="${row.reopened()}" class="badge status-reopened" title="Returned from Completed">Reopened</span>
+                                        <span th:if="${row.dueSoon()}" class="badge status-due-soon" title="Deadline within 3 days">Due soon</span>
+                                        <span th:if="${row.yourTurn()}" class="badge status-your-turn" title="The current step is yours">Your turn</span>
                                         <span th:if="${row.controlStatusBadge() != null}" class="badge status-retired"
                                               th:text="${row.controlStatusBadge()}" title="Control Status">Deleted</span>
                                         </div>

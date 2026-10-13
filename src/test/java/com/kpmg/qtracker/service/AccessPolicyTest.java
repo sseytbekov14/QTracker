@@ -78,7 +78,7 @@ class AccessPolicyTest {
         assertThat(AccessPolicy.canOpenAdminPanel(s)).as("canOpenAdminPanel").isEqualTo(adminPanel);
         assertThat(AccessPolicy.canManageUsers(s)).as("canManageUsers").isEqualTo(manageUsers);
         assertThat(AccessPolicy.canCreateControls(s)).as("canCreateControls").isEqualTo(create);
-        assertThat(AccessPolicy.canExportAllControls(s)).as("canExportAllControls").isEqualTo(exportAll);
+        assertThat(AccessPolicy.canExportControlLists(s)).as("canExportControlLists").isEqualTo(exportAll);
         assertThat(AccessPolicy.canListAllUsers(s)).as("canListAllUsers").isEqualTo(allUsers);
     }
 

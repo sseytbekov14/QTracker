@@ -403,15 +403,16 @@ class ReleaseScenarioMatrixIT extends ReleaseScenarioSupport {
         return outcome(result);
     }
 
+    /** Whether the control is a row of the All components list (the Controls page is gone). */
     private String listed(MockHttpSession session, Control control) throws Exception {
-        MvcResult result = call(session, get("/controls"));
+        MvcResult result = call(session, get("/component/ALL").param("q", reload(control).getControlId()));
         ModelAndView mav = result.getModelAndView();
-        if (result.getResponse().getStatus() != 200 || mav == null || !"controls".equals(mav.getViewName())) {
+        if (result.getResponse().getStatus() != 200 || mav == null || !"component-controls".equals(mav.getViewName())) {
             return outcome(result);
         }
-        @SuppressWarnings("unchecked")
-        List<ControlResponseDTO> rows = (List<ControlResponseDTO>) mav.getModel().get("controls");
-        return rows.stream().anyMatch(dto -> control.getId().equals(dto.getId())) ? "ok" : "absent";
+        com.kpmg.qtracker.service.ComponentControlsList.Result list =
+                (com.kpmg.qtracker.service.ComponentControlsList.Result) mav.getModel().get("list");
+        return list.rows().stream().anyMatch(row -> control.getId().equals(row.id())) ? "ok" : "absent";
     }
 
     // ---- the table ----
@@ -456,7 +457,9 @@ class ReleaseScenarioMatrixIT extends ReleaseScenarioSupport {
             assertThat(callJson(session, post("/api/controls"), json.formatted(newId)).getResponse().getStatus())
                     .as("create by %s", user.getMail()).isEqualTo(403);
             assertThat(controlRepository.findByControlId(newId)).isEmpty();
-            assertThat(status(session, get("/api/controls/export/excel"))).as("excel by %s", user.getMail()).isEqualTo(403);
+            for (String path : List.of("/component/ALL/export", "/component/HR/export", "/component/KDN/export")) {
+                assertThat(status(session, get(path))).as("%s by %s", path, user.getMail()).isEqualTo(403);
+            }
             assertThat(status(session, get("/new-control"))).as("new-control page by %s", user.getMail()).isIn(302, 403);
         }
         MockHttpSession session = login(soqm);
@@ -464,10 +467,12 @@ class ReleaseScenarioMatrixIT extends ReleaseScenarioSupport {
         assertThat(callJson(session, post("/api/controls"), json.formatted(newId)).getResponse().getStatus()).isEqualTo(200);
         Control created = controlRepository.findByControlId(newId).orElseThrow();
         assertThat(created.getPerformanceStatus()).isEqualTo("DRAFT");
-        MvcResult excel = call(session, get("/api/controls/export/excel"));
+        MvcResult excel = call(session, get("/component/ALL/export"));
         assertThat(excel.getResponse().getStatus()).isEqualTo(200);
         assertThat(excel.getResponse().getContentType()).contains("spreadsheetml");
-        assertThat(outcome(mockMvc.perform(get("/api/controls/export/excel").with(ownAddress())).andReturn()))
+        assertThat(outcome(mockMvc.perform(get("/component/ALL/export").with(ownAddress())).andReturn()))
                 .isEqualTo("login");
+        // The old list export is gone
+        assertThat(status(session, get("/api/controls/export/excel"))).isIn(404, 405, 400);
     }
 }

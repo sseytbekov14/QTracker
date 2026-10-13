@@ -134,9 +134,9 @@ class CompletedEditSoqmIT {
         // Completed the day after its deadline: "Closed late", never Overdue
         Control control = completedControl(today.minusDays(2), today.minusDays(1));
         ControlAssignment scheduleBefore = assignmentRepository.findByControlId(control.getId()).orElseThrow();
-        ControlResponseDTO rowBefore = controlsRow(control);
-        assertThat(rowBefore.isClosedLate()).isTrue();
-        assertThat(rowBefore.isOverdue()).isFalse();
+        com.kpmg.qtracker.service.ComponentControlsList.Row rowBefore = controlsRow(control);
+        assertThat(rowBefore.closedLate()).isTrue();
+        assertThat(rowBefore.overdue()).isFalse();
 
         ok(as(soqm, put("/api/controls/{id}", control.getId()))
                 .contentType(MediaType.APPLICATION_JSON)
@@ -195,10 +195,10 @@ class CompletedEditSoqmIT {
         assertThat(history).hasSize(1);
         assertThat(history.get(0).getToStep()).isEqualTo("COMPLETED");
         assertThat(history.get(0).getCreatedAt().toLocalDate()).isEqualTo(today.minusDays(1));
-        ControlResponseDTO rowAfter = controlsRow(control);
-        assertThat(rowAfter.isClosedLate()).isTrue();
-        assertThat(rowAfter.isOverdue()).isFalse();
-        assertThat(rowAfter.getPerformanceStatus()).isEqualTo("COMPLETED");
+        com.kpmg.qtracker.service.ComponentControlsList.Row rowAfter = controlsRow(control);
+        assertThat(rowAfter.closedLate()).isTrue();
+        assertThat(rowAfter.overdue()).isFalse();
+        assertThat(rowAfter.status()).isEqualTo("COMPLETED");
         // Nobody is told of the change (TODO: BUSINESS CONFIRMATION); a person newly in Shared With hears of
         // the share, as on any control
         assertThat(notices(control)).extracting(Notification::getType).containsOnly("CONTROL_SHARED");
@@ -447,11 +447,10 @@ class CompletedEditSoqmIT {
                     .containsEntry("Process Owner(s)", newOwner.getMail())
                     .containsEntry("Performance Status", "COMPLETED");
         }
-        // The Controls list
-        ControlResponseDTO row = controlsRow(control);
-        assertThat(row.getControlDescription()).isEqualTo("Corrected description");
-        assertThat(row.getProcessOwners()).containsExactly(newOwner.getMail());
-        assertThat(row.getPerformanceStatus()).isEqualTo("COMPLETED");
+        // The All components list (the description is not one of its columns: the Excel above shows it)
+        com.kpmg.qtracker.service.ComponentControlsList.Row row = controlsRow(control);
+        assertThat(row.owners()).isEqualTo(newOwner.getDisplayName());
+        assertThat(row.status()).isEqualTo("COMPLETED");
     }
 
     @Test
@@ -551,12 +550,10 @@ class CompletedEditSoqmIT {
         return controlRepository.findById(control.getId()).orElseThrow();
     }
 
-    /** The control's row on the Controls page (Overdue, Closed late, status), as SoQM sees it. */
-    @SuppressWarnings("unchecked")
-    private ControlResponseDTO controlsRow(Control control) throws Exception {
-        List<ControlResponseDTO> rows = (List<ControlResponseDTO>) perform(as(soqm, get("/controls")))
-                .getModelAndView().getModel().get("controls");
-        return rows.stream().filter(row -> control.getId().equals(row.getId())).findFirst().orElseThrow();
+    /** The control's row in the All components list (Overdue, Closed late, status), as SoQM sees it. */
+    private com.kpmg.qtracker.service.ComponentControlsList.Row controlsRow(Control control) throws Exception {
+        return ListPages.rows(mockMvc, request -> as(soqm, request), "/component/ALL?q=" + control.getControlId())
+                .stream().filter(row -> control.getId().equals(row.id())).findFirst().orElseThrow();
     }
 
     private MockHttpServletRequestBuilder as(User actor, MockHttpServletRequestBuilder request) {

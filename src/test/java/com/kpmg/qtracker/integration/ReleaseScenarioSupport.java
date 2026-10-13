@@ -190,6 +190,28 @@ abstract class ReleaseScenarioSupport {
         return call(session, request).getResponse().getStatus();
     }
 
+    /** An Action Centre list's page (/component/{code}?...): the model's Result. */
+    com.kpmg.qtracker.service.ComponentControlsList.Result list(MockHttpSession session, String path) throws Exception {
+        MvcResult result = call(session, org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .get(java.net.URI.create(path)));
+        assertThat(result.getResponse().getStatus()).as(path).isEqualTo(200);
+        return (com.kpmg.qtracker.service.ComponentControlsList.Result) result.getModelAndView().getModel().get("list");
+    }
+
+    /** Every row of an Action Centre list, page after page (50 a page). */
+    java.util.List<com.kpmg.qtracker.service.ComponentControlsList.Row> listRows(MockHttpSession session, String path)
+            throws Exception {
+        java.util.List<com.kpmg.qtracker.service.ComponentControlsList.Row> rows = new java.util.ArrayList<>();
+        for (int page = 1; ; page++) {
+            com.kpmg.qtracker.service.ComponentControlsList.Result list =
+                    list(session, path + (path.contains("?") ? "&" : "?") + "size=50&page=" + page);
+            rows.addAll(list.rows());
+            if (page >= list.pages()) {
+                return rows;
+            }
+        }
+    }
+
     JsonNode json(MvcResult result) throws Exception {
         return objectMapper.readTree(body(result));
     }

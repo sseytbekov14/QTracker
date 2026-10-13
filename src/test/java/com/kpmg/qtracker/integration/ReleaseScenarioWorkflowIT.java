@@ -100,9 +100,9 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
         assertThat(reload(control).getAttachmentDetailsPath()).contains("evidence-fac.pdf");
         // Completed: locked for the participants, in the list as completed, not late
         assertThat(chain.saveSteps(fac, control, "After completion")).isEqualTo(403);
-        ControlResponseDTO row = row(chain.session(soqm), control);
-        assertThat(row.getPerformanceStatus()).isEqualTo("COMPLETED");
-        assertThat(row.isClosedLate()).isFalse();
+        com.kpmg.qtracker.service.ComponentControlsList.Row row = row(chain.session(soqm), control);
+        assertThat(row.status()).isEqualTo("COMPLETED");
+        assertThat(row.closedLate()).isFalse();
         // Changelog lists the moves
         JsonNode changelog = json(call(chain.session(soqm), get("/api/controls/{id}/changelog", control.getId())));
         assertThat(changelog.toString()).contains("Completed").contains(po.getMail());
@@ -284,7 +284,7 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
             assignment.setControlOperationDeadline(today().minusDays(10));
             assignmentRepository.save(assignment);
             completedOn(control, po, LocalDateTime.now().minusDays(12));
-            assertThat(row(chain.session(soqm), control).isClosedLate()).isFalse();
+            assertThat(row(chain.session(soqm), control).closedLate()).isFalse();
 
             // Not without a comment; not by the Process Owner; not to draft
             assertThat(chain.status(soqm, move(control, target, null))).isEqualTo(400);
@@ -293,7 +293,7 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
             chain.ok(soqm, move(control, target, "Reopened for a correction"));
             assertStatus(control, target);
             assertThat(reload(control).getReopenedAt()).as("reopened_at after the return to %s", target).isNotNull();
-            assertThat(row(chain.session(soqm), control).isOverdue()).as("reopened past deadline shows Overdue").isTrue();
+            assertThat(row(chain.session(soqm), control).overdue()).as("reopened past deadline shows Overdue").isTrue();
 
             // ... and completed again (SoQM moves it on, the last step for the Process Owner)
             String status = target;
@@ -304,9 +304,9 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
             chain.ok(po, post("/api/workflow/complete-control").param("controlId", id(control)));
             assertStatus(control, "COMPLETED");
             assertThat(reload(control).getReopenedAt()).isNull();
-            ControlResponseDTO row = row(chain.session(soqm), control);
-            assertThat(row.isClosedLate()).as("completed again after the deadline: Closed late").isTrue();
-            assertThat(row.isOverdue()).isFalse();
+            com.kpmg.qtracker.service.ComponentControlsList.Row row = row(chain.session(soqm), control);
+            assertThat(row.closedLate()).as("completed again after the deadline: Closed late").isTrue();
+            assertThat(row.overdue()).isFalse();
         }
     }
 
@@ -588,13 +588,12 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
         return notifications(user, control).stream().filter(n -> !Boolean.TRUE.equals(n.getIsRead())).toList();
     }
 
-    private ControlResponseDTO row(MockHttpSession session, Control control) throws Exception {
-        MvcResult result = call(session, get("/controls"));
-        ModelAndView mav = result.getModelAndView();
-        assertThat(mav).isNotNull();
-        @SuppressWarnings("unchecked")
-        List<ControlResponseDTO> rows = (List<ControlResponseDTO>) mav.getModel().get("controls");
-        return rows.stream().filter(r -> control.getId().equals(r.getId())).findFirst().orElseThrow();
+    /** The control's row in the All components list (the Controls page is gone), found by its Control ID. */
+    private com.kpmg.qtracker.service.ComponentControlsList.Row row(MockHttpSession session, Control control)
+            throws Exception {
+        String q = java.net.URLEncoder.encode(reload(control).getControlId(), java.nio.charset.StandardCharsets.UTF_8);
+        return listRows(session, "/component/ALL?q=" + q).stream()
+                .filter(r -> control.getId().equals(r.id())).findFirst().orElseThrow();
     }
 
     private static String id(Control control) {

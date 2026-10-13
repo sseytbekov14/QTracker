@@ -2472,7 +2472,7 @@ function saveDocumentsData(controlId) {
         if (document.referrer && document.referrer.includes(window.location.hostname)) {
             window.history.back();
         } else {
-            window.location.href = '/controls';
+            window.location.href = '/component/ALL';
         }
     }
 
@@ -3701,7 +3701,7 @@ async function confirmReturnToFacilitator() {
         url: url,
         confirmBtnId: 'confirmReturnFacilitatorBtn',
         confirmModalId: 'returnFacilitatorModal',
-        successRedirectUrl: '/controls',
+        successRedirectUrl: '/component/ALL',
         successLogMessage: 'Return to Facilitator success -> showing popup',
         successTimerMs: 2500
     });
@@ -4391,7 +4391,7 @@ async function confirmReturnToOperator() {
         url: url,
         confirmBtnId: 'confirmReturnOperatorBtn',
         confirmModalId: 'returnOperatorModal',
-        successRedirectUrl: '/controls',
+        successRedirectUrl: '/component/ALL',
         successLogMessage: 'Return to Operator success -> showing popup',
         successTimerMs: 2500
     });
@@ -4453,7 +4453,7 @@ async function confirmCompleteControl() {
             variant: 'success',
             title: 'Control Completed',
             message: 'Control has been successfully completed and moved to final status',
-            redirectUrl: '/controls'
+            redirectUrl: '/component/ALL'
         });
     })
     .catch(error => {

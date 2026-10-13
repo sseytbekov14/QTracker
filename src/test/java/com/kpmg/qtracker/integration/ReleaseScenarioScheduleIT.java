@@ -107,7 +107,7 @@ class ReleaseScenarioScheduleIT extends ReleaseScenarioSupport {
         }
         // The page asks before taking a past date; the server takes it
         saveDate(session, control, today().minusDays(20));
-        assertThat(row(session, control).isOverdue()).isTrue();
+        assertThat(row(session, control).overdue()).isTrue();
     }
 
     @Test
@@ -122,12 +122,12 @@ class ReleaseScenarioScheduleIT extends ReleaseScenarioSupport {
         Control completedOnTime = withDeadline(control("RS-OV", "COMPLETED", people().soqm(soqm)), today().minusDays(3));
         completed(completedOnTime, today().minusDays(3));
 
-        assertThat(row(session, dueToday).isOverdue()).isFalse();
-        assertThat(row(session, dueYesterday).isOverdue()).isTrue();
-        assertThat(row(session, draftLate).isOverdue()).isTrue();
-        assertThat(row(session, completedLate).isOverdue()).isFalse();
-        assertThat(row(session, completedLate).isClosedLate()).isTrue();
-        assertThat(row(session, completedOnTime).isClosedLate()).isFalse();
+        assertThat(row(session, dueToday).overdue()).isFalse();
+        assertThat(row(session, dueYesterday).overdue()).isTrue();
+        assertThat(row(session, draftLate).overdue()).isTrue();
+        assertThat(row(session, completedLate).overdue()).isFalse();
+        assertThat(row(session, completedLate).closedLate()).isTrue();
+        assertThat(row(session, completedOnTime).closedLate()).isFalse();
     }
 
     // ---- the next cycle ----
@@ -252,12 +252,11 @@ class ReleaseScenarioScheduleIT extends ReleaseScenarioSupport {
         return assignmentRepository.findByControlId(control.getId()).orElseThrow();
     }
 
-    private ControlResponseDTO row(MockHttpSession session, Control control) throws Exception {
-        MvcResult result = call(session, get("/controls"));
-        ModelAndView mav = result.getModelAndView();
-        assertThat(mav).isNotNull();
-        @SuppressWarnings("unchecked")
-        List<ControlResponseDTO> rows = (List<ControlResponseDTO>) mav.getModel().get("controls");
-        return rows.stream().filter(r -> control.getId().equals(r.getId())).findFirst().orElseThrow();
+    /** The control's row in the All components list (the Controls page is gone), found by its Control ID. */
+    private com.kpmg.qtracker.service.ComponentControlsList.Row row(MockHttpSession session, Control control)
+            throws Exception {
+        String q = java.net.URLEncoder.encode(reload(control).getControlId(), java.nio.charset.StandardCharsets.UTF_8);
+        return listRows(session, "/component/ALL?q=" + q).stream()
+                .filter(r -> control.getId().equals(r.id())).findFirst().orElseThrow();
     }
 }

@@ -17,6 +17,7 @@ import com.kpmg.qtracker.service.*;
 import com.kpmg.qtracker.util.NotificationTypeDisplayMapper;
 import com.kpmg.qtracker.util.RoleDisplayMapper;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -66,6 +67,7 @@ public class ViewController {
     private final PermissionService permissionService;
     private final StatusDisplayMapper statusDisplayMapper;
     private final WorkflowTransitionGuard transitionGuard;
+    private final ComponentControlsExcel componentControlsExcel;
 
     private User getCurrentUser(HttpSession session) {
         return (User) session.getAttribute("currentUser");
@@ -145,7 +147,7 @@ public class ViewController {
     public String performanceWithoutId(HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
-        return "redirect:/controls";
+        return "redirect:/component/ALL";
     }
 
     @GetMapping("/")
@@ -232,228 +234,49 @@ public class ViewController {
         return "dashboard";
     }
 
+    /**
+     * The Controls page is gone (business decision of 2026-10-13): its address leads to the Action Centre's list of
+     * every control the user sees (/component/ALL), or of the component asked for, with the known parameters
+     * carried over (filter=OVERDUE|COMPLETED, status=..., scope=active as Active, kdn=1, q), so old bookmarks and
+     * links keep working. Who sees what is decided by the list, through the policy.
+     */
     @GetMapping("/controls")
     public String controls(@RequestParam(value = "scope", required = false) String scope,
                            @RequestParam(value = "status", required = false) String status,
                            @RequestParam(value = "filter", required = false) String filter,
                            @RequestParam(value = "component", required = false) String component,
                            @RequestParam(value = "kdn", required = false) String kdn,
-                           Model model,
-                           HttpSession session) {
-        String redirect = checkAuthAndRedirect(session);
-        if (redirect != null) return redirect;
+                           @RequestParam(value = "q", required = false) String q) {
+        String componentCode = resolveComponentCode(component);
+        String listStatus = controlsPageStatus(scope, status, filter);
+        org.springframework.web.util.UriComponentsBuilder target = org.springframework.web.util.UriComponentsBuilder
+                .fromPath("/component/{code}");
+        if (q != null && !q.isBlank()) {
+            target.queryParam("q", q.trim());
+        }
+        if (listStatus != null) {
+            target.queryParam("status", listStatus);
+        }
+        if (ComponentControlsList.Query.of(null, null, null, null, null, null, kdn).kdn()) {
+            target.queryParam("kdn", "1");
+        }
+        return "redirect:" + target.buildAndExpand(componentCode != null ? componentCode : ComponentControlsList.ALL_CODE)
+                .encode().toUriString();
+    }
 
-        User currentUser = getCurrentUser(session);
-        String userEmail = currentUser.getMail();
-        AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
-        boolean soqm = AccessPolicy.isSoqm(subject);
-        // SoQM Team, All controls and KDN (they see controls they are not on): "active" = not completed;
-        // everyone else: the controls waiting for them
-        boolean seesAll = AccessPolicy.seesWithoutBeingOn(subject);
-        String normalizedScope = scope == null ? "" : scope.trim().toLowerCase(Locale.ROOT);
-        String normalizedStatus = status == null ? "" : status.trim();
-        String normalizedFilter = filter == null ? "" : filter.trim();
-        if ("ALL".equalsIgnoreCase(normalizedFilter)) {
-            normalizedFilter = "";
+    /** The list's status filter for the Controls page's filter, status or scope; null for none. */
+    static String controlsPageStatus(String scope, String status, String filter) {
+        String filterValue = filter == null ? "" : filter.trim().toUpperCase(Locale.ROOT);
+        if ("OVERDUE".equals(filterValue) || "COMPLETED".equals(filterValue)) {
+            return filterValue;
         }
-        boolean defaultAllControls =
-                normalizedScope.isBlank() && normalizedStatus.isBlank() && normalizedFilter.isBlank();
-        boolean overdueFilter = "OVERDUE".equalsIgnoreCase(normalizedFilter);
-        boolean completedFilter = "COMPLETED".equalsIgnoreCase(normalizedFilter);
-        if ("OVERDUE".equalsIgnoreCase(normalizedStatus)) {
-            overdueFilter = true;
-            normalizedStatus = "";
+        ComponentControlsList.StatusFilter byStatus = ComponentControlsList.Query.of(null, status, null, null, null, null)
+                .status();
+        if (byStatus != ComponentControlsList.StatusFilter.ALL) {
+            return byStatus.key();
         }
-        String statusFilter = "";
-        String effectiveScope;
-        if (normalizedScope.isBlank()) {
-            if (defaultAllControls) {
-                effectiveScope = "all";
-            } else if (soqm) {
-                effectiveScope = "all";
-            } else {
-                effectiveScope = seesAll ? "active" : "mine";
-            }
-        } else {
-            effectiveScope = normalizedScope;
-        }
-        if (!seesAll) {
-            if (!"active".equals(effectiveScope) && !"all".equals(effectiveScope)) {
-                effectiveScope = "active";
-            }
-        } else {
-            // SoQM / admin / scope ALL: "active" = not completed (was silently turned into "all",
-            // so the dashboard's Active link showed every control)
-            if (!"all".equals(effectiveScope) && !"active".equals(effectiveScope)) {
-                effectiveScope = "all";
-            }
-        }
-        // Completed is never within "active" (not completed): for those who see all or the KDN controls the active
-        // scope used to drop every completed control before this filter, so Completed listed nothing
-        if (completedFilter) {
-            effectiveScope = "all";
-        }
-        
-        // Apply status filter for all users (not just SOQM_TEAM)
-        if (!normalizedStatus.isBlank()) {
-            String upperStatus = normalizedStatus.toUpperCase(Locale.ROOT);
-            Set<String> allowedStatuses = Set.of(
-                    "DRAFT",
-                    "IN_PROGRESS",
-                    "REVIEW",
-                    "SOQM_HEAD_REVIEW",
-                    "PROCESS_OWNER_REVIEW",
-                    "COMPLETED"
-            );
-            if (allowedStatuses.contains(upperStatus)) {
-                statusFilter = upperStatus;
-                System.out.println("✅ Status filter set to: " + statusFilter + " (normalizedStatus=" + normalizedStatus + ")");
-            } else {
-                System.out.println("❌ Status '" + upperStatus + "' not in allowed list");
-            }
-        } else {
-            System.out.println("ℹ️ normalizedStatus is blank");
-        }
-
-        List<ControlResponseDTO> userControlsList = findControlsVisibleToUser(currentUser);
-        String componentFilter = resolveComponentCode(component);
-        if (componentFilter != null) {
-            userControlsList = userControlsList.stream()
-                    .filter(control -> componentFilter.equalsIgnoreCase(control.getComponent()))
-                    .collect(Collectors.toList());
-        }
-        // KDN controls only, among the controls the user sees (the Action Centre's "View all KDN controls")
-        boolean kdnFilter = isKdnFilter(kdn);
-        if (kdnFilter) {
-            userControlsList = userControlsList.stream()
-                    .filter(control -> AccessPolicy.isKdnControl(control.getControlId()))
-                    .collect(Collectors.toList());
-        }
-        Map<Long, LocalDateTime> completionTimeByControlId = resolveCompletionTimes(userControlsList);
-        // Most recently updated (or created) first; controls with neither date count as the oldest
-        userControlsList.sort(Comparator.comparing(
-                (ControlResponseDTO control) -> control.getUpdatedAt() != null ? control.getUpdatedAt() : control.getCreatedAt(),
-                Comparator.nullsLast(Comparator.<LocalDateTime>reverseOrder())));
-
-        LocalDate todayAlmaty = DeadlineOverdue.today(Instant.now());
-        if (overdueFilter) {
-            userControlsList = userControlsList.stream()
-                    .filter(control -> DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), todayAlmaty))
-                    .collect(Collectors.toList());
-            System.out.println("controls filter scope=overdue user=" + userEmail
-                    + " count=" + userControlsList.size());
-        } else {
-            if ("active".equals(effectiveScope)) {
-                int beforeCount = userControlsList.size();
-                // Only apply active queue filter if NO status filter is specified
-                if (statusFilter.isBlank()) {
-                        if (seesAll) {
-                        userControlsList = userControlsList.stream()
-                                .filter(control -> control.getPerformanceStatus() == null
-                                        || !"COMPLETED".equalsIgnoreCase(control.getPerformanceStatus()))
-                                .collect(Collectors.toList());
-                    } else {
-                        userControlsList = userControlsList.stream()
-                                .filter(control -> isMyTurn(subject, userEmail, control))
-                                .collect(Collectors.toList());
-                    }
-                }
-                System.out.println("controls filter scope=active user=" + userEmail
-                        + " before=" + beforeCount + " after=" + userControlsList.size());
-            } else {
-                System.out.println("controls filter scope=all user=" + userEmail
-                        + " count=" + userControlsList.size());
-            }
-            // Apply status filter for all users
-            if (!statusFilter.isBlank()) {
-                String filterValue = statusFilter;
-                System.out.println("🔍 Applying statusFilter='" + filterValue + "' to " + userControlsList.size() + " controls");
-                System.out.println("   Control statuses before filter:");
-                for (ControlResponseDTO c : userControlsList) {
-                    String normalized = normalizeStatus(c.getPerformanceStatus());
-                    System.out.println("      - " + c.getControlId() + ": raw='" + c.getPerformanceStatus() + "' normalized='" + normalized + "'");
-                }
-                userControlsList = userControlsList.stream()
-                        .filter(control -> {
-                            String controlStatus = normalizeStatus(control.getPerformanceStatus());
-                            boolean matches = filterValue.equals(controlStatus);
-                            if (matches) {
-                                System.out.println("   ✅ Control " + control.getControlId() + " status=" + controlStatus + " matches");
-                            }
-                            return matches;
-                        })
-                        .collect(Collectors.toList());
-                System.out.println("🔍 After statusFilter: " + userControlsList.size() + " controls remain");
-            }
-            if (completedFilter) {
-                userControlsList = userControlsList.stream()
-                        .filter(control -> "COMPLETED".equals(normalizeStatus(control.getPerformanceStatus())))
-                        .collect(Collectors.toList());
-            }
-        }
-        
-        for (ControlResponseDTO control : userControlsList) {
-            control.setOverdue(DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), todayAlmaty));
-            control.setClosedLate(DeadlineOverdue.isClosedLate(control.getPerformanceStatus(), control.getDeadline(),
-                    completedOn(control, completionTimeByControlId)));
-        }
-
-        ControlCounters counters = countControlsVisibleToUser(userControlsList);
-
-        model.addAttribute("userName", currentUser.getDisplayName());
-        model.addAttribute("userEmail", userEmail);
-        model.addAttribute("userSeesAll", seesAll);
-        model.addAttribute("controlsSubtitle", RoleDisplayMapper.visibleControls(AccessPolicy.Profile.of(currentUser)));
-        model.addAttribute("canExportAll", AccessPolicy.canExportAllControls(subject));
-        String resolvedControlsFilter = effectiveScope;
-        if (overdueFilter && !soqm) {
-            resolvedControlsFilter = "overdue";
-        } else if (completedFilter && !soqm) {
-            resolvedControlsFilter = "completed";
-        }
-        model.addAttribute("controlsFilter", resolvedControlsFilter);
-        String resolvedStatusFilter = statusFilter;
-        if (overdueFilter) {
-            resolvedStatusFilter = "OVERDUE";
-        } else if (completedFilter) {
-            resolvedStatusFilter = "COMPLETED";
-        }
-        model.addAttribute("statusFilter", resolvedStatusFilter);
-        model.addAttribute("componentFilter", componentFilter);
-        model.addAttribute("componentFilterName", componentFilter != null ? COMPONENT_NAMES.get(componentFilter) : null);
-        model.addAttribute("kdnFilter", kdnFilter);
-        if (kdnFilter) {
-            // The same list without the KDN filter: the "KDN controls" chip's remove link
-            model.addAttribute("kdnFilterClearHref", controlsUrl(statusKeyOf(resolvedStatusFilter, resolvedControlsFilter),
-                    statusValueOf(resolvedStatusFilter, resolvedControlsFilter), componentFilter, false));
-        }
-        addControlsFilterLinks(model, resolvedStatusFilter, resolvedControlsFilter, componentFilter, kdnFilter);
-        model.addAttribute("controls", userControlsList);
-        // The "KDN control" mark, for SoQM Team only (AccessPolicy.seesKdnMark)
-        model.addAttribute("kdnControlIds", AccessPolicy.seesKdnMark(subject)
-                ? userControlsList.stream()
-                        .filter(control -> AccessPolicy.isKdnControl(control.getControlId()))
-                        .map(ControlResponseDTO::getId)
-                        .collect(Collectors.toSet())
-                : Set.of());
-        // Controls where the current workflow step is this user's ("Your turn" badge)
-        model.addAttribute("actionControlIds", userControlsList.stream()
-                .filter(control -> isMyTurn(subject, userEmail, control))
-                .map(ControlResponseDTO::getId)
-                .collect(Collectors.toSet()));
-        // Not overdue yet, but the deadline is within the next 3 days (Almaty date)
-        model.addAttribute("dueSoonControlIds", userControlsList.stream()
-                .filter(control -> DeadlineOverdue.isDueSoon(control.getPerformanceStatus(), control.getDeadline(),
-                        todayAlmaty, DUE_SOON_DAYS))
-                .map(ControlResponseDTO::getId)
-                .collect(Collectors.toSet()));
-        model.addAttribute("totalControls", counters.total());
-        model.addAttribute("activeControls", counters.active());
-        model.addAttribute("completedControls", counters.completed());
-        model.addAttribute("overdueControls", counters.overdue());
-        model.addAttribute("unreadNotifications", getUnreadCount(currentUser));
-
-        return "controls";
+        return scope != null && "active".equalsIgnoreCase(scope.trim())
+                ? ComponentControlsList.StatusFilter.ACTIVE.key() : null;
     }
 
     private List<ControlResponseDTO> findControlsVisibleToUser(User currentUser) {
@@ -488,10 +311,6 @@ public class ViewController {
                 Math.toIntExact(counts.completed()), Math.toIntExact(counts.overdue()));
     }
 
-    /** A filter link on the Controls page (status chip / component option). */
-    public record FilterLink(String label, String href, boolean active) {
-    }
-
     /** Known component code (case-insensitive), or null for "all components" / unknown values. */
     private String resolveComponentCode(String component) {
         if (component == null || component.isBlank()) {
@@ -502,86 +321,6 @@ public class ViewController {
                 .filter(code -> code.equalsIgnoreCase(trimmed))
                 .findFirst()
                 .orElse(null);
-    }
-
-    /** kdn=1 (or true) on /controls: only the KDN controls among those the user sees. */
-    private static boolean isKdnFilter(String kdn) {
-        return kdn != null && ("1".equals(kdn.trim()) || "true".equalsIgnoreCase(kdn.trim()));
-    }
-
-    /** /controls URL with an optional status (or filter=OVERDUE/COMPLETED / scope=active), component and KDN filter. */
-    private String controlsUrl(String statusKey, String value, String component, boolean kdn) {
-        org.springframework.web.util.UriComponentsBuilder builder =
-                org.springframework.web.util.UriComponentsBuilder.fromPath("/controls");
-        if (statusKey != null && value != null) {
-            builder.queryParam(statusKey, value);
-        }
-        if (component != null) {
-            builder.queryParam("component", component);
-        }
-        if (kdn) {
-            builder.queryParam("kdn", "1");
-        }
-        // build().encode() escapes "&" inside values (component "A&C")
-        return builder.build().encode().toUriString();
-    }
-
-    /** The query key that keeps the current status filter: filter, status or scope (null for none). */
-    private static String statusKeyOf(String statusFilter, String controlsFilter) {
-        String status = statusFilter == null ? "" : statusFilter;
-        if ("OVERDUE".equals(status) || "COMPLETED".equals(status)) {
-            return "filter";
-        }
-        if (!status.isEmpty()) {
-            return "status";
-        }
-        return "active".equals(controlsFilter) ? "scope" : null;
-    }
-
-    private static String statusValueOf(String statusFilter, String controlsFilter) {
-        String status = statusFilter == null ? "" : statusFilter;
-        if (!status.isEmpty()) {
-            return status;
-        }
-        return "active".equals(controlsFilter) ? "active" : null;
-    }
-
-    private void addControlsFilterLinks(Model model, String statusFilter, String controlsFilter,
-                                        String component, boolean kdn) {
-        String status = statusFilter == null ? "" : statusFilter;
-        boolean activeScope = "active".equals(controlsFilter);
-        boolean all = status.isEmpty() && !activeScope;
-
-        List<FilterLink> chips = new ArrayList<>();
-        chips.add(new FilterLink("All", controlsUrl(null, null, component, kdn), all));
-        // Everyone may see drafts: the ones they work on, or all of them with scope ALL
-        chips.add(new FilterLink("Draft", controlsUrl("status", "DRAFT", component, kdn), "DRAFT".equals(status)));
-        chips.add(new FilterLink("In Progress", controlsUrl("status", "IN_PROGRESS", component, kdn), "IN_PROGRESS".equals(status)));
-        chips.add(new FilterLink("Review", controlsUrl("status", "REVIEW", component, kdn), "REVIEW".equals(status)));
-        chips.add(new FilterLink("SoQM Review", controlsUrl("status", "SOQM_HEAD_REVIEW", component, kdn), "SOQM_HEAD_REVIEW".equals(status)));
-        chips.add(new FilterLink("Process Owner Review", controlsUrl("status", "PROCESS_OWNER_REVIEW", component, kdn), "PROCESS_OWNER_REVIEW".equals(status)));
-        chips.add(new FilterLink("Completed", controlsUrl("filter", "COMPLETED", component, kdn), "COMPLETED".equals(status)));
-        chips.add(new FilterLink("Overdue", controlsUrl("filter", "OVERDUE", component, kdn), "OVERDUE".equals(status)));
-        model.addAttribute("statusChips", chips);
-
-        model.addAttribute("statTotalLink", new FilterLink("Total", controlsUrl(null, null, component, kdn), all));
-        model.addAttribute("statActiveLink", new FilterLink("Active", controlsUrl("scope", "active", component, kdn),
-                status.isEmpty() && activeScope));
-        model.addAttribute("statCompletedLink", new FilterLink("Completed", controlsUrl("filter", "COMPLETED", component, kdn),
-                "COMPLETED".equals(status)));
-        model.addAttribute("statOverdueLink", new FilterLink("Overdue", controlsUrl("filter", "OVERDUE", component, kdn),
-                "OVERDUE".equals(status)));
-
-        // Component select keeps the current status filter
-        String statusKey = statusKeyOf(statusFilter, controlsFilter);
-        String statusValue = statusValueOf(statusFilter, controlsFilter);
-        List<FilterLink> components = new ArrayList<>();
-        components.add(new FilterLink("All components", controlsUrl(statusKey, statusValue, null, kdn), component == null));
-        for (Map.Entry<String, String> entry : COMPONENT_NAMES.entrySet()) {
-            components.add(new FilterLink(entry.getValue() + " (" + entry.getKey() + ")",
-                    controlsUrl(statusKey, statusValue, entry.getKey(), kdn), entry.getKey().equals(component)));
-        }
-        model.addAttribute("componentOptions", components);
     }
 
     /**
@@ -652,17 +391,14 @@ public class ViewController {
     }
 
     /**
-     * The controls of an Action Centre list: a component's, the KDN controls, or ALL = the controls of the ten
-     * components (what the "All components" card counts; a control without a known component is in none).
+     * The controls of an Action Centre list: a component's, the KDN controls, or ALL = every control the user sees,
+     * whatever its component (what the "All components" card counts; it took the place of the Controls page).
      */
     private static List<ControlResponseDTO> listControls(String code, List<ControlResponseDTO> visible) {
         if (!ComponentControlsList.ALL_CODE.equals(code)) {
             return ComponentControlsList.controlsOf(code, visible);
         }
-        return visible.stream()
-                .filter(control -> COMPONENT_NAMES.keySet().stream()
-                        .anyMatch(component -> ComponentControlsList.inComponent(component, control)))
-                .toList();
+        return visible;
     }
 
     private record ControlCounters(int total, int active, int completed, int overdue) {
@@ -925,21 +661,20 @@ public class ViewController {
                                       @RequestParam(value = "dir", required = false) String dir,
                                       @RequestParam(value = "page", required = false) Integer page,
                                       @RequestParam(value = "size", required = false) Integer size,
+                                      @RequestParam(value = "kdn", required = false) String kdnFilter,
                                       Model model, HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
         if (redirect != null) return redirect;
 
-        String requested = componentName == null ? "" : componentName.trim();
-        boolean kdn = ComponentControlsList.KDN_CODE.equalsIgnoreCase(requested);
-        boolean all = ComponentControlsList.ALL_CODE.equalsIgnoreCase(requested);
-        String code = kdn ? ComponentControlsList.KDN_CODE
-                : all ? ComponentControlsList.ALL_CODE : resolveComponentCode(requested);
+        String code = listCode(componentName);
         if (code == null) {
-            return "redirect:/controls";
+            return "redirect:/component/" + ComponentControlsList.ALL_CODE;
         }
         User currentUser = getCurrentUser(session);
-        String name = kdn ? ComponentControlsList.KDN_NAME
-                : all ? ComponentControlsList.ALL_NAME : COMPONENT_NAMES.get(code);
+        AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
+        boolean kdn = ComponentControlsList.KDN_CODE.equals(code);
+        boolean all = ComponentControlsList.ALL_CODE.equals(code);
+        String name = listName(code);
 
         model.addAttribute("userName", currentUser.getDisplayName());
         model.addAttribute("userEmail", currentUser.getMail());
@@ -949,21 +684,104 @@ public class ViewController {
         model.addAttribute("listTitle", "Performance: " + name + " (" + code + ")");
         model.addAttribute("kdnList", kdn);
         model.addAttribute("allList", all);
-        ComponentControlsList.Query query = ComponentControlsList.Query.of(q, status, sort, dir, page, size);
+        // The Excel of the list: SoQM Admin Team only (the server refuses everyone else, exportList)
+        model.addAttribute("canExport", AccessPolicy.canExportControlLists(subject));
+        ComponentControlsList.Query query = ComponentControlsList.Query.of(q, status, sort, dir, page, size, kdnFilter);
         model.addAttribute("query", query);
         try {
-            List<ControlResponseDTO> controls = listControls(code, findControlsVisibleToUser(currentUser));
-            // Every person of the list in one query
-            Map<String, String> names = userService.displayNamesByEmail(ComponentControlsList.emailsOf(controls));
+            ListData data = listData(code, currentUser);
             String basePath = org.springframework.web.util.UriComponentsBuilder.fromPath("/component/{code}")
                     .buildAndExpand(code).encode().toUriString();
-            model.addAttribute("list", ComponentControlsList.of(basePath, controls, names, query,
-                    DeadlineOverdue.today(Instant.now())));
+            model.addAttribute("list", ComponentControlsList.of(basePath, data.controls(), data.names(), query,
+                    data.today(), data.marks()));
         } catch (RuntimeException e) {
             log.error("Could not load the controls of {} for {}", code, currentUser.getMail(), e);
             model.addAttribute("loadError", true);
         }
         return "component-controls";
+    }
+
+    /**
+     * The Excel of a list, as the list shows it (search, status filter, KDN filter, sorting; every page): SoQM Admin
+     * Team only (AccessPolicy.canExportControlLists), 403 for everyone else; 404 for a list that does not exist.
+     */
+    @GetMapping("/component/{componentName}/export")
+    public void exportList(@PathVariable String componentName,
+                           @RequestParam(value = "q", required = false) String q,
+                           @RequestParam(value = "status", required = false) String status,
+                           @RequestParam(value = "sort", required = false) String sort,
+                           @RequestParam(value = "dir", required = false) String dir,
+                           @RequestParam(value = "kdn", required = false) String kdnFilter,
+                           HttpServletResponse response, HttpSession session) throws java.io.IOException {
+        User currentUser = getCurrentUser(session);
+        if (currentUser == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+        if (!AccessPolicy.canExportControlLists(AccessPolicy.Subject.of(currentUser))) {
+            log.warn("List export refused: user={} list={}", currentUser.getId(), componentName);
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType("text/plain;charset=UTF-8");
+            response.getWriter().write("Only " + com.kpmg.qtracker.enums.UserRole.SOQM_TEAM_NAME + " can export lists");
+            return;
+        }
+        String code = listCode(componentName);
+        if (code == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+        ListData data = listData(code, currentUser);
+        ComponentControlsList.Query query = ComponentControlsList.Query.of(q, status, sort, dir, 1, null, kdnFilter);
+        List<ComponentControlsList.Row> rows = ComponentControlsList.allRows(data.controls(), data.names(), query,
+                data.today(), data.marks());
+        String file = "QTracker_" + code.replaceAll("[^A-Za-z0-9]", "-") + "_" + data.today() + ".xlsx";
+        response.setContentType(ComponentControlsExcel.CONTENT_TYPE);
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + file + "\"");
+        response.setHeader("Cache-Control", "no-store");
+        componentControlsExcel.write(listName(code), rows, response.getOutputStream());
+    }
+
+    /** The list's code for the path: a known component, KDN or ALL (any case); null for anything else. */
+    private String listCode(String requested) {
+        String value = requested == null ? "" : requested.trim();
+        if (ComponentControlsList.KDN_CODE.equalsIgnoreCase(value)) {
+            return ComponentControlsList.KDN_CODE;
+        }
+        if (ComponentControlsList.ALL_CODE.equalsIgnoreCase(value)) {
+            return ComponentControlsList.ALL_CODE;
+        }
+        return resolveComponentCode(value);
+    }
+
+    private static String listName(String code) {
+        return ComponentControlsList.KDN_CODE.equals(code) ? ComponentControlsList.KDN_NAME
+                : ComponentControlsList.ALL_CODE.equals(code) ? ComponentControlsList.ALL_NAME : COMPONENT_NAMES.get(code);
+    }
+
+    /** A list's controls with what its rows show, read once: the people's names, Closed late, Your turn, KDN. */
+    private record ListData(List<ControlResponseDTO> controls, Map<String, String> names,
+                            ComponentControlsList.Marks marks, LocalDate today) {
+    }
+
+    private ListData listData(String code, User currentUser) {
+        AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
+        LocalDate today = DeadlineOverdue.today(Instant.now());
+        List<ControlResponseDTO> controls = listControls(code, findControlsVisibleToUser(currentUser));
+        // "Closed late": the completion day from the workflow history, two queries for the whole list
+        Map<Long, LocalDateTime> completedAt = resolveCompletionTimes(controls);
+        Set<Long> yourTurn = new java.util.HashSet<>();
+        for (ControlResponseDTO control : controls) {
+            control.setOverdue(DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), today));
+            control.setClosedLate(DeadlineOverdue.isClosedLate(control.getPerformanceStatus(), control.getDeadline(),
+                    completedOn(control, completedAt)));
+            if (isMyTurn(subject, currentUser.getMail(), control)) {
+                yourTurn.add(control.getId());
+            }
+        }
+        // Every person of the list in one query
+        Map<String, String> names = userService.displayNamesByEmail(ComponentControlsList.emailsOf(controls));
+        return new ListData(controls, names,
+                new ComponentControlsList.Marks(yourTurn, AccessPolicy.seesKdnMark(subject)), today);
     }
 
     @GetMapping("/view-control/{id}")
@@ -1165,7 +983,7 @@ public class ViewController {
             if (permissionService.readAccess(control, currentUser) != AccessPolicy.ReadAccess.ALLOWED) {
                 redirectAttributes.addFlashAttribute("accessDeniedMessage",
                         "Access revoked — you no longer have permission to view this control.");
-                return "redirect:/controls";
+                return "redirect:/component/ALL";
             }
 
             // 2. Получаем Performance DTO (built from Control + Assignment)

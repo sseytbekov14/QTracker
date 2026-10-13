@@ -2,8 +2,9 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 <!--
-  Shared sidebar. Usage: <div th:replace="~{fragments/sidebar :: sidebar('controls')}"></div>
-  active: dashboard | controls | action | notifications | admin | '' (none).
+  Shared sidebar. Usage: <div th:replace="~{fragments/sidebar :: sidebar('action')}"></div>
+  active: dashboard | action | notifications | admin | '' (none). The Controls page is gone: its lists are the
+  Action Centre's (/component/ALL and one per component).
   Data comes from SidebarModelAdvice (model attribute "sidebar").
   The ids sidebarDashboard / sidebarActionCentre / sidebarNotifications are used by dashboard.html
   to switch tabs without reloading.
@@ -36,12 +37,6 @@
                        th:classappend="${active == 'dashboard'} ? 'active'"
                        th:attr="aria-current=${active == 'dashboard'} ? 'page' : null">
                         <i class="bi bi-speedometer2" aria-hidden="true"></i>Dashboard</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/controls"
-                       th:classappend="${active == 'controls'} ? 'active'"
-                       th:attr="aria-current=${active == 'controls'} ? 'page' : null">
-                        <i class="bi bi-list-check" aria-hidden="true"></i>Controls</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" id="sidebarActionCentre" href="/#action-centre"

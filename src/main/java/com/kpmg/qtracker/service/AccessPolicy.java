@@ -335,8 +335,12 @@ public final class AccessPolicy {
         return isSoqm(subject);
     }
 
-    /** The Excel export of every control (Controls page button and the server export). */
-    public static boolean canExportAllControls(Subject subject) {
+    /**
+     * The Excel export of a list (a component, All components, KDN): SoQM Admin Team only; the button is shown to
+     * them alone and the server refuses everyone else (403). The Excel of one completed control is
+     * {@link #canExportCompletedControl}.
+     */
+    public static boolean canExportControlLists(Subject subject) {
         return isSoqm(subject);
     }
 

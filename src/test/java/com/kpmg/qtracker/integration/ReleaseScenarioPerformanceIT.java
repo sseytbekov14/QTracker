@@ -76,11 +76,11 @@ class ReleaseScenarioPerformanceIT extends ReleaseScenarioSupport {
         MockHttpSession soqmSession = login(soqm);
         MockHttpSession facSession = login(fac);
         Map<String, String> measured = new LinkedHashMap<>();
-        measure(measured, "SoQM /controls", soqmSession, get("/controls").param("scope", "all"));
+        measure(measured, "SoQM /component/ALL", soqmSession, get("/component/ALL"));
         measure(measured, "SoQM dashboard", soqmSession, get("/"));
         measure(measured, "SoQM /component/HR", soqmSession, get("/component/HR"));
-        measure(measured, "SoQM Excel of the list", soqmSession, get("/api/controls/export/excel").param("exportType", "all"));
-        measure(measured, "User (2000 own) /controls", facSession, get("/controls").param("scope", "all"));
+        measure(measured, "SoQM Excel of All components", soqmSession, get("/component/ALL/export"));
+        measure(measured, "User (2000 own) /component/ALL", facSession, get("/component/ALL"));
         measure(measured, "User (2000 own) dashboard", facSession, get("/"));
         measure(measured, "View Control", soqmSession, get("/view-control/{id}", ids.get(0)));
         measure(measured, "Changelog", soqmSession, get("/api/controls/{id}/changelog", ids.get(0)));

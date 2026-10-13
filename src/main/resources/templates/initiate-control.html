@@ -125,7 +125,7 @@
 </script>
 <div class="container-fluid">
     <div class="row">
-        <div th:replace="~{fragments/sidebar :: sidebar('controls')}"></div>
+        <div th:replace="~{fragments/sidebar :: sidebar('action')}"></div>
 
         <div class="col-md-10">
             <div class="page-wrapper">
@@ -133,7 +133,7 @@
                 <nav class="page-breadcrumb" aria-label="Breadcrumb">
                     <a href="/">Dashboard</a>
                     <span aria-hidden="true">/</span>
-                    <a href="/controls">Controls</a>
+                    <a href="/component/ALL" th:href="${sidebar != null ? sidebar.listHref : '/component/ALL'}" th:text="${sidebar != null ? sidebar.listLabel : 'All components'}">All components</a>
                     <span aria-hidden="true">/</span>
                     <a th:href="@{/view-control/{id}(id=${control.id})}" th:text="${control.controlId}">HR-CTRL-MF-1</a>
                     <span aria-hidden="true">/</span>

@@ -50,7 +50,8 @@ class SsoSignInIT extends SsoTestSupport {
         assertThat(auditLogRepository.findByActionTypeOrderByCreatedAtDesc(SsoAdmission.AUDIT_LINKED))
                 .anySatisfy(log -> assertThat(log.getActionDescription()).endsWith("for " + user.getMail()));
 
-        mockMvc.perform(get("/controls").session(session)).andExpect(status().isOk());
+        mockMvc.perform(get("/controls").session(session)).andExpect(status().isFound());
+        mockMvc.perform(get("/component/ALL").session(session)).andExpect(status().isOk());
         mockMvc.perform(get("/").session(session)).andExpect(status().isOk());
     }
 
