@@ -79,6 +79,26 @@ class ComponentControlsListTest {
     }
 
     @Test
+    void deletedAndSupersededControls_stayListedAndCounted_withTheirBadge() {
+        ControlResponseDTO deleted = control(6, "HR-6", "HR", "IN_PROGRESS", TODAY.minusDays(1));
+        deleted.setControlStatus("DELETED");
+        ControlResponseDTO superseded = control(7, "HR-7", "HR", "COMPLETED", null);
+        superseded.setControlStatus("Superseded");
+        ControlResponseDTO active = control(8, "HR-8", "HR", "IN_PROGRESS", null);
+        active.setControlStatus("ACTIVE");
+
+        ComponentControlsList.Result result = ComponentControlsList.of("/component/HR",
+                List.of(deleted, superseded, active), NAMES, ComponentControlsList.Query.of("", "", "", "", 1, 25), TODAY);
+
+        assertThat(result.rows()).extracting(ComponentControlsList.Row::controlStatusBadge)
+                .containsExactly("Deleted", "Superseded", null);
+        // Counted by their workflow status as any other control: the overdue Deleted one is overdue
+        assertThat(result.counts().total()).isEqualTo(3);
+        assertThat(result.counts().overdue()).isEqualTo(1);
+        assertThat(result.counts().completed()).isEqualTo(1);
+    }
+
+    @Test
     void emailsOf_everySlot_lowerCase_once() {
         ControlResponseDTO a = control(1, "HR-1", "HR", "REVIEW", null);
         a.setFacilitators(List.of("Anna@kpmg.kz", "Legacy Name"));

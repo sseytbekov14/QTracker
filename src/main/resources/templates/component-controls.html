@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=19" rel="stylesheet">
-    <link href="/css/component-controls.css?v=3" rel="stylesheet">
+    <link href="/css/component-controls.css?v=4" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 </head>
 <body class="theme-light">
@@ -195,6 +195,8 @@
                                         </span>
                                         <span th:if="${row.overdue()}" class="badge status-overdue" title="Deadline passed">
                                             <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>Overdue</span>
+                                        <span th:if="${row.controlStatusBadge() != null}" class="badge status-retired"
+                                              th:text="${row.controlStatusBadge()}" title="Control Status">Deleted</span>
                                         </div>
                                     </td>
                                 </tr>

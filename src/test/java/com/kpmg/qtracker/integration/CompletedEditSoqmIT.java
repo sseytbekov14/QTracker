@@ -235,7 +235,7 @@ class CompletedEditSoqmIT {
     }
 
     @Test
-    void theScheduleSoqmYearAndControlStatus_areRefused_orIgnoredWhenSentUnchanged() throws Exception {
+    void theSchedule_isRefused_orIgnoredWhenSentUnchanged() throws Exception {
         Control control = completedControl(today.plusDays(3), today.minusDays(1));
         ControlAssignment before = assignmentRepository.findByControlId(control.getId()).orElseThrow();
 
@@ -248,14 +248,6 @@ class CompletedEditSoqmIT {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlFrequency\":\"Quarterly\",\"editReason\":\"Wrong frequency\"}"),
                 403, AccessPolicy.completedFixedMessage("Control Frequency"));
-        expect(as(soqm, put("/api/controls/{id}", control.getId()))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"soqmYear\":\"" + SoqmYear.current(today.plusYears(1)) + "\",\"editReason\":\"Wrong year\"}"),
-                403, AccessPolicy.completedFixedMessage("SoQM Year"));
-        expect(as(soqm, put("/api/controls/{id}", control.getId()))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlStatus\":\"SUPERSEDED\",\"editReason\":\"Replaced\"}"),
-                403, AccessPolicy.completedFixedMessage("Control Status"));
 
         // Only the deadline and the next date sent: nothing to save, nothing changes
         ok(as(soqm, post("/api/control-assignment"))
@@ -274,6 +266,73 @@ class CompletedEditSoqmIT {
         assertThat(after.getControlOperationDeadline()).isEqualTo(before.getControlOperationDeadline());
         assertThat(after.getNextControlOperationDate()).isEqualTo(before.getNextControlOperationDate());
         assertThat(auditRepository.findByControlIdOrderByCreatedAtDesc(control.getId())).isEmpty();
+    }
+
+    /**
+     * Business decision of 2026-10-13: SoQM Admin Team changes the Control Status and the SoQM Year of a completed
+     * control with a reason, values from the lists only; the workflow status, the schedule and the cycles stay.
+     */
+    @Test
+    void theControlStatusAndTheSoqmYear_changeWithAReason_auditedBeforeAndAfter_theScheduleStays() throws Exception {
+        Control control = completedControl(today.plusDays(3), today.minusDays(1));
+        ControlAssignment before = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        String otherYear = SoqmYear.options(today).get(0);
+        long controlsBefore = controlRepository.count();
+
+        // Without a reason, a value not in a list: refused, nothing changes
+        expect(as(soqm, put("/api/controls/{id}", control.getId()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlStatus\":\"SUPERSEDED\"}"), 400, CompletedEdit.REASON_REQUIRED);
+        assertThat(perform(as(soqm, put("/api/controls/{id}", control.getId()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlStatus\":\"ARCHIVED\",\"editReason\":\"Why\"}")).getResponse().getStatus())
+                .isEqualTo(400);
+        assertThat(perform(as(soqm, put("/api/controls/{id}", control.getId()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"soqmYear\":\"1 OCT 2001 - 30 SEP 2002\",\"editReason\":\"Why\"}")).getResponse().getStatus())
+                .isEqualTo(400);
+        // Everyone else: 403, as on every completed control
+        for (User other : List.of(owner, operator, facilitator, shared)) {
+            assertThat(perform(as(other, put("/api/controls/{id}", control.getId()))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"controlStatus\":\"DELETED\",\"editReason\":\"Why\"}")).getResponse().getStatus())
+                    .as(other.getMail()).isEqualTo(403);
+        }
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getControlStatus()).isEqualTo("ACTIVE");
+
+        ok(as(soqm, put("/api/controls/{id}", control.getId()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlStatus\":\"SUPERSEDED\",\"soqmYear\":\"" + otherYear + "\","
+                        + "\"editReason\":\"Replaced by the FY28 control\"}"));
+
+        Control saved = controlRepository.findById(control.getId()).orElseThrow();
+        assertThat(saved.getControlStatus()).isEqualTo("SUPERSEDED");
+        assertThat(saved.getSoqmYear()).isEqualTo(otherYear);
+        assertThat(saved.getPerformanceStatus()).isEqualTo("COMPLETED");
+        assertThat(saved.getDeadline()).isEqualTo(control.getDeadline());
+        ControlAssignment after = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assertThat(after.getControlOperationDate()).isEqualTo(before.getControlOperationDate());
+        assertThat(after.getControlOperationDeadline()).isEqualTo(before.getControlOperationDeadline());
+        assertThat(after.getNextControlOperationDate()).isEqualTo(before.getNextControlOperationDate());
+        assertThat(controlRepository.count()).isEqualTo(controlsBefore);
+
+        // The audit trail: who, the values before and after, the reason, marked
+        AdminAuditLog entry = auditRepository.findByControlIdOrderByCreatedAtDesc(control.getId()).get(0);
+        assertThat(entry.getActionDescription()).isEqualTo("Edit Control - Edited after completion");
+        assertThat(entry.getPreviousValues()).contains("\"control_status\":\"ACTIVE\"", control.getSoqmYear());
+        assertThat(entry.getNewValues()).contains("\"control_status\":\"SUPERSEDED\"", otherYear,
+                "Replaced by the FY28 control");
+        // The Changelog shows it marked, with the reason
+        JsonNode changelog = json(as(soqm, get("/api/controls/{id}/changelog", control.getId())));
+        JsonNode edit = null;
+        for (JsonNode e : changelog) {
+            if (e.path("editedAfterCompletion").asBoolean()) {
+                edit = e;
+                break;
+            }
+        }
+        assertThat(edit).as(changelog.toString()).isNotNull();
+        assertThat(edit.toString()).contains("Replaced by the FY28 control", "SUPERSEDED");
     }
 
     @Test
@@ -405,10 +464,11 @@ class CompletedEditSoqmIT {
         String soqmPage = page(soqm, control);
         assertThat(soqmPage).contains("id=\"completedEditBanner\"", "Your changes are recorded with a reason",
                 "Edit (completed control)", "id=\"completedEditReasonModal\"", "id=\"completedEditReason\"",
-                "for=\"completedEditReason\"", "id=\"controlFrequencyFixedHint\"", "id=\"soqmYearFixedHint\"",
-                "id=\"controlStatusFixedHint\"", "id=\"scheduleFixedHint\"", "data-completed-fixed=\"scheduleFixedHint\"",
-                "id=\"completedEdit\" value=\"true\"")
-                .doesNotContain("id=\"accessBanner\"");
+                "for=\"completedEditReason\"", "id=\"controlFrequencyFixedHint\"", "id=\"soqmYearCompletedHint\"",
+                "id=\"scheduleFixedHint\"", "data-completed-fixed=\"scheduleFixedHint\"",
+                "id=\"completedEdit\" value=\"true\"", "Status and the SoQM Year can change")
+                .doesNotContain("id=\"accessBanner\"", "id=\"controlStatusFixedHint\"", "id=\"soqmYearFixedHint\"",
+                        "data-completed-fixed=\"controlStatusFixedHint\"", "data-completed-fixed=\"soqmYearFixedHint\"");
 
         for (User reader : List.of(readOnly, owner, shared)) {
             String page = page(reader, control);

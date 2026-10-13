@@ -195,6 +195,8 @@ th[aria-sort="descending"] .sort-link .bi { opacity: 1; }
 .status-completed  { background: #d4edda; color: #155724; }
 .status-overdue    { background: var(--kpmg-red); color: var(--kpmg-white); }
 .status-overdue .bi { margin-right: 3px; }
+/* Control Status Deleted or Superseded: still listed and counted, marked */
+.status-retired    { background: var(--kpmg-white); color: #3f4656; border: 1px solid #8a93a3; text-decoration: none; }
 
 /* Empty, no match, load error */
 .cc-panel {

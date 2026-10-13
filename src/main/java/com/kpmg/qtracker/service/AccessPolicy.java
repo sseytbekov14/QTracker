@@ -35,7 +35,7 @@ import java.util.Set;
  *   <li>Shared With only views (spec 5.6): no edit, upload or workflow step, also on completed controls.</li>
  *   <li>A completed control is locked for everyone but SoQM Team ({@link #isLocked}), who change it in place with a
  *   reason ({@link #editsAfterCompletion}, business decision of 2026-10-09) or return it to an earlier status
- *   (business decision 4); its schedule, SoQM Year and status stay ({@link #COMPLETED_FIXED_FIELDS}). Renaming its
+ *   (business decision 4); its schedule stays ({@link #COMPLETED_FIXED_FIELDS}). Renaming its
  *   Control ID stays SoQM's.</li>
  * </ul>
  */
@@ -485,17 +485,20 @@ public final class AccessPolicy {
             "This control is completed and locked: only SoQM Admin Team can change it";
 
     /**
-     * What a completed control keeps for everyone, SoQM Team changing it in place included: its schedule (the
+     * What a completed control keeps for everyone, SoQM Admin Team changing it in place included: its schedule (the
      * Control Operation Date, the frequency, the deadline and the next date, which the auto-creation of the next
-     * cycle and "Closed late" follow), its SoQM Year and its Control Status. The Control ID changes only through
-     * Rename ID ({@link #canRenameId}) and the workflow status only through a workflow move ({@link #soqmTargets}).
-     * The save paths refuse a change of one of these ({@link #completedFixedMessage}) and keep the stored value
-     * when the same one is sent; the deadline and the next date are never taken from a request.
+     * cycle and "Closed late" follow). The Control ID changes only through Rename ID ({@link #canRenameId}) and the
+     * workflow status only through a workflow move ({@link #soqmTargets}). The save paths refuse a change of one of
+     * these ({@link #completedFixedMessage}) and keep the stored value when the same one is sent; the deadline and the
+     * next date are never taken from a request.
+     * The SoQM Year and the Control Status are not fixed (business decision of 2026-10-13): SoQM Admin Team changes
+     * them like any other field of a completed control ({@link #editsAfterCompletion}), with a reason; a new SoQM
+     * Year moves no date and makes no cycle.
      * TODO: BUSINESS CONFIRMATION: may the dates and the frequency of a completed control change?
      */
     public static final List<String> COMPLETED_FIXED_FIELDS = List.of(
             "Control Operation Date", "Control Frequency", "Control Operation Deadline",
-            "Next Control Operation Date", "SoQM Year", "Control Status");
+            "Next Control Operation Date");
 
     /** Why a save may not change one of {@link #COMPLETED_FIXED_FIELDS}. */
     public static String completedFixedMessage(String field) {

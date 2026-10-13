@@ -215,7 +215,7 @@ public final class ComponentControlsList {
     /** One line of the list; people already as names, joined by ", ". */
     public record Row(Long id, String controlId, String type, String frequency, String facilitators,
                       String operators, String owners, String soqmLeads, String category,
-                      LocalDate operationDate, String status, boolean overdue) {
+                      LocalDate operationDate, String status, boolean overdue, String controlStatusBadge) {
 
         /** Every control, a draft too, opens on View Control. */
         public String href() {
@@ -389,7 +389,8 @@ public final class ComponentControlsList {
                 joinNames(control.getFacilitators(), names), joinNames(control.getControlOperators(), names),
                 joinNames(control.getProcessOwners(), names), joinNames(control.getSoqmLeads(), names),
                 control.getControlCategory(), control.getControlOperationDate(), statusOf(control),
-                DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), today));
+                DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), today),
+                ControlStatusValue.badge(control.getControlStatus()));
     }
 
     /**

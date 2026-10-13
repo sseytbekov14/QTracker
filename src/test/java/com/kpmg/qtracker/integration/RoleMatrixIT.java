@@ -147,12 +147,12 @@ class RoleMatrixIT {
 
     private static final List<String> CONTROL_OPS = List.of(
             "In Controls list", "In component list", "View page", "Program on page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
-            "Edit, no reason", "Fixed field", "Operation Date", "Assign", "Upload", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
+            "Edit, no reason", "Fixed field", "Status / Year", "Operation Date", "Assign", "Upload", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)");
 
     /** The operations that change a control: none may pass where the page shows a notice. */
     private static final List<String> WRITES = List.of("Save details", "Steps field", "Operator's Program", "Edit control",
-            "Edit, no reason", "Fixed field", "Operation Date", "Assign", "Upload", "Rename ID", "Rename ±KDN", "Step", "Return",
+            "Edit, no reason", "Fixed field", "Status / Year", "Operation Date", "Assign", "Upload", "Rename ID", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review");
 
     /** The working statuses in order; "Move to X" is POST /api/workflow/move, a return when X is earlier. */
@@ -300,8 +300,9 @@ class RoleMatrixIT {
         // A draft someone is only shared with opens once initiated, except for those who see it anyway
         boolean notYet = "DRAFT".equals(status) && shared && !(active && (seesAll || kdnUser));
         boolean writer = active && who.level() != AccessLevel.READ_ONLY;
-        // A completed control: SoQM Team changes it in place with a reason, its schedule, SoQM Year and status
-        // fixed; everyone else only reads it (decision of 2026-10-09). Renaming is not an edit
+        // A completed control: SoQM Admin Team changes it in place with a reason, its schedule fixed (SoQM Year and
+        // Control Status too, decision of 2026-10-13); everyone else only reads it (decision of 2026-10-09).
+        // Renaming is not an edit
         boolean completed = "COMPLETED".equals(status);
         boolean soqmEdits = soqm;
         // A User with Edit acts only in the field they are listed in (also with All controls)
@@ -345,6 +346,8 @@ class RoleMatrixIT {
             case "Edit, no reason" -> !soqmEdits ? "refused" : completed ? "400" : "ok";
             // Another frequency (Edit control) or Control Operation Date (Assign): fixed on a completed control
             case "Fixed field", "Operation Date" -> !soqmEdits ? "refused" : completed ? "403" : "ok";
+            // Control Status (Superseded) and SoQM Year: SoQM Admin Team only, a completed control too (with a reason)
+            case "Status / Year" -> soqmEdits ? "ok" : "refused";
             case "Rename ID" -> soqm ? "ok" : "refused";
             // "KDN" appearing at or going from the start of the ID changes who sees the control: SoQM gives a comment
             case "Rename ±KDN, no comment" -> soqm ? "400" : "refused";
@@ -431,6 +434,10 @@ class RoleMatrixIT {
         row.put("Fixed field", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlFrequency\":\"Quarterly\"" + REASON + "}"), session));
+        row.put("Status / Year", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlStatus\":\"SUPERSEDED\",\"soqmYear\":\""
+                        + com.kpmg.qtracker.service.SoqmYear.options(today()).get(0) + "\"" + REASON + "}"), session));
         row.put("Operation Date", answer(post("/api/control-assignment").with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlId\":" + control.getId() + ",\"controlOperationDate\":\""

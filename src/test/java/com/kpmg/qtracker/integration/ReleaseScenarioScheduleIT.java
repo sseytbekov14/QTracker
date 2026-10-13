@@ -172,18 +172,14 @@ class ReleaseScenarioScheduleIT extends ReleaseScenarioSupport {
     }
 
     @Test
-    void deletedAndSupersededControls_whatTheDailyRunDoesWithThem() throws Exception {
+    void deletedAndSupersededControls_makeNoNextCycle() throws Exception {
         LocalDate day = uniqueDay();
         Control deleted = cycleSource("Monthly", day, "DELETED", "COMPLETED");
         Control superseded = cycleSource("Monthly", day, "SUPERSEDED", "COMPLETED");
         autoCreation.runDailyAutoCreation(day);
-        // Observed and written to the report (question Q-04): the run looks only at the next date
-        int fromDeleted = createdFrom(deleted, day).size();
-        int fromSuperseded = createdFrom(superseded, day).size();
-        assertThat(fromDeleted).isBetween(0, 1);
-        assertThat(fromSuperseded).isBetween(0, 1);
-        System.out.println("RELEASE-SCENARIO auto-creation from Deleted: " + fromDeleted + ", from Superseded: "
-                + fromSuperseded);
+        // Q-04, business decision of 2026-10-13: a Deleted or Superseded control makes no next cycle
+        assertThat(createdFrom(deleted, day)).isEmpty();
+        assertThat(createdFrom(superseded, day)).isEmpty();
     }
 
     // ---- helpers ----

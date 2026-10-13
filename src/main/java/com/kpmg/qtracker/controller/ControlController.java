@@ -23,7 +23,9 @@ import com.kpmg.qtracker.service.ControlHistoryService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlRenameService;
+import com.kpmg.qtracker.service.ControlStatusValue;
 import com.kpmg.qtracker.service.ControlStepsFields;
+import com.kpmg.qtracker.service.DeadlineOverdue;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
 import com.kpmg.qtracker.service.PermissionService;
@@ -533,12 +535,15 @@ public class ControlController {
                 return ResponseEntity.badRequest()
                         .body("VALIDATION_ERROR: " + missingField + " is required");
             }
-            // A blank SoQM Year leaves the stored one; any other value must be a real SoQM year
+            // A blank SoQM Year leaves the stored one; another one must be one of the years offered
             String requestedSoqmYear = controlDTO.getSoqmYear() == null || controlDTO.getSoqmYear().isBlank()
                     ? null : controlDTO.getSoqmYear().trim();
+            if (requestedSoqmYear != null && requestedSoqmYear.equals(normalizeValue(existingControl.getSoqmYear()))) {
+                requestedSoqmYear = null;
+            }
             controlDTO.setSoqmYear(requestedSoqmYear);
-            // A completed control changed in place keeps its frequency, SoQM Year and Control Status
-            // (AccessPolicy.COMPLETED_FIXED_FIELDS): a change is refused, the same value sent is not applied
+            // A completed control changed in place keeps its frequency (AccessPolicy.COMPLETED_FIXED_FIELDS): a change
+            // is refused, the same value sent is not applied. Its SoQM Year and Control Status change with a reason.
             if (permission.isCompletedEdit()) {
                 String fixedField = findChangedCompletedFixedField(controlDTO, existingControl);
                 if (fixedField != null) {
@@ -546,13 +551,23 @@ public class ControlController {
                             .body("VALIDATION_ERROR: " + AccessPolicy.completedFixedMessage(fixedField));
                 }
                 controlDTO.setControlFrequency(null);
-                controlDTO.setSoqmYear(null);
-                controlDTO.setControlStatus(null);
-                requestedSoqmYear = null;
             }
-            if (requestedSoqmYear != null && !SoqmYear.isValid(requestedSoqmYear)) {
+            if (requestedSoqmYear != null
+                    && !SoqmYear.options(DeadlineOverdue.today(java.time.Instant.now())).contains(requestedSoqmYear)) {
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + SoqmYear.invalidMessage());
             }
+            // Control Status: one of the choices; the stored value sent back (any spelling) is kept as it is
+            String requestedControlStatus = null;
+            if (controlDTO.getControlStatus() != null && !controlDTO.getControlStatus().isBlank()
+                    && !controlDTO.getControlStatus().trim().equalsIgnoreCase(normalizeValue(existingControl.getControlStatus()))) {
+                Optional<String> code = ControlStatusValue.canonical(controlDTO.getControlStatus());
+                if (code.isEmpty()) {
+                    return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + ControlStatusValue.invalidMessage());
+                }
+                requestedControlStatus = code.get().equals(normalizeValue(existingControl.getControlStatus()))
+                        ? null : code.get();
+            }
+            controlDTO.setControlStatus(requestedControlStatus);
             String previousFrequency = existingControl.getControlFrequency();
             String requestedFrequency = controlDTO.getControlFrequency();
             String canonicalFrequency = null;
@@ -617,8 +632,8 @@ public class ControlController {
                 existingControl.setSoqmYear(requestedSoqmYear);
             }
             // NOTE: DO NOT update performanceStatus here - it should only change via workflow transitions (Submit buttons)
-            if (controlDTO.getControlStatus() != null && !controlDTO.getControlStatus().isBlank()) {
-                existingControl.setControlStatus(controlDTO.getControlStatus().trim());
+            if (requestedControlStatus != null) {
+                existingControl.setControlStatus(requestedControlStatus);
             }
             if (controlDTO.getControlDescription() != null) {
                 existingControl.setControlDescription(controlDTO.getControlDescription());
@@ -1053,14 +1068,6 @@ public class ControlController {
             if (canonical == null || !canonical.equals(canonicalizeFrequency(existing.getControlFrequency()))) {
                 return "Control Frequency";
             }
-        }
-        if (dto.getSoqmYear() != null && !dto.getSoqmYear().trim().equals(normalizeValue(existing.getSoqmYear()))) {
-            return "SoQM Year";
-        }
-        String sentStatus = dto.getControlStatus();
-        if (sentStatus != null && !sentStatus.isBlank()
-                && !sentStatus.trim().equalsIgnoreCase(normalizeValue(existing.getControlStatus()))) {
-            return "Control Status";
         }
         return null;
     }

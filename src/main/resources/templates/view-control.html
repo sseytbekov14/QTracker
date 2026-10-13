@@ -558,8 +558,8 @@
                         <p class="access-banner-title">This control is completed. Your changes are recorded with a reason</p>
                         <p class="access-banner-text">Use Edit (completed control) to change it: it stays Completed, and every save
                             asks for a reason and shows in the Changelog as &ldquo;Edited after completion&rdquo;. The Control
-                            Operation Date, the frequency, the deadline, the next date, the SoQM Year and the Control Status
-                            stay as they are. To rework it in the workflow, use Move / Return.</p>
+                            Status and the SoQM Year can change; the Control Operation Date, the frequency, the deadline and the
+                            next date stay as they are. To rework it in the workflow, use Move / Return.</p>
                     </div>
                 </div>
 
@@ -660,17 +660,13 @@
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label" for="controlStatusSelect">Control Status</label>
-                                        <select class="form-control readonly-field" name="controlStatus" id="controlStatusSelect" readonly th:data-stored-value="${control.controlStatus}"
-                                                data-completed-fixed="controlStatusFixedHint">
+                                        <select class="form-control readonly-field" name="controlStatus" id="controlStatusSelect" readonly th:data-stored-value="${control.controlStatus}">
                                             <option value="">Select Status</option>
                                             <option value="NOT_APPLICABLE" th:selected="${control.controlStatus == 'NOT_APPLICABLE'}">Not Applicable</option>
                                             <option value="ACTIVE" th:selected="${control.controlStatus == 'ACTIVE'}">Active</option>
                                             <option value="DELETED" th:selected="${control.controlStatus == 'DELETED'}">Deleted</option>
                                             <option value="SUPERSEDED" th:selected="${control.controlStatus == 'SUPERSEDED'}">Superseded</option>
                                         </select>
-                                        <div class="completed-fixed-hint" id="controlStatusFixedHint" th:if="${completedEdit}">
-                                            <i class="bi bi-lock" aria-hidden="true"></i> Stays as it is on a completed control
-                                        </div>
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field">Priority</label>
@@ -696,13 +692,13 @@
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label" for="soqmYear">SoQM Year</label>
                                         <select class="form-control readonly-field" name="soqmYear" id="soqmYear" readonly th:data-stored-value="${control.soqmYear}"
-                                                data-completed-fixed="soqmYearFixedHint">
+                                                th:attr="aria-describedby=${completedEdit} ? 'soqmYearCompletedHint' : null">
                                             <option value="" th:unless="${#lists.contains(soqmYearOptions, control.soqmYear)}">Not set</option>
                                             <option th:each="year : ${soqmYearOptions}" th:value="${year}" th:text="${year}"
                                                     th:selected="${year == control.soqmYear}">1 OCT 2026 - 30 SEP 2027</option>
                                         </select>
-                                        <div class="completed-fixed-hint" id="soqmYearFixedHint" th:if="${completedEdit}">
-                                            <i class="bi bi-lock" aria-hidden="true"></i> Stays as it is on a completed control
+                                        <div class="completed-fixed-hint" id="soqmYearCompletedHint" th:if="${completedEdit}">
+                                            <i class="bi bi-info-circle" aria-hidden="true"></i> Another year moves no date and starts no new cycle
                                         </div>
                                     </div>
                                 </div>

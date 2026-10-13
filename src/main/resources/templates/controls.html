@@ -329,6 +329,7 @@ th[aria-sort="descending"] .sort-btn .bi { opacity: 1; color: var(--kpmg-blue); 
 .status-overdue    { background: var(--kpmg-red); color: var(--kpmg-white); }
 /* Completed after the deadline: history, not an open problem */
 .status-closed-late { background: transparent; color: var(--kpmg-red); border: 1px solid var(--kpmg-red); }
+.status-retired { background: transparent; color: #3f4656; border: 1px solid #8a93a3; }
 .control-table td.status-cell { white-space: nowrap; }
 
 /* Empty states */
@@ -579,6 +580,9 @@ th[aria-sort="descending"] .sort-btn .bi { opacity: 1; color: var(--kpmg-blue); 
                                           title="Deadline passed">Overdue</span>
                                     <span th:if="${control.closedLate}" class="badge status-closed-late ms-1"
                                           title="Closed after deadline">Closed late</span>
+                                    <span th:with="retired=${T(com.kpmg.qtracker.service.ControlStatusValue).badge(control.controlStatus)}"
+                                          th:if="${retired != null}" class="badge status-retired ms-1" th:text="${retired}"
+                                          title="Control Status">Deleted</span>
                                 </td>
                             </tr>
                             <tr th:if="${#lists.isEmpty(controls)}">

@@ -314,9 +314,7 @@ class ControlControllerSecurityTest {
 
     @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
     @org.junit.jupiter.params.provider.CsvSource({
-            "Control Frequency, controlFrequency, Quarterly",
-            "SoQM Year,         soqmYear,         1 OCT 2027 - 30 SEP 2028",
-            "Control Status,    controlStatus,    SUPERSEDED"
+            "Control Frequency, controlFrequency, Quarterly"
     })
     void updateControl_completedControlChangedInPlace_refusesAFixedField(String label, String field, String value)
             throws Exception {
@@ -359,6 +357,50 @@ class ControlControllerSecurityTest {
                 eq("[\"control_description\",\"Reason\"]"),
                 eq("{\"control_description\":null}"),
                 eq("{\"control_description\":\"Changed\",\"Reason\":\"Description was wrong\"}"));
+    }
+
+    @Test
+    void updateControl_completedControlChangedInPlace_controlStatusAndSoqmYearChange_withAReason() throws Exception {
+        User sessionUser = userWithRole("SOQM_TEAM");
+        Control existing = completedForEditInPlace(sessionUser, 206L);
+        when(controlService.updateControl(any(Control.class))).thenAnswer(inv -> inv.getArgument(0));
+        String otherYear = com.kpmg.qtracker.service.SoqmYear.options(
+                com.kpmg.qtracker.service.DeadlineOverdue.today(java.time.Instant.now())).get(0);
+
+        mockMvc.perform(put("/api/controls/206")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlStatus\":\"superseded\",\"soqmYear\":\"" + otherYear + "\","
+                                + "\"editReason\":\"Replaced by the new control\"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(existing.getControlStatus()).isEqualTo("SUPERSEDED");
+        org.assertj.core.api.Assertions.assertThat(existing.getSoqmYear()).isEqualTo(otherYear);
+        org.assertj.core.api.Assertions.assertThat(existing.getPerformanceStatus()).isEqualTo("COMPLETED");
+        // A new SoQM Year moves no date
+        verify(controlAssignmentService, never()).recalculateSchedule(any());
+        verify(adminAuditService).logActionWithChanges(eq(sessionUser.getMail()), any(), eq("EDIT"), eq(existing),
+                eq("Edit Control - Edited after completion"), any(), any(), any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0} = {1}")
+    @org.junit.jupiter.params.provider.CsvSource({
+            "controlStatus, ARCHIVED",
+            "controlStatus, Deleted soon",
+            "soqmYear,      1 OCT 2019 - 30 SEP 2020",
+            "soqmYear,      2026-27"
+    })
+    void updateControl_aValueNotInTheList_returns400(String field, String value) throws Exception {
+        User sessionUser = userWithRole("SOQM_TEAM");
+        Control existing = completedForEditInPlace(sessionUser, 207L);
+        existing.setPerformanceStatus("IN_PROGRESS");
+
+        mockMvc.perform(put("/api/controls/207")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"" + field + "\":\"" + value + "\",\"editReason\":\"Why\"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isBadRequest());
+        verify(controlService, never()).updateControl(any(Control.class));
     }
 
     @Test
@@ -452,11 +494,11 @@ class ControlControllerSecurityTest {
         updated.setId(210L);
         updated.setControlId("CTRL-210");
         updated.setControlFrequency("Monthly");
-        updated.setControlStatus("Inactive");
+        updated.setControlStatus("SUPERSEDED");
         updated.setCreatedBy(sessionUser);
 
         ControlDTO updateRequest = new ControlDTO();
-        updateRequest.setControlStatus("Inactive");
+        updateRequest.setControlStatus("Superseded");
 
         when(controlService.getControlById(210L)).thenReturn(Optional.of(existing));
         when(controlService.updateControl(any(Control.class))).thenReturn(updated);
@@ -501,7 +543,7 @@ class ControlControllerSecurityTest {
 
         assertTrue(changedFields.contains("control_status"));
         assertEquals("Active", previousValues.get("control_status"));
-        assertEquals("Inactive", newValues.get("control_status"));
+        assertEquals("SUPERSEDED", newValues.get("control_status"));
     }
 
     @Test

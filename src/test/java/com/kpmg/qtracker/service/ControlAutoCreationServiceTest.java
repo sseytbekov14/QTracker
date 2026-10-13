@@ -224,6 +224,26 @@ class ControlAutoCreationServiceTest {
         verify(notificationService, never()).sendAutoCreatedNotification(any(), any(), any(), any());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"DELETED", "SUPERSEDED", "Deleted", " superseded "})
+    void shouldNotCreate_fromADeletedOrSupersededControl(String controlStatus) {
+        LocalDate operationDate = LocalDate.of(2026, 2, 4);
+        LocalDate nextOperationDate = operationDate.plusMonths(1);
+
+        Control previous = controlWithFrequency("Monthly");
+        previous.setControlStatus(controlStatus);
+        ControlAssignment previousAssignment = assignmentWithDates(operationDate, nextOperationDate);
+
+        ControlAutoCreationService.AutoCreationResult result =
+                autoCreationService.createNextOccurrenceIfDue(previous, previousAssignment, nextOperationDate);
+
+        assertFalse(result.created());
+        assertFalse(result.duplicateSkipped());
+        verify(controlRepository, never()).save(any(Control.class));
+        verify(assignmentRepository, never()).save(any(ControlAssignment.class));
+        verify(notificationService, never()).sendAutoCreatedNotification(any(), any(), any(), any());
+    }
+
     @Test
     void shouldNotCreate_forNonMonthlyFrequency() {
         LocalDate operationDate = LocalDate.of(2026, 2, 4);

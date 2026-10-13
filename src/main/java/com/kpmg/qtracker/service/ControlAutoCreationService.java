@@ -122,6 +122,12 @@ public class ControlAutoCreationService {
         if (nextOperationDate == null || !nextOperationDate.equals(today)) {
             return new AutoCreationResult(false, null, null, false);
         }
+        // A Deleted or Superseded control makes no next cycle (business decision of 2026-10-13)
+        if (ControlStatusValue.isRetired(previousControl.getControlStatus())) {
+            log.info("Auto-create: control {} is {}, no next cycle", previousControl.getId(),
+                    ControlStatusValue.badge(previousControl.getControlStatus()));
+            return new AutoCreationResult(false, null, null, false);
+        }
 
         ControlFrequency frequency;
         try {
