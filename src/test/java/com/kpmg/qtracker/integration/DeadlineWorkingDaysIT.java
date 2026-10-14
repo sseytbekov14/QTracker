@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 /**
  * The deadline of 10 working days (ControlScheduleCalculator.DEADLINE) from an operation date on a weekend, through
  * everything that reads it: both stored columns, GET /api/control-assignment, the dashboard calendar, View Control
- * and the Excel of a completed control. The dates lie in 2031, so the control is never overdue when the test runs.
+ * and the Excel of a completed control (the Assignment tab's deadline). The dates lie in 2031, so the control is never overdue when the test runs.
  */
 class DeadlineWorkingDaysIT extends ReleaseScenarioSupport {
 
@@ -70,7 +70,7 @@ class DeadlineWorkingDaysIT extends ReleaseScenarioSupport {
         saveDate(session, control, MONDAY, "{}");
         assertStored(control, MONDAY_DEADLINE, MONDAY.plusYears(1));
 
-        // The Excel of the completed control prints both stored columns
+        // The Excel of the completed control prints the Assignment tab's dates
         Control completed = reload(control);
         completed.setPerformanceStatus("COMPLETED");
         controlRepository.save(completed);
@@ -78,7 +78,6 @@ class DeadlineWorkingDaysIT extends ReleaseScenarioSupport {
         assertThat(excel.getResponse().getStatus()).isEqualTo(200);
         Map<String, String> rows = excelRows(excel);
         assertThat(rows).containsEntry("Control Operation Date", "19.05.2031")
-                .containsEntry("Deadline", "02.06.2031")
                 .containsEntry("Control Operation Deadline", "02.06.2031");
     }
 

@@ -84,7 +84,7 @@ class PerformanceCycleIT extends ReleaseScenarioSupport {
         assertThat(file.getResponse().getStatus()).isEqualTo(200);
         assertThat(file.getResponse().getContentType()).contains("spreadsheetml");
         assertThat(excelRows(file)).containsEntry("Control ID", completed.getControlId())
-                .containsEntry("Performance Status", "COMPLETED");
+                .containsEntry("Performance Status", "Completed");
 
         // ... and neither on a control that is not completed
         assertThat(body(call(soqmSession, get("/performance-cycle/" + running.getId()))))

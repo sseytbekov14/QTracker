@@ -5,7 +5,6 @@ import com.kpmg.qtracker.dto.ControlDTO;
 import com.kpmg.qtracker.dto.ControlResponseDTO;
 import com.kpmg.qtracker.dto.ControlHistoryEntryDTO;
 import com.kpmg.qtracker.dto.ControlDetailsDTO;
-import com.kpmg.qtracker.dto.PerformanceDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
@@ -13,6 +12,7 @@ import com.kpmg.qtracker.repository.ControlRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.CompletedControlExcel;
 import com.kpmg.qtracker.service.CompletedEdit;
 import com.kpmg.qtracker.service.ControlAuditChangeService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
@@ -22,7 +22,6 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlRenameService;
 import com.kpmg.qtracker.service.ControlStatusValue;
-import com.kpmg.qtracker.service.ControlStepsFields;
 import com.kpmg.qtracker.service.DeadlineOverdue;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
@@ -34,8 +33,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -539,81 +536,11 @@ public class ControlController {
                 return;
             }
 
+            // Every field of the Control, Details and Assignment tabs, as View Control shows them (CompletedControlExcel)
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
             ControlDetailsDTO details = controlDetailsService.getDetailsByControlId(control.getId());
-            PerformanceDTO performanceDTO = performanceService.buildPerformanceDTO(control);
-
-            Workbook workbook = new XSSFWorkbook();
-            Sheet sheet = workbook.createSheet("Control");
-
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerStyle.setFont(headerFont);
-
-            Row headerRow = sheet.createRow(0);
-            Cell headerField = headerRow.createCell(0);
-            headerField.setCellValue("Field");
-            headerField.setCellStyle(headerStyle);
-            Cell headerValue = headerRow.createCell(1);
-            headerValue.setCellValue("Value");
-            headerValue.setCellStyle(headerStyle);
-
-            int rowNum = 1;
-            rowNum = addRow(sheet, rowNum, "Control ID", control.getControlId());
-            rowNum = addRow(sheet, rowNum, "Control Status", statusDisplayMapper.display(control.getControlStatus()));
-            rowNum = addRow(sheet, rowNum, "Control Type", control.getControlType());
-            rowNum = addRow(sheet, rowNum, "Control Frequency", control.getControlFrequency());
-            rowNum = addRow(sheet, rowNum, "Control Category", control.getControlCategory());
-            rowNum = addRow(sheet, rowNum, "Component", control.getComponent());
-            rowNum = addRow(sheet, rowNum, "Operated By", control.getOperatedBy());
-            rowNum = addRow(sheet, rowNum, "References to this Control", control.getReferencesToControl());
-            rowNum = addRow(sheet, rowNum, "Priority", control.getPriority());
-            rowNum = addRow(sheet, rowNum, "Non-Audit Services Control Applicability", control.getNonAuditServicesApplicability());
-            rowNum = addRow(sheet, rowNum, "Homogeneity", control.getHomogeneity());
-            rowNum = addRow(sheet, rowNum, "Control Description", control.getControlDescription());
-            rowNum = addRow(sheet, rowNum, "PRP", control.getPrp());
-            rowNum = addRow(sheet, rowNum, "SoQM Head/Team Comments", control.getSoqmHeadComments());
-            rowNum = addRow(sheet, rowNum, "Process Owner Comments", control.getProcessOwnerComments());
-
-            rowNum = addRow(sheet, rowNum, "Created By",
-                    control.creatorName());
-            rowNum = addRow(sheet, rowNum, "Created", formatDateTime(control.getCreatedAt()));
-            rowNum = addRow(sheet, rowNum, "Updated At", formatDateTime(control.getUpdatedAt()));
-            rowNum = addRow(sheet, rowNum, "Deadline", formatDate(control.getDeadline()));
-
-            if (assignment != null) {
-                rowNum = addRow(sheet, rowNum, "Facilitator(s)", joinList(assignment.getFacilitator()));
-                rowNum = addRow(sheet, rowNum, "Control Operator(s)", joinList(assignment.getControlOperator()));
-                rowNum = addRow(sheet, rowNum, "SoQM Team/Delegate(s)", joinList(assignment.getSoqmLead()));
-                rowNum = addRow(sheet, rowNum, "Process Owner(s)", joinList(assignment.getProcessOwner()));
-                // The name View Control and the Changelog give the field; addresses in the stored order
-                rowNum = addRow(sheet, rowNum, "Control Shared With", joinList(assignment.getControlSharedWith()));
-                rowNum = addRow(sheet, rowNum, "Control Operation Date", formatDate(assignment.getControlOperationDate()));
-                rowNum = addRow(sheet, rowNum, "Control Operation Deadline", formatDate(assignment.getControlOperationDeadline()));
-                rowNum = addRow(sheet, rowNum, "Next Control Operation Date", formatDate(assignment.getNextControlOperationDate()));
-            }
-
-            rowNum = addRow(sheet, rowNum, "SoQM Year", performanceDTO.getSoqmYear());
-            rowNum = addRow(sheet, rowNum, "Performance Status", performanceStatus);
-
-            if (details != null) {
-                rowNum = addRow(sheet, rowNum, "Process Name", details.getProcessName());
-                rowNum = addRow(sheet, rowNum, "Department", details.getDepartment());
-                rowNum = addRow(sheet, rowNum, "Process Activities", details.getProcessActivities());
-                // In the order of View Control's Details: the Program (put in by SoQM Team) right after Process
-                // Activities; an empty value has no row, as every field
-                rowNum = addRow(sheet, rowNum, ControlStepsFields.OPERATOR_PROGRAM_LABEL, details.getControlOperatorReview());
-                rowNum = addRow(sheet, rowNum, "Other Related Controls", details.getOtherRelatedControls());
-                rowNum = addRow(sheet, rowNum, "IT Applications", details.getItApplications());
-                rowNum = addRow(sheet, rowNum, ControlStepsFields.STEPS_LABEL, details.getControlStepsPerformed());
-            }
-
-            rowNum = addRow(sheet, rowNum, "Attachments (Details)", extractAttachmentNames(control.getAttachmentDetailsPath()));
-            rowNum = addRow(sheet, rowNum, "Attachments (Documents)", extractAttachmentNames(control.getAttachmentDocumentsPath()));
-
-            sheet.setColumnWidth(0, 35 * 256);
-            sheet.setColumnWidth(1, 80 * 256);
+            List<CompletedControlExcel.Line> lines = CompletedControlExcel.lines(control, performanceStatus, assignment,
+                    details, userService.displayNamesByEmail(CompletedControlExcel.emailsOf(assignment)), statusDisplayMapper);
 
             String downloadFilename = "QTracker_Control_" +
                     (control.getControlId() != null ? control.getControlId() : "Completed") +
@@ -624,8 +551,7 @@ public class ControlController {
                     "attachment; filename=\"" + downloadFilename + "\"");
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            workbook.write(outputStream);
-            workbook.close();
+            CompletedControlExcel.write(lines, outputStream);
 
             response.getOutputStream().write(outputStream.toByteArray());
             response.getOutputStream().flush();
@@ -714,52 +640,6 @@ public class ControlController {
             previousValues.put(fieldName, oldValue);
             newValues.put(fieldName, newValue);
         }
-    }
-
-    private int addRow(Sheet sheet, int rowNum, String field, String value) {
-        if (value == null) {
-            return rowNum;
-        }
-        String trimmed = value.trim();
-        if (trimmed.isEmpty()) {
-            return rowNum;
-        }
-        Row row = sheet.createRow(rowNum++);
-        row.createCell(0).setCellValue(field);
-        row.createCell(1).setCellValue(trimmed);
-        return rowNum;
-    }
-
-    private String joinList(List<String> items) {
-        if (items == null || items.isEmpty()) return null;
-        return String.join(", ", items);
-    }
-
-    private String formatDate(LocalDate date) {
-        if (date == null) return null;
-        return date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
-    }
-
-    private String formatDateTime(LocalDateTime dateTime) {
-        if (dateTime == null) return null;
-        return dateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"));
-    }
-
-    private String extractAttachmentNames(String raw) {
-        if (raw == null || raw.trim().isEmpty()) return null;
-        String[] parts = raw.split(";");
-        List<String> names = new ArrayList<>();
-        for (String part : parts) {
-            String trimmed = part.trim();
-            if (trimmed.isEmpty()) continue;
-            String name = trimmed;
-            int lastSlash = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
-            if (lastSlash >= 0 && lastSlash + 1 < trimmed.length()) {
-                name = trimmed.substring(lastSlash + 1);
-            }
-            names.add(name);
-        }
-        return names.isEmpty() ? null : String.join(", ", names);
     }
 
     private static String normalizeValue(String value) {

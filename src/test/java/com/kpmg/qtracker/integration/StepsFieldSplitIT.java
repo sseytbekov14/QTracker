@@ -723,10 +723,10 @@ class StepsFieldSplitIT {
                 .containsEntry(ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Kept from before")
                 .doesNotContainKey(ControlStepsFields.FORMER_OPERATOR_REVIEW_LABEL);
 
-        // An empty Program has no row, as every empty field
+        // An empty Program still has its row, with an empty value, as every field of the tabs
         Map<String, String> empty = exportRows(control("COMPLETED", fac.getMail(), op.getMail(), "Steps", null), soqmSession);
         assertThat(empty).containsKey(ControlStepsFields.STEPS_LABEL)
-                .doesNotContainKey(ControlStepsFields.OPERATOR_PROGRAM_LABEL);
+                .containsEntry(ControlStepsFields.OPERATOR_PROGRAM_LABEL, "");
     }
 
     private Map<String, String> exportRows(Control control, MockHttpSession session) throws Exception {

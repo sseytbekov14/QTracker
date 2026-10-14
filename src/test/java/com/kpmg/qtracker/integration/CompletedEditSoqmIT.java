@@ -437,8 +437,9 @@ class CompletedEditSoqmIT {
                     .containsEntry("Control Description", "Corrected description")
                     .containsEntry(com.kpmg.qtracker.service.ControlStepsFields.STEPS_LABEL, "Corrected steps")
                     .containsEntry(com.kpmg.qtracker.service.ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Final program")
-                    .containsEntry("Process Owner(s)", newOwner.getMail())
-                    .containsEntry("Performance Status", "COMPLETED");
+                    // this person's name is their e-mail, so it is shown once
+                    .containsEntry("Process Owner", newOwner.getMail())
+                    .containsEntry("Performance Status", "Completed");
         }
         // The All components list (the description is not one of its columns: the Excel above shows it)
         com.kpmg.qtracker.service.ComponentControlsList.Row row = controlsRow(control);

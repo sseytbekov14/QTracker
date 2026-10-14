@@ -327,7 +327,8 @@ class SharedWithFieldIT {
             }
         }
         assertThat(rows).doesNotContainKey("Shared With")
-                .containsEntry("Control Shared With", readerAll.getMail() + ", " + reader.getMail());
+                .containsEntry("Control Shared With", readerAll.getDisplayName() + " (" + readerAll.getMail() + "); "
+                        + reader.getDisplayName() + " (" + reader.getMail() + ")");
     }
 
     // ------------------------------------------------------------------ helpers

@@ -54,6 +54,14 @@ public final class ControlStatusValue {
         return isRetired(value) ? LABELS.get(canonical(value).orElseThrow()) : null;
     }
 
+    /** The label of the View Control select ("Active", "Not Applicable"); an unknown stored value as it is. */
+    public static String label(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return canonical(value).map(LABELS::get).orElse(value.trim());
+    }
+
     public static String invalidMessage() {
         return "Control Status must be one of " + String.join(", ", LABELS.values());
     }
