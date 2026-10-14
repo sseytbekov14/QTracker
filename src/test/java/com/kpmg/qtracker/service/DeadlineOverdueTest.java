@@ -16,6 +16,22 @@ class DeadlineOverdueTest {
 
     private static final LocalDate TODAY = LocalDate.of(2026, 10, 1);
 
+    /** Every operation day of three years: due (not overdue) on the deadline day, overdue from the next day. */
+    @Test
+    void theCalculatedDeadline_isNotOverdueOnItsDay_andOverdueTheDayAfter() {
+        ControlScheduleCalculator calculator = new ControlScheduleCalculator();
+        for (LocalDate day = LocalDate.of(2026, 1, 1); day.isBefore(LocalDate.of(2029, 1, 1)); day = day.plusDays(1)) {
+            LocalDate deadline = calculator.calculateDeadline(com.kpmg.qtracker.enums.ControlFrequency.MONTHLY, day);
+            assertThat(DeadlineOverdue.isOverdue("IN_PROGRESS", deadline, day)).as("%s", day).isFalse();
+            assertThat(DeadlineOverdue.isOverdue("IN_PROGRESS", deadline, deadline)).as("%s", day).isFalse();
+            assertThat(DeadlineOverdue.isDueSoon("IN_PROGRESS", deadline, deadline, 3)).as("%s", day).isTrue();
+            assertThat(DeadlineOverdue.isOverdue("IN_PROGRESS", deadline, deadline.plusDays(1))).as("%s", day).isTrue();
+            assertThat(DeadlineOverdue.daysOverdue("IN_PROGRESS", deadline, deadline.plusDays(1))).isEqualTo(1L);
+            assertThat(DeadlineOverdue.isClosedLate("COMPLETED", deadline, deadline)).as("%s", day).isFalse();
+            assertThat(DeadlineOverdue.isClosedLate("COMPLETED", deadline, deadline.plusDays(1))).as("%s", day).isTrue();
+        }
+    }
+
     @Test
     void deadlineToday_isNotOverdue() {
         assertThat(DeadlineOverdue.isOverdue(TODAY, TODAY)).isFalse();

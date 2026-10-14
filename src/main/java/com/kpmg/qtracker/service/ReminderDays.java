@@ -8,7 +8,9 @@ import java.time.LocalDate;
  * and DAY 25 for Semi Annual and Annual), but never after the deadline: one that would come later is sent on
  * the last working day on or before the deadline. A reminder is dropped when that day is not after the
  * operation date, or not after the reminder before it, so one control never gets two on the same day.
- * With 14 days to the deadline (ControlScheduleCalculator.DEADLINE) DAY 12 and DAY 25 fell after it.
+ * With the deadline 10 working days after the operation date (ControlScheduleCalculator.DEADLINE), counted the
+ * same way as these offsets, DAY 12 and DAY 25 always go out on the deadline day; DAY 3, DAY 5 and DAY 6 on their
+ * own day, before it.
  *
  * <p>The per-frequency notification services and ReminderNotificationService both ask here.
  */
