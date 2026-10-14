@@ -1114,28 +1114,6 @@ function confirmWorkflowAction() {
         }
     }
 
-    async function loadDocumentsData(controlId) {
-        try {
-            const response = await fetch('/api/control-documents?controlId=' + controlId);
-            if (response.ok) {
-                const documentsData = await response.json();
-
-                if (documentsData && documentsData.controlId) {
-                    const form = document.getElementById('documentsForm');
-                    if (form) {
-                        if (documentsData.soqmDevelopmentMaterials) {
-                            const materialsField = form.querySelector('[name="soqmDevelopmentMaterials"]');
-                            materialsField.value = documentsData.soqmDevelopmentMaterials;
-                            keepStoredSelectValue(materialsField, documentsData.soqmDevelopmentMaterials);
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error loading documents data:', error);
-        }
-    }
-
     // ========== FORM MODE FUNCTIONS ==========
     function initializeReadOnlyMode() {
         const allInputs = document.querySelectorAll('#detailsForm input, #assignmentForm input, #documentsForm input');
@@ -1642,7 +1620,7 @@ function saveControlData(controlId) {
             SharedWithField.setEditing(fullEditEnabled);
         }
 
-        // Without full rights only Details fields are editable (Assignment and Documents are saved by SoQM Team only)
+        // Without full rights only Details fields are editable (Assignment is saved by SoQM Team only)
         toggleSoqmOnlyNotes(!fullEditEnabled);
         if (!fullEditEnabled && window.ViewControlTabs) {
             ViewControlTabs.show('details');
@@ -2055,7 +2033,6 @@ function saveControlChanges() {
     return saveControlData(controlId)
         .then(() => saveAssignmentData(controlId))
         .then(() => saveDetailsData(controlId))
-        .then(() => saveDocumentsData(controlId))
         .then(() => {
             showAppModal({
                 variant: 'success',
@@ -2265,88 +2242,6 @@ function saveDetailsData(controlId) {
     });
 }
 
-function saveDocumentsData(controlId) {
-    console.log('=== SAVE DOCUMENTS DATA ===');
-
-    const documentsForm = document.getElementById('documentsForm');
-    if (!documentsForm) {
-        console.log('вљ пёЏ Documents form not found, skipping');
-        return Promise.resolve({ success: true, skipped: true });
-    }
-
-    const getDocumentsValue = (selector) => {
-        const element = documentsForm.querySelector(selector);
-        if (!element) {
-            return '';
-        }
-        return element.tagName === 'SELECT' ? selectValueForSave(element) : element.value;
-    };
-
-    const documentsData = {
-        controlId: parseInt(controlId),
-        soqmDevelopmentMaterials: getDocumentsValue('[name="soqmDevelopmentMaterials"]'),
-        editReason: completedEditReasonForSave()
-    };
-
-    console.log('Documents data to send:', documentsData);
-
-    return fetch('/api/control-documents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(documentsData)
-    })
-    .then(async response => {
-        console.log('рџ“Ґ Documents response status:', response.status);
-
-        if (!response.ok) {
-            const errorText = serverErrorText(await response.text().catch(() => 'Unknown error'));
-            console.error('вќЊ Documents save failed:', errorText);
-            throw new Error(`Documents save failed: ${errorText}`);
-        }
-
-        let responseText;
-        try {
-            responseText = await response.text();
-        } catch (e) {
-            console.log('вљ пёЏ Could not read response text:', e.message);
-            responseText = '';
-        }
-
-        console.log('рџ“Ґ Documents response length:', responseText.length);
-
-        if (!responseText || responseText.trim() === '') {
-            console.log('рџ“Ґ Empty documents response, returning success');
-            return { success: true };
-        }
-
-        try {
-            const parsed = JSON.parse(responseText);
-            console.log('рџ“Ґ Parsed documents response:', parsed);
-            return parsed;
-        } catch (e) {
-            console.warn('вљ пёЏ Documents response is not JSON, returning success');
-            return { success: true, rawResponse: responseText };
-        }
-    })
-.then(data => {
-    console.log('вњ… Documents saved successfully, response:', data);
-
-    // Upload file attachments if any
-    if (window.uploadAttachments) {
-        console.log('рџ“¤ Uploading file attachments...');
-        window.uploadAttachments();
-    }
-
-    return data;
-})
-    .catch(error => {
-        console.error('вќЊ Unexpected error in saveDocumentsData:', error);
-
-        // saveControlChanges shows the one message for the whole Save, so a failure here is not hidden
-        throw error;
-    });
-}
-
 
     function updateCalculatedDates() {
         const operationDateInput = document.querySelector('input[name="controlOperationDate"]');
@@ -2542,7 +2437,6 @@ function saveDocumentsData(controlId) {
                 hideWorkflowActionsUi();
             }
             await loadDetailsData(controlId);
-            await loadDocumentsData(controlId);
             await loadUsers(); // This calls loadAssignmentData internally
 
             initializeReadOnlyMode();

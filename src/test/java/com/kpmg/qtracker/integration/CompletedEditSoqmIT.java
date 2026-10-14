@@ -149,10 +149,6 @@ class CompletedEditSoqmIT {
                         + "\"controlOperatorReview\":\"Final program\",\"soqmHeadComments\":\"SoQM comments 2\","
                         + "\"processOwnerComments\":\"Owner comments 2\",\"processActivities\":\"Activities\","
                         + "\"editReason\":\"Steps were mistyped\"}"));
-        ok(as(soqm, post("/api/control-documents"))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Yes\","
-                        + "\"editReason\":\"Materials were found\"}"));
         // The page sends the people and the stored Operation Date; any deadline or next date sent is ignored
         ok(as(soqm, post("/api/control-assignment"))
                 .contentType(MediaType.APPLICATION_JSON)
@@ -174,8 +170,6 @@ class CompletedEditSoqmIT {
         assertThat(details.getSoqmHeadComments()).isEqualTo("SoQM comments 2");
         assertThat(details.getProcessOwnerComments()).isEqualTo("Owner comments 2");
         assertThat(details.getProcessActivities()).isEqualTo("Activities");
-        JsonNode documents = json(as(soqm, get("/api/control-documents").param("controlId", String.valueOf(control.getId()))));
-        assertThat(documents.path("soqmDevelopmentMaterials").asText()).isEqualTo("Yes");
         ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
         assertThat(assignment.getProcessOwner()).isEqualTo(newOwner.getMail());
         assertThat(assignment.getControlSharedWith()).contains(shared.getMail()).contains(newShared.getMail());
@@ -213,7 +207,7 @@ class CompletedEditSoqmIT {
             }
         });
         assertThat(marked).extracting(entry -> entry.path("reason").asText()).containsExactlyInAnyOrder(
-                "Description was out of date", "Steps were mistyped", "Materials were found", "The Process Owner changed");
+                "Description was out of date", "Steps were mistyped", "The Process Owner changed");
         assertThat(marked).allMatch(entry -> soqm.getMail().equals(entry.path("actorEmail").asText()));
         assertThat(marked).allMatch(entry -> fieldNames(entry).stream().noneMatch(CompletedEdit.REASON_FIELD::equals));
         JsonNode steps = marked.stream().filter(entry -> "Steps were mistyped".equals(entry.path("reason").asText()))
@@ -228,7 +222,7 @@ class CompletedEditSoqmIT {
 
         // The audit trail: the same entries, marked, the reason as a field
         List<AdminAuditLog> audit = auditRepository.findByControlIdOrderByCreatedAtDesc(control.getId());
-        assertThat(audit).hasSize(4).allMatch(entry -> CompletedEdit.isMarked(entry.getActionDescription())
+        assertThat(audit).hasSize(3).allMatch(entry -> CompletedEdit.isMarked(entry.getActionDescription())
                 && soqm.getMail().equals(entry.getAdminEmail())
                 && entry.getChangedFields().contains("\"Reason\"")
                 && entry.getPreviousValues() != null && entry.getNewValues().contains("\"Reason\":"));
@@ -347,9 +341,6 @@ class CompletedEditSoqmIT {
         expect(as(soqm, post("/api/control-details"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlId\":" + control.getId() + ",\"controlStepsPerformed\":\"Changed\"}"), 400, json400);
-        expect(as(soqm, post("/api/control-documents"))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Yes\"}"), 400, json400);
         expect(as(soqm, post("/api/control-assignment"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlId\":" + control.getId() + ",\"processOwner\":[\"" + newOwner.getMail() + "\"]}"),

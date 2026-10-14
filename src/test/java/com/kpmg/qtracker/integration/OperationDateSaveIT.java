@@ -21,7 +21,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 /**
  * The Control Operation Date picked on the Assignment tab and saved with Save, as View Control sends it: the Control
- * tab (PUT /api/controls/{id}), the Assignment tab, Details, Documents, one after the other. The date reaches the
+ * tab (PUT /api/controls/{id}), the Assignment tab, Details, one after the other. The date reaches the
  * database, GET /api/control-assignment and the page give it back after a reload, in DRAFT and every later status
  * before COMPLETED. Before 0490b23 (D-04) the Control loaded by the assignment save wrote its old date (none on a
  * draft) back over the new one: the field came back empty while the deadline was calculated.
@@ -98,7 +98,7 @@ class OperationDateSaveIT extends ReleaseScenarioSupport {
         assertThat(stored(control).getControlOperationDate()).isEqualTo(today());
     }
 
-    /** The four requests of the Save button, in its order, each answered 200. */
+    /** The three requests of the Save button, in its order, each answered 200. */
     private void pageSave(MockHttpSession session, Control control, LocalDate date, People people) throws Exception {
         expectOk(callJson(session, put("/api/controls/" + control.getId()), "{\"controlFrequency\":\"Monthly\","
                 + "\"controlCategory\":\"Manual\",\"controlType\":\"Preventive\",\"component\":\"HR\","
@@ -111,8 +111,6 @@ class OperationDateSaveIT extends ReleaseScenarioSupport {
                 + ",\"controlSharedWith\":null,\"controlOperationDate\":\"" + date + "\",\"editReason\":null}"));
         expectOk(callJson(session, post("/api/control-details"), "{\"controlId\":" + control.getId()
                 + ",\"processName\":\"Payroll\",\"processActivities\":\"Payroll run\",\"editReason\":null}"));
-        expectOk(callJson(session, post("/api/control-documents"), "{\"controlId\":" + control.getId()
-                + ",\"soqmDevelopmentMaterials\":\"\",\"editReason\":null}"));
     }
 
     private static void expectOk(MvcResult result) throws Exception {

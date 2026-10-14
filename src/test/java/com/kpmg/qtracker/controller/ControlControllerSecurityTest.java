@@ -11,7 +11,6 @@ import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlAuditChangeService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
-import com.kpmg.qtracker.service.ControlDocumentsService;
 import com.kpmg.qtracker.service.ControlHistoryService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
@@ -72,9 +71,6 @@ class ControlControllerSecurityTest {
 
     @MockBean
     private ControlDetailsService controlDetailsService;
-
-    @MockBean
-    private ControlDocumentsService controlDocumentsService;
 
     @MockBean
     private IPerformanceService performanceService;

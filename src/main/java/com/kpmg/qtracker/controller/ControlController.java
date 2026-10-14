@@ -5,7 +5,6 @@ import com.kpmg.qtracker.dto.ControlDTO;
 import com.kpmg.qtracker.dto.ControlResponseDTO;
 import com.kpmg.qtracker.dto.ControlHistoryEntryDTO;
 import com.kpmg.qtracker.dto.ControlDetailsDTO;
-import com.kpmg.qtracker.dto.ControlDocumentsDTO;
 import com.kpmg.qtracker.dto.PerformanceDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.Notification;
@@ -18,7 +17,6 @@ import com.kpmg.qtracker.service.CompletedEdit;
 import com.kpmg.qtracker.service.ControlAuditChangeService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
-import com.kpmg.qtracker.service.ControlDocumentsService;
 import com.kpmg.qtracker.service.ControlHistoryService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
@@ -63,7 +61,6 @@ public class ControlController {
     private final UserService userService;
     private final ControlAssignmentService controlAssignmentService;
     private final ControlDetailsService controlDetailsService;
-    private final ControlDocumentsService controlDocumentsService;
     private final IPerformanceService performanceService; // ДОБАВЛЕНО: поле для performanceService
     private final AdminAuditService adminAuditService;
     private final ControlHistoryService controlHistoryService;
@@ -544,7 +541,6 @@ public class ControlController {
 
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
             ControlDetailsDTO details = controlDetailsService.getDetailsByControlId(control.getId());
-            ControlDocumentsDTO documents = controlDocumentsService.getDocumentsByControlId(control.getId());
             PerformanceDTO performanceDTO = performanceService.buildPerformanceDTO(control);
 
             Workbook workbook = new XSSFWorkbook();
@@ -611,10 +607,6 @@ public class ControlController {
                 rowNum = addRow(sheet, rowNum, "Other Related Controls", details.getOtherRelatedControls());
                 rowNum = addRow(sheet, rowNum, "IT Applications", details.getItApplications());
                 rowNum = addRow(sheet, rowNum, ControlStepsFields.STEPS_LABEL, details.getControlStepsPerformed());
-            }
-
-            if (documents != null) {
-                rowNum = addRow(sheet, rowNum, "SoQM Development Materials", documents.getSoqmDevelopmentMaterials());
             }
 
             rowNum = addRow(sheet, rowNum, "Attachments (Details)", extractAttachmentNames(control.getAttachmentDetailsPath()));

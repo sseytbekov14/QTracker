@@ -23,7 +23,6 @@ public class ControlTabsController {
 
     private final ControlDetailsService controlDetailsService;
     private final ControlAssignmentService controlAssignmentService;
-    private final ControlDocumentsService controlDocumentsService;
     private final UserService userService;
     private final ControlService controlService;
     private final AdminAuditService adminAuditService;
@@ -206,49 +205,6 @@ public class ControlTabsController {
         }
     }
 
-    @PostMapping("/api/control-documents")
-    public ResponseEntity<?> saveControlDocuments(@RequestBody ControlDocumentsDTO documentsDTO, HttpSession session) {
-        System.out.println("🎯 CONTROL DOCUMENTS SAVE REQUEST:");
-        System.out.println("Control ID: " + documentsDTO.getControlId());
-        System.out.println("SOQM Materials: " + documentsDTO.getSoqmDevelopmentMaterials());
-        System.out.println("================================");
-
-        try {
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(401).body("User not authenticated");
-            }
-            Control control = controlService.getControlById(documentsDTO.getControlId()).orElse(null);
-            ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(documentsDTO.getControlId());
-            ControlPermission permission = controlPermissionService.resolve(control, currentUser, assignment);
-            // SoQM Development Materials belong to the SoQM Team, not to the stage participants
-            if (!permission.canEditAll()) {
-                return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Admin Team can change SoQM Development Materials"));
-            }
-            ControlDocumentsDTO existingDocuments = controlDocumentsService.getDocumentsByControlId(documentsDTO.getControlId());
-            ControlDocumentsDTO mergedDocuments = mergeControlDocuments(existingDocuments, documentsDTO);
-            Map<String, String> previousValues = new LinkedHashMap<>();
-            Map<String, String> newValues = new LinkedHashMap<>();
-            List<String> changedFields = new ArrayList<>();
-
-            collectChange(changedFields, previousValues, newValues, "SoQM Development Materials",
-                    existingDocuments.getSoqmDevelopmentMaterials(), mergedDocuments.getSoqmDevelopmentMaterials());
-
-            Optional<String> reasonRefusal = CompletedEdit.refusal(permission, !changedFields.isEmpty(),
-                    documentsDTO.getEditReason());
-            if (reasonRefusal.isPresent()) {
-                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + reasonRefusal.get());
-            }
-            controlDocumentsService.saveDocuments(mergedDocuments);
-            logChanges(session, documentsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues,
-                    CompletedEdit.reasonOf(permission, documentsDTO.getEditReason()));
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error saving documents: " + e.getMessage());
-        }
-    }
-
     /**
      * SoQM and admins get every user, for the assignment pickers. Anyone else gets only the people
      * on the control they may read, by name and e-mail, so View Control can show who is assigned.
@@ -348,17 +304,6 @@ public class ControlTabsController {
             return ResponseEntity.ok(assignment);
         } catch (Exception e) {
             return ResponseEntity.ok(new ControlAssignmentDTO()); // возвращаем пустой DTO вместо ошибки
-        }
-    }
-
-    @GetMapping("/api/control-documents")
-    public ResponseEntity<ControlDocumentsDTO> getControlDocuments(@RequestParam Long controlId, HttpSession session) {
-        permissionService.requireReadable(controlId, (User) session.getAttribute("currentUser"));
-        try {
-            ControlDocumentsDTO documents = controlDocumentsService.getDocumentsByControlId(controlId);
-            return ResponseEntity.ok(documents);
-        } catch (Exception e) {
-            return ResponseEntity.ok(new ControlDocumentsDTO()); // возвращаем пустой DTO вместо ошибки
         }
     }
 
@@ -500,18 +445,6 @@ public class ControlTabsController {
 
     private static String comparableText(String value) {
         return value == null ? "" : value.replace("\r\n", "\n").trim();
-    }
-
-    private ControlDocumentsDTO mergeControlDocuments(ControlDocumentsDTO existing,
-                                                      ControlDocumentsDTO incoming) {
-        ControlDocumentsDTO merged = new ControlDocumentsDTO();
-        Long controlId = incoming != null && incoming.getControlId() != null
-                ? incoming.getControlId()
-                : existing != null ? existing.getControlId() : null;
-        merged.setControlId(controlId);
-        merged.setSoqmDevelopmentMaterials(resolveString(existing != null ? existing.getSoqmDevelopmentMaterials() : null,
-                incoming != null ? incoming.getSoqmDevelopmentMaterials() : null, true));
-        return merged;
     }
 
     private ControlAssignmentDTO mergeControlAssignment(ControlAssignmentDTO existing,

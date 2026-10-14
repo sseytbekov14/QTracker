@@ -10,7 +10,6 @@ import com.kpmg.qtracker.exception.ControlNotAvailableException;
 import com.kpmg.qtracker.exception.ForbiddenException;
 import com.kpmg.qtracker.exception.ResourceNotFoundException;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
-import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.repository.WorkflowStepRepository;
 import com.kpmg.qtracker.service.*;
@@ -59,7 +58,6 @@ public class ViewController {
     private final WorkflowService workflowService;
     private final ControlAssignmentRepository controlAssignmentRepository;
     private final ControlDetailsService controlDetailsService;
-    private final ControlDocumentsRepository controlDocumentsRepository;
     private final NotificationService notificationService;
     private final WorkflowHistoryRepository workflowHistoryRepository;
     private final WorkflowStepRepository workflowStepRepository;

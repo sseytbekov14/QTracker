@@ -7,7 +7,6 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.support.TestUsers;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
-import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.repository.WorkflowStepRepository;
 
@@ -16,7 +15,6 @@ import com.kpmg.qtracker.service.ComponentControlsList;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
 import com.kpmg.qtracker.service.DashboardService;
-import com.kpmg.qtracker.service.ControlDocumentsService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
@@ -95,12 +93,6 @@ class ViewControllerStatusFilterTest {
 
     @MockBean
     private ControlDetailsService controlDetailsService;
-
-    @MockBean
-    private ControlDocumentsRepository controlDocumentsRepository;
-
-    @MockBean
-    private ControlDocumentsService controlDocumentsService;
 
     @MockBean
     private NotificationService notificationService;

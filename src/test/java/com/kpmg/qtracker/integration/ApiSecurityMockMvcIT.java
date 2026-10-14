@@ -16,7 +16,6 @@ import com.kpmg.qtracker.repository.AdminAuditLogRepository;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlAttachmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
-import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.NotificationRepository;
 import com.kpmg.qtracker.repository.UserRepository;
@@ -108,9 +107,6 @@ class ApiSecurityMockMvcIT {
 
     @Autowired
     private ControlAssignmentRepository assignmentRepository;
-
-    @Autowired
-    private ControlDocumentsRepository documentsRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -789,41 +785,62 @@ class ApiSecurityMockMvcIT {
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getSoqmYear()).isNull();
     }
 
+    /**
+     * SoQM Development Materials is gone (2026-10-14): no select on the Documents tab, no API of its own (404), and the
+     * value sent with another tab's save is ignored; the Documents attachments still upload.
+     */
     @Test
-    void assignedFacilitator_cannotChangeSoqmDevelopmentMaterials_returns403() throws Exception {
+    void developmentMaterials_isGone_itsApiAnswers404_andAValueSentWithASaveIsIgnored() throws Exception {
         Participants p = participants();
         Control control = createControl("CTRL-DOC-" + suffix(), p.soqm, "IN_PROGRESS");
         assign(control, p);
-
-        MockHttpSession session = login(p.facilitator.getMail());
-
-        mockMvc.perform(post("/api/control-documents").with(csrf().asHeader())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Available\"}")
-                        .session(session))
-                .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString("Only SoQM Admin Team can change SoQM Development Materials")));
-
-        assertThat(documentsRepository.findByControlId(control.getId()).orElseThrow().getSoqmDevelopmentMaterials())
-                .isNull();
-    }
-
-    @Test
-    void soqm_canChangeSoqmDevelopmentMaterials_returns200() throws Exception {
-        Participants p = participants();
-        Control control = createControl("CTRL-DOC-" + suffix(), p.soqm, "IN_PROGRESS");
-        assign(control, p);
-
         MockHttpSession session = login(p.soqm.getMail());
 
         mockMvc.perform(post("/api/control-documents").with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Available\"}")
                         .session(session))
-                .andExpect(status().isOk());
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/control-documents").param("controlId", String.valueOf(control.getId()))
+                        .session(session))
+                .andExpect(status().isNotFound());
 
-        assertThat(documentsRepository.findByControlId(control.getId()).orElseThrow().getSoqmDevelopmentMaterials())
-                .isEqualTo("Available");
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlDescription\":\"Still saved\",\"soqmDevelopmentMaterials\":\"Available\"}")
+                        .session(session))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/control-details").with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId() + ",\"processName\":\"Payroll\","
+                                + "\"soqmDevelopmentMaterials\":\"Available\"}")
+                        .session(session))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Available\"}")
+                        .session(session))
+                .andExpect(status().isOk());
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getControlDescription()).isEqualTo("Still saved");
+        assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getProcessName()).isEqualTo("Payroll");
+        // The Changelog of these saves does not name the field
+        assertThat(auditLogRepository.findByControlIdOrderByCreatedAtDesc(control.getId()))
+                .noneMatch(log -> String.valueOf(log.getChangedFields()).contains("Development Materials")
+                        || String.valueOf(log.getNewValues()).contains("Development Materials"));
+
+        String page = mockMvc.perform(get("/view-control/{id}", control.getId()).session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(page).doesNotContain("Development Materials").doesNotContain("soqmDevelopmentMaterials")
+                .contains("id=\"documentsUploadZone\"").contains("id=\"attachmentDocumentsInput\"");
+
+        mockMvc.perform(multipart("/api/attachments/upload/{id}", control.getId())
+                        .file(new MockMultipartFile("attachmentDocuments", "plan.pdf", "application/pdf",
+                                "%PDF-1.4 plan".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                        .with(csrf().asHeader())
+                        .session(session))
+                .andExpect(status().isOk());
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getAttachmentDocumentsPath()).contains("plan");
     }
 
     @Test
@@ -836,9 +853,6 @@ class ApiSecurityMockMvcIT {
         control.setControlFrequency("Annual/Semi-annual");
         control.setHomogeneity("Homogeneous");
         controlRepository.save(control);
-        var documents = documentsRepository.findByControlId(control.getId()).orElseThrow();
-        documents.setSoqmDevelopmentMaterials("Partly available");
-        documentsRepository.save(documents);
 
         MockHttpSession session = login(p.soqm.getMail());
 
@@ -862,11 +876,6 @@ class ApiSecurityMockMvcIT {
                         .content("{\"controlId\":" + control.getId() + ",\"processName\":\"Payroll\",\"homogeneity\":null}")
                         .session(session))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/control-documents").with(csrf().asHeader())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":null}")
-                        .session(session))
-                .andExpect(status().isOk());
 
         Control stored = controlRepository.findById(control.getId()).orElseThrow();
         assertThat(stored.getControlFrequency()).isEqualTo("Annual/Semi-annual");
@@ -876,8 +885,6 @@ class ApiSecurityMockMvcIT {
         assertThat(stored.getComponent()).isEqualTo("GOV");
         assertThat(stored.getPriority()).isEqualTo("Low");
         assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getProcessName()).isEqualTo("Payroll");
-        assertThat(documentsRepository.findByControlId(control.getId()).orElseThrow().getSoqmDevelopmentMaterials())
-                .isEqualTo("Partly available");
     }
 
     @Test
@@ -1369,7 +1376,7 @@ class ApiSecurityMockMvcIT {
     // ---- Reads of one control follow the View Control rule ----
 
     private static final List<String> TAB_READS =
-            List.of("/api/control-details", "/api/control-assignment", "/api/control-documents");
+            List.of("/api/control-details", "/api/control-assignment");
 
     @Test
     void controlTabReads_participant200_stranger403_unknownControl404() throws Exception {

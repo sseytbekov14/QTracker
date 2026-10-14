@@ -147,12 +147,12 @@ class RoleMatrixIT {
 
     private static final List<String> CONTROL_OPS = List.of(
             "In component list", "View page", "Program on page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
-            "Edit, no reason", "Fixed field", "Status / Year", "Operation Date", "Assign", "Upload", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
+            "Edit, no reason", "Fixed field", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Development Materials (removed)", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)");
 
     /** The operations that change a control: none may pass where the page shows a notice. */
     private static final List<String> WRITES = List.of("Save details", "Steps field", "Operator's Program", "Edit control",
-            "Edit, no reason", "Fixed field", "Status / Year", "Operation Date", "Assign", "Upload", "Rename ID", "Rename ±KDN", "Step", "Return",
+            "Edit, no reason", "Fixed field", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Rename ID", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review");
 
     /** The working statuses in order; "Move to X" is POST /api/workflow/move, a return when X is earlier. */
@@ -236,7 +236,8 @@ class RoleMatrixIT {
                     boolean matches = "Notice".equals(op) ? expected.equals(actual) : expected.equals("ok") == actual.equals("ok")
                             && (!expected.equals("not yet") || actual.equals("not yet"))
                             && !actual.startsWith("5") && expected.equals("400") == actual.equals("400")
-                            && (!expected.equals("403") || actual.equals("403"));
+                            && (!expected.equals("403") || actual.equals("403"))
+                            && (!expected.equals("404") || actual.equals("404"));
                     if (!matches) {
                         mismatches.add(status + " | " + who.label() + " | " + op + ": expected " + expected + ", got " + actual);
                     }
@@ -337,7 +338,10 @@ class RoleMatrixIT {
             case "Program on page" -> !sees ? "refused"
                     : notYet ? "not yet" : "ok";
             case "Read API", "History", "Download" -> sees && !notYet ? "ok" : "refused";
-            case "Save details", "Upload" -> sees && writer && (soqmEdits || participantStep) ? "ok" : "refused";
+            case "Save details", "Upload", "Upload Documents" -> sees && writer && (soqmEdits || participantStep) ? "ok" : "refused";
+            // The field SoQM Development Materials and its API are gone (2026-10-14): 404 for everyone signed in who
+            // may write; Read Only and KDN get 403 first, as for any write (ReadOnlyAccessInterceptor)
+            case "Development Materials (removed)" -> !active ? "refused" : writer ? "404" : "403";
             case "Steps field" -> sees && writer && stepsField ? "ok" : "refused";
             case "Operator's Program" -> sees && writer && operatorField ? "ok" : "refused";
             case "Edit control", "Assign" -> soqmEdits ? "ok" : "refused";
@@ -458,6 +462,14 @@ class RoleMatrixIT {
                         "%PDF-1.4 matrix".getBytes(StandardCharsets.UTF_8)))
                 .param("editReason", "Matrix check")
                 .with(csrf().asHeader()), session));
+        row.put("Upload Documents", answer(multipart("/api/attachments/upload/{id}", control.getId())
+                .file(new MockMultipartFile("attachmentDocuments", "matrix-doc-" + who.key() + ".pdf", "application/pdf",
+                        "%PDF-1.4 matrix".getBytes(StandardCharsets.UTF_8)))
+                .param("editReason", "Matrix check")
+                .with(csrf().asHeader()), session));
+        row.put("Development Materials (removed)", answer(post("/api/control-documents").with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Available\"}"), session));
         row.put("Rename ID", answer(post("/api/controls/{id}/rename-id", control.getId()).with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"newControlId\":\"" + control.getControlId() + "-R\"}"), session));

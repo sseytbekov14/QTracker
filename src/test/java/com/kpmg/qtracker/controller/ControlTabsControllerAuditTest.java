@@ -17,7 +17,6 @@ import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.service.AnnualNotificationService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
-import com.kpmg.qtracker.service.ControlDocumentsService;
 import com.kpmg.qtracker.service.ControlService;
 import com.kpmg.qtracker.service.MonthlyNotificationService;
 import com.kpmg.qtracker.service.QuarterlyNotificationService;
@@ -63,8 +62,6 @@ class ControlTabsControllerAuditTest {
     private ControlDetailsService controlDetailsService;
     @MockBean
     private ControlAssignmentService controlAssignmentService;
-    @MockBean
-    private ControlDocumentsService controlDocumentsService;
     @MockBean
     private UserService userService;
     @MockBean

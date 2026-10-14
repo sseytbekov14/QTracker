@@ -39,7 +39,7 @@ class ReleaseScenarioMatrixIT extends ReleaseScenarioSupport {
     static final List<String> STATUSES = List.of(
             "DRAFT", "IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW", "COMPLETED");
     static final List<String> OPS = List.of("View", "List", "Read API", "History", "Download",
-            "Control tab", "Details: step field", "Details: definition", "Assignment", "Shared With", "Documents",
+            "Control tab", "Details: step field", "Details: definition", "Assignment", "Shared With",
             "Upload", "Delete file", "Delete own upload", "Step", "Return", "Rename ID", "Excel (completed)");
     /** A refused workflow move: 403 (not this person's step) or 409 (not from this status). */
     static final String REFUSED = "403/409";
@@ -258,9 +258,6 @@ class ReleaseScenarioMatrixIT extends ReleaseScenarioSupport {
                         + "\"editReason\":\"Matrix\"}"),
                 c -> String.valueOf(assignmentRepository.findByControlId(c.getId()).orElseThrow().getControlSharedWith())
                         .contains(watcher.getMail())));
-        cells.put("Documents", write(session, row, status, c -> post("/api/control-documents")
-                .contentType("application/json")
-                .content("{\"controlId\":" + c.getId() + ",\"soqmDevelopmentMaterials\":\"Yes\",\"editReason\":\"Matrix\"}")));
         cells.put("Upload", write(session, row, status, c -> upload(c, "matrix.pdf")));
         cells.put("Delete file", write(session, row, status, c -> delete("/api/attachments/delete/{id}", c.getId())
                 .param("filename", c.getAttachmentDetailsPath()).param("type", "details").param("editReason", "Matrix")));

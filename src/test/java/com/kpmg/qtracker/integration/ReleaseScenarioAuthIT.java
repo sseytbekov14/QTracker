@@ -267,7 +267,7 @@ class ReleaseScenarioAuthIT extends ReleaseScenarioSupport {
 
         assertThat(status(session, get("/view-control/{id}", theirs.getId()))).isEqualTo(403);
         for (String path : List.of("/api/control-details?controlId=" + id, "/api/control-assignment?controlId=" + id,
-                "/api/control-documents?controlId=" + id, "/api/controls/" + id + "/changelog",
+                "/api/controls/" + id + "/changelog",
                 "/api/attachments/info/" + id, "/api/attachments/download/" + theirFile + "?controlId=" + id,
                 "/api/users/all?controlId=" + id)) {
             MvcResult result = call(session, get(path));
