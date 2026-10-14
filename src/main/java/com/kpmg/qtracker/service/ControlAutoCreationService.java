@@ -424,6 +424,25 @@ public class ControlAutoCreationService {
     }
 
     /**
+     * The preview of Create Control for its confirmation, nothing saved: 400 when the source makes no next cycle
+     * (AccessPolicy.nextCycleRefusal); whatever else stops it is in the plan's problems.
+     */
+    @Transactional(readOnly = true)
+    public NextCyclePlan previewNextCycle(Long sourceId) {
+        Control source = controlRepository.findById(sourceId)
+                .orElseThrow(() -> new NextCycleRefused(404, "Control not found", null, null));
+        refuseUnlessMakesNextCycle(source);
+        return planNextCycle(source, null);
+    }
+
+    private static void refuseUnlessMakesNextCycle(Control source) {
+        AccessPolicy.nextCycleRefusal(source.getControlFrequency(), source.getPerformanceStatus(),
+                source.getControlStatus()).ifPresent(reason -> {
+                    throw new NextCycleRefused(400, reason, null, null);
+                });
+    }
+
+    /**
      * Create Control: the next cycle of the source, made by the person who pressed it and initiated at once (In
      * Progress, as Initiate does it: workflow steps, "Initiated" in the history by that person, Control Initiated to
      * the Facilitators). One transaction: the source's row is locked first, so a second request for the same source
@@ -439,11 +458,8 @@ public class ControlAutoCreationService {
         source = controlRowLock.lockedFresh(source);
 
         String typed = requestedControlId == null ? "" : requestedControlId.trim();
+        refuseUnlessMakesNextCycle(source);
         NextCyclePlan plan = planNextCycle(source, typed);
-        if (plan.frequency() == null) {
-            throw new NextCycleRefused(400, "The Control Frequency of " + source.getControlId() + " is not known",
-                    null, null);
-        }
         if (!plan.problems().isEmpty()) {
             throw new NextCycleRefused(400, "The next control cannot be created. Fix this on the Assignment tab of "
                     + source.getControlId() + ":", plan.problems(), null);

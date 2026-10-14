@@ -18,6 +18,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -849,5 +850,44 @@ class AccessPolicyTest {
     }, nullValues = "NULL")
     void frequencyOffersCreateControl_monthlyAndQuarterlyOnly(String frequency, boolean offers) {
         assertThat(AccessPolicy.frequencyOffersCreateControl(frequency)).isEqualTo(offers);
+    }
+
+    @ParameterizedTest(name = "{0} {1} {2}")
+    @CsvSource({
+            "SOQM, IN_PROGRESS, -, true", "SOQM, COMPLETED, -, true", "SOQM, DRAFT, -, true",
+            "SOQM, REVIEW, -, true", "DISABLED_SOQM, IN_PROGRESS, -, false",
+            "PART, IN_PROGRESS, F+CO+PO, false", "PART_ALL, REVIEW, -, false", "PART, COMPLETED, CREATOR, false",
+            "RO, IN_PROGRESS, SHARED, false", "RO_ALL, IN_PROGRESS, -, false", "KDN, IN_PROGRESS, F, false",
+            "NONE, IN_PROGRESS, -, false"
+    })
+    void canCreateNextCycle_soqmAdminTeamOnly(String user, String status, String places, boolean allowed) {
+        boolean kdn = "KDN".equals(user);
+        ControlPermission permission = who(user) == null ? ControlPermission.denied()
+                : AccessPolicy.resolve(who(user), control(status, kdn, places));
+        assertThat(AccessPolicy.canCreateNextCycle(permission)).isEqualTo(allowed);
+        assertThat(AccessPolicy.canCreateNextCycle(null)).isFalse();
+    }
+
+    @ParameterizedTest(name = "{0} {1} {2}")
+    @CsvSource(value = {
+            "Monthly, IN_PROGRESS, ACTIVE, NULL", "Quarterly, COMPLETED, ACTIVE, NULL", "Monthly, REVIEW, NULL, NULL",
+            "Monthly, SOQM_HEAD_REVIEW, ACTIVE, NULL", "Quarterly, PROCESS_OWNER_REVIEW, ACTIVE, NULL",
+            "Annual, IN_PROGRESS, ACTIVE, Create Control is only for Monthly and Quarterly controls",
+            "Semi Annual, COMPLETED, ACTIVE, Create Control is only for Monthly and Quarterly controls",
+            "Recurring, IN_PROGRESS, ACTIVE, Create Control is only for Monthly and Quarterly controls",
+            "Ad-hoc, IN_PROGRESS, ACTIVE, Create Control is only for Monthly and Quarterly controls",
+            "NULL, IN_PROGRESS, ACTIVE, Create Control is only for Monthly and Quarterly controls",
+            "Monthly, DRAFT, ACTIVE, This control is still a Draft: initiate it before creating its next control",
+            "Monthly, NULL, ACTIVE, This control is still a Draft: initiate it before creating its next control",
+            "Monthly, COMPLETED, DELETED, This control is Deleted: it has no next control",
+            "Quarterly, IN_PROGRESS, SUPERSEDED, This control is Superseded: it has no next control"
+    }, nullValues = "NULL")
+    void nextCycleRefusal_frequencyThenDraftThenRetired(String frequency, String status, String controlStatus,
+                                                        String reason) {
+        assertThat(AccessPolicy.nextCycleRefusal(frequency, status, controlStatus)).isEqualTo(Optional.ofNullable(reason));
+        ControlPermission soqm = AccessPolicy.resolve(who("SOQM"), control(status == null ? "DRAFT" : status, false, "-"));
+        assertThat(AccessPolicy.offersCreateControl(soqm, frequency, status, controlStatus)).isEqualTo(reason == null);
+        ControlPermission user = AccessPolicy.resolve(who("PART"), control(status == null ? "DRAFT" : status, false, "F"));
+        assertThat(AccessPolicy.offersCreateControl(user, frequency, status, controlStatus)).isFalse();
     }
 }

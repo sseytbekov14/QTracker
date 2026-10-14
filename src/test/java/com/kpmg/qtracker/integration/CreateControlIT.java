@@ -26,7 +26,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.fasterxml.jackson.databind.JsonNode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -48,6 +53,8 @@ import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 /**
  * Create Control (business decision of 2026-10-14): the next cycle is made In Progress at once, as Initiate does it,
@@ -322,7 +329,153 @@ class CreateControlIT extends ReleaseScenarioSupport {
         assertThat(controlRepository.findByControlIdIgnoringCase(expectedId)).isEmpty();
     }
 
+    // ---------------------------------------------------------------- over HTTP: who and which controls (item 1)
+
+    @Test
+    void soqmAdminTeam_previewsAndCreates_overHttp() throws Exception {
+        Control source = source("IN_PROGRESS", "Monthly", "OCT");
+        MockHttpSession session = login(soqm);
+
+        assertThat(button(session, source)).isTrue();
+        MvcResult preview = call(session, get("/api/controls/{id}/next-cycle", source.getId()));
+        assertThat(preview.getResponse().getStatus()).as(body(preview)).isEqualTo(200);
+        JsonNode plan = objectMapper.readTree(body(preview));
+        assertThat(plan.get("proposedControlId").asText()).isEqualTo(source.getControlId().replace("/OCT", "/NOV"));
+        assertThat(plan.get("operationDate").asText()).isEqualTo("10.11.2026");
+        assertThat(plan.get("deadline").asText()).isEqualTo("24.11.2026");
+        assertThat(plan.get("nextOperationDate").asText()).isEqualTo("10.12.2026");
+        assertThat(plan.get("soqmYear").asText()).isEqualTo("1 OCT 2026 - 30 SEP 2027");
+        assertThat(plan.get("problems")).isEmpty();
+        assertThat(plan.get("notCopied")).hasSize(9);
+        assertThat(plan.get("people").get(0).get("label").asText()).isEqualTo("Facilitator");
+        assertThat(plan.get("people").get(0).get("people").get(0).asText())
+                .isEqualTo(facilitator.getDisplayName() + " (" + facilitator.getMail() + ")");
+        assertThat(plan.get("people").get(3).get("label").asText()).isEqualTo("SoQM Team / Delegate");
+        assertThat(plan.get("people").get(4).get("label").asText()).isEqualTo("Control Shared With");
+        assertThat(controlRepository.findByControlIdIgnoringCase(plan.get("proposedControlId").asText())).isEmpty();
+
+        MvcResult created = callJson(session, post("/api/controls/{id}/next-cycle", source.getId()),
+                "{\"controlId\":\"" + plan.get("proposedControlId").asText() + "\"}");
+        assertThat(created.getResponse().getStatus()).as(body(created)).isEqualTo(200);
+        JsonNode answer = objectMapper.readTree(body(created));
+        assertThat(answer.get("controlId").asText()).isEqualTo(plan.get("proposedControlId").asText());
+        assertThat(answer.get("url").asText()).isEqualTo("/view-control/" + answer.get("id").asLong());
+        assertThat(controlRepository.findById(answer.get("id").asLong()).orElseThrow().getPerformanceStatus())
+                .isEqualTo("IN_PROGRESS");
+    }
+
+    @Test
+    void everyoneElse_403_noButton_nothingCreated() throws Exception {
+        User kdnUser = kdn("cc-kdn");
+        User editAssigned = myEdit("cc-edit");
+        User allControls = allEdit("cc-all");
+        User readAll = allRead("cc-ro-all");
+        Control source = source("IN_PROGRESS", "Monthly", "OCT", people().soqm(soqm).facilitator(facilitator, editAssigned)
+                .operator(operator).owner(owner).shared(shared));
+        Control kdnSource = control("KDN-CC", "IN_PROGRESS",
+                people().soqm(soqm).facilitator(kdnUser).operator(operator).owner(owner));
+        kdnSource.setControlId(kdnSource.getControlId() + "/FY27/Central/OCT");
+        kdnSource = controlRepository.save(kdnSource);
+        long before = controlRepository.count();
+
+        for (Object[] row : new Object[][]{{editAssigned, source}, {facilitator, source}, {allControls, source},
+                {shared, source}, {readAll, source}, {kdnUser, kdnSource}}) {
+            User user = (User) row[0];
+            Control control = (Control) row[1];
+            MockHttpSession session = login(user);
+            assertThat(button(session, control)).as(user.getMail()).isFalse();
+            assertThat(status(session, get("/api/controls/{id}/next-cycle", control.getId()))).as(user.getMail())
+                    .isEqualTo(403);
+            assertThat(callJson(session, post("/api/controls/{id}/next-cycle", control.getId()), "{}")
+                    .getResponse().getStatus()).as(user.getMail()).isEqualTo(403);
+        }
+        // Not signed in
+        assertThat(call(null, post("/api/controls/{id}/next-cycle", source.getId())).getResponse().getStatus())
+                .isIn(302, 401);
+        assertThat(controlRepository.count()).isEqualTo(before);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Annual", "Semi Annual", "Recurring", "Ad-hoc"})
+    void otherFrequencies_400_noButton(String frequency) throws Exception {
+        Control source = source("IN_PROGRESS", frequency, "OCT");
+        MockHttpSession session = login(soqm);
+        long before = controlRepository.count();
+
+        assertThat(button(session, source)).isFalse();
+        MvcResult preview = call(session, get("/api/controls/{id}/next-cycle", source.getId()));
+        assertThat(preview.getResponse().getStatus()).isEqualTo(400);
+        assertThat(objectMapper.readTree(body(preview)).get("message").asText())
+                .isEqualTo("Create Control is only for Monthly and Quarterly controls");
+        assertThat(callJson(session, post("/api/controls/{id}/next-cycle", source.getId()),
+                "{\"controlId\":\"TYPED-" + next() + "\"}").getResponse().getStatus()).isEqualTo(400);
+        assertThat(controlRepository.count()).isEqualTo(before);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW", "COMPLETED"})
+    void anyStatusPastDraft_makesTheNextCycle(String status) throws Exception {
+        Control source = source(status, "Quarterly", "2Q");
+        MockHttpSession session = login(soqm);
+
+        assertThat(button(session, source)).isTrue();
+        MvcResult created = callJson(session, post("/api/controls/{id}/next-cycle", source.getId()), "{}");
+        assertThat(created.getResponse().getStatus()).as(body(created)).isEqualTo(200);
+        assertThat(objectMapper.readTree(body(created)).get("controlId").asText())
+                .isEqualTo(source.getControlId().replace("/2Q", "/3Q"));
+    }
+
+    @Test
+    void draftDeletedSuperseded_400_noButton() throws Exception {
+        MockHttpSession session = login(soqm);
+        Control draft = source("DRAFT", "Monthly", "OCT");
+        Control deleted = source("IN_PROGRESS", "Monthly", "OCT");
+        deleted.setControlStatus("DELETED");
+        deleted = controlRepository.save(deleted);
+        Control superseded = source("COMPLETED", "Quarterly", "1Q");
+        superseded.setControlStatus("SUPERSEDED");
+        superseded = controlRepository.save(superseded);
+        long before = controlRepository.count();
+
+        for (Control control : List.of(draft, deleted, superseded)) {
+            assertThat(button(session, control)).as(control.getControlId()).isFalse();
+            MvcResult result = callJson(session, post("/api/controls/{id}/next-cycle", control.getId()), "{}");
+            assertThat(result.getResponse().getStatus()).as(control.getControlId()).isEqualTo(400);
+        }
+        assertThat(objectMapper.readTree(body(call(session, get("/api/controls/{id}/next-cycle", draft.getId()))))
+                .get("message").asText()).isEqualTo("This control is still a Draft: initiate it before creating its next control");
+        assertThat(objectMapper.readTree(body(call(session, get("/api/controls/{id}/next-cycle", deleted.getId()))))
+                .get("message").asText()).isEqualTo("This control is Deleted: it has no next control");
+        assertThat(controlRepository.count()).isEqualTo(before);
+    }
+
+    @Test
+    void preview_listsTheProblems_createRefusesWithThem() throws Exception {
+        Control source = source("IN_PROGRESS", "Monthly", "OCT");
+        disable(operator);
+        MockHttpSession session = login(soqm);
+
+        JsonNode plan = objectMapper.readTree(body(call(session, get("/api/controls/{id}/next-cycle", source.getId()))));
+        assertThat(plan.get("problems").get(0).asText()).isEqualTo("Control Operator: " + operator.getMail() + " is disabled");
+        MvcResult created = callJson(session, post("/api/controls/{id}/next-cycle", source.getId()), "{}");
+        assertThat(created.getResponse().getStatus()).isEqualTo(400);
+        JsonNode error = objectMapper.readTree(body(created));
+        assertThat(error.get("message").asText())
+                .isEqualTo("The next control cannot be created. Fix this on the Assignment tab of " + source.getControlId() + ":");
+        assertThat(error.get("problems").get(0).asText()).isEqualTo("Control Operator: " + operator.getMail() + " is disabled");
+    }
+
     // ---------------------------------------------------------------- helpers
+
+    /** Whether View Control offers Create Control to the signed-in user (null when the page does not open). */
+    private Boolean button(MockHttpSession session, Control control) throws Exception {
+        MvcResult page = call(session, get("/view-control/{id}", control.getId()));
+        if (page.getResponse().getStatus() != 200 || page.getModelAndView() == null
+                || !"view-control".equals(page.getModelAndView().getViewName())) {
+            return false;
+        }
+        return Boolean.TRUE.equals(page.getModelAndView().getModel().get("canCreateControl"));
+    }
 
     private NextCycleRefused refused(Control source) {
         return refused(source, null);

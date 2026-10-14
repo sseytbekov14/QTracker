@@ -544,13 +544,52 @@ public final class AccessPolicy {
 
     /**
      * Whether a control of this frequency offers the Create Control button for its next cycle (business decision of
-     * 2026-10-14; the button comes later): Monthly and Quarterly only, so the button goes when the frequency stops
-     * being one of them, a completed control included. A frequency the application does not know offers none.
+     * 2026-10-14): Monthly and Quarterly only, so the button goes when the frequency stops being one of them, a
+     * completed control included. A frequency the application does not know offers none.
      */
     public static boolean frequencyOffersCreateControl(String frequency) {
         return ControlFrequency.tryFromValue(frequency)
                 .map(value -> value == ControlFrequency.MONTHLY || value == ControlFrequency.QUARTERLY)
                 .orElse(false);
+    }
+
+    /**
+     * Create Control, the next cycle made by hand on the Assignment tab (business decision of 2026-10-14): SoQM Admin
+     * Team, on a control they see. Everyone else - Users, Read Only, KDN - is refused (403) before the control itself is
+     * looked at ({@link #nextCycleRefusal}, 400).
+     */
+    public static boolean canCreateNextCycle(ControlPermission permission) {
+        return permission != null && permission.canView() && permission.canUseWorkflowActions()
+                && permission.isSoqmLead();
+    }
+
+    public static final String NEXT_CYCLE_FREQUENCY = "Create Control is only for Monthly and Quarterly controls";
+    public static final String NEXT_CYCLE_DRAFT = "This control is still a Draft: initiate it before creating its next control";
+
+    /**
+     * Why a control makes no next cycle with Create Control (400), empty when it does: Monthly and Quarterly only
+     * ({@link #frequencyOffersCreateControl}); a draft is initiated first; a Deleted or Superseded control has no next
+     * cycle, as for the daily auto-creation. Any working status and Completed make one (TODO: BUSINESS CONFIRMATION:
+     * from which statuses of the source).
+     */
+    public static Optional<String> nextCycleRefusal(String frequency, String performanceStatus, String controlStatus) {
+        if (!frequencyOffersCreateControl(frequency)) {
+            return Optional.of(NEXT_CYCLE_FREQUENCY);
+        }
+        if ("DRAFT".equals(normalizeStatus(performanceStatus))) {
+            return Optional.of(NEXT_CYCLE_DRAFT);
+        }
+        if (ControlStatusValue.isRetired(controlStatus)) {
+            return Optional.of("This control is " + ControlStatusValue.badge(controlStatus)
+                    + ": it has no next control");
+        }
+        return Optional.empty();
+    }
+
+    /** Whether the Assignment tab shows Create Control: the person may use it and the control makes a next cycle. */
+    public static boolean offersCreateControl(ControlPermission permission, String frequency, String performanceStatus,
+                                              String controlStatus) {
+        return canCreateNextCycle(permission) && nextCycleRefusal(frequency, performanceStatus, controlStatus).isEmpty();
     }
 
     /** Everything the user may do on the control. */

@@ -149,12 +149,12 @@ class RoleMatrixIT {
             "In component list", "View page", "Program on page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
             "Edit, no reason", "Frequency", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Development Materials (removed)", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)", "Excel button",
-            "Performance Cycle");
+            "Performance Cycle", "Create Control", "Create Control button");
 
     /** The operations that change a control: none may pass where the page shows a notice. */
     private static final List<String> WRITES = List.of("Save details", "Steps field", "Operator's Program", "Edit control",
             "Edit, no reason", "Frequency", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Rename ID", "Rename ±KDN", "Step", "Return",
-            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review");
+            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Create Control");
 
     /** The working statuses in order; "Move to X" is POST /api/workflow/move, a return when X is earlier. */
     private static final List<String> WORKING = List.of(
@@ -390,6 +390,10 @@ class RoleMatrixIT {
             // The page a list row opens once the control is initiated; the same people as View Control, a shared-only
             // draft not yet (sent back to the list)
             case "Performance Cycle" -> sees && !notYet ? "ok" : "refused";
+            // Create Control, the next cycle of a Monthly control (decision of 2026-10-14): SoQM Admin Team only (403 for
+            // everyone else); a draft is initiated first (400). The button on the Assignment tab: the same, past Draft
+            case "Create Control" -> !(soqm && sees) ? "refused" : "DRAFT".equals(status) ? "400" : "ok";
+            case "Create Control button" -> soqm && sees && !"DRAFT".equals(status) ? "ok" : "refused";
             default -> throw new IllegalArgumentException(op);
         };
     }
@@ -438,6 +442,11 @@ class RoleMatrixIT {
         row.put("Download", answer(get("/api/attachments/download/{name}", control.getAttachmentDetailsPath())
                 .param("controlId", String.valueOf(control.getId())), session));
         row.put("Performance Cycle", page(get("/performance-cycle/{id}", control.getId()), session));
+        row.put("Create Control button", createControlButton(control, session));
+        // Before the writes below change the control (frequency, status); the next cycle gets an ID of its own
+        row.put("Create Control", answer(post("/api/controls/{id}/next-cycle", control.getId()).with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlId\":\"" + control.getControlId() + "/NEXT\"}"), session));
         row.put("Excel (completed)", "COMPLETED".equals(status)
                 ? answer(get("/api/controls/{id}/export/completed", control.getId()), session) : "n/a");
         row.put("Excel button", excelButton(control, session));
@@ -637,6 +646,16 @@ class RoleMatrixIT {
         return html.contains("id=\"exportCompletedBtn\"") || html.contains("/export/completed") ? "ok" : "none";
     }
 
+    /** "ok" when View Control offers Create Control (its model's canCreateControl), "none" when not, else as "View page". */
+    private String createControlButton(Control control, MockHttpSession session) throws Exception {
+        MvcResult result = perform(get("/view-control/{id}", control.getId()), session);
+        ModelAndView mav = result.getModelAndView();
+        if (result.getResponse().getStatus() != 200 || mav == null || !"view-control".equals(mav.getViewName())) {
+            return mav != null && "control-not-available".equals(mav.getViewName()) ? "not yet" : outcome(result);
+        }
+        return Boolean.TRUE.equals(mav.getModel().get("canCreateControl")) ? "ok" : "none";
+    }
+
     /** "ok" when the control's page carries the "KDN control" mark, "none" when it does not, else as "View page". */
     private String kdnMark(Control control, MockHttpSession session) throws Exception {
         MvcResult result = perform(get("/view-control/{id}", control.getId()), session);
@@ -804,6 +823,7 @@ class RoleMatrixIT {
         assignment.setControlSharedWith(who.place() == Place.SHARED && mail != null ? mail : null);
         assignment.setControlOperationDate(today().plusDays(10));
         assignment.setControlOperationDeadline(today().plusDays(17));
+        assignment.setNextControlOperationDate(today().plusDays(10).plusMonths(1));
         assignmentRepository.save(assignment);
 
         ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();
