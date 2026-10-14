@@ -1,5 +1,6 @@
 package com.kpmg.qtracker.service;
 
+import com.kpmg.qtracker.enums.ControlFrequency;
 import com.kpmg.qtracker.repository.ControlRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +10,8 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -114,6 +117,72 @@ public class ControlIdGeneratorService {
         }
 
         return controlId;
+    }
+
+    /** The months of the fiscal year in order, October first, as the last segment of a Monthly ID names them. */
+    static final List<String> FISCAL_MONTHS =
+            List.of("OCT", "NOV", "DEC", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP");
+    private static final Pattern QUARTER_SEGMENT = Pattern.compile("([1-4])Q", Pattern.CASE_INSENSITIVE);
+    private static final Pattern FY_SEGMENT = Pattern.compile("(FY)(\\d{2})", Pattern.CASE_INSENSITIVE);
+
+    /**
+     * The Control ID proposed for the next cycle of a Monthly or Quarterly control (Create Control, business decision
+     * of 2026-10-14): only the last segment, the period, moves on - the month (OCT -> NOV) or the fiscal quarter
+     * (1Q -> 2Q) - and the rest stays as it is. Into a new fiscal year (SEP -> OCT, 4Q -> 1Q) the FYnn segment goes
+     * up by one as well (TODO: BUSINESS CONFIRMATION). Empty when the ID is not in that form, or another frequency:
+     * the person then types the ID.
+     * <p>
+     * HR-CTRL-MF-3/FY27/Central/OCT -> HR-CTRL-MF-3/FY27/Central/NOV; .../FY27/Central/4Q -> .../FY28/Central/1Q
+     */
+    public static Optional<String> nextPeriodId(String controlId, ControlFrequency frequency) {
+        if (controlId == null || controlId.isBlank()
+                || (frequency != ControlFrequency.MONTHLY && frequency != ControlFrequency.QUARTERLY)) {
+            return Optional.empty();
+        }
+        String[] segments = controlId.trim().split("/", -1);
+        if (segments.length < 2) {
+            return Optional.empty();
+        }
+        String period = segments[segments.length - 1];
+        String next;
+        boolean newFiscalYear;
+        if (frequency == ControlFrequency.MONTHLY) {
+            int month = FISCAL_MONTHS.indexOf(period.toUpperCase(Locale.ROOT));
+            if (month < 0) {
+                return Optional.empty();
+            }
+            next = FISCAL_MONTHS.get((month + 1) % FISCAL_MONTHS.size());
+            newFiscalYear = month == FISCAL_MONTHS.size() - 1;
+        } else {
+            Matcher quarter = QUARTER_SEGMENT.matcher(period);
+            if (!quarter.matches()) {
+                return Optional.empty();
+            }
+            int number = Integer.parseInt(quarter.group(1));
+            next = (number % 4 + 1) + "Q";
+            newFiscalYear = number == 4;
+        }
+        // The period keeps the case it was written in (oct -> nov)
+        segments[segments.length - 1] = period.equals(period.toLowerCase(Locale.ROOT))
+                ? next.toLowerCase(Locale.ROOT) : next;
+        if (newFiscalYear) {
+            int fySegment = -1;
+            for (int i = 0; i < segments.length - 1; i++) {
+                if (FY_SEGMENT.matcher(segments[i]).matches()) {
+                    if (fySegment >= 0) {
+                        return Optional.empty(); // two FY segments: which one moves is not known
+                    }
+                    fySegment = i;
+                }
+            }
+            if (fySegment < 0) {
+                return Optional.empty();
+            }
+            Matcher fy = FY_SEGMENT.matcher(segments[fySegment]);
+            fy.matches();
+            segments[fySegment] = fy.group(1) + String.format(Locale.ROOT, "%02d", (Integer.parseInt(fy.group(2)) + 1) % 100);
+        }
+        return Optional.of(String.join("/", segments));
     }
 
     /**
