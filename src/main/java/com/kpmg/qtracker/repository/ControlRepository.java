@@ -23,6 +23,9 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
 
     boolean existsByControlId(String controlId);
 
+    /** The controls made from this one with Create Control (its next cycles), oldest first. */
+    List<Control> findByCreatedFromControlIdOrderByIdAsc(Long createdFromControlId);
+
     /** The control with this Control ID in any case (Create Control keeps IDs unique ignoring case). */
     @Query("SELECT c FROM Control c WHERE LOWER(c.controlId) = LOWER(TRIM(:controlId)) ORDER BY c.id")
     List<Control> findByControlIdIgnoringCase(@Param("controlId") String controlId);

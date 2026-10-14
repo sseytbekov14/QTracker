@@ -72,7 +72,8 @@ public final class ControlNextCycle {
 
     /**
      * The control row of the new cycle, before it is initiated: the Control tab as the source has it, its own ID, the
-     * deadline and SoQM Year of the new dates, created now by the person who pressed Create Control. Comments,
+     * deadline and SoQM Year of the new dates, created now by the person who pressed Create Control, linked to the
+     * source (createdFromControlId). Comments,
      * attachments and the workflow (status Draft until Initiate, no return comments, not reopened) start empty.
      */
     public static Control control(Control source, String newControlId, Dates dates, User creator, LocalDateTime now) {
@@ -100,6 +101,7 @@ public final class ControlNextCycle {
         }
         control.setCreatedAt(now);
         control.setUpdatedAt(now);
+        control.setCreatedFromControlId(source.getId());
         return control;
     }
 

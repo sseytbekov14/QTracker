@@ -34,7 +34,7 @@ class ControlNextCycleCopyTest {
             // the id comes from the database; the operation date is read only on Control (the Assignment's column)
             "id", "controlOperationDate");
     private static final Set<String> CONTROL_NEW = Set.of("controlId", "soqmYear", "deadline", "performanceStatus",
-            "createdBy", "createdByEmail", "createdByName", "createdAt", "updatedAt");
+            "createdBy", "createdByEmail", "createdByName", "createdAt", "updatedAt", "createdFromControlId");
 
     private static final Set<String> DETAILS_COPIED = Set.of("processName", "homogeneity", "referencesToControl",
             "department", "otherRelatedControls", "itApplications");
@@ -82,6 +82,7 @@ class ControlNextCycleCopyTest {
         assertThat(copy.getCreatedByName()).isEqualTo("Pressed Create");
         assertThat(copy.getCreatedAt()).isEqualTo(NOW);
         assertThat(copy.getUpdatedAt()).isEqualTo(NOW);
+        assertThat(copy.getCreatedFromControlId()).isEqualTo(source.getId()).isEqualTo(5L);
     }
 
     @Test

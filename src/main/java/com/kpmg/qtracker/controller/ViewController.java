@@ -940,6 +940,12 @@ public class ViewController {
         // Create Control on the Assignment tab: SoQM Admin Team, a Monthly or Quarterly control past Draft, not retired
         model.addAttribute("canCreateControl", AccessPolicy.offersCreateControl(permission,
                 control.getControlFrequency(), control.getPerformanceStatus(), control.getControlStatus()));
+        // A control made with Create Control names the control it was created from, a link for whoever may open it
+        Control createdFrom = control.getCreatedFromControlId() == null ? null
+                : controlService.getControlById(control.getCreatedFromControlId()).orElse(null);
+        model.addAttribute("createdFrom", createdFrom);
+        model.addAttribute("createdFromLink", createdFrom != null
+                && permissionService.resolve(createdFrom, currentUser, null).canView());
         // The "KDN control" mark in the header and the hint at the Control ID, for SoQM Team
         model.addAttribute("kdnControlMark", AccessPolicy.seesKdnMark(AccessPolicy.Subject.of(currentUser))
                 && AccessPolicy.isKdnControl(control.getControlId()));

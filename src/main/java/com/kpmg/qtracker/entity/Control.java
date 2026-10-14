@@ -107,6 +107,10 @@ public class Control {
     @Column(name = "reopened_at")
     private LocalDateTime reopenedAt;
 
+    /** The control this one was made from with Create Control (its next cycle, V14); null for every other control. */
+    @Column(name = "created_from_control_id")
+    private Long createdFromControlId;
+
     @PrePersist
     @PreUpdate
     private void ensurePerformanceStatus() {

@@ -1,5 +1,6 @@
 package com.kpmg.qtracker.integration;
 
+import com.kpmg.qtracker.entity.AdminAuditLog;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.ControlDetails;
@@ -564,6 +565,80 @@ class CreateControlIT extends ReleaseScenarioSupport {
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    // ---------------------------------------------------------------- confirmation, banner, audit (item 7)
+
+    @Test
+    void createdFrom_audit_changelog_banner() throws Exception {
+        Control source = source("COMPLETED", "Monthly", "OCT");
+        MockHttpSession session = login(soqm);
+
+        MvcResult created = callJson(session, post("/api/controls/{id}/next-cycle", source.getId()), "{}");
+        assertThat(created.getResponse().getStatus()).as(body(created)).isEqualTo(200);
+        long newId = objectMapper.readTree(body(created)).get("id").asLong();
+        String newControlId = source.getControlId().replace("/OCT", "/NOV");
+        assertThat(controlRepository.findById(newId).orElseThrow().getCreatedFromControlId()).isEqualTo(source.getId());
+        assertThat(reload(source).getCreatedFromControlId()).isNull();
+
+        // admin_audit_log: who, from which control, which new ID - on both controls
+        List<AdminAuditLog> onNew = auditRepository.findByControlIdOrderByCreatedAtDesc(newId);
+        assertThat(onNew).singleElement().satisfies(entry -> {
+            assertThat(entry.getActionType()).isEqualTo(ControlAutoCreationService.AUDIT_CREATED_FROM);
+            assertThat(entry.getAdminEmail()).isEqualTo(soqm.getMail());
+            assertThat(entry.getControlControlId()).isEqualTo(newControlId);
+            assertThat(entry.getNewValues()).isEqualTo("{\"Created from\":\"" + source.getControlId()
+                    + "\",\"Control ID\":\"" + newControlId + "\"}");
+            assertThat(entry.getActionDescription()).isEqualTo("Created from " + source.getControlId() + " with Create Control");
+        });
+        assertThat(auditRepository.findByControlIdOrderByCreatedAtDesc(source.getId()))
+                .filteredOn(entry -> ControlAutoCreationService.AUDIT_NEXT_CREATED.equals(entry.getActionType()))
+                .singleElement().satisfies(entry -> {
+                    assertThat(entry.getAdminEmail()).isEqualTo(soqm.getMail());
+                    assertThat(entry.getNewValues()).isEqualTo("{\"Next control\":\"" + newControlId + "\"}");
+                });
+
+        // The Changelog of each shows it
+        JsonNode newLog = objectMapper.readTree(body(call(session, get("/api/controls/{id}/changelog", newId))));
+        assertThat(newLog.findValuesAsText("eventName")).contains("New Control", "Created with Create Control");
+        assertThat(body(call(session, get("/api/controls/{id}/changelog", newId))))
+                .contains(source.getControlId()).contains(newControlId);
+        JsonNode sourceLog = objectMapper.readTree(body(call(session, get("/api/controls/{id}/changelog", source.getId()))));
+        assertThat(sourceLog.findValuesAsText("eventName")).contains("Next Control Created");
+
+        // The new control's page: "Created from <ID>" with a link to the source
+        String page = body(call(session, get("/view-control/{id}", newId)));
+        assertThat(page).contains("id=\"createdFromBanner\"")
+                .contains("href=\"/view-control/" + source.getId() + "\"");
+        assertThat(body(call(session, get("/view-control/{id}", source.getId())))).doesNotContain("id=\"createdFromBanner\"");
+    }
+
+    @Test
+    void theButtonAndItsConfirmation_onThePage_ofSoqmOnly() throws Exception {
+        Control source = source("IN_PROGRESS", "Quarterly", "1Q");
+
+        String soqmPage = body(call(login(soqm), get("/view-control/{id}", source.getId())));
+        assertThat(soqmPage).contains("id=\"createControlBtn\"", "id=\"createControlModal\"", "id=\"ccControlId\"",
+                "/js/create-control.js?v=");
+        // Between Back and Edit
+        assertThat(soqmPage.indexOf("id=\"backBtn\"")).isLessThan(soqmPage.indexOf("id=\"createControlBtn\""));
+        assertThat(soqmPage.indexOf("id=\"createControlBtn\"")).isLessThan(soqmPage.indexOf("id=\"editBtn\""));
+
+        String facilitatorPage = body(call(login(facilitator), get("/view-control/{id}", source.getId())));
+        assertThat(facilitatorPage).doesNotContain("id=\"createControlBtn\"", "id=\"createControlModal\"");
+    }
+
+    @Test
+    void aSecondCycleFromTheSameSource_underAnotherTypedId_is409() throws Exception {
+        Control source = source("IN_PROGRESS", "Monthly", "OCT");
+        NextCycleCreated first = service.createNextCycle(source.getId(), "FIRST-" + next() + "-" + RUN, soqm);
+
+        NextCycleRefused refused = refused(source, "SECOND-" + next() + "-" + RUN);
+
+        assertThat(refused.status()).isEqualTo(409);
+        assertThat(refused.existing().getId()).isEqualTo(first.id());
+        assertThat(refused.getMessage()).isEqualTo("The next control of " + source.getControlId()
+                + " already exists: " + first.controlId());
     }
 
     // ---------------------------------------------------------------- helpers

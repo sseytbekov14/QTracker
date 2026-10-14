@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=19" rel="stylesheet">
-    <link href="/css/view-control.css?v=25" rel="stylesheet">
+    <link href="/css/view-control.css?v=26" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -533,6 +533,19 @@
                         </span>
                         <span class="vc-step-state" id="stepFieldState" aria-live="polite"></span>
                     </p>
+                </div>
+
+                <!-- A control made with Create Control: the control it was created from (Control.createdFromControlId) -->
+                <div class="access-banner access-banner-created-from" id="createdFromBanner" role="status" th:if="${createdFrom != null}">
+                    <i class="bi bi-diagram-2" aria-hidden="true"></i>
+                    <div>
+                        <p class="access-banner-title">Created from
+                            <a th:if="${createdFromLink}" th:href="@{/view-control/{id}(id=${createdFrom.id})}"
+                               th:text="${createdFrom.controlId}">HR-CTRL-MF-3/FY27/Central/OCT</a><span
+                                    th:unless="${createdFromLink}" th:text="${createdFrom.controlId}">HR-CTRL-MF-3/FY27/Central/OCT</span></p>
+                        <p class="access-banner-text">The next cycle of that control, made with Create Control: its fields
+                            and people were copied, its dates calculated anew; the comments, results and documents start empty.</p>
+                    </div>
                 </div>
 
                 <!-- Who may only look: a calm notice instead of buttons the server would refuse (AccessPolicy.notice) -->
@@ -1298,7 +1311,13 @@
                                 </button>
                             </div>
 
-                            <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Back</button>
+                            <button type="button" class="btn btn-outline-secondary" id="backBtn" onclick="history.back()">Back</button>
+                            <!-- The next cycle of a Monthly or Quarterly control, on the Assignment tab (AccessPolicy.offersCreateControl) -->
+                            <button type="button" class="btn btn-outline-primary" id="createControlBtn" th:if="${canCreateControl}"
+                                    hidden th:attr="data-control-id=${control.id}"
+                                    title="Create the next cycle of this control and start it (In Progress)">
+                                <i class="bi bi-plus-circle" aria-hidden="true"></i> Create Control
+                            </button>
                             <button class="btn" id="editBtn"
                                     th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or canEditAll)}"
                                     th:text="${completedEdit} ? 'Edit (completed control)' : 'Edit'"
@@ -1315,6 +1334,64 @@
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-outline-secondary" id="cancelEditBtn" style="border-color:#d8dce5; color:#495057; font-size:0.8rem; font-weight:600;">Cancel</button>
                             <button type="button" class="btn" id="saveEditBtn" style="background:#00338D; border-color:#00338D; color:#fff; font-size:0.8rem; font-weight:600;">Save</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Create Control: what the next cycle gets, the new Control ID editable (create-control.js) -->
+                <div class="modal fade" id="createControlModal" tabindex="-1" aria-labelledby="createControlTitle"
+                     th:if="${canCreateControl}">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="createControlTitle">Create Control</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="cc-loading" id="ccLoading" role="status">Loading&hellip;</p>
+                                <div class="cc-alert cc-alert-danger" id="ccError" role="alert" hidden></div>
+                                <div class="cc-alert cc-alert-warning" id="ccExisting" role="alert" hidden>
+                                    <p class="cc-alert-title" id="ccExistingText">The next control already exists.</p>
+                                    <a class="btn btn-sm btn-outline-primary" id="ccExistingLink" href="#">Open it</a>
+                                </div>
+                                <div id="ccContent" hidden>
+                                    <p class="cc-intro">The next cycle of <strong id="ccSource">HR-CTRL-MF-3/FY27/Central/OCT</strong>
+                                        is created and started at once (In Progress): the Facilitator is notified.</p>
+                                    <div class="cc-alert cc-alert-danger" id="ccProblems" role="alert" hidden>
+                                        <p class="cc-alert-title" id="ccProblemsTitle">The next control cannot be created. Fix this on the Assignment tab of this control:</p>
+                                        <ul id="ccProblemsList"></ul>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="ccControlId" class="form-label required-field">New Control ID</label>
+                                        <input type="text" class="form-control" id="ccControlId" autocomplete="off"
+                                               aria-describedby="ccControlIdHint">
+                                        <div class="form-text" id="ccControlIdHint">Only the period moves on. The Control ID
+                                            must be unique (ignoring case).</div>
+                                    </div>
+                                    <h6 class="cc-section">Dates</h6>
+                                    <dl class="cc-dates">
+                                        <div><dt>Control Operation Date</dt><dd id="ccOperationDate">10.11.2026</dd></div>
+                                        <div><dt>Control Operation Deadline</dt><dd id="ccDeadline">24.11.2026</dd></div>
+                                        <div><dt>Next Control Operation Date</dt><dd id="ccNextDate">10.12.2026</dd></div>
+                                        <div><dt>SoQM Year</dt><dd id="ccSoqmYear">1 OCT 2026 - 30 SEP 2027</dd></div>
+                                    </dl>
+                                    <p class="cc-note" id="ccDatesNote">The Control Operation Date is this control's Next Control
+                                        Operation Date; the deadline is <span id="ccDeadlineHint">10 working days (Monday to
+                                        Friday) after the Control Operation Date</span>.</p>
+                                    <h6 class="cc-section">People (copied)</h6>
+                                    <dl class="cc-people" id="ccPeople"></dl>
+                                    <div class="cc-alert cc-alert-warning" id="ccLeftOut" hidden>
+                                        <p class="cc-alert-title">Not copied to Control Shared With:</p>
+                                        <ul id="ccLeftOutList"></ul>
+                                    </div>
+                                    <h6 class="cc-section">Not copied (start empty)</h6>
+                                    <ul class="cc-not-copied" id="ccNotCopied"></ul>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="ccCreateBtn" disabled>Create Control</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1700,6 +1777,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=3"></script>
 <script src="/js/view-control.js?v=7.9"></script>
+<script src="/js/create-control.js?v=1"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows

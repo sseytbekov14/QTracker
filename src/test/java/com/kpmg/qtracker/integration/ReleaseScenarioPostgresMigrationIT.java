@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Release test pass, stage I: the Flyway migrations on a real PostgreSQL - from an empty schema to the latest, from
- * data of an earlier version (synthetic rows written at V4) to the latest, then the rollback scripts of V13, V12, V11
+ * data of an earlier version (synthetic rows written at V4) to the latest, then the rollback scripts of V14, V13, V12, V11
  * and V8, and from data of the version before (V12, SoQM Development Materials filled) to V13 and back. Runs only with -Drelease.db.url=jdbc:postgresql://.../qtracker_release_test (and .user, .password): every test
  * empties the public schema of that temporary database (V1 looks its constraints up by table name, so the migrations
  * need a database of their own) and leaves it empty for the next run.
@@ -59,7 +59,7 @@ class ReleaseScenarioPostgresMigrationIT {
         }
     }
 
-    private static final String LATEST = "13";
+    private static final String LATEST = "14";
 
     @Test
     void anEmptyDatabase_migratesToTheLatestVersion_withTheSeedPeopleOfV2() throws Exception {
@@ -128,8 +128,12 @@ class ReleaseScenarioPostgresMigrationIT {
                 .isEqualTo("2026-01-19");
 
         assertThat(materialsColumns()).isEqualTo("0");
+        assertThat(single("SELECT COUNT(*) FROM controls WHERE control_id LIKE '%OLD%' AND created_from_control_id IS NULL"))
+                .isEqualTo("3");
 
-        // Rollback of V13, V12, V11, then of V8 (the order the scripts are meant for)
+        // Rollback of V14, V13, V12, V11, then of V8 (the order the scripts are meant for)
+        script("db/rollback/V14__undo_control_created_from.sql");
+        assertThat(createdFromColumns()).isEqualTo("0");
         script("db/rollback/V13__undo_drop_soqm_development_materials.sql");
         assertThat(materialsColumns()).isEqualTo("1");
         assertThat(single("SELECT COUNT(*) FROM controls WHERE soqm_development_materials IS NOT NULL")).isEqualTo("0");
@@ -170,9 +174,10 @@ class ReleaseScenarioPostgresMigrationIT {
                 + "'SoQM', '[\"SoQM Development Materials\"]', '{\"SoQM Development Materials\":null}', "
                 + "'{\"SoQM Development Materials\":\"Available\"}' FROM controls WHERE control_id = 'HR-V12-1/FY27/Central/OCT'");
 
-        Flyway latest = flyway(null);
+        // To V13 only: V14 has its own test below
+        Flyway latest = flyway("13");
         latest.migrate();
-        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo(LATEST);
+        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo("13");
 
         assertThat(materialsColumns()).isEqualTo("0");
         assertThat(rows("SELECT control_id, performance_status || '|' || COALESCE(attachment_documents_path, '-') || '|' "
@@ -196,7 +201,51 @@ class ReleaseScenarioPostgresMigrationIT {
         assertThat(single("SELECT COUNT(*) FROM controls WHERE control_id LIKE 'HR-V12-%'")).isEqualTo("3");
     }
 
+    /**
+     * The version before this one (V13) with controls and a Changelog: V14 adds created_from_control_id, empty on every
+     * row, linked to controls (a removed source leaves the link empty); its rollback drops it and keeps the rows.
+     */
+    @Test
+    void dataOfTheVersionBefore_migratesToV14_createdFromIsEmpty_andItsRollbackDropsIt() throws Exception {
+        flyway("13").migrate();
+        execute("INSERT INTO controls (control_id, control_frequency, performance_status, control_status, "
+                + "control_operation_date, control_operation_deadline, next_control_operation_date, deadline) VALUES "
+                + "('HR-V13-1/FY27/Central/OCT', 'Monthly', 'COMPLETED', 'ACTIVE', DATE '2026-10-12', DATE '2026-10-26', "
+                + "DATE '2026-11-12', DATE '2026-10-26'), "
+                + "('HR-V13-2/FY27/Central/1Q', 'Quarterly', 'IN_PROGRESS', 'ACTIVE', DATE '2026-10-05', DATE '2026-10-19', "
+                + "DATE '2027-01-05', DATE '2026-10-19')");
+
+        Flyway latest = flyway(null);
+        latest.migrate();
+        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo(LATEST);
+
+        assertThat(createdFromColumns()).isEqualTo("1");
+        assertThat(single("SELECT is_nullable || '|' || data_type FROM information_schema.columns WHERE table_schema = '"
+                + schema + "' AND table_name = 'controls' AND column_name = 'created_from_control_id'"))
+                .isEqualTo("YES|bigint");
+        assertThat(single("SELECT COUNT(*) FROM controls WHERE control_id LIKE 'HR-V13-%' AND created_from_control_id IS NULL"))
+                .isEqualTo("2");
+        // A next cycle made from the first; the source removed, the link goes and the cycle stays
+        execute("INSERT INTO controls (control_id, control_frequency, performance_status, created_from_control_id) "
+                + "SELECT 'HR-V13-1/FY27/Central/NOV', 'Monthly', 'IN_PROGRESS', id FROM controls "
+                + "WHERE control_id = 'HR-V13-1/FY27/Central/OCT'");
+        assertThat(single("SELECT COUNT(*) FROM controls n JOIN controls s ON s.id = n.created_from_control_id "
+                + "WHERE n.control_id = 'HR-V13-1/FY27/Central/NOV'")).isEqualTo("1");
+        execute("DELETE FROM controls WHERE control_id = 'HR-V13-1/FY27/Central/OCT'");
+        assertThat(single("SELECT COALESCE(CAST(created_from_control_id AS VARCHAR), '-') FROM controls "
+                + "WHERE control_id = 'HR-V13-1/FY27/Central/NOV'")).isEqualTo("-");
+
+        script("db/rollback/V14__undo_control_created_from.sql");
+        assertThat(createdFromColumns()).isEqualTo("0");
+        assertThat(single("SELECT COUNT(*) FROM controls WHERE control_id LIKE 'HR-V13-%'")).isEqualTo("2");
+    }
+
     // ---- helpers ----
+
+    private String createdFromColumns() throws Exception {
+        return single("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '" + schema
+                + "' AND table_name = 'controls' AND column_name = 'created_from_control_id'");
+    }
 
     private String materialsColumns() throws Exception {
         return single("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '" + schema
