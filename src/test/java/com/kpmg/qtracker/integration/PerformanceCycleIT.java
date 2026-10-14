@@ -70,10 +70,15 @@ class PerformanceCycleIT extends ReleaseScenarioSupport {
         User sharedEditor = myEdit("pcx-shared-edit");
         User allReader = allRead("pcx-allro");
         User allEditor = allEdit("pcx-alledit");
-        People people = people().soqm(soqm).facilitator(facilitator).operator(myEdit("pcx-op")).owner(owner)
+        User operator = myEdit("pcx-op");
+        People people = people().soqm(soqm).facilitator(facilitator).operator(operator).owner(owner)
                 .shared(sharedReader, sharedEditor);
         Control running = control("HR-PCX", "IN_PROGRESS", people);
         Control completed = control("HR-PCX", "COMPLETED", people);
+        // The role KDN sees every KDN control, this one in its Process Owner field too
+        User kdnUser = kdn("pcx-kdn");
+        Control kdnCompleted = control("KDN-PCX", "COMPLETED", people().soqm(soqm).facilitator(facilitator)
+                .operator(operator).owner(kdnUser));
 
         // SoQM Admin Team: the button and the file on a completed control
         MockHttpSession soqmSession = login(soqm);
@@ -94,14 +99,23 @@ class PerformanceCycleIT extends ReleaseScenarioSupport {
         assertThat(body(notCompleted)).contains("Control is not completed");
 
         // Everyone else who opens the page: no button, 403 for the file (Shared With too, decision of 2026-10-14)
-        for (User user : List.of(facilitator, owner, sharedReader, sharedEditor, allReader, allEditor)) {
-            MockHttpSession session = login(user);
-            MvcResult pageOfIt = call(session, get("/performance-cycle/" + completed.getId()));
-            assertThat(pageOfIt.getResponse().getStatus()).as(user.getMail()).isEqualTo(200);
-            assertThat(body(pageOfIt)).as(user.getMail()).doesNotContain("exportCompletedBtn").doesNotContain("/export/completed");
-            assertThat(call(session, get("/api/controls/{id}/export/completed", completed.getId())).getResponse().getStatus())
-                    .as(user.getMail()).isEqualTo(403);
+        for (User user : List.of(facilitator, operator, owner, sharedReader, sharedEditor, allReader, allEditor)) {
+            assertNoExport(user, completed);
         }
+        assertNoExport(kdnUser, kdnCompleted);
+        assertThat(call(soqmSession, get("/api/controls/{id}/export/completed", kdnCompleted.getId()))
+                .getResponse().getStatus()).isEqualTo(200);
+    }
+
+    /** The page opens for the user, without the Download button; the file is refused (403). */
+    private void assertNoExport(User user, Control completed) throws Exception {
+        MockHttpSession session = login(user);
+        MvcResult pageOfIt = call(session, get("/performance-cycle/" + completed.getId()));
+        assertThat(pageOfIt.getResponse().getStatus()).as(user.getMail()).isEqualTo(200);
+        assertThat(body(pageOfIt)).as(user.getMail()).doesNotContain("exportCompletedBtn").doesNotContain("/export/completed");
+        MvcResult file = call(session, get("/api/controls/{id}/export/completed", completed.getId()));
+        assertThat(file.getResponse().getStatus()).as(user.getMail()).isEqualTo(403);
+        assertThat(file.getResponse().getContentType()).as(user.getMail()).doesNotContain("spreadsheetml");
     }
 
     private static Map<String, String> excelRows(MvcResult excel) throws Exception {

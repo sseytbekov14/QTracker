@@ -148,7 +148,8 @@ class RoleMatrixIT {
     private static final List<String> CONTROL_OPS = List.of(
             "In component list", "View page", "Program on page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
             "Edit, no reason", "Frequency", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Development Materials (removed)", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
-            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)", "Performance Cycle");
+            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)", "Excel button",
+            "Performance Cycle");
 
     /** The operations that change a control: none may pass where the page shows a notice. */
     private static final List<String> WRITES = List.of("Save details", "Steps field", "Operator's Program", "Edit control",
@@ -384,6 +385,8 @@ class RoleMatrixIT {
             }
             // The Excel of a completed control (Export on the Performance Cycle page): SoQM Admin Team only (2026-10-14)
             case "Excel (completed)" -> "COMPLETED".equals(status) && sees && soqm ? "ok" : "refused";
+            // Its Download button on the Performance Cycle page: shown to the same people only
+            case "Excel button" -> "COMPLETED".equals(status) && sees && soqm ? "ok" : "refused";
             // The page a list row opens once the control is initiated; the same people as View Control, a shared-only
             // draft not yet (sent back to the list)
             case "Performance Cycle" -> sees && !notYet ? "ok" : "refused";
@@ -434,6 +437,7 @@ class RoleMatrixIT {
         row.put("Performance Cycle", page(get("/performance-cycle/{id}", control.getId()), session));
         row.put("Excel (completed)", "COMPLETED".equals(status)
                 ? answer(get("/api/controls/{id}/export/completed", control.getId()), session) : "n/a");
+        row.put("Excel button", excelButton(control, session));
         row.put("Save details", answer(post("/api/control-details").with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlId\":" + control.getId() + ",\"" + stepFieldOf(who, status) + "\":\"Saved by " + who.key() + "\"" + REASON + "}"), session));
@@ -594,6 +598,20 @@ class RoleMatrixIT {
         String html = result.getResponse().getContentAsString();
         return html.contains("id=\"controlOperatorReview\"")
                 && html.contains(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<") ? "ok" : "none";
+    }
+
+    /**
+     * "ok" when the Performance Cycle page shows the Download button of the completed control's Excel, "none" when it
+     * does not, else what the page answered.
+     */
+    private String excelButton(Control control, MockHttpSession session) throws Exception {
+        MvcResult result = perform(get("/performance-cycle/{id}", control.getId()), session);
+        ModelAndView mav = result.getModelAndView();
+        if (result.getResponse().getStatus() != 200 || mav == null || !"performance-cycle".equals(mav.getViewName())) {
+            return outcome(result);
+        }
+        String html = result.getResponse().getContentAsString();
+        return html.contains("id=\"exportCompletedBtn\"") || html.contains("/export/completed") ? "ok" : "none";
     }
 
     /** "ok" when the control's page carries the "KDN control" mark, "none" when it does not, else as "View page". */
