@@ -315,20 +315,20 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isOk());
 
         ControlAssignment stored = assignmentRepository.findByControlId(control.getId()).orElseThrow();
-        assertThat(stored.getControlOperationDeadline()).isEqualTo(LocalDate.of(2026, 2, 14));
+        assertThat(stored.getControlOperationDeadline()).isEqualTo(LocalDate.of(2026, 2, 13));
         assertThat(stored.getNextControlOperationDate()).isEqualTo(LocalDate.of(2026, 2, 28));
         String loggedValues = auditLogRepository.findByControlIdOrderByCreatedAtDesc(control.getId())
                 .get(0).getNewValues();
         assertThat(loggedValues)
-                .contains("\"Control Operation Deadline\":\"2026-02-14\"")
+                .contains("\"Control Operation Deadline\":\"2026-02-13\"")
                 .contains("\"Next Control Operation Date\":\"2026-02-28\"")
                 .doesNotContain("2026-02-09")
                 .doesNotContain("2026-03-03");
     }
 
-    /** Deadline = operation date + 14 days only for a new date or frequency; a stored one stays otherwise. */
+    /** Deadline = operation date + 10 working days only for a new date or frequency; a stored one stays otherwise. */
     @Test
-    void storedDeadline_staysOnAnAssignmentSave_newDateOrFrequencyGetsFourteenDays() throws Exception {
+    void storedDeadline_staysOnAnAssignmentSave_newDateOrFrequencyGetsTenWorkingDays() throws Exception {
         Participants p = participants();
         Control control = createControl("CTRL-D14-" + suffix(), p.soqm, "IN_PROGRESS");
         assign(control, p);
@@ -351,6 +351,10 @@ class ApiSecurityMockMvcIT {
 
         saveAssignment(control, soqm, "2026-02-02", "2026-02-03");
         assertSchedule(control, LocalDate.of(2026, 2, 16), LocalDate.of(2026, 5, 2));
+
+        // A Saturday: counted from Monday, due on the Friday two weeks later
+        saveAssignment(control, soqm, "2026-02-07", "2026-02-21");
+        assertSchedule(control, LocalDate.of(2026, 2, 20), LocalDate.of(2026, 5, 7));
     }
 
     private void saveAssignment(Control control, MockHttpSession session, String operationDate,

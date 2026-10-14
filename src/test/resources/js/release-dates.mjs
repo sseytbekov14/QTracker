@@ -1,7 +1,7 @@
 // Release test pass, stage E: the browser's own date code, as shipped, for the cases on stdin.
 // Usage: TZ=<zone> node release-dates.mjs <view-control.js> <date-format.js>
 // stdin: {"schedule":[{"date":"2026-01-31","frequency":"Monthly"}], "typed":["31.02.2026", ...]}
-// stdout: {"schedule":[{"deadline":"2026-02-14","next":"2026-02-28"}], "typed":["2026-02-..." | null]}
+// stdout: {"schedule":[{"deadline":"2026-02-13","next":"2026-02-28"}], "typed":["2026-02-..." | null]}
 import { readFileSync } from 'node:fs';
 
 const viewControl = readFileSync(process.argv[2], 'utf8');

@@ -1,6 +1,6 @@
 // Runs View Control's own deadline / next-date preview for the cases on stdin.
 // Usage: node schedule-preview.mjs <path to view-control.js>   stdin: [{"date":"2026-01-31","frequency":"Monthly"}]
-// stdout: [{"frequency":"monthly","deadline":"2026-02-07","next":"2026-02-28"}] (null where the preview shows nothing)
+// stdout: [{"frequency":"monthly","deadline":"2026-02-13","next":"2026-02-28"}] (null where the preview shows nothing)
 // The functions are cut out of view-control.js as they are, so the test checks the shipped code.
 import { readFileSync } from 'node:fs';
 

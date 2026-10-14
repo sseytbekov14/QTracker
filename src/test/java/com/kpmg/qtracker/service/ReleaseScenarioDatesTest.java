@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Release test pass, stage E: the date rules over whole years, not single examples - Control Operation Deadline =
- * operation date + 14 calendar days for every frequency, the next date of each frequency (month ends, 29 February,
+ * operation date + 10 working days (Monday to Friday) for every frequency, the next date of each frequency (month ends, 29 February,
  * the turn of the year), the business day in Almaty against a server in UTC, Overdue and Closed late at the
  * deadline day, the SoQM Year at 30 September / 1 October, reminders never after the deadline, and the browser's
  * own preview and dd.mm.yyyy reading in three time zones.
@@ -40,11 +40,19 @@ class ReleaseScenarioDatesTest {
     private final ControlScheduleCalculator calculator = new ControlScheduleCalculator();
 
     @Test
-    void deadline_isTheOperationDatePlus14CalendarDays_everyDayOfFourYears_everyFrequency() {
+    void deadline_isTheOperationDatePlus10WorkingDays_everyDayOfFourYears_everyFrequency() {
         for (LocalDate date = FIRST; !date.isAfter(LAST); date = date.plusDays(1)) {
+            // Counted here day by day: the first working day after the operation date is day 1
+            LocalDate expected = date;
+            for (int left = 10; left > 0; ) {
+                expected = expected.plusDays(1);
+                if (expected.getDayOfWeek().getValue() <= 5) {
+                    left--;
+                }
+            }
             for (String frequency : FREQUENCIES) {
                 assertThat(calculator.calculateDeadline(ControlFrequency.fromValue(frequency), date))
-                        .as("%s %s", frequency, date).isEqualTo(date.plusDays(14));
+                        .as("%s %s", frequency, date).isEqualTo(expected);
             }
         }
         // Spot checks written out by hand
@@ -54,6 +62,10 @@ class ReleaseScenarioDatesTest {
                 .isEqualTo(LocalDate.of(2028, 2, 29));
         assertThat(calculator.calculateDeadline(ControlFrequency.QUARTERLY, LocalDate.of(2027, 2, 15)))
                 .isEqualTo(LocalDate.of(2027, 3, 1));
+        assertThat(calculator.calculateDeadline(ControlFrequency.MONTHLY, LocalDate.of(2026, 10, 17)))
+                .isEqualTo(LocalDate.of(2026, 10, 30));
+        assertThat(calculator.calculateDeadline(ControlFrequency.MONTHLY, LocalDate.of(2026, 10, 18)))
+                .isEqualTo(LocalDate.of(2026, 10, 30));
     }
 
     @Test

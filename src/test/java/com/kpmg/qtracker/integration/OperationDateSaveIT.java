@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.service.ControlScheduleCalculator;
 import com.kpmg.qtracker.service.SoqmYear;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -38,16 +39,20 @@ class OperationDateSaveIT extends ReleaseScenarioSupport {
 
         ControlAssignment stored = stored(control);
         assertThat(stored.getControlOperationDate()).isEqualTo(today());
-        assertThat(stored.getControlOperationDeadline()).isEqualTo(today().plusDays(14));
+        assertThat(stored.getControlOperationDeadline()).isEqualTo(ControlScheduleCalculator.DEADLINE.from(today()));
         assertThat(reload(control).getControlOperationDate()).isEqualTo(today());
-        assertThat(reload(control).getDeadline()).isEqualTo(today().plusDays(14));
+        assertThat(reload(control).getDeadline()).isEqualTo(ControlScheduleCalculator.DEADLINE.from(today()));
         assertThat(reload(control).getPerformanceStatus()).isEqualTo("DRAFT");
 
         JsonNode read = json(call(session, get("/api/control-assignment")
                 .param("controlId", String.valueOf(control.getId()))));
         assertThat(read.path("controlOperationDate").asText()).isEqualTo(today().toString());
-        assertThat(read.path("controlOperationDeadline").asText()).isEqualTo(today().plusDays(14).toString());
-        assertThat(call(session, get("/view-control/" + control.getId())).getResponse().getStatus()).isEqualTo(200);
+        assertThat(read.path("controlOperationDeadline").asText()).isEqualTo(ControlScheduleCalculator.DEADLINE.from(today()).toString());
+        MvcResult page = call(session, get("/view-control/" + control.getId()));
+        assertThat(page.getResponse().getStatus()).isEqualTo(200);
+        // The rule under the deadline field comes from ControlScheduleCalculator.DEADLINE
+        assertThat(body(page)).contains("id=\"controlOperationDeadlineHint\"")
+                .contains("10 working days (Monday to Friday) after the Control Operation Date");
     }
 
     @ParameterizedTest
@@ -64,7 +69,7 @@ class OperationDateSaveIT extends ReleaseScenarioSupport {
         pageSave(session, control, today().plusDays(10), people);
 
         assertThat(stored(control).getControlOperationDate()).as(status).isEqualTo(today().plusDays(10));
-        assertThat(stored(control).getControlOperationDeadline()).as(status).isEqualTo(today().plusDays(24));
+        assertThat(stored(control).getControlOperationDeadline()).as(status).isEqualTo(ControlScheduleCalculator.DEADLINE.from(today().plusDays(10)));
         JsonNode read = json(call(session, get("/api/control-assignment")
                 .param("controlId", String.valueOf(control.getId()))));
         assertThat(read.path("controlOperationDate").asText()).as(status).isEqualTo(today().plusDays(10).toString());

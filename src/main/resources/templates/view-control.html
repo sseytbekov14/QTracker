@@ -1036,13 +1036,16 @@
                                         <div class="invalid-feedback" id="controlOperationDateFeedback">Enter the date as dd.mm.yyyy</div>
                                     </div>
                                     <div class="col-md-4 mb-3">
-                                        <label class="form-label">Control Operation Deadline</label>
+                                        <label class="form-label" for="controlOperationDeadline">Control Operation Deadline</label>
                                         <input type="text"
                                                class="form-control readonly-field"
                                                name="controlOperationDeadline"
                                                id="controlOperationDeadline"
                                                readonly
+                                               aria-describedby="controlOperationDeadlineHint"
                                                style="background-color: #f7f8fa; pointer-events: none;">
+                                        <div class="form-text" id="controlOperationDeadlineHint"
+                                             th:text="${deadlineHint}">10 working days (Monday to Friday) after the Control Operation Date</div>
                                     </div>
                                     <div class="col-md-4 mb-3">
                                         <label class="form-label">Next Control Operation Date</label>
@@ -1710,7 +1713,7 @@
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=3"></script>
-<script src="/js/view-control.js?v=7.6"></script>
+<script src="/js/view-control.js?v=7.7"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows

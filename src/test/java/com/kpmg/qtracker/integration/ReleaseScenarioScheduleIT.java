@@ -5,6 +5,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.ControlAutoCreationService;
+import com.kpmg.qtracker.service.ControlScheduleCalculator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpSession;
@@ -34,10 +35,10 @@ class ReleaseScenarioScheduleIT extends ReleaseScenarioSupport {
     // ---- what a save stores ----
 
     @Test
-    void anAssignmentSave_storesDeadlinePlus14_andTheNextDateOfTheFrequency_forEveryFrequency() throws Exception {
+    void anAssignmentSave_storesDeadlinePlus10WorkingDays_andTheNextDateOfTheFrequency_forEveryFrequency() throws Exception {
         User soqm = soqm("sc-soqm");
         MockHttpSession session = login(soqm);
-        LocalDate date = LocalDate.of(2027, 1, 31);
+        LocalDate date = LocalDate.of(2027, 1, 31);   // a Sunday: due on Friday 12 February
         Map<String, LocalDate> next = Map.of("Monthly", LocalDate.of(2027, 2, 28), "Quarterly", LocalDate.of(2027, 4, 30),
                 "Semi Annual", LocalDate.of(2027, 7, 31), "Annual", LocalDate.of(2028, 1, 31),
                 "Recurring", LocalDate.of(2027, 4, 30));
@@ -46,8 +47,8 @@ class ReleaseScenarioScheduleIT extends ReleaseScenarioSupport {
             saveDate(session, control, date);
             ControlAssignment stored = assignment(control);
             assertThat(stored.getControlOperationDate()).as(frequency).isEqualTo(date);
-            assertThat(stored.getControlOperationDeadline()).as(frequency).isEqualTo(LocalDate.of(2027, 2, 14));
-            assertThat(reload(control).getDeadline()).as(frequency).isEqualTo(LocalDate.of(2027, 2, 14));
+            assertThat(stored.getControlOperationDeadline()).as(frequency).isEqualTo(LocalDate.of(2027, 2, 12));
+            assertThat(reload(control).getDeadline()).as(frequency).isEqualTo(LocalDate.of(2027, 2, 12));
             assertThat(stored.getNextControlOperationDate()).as(frequency).isEqualTo(next.get(frequency));
         }
     }
@@ -75,14 +76,14 @@ class ReleaseScenarioScheduleIT extends ReleaseScenarioSupport {
         assertThat(assignment(control).getControlOperationDeadline()).isEqualTo(LocalDate.of(2027, 3, 24));
         assertThat(assignment(control).getNextControlOperationDate()).isEqualTo(LocalDate.of(2027, 6, 10));
         // Another date: recalculated
-        saveDate(session, control, LocalDate.of(2027, 12, 25));
-        assertThat(assignment(control).getControlOperationDeadline()).isEqualTo(LocalDate.of(2028, 1, 8));
+        saveDate(session, control, LocalDate.of(2027, 12, 25));   // a Saturday: due on Friday 7 January
+        assertThat(assignment(control).getControlOperationDeadline()).isEqualTo(LocalDate.of(2028, 1, 7));
         assertThat(assignment(control).getNextControlOperationDate()).isEqualTo(LocalDate.of(2028, 3, 25));
         // A deadline or next date sent by the page is never taken
         assertThat(callJson(session, post("/api/control-assignment"), "{\"controlId\":" + control.getId()
                 + ",\"controlOperationDeadline\":\"2030-01-01\",\"nextControlOperationDate\":\"2030-02-01\"}")
                 .getResponse().getStatus()).isEqualTo(200);
-        assertThat(assignment(control).getControlOperationDeadline()).isEqualTo(LocalDate.of(2028, 1, 8));
+        assertThat(assignment(control).getControlOperationDeadline()).isEqualTo(LocalDate.of(2028, 1, 7));
     }
 
     @Test
@@ -144,7 +145,7 @@ class ReleaseScenarioScheduleIT extends ReleaseScenarioSupport {
         assertThat(next.getPerformanceStatus()).isEqualTo("DRAFT");
         ControlAssignment schedule = assignment(next);
         assertThat(schedule.getControlOperationDate()).isEqualTo(day);
-        assertThat(schedule.getControlOperationDeadline()).isEqualTo(day.plusDays(14));
+        assertThat(schedule.getControlOperationDeadline()).isEqualTo(ControlScheduleCalculator.DEADLINE.from(day));
         assertThat(schedule.getNextControlOperationDate()).isEqualTo(day.plusMonths(1));
         assertThat(schedule.getFacilitator()).isEqualTo(assignment(monthly).getFacilitator());
         // The cycle before is left as it was

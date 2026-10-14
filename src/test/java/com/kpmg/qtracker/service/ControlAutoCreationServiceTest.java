@@ -139,16 +139,16 @@ class ControlAutoCreationServiceTest {
         verify(controlAssignmentService, times(1)).recalculateSchedule(99L);
     }
 
-    /** The new cycle gets the 14 days; the cycle it was created from keeps the deadline it had. */
+    /** The new cycle gets the 10 working days; the cycle it was created from keeps the deadline it had. */
     @ParameterizedTest
     @CsvSource({
             "Monthly,     2026-09-30, 2026-10-30, 2026-11-13, 2026-11-30",
-            "Quarterly,   2026-07-31, 2026-10-31, 2026-11-14, 2027-01-31",
-            "Recurring,   2025-11-30, 2026-02-28, 2026-03-14, 2026-05-28",
+            "Quarterly,   2026-07-31, 2026-10-31, 2026-11-13, 2027-01-31",
+            "Recurring,   2025-11-30, 2026-02-28, 2026-03-13, 2026-05-28",
             "Semi Annual, 2027-08-31, 2028-02-29, 2028-03-14, 2028-08-29",
             "Annual,      2027-02-28, 2028-02-28, 2028-03-13, 2029-02-28"
     })
-    void autoCreatedCycle_getsFourteenDays_andThePreviousCycleKeepsItsDeadline(String frequency,
+    void autoCreatedCycle_getsTenWorkingDays_andThePreviousCycleKeepsItsDeadline(String frequency,
                                                                                LocalDate previousDate,
                                                                                LocalDate today,
                                                                                LocalDate expectedDeadline,
@@ -774,9 +774,19 @@ class ControlAutoCreationServiceTest {
         return assignment;
     }
 
-    // 14 calendar days for every frequency (ControlScheduleCalculator.DEADLINE)
+    // 10 working days (Monday to Friday) for every frequency (ControlScheduleCalculator.DEADLINE), counted here
     private LocalDate expectedDeadline(LocalDate operationDate, String frequency) {
-        return operationDate == null ? null : operationDate.plusDays(14);
+        if (operationDate == null) {
+            return null;
+        }
+        LocalDate day = operationDate;
+        for (int left = 10; left > 0; ) {
+            day = day.plusDays(1);
+            if (day.getDayOfWeek() != java.time.DayOfWeek.SATURDAY && day.getDayOfWeek() != java.time.DayOfWeek.SUNDAY) {
+                left--;
+            }
+        }
+        return day;
     }
 }
 

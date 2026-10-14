@@ -9,13 +9,14 @@ import java.time.LocalDate;
 public class ControlScheduleCalculator {
 
     /**
-     * The Control Operation Deadline of every frequency: the operation date plus 14 calendar days
-     * (business decision 2026-10-07). The one place that sets the number of days and how they are counted;
-     * view-control.js (calculateDeadline) previews the same, SchedulePreviewParityTest keeps the two equal.
-     * TODO: BUSINESS CONFIRMATION: calendar or working days, counted from the operation date or another date,
-     * and whether a deadline on a weekend moves to the next working day.
+     * The Control Operation Deadline of every frequency: the operation date plus 10 working days, Monday to
+     * Friday, public holidays not counted (business decision 2026-10-14). Counting starts on the first working
+     * day after the operation date, so the deadline is always a weekday: Monday 12.10.2026 -> Monday 26.10,
+     * Friday 16.10, Saturday 17.10 and Sunday 18.10 -> Friday 30.10. The one place that sets the number of days
+     * and how they are counted; view-control.js (calculateDeadline) previews the same,
+     * SchedulePreviewParityTest keeps the two equal.
      */
-    public static final DeadlineRule DEADLINE = new DeadlineRule(14, DayCount.CALENDAR);
+    public static final DeadlineRule DEADLINE = new DeadlineRule(10, DayCount.WORKING);
 
     public enum DayCount {
         CALENDAR,
@@ -24,6 +25,12 @@ public class ControlScheduleCalculator {
     }
 
     public record DeadlineRule(int days, DayCount count) {
+        /** How View Control explains the deadline under the field, e.g. "10 working days after the ..." */
+        public String hint() {
+            return days + (count == DayCount.WORKING ? " working days (Monday to Friday)" : " calendar days")
+                    + " after the Control Operation Date";
+        }
+
         public LocalDate from(LocalDate operationDate) {
             return count == DayCount.WORKING
                     ? new WorkingDaysService().addWorkingDays(operationDate, days)

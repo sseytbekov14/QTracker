@@ -60,7 +60,14 @@ class SchedulePreviewParityTest {
             LocalDate.of(2028, 1, 31),   // + 1 month into a leap February
             LocalDate.of(2028, 2, 28),
             LocalDate.of(2028, 2, 29),   // leap day: + 12 months has no 29 February
-            LocalDate.of(2028, 3, 31));
+            LocalDate.of(2028, 3, 31),
+            // the deadline in working days: from a Monday, a Friday, a Saturday and a Sunday
+            LocalDate.of(2026, 10, 12),
+            LocalDate.of(2026, 10, 16),
+            LocalDate.of(2026, 10, 17),
+            LocalDate.of(2026, 10, 18),
+            LocalDate.of(2028, 2, 26),   // Saturday, across the leap day
+            LocalDate.of(2028, 12, 30)); // Saturday, into the next year
 
     private static String node;
 

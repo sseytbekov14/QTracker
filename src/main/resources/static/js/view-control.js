@@ -2409,7 +2409,8 @@ function saveDocumentsData(controlId) {
     }
 
     // UI regression examples (matches ControlScheduleCalculator; SchedulePreviewParityTest runs these functions):
-    // OperationDate=2026-02-06, every frequency: deadline=2026-02-20
+    // OperationDate=2026-02-06 (Friday), every frequency: deadline=2026-02-20 (10 working days)
+    // OperationDate=2026-10-17 (Saturday): deadline=2026-10-30 (Friday)
     // Monthly:   next=2026-03-06
     // Quarterly: next=2026-05-06
     // Recurring: next=2026-05-06
@@ -2419,8 +2420,8 @@ function saveDocumentsData(controlId) {
     // OperationDate=2026-01-31, Monthly: next=2026-02-28
     function calculateDeadline(operationDate, controlFrequency) {
         // ControlScheduleCalculator.DEADLINE: the same number of days, counted the same way, for every frequency
-        const deadlineDays = 14;
-        const deadlineInWorkingDays = false;
+        const deadlineDays = 10;
+        const deadlineInWorkingDays = true;
         if (!normalizeControlFrequency(controlFrequency)) {
             return null;
         }

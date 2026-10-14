@@ -930,6 +930,7 @@ public class ViewController {
         model.addAttribute("completedLocked", permission.isLocked());
         model.addAttribute("completedEdit", permission.isCompletedEdit());
         model.addAttribute("completedControl", permission.isCompleted());
+        model.addAttribute("deadlineHint", ControlScheduleCalculator.DEADLINE.hint());
 
         // Control Shared With: each person with what the place gives them (AccessPolicy.sharedAccess); the marks
         // (Disabled, Not in the system, ...) for SoQM Team, who change the list

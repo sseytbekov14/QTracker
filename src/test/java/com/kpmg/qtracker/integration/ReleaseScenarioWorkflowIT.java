@@ -7,6 +7,7 @@ import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.entity.WorkflowHistory;
+import com.kpmg.qtracker.service.ControlScheduleCalculator;
 import com.kpmg.qtracker.service.SoqmYear;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
@@ -135,14 +136,14 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
         Control control = chain.createAndAssign();
         ControlAssignment first = assignmentRepository.findByControlId(control.getId()).orElseThrow();
         assertThat(first.getControlOperationDate()).isEqualTo(today().plusDays(5));
-        assertThat(first.getControlOperationDeadline()).isEqualTo(today().plusDays(19));
+        assertThat(first.getControlOperationDeadline()).isEqualTo(ControlScheduleCalculator.DEADLINE.from(today().plusDays(5)));
 
         chain.okJson(soqm, post("/api/control-assignment"), "{\"controlId\":" + control.getId()
                 + ",\"controlOperationDate\":\"" + today().plusDays(30) + "\"}");
         ControlAssignment changed = assignmentRepository.findByControlId(control.getId()).orElseThrow();
         assertThat(changed.getControlOperationDate()).isEqualTo(today().plusDays(30));
-        assertThat(changed.getControlOperationDeadline()).isEqualTo(today().plusDays(44));
-        assertThat(reload(control).getDeadline()).isEqualTo(today().plusDays(44));
+        assertThat(changed.getControlOperationDeadline()).isEqualTo(ControlScheduleCalculator.DEADLINE.from(today().plusDays(30)));
+        assertThat(reload(control).getDeadline()).isEqualTo(ControlScheduleCalculator.DEADLINE.from(today().plusDays(30)));
         // The page reads it back
         JsonNode read = json(call(chain.session(soqm), get("/api/control-assignment")
                 .param("controlId", String.valueOf(control.getId()))));
