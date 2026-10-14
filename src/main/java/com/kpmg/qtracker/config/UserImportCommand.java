@@ -17,8 +17,8 @@ import java.util.List;
  * {@code java -jar qtracker.jar --import-users <file>} (or {@code --import-users=<file>}) prints what the import
  * of the people file would create, writing nothing but the logins file; add {@code --apply} to create the
  * accounts (UserImport). Refused (exit code 1) outside the dev and test profiles, for a file it cannot read and
- * without two active SoQM Team members. Runs like DeadlineRecalculationCommand: no web server, stops after
- * the report.
+ * without two active SoQM Team members. Runs as a one-off command (QtrackerApplication.runCommand): no web
+ * server, stops after the report.
  */
 @Component
 @RequiredArgsConstructor
