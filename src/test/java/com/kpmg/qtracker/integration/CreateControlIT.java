@@ -42,6 +42,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
@@ -463,6 +469,101 @@ class CreateControlIT extends ReleaseScenarioSupport {
         assertThat(error.get("message").asText())
                 .isEqualTo("The next control cannot be created. Fix this on the Assignment tab of " + source.getControlId() + ":");
         assertThat(error.get("problems").get(0).asText()).isEqualTo("Control Operator: " + operator.getMail() + " is disabled");
+    }
+
+    // ---------------------------------------------------------------- duplicates (item 6)
+
+    @Test
+    void secondClick_409_withTheLinkToTheFirst_previewToo() throws Exception {
+        Control source = source("IN_PROGRESS", "Monthly", "OCT");
+        MockHttpSession session = login(soqm);
+
+        MvcResult first = callJson(session, post("/api/controls/{id}/next-cycle", source.getId()), "{}");
+        assertThat(first.getResponse().getStatus()).as(body(first)).isEqualTo(200);
+        long firstId = objectMapper.readTree(body(first)).get("id").asLong();
+        long count = controlRepository.count();
+
+        for (String typed : new String[]{"", source.getControlId().replace("/OCT", "/NOV"),
+                source.getControlId().replace("/OCT", "/NOV").toLowerCase(Locale.ROOT)}) {
+            MvcResult again = callJson(session, post("/api/controls/{id}/next-cycle", source.getId()),
+                    "{\"controlId\":\"" + typed + "\"}");
+            assertThat(again.getResponse().getStatus()).as(typed).isEqualTo(409);
+            JsonNode error = objectMapper.readTree(body(again));
+            assertThat(error.get("existing").get("id").asLong()).isEqualTo(firstId);
+            assertThat(error.get("existing").get("url").asText()).isEqualTo("/view-control/" + firstId);
+        }
+        MvcResult preview = call(session, get("/api/controls/{id}/next-cycle", source.getId()));
+        assertThat(preview.getResponse().getStatus()).isEqualTo(409);
+        JsonNode error = objectMapper.readTree(body(preview));
+        assertThat(error.get("message").asText()).isEqualTo("The next control of " + source.getControlId()
+                + " already exists: " + source.getControlId().replace("/OCT", "/NOV"));
+        assertThat(error.get("existing").get("controlId").asText()).isEqualTo(source.getControlId().replace("/OCT", "/NOV"));
+        assertThat(controlRepository.count()).isEqualTo(count);
+    }
+
+    @Test
+    void aCycleOfTheSameBaseOnTheNewDate_madeElsewhere_is409() throws Exception {
+        Control source = source("COMPLETED", "Monthly", "OCT");
+        // As the daily auto-creation names its cycles: the base, /FY/location/period, maybe "(1)"
+        String base = source.getControlId().substring(0, source.getControlId().indexOf('/'));
+        Control other = control("X", "DRAFT", people());
+        other.setControlId(base + "/FY27/Central/NOV(1)");
+        other = controlRepository.save(other);
+        ControlAssignment otherAssignment = assignmentRepository.findByControlId(other.getId()).orElseThrow();
+        otherAssignment.setControlOperationDate(LocalDate.of(2026, 11, 10));
+        assignmentRepository.save(otherAssignment);
+
+        NextCycleRefused refused = refused(source, "SOMETHING-ELSE-" + next());
+
+        assertThat(refused.status()).isEqualTo(409);
+        assertThat(refused.existing().getId()).isEqualTo(other.getId());
+    }
+
+    @Test
+    void parallelRequests_makeOneControl() throws Exception {
+        Control source = source("IN_PROGRESS", "Quarterly", "1Q");
+        long before = controlRepository.count();
+        int requests = 6;
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(requests);
+        List<Future<Object>> answers = new ArrayList<>();
+        try {
+            for (int i = 0; i < requests; i++) {
+                // Half take the proposed ID, half type it (in another case)
+                String typed = i % 2 == 0 ? null : source.getControlId().replace("/1Q", "/2q");
+                Callable<Object> request = () -> {
+                    start.await();
+                    try {
+                        return service.createNextCycle(source.getId(), typed, soqm);
+                    } catch (NextCycleRefused e) {
+                        return e;
+                    }
+                };
+                answers.add(pool.submit(request));
+            }
+            start.countDown();
+            List<NextCycleCreated> made = new ArrayList<>();
+            List<NextCycleRefused> refusedAnswers = new ArrayList<>();
+            for (Future<Object> answer : answers) {
+                Object value = answer.get(60, TimeUnit.SECONDS);
+                if (value instanceof NextCycleCreated created) {
+                    made.add(created);
+                } else {
+                    refusedAnswers.add((NextCycleRefused) value);
+                }
+            }
+            assertThat(made).hasSize(1);
+            assertThat(refusedAnswers).hasSize(requests - 1)
+                    .allSatisfy(r -> {
+                        assertThat(r.status()).isEqualTo(409);
+                        assertThat(r.existing().getId()).isEqualTo(made.get(0).id());
+                    });
+            assertThat(controlRepository.count()).isEqualTo(before + 1);
+            assertThat(historyRepository.findByControlIdOrderByCreatedAtDesc(made.get(0).id())).hasSize(1);
+            assertThat(notificationRepository.findByControlIdOrderByCreatedAtDesc(made.get(0).id())).hasSize(1);
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     // ---------------------------------------------------------------- helpers

@@ -432,7 +432,31 @@ public class ControlAutoCreationService {
         Control source = controlRepository.findById(sourceId)
                 .orElseThrow(() -> new NextCycleRefused(404, "Control not found", null, null));
         refuseUnlessMakesNextCycle(source);
-        return planNextCycle(source, null);
+        NextCyclePlan plan = planNextCycle(source, null);
+        refuseIfNextCycleExists(plan);
+        return plan;
+    }
+
+    /**
+     * 409 when the next cycle is already there: a control of the same base ID on the new operation date, the check the
+     * daily auto-creation makes (existsByBaseControlIdAndOperationDate). A double click, or two people at once, get the
+     * one control the first request made.
+     */
+    private void refuseIfNextCycleExists(NextCyclePlan plan) {
+        if (plan.dates() == null) {
+            return;
+        }
+        Control source = plan.source();
+        String baseControlId = controlIdGeneratorService.extractBaseId(source.getControlId());
+        assignmentRepository.findIdsByBaseControlIdAndOperationDate(baseControlId, escapeForLike(baseControlId),
+                        plan.dates().operationDate()).stream()
+                .filter(id -> !id.equals(source.getId()))
+                .findFirst()
+                .flatMap(controlRepository::findById)
+                .ifPresent(existing -> {
+                    throw new NextCycleRefused(409, "The next control of " + source.getControlId()
+                            + " already exists: " + existing.getControlId(), null, existing);
+                });
     }
 
     private static void refuseUnlessMakesNextCycle(Control source) {
@@ -460,6 +484,7 @@ public class ControlAutoCreationService {
         String typed = requestedControlId == null ? "" : requestedControlId.trim();
         refuseUnlessMakesNextCycle(source);
         NextCyclePlan plan = planNextCycle(source, typed);
+        refuseIfNextCycleExists(plan);
         if (!plan.problems().isEmpty()) {
             throw new NextCycleRefused(400, "The next control cannot be created. Fix this on the Assignment tab of "
                     + source.getControlId() + ":", plan.problems(), null);

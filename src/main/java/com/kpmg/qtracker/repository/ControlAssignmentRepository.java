@@ -78,20 +78,29 @@ public interface ControlAssignmentRepository extends JpaRepository<ControlAssign
                                               @Param("operationDate") LocalDate operationDate);
 
     /**
-     * A cycle of this base control on this day already exists: its ID is the base itself, the base with a "_"
-     * suffix (older IDs) or the base with "/FY../location/period" (ControlIdGeneratorService, maybe with "(n)").
+     * A cycle of a base control on a day: its ID is the base itself, the base with a "_" suffix (older IDs) or the base
+     * with "/FY../location/period" (ControlIdGeneratorService, maybe with "(n)"). The one rule of "this cycle is already
+     * there" for the daily auto-creation and Create Control.
      */
-    @Query(value = """
-            SELECT COUNT(*) > 0
+    String CYCLE_OF_BASE_ON_DAY = """
             FROM controls c
             WHERE c.control_operation_date = :operationDate
               AND (c.control_id = :baseIdExact
                    OR c.control_id LIKE CONCAT(:baseIdLike, '\\_%') ESCAPE '\\'
                    OR c.control_id LIKE CONCAT(:baseIdLike, '/%') ESCAPE '\\')
-            """, nativeQuery = true)
+            """;
+
+    /** A cycle of this base control on this day already exists ({@link #CYCLE_OF_BASE_ON_DAY}). */
+    @Query(value = "SELECT COUNT(*) > 0 " + CYCLE_OF_BASE_ON_DAY, nativeQuery = true)
     boolean existsByBaseControlIdAndOperationDate(@Param("baseIdExact") String baseIdExact,
                                                   @Param("baseIdLike") String baseIdLike,
                                                   @Param("operationDate") LocalDate operationDate);
+
+    /** The ids of the cycles of this base control on this day ({@link #CYCLE_OF_BASE_ON_DAY}), oldest first. */
+    @Query(value = "SELECT c.id " + CYCLE_OF_BASE_ON_DAY + " ORDER BY c.id", nativeQuery = true)
+    List<Long> findIdsByBaseControlIdAndOperationDate(@Param("baseIdExact") String baseIdExact,
+                                                      @Param("baseIdLike") String baseIdLike,
+                                                      @Param("operationDate") LocalDate operationDate);
 
     @Query("SELECT ca.controlId FROM ControlAssignment ca "
             + "WHERE LOWER(ca.controlOperator) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))")
