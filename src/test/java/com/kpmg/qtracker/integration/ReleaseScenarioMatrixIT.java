@@ -150,8 +150,8 @@ class ReleaseScenarioMatrixIT extends ReleaseScenarioSupport {
                 if (!completed) {
                     return "n/a";
                 }
-                // SoQM Team, or someone the control is shared with (assigned people: no)
-                return row.soqm() || (row.place() == Place.SHARED && "ok".equals(sees)) ? "ok" : "403";
+                // SoQM Admin Team only (decision of 2026-10-14; Shared With and assigned people: no)
+                return row.soqm() ? "ok" : "403";
             default:
                 break;
         }

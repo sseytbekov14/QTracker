@@ -937,7 +937,7 @@ class ViewControllerStatusFilterTest {
         assertThat(html).contains("<h1>Performance: Human Resources (HR)</h1>",
                 "<a href=\"/#action-centre\" class=\"app-breadcrumb-link\">Action Centre</a>",
                 "aria-current=\"page\">Human Resources</span>",
-                "href=\"/view-control/721\"", "data-href=\"/view-control/722\"",
+                "href=\"/performance-cycle/721\"", "data-href=\"/view-control/722\"",
                 "Anna Petrova, new.person", "Oleg Operator", "Polina Owner", "Lena Lead", "04.09.2026", "Overdue")
                 .doesNotContain("EP-1", "/initiate/722");
         java.util.regex.Matcher header = java.util.regex.Pattern
@@ -1000,7 +1000,7 @@ class ViewControllerStatusFilterTest {
 
         assertThat(result.getResponse().getContentAsString())
                 .contains("Performance: Acceptance &amp; Continuance (A&amp;C)", "href=\"/component/A&amp;C?sort=id&amp;dir=desc\"",
-                        "action=\"/component/A&amp;C\"", "href=\"/component/A&amp;C?status=OVERDUE\"", "href=\"/view-control/731\"");
+                        "action=\"/component/A&amp;C\"", "href=\"/component/A&amp;C?status=OVERDUE\"", "href=\"/performance-cycle/731\"");
     }
 
     @Test

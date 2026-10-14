@@ -428,8 +428,10 @@ class CompletedEditSoqmIT {
                 .content("{\"controlId\":" + control.getId() + ",\"processOwner\":[\"" + newOwner.getMail() + "\"],"
                         + "\"editReason\":\"The Process Owner changed\"}"));
 
-        // The Excel of the completed control, for SoQM Team and for a person it is shared with
-        for (User reader : List.of(soqm, shared)) {
+        // The Excel of the completed control: SoQM Admin Team only (decision of 2026-10-14), not a person it is shared with
+        assertThat(perform(as(shared, get("/api/controls/{id}/export/completed", control.getId())))
+                .getResponse().getStatus()).isEqualTo(403);
+        for (User reader : List.of(soqm)) {
             java.util.Map<String, String> rows = excelRows(control, reader);
             assertThat(rows).as(reader.getMail())
                     .containsEntry("Control Description", "Corrected description")

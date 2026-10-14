@@ -178,9 +178,10 @@
                            th:text="${control.controlDescription}">Description</p>
                     </div>
                     <div class="pc-actions">
+                        <!-- Download: the Excel of a completed control, SoQM Admin Team only (AccessPolicy.canExportCompletedControl) -->
                         <a th:if="${canExportCompleted and #strings.equals(status, 'COMPLETED')}"
                            th:href="@{/api/controls/{id}/export/completed(id=${control.id})}"
-                           class="btn-pc-secondary">
+                           id="exportCompletedBtn" class="btn-pc-secondary" title="Download this completed control as Excel">
                             <i class="bi bi-download" aria-hidden="true"></i>Download
                         </a>
                         <a th:href="@{/view-control/{id}(id=${control.id})}" class="btn-pc-primary">

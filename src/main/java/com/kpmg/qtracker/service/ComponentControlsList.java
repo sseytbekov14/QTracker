@@ -259,9 +259,13 @@ public final class ComponentControlsList {
                       LocalDate operationDate, String status, boolean overdue, String controlStatusBadge,
                       boolean closedLate, boolean reopened, boolean dueSoon, boolean yourTurn, boolean kdn) {
 
-        /** Every control, a draft too, opens on View Control. */
+        /**
+         * A control once initiated opens on its Performance Cycle page (as the Controls page did; Export of a completed
+         * control and "Open control" are there); a draft has no cycle yet and opens on View Control.
+         */
         public String href() {
-            return "/view-control/" + id;
+            boolean draft = status == null || status.isBlank() || "DRAFT".equalsIgnoreCase(status.trim());
+            return (draft ? "/view-control/" : "/performance-cycle/") + id;
         }
 
         public String operationDateText() {

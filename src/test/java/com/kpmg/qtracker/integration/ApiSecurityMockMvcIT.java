@@ -614,11 +614,12 @@ class ApiSecurityMockMvcIT {
         String draftPage = "/initiate/" + draft.getId();
         MockHttpSession soqmSession = login(p.soqm.getMail());
 
-        // The All components list (in place of the Controls page): every row opens View Control, a draft too
+        // The All components list (in place of the Controls page): a draft opens View Control, a running control
+        // its Performance Cycle page
         mockMvc.perform(get("/component/ALL").param("status", "OVERDUE").param("size", "50").session(soqmSession))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("href=\"/view-control/" + draft.getId() + "\"")))
-                .andExpect(content().string(containsString("href=\"/view-control/" + running.getId() + "\"")));
+                .andExpect(content().string(containsString("href=\"/performance-cycle/" + running.getId() + "\"")));
         mockMvc.perform(get("/api/dashboard/deadline-countdown").param("limit", "50").session(soqmSession))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.overdue[?(@.id == " + draft.getId() + ")].url").value(draftPage))

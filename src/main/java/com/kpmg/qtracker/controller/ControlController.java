@@ -519,7 +519,7 @@ public class ControlController {
             Control control = controlService.getControlById(id)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
 
-            // SoQM, or a user the control is shared with
+            // SoQM Admin Team only (AccessPolicy.canExportCompletedControl)
             if (!AccessPolicy.canExportCompletedControl(AccessPolicy.Subject.of(currentUser),
                     controlPermissionService.facts(control, currentUser, null))) {
                 response.setStatus(HttpStatus.FORBIDDEN.value());

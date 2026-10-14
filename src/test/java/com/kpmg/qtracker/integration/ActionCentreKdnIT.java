@@ -251,17 +251,19 @@ class ActionCentreKdnIT {
     }
 
     @Test
-    void kdnList_eachRowOpensItsOwnControl_theDraftToo() throws Exception {
+    void kdnList_eachRowOpensItsOwnControl_aDraftOnViewControl_theOthersOnThePerformanceCycle() throws Exception {
         MockHttpSession session = login(kdn);
         MvcResult page = perform(get("/kdn"), session);
         String html = page.getResponse().getContentAsString();
         for (ComponentControlsList.Row row : list(page).rows()) {
-            String href = "/view-control/" + controls.get(row.controlId()).getId();
+            boolean draft = "DRAFT".equals(row.status());
+            String href = (draft ? "/view-control/" : "/performance-cycle/") + controls.get(row.controlId()).getId();
             assertThat(row.href()).as(row.controlId()).isEqualTo(href);
             assertThat(html).contains("data-href=\"" + href + "\"", "href=\"" + href + "\">" + row.controlId() + "</a>");
             MvcResult opened = perform(get(href), session);
             assertThat(opened.getResponse().getStatus()).as(row.controlId()).isEqualTo(200);
-            assertThat(opened.getModelAndView().getViewName()).as(row.controlId()).isEqualTo("view-control");
+            assertThat(opened.getModelAndView().getViewName()).as(row.controlId())
+                    .isEqualTo(draft ? "view-control" : "performance-cycle");
             assertThat(opened.getModelAndView().getModel().get("control")).extracting("controlId").isEqualTo(row.controlId());
         }
         assertThat(rowIds(list(page))).contains("KDNAC3");

@@ -1130,7 +1130,7 @@ public class ViewController {
             model.addAttribute("lastUpdatedOn", lastUpdatedOn);
             model.addAttribute("historyRows", history.stream().map(this::toHistoryRow).toList());
 
-            // The Excel of a completed control: SoQM or a user it is shared with
+            // The Excel of a completed control: SoQM Admin Team only
             model.addAttribute("canExportCompleted", permissionService.canExportCompletedControl(control, currentUser));
 
             return "performance-cycle";

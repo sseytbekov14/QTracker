@@ -62,7 +62,7 @@ class ComponentControlsListTest {
     }
 
     @Test
-    void row_peopleJoinedByComma_dateAsDdMmYyyy_opensViewControl_draftToo() {
+    void row_peopleJoinedByComma_dateAsDdMmYyyy_aDraftOpensViewControl() {
         ControlResponseDTO dto = control(5, "HR-5", "HR", null, null);
         dto.setFacilitators(List.of("anna@kpmg.kz", "x.y@kpmg.kz"));
         dto.setControlOperators(List.of("BORIS@kpmg.kz"));
@@ -76,6 +76,17 @@ class ComponentControlsListTest {
         assertThat(row.operationDateText()).isEqualTo("09.03.2026");
         assertThat(row.status()).isEqualTo("DRAFT");
         assertThat(row.href()).isEqualTo("/view-control/5");
+    }
+
+    /** A control once initiated opens on its Performance Cycle page, a completed one too; a draft on View Control. */
+    @Test
+    void row_ofAnInitiatedControl_opensThePerformanceCycle() {
+        for (String status : List.of("IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW", "COMPLETED")) {
+            ComponentControlsList.Row row = ComponentControlsList.rowOf(control(8, "HR-8", "HR", status, null), NAMES, TODAY);
+            assertThat(row.href()).as(status).isEqualTo("/performance-cycle/8");
+        }
+        assertThat(ComponentControlsList.rowOf(control(9, "HR-9", "HR", "DRAFT", null), NAMES, TODAY).href())
+                .isEqualTo("/view-control/9");
     }
 
     @Test

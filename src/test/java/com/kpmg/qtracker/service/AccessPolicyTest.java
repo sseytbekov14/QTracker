@@ -382,9 +382,9 @@ class AccessPolicyTest {
     @ParameterizedTest(name = "{0} {1}")
     @CsvSource({
             "SOQM,       -,      true",
-            "PART,       SHARED, true",
+            "PART,       SHARED, false",
             "PART,       PO,     false",
-            "RO,         SHARED, true",
+            "RO,         SHARED, false",
             "RO_ALL,     -,      false",
             "PART_ALL,   -,      false",
             "DISABLED_SOQM, -,   false",

@@ -148,7 +148,7 @@ class RoleMatrixIT {
     private static final List<String> CONTROL_OPS = List.of(
             "In component list", "View page", "Program on page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
             "Edit, no reason", "Fixed field", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Development Materials (removed)", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
-            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)");
+            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)", "Performance Cycle");
 
     /** The operations that change a control: none may pass where the page shows a notice. */
     private static final List<String> WRITES = List.of("Save details", "Steps field", "Operator's Program", "Edit control",
@@ -381,7 +381,11 @@ class RoleMatrixIT {
                 }
                 yield from >= 0 && to == from + 1 ? expectedControlOp(who, status, "Step") : "refused";
             }
-            case "Excel (completed)" -> "COMPLETED".equals(status) && sees && (soqm || shared) ? "ok" : "refused";
+            // The Excel of a completed control (Export on the Performance Cycle page): SoQM Admin Team only (2026-10-14)
+            case "Excel (completed)" -> "COMPLETED".equals(status) && sees && soqm ? "ok" : "refused";
+            // The page a list row opens once the control is initiated; the same people as View Control, a shared-only
+            // draft not yet (sent back to the list)
+            case "Performance Cycle" -> sees && !notYet ? "ok" : "refused";
             default -> throw new IllegalArgumentException(op);
         };
     }
@@ -426,6 +430,7 @@ class RoleMatrixIT {
         row.put("History", answer(get("/api/controls/{id}/changelog", control.getId()), session));
         row.put("Download", answer(get("/api/attachments/download/{name}", control.getAttachmentDetailsPath())
                 .param("controlId", String.valueOf(control.getId())), session));
+        row.put("Performance Cycle", page(get("/performance-cycle/{id}", control.getId()), session));
         row.put("Excel (completed)", "COMPLETED".equals(status)
                 ? answer(get("/api/controls/{id}/export/completed", control.getId()), session) : "n/a");
         row.put("Save details", answer(post("/api/control-details").with(csrf().asHeader())
@@ -622,9 +627,12 @@ class RoleMatrixIT {
                 continue;
             }
             ComponentControlsList.Result list = (ComponentControlsList.Result) mav.getModel().get("list");
-            boolean listed = list.rows().stream().anyMatch(row -> control.getId().equals(row.id())
-                    && row.href().equals("/view-control/" + control.getId()))
-                    && result.getResponse().getContentAsString().contains("data-href=\"/view-control/" + control.getId() + "\"");
+            // A row opens View Control for a draft, the Performance Cycle page once initiated
+            String html = result.getResponse().getContentAsString();
+            boolean listed = list.rows().stream().anyMatch(row -> {
+                String href = ("DRAFT".equals(row.status()) ? "/view-control/" : "/performance-cycle/") + control.getId();
+                return control.getId().equals(row.id()) && row.href().equals(href) && html.contains("data-href=\"" + href + "\"");
+            });
             if (path.equals("/kdn") && !kdnControl) {
                 if (listed) {
                     answers.add("in KDN list!");
@@ -641,7 +649,7 @@ class RoleMatrixIT {
         ModelAndView mav = result.getModelAndView();
         if (result.getResponse().getStatus() == 200 && mav != null) {
             return switch (String.valueOf(mav.getViewName())) {
-                case "view-control" -> "ok";
+                case "view-control", "performance-cycle" -> "ok";
                 case "control-not-available" -> "not yet";
                 default -> mav.getViewName();
             };

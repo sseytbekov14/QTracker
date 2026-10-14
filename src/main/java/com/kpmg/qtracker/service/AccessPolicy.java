@@ -729,9 +729,13 @@ public final class AccessPolicy {
         };
     }
 
-    /** The one-control Excel export of a completed control: SoQM, or a user it is shared with. */
+    /**
+     * The one-control Excel export of a completed control (Performance Cycle page): SoQM Admin Team only (decision of
+     * 2026-10-14; a user the control is shared with no longer exports it). The completed status is checked where the
+     * export is made.
+     */
     public static boolean canExportCompletedControl(Subject subject, ControlFacts control) {
-        return canView(subject, control) && (isSoqm(subject) || control.shared());
+        return isSoqm(subject) && canView(subject, control);
     }
 
     // ---------------------------------------------------------------- assignment
