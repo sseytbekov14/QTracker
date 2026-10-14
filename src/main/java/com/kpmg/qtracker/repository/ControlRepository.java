@@ -23,6 +23,10 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
 
     boolean existsByControlId(String controlId);
 
+    /** The control with this Control ID in any case (Create Control keeps IDs unique ignoring case). */
+    @Query("SELECT c FROM Control c WHERE LOWER(c.controlId) = LOWER(TRIM(:controlId)) ORDER BY c.id")
+    List<Control> findByControlIdIgnoringCase(@Param("controlId") String controlId);
+
     @Query("SELECT c.controlId FROM Control c WHERE c.controlId LIKE :prefix ORDER BY c.controlId DESC")
     List<String> findControlIdsByPrefix(@Param("prefix") String prefix);
 
