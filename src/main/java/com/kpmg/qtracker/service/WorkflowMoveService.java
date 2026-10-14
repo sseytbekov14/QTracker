@@ -148,7 +148,8 @@ public class WorkflowMoveService {
             case "REVIEW" -> isEmpty(assignment.getControlOperator())
                     ? "Control Operator not assigned. Please assign a Control Operator first." : null;
             case "SOQM_HEAD_REVIEW" -> isEmpty(assignment.getSoqmLead())
-                    ? "SoQM Team not assigned. Please assign a SoQM Team first." : null;
+                    ? AccessPolicy.Slot.SOQM_LEAD.getLabel() + " is not assigned. Please assign a "
+                    + AccessPolicy.Slot.SOQM_LEAD.getLabel() + " first." : null;
             case "PROCESS_OWNER_REVIEW" -> isEmpty(assignment.getProcessOwner())
                     ? "Process Owner not assigned. Please assign a Process Owner first." : null;
             default -> null;

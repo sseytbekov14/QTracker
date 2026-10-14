@@ -947,7 +947,7 @@ class ViewControllerStatusFilterTest {
             headers.add(header.group(1));
         }
         assertThat(headers).containsExactly("Control ID", "Control Type", "Control Frequency",
-                "Facilitator / Preparer(s)", "Control Operator", "Process Owner", "SoQM Lead / Delegate",
+                "Facilitator / Preparer(s)", "Control Operator", "Process Owner", "SoQM Team / Delegate",
                 "Control Category", "Control Operation Date", "Performance Status");
         // one query for all the people, none per person
         verify(userService, times(1)).displayNamesByEmail(any());
@@ -974,7 +974,7 @@ class ViewControllerStatusFilterTest {
                 "<caption class=\"visually-hidden\">Performance: Human Resources (HR)</caption>",
                 "<th scope=\"col\" aria-sort=\"ascending\" data-col=\"status\">",
                 "<th scope=\"col\" aria-sort=\"none\" data-col=\"id\">",
-                "tabindex=\"0\"", "data-label=\"SoQM Lead / Delegate\"", "data-label=\"Performance Status\"",
+                "tabindex=\"0\"", "data-label=\"SoQM Team / Delegate\"", "data-label=\"Performance Status\"",
                 "<label for=\"ccSearch\">Search</label>", "<label for=\"ccStatus\">Status</label>",
                 "<label for=\"ccSortPhone\">Sort by</label>",
                 "<option value=\"/component/HR?sort=status&amp;dir=desc\">Performance Status, descending</option>",

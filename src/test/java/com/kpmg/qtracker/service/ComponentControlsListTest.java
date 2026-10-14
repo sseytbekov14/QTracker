@@ -47,7 +47,7 @@ class ComponentControlsListTest {
     void tenColumns_inTheAgreedOrder() {
         assertThat(ComponentControlsList.COLUMNS).extracting(ComponentControlsList.Column::label).containsExactly(
                 "Control ID", "Control Type", "Control Frequency", "Facilitator / Preparer(s)", "Control Operator",
-                "Process Owner", "SoQM Lead / Delegate", "Control Category", "Control Operation Date",
+                "Process Owner", "SoQM Team / Delegate", "Control Category", "Control Operation Date",
                 "Performance Status");
     }
 

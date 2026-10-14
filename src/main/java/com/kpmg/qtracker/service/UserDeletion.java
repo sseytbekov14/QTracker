@@ -202,7 +202,7 @@ public class UserDeletion {
     }
 
     /**
-     * The controls not completed where the person is a Facilitator, Control Operator, Process Owner, SoQM Lead /
+     * The controls not completed where the person is a Facilitator, Control Operator, Process Owner, SoQM Team /
      * Delegate, in Shared With or the creator, by Control ID; one read of the controls and one of the assignments.
      */
     List<Affected> affected(User target) {
@@ -220,7 +220,7 @@ public class UserDeletion {
                 add(places, "Facilitator", assignment.getFacilitator(), mail);
                 add(places, "Control Operator", assignment.getControlOperator(), mail);
                 add(places, "Process Owner", assignment.getProcessOwner(), mail);
-                add(places, "SoQM Lead / Delegate", assignment.getSoqmLead(), mail);
+                add(places, AccessPolicy.Slot.SOQM_LEAD.getLabel(), assignment.getSoqmLead(), mail);
                 add(places, "Shared With", assignment.getControlSharedWith(), mail);
             }
             if (control.getCreatedBy() != null && target.getId().equals(control.getCreatedBy().getId())) {

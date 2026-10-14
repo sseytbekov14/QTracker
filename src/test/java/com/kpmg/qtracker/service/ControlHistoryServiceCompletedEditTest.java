@@ -75,4 +75,18 @@ class ControlHistoryServiceCompletedEditTest {
         assertThat(plain.isEditedAfterCompletion()).isFalse();
         assertThat(plain.getReason()).isNull();
     }
+    /** The field SoQM Team / Delegate (stored as "SoQM Team" or soqm_lead) is shown under that name (2026-10-14). */
+    @Test
+    void theSoqmTeamDelegateField_isShownUnderItsName_whateverItIsStoredAs() {
+        when(controlRepository.findById(2L)).thenReturn(Optional.empty());
+        when(adminAuditLogRepository.findByControlIdOrderByCreatedAtDesc(2L)).thenReturn(List.of(
+                entry("Edit Control", "[\"SoQM Team\"]", "{\"SoQM Team\":\"a@kpmg.com\"}", "{\"SoQM Team\":\"b@kpmg.com\"}"),
+                entry("Edit Control", "[\"soqm_lead\"]", "{\"soqm_lead\":\"c@kpmg.com\"}", "{\"soqm_lead\":\"a@kpmg.com\"}")));
+        when(workflowHistoryRepository.findByControlIdOrderByCreatedAtDesc(2L)).thenReturn(List.of());
+
+        List<ControlHistoryEntryDTO> history = service.getControlHistory(2L);
+
+        assertThat(history).flatExtracting(ControlHistoryEntryDTO::getFieldChanges).extracting(FieldChangeDTO::getField)
+                .containsExactly("SoQM Team / Delegate", "SoQM Team / Delegate");
+    }
 }

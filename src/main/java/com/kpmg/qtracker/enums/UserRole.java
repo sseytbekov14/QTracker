@@ -17,7 +17,7 @@ public enum UserRole {
 
     /**
      * The name of the role SOQM_TEAM wherever people read it (Admin Panel, banners, messages, notifications, Changelog).
-     * Stored as access level SOQM; steps and fields such as "SoQM Lead / Delegate" and "SoQM Review" keep their names.
+     * Stored as access level SOQM; steps and fields such as "SoQM Team / Delegate" and "SoQM Review" keep their names.
      */
     public static final String SOQM_TEAM_NAME = "SoQM Admin Team";
 

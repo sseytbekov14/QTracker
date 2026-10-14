@@ -127,7 +127,7 @@ public final class ComponentControlsList {
             new Column("facilitator", "Facilitator / Preparer(s)"),
             new Column("operator", "Control Operator"),
             new Column("owner", "Process Owner"),
-            new Column("soqm", "SoQM Lead / Delegate"),
+            new Column("soqm", AccessPolicy.Slot.SOQM_LEAD.getLabel()),
             new Column("category", "Control Category"),
             new Column("date", "Control Operation Date"),
             new Column("status", "Performance Status"));

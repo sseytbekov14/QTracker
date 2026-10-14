@@ -195,7 +195,7 @@
                                     <td data-label="Facilitator / Preparer(s)" th:with="v=${row.facilitators()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
                                     <td data-label="Control Operator" th:with="v=${row.operators()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
                                     <td data-label="Process Owner" th:with="v=${row.owners()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
-                                    <td data-label="SoQM Lead / Delegate" th:with="v=${row.soqmLeads()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
+                                    <td data-label="SoQM Team / Delegate" th:with="v=${row.soqmLeads()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
                                     <td data-label="Control Category" th:with="v=${row.category()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Key</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
                                     <td data-label="Control Operation Date">
                                         <span th:if="${row.operationDate() != null}" th:text="${row.operationDateText()}">01.10.2026</span>

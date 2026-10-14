@@ -250,10 +250,11 @@ public class ControlHistoryService {
             case "Non-Audit Services Applicability":
             case "non_audit_services_applicability":
                 return "Non-Audit Services Control Applicability";
+            // The field SoQM Team / Delegate, stored under its earlier names
             case "SoQM Team":
             case "soqm_lead":
             case "soqm_team":
-                return "SoQM Head/Lead";
+                return AccessPolicy.Slot.SOQM_LEAD.getLabel();
             case "control_id":
                 return "Control ID";
             case "prp":

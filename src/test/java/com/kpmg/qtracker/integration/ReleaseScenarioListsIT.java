@@ -188,7 +188,7 @@ class ReleaseScenarioListsIT extends ReleaseScenarioSupport {
                 header.add(cell.getStringCellValue());
             }
             assertThat(header).containsExactly("Control ID", "Control Type", "Control Frequency",
-                    "Facilitator / Preparer(s)", "Control Operator", "Process Owner", "SoQM Lead / Delegate",
+                    "Facilitator / Preparer(s)", "Control Operator", "Process Owner", "SoQM Team / Delegate",
                     "Control Category", "Control Operation Date", "Performance Status");
             for (Row row : sheet) {
                 for (Cell cell : row) {

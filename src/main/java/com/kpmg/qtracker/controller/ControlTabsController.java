@@ -148,6 +148,7 @@ public class ControlTabsController {
                     existingAssignment.getFacilitator(), mergedAssignment.getFacilitator());
             collectChange(changedFields, previousValues, newValues, "Control Operator",
                     existingAssignment.getControlOperator(), mergedAssignment.getControlOperator());
+            // Stored as "SoQM Team" as before; the Changelog shows "SoQM Team / Delegate" (ControlHistoryService)
             collectChange(changedFields, previousValues, newValues, "SoQM Team",
                     existingAssignment.getSoqmLead(), mergedAssignment.getSoqmLead());
             collectChange(changedFields, previousValues, newValues, "Process Owner",
