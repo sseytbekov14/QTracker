@@ -4,6 +4,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.enums.AccessRight;
 import com.kpmg.qtracker.enums.AccessScope;
+import com.kpmg.qtracker.enums.ControlFrequency;
 import com.kpmg.qtracker.enums.UserRole;
 import com.kpmg.qtracker.enums.Visibility;
 
@@ -35,8 +36,8 @@ import java.util.Set;
  *   <li>Shared With only views (spec 5.6): no edit, upload or workflow step, also on completed controls.</li>
  *   <li>A completed control is locked for everyone but SoQM Team ({@link #isLocked}), who change it in place with a
  *   reason ({@link #editsAfterCompletion}, business decision of 2026-10-09) or return it to an earlier status
- *   (business decision 4); its schedule stays ({@link #COMPLETED_FIXED_FIELDS}). Renaming its
- *   Control ID stays SoQM's.</li>
+ *   (business decision 4); its deadline and next date are always calculated ({@link #COMPLETED_FIXED_FIELDS}).
+ *   Renaming its Control ID stays SoQM's.</li>
  * </ul>
  */
 public final class AccessPolicy {
@@ -487,12 +488,14 @@ public final class AccessPolicy {
     }
 
     /**
-     * SoQM Team changing a completed control in place, without returning it (business decision of 2026-10-09):
-     * every field of its tabs, Control Operator's Program, Control Steps Performed and Results, the attachments
-     * (upload, and a delete that only hides the file, see FileAttachmentController) and the people, Shared With
-     * included - not {@link #COMPLETED_FIXED_FIELDS}. The status, the completion and its date, reopened_at, "Closed
-     * late", the auto-creation of the next cycle and Overdue stay as they are; every change needs a reason and is
-     * marked "Edited after completion" ({@link CompletedEdit}).
+     * SoQM Admin Team changing a completed control in place, without returning it (business decisions of 2026-10-09
+     * and 2026-10-14): every field of every tab - Control Status, SoQM Year, the Control Operation Date and the
+     * frequency included -, Control Operator's Program, Control Steps Performed and Results, the attachments (upload,
+     * and a delete that only hides the file, see FileAttachmentController) and the people, Shared With included; not
+     * {@link #COMPLETED_FIXED_FIELDS}, which are calculated. Every change needs a reason, is audited before and after
+     * and marked "Edited after completion" ({@link CompletedEdit}); nobody is notified
+     * ({@link #notifiesOnCompletedEdit}). The workflow status, the completion and its date and reopened_at stay as
+     * they are; "Closed late" follows the recalculated deadline.
      */
     public static boolean editsAfterCompletion(Subject subject, ControlFacts control) {
         return isCompleted(control) && isSoqm(subject) && !isLocked(subject, control);
@@ -502,24 +505,35 @@ public final class AccessPolicy {
             "This control is completed and locked: only SoQM Admin Team can change it";
 
     /**
-     * What a completed control keeps for everyone, SoQM Admin Team changing it in place included: its schedule (the
-     * Control Operation Date, the frequency, the deadline and the next date, which the auto-creation of the next
-     * cycle and "Closed late" follow). The Control ID changes only through Rename ID ({@link #canRenameId}) and the
-     * workflow status only through a workflow move ({@link #soqmTargets}). The save paths refuse a change of one of
-     * these ({@link #completedFixedMessage}) and keep the stored value when the same one is sent; the deadline and the
-     * next date are never taken from a request.
-     * The SoQM Year and the Control Status are not fixed (business decision of 2026-10-13): SoQM Admin Team changes
-     * them like any other field of a completed control ({@link #editsAfterCompletion}), with a reason; a new SoQM
-     * Year moves no date and makes no cycle.
-     * TODO: BUSINESS CONFIRMATION: may the dates and the frequency of a completed control change?
+     * What nobody changes on a completed control, SoQM Admin Team included (business decision of 2026-10-14): the
+     * deadline and the next date. They are read only on the page and never taken from a request; the server
+     * calculates them from the Control Operation Date and the frequency by the usual rules
+     * (ControlScheduleCalculator) whenever one of those two changes, on a completed control as on any other, and
+     * "Closed late" follows the new deadline. Such a change makes no new control and sends no e-mail by itself
+     * (TODO: BUSINESS CONFIRMATION); the daily auto-creation later follows the new next date as for every control.
+     * The Control ID changes only through Rename ID ({@link #canRenameId}) and the workflow status only through a
+     * workflow move ({@link #soqmTargets}).
      */
     public static final List<String> COMPLETED_FIXED_FIELDS = List.of(
-            "Control Operation Date", "Control Frequency", "Control Operation Deadline",
-            "Next Control Operation Date");
+            "Control Operation Deadline", "Next Control Operation Date");
 
-    /** Why a save may not change one of {@link #COMPLETED_FIXED_FIELDS}. */
-    public static String completedFixedMessage(String field) {
-        return field + " cannot be changed on a completed control";
+    /**
+     * Whether saving a completed control in place tells anyone, a person newly in Shared With included: no
+     * (business decision of 2026-10-14). The Changelog and the audit trail record the change.
+     */
+    public static boolean notifiesOnCompletedEdit() {
+        return false;
+    }
+
+    /**
+     * Whether a control of this frequency offers the Create Control button for its next cycle (business decision of
+     * 2026-10-14; the button comes later): Monthly and Quarterly only, so the button goes when the frequency stops
+     * being one of them, a completed control included. A frequency the application does not know offers none.
+     */
+    public static boolean frequencyOffersCreateControl(String frequency) {
+        return ControlFrequency.tryFromValue(frequency)
+                .map(value -> value == ControlFrequency.MONTHLY || value == ControlFrequency.QUARTERLY)
+                .orElse(false);
     }
 
     /** Everything the user may do on the control. */

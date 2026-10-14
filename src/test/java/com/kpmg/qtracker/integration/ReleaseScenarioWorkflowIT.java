@@ -322,14 +322,15 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
     // ---- C5: completed control edited by SoQM Team ----
 
     @Test
-    void completedControl_soqmEditsWithAReason_fixedFieldsStay_everyoneElseIsRefused() throws Exception {
+    void completedControl_soqmEditsEveryFieldWithAReason_scheduleRecalculated_everyoneElseIsRefused() throws Exception {
         User soqm = soqm("ce-soqm");
         User fac = myEdit("ce-fac");
         User op = myEdit("ce-op");
         User po = myEdit("ce-po");
         User kdnUser = kdn("ce-kdn");
         Chain chain = new Chain(soqm, fac, op, po);
-        Control control = control("RS-CE", "COMPLETED", chain.people().shared(kdnUser));
+        // A KDN control, so the KDN user may be in its Shared With (and every save of its people is valid)
+        Control control = control("KDN-RS-CE", "COMPLETED", chain.people().shared(kdnUser));
         completedOn(control, po, LocalDateTime.now().minusDays(1));
 
         assertThat(chain.statusJson(soqm, put("/api/controls/{id}", control.getId()),
@@ -337,11 +338,11 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
         assertThat(chain.statusJson(soqm, put("/api/controls/{id}", control.getId()),
                 "{\"controlDescription\":\"Corrected\",\"editReason\":\"Typo\"}")).isEqualTo(200);
         assertThat(chain.statusJson(soqm, put("/api/controls/{id}", control.getId()),
-                "{\"controlFrequency\":\"Quarterly\",\"editReason\":\"Wrong frequency\"}")).isEqualTo(403);
+                "{\"controlFrequency\":\"Quarterly\",\"editReason\":\"Wrong frequency\"}")).isEqualTo(200);
         assertThat(chain.statusJson(soqm, post("/api/control-assignment"),
                 "{\"controlId\":" + control.getId() + ",\"controlOperationDate\":\"" + today().plusDays(40)
-                        + "\",\"editReason\":\"Move it\"}")).isEqualTo(403);
-        for (User user : List.of(fac, op, po)) {
+                        + "\",\"editReason\":\"Move it\"}")).isEqualTo(200);
+        for (User user : List.of(fac, op, po, kdnUser)) {
             assertThat(chain.statusJson(user, put("/api/controls/{id}", control.getId()),
                     "{\"controlDescription\":\"By " + user.getDisplayName() + "\",\"editReason\":\"x\"}"))
                     .as(user.getMail()).isEqualTo(403);
@@ -350,8 +351,15 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
         }
         Control after = reload(control);
         assertThat(after.getControlDescription()).isEqualTo("Corrected");
-        assertThat(after.getControlFrequency()).isEqualTo("Monthly");
+        // The deadline and the next date follow the new date and frequency (decision of 2026-10-14)
+        assertThat(after.getControlFrequency()).isEqualTo("Quarterly");
         assertThat(after.getPerformanceStatus()).isEqualTo("COMPLETED");
+        com.kpmg.qtracker.entity.ControlAssignment schedule =
+                assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assertThat(schedule.getControlOperationDate()).isEqualTo(today().plusDays(40));
+        assertThat(schedule.getControlOperationDeadline())
+                .isEqualTo(com.kpmg.qtracker.service.ControlScheduleCalculator.DEADLINE.from(today().plusDays(40)));
+        assertThat(schedule.getNextControlOperationDate()).isEqualTo(today().plusDays(40).plusMonths(3));
         assertThat(body(call(chain.session(soqm), get("/api/controls/{id}/changelog", control.getId()))))
                 .contains("\"editedAfterCompletion\":true").contains("\"reason\":\"Typo\"");
     }

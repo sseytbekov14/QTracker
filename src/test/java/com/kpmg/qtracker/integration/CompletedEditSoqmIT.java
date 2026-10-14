@@ -22,6 +22,7 @@ import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.CompletedEdit;
+import com.kpmg.qtracker.service.ControlScheduleCalculator;
 import com.kpmg.qtracker.service.DeadlineOverdue;
 import com.kpmg.qtracker.service.FileStorageService;
 import com.kpmg.qtracker.service.SoqmYear;
@@ -57,13 +58,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 /**
- * Business decision of 2026-10-09: SoQM Team changes a completed control in place, without returning it - every
- * field of its tabs, Control Operator's Program, Control Steps Performed and Results, the attachments (a delete
- * only hides the file) and the people, Shared With included - with a reason each time. The status, the
- * completion, reopened_at, "Closed late", Overdue, the schedule (and with it the auto-creation of the next cycle),
- * the SoQM Year and the Control Status stay as they were; the Changelog and the audit trail show the author, the
- * values before and after, the reason and "Edited after completion". Everyone else is refused (ReopenCompletedIT,
- * RoleMatrixIT).
+ * Business decisions of 2026-10-09 and 2026-10-14: SoQM Admin Team changes a completed control in place, without
+ * returning it - every field of its tabs (Control Status, SoQM Year, the Control Operation Date and the frequency
+ * included), Control Operator's Program, Control Steps Performed and Results, the attachments (a delete only hides the
+ * file) and the people, Shared With included - with a reason each time, telling nobody. The deadline and the next
+ * date are calculated, never sent; "Closed late" follows the deadline. The workflow status, the completion and
+ * reopened_at stay as they were; the Changelog and the audit trail show the author, the values before and after, the
+ * reason and "Edited after completion". Everyone else is refused (ReopenCompletedIT, RoleMatrixIT).
  */
 @SpringBootTest(properties = "file.upload.dir=target/it-uploads-completed-edit")
 @AutoConfigureMockMvc
@@ -193,10 +194,8 @@ class CompletedEditSoqmIT {
         assertThat(rowAfter.closedLate()).isTrue();
         assertThat(rowAfter.overdue()).isFalse();
         assertThat(rowAfter.status()).isEqualTo("COMPLETED");
-        // Nobody is told of the change (TODO: BUSINESS CONFIRMATION); a person newly in Shared With hears of
-        // the share, as on any control
-        assertThat(notices(control)).extracting(Notification::getType).containsOnly("CONTROL_SHARED");
-        assertThat(notices(control)).extracting(Notification::getUserId).containsOnly(newShared.getId());
+        // Nobody is told of the change, not even the person newly in Shared With (decision of 2026-10-14)
+        assertThat(notices(control)).isEmpty();
 
         // The Changelog: author, the values before and after, the reason and the mark, for every save
         JsonNode changelog = json(as(soqm, get("/api/controls/{id}/changelog", control.getId())));
@@ -228,37 +227,155 @@ class CompletedEditSoqmIT {
                 && entry.getPreviousValues() != null && entry.getNewValues().contains("\"Reason\":"));
     }
 
+    /**
+     * Business decision of 2026-10-14: another Control Operation Date or frequency recalculates the deadline and the
+     * next date by the usual rules, and "Closed late" with them; the control stays completed, no control is created,
+     * nobody is notified. A deadline or next date sent is ignored.
+     */
     @Test
-    void theSchedule_isRefused_orIgnoredWhenSentUnchanged() throws Exception {
+    void theOperationDateAndTheFrequency_change_theScheduleIsRecalculated_closedLateFollows_nothingElseHappens()
+            throws Exception {
+        // Completed yesterday, three days before its deadline: not Closed late
         Control control = completedControl(today.plusDays(3), today.minusDays(1));
-        ControlAssignment before = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assertThat(controlsRow(control).closedLate()).isFalse();
+        long controlsBefore = controlRepository.count();
+        LocalDate earlier = today.minusDays(40);
+        LocalDate earlierDeadline = ControlScheduleCalculator.DEADLINE.from(earlier);
 
+        // Without a reason: refused, nothing changes
         expect(as(soqm, post("/api/control-assignment"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlId\":" + control.getId() + ",\"controlOperationDate\":\""
-                        + before.getControlOperationDate().plusDays(1) + "\",\"editReason\":\"Wrong date\"}"),
-                403, AccessPolicy.completedFixedMessage("Control Operation Date"));
+                .content("{\"controlId\":" + control.getId() + ",\"controlOperationDate\":\"" + earlier + "\"}"),
+                400, CompletedEdit.REASON_REQUIRED);
         expect(as(soqm, put("/api/controls/{id}", control.getId()))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlFrequency\":\"Quarterly\",\"editReason\":\"Wrong frequency\"}"),
-                403, AccessPolicy.completedFixedMessage("Control Frequency"));
+                .content("{\"controlFrequency\":\"Quarterly\"}"), 400, CompletedEdit.REASON_REQUIRED);
+        assertThat(assignmentRepository.findByControlId(control.getId()).orElseThrow().getControlOperationDate())
+                .isEqualTo(today.plusDays(3).minusDays(14));
 
-        // Only the deadline and the next date sent: nothing to save, nothing changes
+        // An earlier Control Operation Date: its deadline is now before the completion, so Closed late
         ok(as(soqm, post("/api/control-assignment"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlId\":" + control.getId()
+                .content("{\"controlId\":" + control.getId() + ",\"controlOperationDate\":\"" + earlier + "\""
                         + ",\"controlOperationDeadline\":\"" + today.plusYears(1) + "\""
-                        + ",\"nextControlOperationDate\":\"" + today.plusYears(2) + "\"}"));
+                        + ",\"nextControlOperationDate\":\"" + today.plusYears(2) + "\""
+                        + ",\"editReason\":\"Operated earlier\"}"));
+        ControlAssignment afterDate = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assertThat(afterDate.getControlOperationDate()).isEqualTo(earlier);
+        assertThat(afterDate.getControlOperationDeadline()).isEqualTo(earlierDeadline);
+        assertThat(afterDate.getNextControlOperationDate()).isEqualTo(earlier.plusMonths(1));
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getDeadline()).isEqualTo(earlierDeadline);
+        com.kpmg.qtracker.service.ComponentControlsList.Row late = controlsRow(control);
+        assertThat(late.closedLate()).isTrue();
+        assertThat(late.overdue()).isFalse();
+        assertThat(late.status()).isEqualTo("COMPLETED");
 
+        // Quarterly: the next date moves three months on, the deadline stays (the same rule for every frequency)
+        ok(as(soqm, put("/api/controls/{id}", control.getId()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlFrequency\":\"Quarterly\",\"editReason\":\"Operated quarterly\"}"));
+        ControlAssignment afterFrequency = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assertThat(afterFrequency.getControlOperationDeadline()).isEqualTo(earlierDeadline);
+        assertThat(afterFrequency.getNextControlOperationDate()).isEqualTo(earlier.plusMonths(3));
+        assertThat(AccessPolicy.frequencyOffersCreateControl("Quarterly")).isTrue();
+
+        // Ad-hoc: no next date, and no Create Control button any more
+        ok(as(soqm, put("/api/controls/{id}", control.getId()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlFrequency\":\"Ad-hoc\",\"editReason\":\"One-off control\"}"));
+        Control adHoc = controlRepository.findById(control.getId()).orElseThrow();
+        assertThat(assignmentRepository.findByControlId(control.getId()).orElseThrow().getNextControlOperationDate())
+                .isNull();
+        assertThat(AccessPolicy.frequencyOffersCreateControl(adHoc.getControlFrequency())).isFalse();
+
+        // A later date again: the deadline after the completion, no longer Closed late
+        ok(as(soqm, post("/api/control-assignment"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlId\":" + control.getId() + ",\"controlOperationDate\":\"" + today.minusDays(2) + "\""
+                        + ",\"editReason\":\"Back to the real day\"}"));
+        assertThat(controlsRow(control).closedLate()).isFalse();
+
+        // Still completed, the completion untouched; no control made, nobody told
         Control saved = controlRepository.findById(control.getId()).orElseThrow();
-        assertThat(saved.getControlFrequency()).isEqualTo("Monthly");
-        assertThat(saved.getSoqmYear()).isEqualTo(control.getSoqmYear());
-        assertThat(saved.getControlStatus()).isEqualTo("ACTIVE");
-        assertThat(saved.getDeadline()).isEqualTo(control.getDeadline());
+        assertThat(saved.getPerformanceStatus()).isEqualTo("COMPLETED");
+        assertThat(saved.getReopenedAt()).isNull();
+        assertThat(historyRepository.findByControlIdOrderByCreatedAtDesc(control.getId())).hasSize(1);
+        assertThat(controlRepository.count()).isEqualTo(controlsBefore);
+        assertThat(notices(control)).isEmpty();
+
+        // The audit: every save marked, with the reason and the schedule before and after
+        List<AdminAuditLog> audit = auditRepository.findByControlIdOrderByCreatedAtDesc(control.getId());
+        assertThat(audit).hasSize(4).allMatch(entry -> CompletedEdit.isMarked(entry.getActionDescription()));
+        AdminAuditLog dateEntry = audit.stream().filter(entry -> entry.getNewValues().contains("Operated earlier"))
+                .findFirst().orElseThrow();
+        assertThat(dateEntry.getChangedFields()).contains("Control Operation Date", "Control Operation Deadline",
+                "Next Control Operation Date");
+        assertThat(dateEntry.getPreviousValues()).contains(today.plusDays(3).minusDays(14).toString(),
+                today.plusDays(3).toString());
+        assertThat(dateEntry.getNewValues()).contains(earlier.toString(), earlierDeadline.toString(),
+                earlier.plusMonths(1).toString()).doesNotContain(today.plusYears(1).toString());
+        AdminAuditLog frequencyEntry = audit.stream().filter(entry -> entry.getNewValues().contains("Operated quarterly"))
+                .findFirst().orElseThrow();
+        assertThat(frequencyEntry.getChangedFields()).contains("control_frequency", "Next Control Operation Date")
+                .doesNotContain("\"deadline\"");
+        assertThat(frequencyEntry.getPreviousValues()).contains("Monthly", earlier.plusMonths(1).toString());
+        assertThat(frequencyEntry.getNewValues()).contains("Quarterly", earlier.plusMonths(3).toString());
+        // The Changelog shows them marked, with the reasons
+        JsonNode changelog = json(as(soqm, get("/api/controls/{id}/changelog", control.getId())));
+        List<String> reasons = new ArrayList<>();
+        changelog.forEach(entry -> {
+            if (entry.path("editedAfterCompletion").asBoolean()) {
+                reasons.add(entry.path("reason").asText());
+            }
+        });
+        assertThat(reasons).containsExactlyInAnyOrder("Operated earlier", "Operated quarterly", "One-off control",
+                "Back to the real day");
+
+        // Rename ID works as before
+        ok(as(soqm, post("/api/controls/{id}/rename-id", control.getId()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"newControlId\":\"" + control.getControlId() + "-R\"}"));
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getControlId())
+                .isEqualTo(control.getControlId() + "-R");
+    }
+
+    /** Everyone but SoQM Admin Team: 403 for every field of a completed control, the schedule included. */
+    @Test
+    void everyoneElse_isRefusedEveryField_403() throws Exception {
+        Control control = completedControl(today.plusDays(3), today.minusDays(1));
+        User readOnly = userRepository.save(TestUsers.user("ce-ro2-" + UUID.randomUUID().toString().substring(0, 8)
+                + "@example.test", com.kpmg.qtracker.enums.AccessLevel.READ_ONLY, com.kpmg.qtracker.enums.AccessScope.ALL, false));
+        User allEdit = userRepository.save(TestUsers.user("ce-all-" + UUID.randomUUID().toString().substring(0, 8)
+                + "@example.test", com.kpmg.qtracker.enums.AccessLevel.PARTICIPANT, com.kpmg.qtracker.enums.AccessScope.ALL, false));
+        users.add(readOnly);
+        users.add(allEdit);
+        List<MockHttpServletRequestBuilder> writes = List.of(
+                put("/api/controls/{id}", control.getId()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlFrequency\":\"Quarterly\",\"editReason\":\"Why\"}"),
+                put("/api/controls/{id}", control.getId()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlDescription\":\"Changed\",\"editReason\":\"Why\"}"),
+                post("/api/control-assignment").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId() + ",\"controlOperationDate\":\""
+                                + today.minusDays(20) + "\",\"editReason\":\"Why\"}"),
+                post("/api/control-assignment").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId() + ",\"controlSharedWith\":[\""
+                                + newShared.getMail() + "\"],\"editReason\":\"Why\"}"),
+                post("/api/control-details").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId() + ",\"controlStepsPerformed\":\"Changed\","
+                                + "\"editReason\":\"Why\"}"),
+                multipart("/api/attachments/upload/{id}", control.getId())
+                        .file(new MockMultipartFile("attachmentDetails", "late.pdf", "application/pdf",
+                                "%PDF-1.4 late".getBytes(StandardCharsets.UTF_8))).param("editReason", "Why"));
+        for (User other : List.of(facilitator, operator, owner, shared, readOnly, allEdit)) {
+            for (MockHttpServletRequestBuilder write : writes) {
+                MvcResult result = perform(as(other, write));
+                assertThat(result.getResponse().getStatus()).as(other.getMail() + " " + result.getRequest().getRequestURI()
+                        + " " + result.getResponse().getContentAsString()).isEqualTo(403);
+            }
+        }
         ControlAssignment after = assignmentRepository.findByControlId(control.getId()).orElseThrow();
-        assertThat(after.getControlOperationDate()).isEqualTo(before.getControlOperationDate());
-        assertThat(after.getControlOperationDeadline()).isEqualTo(before.getControlOperationDeadline());
-        assertThat(after.getNextControlOperationDate()).isEqualTo(before.getNextControlOperationDate());
+        assertThat(after.getControlOperationDate()).isEqualTo(today.plusDays(3).minusDays(14));
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getControlFrequency()).isEqualTo("Monthly");
         assertThat(auditRepository.findByControlIdOrderByCreatedAtDesc(control.getId())).isEmpty();
     }
 
@@ -457,11 +574,12 @@ class CompletedEditSoqmIT {
         String soqmPage = page(soqm, control);
         assertThat(soqmPage).contains("id=\"completedEditBanner\"", "Your changes are recorded with a reason",
                 "Edit (completed control)", "id=\"completedEditReasonModal\"", "id=\"completedEditReason\"",
-                "for=\"completedEditReason\"", "id=\"controlFrequencyFixedHint\"", "id=\"soqmYearCompletedHint\"",
-                "id=\"scheduleFixedHint\"", "data-completed-fixed=\"scheduleFixedHint\"",
-                "id=\"completedEdit\" value=\"true\"", "Status and the SoQM Year can change")
-                .doesNotContain("id=\"accessBanner\"", "id=\"controlStatusFixedHint\"", "id=\"soqmYearFixedHint\"",
-                        "data-completed-fixed=\"controlStatusFixedHint\"", "data-completed-fixed=\"soqmYearFixedHint\"");
+                "for=\"completedEditReason\"", "id=\"controlFrequencyCompletedHint\"", "id=\"soqmYearCompletedHint\"",
+                "id=\"scheduleCompletedHint\"", "aria-describedby=\"controlOperationDateFeedback scheduleCompletedHint\"",
+                "aria-describedby=\"controlFrequencyCompletedHint\"",
+                "id=\"completedEdit\" value=\"true\"", "Every field can", "Nobody is notified")
+                .doesNotContain("id=\"accessBanner\"", "data-completed-fixed", "id=\"scheduleFixedHint\"",
+                        "id=\"controlFrequencyFixedHint\"");
 
         for (User reader : List.of(readOnly, owner, shared)) {
             String page = page(reader, control);
@@ -469,7 +587,7 @@ class CompletedEditSoqmIT {
                     .contains("id=\"accessBanner\"", "data-notice=\"COMPLETED\"", "This control is completed and locked",
                             "Only SoQM Admin Team can change it.")
                     .doesNotContain("id=\"editBtn\"", "id=\"completedEditBanner\"", "id=\"completedEditReasonModal\"",
-                            "id=\"workflow-buttons-container\"", "id=\"scheduleFixedHint\"");
+                            "id=\"workflow-buttons-container\"", "id=\"scheduleCompletedHint\"");
         }
     }
 

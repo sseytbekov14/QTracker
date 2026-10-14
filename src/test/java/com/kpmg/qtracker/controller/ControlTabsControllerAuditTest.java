@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -165,7 +164,7 @@ class ControlTabsControllerAuditTest {
         when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(existingAssignment)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(),
                         true, true, false, false, false, true, false));
-        when(controlAssignmentService.saveAssignment(any(), anyBoolean())).thenReturn(new ControlAssignment());
+        when(controlAssignmentService.saveAssignment(any())).thenReturn(new ControlAssignment());
 
         mockMvc.perform(post("/api/control-assignment")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -216,7 +215,7 @@ class ControlTabsControllerAuditTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("VALIDATION_ERROR: Process Owner is required"));
 
-        verify(controlAssignmentService, never()).saveAssignment(any(), anyBoolean());
+        verify(controlAssignmentService, never()).saveAssignment(any());
     }
 
     @Test
@@ -266,7 +265,7 @@ class ControlTabsControllerAuditTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(expectedBody));
 
-        verify(controlAssignmentService, never()).saveAssignment(any(), anyBoolean());
+        verify(controlAssignmentService, never()).saveAssignment(any());
     }
 
     // ------------------------------------------------------------------ a completed control changed in place
@@ -342,7 +341,7 @@ class ControlTabsControllerAuditTest {
     }
 
     @Test
-    void completedControl_anotherOperationDate_isRefused_andNothingIsSaved() throws Exception {
+    void completedControl_anotherOperationDate_isSaved_withAReason_andNobodyIsNotified() throws Exception {
         User sessionUser = new User();
         sessionUser.setMail("soqm@kpmg.com");
         TestUsers.withRole(sessionUser, "SOQM_TEAM");
@@ -351,36 +350,61 @@ class ControlTabsControllerAuditTest {
         control.setPerformanceStatus("COMPLETED");
         control.setControlFrequency("Monthly");
         completedAssignment(7L, control, sessionUser);
+        ControlAssignment saved = new ControlAssignment();
+        saved.setControlOperationDate(java.time.LocalDate.of(2026, 3, 2));
+        saved.setControlOperationDeadline(java.time.LocalDate.of(2026, 3, 16));
+        saved.setNextControlOperationDate(java.time.LocalDate.of(2026, 4, 2));
+        when(controlAssignmentService.saveAssignment(any())).thenReturn(saved);
 
         ControlAssignmentDTO request = new ControlAssignmentDTO();
         request.setControlId(7L);
-        request.setControlOperationDate(java.time.LocalDate.of(2026, 3, 1));
+        request.setControlOperationDate(java.time.LocalDate.of(2026, 3, 2));
+        request.setControlSharedWith(List.of("newcomer@kpmg.com"));
 
+        // Without a reason: refused, nothing saved
         mockMvc.perform(post("/api/control-assignment")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                         .sessionAttr("currentUser", sessionUser))
-                .andExpect(status().isForbidden())
-                .andExpect(content().string("VALIDATION_ERROR: Control Operation Date cannot be changed on a completed control"));
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("VALIDATION_ERROR: Give a reason for changing a completed control"));
+        verify(controlAssignmentService, never()).saveAssignment(any());
 
-        verify(controlAssignmentService, never()).saveAssignment(any(), anyBoolean());
+        mockMvc.perform(post("/api/control-assignment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(withReason(request, "Operated on another day"))
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isOk());
+
+        verify(controlAssignmentService).saveAssignment(any());
+        // Not even the person newly in Shared With hears of it (AccessPolicy.notifiesOnCompletedEdit)
+        verify(notificationService, never()).sendSharedWithNotification(any(), any(), any());
+        // The audit: the date, the recalculated deadline and next date, before and after, and the reason
+        verify(adminAuditService).logActionWithChanges(eq("soqm@kpmg.com"), any(), eq("EDIT"), eq(control),
+                eq("Edit Control - Edited after completion"),
+                eq("[\"Control Shared With\",\"Control Operation Date\",\"Control Operation Deadline\","
+                        + "\"Next Control Operation Date\",\"Reason\"]"),
+                eq("{\"Control Shared With\":\"\",\"Control Operation Date\":\"2026-01-15\","
+                        + "\"Control Operation Deadline\":\"2026-01-29\",\"Next Control Operation Date\":\"2026-02-15\"}"),
+                eq("{\"Control Shared With\":\"newcomer@kpmg.com\",\"Control Operation Date\":\"2026-03-02\","
+                        + "\"Control Operation Deadline\":\"2026-03-16\",\"Next Control Operation Date\":\"2026-04-02\","
+                        + "\"Reason\":\"Operated on another day\"}"));
     }
 
     @Test
-    void completedControl_peopleChange_keepsTheSchedule_whateverDatesAreSent() throws Exception {
+    void completedControl_theDeadlineAndTheNextDate_areNeverTakenFromTheRequest() throws Exception {
         User sessionUser = new User();
         sessionUser.setMail("soqm@kpmg.com");
         TestUsers.withRole(sessionUser, "SOQM_TEAM");
         Control control = new Control();
         control.setId(8L);
         control.setPerformanceStatus("COMPLETED");
-        // A frequency the schedule cannot be calculated from: no matter, nothing is calculated
-        control.setControlFrequency("Bi-weekly");
+        control.setControlFrequency("Monthly");
         completedAssignment(8L, control, sessionUser);
         ControlAssignment saved = new ControlAssignment();
         saved.setControlOperationDeadline(java.time.LocalDate.of(2026, 1, 29));
         saved.setNextControlOperationDate(java.time.LocalDate.of(2026, 2, 15));
-        when(controlAssignmentService.saveAssignment(any(), eq(true))).thenReturn(saved);
+        when(controlAssignmentService.saveAssignment(any())).thenReturn(saved);
 
         ControlAssignmentDTO request = new ControlAssignmentDTO();
         request.setControlId(8L);
@@ -396,7 +420,7 @@ class ControlTabsControllerAuditTest {
                 .andExpect(status().isOk());
 
         org.mockito.ArgumentCaptor<ControlAssignmentDTO> sent = org.mockito.ArgumentCaptor.forClass(ControlAssignmentDTO.class);
-        verify(controlAssignmentService).saveAssignment(sent.capture(), eq(true));
+        verify(controlAssignmentService).saveAssignment(sent.capture());
         org.assertj.core.api.Assertions.assertThat(sent.getValue().getProcessOwner()).containsExactly("po2@kpmg.com");
         org.assertj.core.api.Assertions.assertThat(sent.getValue().getControlOperationDeadline()).isNull();
         org.assertj.core.api.Assertions.assertThat(sent.getValue().getNextControlOperationDate()).isNull();

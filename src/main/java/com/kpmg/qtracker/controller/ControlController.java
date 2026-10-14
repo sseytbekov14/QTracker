@@ -340,16 +340,6 @@ public class ControlController {
                 requestedSoqmYear = null;
             }
             controlDTO.setSoqmYear(requestedSoqmYear);
-            // A completed control changed in place keeps its frequency (AccessPolicy.COMPLETED_FIXED_FIELDS): a change
-            // is refused, the same value sent is not applied. Its SoQM Year and Control Status change with a reason.
-            if (permission.isCompletedEdit()) {
-                String fixedField = findChangedCompletedFixedField(controlDTO, existingControl);
-                if (fixedField != null) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: " + AccessPolicy.completedFixedMessage(fixedField));
-                }
-                controlDTO.setControlFrequency(null);
-            }
             if (requestedSoqmYear != null
                     && !SoqmYear.options(DeadlineOverdue.today(java.time.Instant.now())).contains(requestedSoqmYear)) {
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + SoqmYear.invalidMessage());
@@ -467,9 +457,13 @@ public class ControlController {
             existingControl.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
 
             Control updatedControl = controlService.updateControl(existingControl);
+            // Another frequency recalculates the deadline and the next date by the usual rules, a completed control's
+            // too (AccessPolicy.COMPLETED_FIXED_FIELDS); the audit shows both before and after
+            ControlAssignmentDTO recalculated = null;
             if (canonicalFrequency != null
                     && !Objects.equals(normalizeValue(previousFrequency), normalizeValue(canonicalFrequency))) {
                 controlAssignmentService.recalculateSchedule(updatedControl.getId());
+                recalculated = controlAssignmentService.getAssignmentByControlId(updatedControl.getId());
             }
             ControlAuditChangeService.ControlAuditChangeSet auditChangeSet =
                     controlAuditChangeService.diff(originalSnapshot, updatedControl);
@@ -477,7 +471,11 @@ public class ControlController {
                 try {
                     ObjectMapper mapper = new ObjectMapper();
                     List<String> changedFields = new ArrayList<>(auditChangeSet.getChangedFields());
+                    Map<String, String> previousValues = new LinkedHashMap<>(auditChangeSet.getPreviousValues());
                     Map<String, String> newValues = new LinkedHashMap<>(auditChangeSet.getNewValues());
+                    if (recalculated != null) {
+                        addScheduleChanges(assignment, recalculated, changedFields, previousValues, newValues);
+                    }
                     String description = "Edit Control";
                     if (completedEditReason != null) {
                         description = CompletedEdit.describe(description);
@@ -490,7 +488,7 @@ public class ControlController {
                             updatedControl,
                             description,
                             mapper.writeValueAsString(changedFields),
-                            mapper.writeValueAsString(auditChangeSet.getPreviousValues()),
+                            mapper.writeValueAsString(previousValues),
                             mapper.writeValueAsString(newValues)
                     );
                 } catch (Exception e) {
@@ -714,19 +712,26 @@ public class ControlController {
     }
 
     /**
-     * The first field of a completed control that stays as it is (AccessPolicy.COMPLETED_FIXED_FIELDS) whose sent
-     * value differs from the stored one, or null. A frequency counts as the same in another spelling of it.
+     * The deadline and the next date a new frequency recalculated, as the Assignment tab names them, instead of the
+     * control's own copy of the deadline ("deadline"), so the audit and the Changelog show each once.
      */
-    private String findChangedCompletedFixedField(ControlDTO dto, Control existing) {
-        String sentFrequency = dto.getControlFrequency();
-        if (sentFrequency != null && !sentFrequency.isBlank()
-                && !normalizeValue(sentFrequency).equalsIgnoreCase(normalizeValue(existing.getControlFrequency()))) {
-            String canonical = canonicalizeFrequency(sentFrequency);
-            if (canonical == null || !canonical.equals(canonicalizeFrequency(existing.getControlFrequency()))) {
-                return "Control Frequency";
+    private static void addScheduleChanges(ControlAssignmentDTO before, ControlAssignmentDTO after,
+                                           List<String> changedFields, Map<String, String> previousValues,
+                                           Map<String, String> newValues) {
+        changedFields.remove("deadline");
+        previousValues.remove("deadline");
+        newValues.remove("deadline");
+        java.time.LocalDate[][] dates = {
+                {before != null ? before.getControlOperationDeadline() : null, after.getControlOperationDeadline()},
+                {before != null ? before.getNextControlOperationDate() : null, after.getNextControlOperationDate()}};
+        String[] labels = {"Control Operation Deadline", "Next Control Operation Date"};
+        for (int i = 0; i < labels.length; i++) {
+            if (!Objects.equals(dates[i][0], dates[i][1])) {
+                changedFields.add(labels[i]);
+                previousValues.put(labels[i], dates[i][0] != null ? dates[i][0].toString() : null);
+                newValues.put(labels[i], dates[i][1] != null ? dates[i][1].toString() : null);
             }
         }
-        return null;
     }
 
     private String canonicalizeFrequency(String raw) {

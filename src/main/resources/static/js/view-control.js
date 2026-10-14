@@ -1614,7 +1614,6 @@ function saveControlData(controlId) {
         if (editBtn) editBtn.classList.add('d-none');
 
         makeAllFormsEditable();
-        lockCompletedFixedFields();
         // Control Shared With: SoQM Team adds and removes people
         if (typeof SharedWithField !== 'undefined') {
             SharedWithField.setEditing(fullEditEnabled);
@@ -1819,7 +1818,12 @@ function renameControlId(newControlId, comment) {
 
         const deadlineIso = formatDateForApi(document.querySelector('input[name="controlOperationDeadline"]')?.value || '');
         let message = `${formatDateDisplay(isoValue)} is before today.`;
-        if (deadlineIso && deadlineIso < toIsoDate(new Date())) {
+        if (window.qtrackerPermissions && window.qtrackerPermissions.completedEdit) {
+            // A completed control is never overdue: it stays completed, "Closed late" follows the new deadline
+            if (deadlineIso) {
+                message += ` The deadline will be ${formatDateDisplay(deadlineIso)}; the control stays completed.`;
+            }
+        } else if (deadlineIso && deadlineIso < toIsoDate(new Date())) {
             message += ` Its deadline, ${formatDateDisplay(deadlineIso)}, has passed too, so the control will be overdue as soon as it is saved.`;
         } else if (deadlineIso) {
             message += ` The deadline will be ${formatDateDisplay(deadlineIso)}.`;
@@ -2894,27 +2898,6 @@ function saveDetailsData(controlId) {
 
     };
 })();
-
-// A completed control changed in place keeps its schedule, SoQM Year and Control Status
-// (AccessPolicy.COMPLETED_FIXED_FIELDS): in edit mode those fields stay read-only, described by the hint next to them
-function lockCompletedFixedFields() {
-    if (!(window.qtrackerPermissions && window.qtrackerPermissions.completedEdit)) {
-        return;
-    }
-    document.querySelectorAll('[data-completed-fixed]').forEach(field => {
-        field.disabled = true;
-        field.readOnly = true;
-        field.classList.remove('editable-field', 'editable-select');
-        field.classList.add('readonly-field');
-        field.style.pointerEvents = 'none';
-        const hintId = field.getAttribute('data-completed-fixed');
-        const describedBy = (field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
-        if (hintId && document.getElementById(hintId) && !describedBy.includes(hintId)) {
-            describedBy.push(hintId);
-            field.setAttribute('aria-describedby', describedBy.join(' '));
-        }
-    });
-}
 
 // The reason SoQM Team gave for saving a completed control in place; undefined (not sent) for any other save
 function completedEditReasonForSave() {

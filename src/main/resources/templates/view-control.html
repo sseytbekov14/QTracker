@@ -558,9 +558,9 @@
                     <div>
                         <p class="access-banner-title">This control is completed. Your changes are recorded with a reason</p>
                         <p class="access-banner-text">Use Edit (completed control) to change it: it stays Completed, and every save
-                            asks for a reason and shows in the Changelog as &ldquo;Edited after completion&rdquo;. The Control
-                            Status and the SoQM Year can change; the Control Operation Date, the frequency, the deadline and the
-                            next date stay as they are. To rework it in the workflow, use Move / Return.</p>
+                            asks for a reason and shows in the Changelog as &ldquo;Edited after completion&rdquo;. Every field can
+                            change; the deadline and the next date are calculated from the Control Operation Date and the
+                            frequency. Nobody is notified. To rework it in the workflow, use Move / Return.</p>
                     </div>
                 </div>
 
@@ -597,7 +597,7 @@
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field" for="controlFrequency">Control Frequency</label>
                                         <select class="form-control readonly-field" name="controlFrequency" id="controlFrequency" readonly th:data-stored-value="${control.controlFrequency}"
-                                                data-completed-fixed="controlFrequencyFixedHint">
+                                                th:attr="aria-describedby=${completedEdit} ? 'controlFrequencyCompletedHint' : null">
                                             <option value="">Select Frequency</option>
                                             <option value="Monthly" th:selected="${control.controlFrequency == 'Monthly'}">Monthly</option>
                                             <option value="Quarterly" th:selected="${control.controlFrequency == 'Quarterly'}">Quarterly</option>
@@ -607,8 +607,8 @@
                                             <option value="Annual" th:selected="${control.controlFrequency == 'Annual' or control.controlFrequency == 'Annually'}">Annual</option>
                                             <option value="Semi Annual" th:selected="${control.controlFrequency == 'Semi Annual' or control.controlFrequency == 'Semi-annually'}">Semi Annual</option>
                                         </select>
-                                        <div class="completed-fixed-hint" id="controlFrequencyFixedHint" th:if="${completedEdit}">
-                                            <i class="bi bi-lock" aria-hidden="true"></i> Stays as it is on a completed control
+                                        <div class="completed-fixed-hint" id="controlFrequencyCompletedHint" th:if="${completedEdit}">
+                                            <i class="bi bi-info-circle" aria-hidden="true"></i> Another frequency recalculates the deadline and the next date
                                         </div>
                                     </div>
                                     <div class="col-md-3 mb-3">
@@ -1031,8 +1031,8 @@
                                         <label class="form-label required-field" for="controlOperationDate">Control Operation Date</label>
                                         <input type="text" class="form-control" name="controlOperationDate"
                                                id="controlOperationDate" placeholder="dd.mm.yyyy" inputmode="numeric"
-                                               aria-describedby="controlOperationDateFeedback" data-date-picker
-                                               data-completed-fixed="scheduleFixedHint">
+                                               data-date-picker
+                                               th:attr="aria-describedby=${completedEdit} ? 'controlOperationDateFeedback scheduleCompletedHint' : 'controlOperationDateFeedback'">
                                         <div class="invalid-feedback" id="controlOperationDateFeedback">Enter the date as dd.mm.yyyy</div>
                                     </div>
                                     <div class="col-md-4 mb-3">
@@ -1057,9 +1057,10 @@
                                                style="background-color: #f7f8fa; pointer-events: none;">
                                     </div>
                                 </div>
-                                <div class="completed-fixed-hint mb-3" id="scheduleFixedHint" th:if="${completedEdit}">
-                                    <i class="bi bi-lock" aria-hidden="true"></i> The Control Operation Date, the deadline and the next date
-                                    stay as they are on a completed control; changing the people does not move them.
+                                <div class="completed-fixed-hint mb-3" id="scheduleCompletedHint" th:if="${completedEdit}">
+                                    <i class="bi bi-info-circle" aria-hidden="true"></i> The deadline and the next date are always calculated
+                                    from the Control Operation Date and the frequency. Changing them here keeps the control completed,
+                                    marks it Closed late if it was completed after the new deadline, and creates no control and sends no e-mail.
                                 </div>
                             </div>
                         </form>
@@ -1698,7 +1699,7 @@
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=3"></script>
-<script src="/js/view-control.js?v=7.8"></script>
+<script src="/js/view-control.js?v=7.9"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows

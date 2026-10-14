@@ -147,12 +147,12 @@ class RoleMatrixIT {
 
     private static final List<String> CONTROL_OPS = List.of(
             "In component list", "View page", "Program on page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
-            "Edit, no reason", "Fixed field", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Development Materials (removed)", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
+            "Edit, no reason", "Frequency", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Development Materials (removed)", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)", "Performance Cycle");
 
     /** The operations that change a control: none may pass where the page shows a notice. */
     private static final List<String> WRITES = List.of("Save details", "Steps field", "Operator's Program", "Edit control",
-            "Edit, no reason", "Fixed field", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Rename ID", "Rename ±KDN", "Step", "Return",
+            "Edit, no reason", "Frequency", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Rename ID", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review");
 
     /** The working statuses in order; "Move to X" is POST /api/workflow/move, a return when X is earlier. */
@@ -302,8 +302,8 @@ class RoleMatrixIT {
         // A draft someone is only shared with opens once initiated, except for those who see it anyway
         boolean notYet = "DRAFT".equals(status) && shared && !(active && (seesAll || kdnUser));
         boolean writer = active && who.level() != AccessLevel.READ_ONLY;
-        // A completed control: SoQM Admin Team changes it in place with a reason, its schedule fixed (SoQM Year and
-        // Control Status too, decision of 2026-10-13); everyone else only reads it (decision of 2026-10-09).
+        // A completed control: SoQM Admin Team changes every field in place with a reason, the deadline and the next
+        // date calculated (decisions of 2026-10-13 and 2026-10-14); everyone else only reads it (2026-10-09).
         // Renaming is not an edit
         boolean completed = "COMPLETED".equals(status);
         boolean soqmEdits = soqm;
@@ -347,8 +347,9 @@ class RoleMatrixIT {
             case "Edit control", "Assign" -> soqmEdits ? "ok" : "refused";
             // The same change without a reason: refused only on a completed control, where it needs one
             case "Edit, no reason" -> !soqmEdits ? "refused" : completed ? "400" : "ok";
-            // Another frequency (Edit control) or Control Operation Date (Assign): fixed on a completed control
-            case "Fixed field", "Operation Date" -> !soqmEdits ? "refused" : completed ? "403" : "ok";
+            // Another frequency (Edit control) or Control Operation Date (Assign): SoQM Admin Team only, a completed
+            // control too, with a reason; the deadline and the next date follow (decision of 2026-10-14)
+            case "Frequency", "Operation Date" -> soqmEdits ? "ok" : "refused";
             // Control Status (Superseded) and SoQM Year: SoQM Admin Team only, a completed control too (with a reason)
             case "Status / Year" -> soqmEdits ? "ok" : "refused";
             case "Rename ID" -> soqm ? "ok" : "refused";
@@ -448,7 +449,7 @@ class RoleMatrixIT {
         row.put("Edit, no reason", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlDescription\":\"Changed again by " + who.key() + "\"}"), session));
-        row.put("Fixed field", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
+        row.put("Frequency", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlFrequency\":\"Quarterly\"" + REASON + "}"), session));
         row.put("Status / Year", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())

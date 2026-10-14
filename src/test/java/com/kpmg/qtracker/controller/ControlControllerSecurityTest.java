@@ -308,24 +308,49 @@ class ControlControllerSecurityTest {
         verify(controlService, never()).updateControl(any(Control.class));
     }
 
-    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
-    @org.junit.jupiter.params.provider.CsvSource({
-            "Control Frequency, controlFrequency, Quarterly"
-    })
-    void updateControl_completedControlChangedInPlace_refusesAFixedField(String label, String field, String value)
+    @Test
+    void updateControl_completedControlChangedInPlace_anotherFrequency_recalculatesTheSchedule_auditedBeforeAndAfter()
             throws Exception {
         User sessionUser = userWithRole("SOQM_TEAM");
         Control existing = completedForEditInPlace(sessionUser, 202L);
+        when(controlService.updateControl(any(Control.class))).thenAnswer(inv -> inv.getArgument(0));
+        ControlAssignmentDTO before = new ControlAssignmentDTO();
+        before.setControlOperationDate(java.time.LocalDate.of(2026, 1, 15));
+        before.setControlOperationDeadline(java.time.LocalDate.of(2026, 1, 29));
+        before.setNextControlOperationDate(java.time.LocalDate.of(2026, 2, 15));
+        ControlAssignmentDTO after = new ControlAssignmentDTO();
+        after.setControlOperationDate(java.time.LocalDate.of(2026, 1, 15));
+        after.setControlOperationDeadline(java.time.LocalDate.of(2026, 1, 29));
+        after.setNextControlOperationDate(java.time.LocalDate.of(2026, 4, 15));
+        when(controlAssignmentService.getAssignmentByControlId(202L)).thenReturn(before, after);
 
+        // Without a reason: refused, nothing saved
         mockMvc.perform(put("/api/controls/202")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"" + field + "\":\"" + value + "\",\"controlDescription\":\"Changed\"}")
+                        .content("{\"controlFrequency\":\"Quarterly\"}")
                         .sessionAttr("currentUser", sessionUser))
-                .andExpect(status().isForbidden())
-                .andExpect(content().string("VALIDATION_ERROR: " + label + " cannot be changed on a completed control"));
-
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("VALIDATION_ERROR: Give a reason for changing a completed control"));
         verify(controlService, never()).updateControl(any(Control.class));
-        org.assertj.core.api.Assertions.assertThat(existing.getControlDescription()).isNull();
+
+        existing.setControlFrequency("Monthly");
+        when(controlAssignmentService.getAssignmentByControlId(202L)).thenReturn(before, after);
+        mockMvc.perform(put("/api/controls/202")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlFrequency\":\"Quarterly\",\"editReason\":\"Operated quarterly\"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(existing.getControlFrequency()).isEqualTo("Quarterly");
+        org.assertj.core.api.Assertions.assertThat(existing.getPerformanceStatus()).isEqualTo("COMPLETED");
+        verify(controlAssignmentService).recalculateSchedule(202L);
+        // The frequency, and of the schedule what moved (the next date), before and after, then the reason
+        verify(adminAuditService).logActionWithChanges(eq(sessionUser.getMail()), any(), eq("EDIT"), eq(existing),
+                eq("Edit Control - Edited after completion"),
+                eq("[\"control_frequency\",\"Next Control Operation Date\",\"Reason\"]"),
+                eq("{\"control_frequency\":\"Monthly\",\"Next Control Operation Date\":\"2026-02-15\"}"),
+                eq("{\"control_frequency\":\"Quarterly\",\"Next Control Operation Date\":\"2026-04-15\","
+                        + "\"Reason\":\"Operated quarterly\"}"));
     }
 
     @Test

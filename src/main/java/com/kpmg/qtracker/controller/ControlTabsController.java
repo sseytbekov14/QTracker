@@ -129,21 +129,14 @@ public class ControlTabsController {
                 return ResponseEntity.status(403)
                         .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Admin Team can change control assignment"));
             }
-            // A completed control changed in place keeps its schedule (AccessPolicy.COMPLETED_FIXED_FIELDS): another
-            // Control Operation Date is refused, the deadline and the next date are never taken from the request
-            boolean keepSchedule = permission.isCompletedEdit();
-            if (keepSchedule && assignmentDTO.getControlOperationDate() != null
-                    && (existingAssignment == null
-                    || !assignmentDTO.getControlOperationDate().equals(existingAssignment.getControlOperationDate()))) {
-                return ResponseEntity.status(403).body("VALIDATION_ERROR: "
-                        + AccessPolicy.completedFixedMessage("Control Operation Date"));
-            }
+            // The deadline and the next date are never taken from the request (AccessPolicy.COMPLETED_FIXED_FIELDS):
+            // saveAssignment calculates them from the Control Operation Date, on a completed control as on any other
             ControlAssignmentDTO mergedAssignment = mergeControlAssignment(existingAssignment, assignmentDTO);
             String missingField = findMissingAssignmentField(mergedAssignment);
             if (missingField != null) {
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + missingField + " is required");
             }
-            String frequencyError = keepSchedule ? null : findScheduleFrequencyError(control, mergedAssignment);
+            String frequencyError = findScheduleFrequencyError(control, mergedAssignment);
             if (frequencyError != null) {
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + frequencyError);
             }
@@ -171,7 +164,7 @@ public class ControlTabsController {
 
             ControlAssignment saved;
             try {
-                saved = controlAssignmentService.saveAssignment(mergedAssignment, keepSchedule);
+                saved = controlAssignmentService.saveAssignment(mergedAssignment);
             } catch (IllegalArgumentException refused) {
                 // Someone who may not hold that field (read-only, wrong level, KDN scope on a non-KDN control)
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + refused.getMessage());
@@ -182,7 +175,8 @@ public class ControlTabsController {
             collectChange(changedFields, previousValues, newValues, "Next Control Operation Date",
                     existingAssignment.getNextControlOperationDate(), saved.getNextControlOperationDate());
 
-            // Send notifications to newly shared users
+            // Send notifications to newly shared users; a completed control changed in place tells nobody
+            // (AccessPolicy.notifiesOnCompletedEdit)
             List<String> oldShared = existingAssignment != null && existingAssignment.getControlSharedWith() != null
                     ? existingAssignment.getControlSharedWith() : List.of();
             List<String> newShared = mergedAssignment.getControlSharedWith() != null
@@ -192,7 +186,8 @@ public class ControlTabsController {
                 if (e != null && !e.isBlank()) oldSharedSet.add(e.trim().toLowerCase());
             }
             for (String email : newShared) {
-                if (email != null && !email.isBlank() && !oldSharedSet.contains(email.trim().toLowerCase())) {
+                if (email != null && !email.isBlank() && !oldSharedSet.contains(email.trim().toLowerCase())
+                        && (!permission.isCompletedEdit() || AccessPolicy.notifiesOnCompletedEdit())) {
                     notificationService.sendSharedWithNotification(control, email.trim(), currentUser.getDisplayName());
                 }
             }

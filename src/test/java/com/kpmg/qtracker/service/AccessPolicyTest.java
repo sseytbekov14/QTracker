@@ -833,4 +833,21 @@ class AccessPolicyTest {
             assertThat(AccessPolicy.seesSharedWithNotes(who(user))).as(user).isFalse();
         }
     }
+    /** Decision of 2026-10-14: on a completed control only the deadline and the next date are fixed (calculated). */
+    @Test
+    void completedControl_onlyTheDeadlineAndTheNextDateAreFixed_andAChangeTellsNobody() {
+        assertThat(AccessPolicy.COMPLETED_FIXED_FIELDS)
+                .containsExactly("Control Operation Deadline", "Next Control Operation Date");
+        assertThat(AccessPolicy.notifiesOnCompletedEdit()).isFalse();
+    }
+
+    /** The Create Control button (it comes later): Monthly and Quarterly only, in any spelling the app reads. */
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0} -> {1}")
+    @org.junit.jupiter.params.provider.CsvSource(value = {
+            "Monthly, true", "monthly, true", "Quarterly, true", "QUARTERLY, true",
+            "Ad-hoc, false", "Recurring, false", "Annual, false", "Semi Annual, false", "Bi-weekly, false", "NULL, false"
+    }, nullValues = "NULL")
+    void frequencyOffersCreateControl_monthlyAndQuarterlyOnly(String frequency, boolean offers) {
+        assertThat(AccessPolicy.frequencyOffersCreateControl(frequency)).isEqualTo(offers);
+    }
 }
