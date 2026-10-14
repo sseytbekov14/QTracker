@@ -209,8 +209,9 @@ public class ViewController {
     }
 
     /**
-     * The notifications of the person. Everyone else has them on the dashboard's Notifications tab; the role KDN,
-     * without a dashboard (AccessPolicy.KDN_SEES_DASHBOARD), here on the same page with only that tab.
+     * The notifications of the person, on the dashboard's Notifications tab; someone without a dashboard
+     * (AccessPolicy.seesDashboard) here on the same page with only that tab. The role KDN has no notifications
+     * (AccessPolicy.hasNotifications): their page is /kdn.
      */
     @GetMapping("/notifications")
     public String notifications(@RequestParam(value = "notifLimit", required = false) Integer notifLimit,
@@ -219,6 +220,9 @@ public class ViewController {
         if (redirect != null) return redirect;
 
         User currentUser = getCurrentUser(session);
+        if (!AccessPolicy.hasNotifications(AccessPolicy.Subject.of(currentUser))) {
+            return "redirect:" + KdnControlsOverview.CONTROLS_HREF;
+        }
         if (AccessPolicy.seesDashboard(AccessPolicy.Subject.of(currentUser))) {
             return "redirect:/#notifications";
         }
@@ -551,6 +555,9 @@ public class ViewController {
         if (redirect != null) return redirect;
 
         User currentUser = getCurrentUser(session);
+        if (!AccessPolicy.hasNotifications(AccessPolicy.Subject.of(currentUser))) {
+            return "redirect:" + KdnControlsOverview.CONTROLS_HREF;
+        }
 
         try {
             Long notifId = Long.parseLong(notificationId);
@@ -594,6 +601,9 @@ public class ViewController {
         boolean dashboard = AccessPolicy.seesDashboard(AccessPolicy.Subject.of(getCurrentUser(session)));
 
         User currentUser = getCurrentUser(session);
+        if (!AccessPolicy.hasNotifications(AccessPolicy.Subject.of(currentUser))) {
+            return "redirect:" + KdnControlsOverview.CONTROLS_HREF;
+        }
         notificationService.markAllAsRead(currentUser.getId());
 
         return dashboard ? "redirect:/#notifications" : "redirect:/notifications";
@@ -607,6 +617,9 @@ public class ViewController {
         User currentUser = getCurrentUser(session);
         if (currentUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!AccessPolicy.hasNotifications(AccessPolicy.Subject.of(currentUser))) {
+            return ResponseEntity.notFound().build();
         }
         boolean visible = notificationService.findForUser(notificationId, currentUser.getId())
                 .filter(notif -> !notificationTypeDisplayMapper.isHiddenType(notif.getType()))
@@ -625,7 +638,11 @@ public class ViewController {
         dto.setBadgeClass(display.badgeClass());
     }
 
+    /** The unread notifications of the person; none for someone without notifications (the role KDN). */
     private long getUnreadCount(User currentUser) {
+        if (!AccessPolicy.hasNotifications(AccessPolicy.Subject.of(currentUser))) {
+            return 0;
+        }
         List<com.kpmg.qtracker.entity.Notification> unread =
                 notificationService.getUnreadNotifications(currentUser.getId());
         if (unread == null || unread.isEmpty()) {

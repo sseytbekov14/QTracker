@@ -113,6 +113,41 @@ class MonthlyDay3Day6ReminderServiceTest {
     }
 
     @Test
+    void day3_skipsAKdnUserInTheOperatorField_theFacilitatorWithEditGetsIt() {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate operationDate = workingDaysService.addWorkingDays(today, -3);
+        ReminderControlProjection row = projectionFor(
+                12L,
+                "KDN-12",
+                "Monthly",
+                "IN_PROGRESS",
+                operationDate,
+                LocalDate.of(2026, 2, 20),
+                "facilitator@kpmg.kz",
+                "kdn@kpmg.kz",
+                null,
+                "owner@kpmg.kz"
+        );
+        User kdn = userWithId(2L, "kdn@kpmg.kz");
+        kdn.setAccessLevel(com.kpmg.qtracker.enums.AccessLevel.READ_ONLY);
+        kdn.setAccessScope(com.kpmg.qtracker.enums.AccessScope.KDN);
+
+        when(controlRepository.findMonthlyDay3Day6Candidates()).thenReturn(List.of(row));
+        when(notificationRepository.existsByControlIdAndType(12L, MonthlyNotificationService.TYPE_DAY3))
+                .thenReturn(false);
+        when(notificationTemplateService.buildControlLink(any(Control.class))).thenReturn("/view-control/12");
+        when(userRepository.findByMail("facilitator@kpmg.kz"))
+                .thenReturn(Optional.of(userWithId(1L, "facilitator@kpmg.kz")));
+        when(userRepository.findByMail("kdn@kpmg.kz")).thenReturn(Optional.of(kdn));
+
+        service.runDailyReminders();
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository, times(1)).save(captor.capture());
+        assertThat(captor.getValue().getUserId()).isEqualTo(1L);
+    }
+
+    @Test
     void day6SendsToFacilitatorAndOperatorOnly_forReview() {
         LocalDate today = LocalDate.now(clock);
         LocalDate operationDate = workingDaysService.addWorkingDays(today, -6);

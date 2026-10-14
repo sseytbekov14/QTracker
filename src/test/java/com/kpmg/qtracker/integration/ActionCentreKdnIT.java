@@ -141,8 +141,9 @@ class ActionCentreKdnIT {
             assertThat(perform(get(path), session).getResponse().getRedirectedUrl()).as(path).isEqualTo("/kdn");
         }
         String page = assertKdnPage(session, 5, 1, 2, 1, 2);
-        assertThat(page).doesNotContain("id=\"sidebarDashboard\"", "id=\"sidebarActionCentre\"", "id=\"ccExport\"")
-                .contains("href=\"/notifications\"");
+        // The menu has only KDN: no Notifications either (AccessPolicy.KDN_HAS_NOTIFICATIONS)
+        assertThat(page).doesNotContain("id=\"sidebarDashboard\"", "id=\"sidebarActionCentre\"", "id=\"ccExport\"",
+                "id=\"sidebarNotifications\"", "href=\"/notifications\"");
         assertTheKdnPageAgrees(session, List.of("KDN-AC-1", "kdn-ac-2", "KDNAC3", "KDN-AC-4", "KDN-AC-5"));
     }
 

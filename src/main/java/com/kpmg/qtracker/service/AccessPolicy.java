@@ -318,7 +318,7 @@ public final class AccessPolicy {
 
     /**
      * Whether the role KDN has the Dashboard and the Action Centre (their pages and menu items). Off (business
-     * decision of 2026-10-13): a KDN user starts on /kdn, the menu has only KDN and Notifications, and the dashboard,
+     * decision of 2026-10-13): a KDN user starts on /kdn, the menu has only KDN ({@link #hasNotifications}), and the dashboard,
      * the Action Centre and the component lists lead to /kdn. Set to true to give the dashboard back.
      */
     public static final boolean KDN_SEES_DASHBOARD = false;
@@ -326,6 +326,23 @@ public final class AccessPolicy {
     /** The Dashboard, the Action Centre and the component lists: everyone but the role KDN ({@link #KDN_SEES_DASHBOARD}). */
     public static boolean seesDashboard(Subject subject) {
         return !isKdnUser(subject) || KDN_SEES_DASHBOARD;
+    }
+
+    /**
+     * Whether the role KDN has notifications. Off (business decision of 2026-10-14): no Notifications item, bell or
+     * counter in the menu, /notifications leads to /kdn, and no notification is made for a KDN user, in the
+     * application or by e-mail, also where they are assigned to a KDN control. Set to true to give them back.
+     */
+    public static final boolean KDN_HAS_NOTIFICATIONS = false;
+
+    /**
+     * Notifications - receiving them in the application and by e-mail, the menu item and its counter, the pages:
+     * everyone but the role KDN ({@link #KDN_HAS_NOTIFICATIONS}). A User with Edit assigned to a KDN control gets them
+     * like on any other control. The one place this rule lives; null (no user) has none.
+     */
+    public static boolean hasNotifications(Subject subject) {
+        return subject != null
+                && (KDN_HAS_NOTIFICATIONS || subject.scope() != AccessScope.KDN || subject.level() == AccessLevel.SOQM);
     }
 
     /**

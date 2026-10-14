@@ -177,7 +177,7 @@ class RoleMatrixIT {
 
     private static final List<String> USER_OPS = List.of(
             "Create control", "Export button", "Export list", "Old /controls link", "Assignment picker", "Admin Panel",
-            "Admin Panel change", "Delete user", "KDN page", "Dashboard");
+            "Admin Panel change", "Delete user", "KDN page", "Dashboard", "Notifications");
 
     @Autowired
     private MockMvc mockMvc;
@@ -414,6 +414,9 @@ class RoleMatrixIT {
             case "KDN page" -> active && (soqm || who.scope() == AccessScope.ALL || who.scope() == AccessScope.KDN);
             // The role KDN has no dashboard (AccessPolicy.KDN_SEES_DASHBOARD): "/" leads to /kdn
             case "Dashboard" -> active && who.scope() != AccessScope.KDN;
+            // Notifications - the menu item and the page: everyone signed in but the role KDN, whose /notifications
+            // leads to /kdn (AccessPolicy.KDN_HAS_NOTIFICATIONS, decision of 2026-10-14)
+            case "Notifications" -> active && who.scope() != AccessScope.KDN;
             default -> throw new IllegalArgumentException(op);
         };
     }
@@ -565,7 +568,27 @@ class RoleMatrixIT {
         String sidebarItem = kdnPage.getResponse().getStatus() == 200
                 && kdnPage.getResponse().getContentAsString().contains("id=\"sidebarKdn\"") ? "ok" : "no menu item!";
         row.put("KDN page", kdnPage.getResponse().getStatus() == 200 ? sidebarItem : outcome(kdnPage));
+        row.put("Notifications", notifications(session));
         return row;
+    }
+
+    /**
+     * "ok" when /notifications opens the notifications (the dashboard's tab) and the menu of the user's start page has
+     * the Notifications item; "-> /kdn" when it leads to the KDN page ("menu item!" if the item is still shown).
+     */
+    private String notifications(MockHttpSession session) throws Exception {
+        MvcResult notifications = perform(get("/notifications"), session);
+        String target = notifications.getResponse().getRedirectedUrl();
+        boolean opens = notifications.getResponse().getStatus() == 200 || "/#notifications".equals(target);
+        if (!opens && !"/kdn".equals(target)) {
+            return outcome(notifications);
+        }
+        MvcResult start = perform(get(opens ? "/" : "/kdn"), session);
+        boolean item = start.getResponse().getContentAsString().contains("id=\"sidebarNotifications\"");
+        if (opens) {
+            return item ? "ok" : "no menu item!";
+        }
+        return item ? "menu item!" : "-> /kdn";
     }
 
     /**

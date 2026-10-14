@@ -341,7 +341,7 @@ public class MonthlyNotificationService {
             if (email == null || email.isBlank()) {
                 continue;
             }
-            Optional<User> userOpt = userRepository.findByMail(email);
+            Optional<User> userOpt = userRepository.findByMail(email).filter(NotificationService::receives);
             if (userOpt.isEmpty()) {
                 continue;
             }
@@ -375,7 +375,7 @@ public class MonthlyNotificationService {
             if (email == null || email.isBlank()) {
                 continue;
             }
-            Optional<User> userOpt = userRepository.findByMail(email.trim());
+            Optional<User> userOpt = userRepository.findByMail(email.trim()).filter(NotificationService::receives);
             if (userOpt.isEmpty()) {
                 continue;
             }
@@ -409,7 +409,7 @@ public class MonthlyNotificationService {
             if (email == null || email.isBlank()) {
                 continue;
             }
-            Optional<User> userOpt = userRepository.findByMail(email.trim());
+            Optional<User> userOpt = userRepository.findByMail(email.trim()).filter(NotificationService::receives);
             if (userOpt.isEmpty()) {
                 continue;
             }

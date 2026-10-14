@@ -101,6 +101,11 @@ public class SidebarModelAdvice {
             return AccessPolicy.seesDashboard(AccessPolicy.Subject.of(user));
         }
 
+        /** The Notifications item, its bell and its counter (AccessPolicy.hasNotifications: not for the role KDN). */
+        public boolean isNotifications() {
+            return AccessPolicy.hasNotifications(AccessPolicy.Subject.of(user));
+        }
+
         /** Where Notifications is: the dashboard's tab, or its own page for those without a dashboard. */
         public String getNotificationsHref() {
             return isDashboard() ? "/#notifications" : "/notifications";
@@ -137,8 +142,11 @@ public class SidebarModelAdvice {
             return mode != null && mode.sso();
         }
 
-        /** Computed lazily, only when a page actually renders the sidebar. */
+        /** Computed lazily, only when a page actually renders the sidebar; none without notifications. */
         public long getUnreadCount() {
+            if (unreadCount == null && !isNotifications()) {
+                unreadCount = 0L;
+            }
             if (unreadCount == null) {
                 NotificationService notifications = notificationService.getIfAvailable();
                 NotificationTypeDisplayMapper typeMapper = notificationTypeDisplayMapper.getIfAvailable();

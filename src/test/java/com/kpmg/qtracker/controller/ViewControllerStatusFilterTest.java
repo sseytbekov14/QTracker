@@ -1167,7 +1167,7 @@ class ViewControllerStatusFilterTest {
     }
 
     @Test
-    void kdnRole_startsOnTheKdnPage_menuKdnAndNotifications_dashboardActionCentreAndListsLeadThere() throws Exception {
+    void kdnRole_startsOnTheKdnPage_menuOnlyKdn_dashboardActionCentreListsAndNotificationsLeadThere() throws Exception {
         User kdn = TestUsers.user("kdn-ac@kpmg.kz", com.kpmg.qtracker.enums.AccessLevel.READ_ONLY,
                 com.kpmg.qtracker.enums.AccessScope.KDN, false);
         kdn.setId(91L);
@@ -1191,21 +1191,20 @@ class ViewControllerStatusFilterTest {
         assertThat(list.counts()).isEqualTo(new ComponentControlsList.Counts(4, 1, 2, 0, 1, 1));
         assertThat(list.rows()).extracting(ComponentControlsList.Row::id).containsExactly(911L, 912L, 913L, 914L);
         String html = page.getResponse().getContentAsString();
+        // The menu: KDN only - no Notifications item, bell or counter (AccessPolicy.KDN_HAS_NOTIFICATIONS)
         assertThat(html).contains("<h1>KDN controls</h1>", "id=\"sidebarKdn\"", "aria-current=\"page\">",
-                        "href=\"/notifications\"", "action=\"/kdn\"", "href=\"/kdn?status=OVERDUE\"")
+                        "action=\"/kdn\"", "href=\"/kdn?status=OVERDUE\"")
                 .doesNotContain("id=\"sidebarDashboard\"", "id=\"sidebarActionCentre\"", "Action Centre",
-                        "id=\"ccExport\"", "id=\"ccKdn\"");
+                        "id=\"ccExport\"", "id=\"ccKdn\"", "id=\"sidebarNotifications\"", "href=\"/notifications\"",
+                        "bi-bell", "notif-pill", ">Notifications<");
         // KDN users only read: no export
         mockMvc.perform(get("/kdn/export").sessionAttr("currentUser", kdn)).andExpect(status().isForbidden());
 
-        // Notifications on their own page, without the dashboard and the Action Centre
-        MvcResult notifications = mockMvc.perform(get("/notifications").sessionAttr("currentUser", kdn))
-                .andExpect(status().isOk()).andExpect(view().name("dashboard")).andReturn();
-        assertThat(notifications.getModelAndView().getModel()).containsEntry("notificationsOnly", true)
-                .doesNotContainKeys("actionItems", "componentSummaries", "totalControls");
-        assertThat(notifications.getResponse().getContentAsString())
-                .contains("id=\"pane-notifications\"", "data-notifications-only=\"true\"")
-                .doesNotContain("id=\"pane-dashboard\"", "id=\"pane-action\"", "id=\"sidebarDashboard\"");
+        // No notifications: their pages lead to the KDN page, the counter is not even read
+        mockMvc.perform(get("/notifications").sessionAttr("currentUser", kdn)).andExpect(redirectedUrl("/kdn"));
+        mockMvc.perform(get("/notification/5").sessionAttr("currentUser", kdn)).andExpect(redirectedUrl("/kdn"));
+        org.mockito.Mockito.verify(notificationService, org.mockito.Mockito.never()).getUnreadNotifications(91L);
+        org.mockito.Mockito.verify(notificationService, org.mockito.Mockito.never()).getUserNotifications(91L);
     }
 
     @Test

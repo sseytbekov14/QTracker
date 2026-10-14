@@ -4,8 +4,8 @@
 <!--
   Shared sidebar. Usage: <div th:replace="~{fragments/sidebar :: sidebar('action')}"></div>
   active: dashboard | action | kdn | notifications | admin | '' (none). The Controls page is gone: its lists are the
-  Action Centre's (/component/ALL and one per component). The role KDN has only KDN and Notifications
-  (AccessPolicy.seesDashboard / seesKdnPage, via SidebarModelAdvice).
+  Action Centre's (/component/ALL and one per component). The role KDN has only KDN
+  (AccessPolicy.seesDashboard / seesKdnPage / hasNotifications, via SidebarModelAdvice).
   Data comes from SidebarModelAdvice (model attribute "sidebar").
   The ids sidebarDashboard / sidebarActionCentre / sidebarNotifications are used by dashboard.html
   to switch tabs without reloading.
@@ -51,7 +51,7 @@
                        th:attr="aria-current=${active == 'kdn'} ? 'page' : null">
                         <i class="bi bi-globe2" aria-hidden="true"></i>KDN</a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item" th:if="${sidebar == null or sidebar.notifications}">
                     <a class="nav-link" id="sidebarNotifications" href="/#notifications"
                        th:href="${sidebar != null ? sidebar.notificationsHref : '/#notifications'}"
                        th:classappend="${active == 'notifications'} ? 'active'"

@@ -2,6 +2,7 @@ package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.Notification;
+import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.NotificationRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.util.RoleDisplayMapper;
@@ -38,6 +39,14 @@ public class NotificationService {
     private static final java.time.format.DateTimeFormatter AUTO_CREATE_DATE_FORMAT =
             java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy");
     
+    /**
+     * Whether a person gets notifications at all, in the application and by e-mail (AccessPolicy.hasNotifications: not
+     * the role KDN). Every notification of QTracker is made for a user found by this check.
+     */
+    public static boolean receives(User user) {
+        return user != null && AccessPolicy.hasNotifications(AccessPolicy.Subject.of(user));
+    }
+
     /**
      * Send notification to specific users about control initiation
      */
@@ -163,7 +172,7 @@ public class NotificationService {
         // Every return is a separate guarded status change, so each one is announced,
         // even when the same control comes back to the same person within minutes
         for (String email : uniqueRecipients(recipientEmails)) {
-            userRepository.findByMail(email).ifPresent(user -> {
+            userRepository.findByMail(email).filter(NotificationService::receives).ifPresent(user -> {
                 Notification notif = new Notification();
                 notif.setUserId(user.getId());
                 notif.setControlId(control.getId());
@@ -209,7 +218,7 @@ public class NotificationService {
             message.append("\nComment: ").append(comment.trim());
         }
         for (String email : uniqueRecipients(recipientEmails)) {
-            userRepository.findByMail(email).ifPresent(user -> {
+            userRepository.findByMail(email).filter(NotificationService::receives).ifPresent(user -> {
                 Notification notif = new Notification();
                 notif.setUserId(user.getId());
                 notif.setControlId(control.getId());
@@ -253,7 +262,7 @@ public class NotificationService {
         if (email == null || email.isBlank()) {
             return;
         }
-        userRepository.findByMail(email).ifPresent(user -> {
+        userRepository.findByMail(email).filter(NotificationService::receives).ifPresent(user -> {
             String roleLabel = RoleDisplayMapper.access(user);
             LocalDate templateDate = resolveTemplateDate(control, templateType);
             NotificationTemplateService.NotificationTemplate template =
@@ -295,7 +304,7 @@ public class NotificationService {
         if (email == null || email.isBlank() || template == null) {
             return;
         }
-        userRepository.findByMail(email).ifPresent(user -> {
+        userRepository.findByMail(email).filter(NotificationService::receives).ifPresent(user -> {
             Notification notif = new Notification();
             notif.setUserId(user.getId());
             notif.setControlId(control.getId());
@@ -370,7 +379,7 @@ public class NotificationService {
         String title = "Control " + controlName + " shared with you";
         String message = sharedByDisplayName + " shared control " + controlName + " with you (view-only).";
 
-        userRepository.findByMail(recipientEmail).ifPresent(user -> {
+        userRepository.findByMail(recipientEmail).filter(NotificationService::receives).ifPresent(user -> {
             Notification notif = new Notification();
             notif.setUserId(user.getId());
             notif.setControlId(control.getId());
