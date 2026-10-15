@@ -122,7 +122,7 @@
             dt.textContent = field.label;
             const dd = document.createElement('dd');
             dd.textContent = field.people && field.people.length ? field.people.join(', ') : '—';
-            if (!field.people || !field.people.length) {
+            if (field.required && (!field.people || !field.people.length)) {
                 dd.classList.add('cc-empty');
             }
             row.append(dt, dd);

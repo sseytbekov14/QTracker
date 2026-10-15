@@ -359,6 +359,9 @@ class CreateControlIT extends ReleaseScenarioSupport {
                 .isEqualTo(facilitator.getDisplayName() + " (" + facilitator.getMail() + ")");
         assertThat(plan.get("people").get(3).get("label").asText()).isEqualTo("SoQM Team / Delegate");
         assertThat(plan.get("people").get(4).get("label").asText()).isEqualTo("Control Shared With");
+        assertThat(plan.get("people").get(0).get("required").asBoolean()).isTrue();
+        assertThat(plan.get("people").get(3).get("required").asBoolean()).isTrue();
+        assertThat(plan.get("people").get(4).get("required").asBoolean()).isFalse();
         assertThat(controlRepository.findByControlIdIgnoringCase(plan.get("proposedControlId").asText())).isEmpty();
 
         MvcResult created = callJson(session, post("/api/controls/{id}/next-cycle", source.getId()),

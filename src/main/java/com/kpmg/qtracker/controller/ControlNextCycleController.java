@@ -143,9 +143,9 @@ public class ControlNextCycleController {
         out.put("soqmYear", dates == null ? "" : dates.soqmYear());
         List<Map<String, Object>> people = new ArrayList<>();
         for (AccessPolicy.Slot slot : ControlNextCycle.REQUIRED_PEOPLE) {
-            people.add(field(slot.getLabel(), stored(plan, slot)));
+            people.add(field(slot.getLabel(), stored(plan, slot), true));
         }
-        people.add(field(AccessPolicy.Slot.SHARED_WITH.getLabel(), plan.people().sharedWith()));
+        people.add(field(AccessPolicy.Slot.SHARED_WITH.getLabel(), plan.people().sharedWith(), false));
         out.put("people", people);
         out.put("sharedWithLeftOut", plan.people().sharedWithLeftOut());
         out.put("notCopied", ControlNextCycle.NOT_COPIED);
@@ -163,8 +163,11 @@ public class ControlNextCycleController {
         };
     }
 
-    /** One field of people: its label and each person as "Name (e-mail)", or the e-mail when there is no name. */
-    private Map<String, Object> field(String label, String stored) {
+    /**
+     * One field of people: its label, whether the new control needs someone in it, and each person as "Name (e-mail)",
+     * or the e-mail when there is no name.
+     */
+    private Map<String, Object> field(String label, String stored, boolean required) {
         List<String> names = new ArrayList<>();
         for (String mail : EmailList.parse(stored)) {
             names.add(userRepository.findByMail(mail)
@@ -175,6 +178,7 @@ public class ControlNextCycleController {
         }
         Map<String, Object> field = new LinkedHashMap<>();
         field.put("label", label);
+        field.put("required", required);
         field.put("people", names);
         return field;
     }

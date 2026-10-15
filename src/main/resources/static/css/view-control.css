@@ -318,6 +318,8 @@ textarea.readonly-field::-webkit-resizer {
 .action-buttons {
     position: sticky;
     bottom: 0;
+    /* Above the workflow stepper it scrolls over */
+    z-index: 10;
     background: var(--kpmg-white);
     padding: 14px 24px;
     border-top: 1px solid var(--kpmg-gray-200);
@@ -1128,6 +1130,24 @@ input[data-date-picker] {
         flex-wrap: wrap;
         gap: 8px;
     }
+    /* Back, Create Control, Edit in this order on one row of their own; the workflow buttons, when there are any,
+       on the row above */
+    .action-buttons {
+        padding: 12px;
+    }
+    .action-buttons .btn {
+        padding: 8px 12px;
+    }
+    .action-buttons > .d-flex > .d-flex:last-child {
+        width: 100%;
+    }
+    .action-buttons #workflow-buttons-container:has(> .btn:not([style*="display: none"]):not([hidden])) {
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+    }
+    .action-buttons #backBtn { order: 1; flex: 1 1 auto; }
+    .action-buttons #createControlBtn { order: 2; flex: 1 1 auto; }
+    .action-buttons #editBtn { order: 3; flex: 1 1 auto; }
 }
 
 /* Create Control (create-control.js): the banner of a control made with it, and its confirmation */
@@ -1188,3 +1208,5 @@ input[data-date-picker] {
 #createControlModal .cc-alert-danger { border: 1px solid #f1b8bd; background: #fdf0f1; color: #842029; }
 #createControlModal .cc-alert-warning { border: 1px solid #f0d58c; background: #fffaf0; color: #6b4a00; }
 #createControlModal .cc-alert-warning .btn { margin-top: 8px; }
+#createControlModal #ccCreateBtn { background: #00338D; border-color: #00338D; font-weight: 600; }
+#createControlModal #ccCreateBtn:hover:not(:disabled) { background: #00278a; border-color: #00278a; }
