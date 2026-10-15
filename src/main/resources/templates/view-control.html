@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=19" rel="stylesheet">
-    <link href="/css/view-control.css?v=27" rel="stylesheet">
+    <link href="/css/view-control.css?v=28" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -1316,7 +1316,7 @@
                             <button type="button" class="btn btn-outline-primary" id="createControlBtn" th:if="${canCreateControl}"
                                     th:attr="data-control-id=${control.id}"
                                     title="Create the next cycle of this control and start it (In Progress)">
-                                <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Create Control
+                                <i class="bi bi-plus-circle" aria-hidden="true"></i>Create Control
                             </button>
                             <button class="btn" id="editBtn"
                                     th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or canEditAll)}"

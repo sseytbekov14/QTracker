@@ -327,7 +327,9 @@ textarea.readonly-field::-webkit-resizer {
     border-radius: 0 0 6px 6px;
 }
 
+/* The bar's buttons are inline-flex (style.css), which drops the space between an icon and its label */
 .action-buttons .btn {
+    gap: 6px;
     padding: 8px 20px;
     font-size: 0.8rem;
     font-weight: 600;
