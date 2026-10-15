@@ -3024,7 +3024,8 @@ function buildDetailsPayload(controlId) {
     const getDetailsValue = (selector) => {
         const element = detailsForm.querySelector(selector);
         if (!element) {
-            return '';
+            // Not on the page (Other Related Controls and IT Applications are SoQM Admin Team's): null keeps it
+            return null;
         }
         return element.tagName === 'SELECT' ? selectValueForSave(element) : element.value;
     };

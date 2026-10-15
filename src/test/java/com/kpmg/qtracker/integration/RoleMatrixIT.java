@@ -146,7 +146,7 @@ class RoleMatrixIT {
             new Who("anonymous", "not signed in", null, null, Place.NONE, false, false, true));
 
     private static final List<String> CONTROL_OPS = List.of(
-            "In component list", "View page", "Program on page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
+            "In component list", "View page", "Program on page", "Notice", "KDN mark", "SoQM-only fields", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
             "Edit, no reason", "Frequency", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Development Materials (removed)", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)", "Excel button",
             "Performance Cycle", "Create Control", "Create Control button");
@@ -330,6 +330,8 @@ class RoleMatrixIT {
                     : soqm || listed ? "NONE" : "NOT_ASSIGNED";
             // The "KDN control" mark on the control's page: SoQM Team only, on a KDN control
             case "KDN mark" -> soqm && who.kdnControl() ? "ok" : "refused";
+            // Other Related Controls and IT Applications on the Details tab (decision of 2026-10-15): SoQM Admin Team only
+            case "SoQM-only fields" -> soqm && sees ? "ok" : "refused";
             // The Action Centre's lists: the component's (and the KDN list for a KDN control) hold the same
             // controls, each row opening its own control; a non-KDN control is never in the KDN list
             case "In component list" -> sees ? "ok" : "refused";
@@ -437,6 +439,7 @@ class RoleMatrixIT {
         row.put("Program on page", programOnPage(control, session));
         row.put("Notice", notice(control, session));
         row.put("KDN mark", kdnMark(control, session));
+        row.put("SoQM-only fields", soqmOnlyFields(control, session));
         row.put("Read API", answer(get("/api/control-details").param("controlId", String.valueOf(control.getId())), session));
         row.put("History", answer(get("/api/controls/{id}/changelog", control.getId()), session));
         row.put("Download", answer(get("/api/attachments/download/{name}", control.getAttachmentDetailsPath())
@@ -654,6 +657,22 @@ class RoleMatrixIT {
             return mav != null && "control-not-available".equals(mav.getViewName()) ? "not yet" : outcome(result);
         }
         return Boolean.TRUE.equals(mav.getModel().get("canCreateControl")) ? "ok" : "none";
+    }
+
+    /**
+     * "ok" when the control's page has Other Related Controls and IT Applications, "none" when it has neither,
+     * "one of them!" when only one, else as "View page".
+     */
+    private String soqmOnlyFields(Control control, MockHttpSession session) throws Exception {
+        MvcResult result = perform(get("/view-control/{id}", control.getId()), session);
+        ModelAndView mav = result.getModelAndView();
+        if (result.getResponse().getStatus() != 200 || mav == null || !"view-control".equals(mav.getViewName())) {
+            return mav != null && "control-not-available".equals(mav.getViewName()) ? "not yet" : outcome(result);
+        }
+        String html = result.getResponse().getContentAsString();
+        boolean related = html.contains("name=\"otherRelatedControls\"");
+        boolean applications = html.contains("name=\"itApplications\"");
+        return related && applications ? "ok" : related || applications ? "one of them!" : "none";
     }
 
     /** "ok" when the control's page carries the "KDN control" mark, "none" when it does not, else as "View page". */

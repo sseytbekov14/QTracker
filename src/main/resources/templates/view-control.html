@@ -787,7 +787,8 @@
                                     </div>
                                 </div>
 
-                                <div class="row">
+                                <!--/* SoQM Admin Team only (AccessPolicy.seesSoqmOnlyDetails): not on the page for anyone else */-->
+                                <div class="row" id="soqmOnlyDetailsRow" th:if="${seesSoqmOnlyDetails}">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Other Related Controls</label>
                                         <input type="text" class="form-control" name="otherRelatedControls" maxlength="255"
@@ -1792,7 +1793,7 @@
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=3"></script>
-<script src="/js/view-control.js?v=7.9"></script>
+<script src="/js/view-control.js?v=8.0"></script>
 <script src="/js/create-control.js?v=3"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>

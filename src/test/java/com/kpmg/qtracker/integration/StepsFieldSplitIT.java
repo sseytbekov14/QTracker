@@ -644,16 +644,19 @@ class StepsFieldSplitIT {
 
         for (User reader : List.of(soqm, op, readOnlyAll())) {
             String page = page(control, login(reader));
-            List<String> fieldsInOrder = List.of(
+            List<String> fieldsInOrder = new ArrayList<>(List.of(
                     "name=\"processName\" maxlength",
                     "name=\"department\" maxlength",
                     "name=\"processActivities\" rows",
-                    "id=\"controlOperatorReview\" name=",
-                    "name=\"otherRelatedControls\" maxlength",
-                    "name=\"itApplications\" id=",
+                    "id=\"controlOperatorReview\" name="));
+            // Other Related Controls and IT Applications: SoQM Admin Team only (SoqmOnlyDetailsIT)
+            if (reader == soqm) {
+                fieldsInOrder.addAll(List.of("id=\"soqmOnlyDetailsRow\"", "name=\"itApplications\" id="));
+            }
+            fieldsInOrder.addAll(List.of(
                     "id=\"controlStepsPerformed\" name=",
                     "id=\"soqmHeadComments\"",
-                    "id=\"processOwnerComments\"");
+                    "id=\"processOwnerComments\""));
             int previous = -1;
             for (String field : fieldsInOrder) {
                 int at = page.indexOf(field);

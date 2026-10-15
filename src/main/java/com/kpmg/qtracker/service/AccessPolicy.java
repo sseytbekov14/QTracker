@@ -254,6 +254,18 @@ public final class AccessPolicy {
         return isSoqm(subject);
     }
 
+    /**
+     * The Details fields only SoQM Admin Team fill in and see (business decision of 2026-10-15), by their Changelog
+     * names: everyone else gets neither the fields on View Control, nor their values from /api/control-details, nor
+     * their rows in the Changelog.
+     */
+    public static final List<String> SOQM_ONLY_DETAILS = List.of("Other Related Controls", "IT Applications");
+
+    /** Whether the user sees the fields of {@link #SOQM_ONLY_DETAILS}: SoQM Admin Team only. */
+    public static boolean seesSoqmOnlyDetails(Subject subject) {
+        return isSoqm(subject);
+    }
+
     /** Renaming the Control ID from one to the other makes the control a KDN control or stops it being one. */
     public static boolean renameChangesKdn(String oldControlId, String newControlId) {
         return isKdnControl(oldControlId) != isKdnControl(newControlId);

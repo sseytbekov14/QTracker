@@ -282,9 +282,15 @@ public class ControlTabsController {
 
     @GetMapping("/api/control-details")
     public ResponseEntity<ControlDetailsDTO> getControlDetails(@RequestParam Long controlId, HttpSession session) {
-        permissionService.requireReadable(controlId, (User) session.getAttribute("currentUser"));
+        User currentUser = (User) session.getAttribute("currentUser");
+        permissionService.requireReadable(controlId, currentUser);
         try {
             ControlDetailsDTO details = controlDetailsService.getDetailsByControlId(controlId);
+            // Other Related Controls and IT Applications: SoQM Admin Team only (AccessPolicy.SOQM_ONLY_DETAILS)
+            if (!AccessPolicy.seesSoqmOnlyDetails(AccessPolicy.Subject.of(currentUser))) {
+                details.setOtherRelatedControls(null);
+                details.setItApplications(null);
+            }
             return ResponseEntity.ok(details);
         } catch (Exception e) {
             return ResponseEntity.ok(new ControlDetailsDTO()); // возвращаем пустой DTO вместо ошибки
