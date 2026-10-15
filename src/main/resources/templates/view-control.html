@@ -1312,9 +1312,9 @@
                             </div>
 
                             <button type="button" class="btn btn-outline-secondary" id="backBtn" onclick="history.back()">Back</button>
-                            <!-- The next cycle of a Monthly or Quarterly control, on the Assignment tab (AccessPolicy.offersCreateControl) -->
+                            <!-- The next cycle of a Monthly or Quarterly control, on every tab (AccessPolicy.offersCreateControl) -->
                             <button type="button" class="btn btn-outline-primary" id="createControlBtn" th:if="${canCreateControl}"
-                                    hidden th:attr="data-control-id=${control.id}"
+                                    th:attr="data-control-id=${control.id}"
                                     title="Create the next cycle of this control and start it (In Progress)">
                                 <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Create Control
                             </button>
@@ -1777,7 +1777,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=3"></script>
 <script src="/js/view-control.js?v=7.9"></script>
-<script src="/js/create-control.js?v=2"></script>
+<script src="/js/create-control.js?v=3"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows

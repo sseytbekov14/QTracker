@@ -554,7 +554,7 @@ public final class AccessPolicy {
     }
 
     /**
-     * Create Control, the next cycle made by hand on the Assignment tab (business decision of 2026-10-14): SoQM Admin
+     * Create Control, the next cycle made by hand from View Control (business decision of 2026-10-14): SoQM Admin
      * Team, on a control they see. Everyone else - Users, Read Only, KDN - is refused (403) before the control itself is
      * looked at ({@link #nextCycleRefusal}, 400).
      */
@@ -586,7 +586,7 @@ public final class AccessPolicy {
         return Optional.empty();
     }
 
-    /** Whether the Assignment tab shows Create Control: the person may use it and the control makes a next cycle. */
+    /** Whether View Control shows Create Control (on every tab): the person may use it and the control makes a next cycle. */
     public static boolean offersCreateControl(ControlPermission permission, String frequency, String performanceStatus,
                                               String controlStatus) {
         return canCreateNextCycle(permission) && nextCycleRefusal(frequency, performanceStatus, controlStatus).isEmpty();

@@ -1,5 +1,6 @@
 // Create Control on View Control (business decision of 2026-10-14): the next cycle of a Monthly or Quarterly control,
-// for SoQM Admin Team. The button shows on the Assignment tab only; the confirmation shows what the new control gets
+// for SoQM Admin Team. The button is in the bar of every tab (Control, Details, Assignment, Documents; business decision
+// of 2026-10-15) and gone in edit mode with the bar; the confirmation shows what the new control gets
 // (GET /api/controls/{id}/next-cycle), its Control ID editable, and Create makes it (POST, the server checks again).
 // After it is made the page opens the new control, which says "Created from <ID>".
 (function () {
@@ -15,14 +16,6 @@
     const idInput = el('ccControlId');
     let problems = [];
     let busy = false;
-
-    // Shown on the Assignment tab only (the bar is shared by all tabs)
-    function syncVisibility() {
-        const pane = document.getElementById('assignment-tab');
-        button.hidden = !(pane && pane.classList.contains('active'));
-    }
-    document.addEventListener('shown.bs.tab', syncVisibility);
-    syncVisibility();
 
     function show(id, visible) {
         el(id).hidden = !visible;

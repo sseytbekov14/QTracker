@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Create Control on the Assignment tab (business decision of 2026-10-14): the preview for its confirmation (GET) and
+ * Create Control on View Control (business decision of 2026-10-14): the preview for its confirmation (GET) and
  * the creation (POST) of the next cycle of a Monthly or Quarterly control. SoQM Admin Team only (403 for everyone
  * else, AccessPolicy.canCreateNextCycle), then the control itself (400, AccessPolicy.nextCycleRefusal). An answer
  * that is not 2xx carries {message, problems, existing}.

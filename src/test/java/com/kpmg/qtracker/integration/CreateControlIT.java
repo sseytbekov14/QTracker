@@ -626,6 +626,9 @@ class CreateControlIT extends ReleaseScenarioSupport {
         // Between Back and Edit
         assertThat(soqmPage.indexOf("id=\"backBtn\"")).isLessThan(soqmPage.indexOf("id=\"createControlBtn\""));
         assertThat(soqmPage.indexOf("id=\"createControlBtn\"")).isLessThan(soqmPage.indexOf("id=\"editBtn\""));
+        // In the bar of every tab, not only Assignment (decision of 2026-10-15): rendered without "hidden"
+        String button = soqmPage.substring(soqmPage.indexOf("id=\"createControlBtn\""));
+        assertThat(button.substring(0, button.indexOf(">"))).doesNotContain("hidden");
 
         String facilitatorPage = body(call(login(facilitator), get("/view-control/{id}", source.getId())));
         assertThat(facilitatorPage).doesNotContain("id=\"createControlBtn\"", "id=\"createControlModal\"");

@@ -17,8 +17,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
- * The next cycle of a Monthly or Quarterly control that SoQM Admin Team creates with Create Control on the Assignment
- * tab (business decision of 2026-10-14): its dates and what it takes from the source.
+ * The next cycle of a Monthly or Quarterly control that SoQM Admin Team creates with Create Control on View Control
+ * (business decision of 2026-10-14): its dates and what it takes from the source.
  */
 public final class ControlNextCycle {
 

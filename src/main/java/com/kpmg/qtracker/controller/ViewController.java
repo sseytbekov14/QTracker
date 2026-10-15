@@ -937,7 +937,7 @@ public class ViewController {
 
         // Rename ID: SoQM, also on a completed control (not an edit of it, AccessPolicy.canRenameId)
         model.addAttribute("canRenameId", AccessPolicy.canRenameId(permission));
-        // Create Control on the Assignment tab: SoQM Admin Team, a Monthly or Quarterly control past Draft, not retired
+        // Create Control, on every tab: SoQM Admin Team, a Monthly or Quarterly control past Draft, not retired
         model.addAttribute("canCreateControl", AccessPolicy.offersCreateControl(permission,
                 control.getControlFrequency(), control.getPerformanceStatus(), control.getControlStatus()));
         // A control made with Create Control names the control it was created from, a link for whoever may open it
