@@ -650,7 +650,7 @@ class StepsFieldSplitIT {
                     "name=\"processActivities\" rows",
                     "id=\"controlOperatorReview\" name=",
                     "name=\"otherRelatedControls\" maxlength",
-                    "name=\"itApplications\" maxlength",
+                    "name=\"itApplications\" id=",
                     "id=\"controlStepsPerformed\" name=",
                     "id=\"soqmHeadComments\"",
                     "id=\"processOwnerComments\"");
@@ -668,6 +668,41 @@ class StepsFieldSplitIT {
                             + ControlStepsFields.STEPS_LABEL + "</span></label>")
                     .doesNotContain("steps-field-owner");
         }
+    }
+
+    @Test
+    void viewControl_itApplications_isASelectOfTheSystems_oneValue_andAnOlderValueIsKept() throws Exception {
+        Control control = control("IN_PROGRESS", fac.getMail(), op.getMail(), "Steps", "Program");
+        MockHttpSession session = login(soqm);
+
+        String page = page(control, session);
+        assertThat(page).contains("<select class=\"form-select\" name=\"itApplications\" id=\"itApplications\">")
+                .doesNotContain("placeholder=\"Enter IT applications\"");
+        String select = page.substring(page.indexOf("name=\"itApplications\""), page.indexOf("</select>", page.indexOf("name=\"itApplications\"")));
+        assertThat(select).doesNotContain(" multiple");
+        List<String> systems = List.of("OpenPD", "SuccessFactory", "Active Directory", "IMS staff-directory", "CEAC",
+                "Sentinel", "GLMS", "KICS", "CQS", "HR System", "Cloud Environment / Secure Server OS",
+                "Cloud Environment / Secure Server", "Finance System");
+        List<String> options = new ArrayList<>();
+        java.util.regex.Matcher option = java.util.regex.Pattern.compile("<option value=\"([^\"]*)\">").matcher(select);
+        while (option.find()) {
+            options.add(HtmlUtils.htmlUnescape(option.group(1)));
+        }
+        assertThat(options).containsExactlyElementsOf(java.util.stream.Stream.concat(
+                java.util.stream.Stream.of(""), systems.stream()).toList());
+
+        // A system from the list is saved as its name
+        assertThat(save(control, session, "itApplications", "KICS")).isEqualTo(200);
+        assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getItApplications()).isEqualTo("KICS");
+
+        // A value typed before the list: view-control.js shows it as its own option and Save sends null, which keeps it
+        ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();
+        details.setItApplications("SAP, Outlook");
+        detailsRepository.save(details);
+        assertThat(save(control, session, "{\"itApplications\":null,\"processName\":\"Payroll\"}")).isEqualTo(200);
+        ControlDetails stored = detailsRepository.findByControlId(control.getId()).orElseThrow();
+        assertThat(stored.getItApplications()).isEqualTo("SAP, Outlook");
+        assertThat(stored.getProcessName()).isEqualTo("Payroll");
     }
 
     @Test

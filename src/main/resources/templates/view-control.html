@@ -794,9 +794,25 @@
                                                placeholder="Enter other related controls">
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label class="form-label">IT Applications</label>
-                                        <input type="text" class="form-control" name="itApplications" maxlength="255"
-                                               placeholder="Enter IT applications">
+                                        <label class="form-label" for="itApplications">IT Applications</label>
+                                        <!--/* One system per control; a value typed before the list (older or imported data) is
+                                             kept by keepStoredSelectValue as its own option */-->
+                                        <select class="form-select" name="itApplications" id="itApplications">
+                                            <option value="">Select IT application</option>
+                                            <option value="OpenPD">OpenPD</option>
+                                            <option value="SuccessFactory">SuccessFactory</option>
+                                            <option value="Active Directory">Active Directory</option>
+                                            <option value="IMS staff-directory">IMS staff-directory</option>
+                                            <option value="CEAC">CEAC</option>
+                                            <option value="Sentinel">Sentinel</option>
+                                            <option value="GLMS">GLMS</option>
+                                            <option value="KICS">KICS</option>
+                                            <option value="CQS">CQS</option>
+                                            <option value="HR System">HR System</option>
+                                            <option value="Cloud Environment / Secure Server OS">Cloud Environment / Secure Server OS</option>
+                                            <option value="Cloud Environment / Secure Server">Cloud Environment / Secure Server</option>
+                                            <option value="Finance System">Finance System</option>
+                                        </select>
                                     </div>
                                 </div>
 
