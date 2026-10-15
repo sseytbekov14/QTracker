@@ -82,6 +82,9 @@ class CreateControlIT extends ReleaseScenarioSupport {
     private ControlAutoCreationService service;
 
     @Autowired
+    private com.kpmg.qtracker.service.RelatedControls relatedControls;
+
+    @Autowired
     private WorkflowStepRepository stepRepository;
 
     @Autowired
@@ -131,6 +134,20 @@ class CreateControlIT extends ReleaseScenarioSupport {
         assignment.setNextControlOperationDate(LocalDate.of(2026, 11, 10));
         assignmentRepository.save(assignment);
         return reload(control);
+    }
+
+    @Test
+    void otherRelatedControls_theNextCycleLinksTheSameControls_inTheirOrder() throws Exception {
+        Control source = source("COMPLETED", "Monthly", "OCT");
+        Control first = control("EP-REL", "IN_PROGRESS", people().soqm(soqm).facilitator(facilitator).operator(operator).owner(owner));
+        Control second = control("HR-REL", "COMPLETED", people().soqm(soqm).facilitator(facilitator).operator(operator).owner(owner));
+        relatedControls.replace(source.getId(), List.of(second.getId(), first.getId()));
+
+        NextCycleCreated created = service.createNextCycle(source.getId(), null, soqm);
+
+        assertThat(relatedControls.ids(created.id())).containsExactly(second.getId(), first.getId());
+        // The source keeps its own
+        assertThat(relatedControls.ids(source.getId())).containsExactly(second.getId(), first.getId());
     }
 
     @Test

@@ -1212,3 +1212,47 @@ input[data-date-picker] {
 #createControlModal .cc-alert-warning .btn { margin-top: 8px; }
 #createControlModal #ccCreateBtn { background: #00338D; border-color: #00338D; font-weight: 600; }
 #createControlModal #ccCreateBtn:hover:not(:disabled) { background: #00278a; border-color: #00278a; }
+
+/* ── Other Related Controls (Details tab, related-controls.js): the Control Shared With look, each chip a link ── */
+.rc-label-icon {
+    margin-right: 4px;
+    color: var(--kpmg-blue);
+}
+.rc-chip {
+    padding: 0;
+}
+.rc-chip-link {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+    padding: 5px 8px;
+    border-radius: 6px;
+    color: inherit;
+    text-decoration: none;
+}
+.rc-chip-link:hover .sw-chip-name,
+.rc-chip-link:focus-visible .sw-chip-name {
+    color: var(--link);
+    text-decoration: underline;
+}
+.rc-chip-link:focus-visible {
+    outline: 2px solid var(--kpmg-blue);
+    outline-offset: 1px;
+}
+.rc-chip-icon {
+    flex: none;
+    margin-top: 1px;
+    color: var(--kpmg-blue);
+}
+.rc-chip .sw-chip-remove {
+    margin: 2px 4px 0 -4px;
+}
+.rc-earlier {
+    margin-top: 8px;
+}
+.rc-earlier .rc-earlier-label {
+    margin-bottom: 2px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}

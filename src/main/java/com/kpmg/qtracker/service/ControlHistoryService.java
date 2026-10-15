@@ -91,7 +91,8 @@ public class ControlHistoryService {
             }
             List<FieldChangeDTO> changes = parseFieldChanges(log);
             if (!withSoqmOnlyDetails) {
-                changes.removeIf(change -> AccessPolicy.SOQM_ONLY_DETAILS.contains(change.getField()));
+                changes.removeIf(change -> AccessPolicy.SOQM_ONLY_DETAILS.stream()
+                        .anyMatch(field -> field.equalsIgnoreCase(change.getField())));
                 // A completed edit of these fields only: its reason row alone is not shown either
                 if (changes.stream().allMatch(change -> CompletedEdit.REASON_FIELD.equals(change.getField()))) {
                     changes.clear();
@@ -273,10 +274,16 @@ public class ControlHistoryService {
                 return AccessPolicy.Slot.SOQM_LEAD.getLabel();
             case "control_id":
                 return "Control ID";
-            // humanizeFieldLabel would make it "It Applications"
+            // humanizeFieldLabel would make them "It Applications" and "(earlier Text)"; the Changelog leaves these rows
+            // out for anyone but SoQM Admin Team by their exact names (AccessPolicy.SOQM_ONLY_DETAILS)
             case "IT Applications":
             case "it_applications":
                 return "IT Applications";
+            case RelatedControls.LABEL:
+            case "other_related_controls":
+                return RelatedControls.LABEL;
+            case RelatedControls.EARLIER_TEXT_LABEL:
+                return RelatedControls.EARLIER_TEXT_LABEL;
             case "prp":
                 return "PRP";
             case "soqm_head_comments":

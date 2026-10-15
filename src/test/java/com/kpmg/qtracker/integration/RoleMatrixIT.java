@@ -670,7 +670,7 @@ class RoleMatrixIT {
             return mav != null && "control-not-available".equals(mav.getViewName()) ? "not yet" : outcome(result);
         }
         String html = result.getResponse().getContentAsString();
-        boolean related = html.contains("name=\"otherRelatedControls\"");
+        boolean related = html.contains("id=\"relatedControlsField\"");
         boolean applications = html.contains("name=\"itApplications\"");
         return related && applications ? "ok" : related || applications ? "one of them!" : "none";
     }

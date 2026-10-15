@@ -31,6 +31,17 @@ public class ControlDetailsDTO {
     @Size(max = 2000, message = "Process Owner Comments must be at most 2000 characters")
     private String processOwnerComments;
 
+    /**
+     * Other Related Controls as a save sets them (RelatedControls): the linked controls' ids in their order; null
+     * keeps them as stored. Sent, never returned.
+     */
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private java.util.List<Long> relatedControlIds;
+
+    /** The Control IDs of the linked controls, in their order; returned to SoQM Admin Team only, never taken. */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private java.util.List<String> relatedControls;
+
     /** Why SoQM Team changes a completed control in place (CompletedEdit); sent, never returned. */
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String editReason;

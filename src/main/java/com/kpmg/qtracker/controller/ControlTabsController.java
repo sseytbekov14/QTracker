@@ -35,6 +35,7 @@ public class ControlTabsController {
     private final NotificationService notificationService;
     private final ControlPermissionService controlPermissionService;
     private final PermissionService permissionService;
+    private final RelatedControls relatedControls;
 
     @PostMapping("/api/control-details")
     public ResponseEntity<?> saveControlDetails(@Valid @RequestBody ControlDetailsDTO detailsDTO, HttpSession session) {
@@ -64,6 +65,16 @@ public class ControlTabsController {
                 return ResponseEntity.status(403).body("VALIDATION_ERROR: " + stepsRefusal);
             }
             ControlDetailsDTO mergedDetails = mergeControlDetails(existingDetails, detailsDTO, permission);
+            // Other Related Controls: the links SoQM Admin Team chose; null (or anyone else) keeps them as stored
+            List<Long> storedRelated = relatedControls.ids(detailsDTO.getControlId());
+            List<Long> newRelated = permission.canEditAll() && detailsDTO.getRelatedControlIds() != null
+                    ? RelatedControls.normalize(detailsDTO.getRelatedControlIds()) : storedRelated;
+            if (!newRelated.equals(storedRelated)) {
+                Optional<String> relatedRefusal = relatedControls.refusal(detailsDTO.getControlId(), newRelated);
+                if (relatedRefusal.isPresent()) {
+                    return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + relatedRefusal.get());
+                }
+            }
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
             List<String> changedFields = new ArrayList<>();
@@ -78,7 +89,11 @@ public class ControlTabsController {
                     existingDetails.getDepartment(), mergedDetails.getDepartment());
             collectChange(changedFields, previousValues, newValues, "Process Activities",
                     existingDetails.getProcessActivities(), mergedDetails.getProcessActivities());
-            collectChange(changedFields, previousValues, newValues, "Other Related Controls",
+            if (!newRelated.equals(storedRelated)) {
+                collectChange(changedFields, previousValues, newValues, RelatedControls.LABEL,
+                        relatedControls.describe(storedRelated), relatedControls.describe(newRelated));
+            }
+            collectChange(changedFields, previousValues, newValues, RelatedControls.EARLIER_TEXT_LABEL,
                     existingDetails.getOtherRelatedControls(), mergedDetails.getOtherRelatedControls());
             collectChange(changedFields, previousValues, newValues, "IT Applications",
                     existingDetails.getItApplications(), mergedDetails.getItApplications());
@@ -96,6 +111,9 @@ public class ControlTabsController {
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + reasonRefusal.get());
             }
             controlDetailsService.saveDetails(mergedDetails);
+            if (!newRelated.equals(storedRelated)) {
+                relatedControls.replace(detailsDTO.getControlId(), newRelated);
+            }
             logChanges(session, detailsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues,
                     CompletedEdit.reasonOf(permission, detailsDTO.getEditReason()));
             return ResponseEntity.ok().build();
@@ -287,7 +305,9 @@ public class ControlTabsController {
         try {
             ControlDetailsDTO details = controlDetailsService.getDetailsByControlId(controlId);
             // Other Related Controls and IT Applications: SoQM Admin Team only (AccessPolicy.SOQM_ONLY_DETAILS)
-            if (!AccessPolicy.seesSoqmOnlyDetails(AccessPolicy.Subject.of(currentUser))) {
+            if (AccessPolicy.seesSoqmOnlyDetails(AccessPolicy.Subject.of(currentUser))) {
+                details.setRelatedControls(relatedControls.controlIds(controlId));
+            } else {
                 details.setOtherRelatedControls(null);
                 details.setItApplications(null);
             }

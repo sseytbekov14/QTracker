@@ -87,6 +87,9 @@ class ControlTabsControllerAuditTest {
     @MockBean
     private PermissionService permissionService;
 
+    @MockBean
+    private com.kpmg.qtracker.service.RelatedControls relatedControls;
+
     @Test
     void saveControlDetails_whenNoChanges_doesNotLogAudit() throws Exception {
         User sessionUser = new User();

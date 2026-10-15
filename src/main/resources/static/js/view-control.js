@@ -177,7 +177,9 @@ const viewControl = (function() {
             soqmLeadMail: document.getElementById('soqmLeadHidden')?.value || '',
             processOwnerMail: document.getElementById('processOwnerHidden')?.value || '',
             // Control Shared With keeps its people itself (shared-with.js), unknown addresses included
-            sharedWith: typeof SharedWithField !== 'undefined' ? SharedWithField.snapshot() : null
+            sharedWith: typeof SharedWithField !== 'undefined' ? SharedWithField.snapshot() : null,
+            // Other Related Controls keep their links themselves (related-controls.js)
+            relatedControls: typeof RelatedControlsField !== 'undefined' ? RelatedControlsField.snapshot() : null
         };
     }
 
@@ -230,6 +232,9 @@ const viewControl = (function() {
 
         if (typeof SharedWithField !== 'undefined') {
             SharedWithField.restore(editModeSnapshot.sharedWith);
+        }
+        if (typeof RelatedControlsField !== 'undefined') {
+            RelatedControlsField.restore(editModeSnapshot.relatedControls);
         }
         normalizeAssignmentDateFieldsForDisplay();
 
@@ -1618,6 +1623,10 @@ function saveControlData(controlId) {
         if (typeof SharedWithField !== 'undefined') {
             SharedWithField.setEditing(fullEditEnabled);
         }
+        // Other Related Controls: SoQM Admin Team add and remove links
+        if (typeof RelatedControlsField !== 'undefined') {
+            RelatedControlsField.setEditing(fullEditEnabled);
+        }
 
         // Without full rights only Details fields are editable (Assignment is saved by SoQM Team only)
         toggleSoqmOnlyNotes(!fullEditEnabled);
@@ -1656,6 +1665,9 @@ function saveControlData(controlId) {
         makeAllFormsReadOnly();
         if (typeof SharedWithField !== 'undefined') {
             SharedWithField.setEditing(false);
+        }
+        if (typeof RelatedControlsField !== 'undefined') {
+            RelatedControlsField.setEditing(false);
         }
         toggleSoqmOnlyNotes(false);
     }
@@ -2210,6 +2222,10 @@ function saveDetailsData(controlId) {
 
         if (!response.ok) {
             const errorText = serverErrorText(await response.text());
+            // A refusal that names Other Related Controls is also shown under that field
+            if (typeof RelatedControlsField !== 'undefined') {
+                RelatedControlsField.showServerError(errorText);
+            }
             throw new Error(`Details save failed: ${errorText}`);
         }
 
@@ -2229,6 +2245,9 @@ function saveDetailsData(controlId) {
     .then(data => {
         console.log('вњ… Details saved successfully');
         detailsDataCache = { ...(detailsDataCache || {}), ...detailsData };
+        if (typeof RelatedControlsField !== 'undefined') {
+            RelatedControlsField.markSaved();
+        }
 
         // Upload file attachments if any
         if (window.uploadAttachments) {
@@ -3045,7 +3064,9 @@ function buildDetailsPayload(controlId) {
             ? getDetailsValue('[name="controlOperatorReview"]')
             : null,
         soqmHeadComments: getDetailsValue('[name="soqmHeadComments"]'),
-        processOwnerComments: getDetailsValue('[name="processOwnerComments"]')
+        processOwnerComments: getDetailsValue('[name="processOwnerComments"]'),
+        // Other Related Controls: the linked controls' ids in edit mode (related-controls.js); null keeps them
+        relatedControlIds: typeof RelatedControlsField !== 'undefined' ? RelatedControlsField.idsForSave() : null
     };
 
     return applyDetailsPermissions(payload);

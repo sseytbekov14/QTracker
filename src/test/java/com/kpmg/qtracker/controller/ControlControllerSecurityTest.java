@@ -96,6 +96,9 @@ class ControlControllerSecurityTest {
     @MockBean
     private com.kpmg.qtracker.service.ControlRenameService controlRenameService;
 
+    @MockBean
+    private com.kpmg.qtracker.service.RelatedControls relatedControls;
+
     private ControlDTO requestBody;
 
     @BeforeEach

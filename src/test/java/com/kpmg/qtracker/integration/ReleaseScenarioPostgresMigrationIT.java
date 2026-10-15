@@ -16,11 +16,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Release test pass, stage I: the Flyway migrations on a real PostgreSQL - from an empty schema to the latest, from
- * data of an earlier version (synthetic rows written at V4) to the latest, then the rollback scripts of V14, V13, V12, V11
+ * data of an earlier version (synthetic rows written at V4) to the latest, then the rollback scripts of V15, V14, V13, V12, V11
  * and V8, and from data of the version before (V12, SoQM Development Materials filled) to V13 and back. Runs only with -Drelease.db.url=jdbc:postgresql://.../qtracker_release_test (and .user, .password): every test
  * empties the public schema of that temporary database (V1 looks its constraints up by table name, so the migrations
  * need a database of their own) and leaves it empty for the next run.
@@ -59,7 +60,7 @@ class ReleaseScenarioPostgresMigrationIT {
         }
     }
 
-    private static final String LATEST = "14";
+    private static final String LATEST = "15";
 
     @Test
     void anEmptyDatabase_migratesToTheLatestVersion_withTheSeedPeopleOfV2() throws Exception {
@@ -131,7 +132,12 @@ class ReleaseScenarioPostgresMigrationIT {
         assertThat(single("SELECT COUNT(*) FROM controls WHERE control_id LIKE '%OLD%' AND created_from_control_id IS NULL"))
                 .isEqualTo("3");
 
-        // Rollback of V14, V13, V12, V11, then of V8 (the order the scripts are meant for)
+        assertThat(relatedTables()).isEqualTo("1");
+        assertThat(single("SELECT COUNT(*) FROM control_related_controls")).isEqualTo("0");
+
+        // Rollback of V15, V14, V13, V12, V11, then of V8 (the order the scripts are meant for)
+        script("db/rollback/V15__undo_control_related_controls.sql");
+        assertThat(relatedTables()).isEqualTo("0");
         script("db/rollback/V14__undo_control_created_from.sql");
         assertThat(createdFromColumns()).isEqualTo("0");
         script("db/rollback/V13__undo_drop_soqm_development_materials.sql");
@@ -205,6 +211,55 @@ class ReleaseScenarioPostgresMigrationIT {
      * The version before this one (V13) with controls and a Changelog: V14 adds created_from_control_id, empty on every
      * row, linked to controls (a removed source leaves the link empty); its rollback drops it and keeps the rows.
      */
+    /**
+     * The version before this one (V14) with controls and their earlier free text in other_related_controls: V15 adds
+     * control_related_controls, empty; a link names two controls, once per pair, never a control itself, and goes with
+     * either control; the rollback drops the table and keeps the controls and their text.
+     */
+    @Test
+    void dataOfTheVersionBefore_migratesToV15_noLinks_theTableKeepsThemRight_andItsRollbackDropsIt() throws Exception {
+        flyway("14").migrate();
+        execute("INSERT INTO controls (control_id, control_frequency, performance_status, control_status, "
+                + "other_related_controls) VALUES "
+                + "('HR-V14-1/FY27/Central/OCT', 'Monthly', 'IN_PROGRESS', 'ACTIVE', 'HR-12, see the list'), "
+                + "('EP-V14-2/FY27/Central', 'Annual', 'COMPLETED', 'ACTIVE', NULL), "
+                + "('HR-V14-3/FY27/Central/1Q', 'Quarterly', 'DRAFT', NULL, NULL)");
+
+        Flyway latest = flyway(null);
+        latest.migrate();
+        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo(LATEST);
+        assertThat(relatedTables()).isEqualTo("1");
+        assertThat(single("SELECT COUNT(*) FROM control_related_controls")).isEqualTo("0");
+        assertThat(single("SELECT other_related_controls FROM controls WHERE control_id = 'HR-V14-1/FY27/Central/OCT'"))
+                .isEqualTo("HR-12, see the list");
+
+        String first = single("SELECT id FROM controls WHERE control_id = 'HR-V14-1/FY27/Central/OCT'");
+        String second = single("SELECT id FROM controls WHERE control_id = 'EP-V14-2/FY27/Central'");
+        String third = single("SELECT id FROM controls WHERE control_id = 'HR-V14-3/FY27/Central/1Q'");
+        execute("INSERT INTO control_related_controls (control_id, related_control_id, sort_order) VALUES "
+                + "(" + first + ", " + second + ", 0), (" + first + ", " + third + ", 1), (" + second + ", " + first + ", 0)");
+        assertThat(rows("SELECT CAST(related_control_id AS VARCHAR), CAST(sort_order AS VARCHAR) FROM control_related_controls "
+                + "WHERE control_id = " + first + " ORDER BY sort_order"))
+                .containsExactly(Map.entry(second, "0"), Map.entry(third, "1"));
+        // The same pair twice, a control linked to itself, a control that is not there
+        assertThatThrownBy(() -> execute("INSERT INTO control_related_controls (control_id, related_control_id, sort_order) "
+                + "VALUES (" + first + ", " + second + ", 5)")).isInstanceOf(java.sql.SQLException.class);
+        assertThatThrownBy(() -> execute("INSERT INTO control_related_controls (control_id, related_control_id, sort_order) "
+                + "VALUES (" + first + ", " + first + ", 5)")).isInstanceOf(java.sql.SQLException.class);
+        assertThatThrownBy(() -> execute("INSERT INTO control_related_controls (control_id, related_control_id, sort_order) "
+                + "VALUES (" + first + ", 987654321, 5)")).isInstanceOf(java.sql.SQLException.class);
+        // A removed control takes the links to it and from it along
+        execute("DELETE FROM controls WHERE id = " + third);
+        assertThat(single("SELECT COUNT(*) FROM control_related_controls")).isEqualTo("2");
+        execute("DELETE FROM controls WHERE id = " + second);
+        assertThat(single("SELECT COUNT(*) FROM control_related_controls")).isEqualTo("0");
+
+        script("db/rollback/V15__undo_control_related_controls.sql");
+        assertThat(relatedTables()).isEqualTo("0");
+        assertThat(single("SELECT COUNT(*) FROM controls WHERE control_id LIKE '%-V14-%'")).isEqualTo("1");
+        assertThat(single("SELECT other_related_controls FROM controls WHERE id = " + first)).isEqualTo("HR-12, see the list");
+    }
+
     @Test
     void dataOfTheVersionBefore_migratesToV14_createdFromIsEmpty_andItsRollbackDropsIt() throws Exception {
         flyway("13").migrate();
@@ -225,7 +280,8 @@ class ReleaseScenarioPostgresMigrationIT {
                 .isEqualTo("YES|bigint");
         assertThat(single("SELECT COUNT(*) FROM controls WHERE control_id LIKE 'HR-V13-%' AND created_from_control_id IS NULL"))
                 .isEqualTo("2");
-        // A next cycle made from the first; the source removed, the link goes and the cycle stays
+        // A next cycle made from the first; the source removed, the link goes and the cycle stays (V14 only: V15 has its
+        // own test above)
         execute("INSERT INTO controls (control_id, control_frequency, performance_status, created_from_control_id) "
                 + "SELECT 'HR-V13-1/FY27/Central/NOV', 'Monthly', 'IN_PROGRESS', id FROM controls "
                 + "WHERE control_id = 'HR-V13-1/FY27/Central/OCT'");
@@ -241,6 +297,11 @@ class ReleaseScenarioPostgresMigrationIT {
     }
 
     // ---- helpers ----
+
+    private String relatedTables() throws Exception {
+        return single("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '" + schema
+                + "' AND table_name = 'control_related_controls'");
+    }
 
     private String createdFromColumns() throws Exception {
         return single("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '" + schema

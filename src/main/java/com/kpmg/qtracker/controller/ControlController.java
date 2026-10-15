@@ -67,6 +67,7 @@ public class ControlController {
     private final StatusDisplayMapper statusDisplayMapper;
     private final com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;
     private final ControlRenameService controlRenameService;
+    private final com.kpmg.qtracker.service.RelatedControls relatedControls;
     private static final Logger logger = LoggerFactory.getLogger(ControlController.class);
 
     /**
@@ -539,6 +540,7 @@ public class ControlController {
             // Every field of the Control, Details and Assignment tabs, as View Control shows them (CompletedControlExcel)
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
             ControlDetailsDTO details = controlDetailsService.getDetailsByControlId(control.getId());
+            details.setRelatedControls(relatedControls.controlIds(control.getId()));
             List<CompletedControlExcel.Line> lines = CompletedControlExcel.lines(control, performanceStatus, assignment,
                     details, userService.displayNamesByEmail(CompletedControlExcel.emailsOf(assignment)), statusDisplayMapper);
 

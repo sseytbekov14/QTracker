@@ -55,6 +55,7 @@ public class ControlAutoCreationService {
     private final ControlRowLock controlRowLock;
     private final ControlInitiation controlInitiation;
     private final AdminAuditService adminAuditService;
+    private final RelatedControls relatedControls;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** The audit entry of the new control: who made it with Create Control, from which control, under which ID. */
@@ -526,6 +527,8 @@ public class ControlAutoCreationService {
                 plan.people().sharedWith()));
         ControlDetails sourceDetails = detailsRepository.findByControlId(source.getId()).orElse(null);
         detailsRepository.save(ControlNextCycle.details(sourceDetails, saved.getId()));
+        // Other Related Controls: the same links, like the field's earlier text
+        relatedControls.copy(source.getId(), saved.getId());
 
         ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(saved.getId());
         List<String> missing = ControlInitiation.missing(saved, assignment, null);

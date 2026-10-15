@@ -66,6 +66,7 @@ public class ViewController {
     private final StatusDisplayMapper statusDisplayMapper;
     private final WorkflowTransitionGuard transitionGuard;
     private final ComponentControlsExcel componentControlsExcel;
+    private final RelatedControls relatedControls;
 
     private User getCurrentUser(HttpSession session) {
         return (User) session.getAttribute("currentUser");
@@ -950,8 +951,14 @@ public class ViewController {
         model.addAttribute("kdnControlMark", AccessPolicy.seesKdnMark(AccessPolicy.Subject.of(currentUser))
                 && AccessPolicy.isKdnControl(control.getControlId()));
         model.addAttribute("kdnIdHint", RoleDisplayMapper.KDN_ID_HINT);
-        // Other Related Controls and IT Applications on the Details tab: SoQM Admin Team only
-        model.addAttribute("seesSoqmOnlyDetails", AccessPolicy.seesSoqmOnlyDetails(AccessPolicy.Subject.of(currentUser)));
+        // Other Related Controls and IT Applications on the Details tab: SoQM Admin Team only. Other Related Controls are
+        // links to other controls; the free text the field held before is shown under them while it is not empty
+        boolean seesSoqmOnlyDetails = AccessPolicy.seesSoqmOnlyDetails(AccessPolicy.Subject.of(currentUser));
+        model.addAttribute("seesSoqmOnlyDetails", seesSoqmOnlyDetails);
+        model.addAttribute("relatedControls", seesSoqmOnlyDetails ? relatedControls.of(id) : List.of());
+        ControlDetailsDTO storedDetails = seesSoqmOnlyDetails ? controlDetailsService.getDetailsByControlId(id) : null;
+        String relatedEarlierText = storedDetails != null ? storedDetails.getOtherRelatedControls() : null;
+        model.addAttribute("relatedEarlierText", relatedEarlierText != null && !relatedEarlierText.isBlank() ? relatedEarlierText : null);
         // A completed control (AccessPolicy.isLocked): locked for the user, or changed in place by SoQM Team
         model.addAttribute("completedLocked", permission.isLocked());
         model.addAttribute("completedEdit", permission.isCompletedEdit());

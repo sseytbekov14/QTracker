@@ -114,12 +114,16 @@ class SoqmOnlyDetailsIT {
 
         assertThat(page(control, login(soqm)))
                 .contains("id=\"soqmOnlyDetailsRow\"")
+                .contains("id=\"relatedControlsField\"")
+                // The free text from before the links, under them
                 .contains("name=\"otherRelatedControls\"")
                 .contains("name=\"itApplications\"");
 
         for (User reader : everyoneButSoqm()) {
             assertThat(page(control, login(reader))).as(reader.getMail())
                     .doesNotContain("soqmOnlyDetailsRow")
+                    .doesNotContain("relatedControlsField")
+                    .doesNotContain("related-controls.js?")
                     .doesNotContain("name=\"otherRelatedControls\"")
                     .doesNotContain("name=\"itApplications\"")
                     .doesNotContain(LEGACY_TEXT)
@@ -157,7 +161,7 @@ class SoqmOnlyDetailsIT {
 
         List<List<String>> forSoqm = editedFields(control, soqmSession);
         assertThat(forSoqm).containsExactlyInAnyOrder(
-                List.of("Process Name", "Other Related Controls", "IT Applications"),
+                List.of("Process Name", "Other Related Controls (earlier text)", "IT Applications"),
                 List.of("IT Applications"));
 
         for (User reader : everyoneButSoqm()) {

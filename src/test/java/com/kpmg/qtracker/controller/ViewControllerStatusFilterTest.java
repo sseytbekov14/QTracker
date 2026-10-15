@@ -118,6 +118,9 @@ class ViewControllerStatusFilterTest {
     @MockBean
     private com.kpmg.qtracker.service.ComponentControlsExcel componentControlsExcel;
 
+    @MockBean
+    private com.kpmg.qtracker.service.RelatedControls relatedControls;
+
     @Test
     void actionCentre_nonSoqm_redirectsToTheDashboardTab() throws Exception {
         User currentUser = new User();

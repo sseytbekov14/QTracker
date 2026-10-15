@@ -259,7 +259,8 @@ public final class AccessPolicy {
      * names: everyone else gets neither the fields on View Control, nor their values from /api/control-details, nor
      * their rows in the Changelog.
      */
-    public static final List<String> SOQM_ONLY_DETAILS = List.of("Other Related Controls", "IT Applications");
+    public static final List<String> SOQM_ONLY_DETAILS = List.of(
+            RelatedControls.LABEL, RelatedControls.EARLIER_TEXT_LABEL, "IT Applications");
 
     /** Whether the user sees the fields of {@link #SOQM_ONLY_DETAILS}: SoQM Admin Team only. */
     public static boolean seesSoqmOnlyDetails(Subject subject) {
