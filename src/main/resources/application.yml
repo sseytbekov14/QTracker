@@ -50,6 +50,10 @@ spring:
 
 app:
   base-url: ${APP_BASE_URL:}
+  # The one site address (host only, e.g. kzqtracker.go1.kworld.kpmg.com): a request on any other name of the
+  # server gets 301 to https://<this host> with the same path and query before SAML starts
+  # (CanonicalHostRedirectFilter); empty: off. localhost and 127.0.0.1 are never redirected
+  canonical-host: ${APP_CANONICAL_HOST:}
 
 auth:
   # How people sign in (AuthMode): exactly one of SSO (Microsoft Entra ID, SAML) and the password form.

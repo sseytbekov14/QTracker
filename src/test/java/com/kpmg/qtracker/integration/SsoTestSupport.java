@@ -22,7 +22,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 /**
  * The prod profile with SSO as it is deployed, against the made-up identity provider of
  * src/test/resources/saml (its metadata file stands for SAML_METADATA_URI). Every SSO test class extends this,
- * so they share one application context and one database. The site is https://qtracker.test.
+ * so they share one application context and one database. The site is https://qtracker.test (the canonical
+ * host: MockMvc requests come as localhost, which is never redirected).
  */
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:sso-it;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
@@ -35,6 +36,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "reminders.enabled=false",
         "controls.auto-create.enabled=false",
         "app.base-url=" + SsoTestSupport.SITE,
+        "app.canonical-host=qtracker.test",
         "auth.sso.entity-id=" + SsoTestSupport.ENTITY_ID,
         "auth.sso.acs-url=" + SsoTestSupport.ACS_URL,
         "auth.sso.metadata-uri=classpath:saml/test-idp-metadata.xml"

@@ -12,6 +12,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -63,6 +64,25 @@ class SsoChainIT extends SsoTestSupport {
                     .andExpect(status().isFound())
                     .andExpect(redirectedUrlPattern("**" + SIGN_ON_PATH));
         }
+    }
+
+    @Test
+    void anotherHostName_isSentToTheSite_beforeTheSignIn() throws Exception {
+        for (String path : List.of("/", SIGN_ON_PATH, ACS_PATH)) {
+            mockMvc.perform(get(path).queryParam("q", "1").with(host("kzqtracker")))
+                    .andExpect(status().isMovedPermanently())
+                    .andExpect(redirectedUrl(SITE + path + "?q=1"));
+        }
+        mockMvc.perform(get(SIGN_ON_PATH).with(host("qtracker.test")))
+                .andExpect(status().isFound())
+                .andExpect(redirectedUrlPattern(IDP_SSO_URL + "?SAMLRequest=*"));
+    }
+
+    private static RequestPostProcessor host(String name) {
+        return request -> {
+            request.setServerName(name);
+            return request;
+        };
     }
 
     @Test
