@@ -76,11 +76,6 @@
     <a href="/logout" class="sidebar-logout" th:if="${sidebar == null or sidebar.logout}">
         <i class="bi bi-box-arrow-right" aria-hidden="true"></i>Logout
     </a>
-    <p class="sidebar-sso-note" th:if="${sidebar != null and sidebar.sso and !sidebar.logout}">
-        <i class="bi bi-microsoft" aria-hidden="true"></i>
-        <span>Signed in with Microsoft. There is no Logout here: the Microsoft session stays open in this
-            browser, close the browser to end it.</span>
-    </p>
 
     <div class="sidebar-footer">
         <small class="text-muted">Registered to</small><br>

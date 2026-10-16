@@ -136,12 +136,6 @@ public class SidebarModelAdvice {
             return mode == null || mode.logout();
         }
 
-        /** Signed in with Microsoft: no Logout, a note that the Microsoft session stays instead. */
-        public boolean isSso() {
-            AuthMode mode = authMode.getIfAvailable();
-            return mode != null && mode.sso();
-        }
-
         /** Computed lazily, only when a page actually renders the sidebar; none without notifications. */
         public long getUnreadCount() {
             if (unreadCount == null && !isNotifications()) {

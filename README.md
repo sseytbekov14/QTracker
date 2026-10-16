@@ -217,7 +217,7 @@ Authentication (`AuthMode`, exactly one of the two):
 - Password form (`AUTH_PASSWORD_ENABLED=true`, the dev and stage default): `/login` with `DevAuthenticationProvider`.
 - Without a session `/api/**` answers 401 JSON (`SESSION_EXPIRED`), pages go to the sign-in and come back to the page asked for. Sessions end after 15 minutes without a request; `js/session.js` shows "Session expired, reload the page" on such a 401 (nothing is reloaded or cleared) and, while someone types, calls `GET /api/session/keepalive` at most once in 5 minutes.
 - Before SSO the imported people need their real address (the import gave them `<login>@qtracker.local`, which SSO refuses): `java -jar qtracker.jar --update-user-emails migration/<file>.csv` with the columns `User` (login or display name) and `Email`; a dry run unless `--apply`, all or nothing, idempotent, audited; the console shows line numbers and user ids only, the list with the addresses is written next to the file. With SSO the Admin Panel's Add User needs the corporate e-mail and sets no password.
-- Logout (`AUTH_LOGOUT_ENABLED`, off by default since 2026-10-16): there is no Logout link and no `/logout`; with SSO the sidebar says that the Microsoft session stays open. Switched on with SSO, `/logout` ends only the QTracker session (`/signed-out` says so).
+- Logout (`AUTH_LOGOUT_ENABLED`, off by default since 2026-10-16): there is no Logout link and no `/logout`, and the sidebar says nothing about it. Switched on with SSO, `/logout` ends only the QTracker session (`/signed-out` says so).
 
 Authorization:
 - Endpoint protection configured in `SecurityConfig`
