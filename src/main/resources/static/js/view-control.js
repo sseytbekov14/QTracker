@@ -635,21 +635,7 @@ function confirmWorkflowAction() {
             return;
         }
 
-        const filteredUsers = facilitatorUsers.filter(user => {
-            if (!user) return false;
-            
-            const displayNameMatch = user.displayName && user.displayName.toLowerCase().startsWith(query);
-            const usernameMatch = user.username && user.username.toLowerCase().startsWith(query);
-            const mailMatch = user.mail && user.mail.toLowerCase().startsWith(query);
-            
-            const matches = displayNameMatch || usernameMatch || mailMatch;
-            
-            if (matches) {
-                console.log('вњ… Match found:', user.displayName, user.username, user.mail);
-            }
-            
-            return matches;
-        });
+        const filteredUsers = facilitatorUsers.filter(user => userMatchesQuery(user, query));
 
         console.log('рџЋЇ Filtered users count:', filteredUsers.length);
         displayUserDropdownList(filteredUsers);
@@ -752,13 +738,7 @@ function confirmWorkflowAction() {
             return;
         }
 
-        const filteredUsers = controlOperatorUsers.filter(user => {
-            if (!user) return false;
-            
-            return (user.displayName && user.displayName.toLowerCase().startsWith(query)) ||
-                   (user.username && user.username.toLowerCase().startsWith(query)) ||
-                   (user.mail && user.mail.toLowerCase().startsWith(query));
-        });
+        const filteredUsers = controlOperatorUsers.filter(user => userMatchesQuery(user, query));
 
         displayControlOperatorList(filteredUsers);
     }
@@ -850,13 +830,7 @@ function confirmWorkflowAction() {
             return;
         }
 
-        const filteredUsers = soqmLeadUsers.filter(user => {
-            if (!user) return false;
-            
-            return (user.displayName && user.displayName.toLowerCase().startsWith(query)) ||
-                   (user.username && user.username.toLowerCase().startsWith(query)) ||
-                   (user.mail && user.mail.toLowerCase().startsWith(query));
-        });
+        const filteredUsers = soqmLeadUsers.filter(user => userMatchesQuery(user, query));
 
         displaySoqmLeadList(filteredUsers);
     }
@@ -948,13 +922,7 @@ function confirmWorkflowAction() {
             return;
         }
 
-        const filteredUsers = processOwnerUsers.filter(user => {
-            if (!user) return false;
-            
-            return (user.displayName && user.displayName.toLowerCase().startsWith(query)) ||
-                   (user.username && user.username.toLowerCase().startsWith(query)) ||
-                   (user.mail && user.mail.toLowerCase().startsWith(query));
-        });
+        const filteredUsers = processOwnerUsers.filter(user => userMatchesQuery(user, query));
 
         displayProcessOwnerList(filteredUsers);
     }
@@ -3006,6 +2974,20 @@ function serverErrorText(text) {
         }
     }
     return raw.replace(/^\s*VALIDATION_ERROR:\s*/, '');
+}
+
+// The people pickers of the Assignment tab (Facilitator, Control Operator, SoQM Team / Delegate, Process Owner):
+// any part of the name or the e-mail, in any case, as in Control Shared With ("sultan" finds "Seytbekov, Sultan")
+function userMatchesQuery(user, query) {
+    if (!user) {
+        return false;
+    }
+    const wanted = String(query || '').trim().toLowerCase();
+    if (!wanted) {
+        return true;
+    }
+    return [user.displayName, user.username, user.mail]
+        .some(value => value && String(value).toLowerCase().includes(wanted));
 }
 
 // A stored value that none of the select's options carries (older or imported data) gets an option of its
