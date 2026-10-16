@@ -141,6 +141,9 @@ class ReleaseScenarioAuthIT extends ReleaseScenarioSupport {
         MvcResult dashboard = call(session, get("/"));
         assertThat(dashboard.getResponse().getStatus()).isEqualTo(200);
         assertThat(body(dashboard)).doesNotContain("href=\"/logout\"").doesNotContain("sidebar-logout\"");
+        // The footers say "QTracker" without a year (decision of 2026-10-16)
+        assertThat(body(dashboard)).contains("<small><strong>QTracker</strong></small>").doesNotContain("| FY26");
+        assertThat(body(call(null, get("/login")))).contains("login-footer-version\">QTracker<").doesNotContain("| FY26");
 
         assertThat(call(session, get("/logout")).getResponse().getStatus()).isEqualTo(404);
         assertThat(call(session, post("/logout").with(csrf())).getResponse().getStatus()).isIn(404, 405);
