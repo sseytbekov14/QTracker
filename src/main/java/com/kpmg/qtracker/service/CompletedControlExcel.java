@@ -84,7 +84,6 @@ public final class CompletedControlExcel {
         add(lines, DETAILS, ControlStepsFields.OPERATOR_PROGRAM_LABEL, d.getControlOperatorReview());
         add(lines, DETAILS, RelatedControls.LABEL,
                 d.getRelatedControls() == null ? null : String.join(", ", d.getRelatedControls()));
-        add(lines, DETAILS, RelatedControls.EARLIER_TEXT_LABEL, d.getOtherRelatedControls());
         add(lines, DETAILS, "IT Applications", d.getItApplications());
         add(lines, DETAILS, ControlStepsFields.STEPS_LABEL, d.getControlStepsPerformed());
         add(lines, DETAILS, "SoQM Head/Team Comments", d.getSoqmHeadComments());

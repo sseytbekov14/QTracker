@@ -33,8 +33,7 @@ class CompletedControlExcelTest {
             "Control Description", "PRP",
             "# Details",
             "Process Name", "Homogeneity", "References to this Control", "Department", "Process Activities",
-            ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Other Related Controls", "Other Related Controls (earlier text)",
-            "IT Applications",
+            ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Other Related Controls", "IT Applications",
             ControlStepsFields.STEPS_LABEL, "SoQM Head/Team Comments", "Process Owner Comments", "Attachment (Details)",
             "# Assignment",
             "Facilitator", "Control Operator", "SoQM Team / Delegate", "Process Owner", "Control Shared With",
@@ -95,7 +94,7 @@ class CompletedControlExcelTest {
                 .containsEntry("SoQM Head/Team Comments", "Checked")
                 .containsEntry(ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Program")
                 .containsEntry("Other Related Controls", "EP-2/FY27, HR-3/FY27/Central/OCT")
-                .containsEntry("Other Related Controls (earlier text)", "Typed before the links")
+                .doesNotContainKey(RelatedControls.EARLIER_TEXT_LABEL)
                 .containsEntry("Attachment (Details)", "plan.pdf; notes.docx")
                 .containsEntry("Facilitator", "Anna Petrova (Anna@kpmg.kz); unknown@kpmg.kz")
                 .containsEntry("Process Owner", "gone@kpmg.kz (deleted user)")
