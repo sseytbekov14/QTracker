@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Release test pass, stage I: the Flyway migrations on a real PostgreSQL - from an empty schema to the latest, from
- * data of an earlier version (synthetic rows written at V4) to the latest, then the rollback scripts of V15, V14, V13, V12, V11
+ * data of an earlier version (synthetic rows written at V4) to the latest, then the rollback scripts of V16, V15, V14, V13, V12, V11
  * and V8, and from data of the version before (V12, SoQM Development Materials filled) to V13 and back. Runs only with -Drelease.db.url=jdbc:postgresql://.../qtracker_release_test (and .user, .password): every test
  * empties the public schema of that temporary database (V1 looks its constraints up by table name, so the migrations
  * need a database of their own) and leaves it empty for the next run.
@@ -60,7 +60,7 @@ class ReleaseScenarioPostgresMigrationIT {
         }
     }
 
-    private static final String LATEST = "15";
+    private static final String LATEST = "16";
 
     @Test
     void anEmptyDatabase_migratesToTheLatestVersion_withTheSeedPeopleOfV2() throws Exception {
@@ -132,10 +132,13 @@ class ReleaseScenarioPostgresMigrationIT {
         assertThat(single("SELECT COUNT(*) FROM controls WHERE control_id LIKE '%OLD%' AND created_from_control_id IS NULL"))
                 .isEqualTo("3");
 
+        assertThat(relatedTextColumns()).isEqualTo("0");
         assertThat(relatedTables()).isEqualTo("1");
         assertThat(single("SELECT COUNT(*) FROM control_related_controls")).isEqualTo("0");
 
-        // Rollback of V15, V14, V13, V12, V11, then of V8 (the order the scripts are meant for)
+        // Rollback of V16, V15, V14, V13, V12, V11, then of V8 (the order the scripts are meant for)
+        script("db/rollback/V16__undo_drop_other_related_controls_text.sql");
+        assertThat(relatedTextColumns()).isEqualTo("1");
         script("db/rollback/V15__undo_control_related_controls.sql");
         assertThat(relatedTables()).isEqualTo("0");
         script("db/rollback/V14__undo_control_created_from.sql");
@@ -214,7 +217,8 @@ class ReleaseScenarioPostgresMigrationIT {
     /**
      * The version before this one (V14) with controls and their earlier free text in other_related_controls: V15 adds
      * control_related_controls, empty; a link names two controls, once per pair, never a control itself, and goes with
-     * either control; the rollback drops the table and keeps the controls and their text.
+     * either control; the rollback drops the table and keeps the controls and their text. To V15 only: V16 has its own
+     * test below.
      */
     @Test
     void dataOfTheVersionBefore_migratesToV15_noLinks_theTableKeepsThemRight_andItsRollbackDropsIt() throws Exception {
@@ -225,9 +229,9 @@ class ReleaseScenarioPostgresMigrationIT {
                 + "('EP-V14-2/FY27/Central', 'Annual', 'COMPLETED', 'ACTIVE', NULL), "
                 + "('HR-V14-3/FY27/Central/1Q', 'Quarterly', 'DRAFT', NULL, NULL)");
 
-        Flyway latest = flyway(null);
+        Flyway latest = flyway("15");
         latest.migrate();
-        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo(LATEST);
+        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo("15");
         assertThat(relatedTables()).isEqualTo("1");
         assertThat(single("SELECT COUNT(*) FROM control_related_controls")).isEqualTo("0");
         assertThat(single("SELECT other_related_controls FROM controls WHERE control_id = 'HR-V14-1/FY27/Central/OCT'"))
@@ -258,6 +262,49 @@ class ReleaseScenarioPostgresMigrationIT {
         assertThat(relatedTables()).isEqualTo("0");
         assertThat(single("SELECT COUNT(*) FROM controls WHERE control_id LIKE '%-V14-%'")).isEqualTo("1");
         assertThat(single("SELECT other_related_controls FROM controls WHERE id = " + first)).isEqualTo("HR-12, see the list");
+    }
+
+    /**
+     * The version before this one (V15) with the earlier free text in other_related_controls, links and a Changelog
+     * entry naming the text: V16 drops the column only; the rollback brings it back empty.
+     */
+    @Test
+    void dataOfTheVersionBefore_migratesToV16_theEarlierTextColumnGoes_andItsRollbackBringsItBackEmpty() throws Exception {
+        flyway("15").migrate();
+        execute("INSERT INTO controls (control_id, control_frequency, performance_status, control_status, "
+                + "other_related_controls) VALUES "
+                + "('HR-V15-1/FY27/Central/OCT', 'Monthly', 'IN_PROGRESS', 'ACTIVE', 'HR-12, see the list'), "
+                + "('EP-V15-2/FY27/Central', 'Annual', 'COMPLETED', 'ACTIVE', NULL)");
+        String first = single("SELECT id FROM controls WHERE control_id = 'HR-V15-1/FY27/Central/OCT'");
+        String second = single("SELECT id FROM controls WHERE control_id = 'EP-V15-2/FY27/Central'");
+        execute("INSERT INTO control_related_controls (control_id, related_control_id, sort_order) VALUES "
+                + "(" + first + ", " + second + ", 0)");
+        execute("INSERT INTO admin_audit_log (control_id, created_at, action_type, control_control_id, "
+                + "action_description, admin_email, admin_name, changed_fields, previous_values, new_values) "
+                + "VALUES (" + first + ", TIMESTAMP '2026-10-15 10:00:00', 'EDIT', 'HR-V15-1/FY27/Central/OCT', "
+                + "'Edit Control', 'soqm@release.test', 'SoQM', '[\"Other Related Controls (earlier text)\"]', "
+                + "'{\"Other Related Controls (earlier text)\":null}', "
+                + "'{\"Other Related Controls (earlier text)\":\"HR-12, see the list\"}')");
+
+        Flyway latest = flyway(null);
+        latest.migrate();
+        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo(LATEST);
+
+        assertThat(relatedTextColumns()).isEqualTo("0");
+        assertThat(single("SELECT COUNT(*) FROM controls WHERE control_id LIKE '%-V15-%'")).isEqualTo("2");
+        // The links and the Changelog entry stay as they were
+        assertThat(single("SELECT CAST(related_control_id AS VARCHAR) FROM control_related_controls WHERE control_id = "
+                + first)).isEqualTo(second);
+        assertThat(single("SELECT new_values FROM admin_audit_log WHERE control_control_id = 'HR-V15-1/FY27/Central/OCT'"))
+                .isEqualTo("{\"Other Related Controls (earlier text)\":\"HR-12, see the list\"}");
+
+        script("db/rollback/V16__undo_drop_other_related_controls_text.sql");
+        assertThat(relatedTextColumns()).isEqualTo("1");
+        assertThat(single("SELECT is_nullable || '|' || data_type FROM information_schema.columns WHERE table_schema = '"
+                + schema + "' AND table_name = 'controls' AND column_name = 'other_related_controls'"))
+                .isEqualTo("YES|character varying");
+        // The texts are not restored
+        assertThat(single("SELECT COUNT(*) FROM controls WHERE other_related_controls IS NOT NULL")).isEqualTo("0");
     }
 
     @Test
@@ -311,6 +358,11 @@ class ReleaseScenarioPostgresMigrationIT {
     private String materialsColumns() throws Exception {
         return single("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '" + schema
                 + "' AND table_name = 'controls' AND column_name = 'soqm_development_materials'");
+    }
+
+    private String relatedTextColumns() throws Exception {
+        return single("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '" + schema
+                + "' AND table_name = 'controls' AND column_name = 'other_related_controls'");
     }
 
     private Flyway flyway(String target) {
