@@ -93,8 +93,6 @@ public class ControlTabsController {
                 collectChange(changedFields, previousValues, newValues, RelatedControls.LABEL,
                         relatedControls.describe(storedRelated), relatedControls.describe(newRelated));
             }
-            collectChange(changedFields, previousValues, newValues, RelatedControls.EARLIER_TEXT_LABEL,
-                    existingDetails.getOtherRelatedControls(), mergedDetails.getOtherRelatedControls());
             collectChange(changedFields, previousValues, newValues, "IT Applications",
                     existingDetails.getItApplications(), mergedDetails.getItApplications());
             collectChange(changedFields, previousValues, newValues, ControlStepsFields.STEPS_LABEL,
@@ -417,8 +415,6 @@ public class ControlTabsController {
                 incoming != null ? incoming.getDepartment() : null, allowAll));
         merged.setProcessActivities(resolveString(existing != null ? existing.getProcessActivities() : null,
                 incoming != null ? incoming.getProcessActivities() : null, allowAll));
-        merged.setOtherRelatedControls(resolveString(existing != null ? existing.getOtherRelatedControls() : null,
-                incoming != null ? incoming.getOtherRelatedControls() : null, allowAll));
         merged.setItApplications(resolveString(existing != null ? existing.getItApplications() : null,
                 incoming != null ? incoming.getItApplications() : null, allowAll));
 

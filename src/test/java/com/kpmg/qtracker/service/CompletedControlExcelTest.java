@@ -71,7 +71,6 @@ class CompletedControlExcelTest {
         details.setSoqmHeadComments("Checked");
         details.setControlOperatorReview("Program");
         details.setRelatedControls(List.of("EP-2/FY27", "HR-3/FY27/Central/OCT"));
-        details.setOtherRelatedControls("Typed before the links");
         ControlAssignmentDTO assignment = new ControlAssignmentDTO();
         assignment.setFacilitator(List.of("Anna@kpmg.kz", "unknown@kpmg.kz"));
         assignment.setProcessOwner(List.of("gone@kpmg.kz"));

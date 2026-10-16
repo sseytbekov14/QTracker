@@ -527,7 +527,7 @@ public class ControlAutoCreationService {
                 plan.people().sharedWith()));
         ControlDetails sourceDetails = detailsRepository.findByControlId(source.getId()).orElse(null);
         detailsRepository.save(ControlNextCycle.details(sourceDetails, saved.getId()));
-        // Other Related Controls: the same links, like the field's earlier text
+        // Other Related Controls: the same links
         relatedControls.copy(source.getId(), saved.getId());
 
         ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(saved.getId());

@@ -19,8 +19,6 @@ public class ControlDetails {
     @Column(length = 2000)
     private String processActivities;
 
-
-    private String otherRelatedControls;
     private String itApplications;
 
     @Column(length = 2000)

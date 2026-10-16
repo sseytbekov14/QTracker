@@ -962,9 +962,6 @@ public class ViewController {
                         .map(relatedControl -> permissionService.resolve(relatedControl, currentUser, null).canView())
                         .orElse(false))
                 .collect(Collectors.toSet()));
-        ControlDetailsDTO storedDetails = controlDetailsService.getDetailsByControlId(id);
-        String relatedEarlierText = storedDetails != null ? storedDetails.getOtherRelatedControls() : null;
-        model.addAttribute("relatedEarlierText", relatedEarlierText != null && !relatedEarlierText.isBlank() ? relatedEarlierText : null);
         // A completed control (AccessPolicy.isLocked): locked for the user, or changed in place by SoQM Team
         model.addAttribute("completedLocked", permission.isLocked());
         model.addAttribute("completedEdit", permission.isCompletedEdit());

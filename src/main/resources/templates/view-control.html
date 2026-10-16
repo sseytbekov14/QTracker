@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=19" rel="stylesheet">
-    <link href="/css/view-control.css?v=30" rel="stylesheet">
+    <link href="/css/view-control.css?v=31" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -823,11 +823,6 @@
                                                 aria-labelledby="relatedControlsLabel" th:if="${canEditAll}" hidden></ul>
                                             <span class="visually-hidden" id="relatedControlsKeys" th:if="${canEditAll}">Up and down arrows move through the list, Enter adds or removes the control, Backspace in an empty search removes the last control, Escape closes the list.</span>
                                             <span class="visually-hidden" id="relatedControlsStatus" aria-live="polite"></span>
-                                        </div>
-                                        <div class="rc-earlier" id="relatedEarlier" th:if="${relatedEarlierText != null}">
-                                            <label class="form-label rc-earlier-label" for="relatedEarlierText">Earlier text (not linked)</label>
-                                            <input type="text" class="form-control" id="relatedEarlierText" name="otherRelatedControls" maxlength="255"
-                                                   th:value="${relatedEarlierText}" placeholder="Empty: removed on Save">
                                         </div>
                                     </div>
                                     <div class="col-md-6 mb-3">
@@ -1830,7 +1825,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=3"></script>
 <script src="/js/related-controls.js?v=1" th:if="${canEditAll}"></script>
-<script src="/js/view-control.js?v=8.2"></script>
+<script src="/js/view-control.js?v=8.3"></script>
 <script src="/js/create-control.js?v=3"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>

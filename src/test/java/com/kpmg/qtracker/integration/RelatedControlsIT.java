@@ -304,24 +304,16 @@ class RelatedControlsIT {
     }
 
     @Test
-    void theEarlierText_isShownUnderTheLinks_andAnEmptyOneIsNot() throws Exception {
-        Control withText = control("IN_PROGRESS", "HR");
-        ControlDetails details = detailsRepository.findByControlId(withText.getId()).orElseThrow();
-        details.setOtherRelatedControls("HR-12, see the SharePoint list");
-        detailsRepository.save(details);
-        Control withoutText = control("IN_PROGRESS", "HR");
+    void theEarlierText_isNoField_anyMore() throws Exception {
+        Control control = control("IN_PROGRESS", "HR");
         MockHttpSession session = login(soqm);
 
-        assertThat(page(withText, session)).contains("Earlier text (not linked)")
-                .contains("value=\"HR-12, see the SharePoint list\"");
-        assertThat(page(withoutText, session)).doesNotContain("Earlier text (not linked)")
+        assertThat(page(control, session)).doesNotContain("Earlier text (not linked)")
                 .doesNotContain("name=\"otherRelatedControls\"");
 
-        // Cleared on Save: the Changelog names the earlier text
-        assertThat(saveRaw(withText, session, "{\"otherRelatedControls\":\"\"}")).isEqualTo(200);
-        assertThat(rows(withText, session, RelatedControls.EARLIER_TEXT_LABEL))
-                .containsExactly(new String[]{"HR-12, see the SharePoint list", ""});
-        assertThat(page(withText, session)).doesNotContain("Earlier text (not linked)");
+        // Sent by an older page: accepted and left out, no Changelog row
+        assertThat(saveRaw(control, session, "{\"otherRelatedControls\":\"HR-12\"}")).isEqualTo(200);
+        assertThat(rows(control, session, RelatedControls.EARLIER_TEXT_LABEL)).isEmpty();
     }
 
     // ------------------------------------------------------------------ helpers

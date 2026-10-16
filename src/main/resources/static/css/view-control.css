@@ -1248,14 +1248,6 @@ a.rc-chip-link:focus-visible .sw-chip-name {
 .rc-chip .sw-chip-remove {
     margin: 2px 4px 0 -4px;
 }
-.rc-earlier {
-    margin-top: 8px;
-}
-.rc-earlier .rc-earlier-label {
-    margin-bottom: 2px;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-}
 .rc-chip-link.is-plain {
     cursor: default;
 }

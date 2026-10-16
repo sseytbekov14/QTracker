@@ -62,7 +62,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 class RelatedAndItApplicationsAccessIT {
 
     private static final String PASSWORD = "Test#123";
-    private static final String LEGACY_TEXT = "Legacy-related-text-7731";
 
     @Autowired
     private MockMvc mockMvc;
@@ -117,15 +116,15 @@ class RelatedAndItApplicationsAccessIT {
                 .contains("id=\"relatedControlsField\"")
                 .contains("id=\"relatedControlsSearchInput\"")
                 .contains("/js/related-controls.js?v=")
-                // The free text from before the links, under them
-                .contains("value=\"" + LEGACY_TEXT + "\"")
+                // No input for the free text the field held before the links
+                .doesNotContain("name=\"otherRelatedControls\"")
                 .contains("name=\"itApplications\"");
 
         for (User reader : everyoneButSoqm()) {
             assertThat(page(control, login(reader))).as(reader.getMail())
                     .contains("id=\"relatedDetailsRow\"")
                     .contains("id=\"relatedControlsField\"")
-                    .contains("value=\"" + LEGACY_TEXT + "\"")
+                    .doesNotContain("name=\"otherRelatedControls\"")
                     .contains("name=\"itApplications\"")
                     // Nothing to choose with
                     .doesNotContain("id=\"relatedControlsSearchInput\"")
@@ -140,7 +139,7 @@ class RelatedAndItApplicationsAccessIT {
         for (User reader : List.of(soqm, fac, op, po, shared, readOnlyAll, editAll)) {
             JsonNode details = json(get("/api/control-details").param("controlId", String.valueOf(control.getId())),
                     login(reader));
-            assertThat(details.path("otherRelatedControls").asText()).as(reader.getMail()).isEqualTo(LEGACY_TEXT);
+            assertThat(details.has("otherRelatedControls")).as(reader.getMail()).isFalse();
             assertThat(details.path("itApplications").asText()).as(reader.getMail()).isEqualTo("KICS");
             assertThat(details.path("relatedControls").isArray()).as(reader.getMail()).isTrue();
         }
@@ -156,7 +155,7 @@ class RelatedAndItApplicationsAccessIT {
 
         for (User reader : List.of(soqm, fac, op, po, shared, readOnlyAll, editAll)) {
             assertThat(editedFields(control, login(reader))).as(reader.getMail()).containsExactlyInAnyOrder(
-                    List.of("Process Name", "Other Related Controls (earlier text)", "IT Applications"),
+                    List.of("Process Name", "IT Applications"),
                     List.of("IT Applications"));
         }
     }
@@ -175,7 +174,6 @@ class RelatedAndItApplicationsAccessIT {
         ControlDetails stored = detailsRepository.findByControlId(control.getId()).orElseThrow();
         assertThat(stored.getControlStepsPerformed()).isEqualTo("Steps 2");
         assertThat(stored.getItApplications()).isEqualTo("KICS");
-        assertThat(stored.getOtherRelatedControls()).isEqualTo(LEGACY_TEXT);
     }
 
     @Test
@@ -252,7 +250,6 @@ class RelatedAndItApplicationsAccessIT {
 
         ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();
         details.setProcessActivities("Process activities");
-        details.setOtherRelatedControls(LEGACY_TEXT);
         details.setItApplications("KICS");
         detailsRepository.save(details);
         return control;

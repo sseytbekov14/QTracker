@@ -32,7 +32,7 @@ public class RelatedControls {
 
     /** The field's name, also in the Changelog. */
     public static final String LABEL = "Other Related Controls";
-    /** The free text the field held before it took links: kept, shown under the links while it is not empty. */
+    /** The free text the field held before it took links; no longer used, only older Changelog entries name it. */
     public static final String EARLIER_TEXT_LABEL = "Other Related Controls (earlier text)";
     /** More links than this on one control are refused. */
     public static final int MAX_LINKS = 50;

@@ -125,7 +125,6 @@ class CreateControlIT extends ReleaseScenarioSupport {
         ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();
         details.setProcessName("Process of the source");
         details.setDepartment("Department of the source");
-        details.setOtherRelatedControls("Related");
         details.setItApplications("SAP");
         details.setControlOperatorReview("Operator's Program of the source");
         detailsRepository.save(details);
@@ -185,7 +184,6 @@ class CreateControlIT extends ReleaseScenarioSupport {
         ControlDetails details = detailsRepository.findByControlId(created.id()).orElseThrow();
         assertThat(details.getProcessName()).isEqualTo("Process of the source");
         assertThat(details.getDepartment()).isEqualTo("Department of the source");
-        assertThat(details.getOtherRelatedControls()).isEqualTo("Related");
         assertThat(details.getItApplications()).isEqualTo("SAP");
         assertThat(details.getProcessActivities()).isNull();
         assertThat(details.getControlStepsPerformed()).isNull();

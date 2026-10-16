@@ -114,7 +114,6 @@ public final class ControlNextCycle {
             details.setHomogeneity(source.getHomogeneity());
             details.setReferencesToControl(source.getReferencesToControl());
             details.setDepartment(source.getDepartment());
-            details.setOtherRelatedControls(source.getOtherRelatedControls());
             details.setItApplications(source.getItApplications());
         }
         return details;

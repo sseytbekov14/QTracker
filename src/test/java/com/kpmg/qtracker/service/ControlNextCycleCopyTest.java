@@ -37,7 +37,7 @@ class ControlNextCycleCopyTest {
             "createdBy", "createdByEmail", "createdByName", "createdAt", "updatedAt", "createdFromControlId");
 
     private static final Set<String> DETAILS_COPIED = Set.of("processName", "homogeneity", "referencesToControl",
-            "department", "otherRelatedControls", "itApplications");
+            "department", "itApplications");
     private static final Set<String> DETAILS_EMPTY = Set.of("processActivities", "controlStepsPerformed",
             "controlOperatorReview", "soqmHeadComments", "processOwnerComments");
     private static final Set<String> DETAILS_NEW = Set.of("controlId");

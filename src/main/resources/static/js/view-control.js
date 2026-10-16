@@ -3038,7 +3038,6 @@ function buildDetailsPayload(controlId) {
         referencesToControl: getDetailsValue('[name="referencesToControl"]'),
         department: getDetailsValue('[name="department"]'),
         processActivities: getDetailsValue('[name="processActivities"]'),
-        otherRelatedControls: getDetailsValue('[name="otherRelatedControls"]'),
         itApplications: getDetailsValue('[name="itApplications"]'),
         controlStepsPerformed: getDetailsValue('[name="controlStepsPerformed"]'),
         // Always on the page; without the right to change it, applyDetailsPermissions sends null (kept as stored)
