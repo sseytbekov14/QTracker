@@ -10,8 +10,9 @@ import java.util.Optional;
  * How people sign in: with Microsoft Entra ID (SAML, {@code auth.sso.enabled}, env AUTH_SSO_ENABLED) or with the
  * password form ({@code auth.password.enabled}, env AUTH_PASSWORD_ENABLED; with it the username login of
  * AUTH_USERNAME_LOGIN_ENABLED). Exactly one of the two is on: with SSO the form and the username login do not
- * exist. The Logout link and /logout follow {@code auth.logout.enabled} (AUTH_LOGOUT_ENABLED), by default off
- * with SSO (the Microsoft session stays, the next page signs in again) and on with the password.
+ * exist. The Logout link and /logout follow {@code auth.logout.enabled} (AUTH_LOGOUT_ENABLED): off unless set to
+ * true, with SSO and with the password alike (business decision of 2026-10-16: no Logout in QTracker; with SSO the
+ * Microsoft session stays and the next page signs in again).
  * The prod profile defaults to SSO, dev and stage to the password (application-*.yml); StartupGuard refuses
  * other combinations before anything starts.
  */
@@ -33,7 +34,7 @@ public class AuthMode {
         }
         this.sso = flag(environment, SSO).orElse(false);
         this.password = flag(environment, PASSWORD).orElse(!sso);
-        this.logout = flag(environment, LOGOUT).orElse(!sso);
+        this.logout = flag(environment, LOGOUT).orElse(false);
     }
 
     /** Signed in with Microsoft Entra ID (SAML). */

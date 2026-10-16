@@ -6,7 +6,7 @@ import org.springframework.mock.env.MockEnvironment;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Exactly one way to sign in; Logout by default only with the password. */
+/** Exactly one way to sign in; no Logout unless it is switched on. */
 class AuthModeTest {
 
     @Test
@@ -18,11 +18,12 @@ class AuthModeTest {
     }
 
     @Test
-    void password_meansLogoutByDefault() {
+    void password_meansNoLogoutByDefault_either() {
         AuthMode mode = new AuthMode(env("false", "true", ""));
         assertThat(mode.sso()).isFalse();
         assertThat(mode.password()).isTrue();
-        assertThat(mode.logout()).isTrue();
+        assertThat(mode.logout()).isFalse();
+        assertThat(new AuthMode(env(null, null, null)).logout()).isFalse();
     }
 
     @Test

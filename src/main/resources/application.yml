@@ -67,7 +67,7 @@ auth:
   password:
     enabled: ${AUTH_PASSWORD_ENABLED:true}
   logout:
-    # The Logout link and /logout; empty: off with SSO, on with the password
+    # The Logout link and /logout; off unless true (no Logout in QTracker, decision of 2026-10-16)
     enabled: ${AUTH_LOGOUT_ENABLED:}
   # The domain of the addresses the user import gives people: <username>@<domain>
   username-domain: ${AUTH_USERNAME_DOMAIN:qtracker.local}

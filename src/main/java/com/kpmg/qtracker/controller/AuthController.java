@@ -95,7 +95,7 @@ public class AuthController {
     /**
      * The Logout link of the sidebar: ends the server session (and with it the Spring Security sign-in) and
      * forgets the CSRF token, like the POST /logout of Spring Security; an old session cookie then opens nothing.
-     * Only with auth.logout.enabled (by default not with SSO): otherwise there is no such address. With SSO it
+     * Only with auth.logout.enabled=true (off by default, AuthMode): otherwise there is no such address. With SSO it
      * ends only the QTracker session; the page after it says that the Microsoft one stays.
      */
     @GetMapping("/logout")

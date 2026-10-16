@@ -130,38 +130,22 @@ class ReleaseScenarioAuthIT extends ReleaseScenarioSupport {
 
     // ---- signing out, the session, CSRF ----
 
+    /**
+     * No Logout in QTracker (decision of 2026-10-16): no link in the sidebar and no /logout, the session goes on.
+     * LogoutSwitchedOnIT: what it does with AUTH_LOGOUT_ENABLED=true.
+     */
     @Test
-    void theLogoutLinkOfTheSidebar_endsTheSession_nothingOpensWithItAfterwards() throws Exception {
-        User user = myEdit("logout");
-        Control control = control("RS-OUT", "IN_PROGRESS", people().facilitator(user));
+    void thereIsNoLogout_noLinkAndNoAddress_theSessionGoesOn() throws Exception {
+        User user = myEdit("no-logout");
         MockHttpSession session = login(user);
-        assertThat(status(session, get("/api/control-details").param("controlId", String.valueOf(control.getId()))))
-                .isEqualTo(200);
+        MvcResult dashboard = call(session, get("/"));
+        assertThat(dashboard.getResponse().getStatus()).isEqualTo(200);
+        assertThat(body(dashboard)).doesNotContain("href=\"/logout\"").doesNotContain("sidebar-logout\"");
 
-        MvcResult logout = call(session, get("/logout"));
-        assertThat(logout.getResponse().getRedirectedUrl()).startsWith("/login");
-
-        // The same browser session (cookie) afterwards
-        for (String path : List.of("/", "/controls", "/view-control/" + control.getId(), "/admin/users")) {
-            assertThat(outcome(call(session, get(path)))).as(path).isEqualTo("login");
-        }
-        for (String path : List.of("/api/control-details?controlId=" + control.getId(),
-                "/api/controls/" + control.getId() + "/changelog",
-                "/api/dashboard/deadline-countdown",
-                "/api/attachments/info/" + control.getId())) {
-            MvcResult result = call(session, get(path));
-            assertThat(result.getResponse().getStatus()).as(path).isNotEqualTo(200);
-        }
-        assertThat(session.isInvalid()).as("the server session is invalidated").isTrue();
-    }
-
-    @Test
-    void theSignOutFormOfSpringSecurity_endsTheSessionToo() throws Exception {
-        User user = myEdit("logout-post");
-        MockHttpSession session = login(user);
-        MvcResult logout = call(session, post("/logout"));
-        assertThat(logout.getResponse().getRedirectedUrl()).startsWith("/login");
-        assertThat(outcome(call(session, get("/")))).isEqualTo("login");
+        assertThat(call(session, get("/logout")).getResponse().getStatus()).isEqualTo(404);
+        assertThat(call(session, post("/logout").with(csrf())).getResponse().getStatus()).isIn(404, 405);
+        assertThat(call(session, get("/")).getResponse().getStatus()).isEqualTo(200);
+        assertThat(session.isInvalid()).isFalse();
     }
 
     @Test

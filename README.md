@@ -117,7 +117,7 @@ Repository-defined variables from `application*.yml`, `.env`, `.env.example`, `.
 ### Core application
 - `SPRING_PROFILES_ACTIVE` (required: `dev`, `stage` or `prod`)
 - `SERVER_FORWARD_HEADERS_STRATEGY` (default `none`; `native` only behind an HTTP proxy that sets `X-Forwarded-*`)
-- `AUTH_SSO_ENABLED`, `AUTH_PASSWORD_ENABLED` (exactly one is true; prod defaults to SSO, dev and stage to the password), `AUTH_LOGOUT_ENABLED` (default: off with SSO, on with the password)
+- `AUTH_SSO_ENABLED`, `AUTH_PASSWORD_ENABLED` (exactly one is true; prod defaults to SSO, dev and stage to the password), `AUTH_LOGOUT_ENABLED` (default: off, with SSO and with the password; `true` brings the Logout link back)
 - `SAML_ENTITY_ID`, `SAML_ACS_URL`, `SAML_METADATA_URI` (required with SSO, no defaults)
 - `AUTH_SSO_DEBUG_ENDPOINT` (default `false`): `GET /me` shows the signed-in person the SAML claims of their own sign-in; a WARN at start when on in prod
 - `SERVER_SERVLET_SESSION_COOKIE_SAME_SITE`, `SERVER_SERVLET_SESSION_COOKIE_SECURE` (with SSO default to `none` and `true`, HttpOnly too: Microsoft's POST to the Assertion Consumer Service is cross-site; HTTPS only)
@@ -217,7 +217,7 @@ Authentication (`AuthMode`, exactly one of the two):
 - Password form (`AUTH_PASSWORD_ENABLED=true`, the dev and stage default): `/login` with `DevAuthenticationProvider`.
 - Without a session `/api/**` answers 401 JSON (`SESSION_EXPIRED`), pages go to the sign-in and come back to the page asked for. Sessions end after 15 minutes without a request; `js/session.js` shows "Session expired, reload the page" on such a 401 (nothing is reloaded or cleared) and, while someone types, calls `GET /api/session/keepalive` at most once in 5 minutes.
 - Before SSO the imported people need their real address (the import gave them `<login>@qtracker.local`, which SSO refuses): `java -jar qtracker.jar --update-user-emails migration/<file>.csv` with the columns `User` (login or display name) and `Email`; a dry run unless `--apply`, all or nothing, idempotent, audited; the console shows line numbers and user ids only, the list with the addresses is written next to the file. With SSO the Admin Panel's Add User needs the corporate e-mail and sets no password.
-- Logout (`AUTH_LOGOUT_ENABLED`, by default off with SSO): with SSO there is no Logout link and no `/logout`; the sidebar says that the Microsoft session stays open. Switched on with SSO, `/logout` ends only the QTracker session (`/signed-out` says so).
+- Logout (`AUTH_LOGOUT_ENABLED`, off by default since 2026-10-16): there is no Logout link and no `/logout`; with SSO the sidebar says that the Microsoft session stays open. Switched on with SSO, `/logout` ends only the QTracker session (`/signed-out` says so).
 
 Authorization:
 - Endpoint protection configured in `SecurityConfig`
