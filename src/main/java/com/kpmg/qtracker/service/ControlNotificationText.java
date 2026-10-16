@@ -19,64 +19,27 @@ final class ControlNotificationText {
                 + " " + EN_DASH + " Control " + formatControlId(control);
     }
 
-    static String dayReminderBody(int day, Control control, LocalDate operationDate, String link) {
+    /** The control's link is the notification's (Notification.link): its "Go to Control" button, not a line here. */
+    static String dayReminderBody(int day, Control control, LocalDate operationDate) {
         return "Reminder Type: DAY " + day + "\n"
                 + "Frequency: " + formatFrequency(control != null ? control.getControlFrequency() : null) + "\n"
                 + "Current Status: " + formatStatus(control != null ? control.getControlStatus() : null) + "\n"
                 + "Operation Date: " + formatDeadline(operationDate) + "\n"
                 + "\n"
                 + "Control ID: " + formatControlId(control) + "\n"
-                + "Control Link: " + (link == null ? "" : link) + "\n"
                 + "\n"
                 + "Kind regards,\n"
                 + "SoQM Team";
     }
 
-    static String activationBody(Control control, LocalDate deadline) {
-        String controlIdAndName = formatControlIdAndName(control, " / ");
-        return "Dear Facilitator/Control Operator and Process Owner,\n" +
-                "\n" +
-                "The scheduled control " + controlIdAndName + " has been activated today. Kindly complete and submit the control as required before the deadline " + formatDeadline(deadline) + "\n" +
-                "\n" +
-                "Thank you,\n" +
-                "\n" +
-                "Kind regards,\n" +
-                "SoQM Team";
-    }
-
-    static String reminder1Body(Control control, LocalDate deadline, String link) {
-        String controlIdAndName = formatControlIdAndName(control, ", ");
-        return "Dear Facilitator/Operator,\n" +
-                "\n" +
-                "We kindly remind you to complete the control " + controlIdAndName + ". You can access the control using the following link " + link + ". The deadline of the control is on " + formatDeadline(deadline) + "\n" +
-                "\n" +
-                "Thank you,\n" +
-                "\n" +
-                "Kind regards,\n" +
-                "SoQM Team";
-    }
-
-    static String reminder2Body(Control control, LocalDate deadline, String link) {
-        String controlIdAndName = formatControlIdAndName(control, ", ");
-        return "Dear Facilitator/Operator,\n" +
-                "\n" +
-                "Control " + controlIdAndName + " deadline is approaching. You can access the control using the following link " + link + ". The deadline of the control is on " + formatDeadline(deadline) + "\n" +
-                "\n" +
-                "Thank you,\n" +
-                "\n" +
-                "Kind regards,\n" +
-                "SoQM Team";
-    }
-
-    static String overdueBody(Control control, LocalDate deadline, String link) {
+    static String overdueBody(Control control, LocalDate deadline) {
         String controlIdAndName = formatControlIdAndName(control, ", ");
         return "Dear Facilitator/Operator,\n" +
                 "\n" +
                 "Our records indicate that the control deadline has passed.\n" +
                 "The following control remains incomplete: " + controlIdAndName + "\n" +
                 "\n" +
-                "Please ensure this control is completed by the end of the day. You can access and complete the control using the link below:\n" +
-                link + "\n" +
+                "Please ensure this control is completed by the end of the day. Click the \"Go to Control\" button below to access and complete the control.\n" +
                 "\n" +
                 "If you have any questions or require assistance, please let us know.\n" +
                 "\n" +

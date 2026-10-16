@@ -35,6 +35,15 @@ public class EmailNotificationChannel {
     }
 
     public void send(String to, String subject, String body) {
+        send(to, subject, body, null);
+    }
+
+    /**
+     * @param link the notification's link to its control (Notification.link): a "Go to Control" button in the
+     *             e-mail, before its closing words, and the address under it for a mail program that hides the
+     *             button. Only an absolute address: without app.base-url the link is a path, useless in a mail
+     */
+    public void send(String to, String subject, String body, String link) {
         if (to == null || to.isBlank()) {
             return;
         }
@@ -50,7 +59,7 @@ public class EmailNotificationChannel {
             }
             helper.setTo(to);
             helper.setSubject(subject != null ? subject : "");
-            helper.setText(toHtml(body), true);
+            helper.setText(toHtml(body, link), true);
             mailSender.send(message);
             log.info("Email sent to {}", to);
         } catch (Exception e) {
@@ -84,11 +93,44 @@ public class EmailNotificationChannel {
     }
 
     /** The body is plain text people partly typed (comments, IDs, names): escaped, then its line breaks kept. */
-    private String toHtml(String body) {
-        if (body == null) {
-            return "";
+    static String toHtml(String body, String link) {
+        String text = body == null ? "" : body.replace("\r\n", "\n");
+        if (!NotificationLinks.isAbsolute(link)) {
+            return escape(text);
         }
-        return HtmlUtils.htmlEscape(body, StandardCharsets.UTF_8.name())
-                .replace("\r\n", "\n").replace("\n", "<br>");
+        // Before "Thank you" / "Kind regards", where the texts say "the button below"; at the end without them
+        int closing = closingWordsAt(text);
+        String before = closing < 0 ? text : text.substring(0, closing);
+        String after = closing < 0 ? "" : text.substring(closing);
+        return escape(before.stripTrailing()) + button(link) + escape(after);
+    }
+
+    private static int closingWordsAt(String text) {
+        int at = 0;
+        for (String line : text.split("\n", -1)) {
+            String start = line.strip();
+            if (start.startsWith("Thank you") || start.startsWith("Kind regards")) {
+                return at;
+            }
+            at += line.length() + 1;
+        }
+        return -1;
+    }
+
+    private static String escape(String text) {
+        return HtmlUtils.htmlEscape(text, StandardCharsets.UTF_8.name()).replace("\n", "<br>");
+    }
+
+    /** A table cell, as Outlook draws it; the address once more under it, as text and as a link. */
+    private static String button(String link) {
+        String href = HtmlUtils.htmlEscape(link, StandardCharsets.UTF_8.name());
+        return "<table role=\"presentation\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\" style=\"margin:16px 0 8px\">"
+                + "<tr><td style=\"background:#00338D;border-radius:4px\">"
+                + "<a href=\"" + href + "\" style=\"display:inline-block;padding:10px 22px;font-family:Arial,sans-serif;"
+                + "font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none\">"
+                + NotificationLinks.BUTTON_LABEL + "</a></td></tr></table>"
+                + "<p style=\"margin:0 0 16px;font-family:Arial,sans-serif;font-size:12px;color:#666666\">"
+                + "If the button does not open, copy this address into the browser:<br>"
+                + "<a href=\"" + href + "\" style=\"color:#00338D\">" + href + "</a></p>";
     }
 }

@@ -281,6 +281,30 @@ class ReleaseScenarioListsIT extends ReleaseScenarioSupport {
         assertThat(number(call(session, get("/")).getModelAndView().getModel(), "unreadNotifications")).isEqualTo(0L);
     }
 
+    /** A notification made before 2026-10-16 holds its link as a line of the text: the page shows the button only. */
+    @Test
+    void aNotificationPage_showsTheGoToControlButton_andNotTheLinkLineOfAnOlderText() throws Exception {
+        User me = myEdit("nt-link");
+        Control control = control("RS-NTL", "IN_PROGRESS", people().facilitator(me));
+        Notification n = new Notification();
+        n.setUserId(me.getId());
+        n.setControlId(control.getId());
+        n.setType("INITIATE");
+        n.setTitle("Control Initiated");
+        n.setMessage("Dear Me,\n\nPlease click the \"Go to Control\" button below to access the control.\n"
+                + "http://localhost:8080/view-control/" + control.getId() + "\n\nThank you,\n\nKind regards,\nSoQM Team");
+        n.setLink("http://localhost:8080/view-control/" + control.getId());
+        n.setIsRead(false);
+        n.setCreatedAt(LocalDateTime.now());
+        n = notificationRepository.save(n);
+
+        String page = body(call(login(me), get("/notification/{id}", n.getId())));
+        assertThat(page).contains("button below to access the control.")
+                .doesNotContain("http://localhost:8080/view-control/")
+                .contains("href=\"/view-control/" + control.getId() + "\"")
+                .contains("Go to Control");
+    }
+
     // ---- helpers ----
 
     private Control deadline(Control control, LocalDate deadline) {

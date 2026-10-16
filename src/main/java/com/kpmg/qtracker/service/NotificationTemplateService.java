@@ -30,7 +30,6 @@ public class NotificationTemplateService {
         String controlName = buildControlName(control);
         String controlIdAndNameSlash = buildControlIdAndName(controlId, controlName, " / ");
         String controlIdAndNameComma = buildControlIdAndName(controlId, controlName, ", ");
-        String link = buildControlLink(control);
         String deadlineText = formatDeadline(deadline);
         String greeting = buildGreeting(recipientName);
 
@@ -43,7 +42,6 @@ public class NotificationTemplateService {
                                 "The scheduled control " + controlIdAndNameSlash + " has been activated today. Kindly complete and submit the control as required before the deadline " + deadlineText + ".\n" +
                                 "\n" +
                                 "Please click the \"Go to Control\" button below to access the control.\n" +
-                                link + "\n" +
                                 "\n" +
                                 "Thank you,\n" +
                                 "\n" +
@@ -138,7 +136,7 @@ public class NotificationTemplateService {
                 int day = resolveReminderDay(type, control != null ? control.getControlFrequency() : null);
                 return new NotificationTemplate(
                         ControlNotificationText.dayReminderSubject(day, control),
-                        ControlNotificationText.dayReminderBody(day, control, deadline, link),
+                        ControlNotificationText.dayReminderBody(day, control, deadline),
                         "REMINDER"
                 );
             case DEADLINE:
@@ -150,7 +148,6 @@ public class NotificationTemplateService {
                                 "The following control remains incomplete: " + controlIdAndNameComma + "\n" +
                                 "\n" +
                                 "Please ensure this control is completed by the end of the day. Click the \"Go to Control\" button below to access and complete the control.\n" +
-                                link + "\n" +
                                 "\n" +
                                 "If you have any questions or require assistance, please let us know.\n" +
                                 "\n" +

@@ -667,7 +667,8 @@ public class ViewController {
         });
         
         dto.setMessage(notif.getTitle());
-        dto.setFullText(notif.getMessage());
+        // The link is the "Go to Control" button; an older text's link line is not shown (NotificationLinks)
+        dto.setFullText(com.kpmg.qtracker.service.NotificationLinks.withoutLinkLines(notif.getMessage()));
         dto.setTimestamp(notif.getCreatedAt());
         dto.setRead(notif.getIsRead());
         applyNotificationDisplay(dto);

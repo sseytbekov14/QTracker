@@ -116,7 +116,7 @@ class AnnualSemiDay5Day25ReminderServiceTest {
             assertThat(notification.getTitle()).isEqualTo(ControlNotificationText.dayReminderSubject(5, control));
         });
         assertThat(saved).extracting(Notification::getMessage).containsOnly(
-                ControlNotificationText.dayReminderBody(5, control, operationDate, "/view-control/101")
+                ControlNotificationText.dayReminderBody(5, control, operationDate)
         );
         verify(userRepository, never()).findByMail("owner@kpmg.kz");
     }
@@ -164,7 +164,7 @@ class AnnualSemiDay5Day25ReminderServiceTest {
         assertThat(saved).allSatisfy(notification ->
                 assertThat(notification.getType()).isEqualTo(AnnualNotificationService.TYPE_DAY25));
         assertThat(saved).extracting(Notification::getMessage).containsOnly(
-                ControlNotificationText.dayReminderBody(25, control, operationDate, "/view-control/102")
+                ControlNotificationText.dayReminderBody(25, control, operationDate)
         );
         verify(userRepository, never()).findByMail("owner@kpmg.kz");
     }

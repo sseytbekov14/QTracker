@@ -102,7 +102,7 @@ class MonthlyDay0NotificationServiceTest {
             assertThat(notification.getType()).isEqualTo(MonthlyNotificationService.NOTIFICATION_TYPE);
             assertThat(notification.getTitle()).isEqualTo(ControlNotificationText.dayReminderSubject(0, expectedControl));
             assertThat(notification.getMessage())
-                    .isEqualTo(ControlNotificationText.dayReminderBody(0, expectedControl, operationDate, "/view-control/1"));
+                    .isEqualTo(ControlNotificationText.dayReminderBody(0, expectedControl, operationDate));
         });
 
         assertThat(first.getSentCount()).isEqualTo(2);

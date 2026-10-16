@@ -91,7 +91,9 @@ class NotificationTemplateServiceTest {
         assertTrue(body.contains("Dear Test User,"));
         assertTrue(body.contains("The scheduled control CTRL-42 / Test control has been activated today."));
         assertTrue(body.contains("deadline 04.02.2026"));
-        assertTrue(body.contains("http://example.test/view-control/42"));
+        // The link is the "Go to Control" button (page and e-mail), not a line of the text
+        assertTrue(body.contains("Please click the \"Go to Control\" button below to access the control."));
+        assertFalse(body.contains("view-control"));
         assertFalse(body.contains("null"));
     }
 
@@ -108,7 +110,8 @@ class NotificationTemplateServiceTest {
         String body = template.getBody();
         assertTrue(body.contains("Reminder Type: DAY 3"));
         assertTrue(body.contains("Control ID: CTRL-42"));
-        assertTrue(body.contains("Control Link: http://example.test/view-control/42"));
+        assertFalse(body.contains("Control Link"));
+        assertFalse(body.contains("view-control"));
         assertFalse(body.contains("null"));
     }
 
@@ -125,7 +128,7 @@ class NotificationTemplateServiceTest {
         String body = template.getBody();
         assertTrue(body.contains("Reminder Type: DAY 6"));
         assertTrue(body.contains("Control ID: CTRL-42"));
-        assertTrue(body.contains("Control Link: http://example.test/view-control/42"));
+        assertFalse(body.contains("Control Link"));
         assertFalse(body.contains("null"));
     }
 
@@ -142,7 +145,8 @@ class NotificationTemplateServiceTest {
         String body = template.getBody();
         assertTrue(body.contains("Our records indicate that the control deadline has passed."));
         assertTrue(body.contains("The following control remains incomplete: CTRL-42, Test control"));
-        assertTrue(body.contains("http://example.test/view-control/42"));
+        assertTrue(body.contains("Click the \"Go to Control\" button below"));
+        assertFalse(body.contains("view-control"));
         assertFalse(body.contains("null"));
     }
 

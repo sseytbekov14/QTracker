@@ -116,7 +116,7 @@ class AdhocDay5Day12ReminderServiceTest {
             assertThat(notification.getTitle()).isEqualTo(ControlNotificationText.dayReminderSubject(5, control));
         });
         assertThat(saved).extracting(Notification::getMessage).containsOnly(
-                ControlNotificationText.dayReminderBody(5, control, operationDate, "/view-control/71")
+                ControlNotificationText.dayReminderBody(5, control, operationDate)
         );
         verify(userRepository, never()).findByMail("owner@kpmg.kz");
     }
@@ -164,7 +164,7 @@ class AdhocDay5Day12ReminderServiceTest {
         assertThat(saved).allSatisfy(notification ->
                 assertThat(notification.getType()).isEqualTo(AdhocNotificationService.TYPE_DAY12));
         assertThat(saved).extracting(Notification::getMessage).containsOnly(
-                ControlNotificationText.dayReminderBody(12, control, operationDate, "/view-control/72")
+                ControlNotificationText.dayReminderBody(12, control, operationDate)
         );
         verify(userRepository, never()).findByMail("owner@kpmg.kz");
     }

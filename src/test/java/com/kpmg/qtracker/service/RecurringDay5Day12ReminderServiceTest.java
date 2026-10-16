@@ -116,7 +116,7 @@ class RecurringDay5Day12ReminderServiceTest {
             assertThat(notification.getTitle()).isEqualTo(ControlNotificationText.dayReminderSubject(5, control));
         });
         assertThat(saved).extracting(Notification::getMessage).containsOnly(
-                ControlNotificationText.dayReminderBody(5, control, operationDate, "/view-control/51")
+                ControlNotificationText.dayReminderBody(5, control, operationDate)
         );
         verify(userRepository, never()).findByMail("owner@kpmg.kz");
     }
@@ -164,7 +164,7 @@ class RecurringDay5Day12ReminderServiceTest {
         assertThat(saved).allSatisfy(notification ->
                 assertThat(notification.getType()).isEqualTo(RecurringNotificationService.TYPE_DAY12));
         assertThat(saved).extracting(Notification::getMessage).containsOnly(
-                ControlNotificationText.dayReminderBody(12, control, operationDate, "/view-control/52")
+                ControlNotificationText.dayReminderBody(12, control, operationDate)
         );
         verify(userRepository, never()).findByMail("owner@kpmg.kz");
     }

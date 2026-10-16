@@ -107,7 +107,7 @@ class MonthlyDay3Day6ReminderServiceTest {
             assertThat(notification.getTitle()).isEqualTo(ControlNotificationText.dayReminderSubject(3, control));
         });
         assertThat(saved).extracting(Notification::getMessage).containsOnly(
-                ControlNotificationText.dayReminderBody(3, control, operationDate, "/view-control/10")
+                ControlNotificationText.dayReminderBody(3, control, operationDate)
         );
         verify(userRepository, never()).findByMail("owner@kpmg.kz");
     }

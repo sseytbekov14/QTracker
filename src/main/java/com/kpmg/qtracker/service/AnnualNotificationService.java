@@ -366,7 +366,7 @@ public class AnnualNotificationService {
         }
         String link = notificationTemplateService.buildControlLink(control);
         String subject = ControlNotificationText.dayReminderSubject(0, control);
-        String body = ControlNotificationText.dayReminderBody(0, control, operationDate, link);
+        String body = ControlNotificationText.dayReminderBody(0, control, operationDate);
         int created = 0;
         for (String email : recipients) {
             if (email == null || email.isBlank()) {
@@ -401,7 +401,7 @@ public class AnnualNotificationService {
                                              LocalDateTime runAt) {
         String subject = ControlNotificationText.dayReminderSubject(day, control);
         String link = notificationTemplateService.buildControlLink(control);
-        String body = ControlNotificationText.dayReminderBody(day, control, operationDate, link);
+        String body = ControlNotificationText.dayReminderBody(day, control, operationDate);
         int created = 0;
         for (String email : recipients) {
             if (email == null || email.isBlank()) {
@@ -435,7 +435,7 @@ public class AnnualNotificationService {
                                          LocalDateTime runAt) {
         String subject = SUBJECT_PREFIX + controlName;
         String link = notificationTemplateService.buildControlLink(control);
-        String body = ControlNotificationText.overdueBody(control, deadlineDate, link);
+        String body = ControlNotificationText.overdueBody(control, deadlineDate);
         int created = 0;
         for (String email : recipients) {
             if (email == null || email.isBlank()) {

@@ -185,7 +185,7 @@ public class NotificationService {
 
                 EmailNotificationChannel emailChannel = emailNotificationChannelProvider.getIfAvailable();
                 if (emailChannel != null) {
-                    emailChannel.send(email, template.getSubject(), template.getBody());
+                    emailChannel.send(email, template.getSubject(), template.getBody(), notif.getLink());
                 }
             });
         }
@@ -286,7 +286,7 @@ public class NotificationService {
             notificationRepository.save(notif);
             EmailNotificationChannel emailChannel = emailNotificationChannelProvider.getIfAvailable();
             if (emailChannel != null) {
-                emailChannel.send(email, template.getSubject(), template.getBody());
+                emailChannel.send(email, template.getSubject(), template.getBody(), notif.getLink());
             }
             log.debug("Notification created: controlId={}, userId={}, email={}, access={}, templateType={}, subject={}",
                     control.getId(),
@@ -316,7 +316,7 @@ public class NotificationService {
             notificationRepository.save(notif);
             EmailNotificationChannel emailChannel = emailNotificationChannelProvider.getIfAvailable();
             if (emailChannel != null) {
-                emailChannel.send(email, template.getSubject(), template.getBody());
+                emailChannel.send(email, template.getSubject(), template.getBody(), notif.getLink());
             }
             log.debug("Notification created: controlId={}, userId={}, email={}, access={}, templateType={}, subject={}",
                     control.getId(),
@@ -391,7 +391,7 @@ public class NotificationService {
             notificationRepository.save(notif);
             EmailNotificationChannel emailChannel = emailNotificationChannelProvider.getIfAvailable();
             if (emailChannel != null) {
-                emailChannel.send(recipientEmail, title, message);
+                emailChannel.send(recipientEmail, title, message, notif.getLink());
             }
         });
     }

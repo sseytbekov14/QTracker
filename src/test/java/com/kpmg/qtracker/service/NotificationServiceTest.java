@@ -123,7 +123,7 @@ class NotificationServiceTest {
         );
 
         verify(notificationRepository, times(2)).save(any(Notification.class));
-        verify(emailChannel, never()).send(anyString(), anyString(), anyString());
+        verify(emailChannel, never()).send(anyString(), anyString(), anyString(), any());
     }
 
     @Test
@@ -145,8 +145,9 @@ class NotificationServiceTest {
         );
 
         verify(notificationRepository, times(2)).save(any(Notification.class));
-        verify(emailChannel, times(1)).send("usera@example.test", "Subject", "Body");
-        verify(emailChannel, times(1)).send("userb@example.test", "Subject", "Body");
+        // Each e-mail carries the notification's link, for its "Go to Control" button
+        verify(emailChannel, times(1)).send("usera@example.test", "Subject", "Body", "http://example.test/view-control/1");
+        verify(emailChannel, times(1)).send("userb@example.test", "Subject", "Body", "http://example.test/view-control/1");
     }
 
     @Test
@@ -169,7 +170,7 @@ class NotificationServiceTest {
         verify(notificationRepository).save(captor.capture());
         Notification saved = captor.getValue();
         assertEquals("Control Submitted by Facilitator", saved.getTitle());
-        verify(emailChannel).send(eq("submit@example.test"), eq("Subject"), eq("Body"));
+        verify(emailChannel).send(eq("submit@example.test"), eq("Subject"), eq("Body"), eq("http://example.test/view-control/1"));
     }
 
     @Test
@@ -240,7 +241,7 @@ class NotificationServiceTest {
                 "PROCESS_OWNER", "Owner User", "Control Operator", "Attach evidence", "RETURN_TO_OPERATOR");
 
         verify(notificationRepository, times(2)).save(any(Notification.class));
-        verify(emailChannel, times(2)).send("op@example.test", "Returned", "Body");
+        verify(emailChannel, times(2)).send("op@example.test", "Returned", "Body", "http://example.test/view-control/16");
     }
 
     @Test
@@ -294,9 +295,9 @@ class NotificationServiceTest {
         ArgumentCaptor<Notification> saved = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository, times(5)).save(saved.capture());
         assertThat(saved.getAllValues()).extracting(Notification::getUserId).containsOnly(32L);
-        verify(emailChannel, never()).send(eq("kdn@example.test"), any(), any());
+        verify(emailChannel, never()).send(eq("kdn@example.test"), any(), any(), any());
         // template, initiate, return and share by e-mail; the on-behalf copy is in-app only
-        verify(emailChannel, times(4)).send(eq("editor@example.test"), any(), any());
+        verify(emailChannel, times(4)).send(eq("editor@example.test"), any(), any(), any());
     }
 
     @Test
