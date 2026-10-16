@@ -649,10 +649,7 @@ class StepsFieldSplitIT {
                     "name=\"department\" maxlength",
                     "name=\"processActivities\" rows",
                     "id=\"controlOperatorReview\" name="));
-            // Other Related Controls and IT Applications: SoQM Admin Team only (SoqmOnlyDetailsIT)
-            if (reader == soqm) {
-                fieldsInOrder.addAll(List.of("id=\"soqmOnlyDetailsRow\"", "name=\"itApplications\" id="));
-            }
+            fieldsInOrder.addAll(List.of("id=\"relatedDetailsRow\"", "name=\"itApplications\" id="));
             fieldsInOrder.addAll(List.of(
                     "id=\"controlStepsPerformed\" name=",
                     "id=\"soqmHeadComments\"",

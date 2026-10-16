@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
  * Other Related Controls on the Details tab (business decision of 2026-10-15): the other controls of QTracker SoQM
  * Admin Team link from a control, in the order chosen, each one a link to its View Control. Stored by controls.id
  * (control_related_controls, V15), so a Rename ID keeps them; shown with the current Control ID. Who sees and changes
- * them is AccessPolicy.seesSoqmOnlyDetails / ControlPermission.canEditAll.
+ * them: everyone who sees the control / ControlPermission.canEditAll (AccessPolicy.choosesRelatedControls).
  */
 @Service
 @RequiredArgsConstructor

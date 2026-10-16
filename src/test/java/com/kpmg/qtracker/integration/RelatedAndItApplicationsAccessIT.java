@@ -41,13 +41,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 /**
- * Other Related Controls and IT Applications on the Details tab (AccessPolicy.SOQM_ONLY_DETAILS, business decision
- * of 2026-10-15): SoQM Admin Team fill them in and only they see them - on View Control, from /api/control-details
- * and in the Changelog. Everyone else who sees the control gets the rest of Details as before.
+ * Other Related Controls and IT Applications on the Details tab (business decision of 2026-10-16): everyone who sees the
+ * control sees them - on View Control, from /api/control-details and in the Changelog; only SoQM Admin Team change
+ * them (the Details save takes them with canEditAll only) and only they get the list of controls to choose from.
  */
 @SpringBootTest(properties = {
         "spring.main.allow-bean-definition-overriding=true",
-        "spring.datasource.url=jdbc:h2:mem:soqm-only-details-it;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
+        "spring.datasource.url=jdbc:h2:mem:related-it-access-it;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
         "spring.datasource.password=",
@@ -55,11 +55,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "spring.jpa.show-sql=false",
         "spring.flyway.enabled=false",
         "reminders.enabled=false",
-        "file.upload.dir=target/it-uploads-soqm-only"
+        "file.upload.dir=target/it-uploads-related-access"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles({"test", "dev"})
-class SoqmOnlyDetailsIT {
+class RelatedAndItApplicationsAccessIT {
 
     private static final String PASSWORD = "Test#123";
     private static final String LEGACY_TEXT = "Legacy-related-text-7731";
@@ -109,64 +109,55 @@ class SoqmOnlyDetailsIT {
     }
 
     @Test
-    void viewControl_soqmHasBothFields_nobodyElseHasThemOrTheirValues() throws Exception {
+    void viewControl_everyoneHasBothFields_onlySoqmGetsThePicker() throws Exception {
         Control control = control("IN_PROGRESS");
 
         assertThat(page(control, login(soqm)))
-                .contains("id=\"soqmOnlyDetailsRow\"")
+                .contains("id=\"relatedDetailsRow\"")
                 .contains("id=\"relatedControlsField\"")
+                .contains("id=\"relatedControlsSearchInput\"")
+                .contains("/js/related-controls.js?v=")
                 // The free text from before the links, under them
-                .contains("name=\"otherRelatedControls\"")
+                .contains("value=\"" + LEGACY_TEXT + "\"")
                 .contains("name=\"itApplications\"");
 
         for (User reader : everyoneButSoqm()) {
             assertThat(page(control, login(reader))).as(reader.getMail())
-                    .doesNotContain("soqmOnlyDetailsRow")
-                    .doesNotContain("relatedControlsField")
-                    .doesNotContain("related-controls.js?")
-                    .doesNotContain("name=\"otherRelatedControls\"")
-                    .doesNotContain("name=\"itApplications\"")
-                    .doesNotContain(LEGACY_TEXT)
-                    // The rest of Details is there as before
-                    .contains("name=\"processName\"")
-                    .contains("id=\"controlStepsPerformed\"");
+                    .contains("id=\"relatedDetailsRow\"")
+                    .contains("id=\"relatedControlsField\"")
+                    .contains("value=\"" + LEGACY_TEXT + "\"")
+                    .contains("name=\"itApplications\"")
+                    // Nothing to choose with
+                    .doesNotContain("id=\"relatedControlsSearchInput\"")
+                    .doesNotContain("related-controls.js?");
         }
     }
 
     @Test
-    void detailsApi_givesBothValuesToSoqmOnly() throws Exception {
+    void detailsApi_givesBothValuesToEveryoneWhoSeesTheControl() throws Exception {
         Control control = control("IN_PROGRESS");
 
-        JsonNode forSoqm = json(get("/api/control-details").param("controlId", String.valueOf(control.getId())), login(soqm));
-        assertThat(forSoqm.path("otherRelatedControls").asText()).isEqualTo(LEGACY_TEXT);
-        assertThat(forSoqm.path("itApplications").asText()).isEqualTo("KICS");
-
-        for (User reader : everyoneButSoqm()) {
+        for (User reader : List.of(soqm, fac, op, po, shared, readOnlyAll, editAll)) {
             JsonNode details = json(get("/api/control-details").param("controlId", String.valueOf(control.getId())),
                     login(reader));
-            assertThat(details.path("otherRelatedControls").isNull()).as(reader.getMail()).isTrue();
-            assertThat(details.path("itApplications").isNull()).as(reader.getMail()).isTrue();
-            assertThat(details.path("processActivities").asText()).as(reader.getMail()).isEqualTo("Process activities");
+            assertThat(details.path("otherRelatedControls").asText()).as(reader.getMail()).isEqualTo(LEGACY_TEXT);
+            assertThat(details.path("itApplications").asText()).as(reader.getMail()).isEqualTo("KICS");
+            assertThat(details.path("relatedControls").isArray()).as(reader.getMail()).isTrue();
         }
     }
 
     @Test
-    void changelog_showsTheirRowsToSoqmOnly_andLeavesOutAnEditOfNothingElse() throws Exception {
+    void changelog_showsTheirRowsToEveryone() throws Exception {
         Control control = control("IN_PROGRESS");
         MockHttpSession soqmSession = login(soqm);
-        // One save with another field too, one of IT Applications alone
         assertThat(save(control, soqmSession, "{\"processName\":\"Payroll\",\"itApplications\":\"CQS\","
                 + "\"otherRelatedControls\":\"Changed text\"}")).isEqualTo(200);
         assertThat(save(control, soqmSession, "{\"itApplications\":\"GLMS\"}")).isEqualTo(200);
 
-        List<List<String>> forSoqm = editedFields(control, soqmSession);
-        assertThat(forSoqm).containsExactlyInAnyOrder(
-                List.of("Process Name", "Other Related Controls (earlier text)", "IT Applications"),
-                List.of("IT Applications"));
-
-        for (User reader : everyoneButSoqm()) {
-            assertThat(editedFields(control, login(reader))).as(reader.getMail())
-                    .containsExactly(List.of("Process Name"));
+        for (User reader : List.of(soqm, fac, op, po, shared, readOnlyAll, editAll)) {
+            assertThat(editedFields(control, login(reader))).as(reader.getMail()).containsExactlyInAnyOrder(
+                    List.of("Process Name", "Other Related Controls (earlier text)", "IT Applications"),
+                    List.of("IT Applications"));
         }
     }
 
@@ -177,7 +168,7 @@ class SoqmOnlyDetailsIT {
         // The Facilitator may save the steps; the two fields sent along are kept as stored
         assertThat(save(control, login(fac), "{\"controlStepsPerformed\":\"Steps\",\"itApplications\":\"OpenPD\","
                 + "\"otherRelatedControls\":\"By the Facilitator\"}")).isEqualTo(200);
-        // The page of someone without the fields sends null for them
+        // What their page sends: null for the fields they cannot change
         assertThat(save(control, login(fac), "{\"controlStepsPerformed\":\"Steps 2\",\"itApplications\":null,"
                 + "\"otherRelatedControls\":null}")).isEqualTo(200);
 
@@ -188,12 +179,12 @@ class SoqmOnlyDetailsIT {
     }
 
     @Test
-    void theRule_isSoqmAdminTeam() {
-        assertThat(AccessPolicy.seesSoqmOnlyDetails(AccessPolicy.Subject.of(soqm))).isTrue();
+    void theRuleOfThePicker_isSoqmAdminTeam() {
+        assertThat(AccessPolicy.choosesRelatedControls(AccessPolicy.Subject.of(soqm))).isTrue();
         for (User reader : everyoneButSoqm()) {
-            assertThat(AccessPolicy.seesSoqmOnlyDetails(AccessPolicy.Subject.of(reader))).as(reader.getMail()).isFalse();
+            assertThat(AccessPolicy.choosesRelatedControls(AccessPolicy.Subject.of(reader))).as(reader.getMail()).isFalse();
         }
-        assertThat(AccessPolicy.seesSoqmOnlyDetails(AccessPolicy.Subject.of(null))).isFalse();
+        assertThat(AccessPolicy.choosesRelatedControls(AccessPolicy.Subject.of(null))).isFalse();
     }
 
     // ------------------------------------------------------------------ helpers
@@ -269,7 +260,7 @@ class SoqmOnlyDetailsIT {
 
     private User saveUser(String name, AccessLevel level, AccessScope scope) {
         User user = new User();
-        user.setMail(name + "@soqm-only.test");
+        user.setMail(name + "@related-access.test");
         user.setDisplayName(name);
         user.setAccessLevel(level);
         user.setAccessScope(scope);
@@ -294,7 +285,7 @@ class SoqmOnlyDetailsIT {
 
     /** RateLimitingFilter counts logins per address: every request comes from an address of its own. */
     private static org.springframework.test.web.servlet.request.RequestPostProcessor ownAddress() {
-        String address = "10.9." + (addressCount / 250) + "." + (1 + addressCount++ % 250);
+        String address = "10.13." + (addressCount / 250) + "." + (1 + addressCount++ % 250);
         return request -> {
             request.setRemoteAddr(address);
             return request;

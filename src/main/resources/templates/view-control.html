@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=19" rel="stylesheet">
-    <link href="/css/view-control.css?v=29" rel="stylesheet">
+    <link href="/css/view-control.css?v=30" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -787,8 +787,8 @@
                                     </div>
                                 </div>
 
-                                <!--/* SoQM Admin Team only (AccessPolicy.seesSoqmOnlyDetails): not on the page for anyone else */-->
-                                <div class="row" id="soqmOnlyDetailsRow" th:if="${seesSoqmOnlyDetails}">
+                                <!--/* Everyone who sees the control sees them; SoQM Admin Team change them (canEditAll) */-->
+                                <div class="row" id="relatedDetailsRow">
                                     <div class="col-md-6 mb-3">
                                         <!--/* Other Related Controls: links to other controls (RelatedControls), each opening that
                                              control; SoQM Admin Team choose them in edit mode (related-controls.js). The free
@@ -805,8 +805,9 @@
                                             <div class="sw-box" id="relatedControlsBox">
                                                 <ul class="sw-chips" id="relatedControlsChips" aria-labelledby="relatedControlsLabel"><li class="sw-chip rc-chip"
                                                         th:each="related : ${relatedControls}"
-                                                        th:attr="data-id=${related.id()},data-control-id=${related.controlId()},data-status=${related.status()}"><a class="rc-chip-link" th:href="${related.href()}"
-                                                        th:title="|Open ${related.controlId()}|"><i class="bi bi-link-45deg rc-chip-icon" aria-hidden="true"></i><span class="sw-chip-text"><span class="sw-chip-name" th:text="${related.controlId()}">HR-CTRL-MF-5/FY27/Central/OCT</span><span class="sw-chip-mail" th:text="${related.status()}">In Progress</span></span></a></li></ul>
+                                                        th:attr="data-id=${related.id()},data-control-id=${related.controlId()},data-status=${related.status()}"><a class="rc-chip-link" th:if="${#sets.contains(relatedLinks, related.id())}" th:href="${related.href()}"
+                                                        th:title="|Open ${related.controlId()}|"><i class="bi bi-link-45deg rc-chip-icon" aria-hidden="true"></i><span class="sw-chip-text"><span class="sw-chip-name" th:text="${related.controlId()}">HR-CTRL-MF-5/FY27/Central/OCT</span><span class="sw-chip-mail" th:text="${related.status()}">In Progress</span></span></a><span class="rc-chip-link is-plain" th:unless="${#sets.contains(relatedLinks, related.id())}"
+                                                        title="You cannot open this control"><i class="bi bi-link-45deg rc-chip-icon" aria-hidden="true"></i><span class="sw-chip-text"><span class="sw-chip-name" th:text="${related.controlId()}">HR-CTRL-MF-5/FY27/Central/OCT</span><span class="sw-chip-mail" th:text="${related.status()}">In Progress</span></span></span></li></ul>
                                                 <p class="sw-empty" id="relatedControlsEmpty" th:hidden="${rcCount > 0}">No related controls</p>
                                                 <div class="sw-search" id="relatedControlsSearch" th:if="${canEditAll}" hidden>
                                                     <svg class="sw-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
@@ -1828,7 +1829,7 @@
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=3"></script>
-<script src="/js/related-controls.js?v=1" th:if="${seesSoqmOnlyDetails}"></script>
+<script src="/js/related-controls.js?v=1" th:if="${canEditAll}"></script>
 <script src="/js/view-control.js?v=8.1"></script>
 <script src="/js/create-control.js?v=3"></script>
 <script src="/js/workflow-move.js?v=1"></script>

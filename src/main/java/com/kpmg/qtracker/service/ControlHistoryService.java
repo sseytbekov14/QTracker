@@ -37,15 +37,6 @@ public class ControlHistoryService {
             Set.of("Facilitator", "Control Operator", "SoQM Team", "Process Owner", "Control Shared With");
 
     public List<ControlHistoryEntryDTO> getControlHistory(Long controlId) {
-        return getControlHistory(controlId, true);
-    }
-
-    /**
-     * @param withSoqmOnlyDetails whether the rows of {@link AccessPolicy#SOQM_ONLY_DETAILS} are shown
-     *                            ({@link AccessPolicy#seesSoqmOnlyDetails}); without them an edit that changed nothing
-     *                            else is left out
-     */
-    public List<ControlHistoryEntryDTO> getControlHistory(Long controlId, boolean withSoqmOnlyDetails) {
         List<ControlHistoryEntryDTO> entries = new ArrayList<>();
 
         Optional<Control> controlOpt = controlRepository.findById(controlId);
@@ -90,14 +81,6 @@ public class ControlHistoryService {
                 continue;
             }
             List<FieldChangeDTO> changes = parseFieldChanges(log);
-            if (!withSoqmOnlyDetails) {
-                changes.removeIf(change -> AccessPolicy.SOQM_ONLY_DETAILS.stream()
-                        .anyMatch(field -> field.equalsIgnoreCase(change.getField())));
-                // A completed edit of these fields only: its reason row alone is not shown either
-                if (changes.stream().allMatch(change -> CompletedEdit.REASON_FIELD.equals(change.getField()))) {
-                    changes.clear();
-                }
-            }
             if (changes.isEmpty()) {
                 continue;
             }
@@ -274,8 +257,7 @@ public class ControlHistoryService {
                 return AccessPolicy.Slot.SOQM_LEAD.getLabel();
             case "control_id":
                 return "Control ID";
-            // humanizeFieldLabel would make them "It Applications" and "(earlier Text)"; the Changelog leaves these rows
-            // out for anyone but SoQM Admin Team by their exact names (AccessPolicy.SOQM_ONLY_DETAILS)
+            // humanizeFieldLabel would make them "It Applications" and "(earlier Text)"
             case "IT Applications":
             case "it_applications":
                 return "IT Applications";

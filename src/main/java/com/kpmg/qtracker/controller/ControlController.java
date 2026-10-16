@@ -173,10 +173,8 @@ public class ControlController {
 
     @GetMapping("/{id}/changelog")
     public ResponseEntity<?> getControlChangelog(@PathVariable Long id, HttpSession session) {
-        User currentUser = (User) session.getAttribute("currentUser");
-        permissionService.requireReadable(id, currentUser);
-        return ResponseEntity.ok(controlHistoryService.getControlHistory(id,
-                AccessPolicy.seesSoqmOnlyDetails(AccessPolicy.Subject.of(currentUser))));
+        permissionService.requireReadable(id, (User) session.getAttribute("currentUser"));
+        return ResponseEntity.ok(controlHistoryService.getControlHistory(id));
     }
 
     @PostMapping

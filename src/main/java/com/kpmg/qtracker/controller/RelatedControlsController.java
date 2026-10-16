@@ -16,7 +16,7 @@ import java.util.List;
 
 /**
  * The controls Other Related Controls offers on the Details tab of a control (related-controls.js): every other
- * control, by Control ID. SoQM Admin Team only, who alone see and fill the field (AccessPolicy.seesSoqmOnlyDetails);
+ * control, by Control ID. SoQM Admin Team only, who alone fill the field (AccessPolicy.choosesRelatedControls);
  * the links themselves are saved with Details (POST /api/control-details, relatedControlIds).
  */
 @RestController
@@ -30,7 +30,7 @@ public class RelatedControlsController {
     public ResponseEntity<List<RelatedControls.Option>> options(@PathVariable Long id, HttpSession session) {
         User currentUser = (User) session.getAttribute("currentUser");
         permissionService.requireReadable(id, currentUser);
-        if (!AccessPolicy.seesSoqmOnlyDetails(AccessPolicy.Subject.of(currentUser))) {
+        if (!AccessPolicy.choosesRelatedControls(AccessPolicy.Subject.of(currentUser))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(relatedControls.options(id));

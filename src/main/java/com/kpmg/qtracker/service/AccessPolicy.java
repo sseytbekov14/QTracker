@@ -255,15 +255,11 @@ public final class AccessPolicy {
     }
 
     /**
-     * The Details fields only SoQM Admin Team fill in and see (business decision of 2026-10-15), by their Changelog
-     * names: everyone else gets neither the fields on View Control, nor their values from /api/control-details, nor
-     * their rows in the Changelog.
+     * Other Related Controls and IT Applications on the Details tab (business decision of 2026-10-16): everyone who
+     * sees the control sees them, only SoQM Admin Team change them (the Details save takes them with canEditAll only)
+     * and only they get the list of controls to choose from.
      */
-    public static final List<String> SOQM_ONLY_DETAILS = List.of(
-            RelatedControls.LABEL, RelatedControls.EARLIER_TEXT_LABEL, "IT Applications");
-
-    /** Whether the user sees the fields of {@link #SOQM_ONLY_DETAILS}: SoQM Admin Team only. */
-    public static boolean seesSoqmOnlyDetails(Subject subject) {
+    public static boolean choosesRelatedControls(Subject subject) {
         return isSoqm(subject);
     }
 

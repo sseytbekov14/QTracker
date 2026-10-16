@@ -951,12 +951,17 @@ public class ViewController {
         model.addAttribute("kdnControlMark", AccessPolicy.seesKdnMark(AccessPolicy.Subject.of(currentUser))
                 && AccessPolicy.isKdnControl(control.getControlId()));
         model.addAttribute("kdnIdHint", RoleDisplayMapper.KDN_ID_HINT);
-        // Other Related Controls and IT Applications on the Details tab: SoQM Admin Team only. Other Related Controls are
-        // links to other controls; the free text the field held before is shown under them while it is not empty
-        boolean seesSoqmOnlyDetails = AccessPolicy.seesSoqmOnlyDetails(AccessPolicy.Subject.of(currentUser));
-        model.addAttribute("seesSoqmOnlyDetails", seesSoqmOnlyDetails);
-        model.addAttribute("relatedControls", seesSoqmOnlyDetails ? relatedControls.of(id) : List.of());
-        ControlDetailsDTO storedDetails = seesSoqmOnlyDetails ? controlDetailsService.getDetailsByControlId(id) : null;
+        // Other Related Controls on the Details tab: everyone sees them, SoQM Admin Team change them (canEditAll). A linked
+        // control is a link for whoever may open it, its Control ID alone for anyone else; the free text the field held
+        // before is shown under them while it is not empty
+        List<RelatedControls.Related> related = relatedControls.of(id);
+        model.addAttribute("relatedControls", related);
+        model.addAttribute("relatedLinks", related.stream().map(RelatedControls.Related::id)
+                .filter(relatedId -> controlService.getControlById(relatedId)
+                        .map(relatedControl -> permissionService.resolve(relatedControl, currentUser, null).canView())
+                        .orElse(false))
+                .collect(Collectors.toSet()));
+        ControlDetailsDTO storedDetails = controlDetailsService.getDetailsByControlId(id);
         String relatedEarlierText = storedDetails != null ? storedDetails.getOtherRelatedControls() : null;
         model.addAttribute("relatedEarlierText", relatedEarlierText != null && !relatedEarlierText.isBlank() ? relatedEarlierText : null);
         // A completed control (AccessPolicy.isLocked): locked for the user, or changed in place by SoQM Team

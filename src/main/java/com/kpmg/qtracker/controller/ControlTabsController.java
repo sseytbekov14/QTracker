@@ -304,13 +304,8 @@ public class ControlTabsController {
         permissionService.requireReadable(controlId, currentUser);
         try {
             ControlDetailsDTO details = controlDetailsService.getDetailsByControlId(controlId);
-            // Other Related Controls and IT Applications: SoQM Admin Team only (AccessPolicy.SOQM_ONLY_DETAILS)
-            if (AccessPolicy.seesSoqmOnlyDetails(AccessPolicy.Subject.of(currentUser))) {
-                details.setRelatedControls(relatedControls.controlIds(controlId));
-            } else {
-                details.setOtherRelatedControls(null);
-                details.setItApplications(null);
-            }
+            // Other Related Controls: the Control IDs of the linked controls, for everyone who sees the control
+            details.setRelatedControls(relatedControls.controlIds(controlId));
             return ResponseEntity.ok(details);
         } catch (Exception e) {
             return ResponseEntity.ok(new ControlDetailsDTO()); // возвращаем пустой DTO вместо ошибки

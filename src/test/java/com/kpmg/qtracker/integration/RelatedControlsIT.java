@@ -192,7 +192,7 @@ class RelatedControlsIT {
     }
 
     @Test
-    void anyoneElse_cannotChangeThem_norGetTheList() throws Exception {
+    void anyoneElse_seesThem_butCannotChangeThem_norGetTheList() throws Exception {
         Control control = control("IN_PROGRESS", "HR");
         Control linked = control("IN_PROGRESS", "EP");
         Control other = control("IN_PROGRESS", "EP");
@@ -208,7 +208,36 @@ class RelatedControlsIT {
             assertThat(perform(get("/api/controls/{id}/related-options", control.getId()), session)
                     .getResponse().getStatus()).as(user.getMail()).isEqualTo(403);
             JsonNode details = json(get("/api/control-details").param("controlId", String.valueOf(control.getId())), session);
-            assertThat(details.path("relatedControls").isNull()).as(user.getMail()).isTrue();
+            assertThat(details.path("relatedControls").get(0).asText()).as(user.getMail()).isEqualTo(linked.getControlId());
+            assertThat(page(control, session)).as(user.getMail())
+                    .contains(HtmlUtils.htmlEscape(linked.getControlId()))
+                    .doesNotContain("id=\"relatedControlsSearchInput\"");
+        }
+    }
+
+    @Test
+    void aLinkedControl_isALink_forWhoeverMayOpenIt_itsIdAloneForAnyoneElse() throws Exception {
+        Control control = control("IN_PROGRESS", "HR");
+        Control theirs = control("IN_PROGRESS", "EP");
+        Control notTheirs = control("IN_PROGRESS", "EP");
+        ControlAssignment elsewhere = assignmentRepository.findByControlId(notTheirs.getId()).orElseThrow();
+        elsewhere.setFacilitator(soqm.getMail());
+        elsewhere.setControlOperator(soqm.getMail());
+        elsewhere.setProcessOwner(soqm.getMail());
+        assignmentRepository.save(elsewhere);
+        assertThat(save(control, login(soqm), List.of(theirs.getId(), notTheirs.getId()))).isEqualTo(200);
+
+        String forFacilitator = page(control, login(fac));
+        assertThat(forFacilitator).contains("href=\"/view-control/" + theirs.getId() + "\"")
+                .doesNotContain("href=\"/view-control/" + notTheirs.getId() + "\"")
+                .contains(HtmlUtils.htmlEscape(notTheirs.getControlId()))
+                .contains("rc-chip-link is-plain");
+
+        for (User user : List.of(soqm, editAll, readOnlyAll)) {
+            assertThat(page(control, login(user))).as(user.getMail())
+                    .contains("href=\"/view-control/" + theirs.getId() + "\"")
+                    .contains("href=\"/view-control/" + notTheirs.getId() + "\"")
+                    .doesNotContain("rc-chip-link is-plain");
         }
     }
 
@@ -239,7 +268,7 @@ class RelatedControlsIT {
     }
 
     @Test
-    void theChangelog_namesTheLinkedControls_forSoqmOnly() throws Exception {
+    void theChangelog_namesTheLinkedControls() throws Exception {
         Control control = control("IN_PROGRESS", "HR");
         Control a = control("IN_PROGRESS", "EP");
         Control b = control("IN_PROGRESS", "EP");
@@ -255,7 +284,8 @@ class RelatedControlsIT {
         assertThat(rows).anySatisfy(row -> assertThat(row)
                 .containsExactly(a.getControlId(), b.getControlId() + ", " + a.getControlId()));
 
-        assertThat(rows(control, login(fac), RelatedControls.LABEL)).isEmpty();
+        // Everyone who sees the control reads them
+        assertThat(rows(control, login(fac), RelatedControls.LABEL)).hasSize(2);
     }
 
     @Test
