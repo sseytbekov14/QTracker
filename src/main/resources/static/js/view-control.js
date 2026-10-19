@@ -3025,7 +3025,7 @@ function buildDetailsPayload(controlId) {
     const getDetailsValue = (selector) => {
         const element = detailsForm.querySelector(selector);
         if (!element) {
-            // Not on the page (Other Related Controls and IT Applications are SoQM Admin Team's): null keeps it
+            // Not on the page: null keeps it
             return null;
         }
         return element.tagName === 'SELECT' ? selectValueForSave(element) : element.value;
@@ -3038,7 +3038,9 @@ function buildDetailsPayload(controlId) {
         referencesToControl: getDetailsValue('[name="referencesToControl"]'),
         department: getDetailsValue('[name="department"]'),
         processActivities: getDetailsValue('[name="processActivities"]'),
-        itApplications: getDetailsValue('[name="itApplications"]'),
+        // IT Applications: the systems joined by "; " in edit mode (multi-value.js); null keeps them
+        itApplications: typeof MultiValueFields !== 'undefined'
+            ? MultiValueFields.valueForSave('itApplicationsField') : null,
         controlStepsPerformed: getDetailsValue('[name="controlStepsPerformed"]'),
         // Always on the page; without the right to change it, applyDetailsPermissions sends null (kept as stored)
         controlOperatorReview: detailsForm.querySelector('[name="controlOperatorReview"]')

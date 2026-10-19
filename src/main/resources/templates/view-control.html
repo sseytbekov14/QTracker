@@ -828,25 +828,42 @@
                                         </div>
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label class="form-label" for="itApplications">IT Applications</label>
-                                        <!--/* One system per control; a value typed before the list (older or imported data) is
-                                             kept by keepStoredSelectValue as its own option */-->
-                                        <select class="form-select" name="itApplications" id="itApplications">
-                                            <option value="">Select IT application</option>
-                                            <option value="OpenPD">OpenPD</option>
-                                            <option value="SuccessFactory">SuccessFactory</option>
-                                            <option value="Active Directory">Active Directory</option>
-                                            <option value="IMS staff-directory">IMS staff-directory</option>
-                                            <option value="CEAC">CEAC</option>
-                                            <option value="Sentinel">Sentinel</option>
-                                            <option value="GLMS">GLMS</option>
-                                            <option value="KICS">KICS</option>
-                                            <option value="CQS">CQS</option>
-                                            <option value="HR System">HR System</option>
-                                            <option value="Cloud Environment / Secure Server OS">Cloud Environment / Secure Server OS</option>
-                                            <option value="Cloud Environment / Secure Server">Cloud Environment / Secure Server</option>
-                                            <option value="Finance System">Finance System</option>
-                                        </select>
+                                        <!--/* IT Applications: systems of a fixed list (ItApplications.OPTIONS), several; a value saved
+                                             before the list is one chip marked "not in list". SoQM Admin Team choose them in edit
+                                             mode (multi-value.js); the link icon is only a sign */-->
+                                        <div class="sw-field mv-field" id="itApplicationsField" data-mv-field
+                                             data-label="IT Applications" data-unit="application" data-units="applications"
+                                             data-empty-list="There are no IT applications to choose from"
+                                             th:with="itCount=${#lists.size(itApplications)}"
+                                             th:attr="data-editable=${canEditAll},data-max=${itApplicationsMax}">
+                                            <div class="sw-head">
+                                                <span class="form-label mb-0" id="itApplicationsLabel"><i class="bi bi-link-45deg mv-label-icon" aria-hidden="true"></i>IT Applications</span>
+                                                <span class="sw-count" data-mv-count th:hidden="${itCount == 0}"
+                                                      th:text="${itCount == 1 ? '1 application' : itCount + ' applications'}">2 applications</span>
+                                                <span class="sw-unsaved" data-mv-unsaved th:if="${canEditAll}" hidden>Not saved yet</span>
+                                            </div>
+                                            <div class="sw-box" data-mv-box>
+                                                <ul class="sw-chips" data-mv-chips aria-labelledby="itApplicationsLabel"><li class="sw-chip mv-chip"
+                                                        th:each="system : ${itApplications}"
+                                                        th:classappend="${system.notInList()} ? 'is-not-in-list'"
+                                                        th:attr="data-value=${system.value()},data-not-in-list=${system.notInList()}"><span class="sw-chip-text"><span class="sw-chip-name" th:text="${system.value()}">KICS</span><span class="sw-note mv-not-in-list" th:if="${system.notInList()}">not in list</span></span></li></ul>
+                                                <p class="sw-empty" data-mv-empty th:hidden="${itCount > 0}">Not selected</p>
+                                                <div class="sw-search" data-mv-search th:if="${canEditAll}" hidden>
+                                                    <svg class="sw-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                                                    <input type="text" class="sw-search-input" id="itApplicationsSearchInput"
+                                                           role="combobox" aria-autocomplete="list" aria-expanded="false"
+                                                           aria-controls="itApplicationsListbox" aria-labelledby="itApplicationsLabel"
+                                                           aria-describedby="itApplicationsKeys" autocomplete="off" spellcheck="false"
+                                                           placeholder="Search IT applications">
+                                                </div>
+                                            </div>
+                                            <template data-mv-options th:if="${canEditAll}"><span th:each="option : ${itApplicationOptions}" th:attr="data-value=${option}"></span></template>
+                                            <div class="sw-error" data-mv-error role="alert" hidden></div>
+                                            <ul class="sw-listbox" id="itApplicationsListbox" data-mv-listbox role="listbox" aria-multiselectable="true"
+                                                aria-labelledby="itApplicationsLabel" th:if="${canEditAll}" hidden></ul>
+                                            <span class="visually-hidden" id="itApplicationsKeys" th:if="${canEditAll}">Up and down arrows move through the list, Enter adds or removes the application, Backspace in an empty search removes the last application, Escape closes the list.</span>
+                                            <span class="visually-hidden" data-mv-status aria-live="polite"></span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1827,7 +1844,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=3"></script>
 <script src="/js/multi-value.js?v=1"></script>
-<script src="/js/view-control.js?v=8.4"></script>
+<script src="/js/view-control.js?v=8.5"></script>
 <script src="/js/create-control.js?v=3"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>

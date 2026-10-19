@@ -649,7 +649,7 @@ class StepsFieldSplitIT {
                     "name=\"department\" maxlength",
                     "name=\"processActivities\" rows",
                     "id=\"controlOperatorReview\" name="));
-            fieldsInOrder.addAll(List.of("id=\"relatedDetailsRow\"", "name=\"itApplications\" id="));
+            fieldsInOrder.addAll(List.of("id=\"relatedDetailsRow\"", "id=\"itApplicationsField\""));
             fieldsInOrder.addAll(List.of(
                     "id=\"controlStepsPerformed\" name=",
                     "id=\"soqmHeadComments\"",
@@ -671,38 +671,75 @@ class StepsFieldSplitIT {
     }
 
     @Test
-    void viewControl_itApplications_isASelectOfTheSystems_oneValue_andAnOlderValueIsKept() throws Exception {
+    void viewControl_itApplications_areSeveralSystemsOfTheList_andAnOlderValueIsOneChipKept() throws Exception {
         Control control = control("IN_PROGRESS", fac.getMail(), op.getMail(), "Steps", "Program");
         MockHttpSession session = login(soqm);
 
         String page = page(control, session);
-        assertThat(page).contains("<select class=\"form-select\" name=\"itApplications\" id=\"itApplications\">")
-                .doesNotContain("placeholder=\"Enter IT applications\"");
-        String select = page.substring(page.indexOf("name=\"itApplications\""), page.indexOf("</select>", page.indexOf("name=\"itApplications\"")));
-        assertThat(select).doesNotContain(" multiple");
+        assertThat(page).contains("id=\"itApplicationsField\"")
+                .doesNotContain("name=\"itApplications\"")
+                .doesNotContain("<select class=\"form-select\" name=\"itApplications\"");
+        String field = page.substring(page.indexOf("id=\"itApplicationsField\""),
+                page.indexOf("data-mv-status", page.indexOf("id=\"itApplicationsField\"")));
+        assertThat(field).contains("bi-link-45deg").contains("Not selected").contains("id=\"itApplicationsSearchInput\"")
+                .doesNotContain("href=");
         List<String> systems = List.of("OpenPD", "SuccessFactory", "Active Directory", "IMS staff-directory", "CEAC",
                 "Sentinel", "GLMS", "KICS", "CQS", "HR System", "Cloud Environment / Secure Server OS",
                 "Cloud Environment / Secure Server", "Finance System");
         List<String> options = new ArrayList<>();
-        java.util.regex.Matcher option = java.util.regex.Pattern.compile("<option value=\"([^\"]*)\">").matcher(select);
+        String template = field.substring(field.indexOf("<template data-mv-options>"), field.indexOf("</template>"));
+        java.util.regex.Matcher option = java.util.regex.Pattern.compile("data-value=\"([^\"]*)\"").matcher(template);
         while (option.find()) {
             options.add(HtmlUtils.htmlUnescape(option.group(1)));
         }
-        assertThat(options).containsExactlyElementsOf(java.util.stream.Stream.concat(
-                java.util.stream.Stream.of(""), systems.stream()).toList());
+        assertThat(options).containsExactlyElementsOf(systems);
 
-        // A system from the list is saved as its name
-        assertThat(save(control, session, "itApplications", "KICS")).isEqualTo(200);
-        assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getItApplications()).isEqualTo("KICS");
+        // Several systems of the list, saved as the list writes them, in the order chosen
+        assertThat(save(control, session, "itApplications", "cqs; KICS")).isEqualTo(200);
+        assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getItApplications()).isEqualTo("CQS; KICS");
+        assertThat(page(control, session)).contains("data-value=\"CQS\"").contains("2 applications");
 
-        // A value typed before the list: view-control.js shows it as its own option and Save sends null, which keeps it
+        // A value typed before the list is one chip, "not in list"; it stays while it is sent back
         ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();
         details.setItApplications("SAP, Outlook");
         detailsRepository.save(details);
+        assertThat(page(control, session)).contains("data-value=\"SAP, Outlook\" data-not-in-list=\"true\"")
+                .contains("not in list").contains("1 application<");
         assertThat(save(control, session, "{\"itApplications\":null,\"processName\":\"Payroll\"}")).isEqualTo(200);
+        assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getItApplications()).isEqualTo("SAP, Outlook");
+        assertThat(save(control, session, "itApplications", "SAP, Outlook; GLMS")).isEqualTo(200);
         ControlDetails stored = detailsRepository.findByControlId(control.getId()).orElseThrow();
-        assertThat(stored.getItApplications()).isEqualTo("SAP, Outlook");
+        assertThat(stored.getItApplications()).isEqualTo("SAP, Outlook; GLMS");
         assertThat(stored.getProcessName()).isEqualTo("Payroll");
+
+        // Anything else, or a system twice, is refused
+        assertThat(save(control, session, "itApplications", "GLMS; Outlook")).isEqualTo(400);
+        assertThat(save(control, session, "itApplications", "GLMS; glms")).isEqualTo(400);
+        assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getItApplications())
+                .isEqualTo("SAP, Outlook; GLMS");
+        // None
+        assertThat(save(control, session, "itApplications", "")).isEqualTo(200);
+        assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getItApplications()).isEmpty();
+    }
+
+    @Test
+    void theChangelog_givesItApplicationsBeforeAndAfter_asLists() throws Exception {
+        Control control = control("IN_PROGRESS", fac.getMail(), op.getMail(), "Steps", "Program");
+        MockHttpSession session = login(soqm);
+        assertThat(save(control, session, "itApplications", "KICS")).isEqualTo(200);
+        assertThat(save(control, session, "itApplications", "KICS;CQS")).isEqualTo(200);
+        assertThat(save(control, session, "itApplications", " KICS ; cqs ")).isEqualTo(200);
+
+        List<String> changes = new ArrayList<>();
+        for (com.fasterxml.jackson.databind.JsonNode entry : objectMapper.readTree(perform(
+                get("/api/controls/{id}/changelog", control.getId()), session).getResponse().getContentAsString())) {
+            for (com.fasterxml.jackson.databind.JsonNode change : entry.path("fieldChanges")) {
+                if ("IT Applications".equals(change.path("field").asText())) {
+                    changes.add(change.path("oldValue").asText() + " -> " + change.path("newValue").asText());
+                }
+            }
+        }
+        assertThat(changes).containsExactlyInAnyOrder(" -> KICS", "KICS -> KICS; CQS");
     }
 
     @Test

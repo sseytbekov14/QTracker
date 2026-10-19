@@ -119,14 +119,14 @@ class RelatedAndItApplicationsAccessIT {
                 .contains("data-editable=\"true\"")
                 // No input for the free text the field held before the links
                 .doesNotContain("name=\"otherRelatedControls\"")
-                .contains("name=\"itApplications\"");
+                .contains("id=\"itApplicationsField\"");
 
         for (User reader : everyoneButSoqm()) {
             assertThat(page(control, login(reader))).as(reader.getMail())
                     .contains("id=\"relatedDetailsRow\"")
                     .contains("id=\"relatedControlsField\"")
                     .doesNotContain("name=\"otherRelatedControls\"")
-                    .contains("name=\"itApplications\"")
+                    .contains("id=\"itApplicationsField\"")
                     // Nothing to choose with
                     .doesNotContain("id=\"relatedControlsSearchInput\"")
                     .doesNotContain("data-editable=\"true\"");

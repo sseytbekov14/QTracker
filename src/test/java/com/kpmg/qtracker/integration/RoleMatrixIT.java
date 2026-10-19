@@ -672,7 +672,7 @@ class RoleMatrixIT {
         }
         String html = result.getResponse().getContentAsString();
         boolean related = html.contains("id=\"relatedControlsField\"");
-        boolean applications = html.contains("name=\"itApplications\"");
+        boolean applications = html.contains("id=\"itApplicationsField\"");
         return related && applications ? "ok" : related || applications ? "one of them!" : "none";
     }
 

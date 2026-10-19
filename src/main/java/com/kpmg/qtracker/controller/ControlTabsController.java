@@ -76,6 +76,16 @@ public class ControlTabsController {
                 }
                 mergedDetails.setOtherRelatedControls(related.stored());
             }
+            // IT Applications: systems of the list (ItApplications), the same rule
+            mergedDetails.setItApplications(existingDetails.getItApplications());
+            if (permission.canEditAll() && detailsDTO.getItApplications() != null) {
+                ChosenValues.Checked applications = ItApplications.check(existingDetails.getItApplications(),
+                        detailsDTO.getItApplications());
+                if (applications.refusal() != null) {
+                    return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + applications.refusal());
+                }
+                mergedDetails.setItApplications(applications.stored());
+            }
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
             List<String> changedFields = new ArrayList<>();
@@ -93,8 +103,9 @@ public class ControlTabsController {
             collectChange(changedFields, previousValues, newValues, RelatedControls.LABEL,
                     ValueList.normalize(existingDetails.getOtherRelatedControls()),
                     ValueList.normalize(mergedDetails.getOtherRelatedControls()));
-            collectChange(changedFields, previousValues, newValues, "IT Applications",
-                    existingDetails.getItApplications(), mergedDetails.getItApplications());
+            collectChange(changedFields, previousValues, newValues, ItApplications.LABEL,
+                    ValueList.normalize(existingDetails.getItApplications()),
+                    ValueList.normalize(mergedDetails.getItApplications()));
             collectChange(changedFields, previousValues, newValues, ControlStepsFields.STEPS_LABEL,
                     existingDetails.getControlStepsPerformed(), mergedDetails.getControlStepsPerformed());
             collectChange(changedFields, previousValues, newValues, ControlStepsFields.OPERATOR_PROGRAM_LABEL,
@@ -409,8 +420,6 @@ public class ControlTabsController {
                 incoming != null ? incoming.getDepartment() : null, allowAll));
         merged.setProcessActivities(resolveString(existing != null ? existing.getProcessActivities() : null,
                 incoming != null ? incoming.getProcessActivities() : null, allowAll));
-        merged.setItApplications(resolveString(existing != null ? existing.getItApplications() : null,
-                incoming != null ? incoming.getItApplications() : null, allowAll));
 
         merged.setControlStepsPerformed(resolveString(existing != null ? existing.getControlStepsPerformed() : null,
                 incoming != null ? incoming.getControlStepsPerformed() : null, allowSteps));

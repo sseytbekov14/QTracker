@@ -956,6 +956,12 @@ public class ViewController {
         // it; everyone sees them, SoQM Admin Team change them (canEditAll)
         model.addAttribute("relatedControls", relatedControls.of(id));
         model.addAttribute("relatedControlsMax", relatedControls.max());
+        // IT Applications: systems of a fixed list, several, the same look and rules
+        com.kpmg.qtracker.dto.ControlDetailsDTO storedDetails = controlDetailsService.getDetailsByControlId(id);
+        model.addAttribute("itApplications", ItApplications.of(storedDetails == null ? null
+                : storedDetails.getItApplications()));
+        model.addAttribute("itApplicationOptions", ItApplications.OPTIONS);
+        model.addAttribute("itApplicationsMax", ItApplications.MAX);
         // A completed control (AccessPolicy.isLocked): locked for the user, or changed in place by SoQM Team
         model.addAttribute("completedLocked", permission.isLocked());
         model.addAttribute("completedEdit", permission.isCompletedEdit());
