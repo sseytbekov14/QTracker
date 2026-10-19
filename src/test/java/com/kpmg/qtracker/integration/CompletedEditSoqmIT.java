@@ -572,12 +572,12 @@ class CompletedEditSoqmIT {
         users.add(readOnly);
 
         String soqmPage = page(soqm, control);
-        assertThat(soqmPage).contains("id=\"completedEditBanner\"", "Your changes are recorded with a reason",
+        assertThat(soqmPage).contains("id=\"completedEditBanner\"", "Completed. Changes require a reason.",
                 "Edit (completed control)", "id=\"completedEditReasonModal\"", "id=\"completedEditReason\"",
                 "for=\"completedEditReason\"", "id=\"controlFrequencyCompletedHint\"", "id=\"soqmYearCompletedHint\"",
                 "id=\"scheduleCompletedHint\"", "aria-describedby=\"controlOperationDateFeedback scheduleCompletedHint\"",
                 "aria-describedby=\"controlFrequencyCompletedHint\"",
-                "id=\"completedEdit\" value=\"true\"", "Every field can", "Nobody is notified")
+                "id=\"completedEdit\" value=\"true\"", "No notifications are sent.", "To return to the workflow, use")
                 .doesNotContain("id=\"accessBanner\"", "data-completed-fixed", "id=\"scheduleFixedHint\"",
                         "id=\"controlFrequencyFixedHint\"");
 
