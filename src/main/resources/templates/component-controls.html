@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=19" rel="stylesheet">
-    <link href="/css/component-controls.css?v=5" rel="stylesheet">
+    <link href="/css/component-controls.css?v=6" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 </head>
 <body class="theme-light">
@@ -99,9 +99,11 @@
                         </a>
                     </nav>
 
-                    <!-- Search and status filter: a plain GET form, so it works without scripts too -->
+                    <!-- Search and status filter: a plain GET form (Enter sends it without scripts too); the search and
+                         the KDN box apply as one types or clicks (component-controls.js). It stays with the KDN box on
+                         and no KDN controls, so that the box can be cleared -->
                     <form class="cc-toolbar" method="get" role="search" id="ccFilters"
-                          th:action="${listPath}" th:if="${counts.total() > 0}">
+                          th:action="${listPath}" th:if="${counts.total() > 0 or query.kdn()}">
                         <div class="cc-field cc-search">
                             <label for="ccSearch">Search</label>
                             <div class="search-box">
@@ -118,7 +120,7 @@
                             </select>
                         </div>
                         <!--/* Phone only: the column headers are hidden there; no name, it navigates (component-controls.js) */-->
-                        <div class="cc-field cc-sort-phone">
+                        <div class="cc-field cc-sort-phone" id="ccSortPhoneField">
                             <label for="ccSortPhone">Sort by</label>
                             <select id="ccSortPhone" class="cc-select">
                                 <option th:each="o : ${list.sortOptions()}" th:value="${o.href()}" th:text="${o.label()}"
@@ -133,14 +135,16 @@
                             <label for="ccKdn">KDN controls only</label>
                         </div>
                         <input type="hidden" name="size" th:if="${query.size() != 25}" th:value="${query.size()}">
-                        <div class="cc-actions">
-                            <button type="submit" class="cc-btn">Apply</button>
+                        <div class="cc-actions" id="ccActions">
                             <a th:if="${query.filtered()}" class="cc-clear" th:href="${list.clearHref()}">Clear</a>
                         </div>
                     </form>
 
+                    <!--/* What the search and the KDN box change: replaced as a whole as one types (component-controls.js) */-->
+                    <div id="ccResults" class="cc-results">
+
                     <!-- Nothing at all in this component, as far as the user sees -->
-                    <div th:if="${counts.total() == 0}" class="cc-panel empty-state">
+                    <div th:if="${counts.total() == 0 and !query.kdn()}" class="cc-panel empty-state">
                         <i class="bi bi-inbox" aria-hidden="true"></i>
                         <p th:text="${kdnList} ? 'There are no KDN controls you can see.'
                                 : (${allList} ? 'There are no controls you can see.' : 'There are no controls in this component that you can see.')">
@@ -149,7 +153,7 @@
                     </div>
 
                     <!-- Controls exist, but none match the search or the filter -->
-                    <div th:if="${counts.total() > 0 and list.matching() == 0}" class="cc-panel empty-state">
+                    <div th:if="${(counts.total() > 0 or query.kdn()) and list.matching() == 0}" class="cc-panel empty-state">
                         <i class="bi bi-search" aria-hidden="true"></i>
                         <p>No controls match your search or filter.</p>
                         <a th:href="${list.clearHref()}">Clear search and filter</a>
@@ -250,11 +254,12 @@
                             </nav>
                         </div>
                     </th:block>
+                    </div>
                 </th:block>
             </div>
         </main>
     </div>
 </div>
-<script src="/js/component-controls.js?v=2"></script>
+<script src="/js/component-controls.js?v=3"></script>
 </body>
 </html>

@@ -982,9 +982,52 @@ class ViewControllerStatusFilterTest {
                 "<label for=\"ccSortPhone\">Sort by</label>",
                 "<option value=\"/component/HR?sort=status&amp;dir=desc\">Performance Status, descending</option>",
                 "title=\"Not set\">&mdash;</span>",
-                "/css/component-controls.css?v=5", "/js/component-controls.js?v=2", "<div class=\"cc-badges\">");
+                "/css/component-controls.css?v=6", "/js/component-controls.js?v=3", "<div class=\"cc-badges\">");
         // the phone's "Sort by" is not sent with the form (no name): one sort parameter only
         assertThat(html).doesNotContain("name=\"sort\" id=\"ccSortPhone\"");
+    }
+
+    @Test
+    void liveSearch_sameRowsAsTheFormWithApply_noApplyButton() throws Exception {
+        User soqm = new User();
+        soqm.setId(78L);
+        TestUsers.withRole(soqm, "SOQM_TEAM");
+        soqm.setMail("soqm-live@kpmg.kz");
+        mockVisibleControls(soqm, List.of(dto(781L, "HR-781", "IN_PROGRESS", null), dto(782L, "KDN-782", "REVIEW", null),
+                dto(783L, "KDN-HR-783", "IN_PROGRESS", null), dto(784L, "HR-784", "REVIEW", null)));
+
+        // The form with Apply sent every field, empty ones too, and no page; the live search leaves the empty ones out
+        for (String[] pair : List.of(
+                new String[]{"/component/ALL?q=HR&status=", "/component/ALL?q=HR"},
+                new String[]{"/component/ALL?q=78&status=&kdn=1", "/component/ALL?q=78&kdn=1"},
+                new String[]{"/component/ALL?q=&status=IN_PROGRESS&kdn=1&size=10", "/component/ALL?status=IN_PROGRESS&kdn=1&size=10"})) {
+            ComponentControlsList.Result withApply = listOf(soqm, pair[0]);
+            ComponentControlsList.Result live = listOf(soqm, pair[1]);
+            assertThat(rowIds(live)).as(pair[1]).isEqualTo(rowIds(withApply));
+            assertThat(live.counts()).as(pair[1]).isEqualTo(withApply.counts());
+            assertThat(live.page()).as(pair[1]).isEqualTo(1);
+        }
+        assertThat(rowIds(listOf(soqm, "/component/ALL?q=HR"))).containsExactly(781L, 784L, 783L);
+        assertThat(rowIds(listOf(soqm, "/component/ALL?q=HR&kdn=1"))).containsExactly(783L);
+        assertThat(rowIds(listOf(soqm, "/component/ALL?q=78&kdn=1"))).containsExactly(782L, 783L);
+
+        String html = mockMvc.perform(get("/component/ALL").param("q", "HR").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(html).contains("id=\"ccFilters\"", "id=\"ccResults\"", "id=\"ccActions\"", "id=\"ccSortPhoneField\"",
+                        "class=\"cc-clear\"")
+                .doesNotContain(">Apply<", "type=\"submit\"");
+
+        // The KDN box on and no KDN controls: the form stays, so that the box can be cleared
+        User hrOnly = new User();
+        hrOnly.setId(79L);
+        TestUsers.withRole(hrOnly, "SOQM_TEAM");
+        hrOnly.setMail("soqm-live-hr@kpmg.kz");
+        mockVisibleControls(hrOnly, List.of(dto(791L, "HR-791", "IN_PROGRESS", null)));
+        String none = mockMvc.perform(get("/component/ALL").param("kdn", "1").sessionAttr("currentUser", hrOnly))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(none).contains("id=\"ccFilters\"", "id=\"ccResults\"", "id=\"ccKdn\" name=\"kdn\" value=\"1\" checked",
+                        "No controls match your search or filter.")
+                .doesNotContain("There are no controls you can see.");
     }
 
     @Test
