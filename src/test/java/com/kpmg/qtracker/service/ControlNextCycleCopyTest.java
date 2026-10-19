@@ -37,9 +37,9 @@ class ControlNextCycleCopyTest {
             "createdBy", "createdByEmail", "createdByName", "createdAt", "updatedAt", "createdFromControlId");
 
     private static final Set<String> DETAILS_COPIED = Set.of("processName", "homogeneity", "referencesToControl",
-            "department", "itApplications", "otherRelatedControls");
-    private static final Set<String> DETAILS_EMPTY = Set.of("processActivities", "controlStepsPerformed",
-            "controlOperatorReview", "soqmHeadComments", "processOwnerComments");
+            "department", "processActivities", "controlOperatorReview");
+    private static final Set<String> DETAILS_EMPTY = Set.of("itApplications", "otherRelatedControls",
+            "controlStepsPerformed", "soqmHeadComments", "processOwnerComments");
     private static final Set<String> DETAILS_NEW = Set.of("controlId");
 
     private static final Set<String> ASSIGNMENT_COPIED = Set.of("facilitator", "controlOperator", "soqmLead",
@@ -120,8 +120,8 @@ class ControlNextCycleCopyTest {
     @Test
     void notCopied_namesWhatTheConfirmationLists() {
         assertThat(ControlNextCycle.NOT_COPIED).containsExactly(
-                "Process Activities",
-                "Control Operator's Program",
+                "Other Related Controls",
+                "IT Applications",
                 "Control Steps Performed and Results",
                 "SoQM Head/Team Comments",
                 "Process Owner Comments",

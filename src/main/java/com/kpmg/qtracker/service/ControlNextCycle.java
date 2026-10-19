@@ -38,8 +38,8 @@ public final class ControlNextCycle {
      * ({@link #dates}). The confirmation of Create Control lists these.
      */
     public static final List<String> NOT_COPIED = List.of(
-            "Process Activities",
-            ControlStepsFields.OPERATOR_PROGRAM_LABEL,
+            RelatedControls.LABEL,
+            ItApplications.LABEL,
             ControlStepsFields.STEPS_LABEL,
             "SoQM Head/Team Comments",
             "Process Owner Comments",
@@ -105,7 +105,11 @@ public final class ControlNextCycle {
         return control;
     }
 
-    /** The Details tab of the new cycle: the description fields copied, what each cycle fills in left empty. */
+    /**
+     * The Details tab of the new cycle: the description fields copied (Process Activities and Control Operator's
+     * Program too, business decision of 2026-10-19), what each cycle fills in and Other Related Controls and IT
+     * Applications (NOT_COPIED) left empty.
+     */
     public static ControlDetails details(ControlDetails source, Long newId) {
         ControlDetails details = new ControlDetails();
         details.setControlId(newId);
@@ -114,8 +118,8 @@ public final class ControlNextCycle {
             details.setHomogeneity(source.getHomogeneity());
             details.setReferencesToControl(source.getReferencesToControl());
             details.setDepartment(source.getDepartment());
-            details.setItApplications(source.getItApplications());
-            details.setOtherRelatedControls(source.getOtherRelatedControls());
+            details.setProcessActivities(source.getProcessActivities());
+            details.setControlOperatorReview(source.getControlOperatorReview());
         }
         return details;
     }

@@ -122,7 +122,9 @@ class CreateControlIT extends ReleaseScenarioSupport {
         ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();
         details.setProcessName("Process of the source");
         details.setDepartment("Department of the source");
-        details.setItApplications("SAP");
+        details.setItApplications("KICS; CQS");
+        details.setOtherRelatedControls("HR-REL-2/FY27; EP-REL-1/FY27");
+        details.setProcessActivities("Activities of the source");
         details.setControlOperatorReview("Operator's Program of the source");
         detailsRepository.save(details);
         ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
@@ -133,19 +135,21 @@ class CreateControlIT extends ReleaseScenarioSupport {
     }
 
     @Test
-    void otherRelatedControls_theNextCycleHasTheSameControlIds_inTheirOrder() throws Exception {
+    void theFourFieldsOfTheDecision_activitiesAndProgramCopied_relatedAndItApplicationsEmpty() throws Exception {
         Control source = source("COMPLETED", "Monthly", "OCT");
-        ControlDetails sourceDetails = detailsRepository.findByControlId(source.getId()).orElseThrow();
-        sourceDetails.setOtherRelatedControls("HR-REL-2/FY27; EP-REL-1/FY27");
-        detailsRepository.save(sourceDetails);
 
         NextCycleCreated created = service.createNextCycle(source.getId(), null, soqm);
 
-        assertThat(detailsRepository.findByControlId(created.id()).orElseThrow().getOtherRelatedControls())
-                .isEqualTo("HR-REL-2/FY27; EP-REL-1/FY27");
+        ControlDetails copy = detailsRepository.findByControlId(created.id()).orElseThrow();
+        assertThat(copy.getProcessActivities()).isEqualTo("Activities of the source");
+        assertThat(copy.getControlOperatorReview()).isEqualTo("Operator's Program of the source");
+        assertThat(copy.getOtherRelatedControls()).isNull();
+        assertThat(copy.getItApplications()).isNull();
         // The source keeps its own
-        assertThat(detailsRepository.findByControlId(source.getId()).orElseThrow().getOtherRelatedControls())
-                .isEqualTo("HR-REL-2/FY27; EP-REL-1/FY27");
+        ControlDetails kept = detailsRepository.findByControlId(source.getId()).orElseThrow();
+        assertThat(kept.getOtherRelatedControls()).isEqualTo("HR-REL-2/FY27; EP-REL-1/FY27");
+        assertThat(kept.getItApplications()).isEqualTo("KICS; CQS");
+        assertThat(kept.getProcessActivities()).isEqualTo("Activities of the source");
     }
 
     @Test
@@ -183,10 +187,11 @@ class CreateControlIT extends ReleaseScenarioSupport {
         ControlDetails details = detailsRepository.findByControlId(created.id()).orElseThrow();
         assertThat(details.getProcessName()).isEqualTo("Process of the source");
         assertThat(details.getDepartment()).isEqualTo("Department of the source");
-        assertThat(details.getItApplications()).isEqualTo("SAP");
-        assertThat(details.getProcessActivities()).isNull();
+        assertThat(details.getItApplications()).isNull();
+        assertThat(details.getOtherRelatedControls()).isNull();
+        assertThat(details.getProcessActivities()).isEqualTo("Activities of the source");
         assertThat(details.getControlStepsPerformed()).isNull();
-        assertThat(details.getControlOperatorReview()).isNull();
+        assertThat(details.getControlOperatorReview()).isEqualTo("Operator's Program of the source");
         assertThat(details.getSoqmHeadComments()).isNull();
         assertThat(details.getProcessOwnerComments()).isNull();
         // Assignment tab: the people, the dates from the source's next date
@@ -368,6 +373,10 @@ class CreateControlIT extends ReleaseScenarioSupport {
         assertThat(plan.get("soqmYear").asText()).isEqualTo("1 OCT 2026 - 30 SEP 2027");
         assertThat(plan.get("problems")).isEmpty();
         assertThat(plan.get("notCopied")).hasSize(9);
+        List<String> notCopied = new java.util.ArrayList<>();
+        plan.get("notCopied").forEach(field -> notCopied.add(field.asText()));
+        assertThat(notCopied).contains("Other Related Controls", "IT Applications")
+                .doesNotContain("Process Activities", "Control Operator's Program");
         assertThat(plan.get("people").get(0).get("label").asText()).isEqualTo("Facilitator");
         assertThat(plan.get("people").get(0).get("people").get(0).asText())
                 .isEqualTo(facilitator.getDisplayName() + " (" + facilitator.getMail() + ")");
