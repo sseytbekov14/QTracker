@@ -577,7 +577,9 @@ class CompletedEditSoqmIT {
                 "for=\"completedEditReason\"", "id=\"controlFrequencyCompletedHint\"", "id=\"soqmYearCompletedHint\"",
                 "id=\"scheduleCompletedHint\"", "aria-describedby=\"controlOperationDateFeedback scheduleCompletedHint\"",
                 "aria-describedby=\"controlFrequencyCompletedHint\"",
-                "id=\"completedEdit\" value=\"true\"", "No notifications are sent.", "To return to the workflow, use")
+                "id=\"completedEdit\" value=\"true\"", "No notifications are sent.", "To return to the workflow, use",
+                "Status remains Completed. The change", "with your name and reason.",
+                "The file will be hidden from all users and retained for records.")
                 .doesNotContain("id=\"accessBanner\"", "data-completed-fixed", "id=\"scheduleFixedHint\"",
                         "id=\"controlFrequencyFixedHint\"");
 

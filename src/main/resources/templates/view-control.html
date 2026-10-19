@@ -1790,8 +1790,8 @@
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                <p class="completed-edit-intro" id="completedEditReasonIntro">The control stays Completed. The
-                                    Changelog shows your changes as &ldquo;Edited after completion&rdquo;, with your name and this reason.</p>
+                                <p class="completed-edit-intro" id="completedEditReasonIntro">Status remains Completed. The change
+                                    is logged as &ldquo;Edited after completion&rdquo; with your name and reason.</p>
                                 <label for="completedEditReason" class="form-label">Reason
                                     <span class="text-danger" aria-hidden="true">*</span></label>
                                 <textarea class="form-control" id="completedEditReason" rows="3" maxlength="500" required
@@ -2590,7 +2590,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (window.qtrackerPermissions && window.qtrackerPermissions.completedEdit) {
             const reason = await askCompletedEditReason({
                 title: 'Hide this file',
-                intro: 'Nobody sees or downloads the file any more; it is kept for the records. The control stays Completed and the Changelog shows the change as \u201cEdited after completion\u201d, with your name and this reason.',
+                intro: 'The file will be hidden from all users and retained for records. Status remains Completed. The change is logged as \u201cEdited after completion\u201d with your name and reason.',
                 confirmText: 'Hide file'
             });
             if (reason === null) return;
