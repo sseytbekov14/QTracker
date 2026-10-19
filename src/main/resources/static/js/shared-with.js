@@ -611,8 +611,10 @@ const SharedWithField = (function () {
                     search.focus();
                 }
             });
+            // A click elsewhere closes the list. The path is taken as the click went: a clicked option is already
+            // replaced by the new list when this runs, so it is no longer inside the field
             document.addEventListener('click', (event) => {
-                if (isOpen() && !field.contains(event.target)) {
+                if (isOpen() && !event.composedPath().includes(field)) {
                     close();
                 }
             });
