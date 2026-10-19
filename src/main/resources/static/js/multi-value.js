@@ -514,8 +514,10 @@ const MultiValueFields = (function () {
                     search.focus();
                 }
             });
+            // A click elsewhere closes the list. The path is taken as the click went: a clicked option is already
+            // replaced by the new list when this runs, so it is no longer inside the field
             document.addEventListener('click', (event) => {
-                if (isOpen() && !root.contains(event.target)) {
+                if (isOpen() && !event.composedPath().includes(root)) {
                     close();
                 }
             });
