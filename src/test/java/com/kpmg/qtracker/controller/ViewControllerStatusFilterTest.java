@@ -1309,7 +1309,8 @@ class ViewControllerStatusFilterTest {
         MvcResult some = mockMvc.perform(get("/kdn").sessionAttr("currentUser", mine)).andExpect(status().isOk()).andReturn();
         assertThat(((ComponentControlsList.Result) some.getModelAndView().getModel().get("list")).counts().total())
                 .isEqualTo(1);
-        assertThat(some.getResponse().getContentAsString()).contains("id=\"sidebarKdn\"");
+        assertThat(some.getResponse().getContentAsString()).contains("id=\"sidebarKdn\"",
+                "<p class=\"subtitle\">KDN controls available to you</p>");
     }
 
     private void mockVisibleControls(User user, List<ControlResponseDTO> dtos) {
