@@ -1,5 +1,6 @@
 package com.kpmg.qtracker;
 
+import com.kpmg.qtracker.config.RelatedControlsImportCommand;
 import com.kpmg.qtracker.config.SeedUsersRemovalCommand;
 import com.kpmg.qtracker.config.UserEmailUpdateCommand;
 import com.kpmg.qtracker.config.UserImportCommand;
@@ -18,7 +19,7 @@ import java.time.ZoneId;
 public class QtrackerApplication {
     public static void main(String[] args) {
         if (SeedUsersRemovalCommand.requested(args) || UserImportCommand.requested(args)
-                || UserEmailUpdateCommand.requested(args)) {
+                || UserEmailUpdateCommand.requested(args) || RelatedControlsImportCommand.requested(args)) {
             System.exit(SpringApplication.exit(runCommand(args)));
         }
         SpringApplication.run(QtrackerApplication.class, args);
