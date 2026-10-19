@@ -635,7 +635,10 @@ class CreateControlIT extends ReleaseScenarioSupport {
         // The new control's page: "Created from <ID>" with a link to the source
         String page = body(call(session, get("/view-control/{id}", newId)));
         assertThat(page).contains("id=\"createdFromBanner\"")
-                .contains("href=\"/view-control/" + source.getId() + "\"");
+                .contains("href=\"/view-control/" + source.getId() + "\"")
+                .contains("Next cycle of this control. Fields are copied, dates recalculated.")
+                .contains("Comments, results and documents are blank.")
+                .doesNotContain("calculated anew");
         assertThat(body(call(session, get("/view-control/{id}", source.getId())))).doesNotContain("id=\"createdFromBanner\"");
     }
 
