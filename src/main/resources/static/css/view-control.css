@@ -314,6 +314,13 @@ textarea.readonly-field::-webkit-resizer {
     appearance: menulist;
 }
 
+/* Bootstrap's .form-select draws its own arrow: the browser's arrow (menulist) would be a second one */
+select.form-select.editable-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
 /* ── Action Buttons Bar ── */
 .action-buttons {
     position: sticky;
