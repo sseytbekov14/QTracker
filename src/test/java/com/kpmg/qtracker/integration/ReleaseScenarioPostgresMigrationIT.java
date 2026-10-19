@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Release test pass, stage I: the Flyway migrations on a real PostgreSQL - from an empty schema to the latest, from
- * data of an earlier version (synthetic rows written at V4) to the latest, then the rollback scripts of V17, V16, V15, V14, V13, V12, V11
+ * data of an earlier version (synthetic rows written at V4) to the latest, then the rollback scripts of V18, V17, V16, V15, V14, V13, V12, V11
  * and V8, and from data of the version before (V12, SoQM Development Materials filled) to V13 and back. Runs only with -Drelease.db.url=jdbc:postgresql://.../qtracker_release_test (and .user, .password): every test
  * empties the public schema of that temporary database (V1 looks its constraints up by table name, so the migrations
  * need a database of their own) and leaves it empty for the next run.
@@ -60,7 +60,7 @@ class ReleaseScenarioPostgresMigrationIT {
         }
     }
 
-    private static final String LATEST = "17";
+    private static final String LATEST = "18";
 
     @Test
     void anEmptyDatabase_migratesToTheLatestVersion_withTheSeedPeopleOfV2() throws Exception {
@@ -132,13 +132,16 @@ class ReleaseScenarioPostgresMigrationIT {
         assertThat(single("SELECT COUNT(*) FROM controls WHERE control_id LIKE '%OLD%' AND created_from_control_id IS NULL"))
                 .isEqualTo("3");
 
-        assertThat(relatedTextColumns()).isEqualTo("0");
+        // V18 brought other_related_controls back as TEXT: no links, so empty
+        assertThat(relatedTextColumns()).isEqualTo("1");
+        assertThat(single("SELECT COUNT(*) FROM controls WHERE other_related_controls IS NOT NULL")).isEqualTo("0");
         assertThat(relatedTables()).isEqualTo("1");
         assertThat(single("SELECT COUNT(*) FROM control_related_controls")).isEqualTo("0");
-
         assertThat(refTables()).isEqualTo("1");
 
-        // Rollback of V17, V16, V15, V14, V13, V12, V11, then of V8 (the order the scripts are meant for)
+        // Rollback of V18, V17, V16, V15, V14, V13, V12, V11, then of V8 (the order the scripts are meant for)
+        script("db/rollback/V18__undo_related_fields_text.sql");
+        assertThat(relatedTextColumns()).isEqualTo("0");
         script("db/rollback/V17__undo_related_control_ref.sql");
         assertThat(refTables()).isEqualTo("0");
         script("db/rollback/V16__undo_drop_other_related_controls_text.sql");
@@ -290,9 +293,10 @@ class ReleaseScenarioPostgresMigrationIT {
                 + "'{\"Other Related Controls (earlier text)\":null}', "
                 + "'{\"Other Related Controls (earlier text)\":\"HR-12, see the list\"}')");
 
-        Flyway latest = flyway(null);
-        latest.migrate();
-        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo(LATEST);
+        // To V16 only: V18 brings the column back (its own test below)
+        Flyway v16 = flyway("16");
+        v16.migrate();
+        assertThat(v16.info().current().getVersion().getVersion()).isEqualTo("16");
 
         assertThat(relatedTextColumns()).isEqualTo("0");
         assertThat(single("SELECT COUNT(*) FROM controls WHERE control_id LIKE '%-V15-%'")).isEqualTo("2");
@@ -343,6 +347,47 @@ class ReleaseScenarioPostgresMigrationIT {
         assertThat(refTables()).isEqualTo("0");
         assertThat(single("SELECT COUNT(*) FROM controls WHERE control_id LIKE '%-V16-%'")).isEqualTo("2");
         assertThat(single("SELECT COUNT(*) FROM control_related_controls")).isEqualTo("1");
+    }
+
+    /**
+     * The version before this one (V17) with linked controls and an IT application: V18 writes the links as the linked
+     * controls' current Control IDs, in their order, into other_related_controls (TEXT) and makes it_applications TEXT;
+     * the rollback drops the column (the links stay) and brings it_applications back to VARCHAR(255), cut to 255.
+     */
+    @Test
+    void dataOfTheVersionBefore_migratesToV18_theLinksBecomeControlIds_andItsRollbackKeepsTheLinks() throws Exception {
+        flyway("17").migrate();
+        execute("INSERT INTO controls (control_id, control_frequency, performance_status, control_status, it_applications)"
+                + " VALUES ('HR-V17-1/FY27/Central/OCT', 'Monthly', 'IN_PROGRESS', 'ACTIVE', 'KICS'), "
+                + "('EP-V17-2/FY27/Central', 'Annual', 'COMPLETED', 'ACTIVE', NULL), "
+                + "('KDN-V17-3', 'Quarterly', 'REVIEW', 'ACTIVE', NULL)");
+        String first = single("SELECT id FROM controls WHERE control_id = 'HR-V17-1/FY27/Central/OCT'");
+        String second = single("SELECT id FROM controls WHERE control_id = 'EP-V17-2/FY27/Central'");
+        String third = single("SELECT id FROM controls WHERE control_id = 'KDN-V17-3'");
+        execute("INSERT INTO control_related_controls (control_id, related_control_id, sort_order) VALUES "
+                + "(" + first + ", " + second + ", 1), (" + first + ", " + third + ", 0)");
+
+        Flyway latest = flyway(null);
+        latest.migrate();
+        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo(LATEST);
+
+        assertThat(single("SELECT other_related_controls FROM controls WHERE id = " + first))
+                .isEqualTo("KDN-V17-3; EP-V17-2/FY27/Central");
+        assertThat(single("SELECT COALESCE(other_related_controls, '-') FROM controls WHERE id = " + second)).isEqualTo("-");
+        assertThat(single("SELECT data_type FROM information_schema.columns WHERE table_schema = '" + schema
+                + "' AND table_name = 'controls' AND column_name = 'it_applications'")).isEqualTo("text");
+        assertThat(single("SELECT data_type FROM information_schema.columns WHERE table_schema = '" + schema
+                + "' AND table_name = 'controls' AND column_name = 'other_related_controls'")).isEqualTo("text");
+        assertThat(single("SELECT it_applications FROM controls WHERE id = " + first)).isEqualTo("KICS");
+        execute("UPDATE controls SET it_applications = '" + "x".repeat(300) + "' WHERE id = " + second);
+
+        script("db/rollback/V18__undo_related_fields_text.sql");
+        assertThat(relatedTextColumns()).isEqualTo("0");
+        assertThat(single("SELECT COUNT(*) FROM control_related_controls WHERE control_id = " + first)).isEqualTo("2");
+        assertThat(single("SELECT data_type || '|' || character_maximum_length FROM information_schema.columns "
+                + "WHERE table_schema = '" + schema + "' AND table_name = 'controls' AND column_name = 'it_applications'"))
+                .isEqualTo("character varying|255");
+        assertThat(single("SELECT LENGTH(it_applications) FROM controls WHERE id = " + second)).isEqualTo("255");
     }
 
     @Test

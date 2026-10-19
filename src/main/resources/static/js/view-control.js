@@ -178,8 +178,8 @@ const viewControl = (function() {
             processOwnerMail: document.getElementById('processOwnerHidden')?.value || '',
             // Control Shared With keeps its people itself (shared-with.js), unknown addresses included
             sharedWith: typeof SharedWithField !== 'undefined' ? SharedWithField.snapshot() : null,
-            // Other Related Controls keep their links themselves (related-controls.js)
-            relatedControls: typeof RelatedControlsField !== 'undefined' ? RelatedControlsField.snapshot() : null
+            // Other Related Controls and IT Applications keep their values themselves (multi-value.js)
+            multiValues: typeof MultiValueFields !== 'undefined' ? MultiValueFields.snapshot() : null
         };
     }
 
@@ -233,8 +233,8 @@ const viewControl = (function() {
         if (typeof SharedWithField !== 'undefined') {
             SharedWithField.restore(editModeSnapshot.sharedWith);
         }
-        if (typeof RelatedControlsField !== 'undefined') {
-            RelatedControlsField.restore(editModeSnapshot.relatedControls);
+        if (typeof MultiValueFields !== 'undefined') {
+            MultiValueFields.restore(editModeSnapshot.multiValues);
         }
         normalizeAssignmentDateFieldsForDisplay();
 
@@ -1591,9 +1591,9 @@ function saveControlData(controlId) {
         if (typeof SharedWithField !== 'undefined') {
             SharedWithField.setEditing(fullEditEnabled);
         }
-        // Other Related Controls: SoQM Admin Team add and remove links
-        if (typeof RelatedControlsField !== 'undefined') {
-            RelatedControlsField.setEditing(fullEditEnabled);
+        // Other Related Controls and IT Applications: SoQM Admin Team add and remove values
+        if (typeof MultiValueFields !== 'undefined') {
+            MultiValueFields.setEditing(fullEditEnabled);
         }
 
         // Without full rights only Details fields are editable (Assignment is saved by SoQM Team only)
@@ -1634,8 +1634,8 @@ function saveControlData(controlId) {
         if (typeof SharedWithField !== 'undefined') {
             SharedWithField.setEditing(false);
         }
-        if (typeof RelatedControlsField !== 'undefined') {
-            RelatedControlsField.setEditing(false);
+        if (typeof MultiValueFields !== 'undefined') {
+            MultiValueFields.setEditing(false);
         }
         toggleSoqmOnlyNotes(false);
     }
@@ -2190,9 +2190,9 @@ function saveDetailsData(controlId) {
 
         if (!response.ok) {
             const errorText = serverErrorText(await response.text());
-            // A refusal that names Other Related Controls is also shown under that field
-            if (typeof RelatedControlsField !== 'undefined') {
-                RelatedControlsField.showServerError(errorText);
+            // A refusal that names Other Related Controls or IT Applications is also shown under that field
+            if (typeof MultiValueFields !== 'undefined') {
+                MultiValueFields.showServerError(errorText);
             }
             throw new Error(`Details save failed: ${errorText}`);
         }
@@ -2213,8 +2213,8 @@ function saveDetailsData(controlId) {
     .then(data => {
         console.log('вњ… Details saved successfully');
         detailsDataCache = { ...(detailsDataCache || {}), ...detailsData };
-        if (typeof RelatedControlsField !== 'undefined') {
-            RelatedControlsField.markSaved();
+        if (typeof MultiValueFields !== 'undefined') {
+            MultiValueFields.markSaved();
         }
 
         // Upload file attachments if any
@@ -3046,8 +3046,9 @@ function buildDetailsPayload(controlId) {
             : null,
         soqmHeadComments: getDetailsValue('[name="soqmHeadComments"]'),
         processOwnerComments: getDetailsValue('[name="processOwnerComments"]'),
-        // Other Related Controls: the linked controls' ids in edit mode (related-controls.js); null keeps them
-        relatedControlIds: typeof RelatedControlsField !== 'undefined' ? RelatedControlsField.idsForSave() : null
+        // Other Related Controls: the Control IDs joined by "; " in edit mode (multi-value.js); null keeps them
+        otherRelatedControls: typeof MultiValueFields !== 'undefined'
+            ? MultiValueFields.valueForSave('relatedControlsField') : null
     };
 
     return applyDetailsPermissions(payload);

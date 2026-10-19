@@ -5,13 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.config.DevUserSeeder;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
-import com.kpmg.qtracker.entity.ControlDetails;
+import com.kpmg.qtracker.entity.RelatedControlRef;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
+import com.kpmg.qtracker.repository.RelatedControlRefRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.service.RelatedControls;
 import com.kpmg.qtracker.service.SoqmYear;
@@ -28,7 +29,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
-import org.springframework.web.util.HtmlUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,9 +42,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 /**
- * Other Related Controls (RelatedControls, business decision of 2026-10-15): SoQM Admin Team link other controls from a
- * control's Details tab, each chip opening that control. Saved with Details as relatedControlIds, kept by the controls'
- * ids (a Rename ID keeps them), shown with the current Control ID; nobody else sees or changes them.
+ * Other Related Controls (RelatedControls, business decision of 2026-10-19): SoQM Admin Team choose Control IDs of one
+ * list for every control (related_control_ref) on a control's Details tab. Saved with Details as otherRelatedControls
+ * ("A; B"), checked against the active list (an ID the control already had stays, "not in list"), plain text
+ * everywhere: no link to any control. Everyone who sees the control sees them; nobody else changes them. At most
+ * related-controls.max-per-control (3 here, 50 by default).
  */
 @SpringBootTest(properties = {
         "spring.main.allow-bean-definition-overriding=true",
@@ -56,6 +58,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "spring.jpa.show-sql=false",
         "spring.flyway.enabled=false",
         "reminders.enabled=false",
+        "related-controls.max-per-control=3",
         "file.upload.dir=target/it-uploads-related"
 })
 @AutoConfigureMockMvc
@@ -75,6 +78,8 @@ class RelatedControlsIT {
     @Autowired
     private ControlDetailsRepository detailsRepository;
     @Autowired
+    private RelatedControlRefRepository refRepository;
+    @Autowired
     private RelatedControls relatedControls;
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -92,6 +97,11 @@ class RelatedControlsIT {
     private User po;
     private User readOnlyAll;
     private User editAll;
+    private User kdn;
+    private String a;
+    private String b;
+    private String c;
+    private String d;
 
     @BeforeEach
     void setUp() {
@@ -102,187 +112,159 @@ class RelatedControlsIT {
         po = saveUser("po-" + s, AccessLevel.PARTICIPANT, AccessScope.OWN);
         readOnlyAll = saveUser("ro-all-" + s, AccessLevel.READ_ONLY, AccessScope.ALL);
         editAll = saveUser("edit-all-" + s, AccessLevel.PARTICIPANT, AccessScope.ALL);
+        kdn = saveUser("kdn-" + s, AccessLevel.READ_ONLY, AccessScope.KDN);
+        // Four made-up Control IDs of the list, different in every test
+        a = "REF-" + s + "-A/FY27/Central";
+        b = "REF-" + s + "-B/FY27/Central";
+        c = "REF-" + s + "-C/FY27";
+        d = "REF-" + s + "-D";
+        refRepository.saveAll(List.of(new RelatedControlRef(a), new RelatedControlRef(b), new RelatedControlRef(c),
+                new RelatedControlRef(d)));
     }
 
     @Test
-    void soqm_linksControls_inTheChosenOrder_andThePageShowsEachAsALinkToIt() throws Exception {
+    void soqm_choosesIdsOfTheList_inTheirOrder_shownAsPlainText() throws Exception {
         Control control = control("IN_PROGRESS", "HR");
-        Control first = control("COMPLETED", "EP");
-        Control second = control("IN_PROGRESS", "HR");
         MockHttpSession session = login(soqm);
 
-        assertThat(page(control, session)).contains("id=\"relatedControlsField\"")
-                .contains("No related controls")
-                .doesNotContain("class=\"sw-chip rc-chip\"");
+        assertThat(field(page(control, session))).contains("Not selected")
+                .contains("data-source-url=\"/api/related-controls\"")
+                .contains("No controls in the list yet, contact SoQM Admin Team")
+                .contains("data-max=\"3\"")
+                .contains("bi-link-45deg")
+                .doesNotContain("class=\"sw-chip mv-chip");
 
-        assertThat(save(control, session, List.of(second.getId(), first.getId()))).isEqualTo(200);
-        assertThat(relatedControls.ids(control.getId())).containsExactly(second.getId(), first.getId());
+        assertThat(save(control, session, b + "; " + a)).isEqualTo(200);
+        assertThat(stored(control)).isEqualTo(b + "; " + a);
 
-        String page = page(control, session);
-        int secondAt = page.indexOf("href=\"/view-control/" + second.getId() + "\"");
-        int firstAt = page.indexOf("href=\"/view-control/" + first.getId() + "\"");
-        assertThat(secondAt).isPositive();
-        assertThat(firstAt).isGreaterThan(secondAt);
-        assertThat(page).contains(HtmlUtils.htmlEscape(second.getControlId()))
-                .contains(HtmlUtils.htmlEscape(first.getControlId()))
-                .contains("Completed")
-                .contains("2 controls")
-                .contains("/js/related-controls.js?v=");
+        String field = field(page(control, session));
+        int bAt = field.indexOf("data-value=\"" + b + "\"");
+        int aAt = field.indexOf("data-value=\"" + a + "\"");
+        assertThat(bAt).isPositive();
+        assertThat(aAt).isGreaterThan(bAt);
+        assertThat(field).contains("2 controls").doesNotContain("not in list").doesNotContain("<a ")
+                .doesNotContain("href=");
+        assertThat(page(control, session)).contains("/js/multi-value.js?v=");
 
-        // The Details API names them too, for SoQM Admin Team
+        // The Details API gives them as stored, to everyone who sees the control
         JsonNode details = json(get("/api/control-details").param("controlId", String.valueOf(control.getId())), session);
-        assertThat(details.path("relatedControls").get(0).asText()).isEqualTo(second.getControlId());
-        assertThat(details.path("relatedControls").get(1).asText()).isEqualTo(first.getControlId());
+        assertThat(details.path("otherRelatedControls").asText()).isEqualTo(b + "; " + a);
         assertThat(details.has("relatedControlIds")).isFalse();
+        assertThat(details.has("relatedControls")).isFalse();
     }
 
     @Test
-    void aRenameId_keepsTheLink_andThePageShowsTheNewId() throws Exception {
+    void aValueInAnotherCaseOrWithSpaces_isStoredAsTheListWritesIt() throws Exception {
         Control control = control("IN_PROGRESS", "HR");
-        Control related = control("IN_PROGRESS", "EP");
-        MockHttpSession session = login(soqm);
-        assertThat(save(control, session, List.of(related.getId()))).isEqualTo(200);
-
-        Control renamed = controlRepository.findById(related.getId()).orElseThrow();
-        renamed.setControlId(related.getControlId() + "-RENAMED");
-        controlRepository.save(renamed);
-
-        assertThat(page(control, session)).contains(HtmlUtils.htmlEscape(renamed.getControlId()))
-                .contains("href=\"/view-control/" + related.getId() + "\"");
+        assertThat(save(control, login(soqm), "  " + a.toLowerCase() + " ;" + b.replace("-", " - ") + ";;"))
+                .isEqualTo(200);
+        assertThat(stored(control)).isEqualTo(a + "; " + b);
     }
 
     @Test
-    void aSave_nullKeepsThem_anEmptyListClearsThem_aRepeatIsKeptOnce() throws Exception {
+    void anIdNotInTheList_aRepeat_orTooMany_isRefused_andNothingIsSaved() throws Exception {
         Control control = control("IN_PROGRESS", "HR");
-        Control a = control("IN_PROGRESS", "EP");
-        Control b = control("IN_PROGRESS", "EP");
         MockHttpSession session = login(soqm);
+        assertThat(save(control, session, a)).isEqualTo(200);
 
-        assertThat(save(control, session, List.of(a.getId(), b.getId(), a.getId()))).isEqualTo(200);
-        assertThat(relatedControls.ids(control.getId())).containsExactly(a.getId(), b.getId());
+        MvcResult unknown = saveResult(control, session, "{\"processName\":\"Not saved\",\"otherRelatedControls\":\""
+                + a + "; HR-NOT-IN-LIST-1\"}");
+        assertThat(unknown.getResponse().getStatus()).isEqualTo(400);
+        assertThat(unknown.getResponse().getContentAsString()).isEqualTo("VALIDATION_ERROR: Other Related Controls: "
+                + "HR-NOT-IN-LIST-1 is not in the list. Reload the page and choose again.");
+
+        MvcResult twice = saveResult(control, session, "{\"otherRelatedControls\":\"" + b + "; " + b.toLowerCase() + "\"}");
+        assertThat(twice.getResponse().getStatus()).isEqualTo(400);
+        assertThat(twice.getResponse().getContentAsString())
+                .isEqualTo("VALIDATION_ERROR: Other Related Controls: " + b.toLowerCase() + " is given twice");
+
+        MvcResult tooMany = saveResult(control, session, "{\"otherRelatedControls\":\"" + String.join("; ", a, b, c, d) + "\"}");
+        assertThat(tooMany.getResponse().getStatus()).isEqualTo(400);
+        assertThat(tooMany.getResponse().getContentAsString())
+                .isEqualTo("VALIDATION_ERROR: Other Related Controls: at most 3 controls");
+        assertThat(stored(control)).isEqualTo(a);
+        assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getProcessName()).isNull();
+
+        assertThat(save(control, session, String.join("; ", a, b, c))).isEqualTo(200);
+        assertThat(stored(control)).isEqualTo(String.join("; ", a, b, c));
+    }
+
+    @Test
+    void anIdTheListNoLongerHas_staysMarkedNotInList_untilRemoved() throws Exception {
+        Control control = control("IN_PROGRESS", "HR");
+        MockHttpSession session = login(soqm);
+        assertThat(save(control, session, a + "; " + b)).isEqualTo(200);
+        RelatedControlRef gone = refRepository.findAll().stream().filter(ref -> ref.getControlId().equals(a))
+                .findFirst().orElseThrow();
+        gone.setActive(false);
+        refRepository.save(gone);
+
+        String field = field(page(control, session));
+        assertThat(field).contains("not in list").contains("data-not-in-list=\"true\"");
+        assertThat(relatedControls.of(control.getId())).extracting("notInList").containsExactly(true, false);
+
+        // Kept by a save that still has it (in any case), another one added
+        assertThat(save(control, session, a.toLowerCase() + "; " + b + "; " + c)).isEqualTo(200);
+        assertThat(stored(control)).isEqualTo(a + "; " + b + "; " + c);
+        // Once removed it cannot come back
+        assertThat(save(control, session, b)).isEqualTo(200);
+        assertThat(saveRaw(control, session, "{\"otherRelatedControls\":\"" + a + "\"}")).isEqualTo(400);
+        assertThat(stored(control)).isEqualTo(b);
+    }
+
+    @Test
+    void aSave_nullKeepsThem_anEmptyValueClearsThem_evenWithAnEmptyList() throws Exception {
+        Control control = control("IN_PROGRESS", "HR");
+        MockHttpSession session = login(soqm);
+        assertThat(save(control, session, a + "; " + b)).isEqualTo(200);
 
         // A save that does not send them (another field, or the page outside edit mode) keeps them
-        assertThat(saveRaw(control, session, "{\"processName\":\"Payroll\",\"relatedControlIds\":null}")).isEqualTo(200);
-        assertThat(relatedControls.ids(control.getId())).containsExactly(a.getId(), b.getId());
+        assertThat(saveRaw(control, session, "{\"processName\":\"Payroll\",\"otherRelatedControls\":null}")).isEqualTo(200);
+        assertThat(stored(control)).isEqualTo(a + "; " + b);
 
-        assertThat(save(control, session, List.of())).isEqualTo(200);
-        assertThat(relatedControls.ids(control.getId())).isEmpty();
+        refRepository.deleteAll();
+        assertThat(save(control, session, "")).isEqualTo(200);
+        assertThat(stored(control)).isEmpty();
+        assertThat(field(page(control, session))).contains("Not selected");
     }
 
     @Test
-    void aControlItself_orOneThatIsGone_isRefused_andNothingIsSaved() throws Exception {
+    void anyoneElse_seesThem_butCannotChangeThem() throws Exception {
         Control control = control("IN_PROGRESS", "HR");
-        Control other = control("IN_PROGRESS", "EP");
-        MockHttpSession session = login(soqm);
-        assertThat(save(control, session, List.of(other.getId()))).isEqualTo(200);
+        control.setControlId("KDN-" + control.getControlId());
+        controlRepository.save(control);
+        assertThat(save(control, login(soqm), a)).isEqualTo(200);
 
-        MvcResult itself = saveResult(control, session, "{\"processName\":\"Not saved\",\"relatedControlIds\":["
-                + other.getId() + "," + control.getId() + "]}");
-        assertThat(itself.getResponse().getStatus()).isEqualTo(400);
-        assertThat(itself.getResponse().getContentAsString())
-                .isEqualTo("VALIDATION_ERROR: Other Related Controls: a control cannot be related to itself");
+        // The Facilitator may save the steps; the IDs sent along are kept as stored
+        assertThat(saveRaw(control, login(fac), "{\"controlStepsPerformed\":\"Steps\",\"otherRelatedControls\":\""
+                + b + "\"}")).isEqualTo(200);
+        assertThat(stored(control)).isEqualTo(a);
 
-        MvcResult gone = saveResult(control, session, "{\"relatedControlIds\":[" + (other.getId() + 100000) + "]}");
-        assertThat(gone.getResponse().getStatus()).isEqualTo(400);
-        assertThat(gone.getResponse().getContentAsString())
-                .contains("Other Related Controls: a chosen control no longer exists. Reload the page and choose again.");
-
-        assertThat(relatedControls.ids(control.getId())).containsExactly(other.getId());
-        assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getProcessName()).isNull();
-    }
-
-    @Test
-    void anyoneElse_seesThem_butCannotChangeThem_norGetTheList() throws Exception {
-        Control control = control("IN_PROGRESS", "HR");
-        Control linked = control("IN_PROGRESS", "EP");
-        Control other = control("IN_PROGRESS", "EP");
-        assertThat(save(control, login(soqm), List.of(linked.getId()))).isEqualTo(200);
-
-        // The Facilitator may save the steps; the links sent along are kept as stored
-        assertThat(saveRaw(control, login(fac), "{\"controlStepsPerformed\":\"Steps\",\"relatedControlIds\":["
-                + other.getId() + "]}")).isEqualTo(200);
-        assertThat(relatedControls.ids(control.getId())).containsExactly(linked.getId());
-
-        for (User user : List.of(fac, op, po, readOnlyAll, editAll)) {
+        for (User user : List.of(fac, op, po, readOnlyAll, editAll, kdn)) {
             MockHttpSession session = login(user);
-            assertThat(perform(get("/api/controls/{id}/related-options", control.getId()), session)
-                    .getResponse().getStatus()).as(user.getMail()).isEqualTo(403);
             JsonNode details = json(get("/api/control-details").param("controlId", String.valueOf(control.getId())), session);
-            assertThat(details.path("relatedControls").get(0).asText()).as(user.getMail()).isEqualTo(linked.getControlId());
-            assertThat(page(control, session)).as(user.getMail())
-                    .contains(HtmlUtils.htmlEscape(linked.getControlId()))
-                    .doesNotContain("id=\"relatedControlsSearchInput\"");
+            assertThat(details.path("otherRelatedControls").asText()).as(user.getMail()).isEqualTo(a);
+            assertThat(field(page(control, session))).as(user.getMail())
+                    .contains("data-value=\"" + a + "\"")
+                    .contains("data-editable=\"false\"")
+                    .doesNotContain("relatedControlsSearchInput")
+                    .doesNotContain("href=");
         }
     }
 
     @Test
-    void aLinkedControl_isALink_forWhoeverMayOpenIt_itsIdAloneForAnyoneElse() throws Exception {
+    void theChangelog_givesTheListBeforeAndAfter() throws Exception {
         Control control = control("IN_PROGRESS", "HR");
-        Control theirs = control("IN_PROGRESS", "EP");
-        Control notTheirs = control("IN_PROGRESS", "EP");
-        ControlAssignment elsewhere = assignmentRepository.findByControlId(notTheirs.getId()).orElseThrow();
-        elsewhere.setFacilitator(soqm.getMail());
-        elsewhere.setControlOperator(soqm.getMail());
-        elsewhere.setProcessOwner(soqm.getMail());
-        assignmentRepository.save(elsewhere);
-        assertThat(save(control, login(soqm), List.of(theirs.getId(), notTheirs.getId()))).isEqualTo(200);
-
-        String forFacilitator = page(control, login(fac));
-        assertThat(forFacilitator).contains("href=\"/view-control/" + theirs.getId() + "\"")
-                .doesNotContain("href=\"/view-control/" + notTheirs.getId() + "\"")
-                .contains(HtmlUtils.htmlEscape(notTheirs.getControlId()))
-                .contains("rc-chip-link is-plain");
-
-        for (User user : List.of(soqm, editAll, readOnlyAll)) {
-            assertThat(page(control, login(user))).as(user.getMail())
-                    .contains("href=\"/view-control/" + theirs.getId() + "\"")
-                    .contains("href=\"/view-control/" + notTheirs.getId() + "\"")
-                    .doesNotContain("rc-chip-link is-plain");
-        }
-    }
-
-    @Test
-    void theList_offersEveryOtherControl_byControlId_withItsStatus() throws Exception {
-        Control control = control("IN_PROGRESS", "HR");
-        Control draft = control("DRAFT", "EP");
-        Control superseded = control("COMPLETED", "EP");
-        superseded.setControlStatus("SUPERSEDED");
-        superseded.setControlDescription("  A   long\ndescription  ");
-        controlRepository.save(superseded);
-
-        JsonNode options = json(get("/api/controls/{id}/related-options", control.getId()), login(soqm));
-        List<Long> ids = new ArrayList<>();
-        options.forEach(option -> ids.add(option.path("id").asLong()));
-        assertThat(ids).doesNotContain(control.getId()).contains(draft.getId(), superseded.getId());
-        List<String> controlIds = new ArrayList<>();
-        options.forEach(option -> controlIds.add(option.path("controlId").asText().toLowerCase()));
-        assertThat(controlIds).isSorted();
-
-        JsonNode supersededOption = option(options, superseded.getId());
-        assertThat(supersededOption.path("status").asText()).isEqualTo("Completed · Superseded");
-        assertThat(supersededOption.path("description").asText()).isEqualTo("A long description");
-        assertThat(option(options, draft.getId()).path("status").asText()).isEqualTo("Draft");
-
-        assertThat(perform(get("/api/controls/{id}/related-options", 987654321L), login(soqm))
-                .getResponse().getStatus()).isEqualTo(404);
-    }
-
-    @Test
-    void theChangelog_namesTheLinkedControls() throws Exception {
-        Control control = control("IN_PROGRESS", "HR");
-        Control a = control("IN_PROGRESS", "EP");
-        Control b = control("IN_PROGRESS", "EP");
         MockHttpSession session = login(soqm);
-        assertThat(save(control, session, List.of(a.getId()))).isEqualTo(200);
-        assertThat(save(control, session, List.of(b.getId(), a.getId()))).isEqualTo(200);
-        // The same links again: nothing to record
-        assertThat(save(control, session, List.of(b.getId(), a.getId()))).isEqualTo(200);
+        assertThat(save(control, session, a)).isEqualTo(200);
+        assertThat(save(control, session, b + ";" + a)).isEqualTo(200);
+        // The same IDs again, written otherwise: nothing to record
+        assertThat(save(control, session, " " + b + " ; " + a.toLowerCase())).isEqualTo(200);
 
         List<String[]> rows = rows(control, session, RelatedControls.LABEL);
         assertThat(rows).hasSize(2);
-        assertThat(rows).anySatisfy(row -> assertThat(row).containsExactly("", a.getControlId()));
-        assertThat(rows).anySatisfy(row -> assertThat(row)
-                .containsExactly(a.getControlId(), b.getControlId() + ", " + a.getControlId()));
+        assertThat(rows).anySatisfy(row -> assertThat(row).containsExactly("", a));
+        assertThat(rows).anySatisfy(row -> assertThat(row).containsExactly(a, b + "; " + a));
 
         // Everyone who sees the control reads them
         assertThat(rows(control, login(fac), RelatedControls.LABEL)).hasSize(2);
@@ -291,40 +273,42 @@ class RelatedControlsIT {
     @Test
     void onACompletedControl_aChangeNeedsAReason() throws Exception {
         Control control = control("COMPLETED", "HR");
-        Control other = control("IN_PROGRESS", "EP");
         MockHttpSession session = login(soqm);
 
-        MvcResult noReason = saveResult(control, session, "{\"relatedControlIds\":[" + other.getId() + "]}");
+        MvcResult noReason = saveResult(control, session, "{\"otherRelatedControls\":\"" + a + "\"}");
         assertThat(noReason.getResponse().getStatus()).isEqualTo(400);
-        assertThat(relatedControls.ids(control.getId())).isEmpty();
+        assertThat(stored(control)).isNull();
 
-        assertThat(saveRaw(control, session, "{\"relatedControlIds\":[" + other.getId() + "],\"editReason\":\"Linked\"}"))
+        assertThat(saveRaw(control, session, "{\"otherRelatedControls\":\"" + a + "\",\"editReason\":\"Related\"}"))
                 .isEqualTo(200);
-        assertThat(relatedControls.ids(control.getId())).containsExactly(other.getId());
+        assertThat(stored(control)).isEqualTo(a);
     }
 
     @Test
-    void theEarlierText_isNoField_anyMore() throws Exception {
+    void theEarlierWaysOfTheLinks_areGone() throws Exception {
         Control control = control("IN_PROGRESS", "HR");
         MockHttpSession session = login(soqm);
 
-        assertThat(page(control, session)).doesNotContain("Earlier text (not linked)")
-                .doesNotContain("name=\"otherRelatedControls\"");
-
         // Sent by an older page: accepted and left out, no Changelog row
-        assertThat(saveRaw(control, session, "{\"otherRelatedControls\":\"HR-12\"}")).isEqualTo(200);
-        assertThat(rows(control, session, RelatedControls.EARLIER_TEXT_LABEL)).isEmpty();
+        assertThat(saveRaw(control, session, "{\"relatedControlIds\":[1,2]}")).isEqualTo(200);
+        assertThat(stored(control)).isNull();
+        assertThat(rows(control, session, RelatedControls.LABEL)).isEmpty();
+        assertThat(perform(get("/api/controls/{id}/related-options", control.getId()), session).getResponse().getStatus())
+                .isEqualTo(404);
     }
 
     // ------------------------------------------------------------------ helpers
 
-    private static JsonNode option(JsonNode options, Long id) {
-        for (JsonNode option : options) {
-            if (option.path("id").asLong() == id) {
-                return option;
-            }
-        }
-        throw new AssertionError("no option " + id);
+    private String stored(Control control) {
+        return detailsRepository.findByControlId(control.getId()).orElseThrow().getOtherRelatedControls();
+    }
+
+    /** The Other Related Controls field of the page, up to the next column. */
+    private static String field(String page) {
+        int start = page.indexOf("id=\"relatedControlsField\"");
+        assertThat(start).as("the field is on the page").isPositive();
+        int end = page.indexOf("<div class=\"col-md-6 mb-3\">", start);
+        return page.substring(start, end > start ? end : page.length());
     }
 
     /** {old, new} of each Changelog row of the field, as the session gets them. */
@@ -346,8 +330,8 @@ class RelatedControlsIT {
         return result.getResponse().getContentAsString();
     }
 
-    private int save(Control control, MockHttpSession session, List<Long> ids) throws Exception {
-        return saveRaw(control, session, "{\"relatedControlIds\":" + objectMapper.writeValueAsString(ids) + "}");
+    private int save(Control control, MockHttpSession session, String values) throws Exception {
+        return saveRaw(control, session, "{\"otherRelatedControls\":" + objectMapper.writeValueAsString(values) + "}");
     }
 
     private int saveRaw(Control control, MockHttpSession session, String fieldsJson) throws Exception {

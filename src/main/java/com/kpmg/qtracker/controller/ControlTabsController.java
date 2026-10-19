@@ -8,6 +8,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.ControlFrequency;
 import com.kpmg.qtracker.service.*;
 import com.kpmg.qtracker.util.RoleDisplayMapper;
+import com.kpmg.qtracker.util.ValueList;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -65,15 +66,15 @@ public class ControlTabsController {
                 return ResponseEntity.status(403).body("VALIDATION_ERROR: " + stepsRefusal);
             }
             ControlDetailsDTO mergedDetails = mergeControlDetails(existingDetails, detailsDTO, permission);
-            // Other Related Controls: the links SoQM Admin Team chose; null (or anyone else) keeps them as stored
-            List<Long> storedRelated = relatedControls.ids(detailsDTO.getControlId());
-            List<Long> newRelated = permission.canEditAll() && detailsDTO.getRelatedControlIds() != null
-                    ? RelatedControls.normalize(detailsDTO.getRelatedControlIds()) : storedRelated;
-            if (!newRelated.equals(storedRelated)) {
-                Optional<String> relatedRefusal = relatedControls.refusal(detailsDTO.getControlId(), newRelated);
-                if (relatedRefusal.isPresent()) {
-                    return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + relatedRefusal.get());
+            // Other Related Controls: Control IDs of the list SoQM Admin Team chose; null (or anyone else) keeps them
+            mergedDetails.setOtherRelatedControls(existingDetails.getOtherRelatedControls());
+            if (permission.canEditAll() && detailsDTO.getOtherRelatedControls() != null) {
+                ChosenValues.Checked related = relatedControls.check(existingDetails.getOtherRelatedControls(),
+                        detailsDTO.getOtherRelatedControls());
+                if (related.refusal() != null) {
+                    return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + related.refusal());
                 }
+                mergedDetails.setOtherRelatedControls(related.stored());
             }
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
@@ -89,10 +90,9 @@ public class ControlTabsController {
                     existingDetails.getDepartment(), mergedDetails.getDepartment());
             collectChange(changedFields, previousValues, newValues, "Process Activities",
                     existingDetails.getProcessActivities(), mergedDetails.getProcessActivities());
-            if (!newRelated.equals(storedRelated)) {
-                collectChange(changedFields, previousValues, newValues, RelatedControls.LABEL,
-                        relatedControls.describe(storedRelated), relatedControls.describe(newRelated));
-            }
+            collectChange(changedFields, previousValues, newValues, RelatedControls.LABEL,
+                    ValueList.normalize(existingDetails.getOtherRelatedControls()),
+                    ValueList.normalize(mergedDetails.getOtherRelatedControls()));
             collectChange(changedFields, previousValues, newValues, "IT Applications",
                     existingDetails.getItApplications(), mergedDetails.getItApplications());
             collectChange(changedFields, previousValues, newValues, ControlStepsFields.STEPS_LABEL,
@@ -109,9 +109,6 @@ public class ControlTabsController {
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + reasonRefusal.get());
             }
             controlDetailsService.saveDetails(mergedDetails);
-            if (!newRelated.equals(storedRelated)) {
-                relatedControls.replace(detailsDTO.getControlId(), newRelated);
-            }
             logChanges(session, detailsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues,
                     CompletedEdit.reasonOf(permission, detailsDTO.getEditReason()));
             return ResponseEntity.ok().build();
@@ -301,10 +298,7 @@ public class ControlTabsController {
         User currentUser = (User) session.getAttribute("currentUser");
         permissionService.requireReadable(controlId, currentUser);
         try {
-            ControlDetailsDTO details = controlDetailsService.getDetailsByControlId(controlId);
-            // Other Related Controls: the Control IDs of the linked controls, for everyone who sees the control
-            details.setRelatedControls(relatedControls.controlIds(controlId));
-            return ResponseEntity.ok(details);
+            return ResponseEntity.ok(controlDetailsService.getDetailsByControlId(controlId));
         } catch (Exception e) {
             return ResponseEntity.ok(new ControlDetailsDTO()); // возвращаем пустой DTO вместо ошибки
         }

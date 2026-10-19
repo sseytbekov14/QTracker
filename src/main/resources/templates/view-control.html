@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=19" rel="stylesheet">
-    <link href="/css/view-control.css?v=31" rel="stylesheet">
+    <link href="/css/view-control.css?v=32" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -790,39 +790,41 @@
                                 <!--/* Everyone who sees the control sees them; SoQM Admin Team change them (canEditAll) */-->
                                 <div class="row" id="relatedDetailsRow">
                                     <div class="col-md-6 mb-3">
-                                        <!--/* Other Related Controls: links to other controls (RelatedControls), each opening that
-                                             control; SoQM Admin Team choose them in edit mode (related-controls.js). The free
-                                             text the field held before stays under them while it is not empty */-->
-                                        <div class="sw-field rc-field" id="relatedControlsField"
+                                        <!--/* Other Related Controls: Control IDs from one list for every control (RelatedControls),
+                                             plain text; one the list no longer has is marked "not in list". SoQM Admin Team
+                                             choose them in edit mode (multi-value.js, GET /api/related-controls) */-->
+                                        <div class="sw-field mv-field" id="relatedControlsField" data-mv-field
+                                             data-label="Other Related Controls" data-unit="control" data-units="controls"
+                                             data-source-url="/api/related-controls"
+                                             data-empty-list="No controls in the list yet, contact SoQM Admin Team"
                                              th:with="rcCount=${#lists.size(relatedControls)}"
-                                             th:attr="data-editable=${canEditAll},data-control-id=${control.id}">
+                                             th:attr="data-editable=${canEditAll},data-max=${relatedControlsMax}">
                                             <div class="sw-head">
-                                                <span class="form-label mb-0" id="relatedControlsLabel"><i class="bi bi-link-45deg rc-label-icon" aria-hidden="true"></i>Other Related Controls</span>
-                                                <span class="sw-count" id="relatedControlsCount" th:hidden="${rcCount == 0}"
+                                                <span class="form-label mb-0" id="relatedControlsLabel"><i class="bi bi-link-45deg mv-label-icon" aria-hidden="true"></i>Other Related Controls</span>
+                                                <span class="sw-count" data-mv-count th:hidden="${rcCount == 0}"
                                                       th:text="${rcCount == 1 ? '1 control' : rcCount + ' controls'}">2 controls</span>
-                                                <span class="sw-unsaved" id="relatedControlsUnsaved" th:if="${canEditAll}" hidden>Not saved yet</span>
+                                                <span class="sw-unsaved" data-mv-unsaved th:if="${canEditAll}" hidden>Not saved yet</span>
                                             </div>
-                                            <div class="sw-box" id="relatedControlsBox">
-                                                <ul class="sw-chips" id="relatedControlsChips" aria-labelledby="relatedControlsLabel"><li class="sw-chip rc-chip"
+                                            <div class="sw-box" data-mv-box>
+                                                <ul class="sw-chips" data-mv-chips aria-labelledby="relatedControlsLabel"><li class="sw-chip mv-chip"
                                                         th:each="related : ${relatedControls}"
-                                                        th:attr="data-id=${related.id()},data-control-id=${related.controlId()},data-status=${related.status()}"><a class="rc-chip-link" th:if="${#sets.contains(relatedLinks, related.id())}" th:href="${related.href()}"
-                                                        th:title="|Open ${related.controlId()}|"><i class="bi bi-link-45deg rc-chip-icon" aria-hidden="true"></i><span class="sw-chip-text"><span class="sw-chip-name" th:text="${related.controlId()}">HR-CTRL-MF-5/FY27/Central/OCT</span><span class="sw-chip-mail" th:text="${related.status()}">In Progress</span></span></a><span class="rc-chip-link is-plain" th:unless="${#sets.contains(relatedLinks, related.id())}"
-                                                        title="You cannot open this control"><i class="bi bi-link-45deg rc-chip-icon" aria-hidden="true"></i><span class="sw-chip-text"><span class="sw-chip-name" th:text="${related.controlId()}">HR-CTRL-MF-5/FY27/Central/OCT</span><span class="sw-chip-mail" th:text="${related.status()}">In Progress</span></span></span></li></ul>
-                                                <p class="sw-empty" id="relatedControlsEmpty" th:hidden="${rcCount > 0}">No related controls</p>
-                                                <div class="sw-search" id="relatedControlsSearch" th:if="${canEditAll}" hidden>
+                                                        th:classappend="${related.notInList()} ? 'is-not-in-list'"
+                                                        th:attr="data-value=${related.value()},data-not-in-list=${related.notInList()}"><span class="sw-chip-text"><span class="sw-chip-name" th:text="${related.value()}">HR-CTRL-MF-5/FY27/Central/OCT</span><span class="sw-note mv-not-in-list" th:if="${related.notInList()}">not in list</span></span></li></ul>
+                                                <p class="sw-empty" data-mv-empty th:hidden="${rcCount > 0}">Not selected</p>
+                                                <div class="sw-search" data-mv-search th:if="${canEditAll}" hidden>
                                                     <svg class="sw-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
                                                     <input type="text" class="sw-search-input" id="relatedControlsSearchInput"
                                                            role="combobox" aria-autocomplete="list" aria-expanded="false"
                                                            aria-controls="relatedControlsListbox" aria-labelledby="relatedControlsLabel"
                                                            aria-describedby="relatedControlsKeys" autocomplete="off" spellcheck="false"
-                                                           placeholder="Search by Control ID or description">
+                                                           placeholder="Search by Control ID">
                                                 </div>
                                             </div>
-                                            <div class="sw-error" id="relatedControlsError" role="alert" hidden></div>
-                                            <ul class="sw-listbox" id="relatedControlsListbox" role="listbox" aria-multiselectable="true"
+                                            <div class="sw-error" data-mv-error role="alert" hidden></div>
+                                            <ul class="sw-listbox" id="relatedControlsListbox" data-mv-listbox role="listbox" aria-multiselectable="true"
                                                 aria-labelledby="relatedControlsLabel" th:if="${canEditAll}" hidden></ul>
                                             <span class="visually-hidden" id="relatedControlsKeys" th:if="${canEditAll}">Up and down arrows move through the list, Enter adds or removes the control, Backspace in an empty search removes the last control, Escape closes the list.</span>
-                                            <span class="visually-hidden" id="relatedControlsStatus" aria-live="polite"></span>
+                                            <span class="visually-hidden" data-mv-status aria-live="polite"></span>
                                         </div>
                                     </div>
                                     <div class="col-md-6 mb-3">
@@ -1824,8 +1826,8 @@
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=3"></script>
-<script src="/js/related-controls.js?v=1" th:if="${canEditAll}"></script>
-<script src="/js/view-control.js?v=8.3"></script>
+<script src="/js/multi-value.js?v=1"></script>
+<script src="/js/view-control.js?v=8.4"></script>
 <script src="/js/create-control.js?v=3"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>

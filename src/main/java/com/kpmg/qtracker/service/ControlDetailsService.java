@@ -25,6 +25,7 @@ public class ControlDetailsService {
         updateIfPresent(detailsDTO.getDepartment(), details::setDepartment);
         updateIfPresent(detailsDTO.getProcessActivities(), details::setProcessActivities);
         updateIfPresent(detailsDTO.getItApplications(), details::setItApplications);
+        updateIfPresent(detailsDTO.getOtherRelatedControls(), details::setOtherRelatedControls);
         updateIfPresent(detailsDTO.getControlStepsPerformed(), details::setControlStepsPerformed);
         updateIfPresent(detailsDTO.getControlOperatorReview(), details::setControlOperatorReview);
         updateIfPresent(detailsDTO.getSoqmHeadComments(), details::setSoqmHeadComments);
@@ -54,6 +55,7 @@ public class ControlDetailsService {
         dto.setDepartment(details.getDepartment());
         dto.setProcessActivities(details.getProcessActivities());
         dto.setItApplications(details.getItApplications());
+        dto.setOtherRelatedControls(details.getOtherRelatedControls());
         dto.setControlStepsPerformed(details.getControlStepsPerformed());
         dto.setControlOperatorReview(details.getControlOperatorReview());
         dto.setSoqmHeadComments(details.getSoqmHeadComments());

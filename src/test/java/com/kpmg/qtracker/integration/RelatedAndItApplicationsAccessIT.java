@@ -115,7 +115,8 @@ class RelatedAndItApplicationsAccessIT {
                 .contains("id=\"relatedDetailsRow\"")
                 .contains("id=\"relatedControlsField\"")
                 .contains("id=\"relatedControlsSearchInput\"")
-                .contains("/js/related-controls.js?v=")
+                .contains("/js/multi-value.js?v=")
+                .contains("data-editable=\"true\"")
                 // No input for the free text the field held before the links
                 .doesNotContain("name=\"otherRelatedControls\"")
                 .contains("name=\"itApplications\"");
@@ -128,7 +129,7 @@ class RelatedAndItApplicationsAccessIT {
                     .contains("name=\"itApplications\"")
                     // Nothing to choose with
                     .doesNotContain("id=\"relatedControlsSearchInput\"")
-                    .doesNotContain("related-controls.js?");
+                    .doesNotContain("data-editable=\"true\"");
         }
     }
 
@@ -139,9 +140,9 @@ class RelatedAndItApplicationsAccessIT {
         for (User reader : List.of(soqm, fac, op, po, shared, readOnlyAll, editAll)) {
             JsonNode details = json(get("/api/control-details").param("controlId", String.valueOf(control.getId())),
                     login(reader));
-            assertThat(details.has("otherRelatedControls")).as(reader.getMail()).isFalse();
+            assertThat(details.path("otherRelatedControls").asText()).as(reader.getMail()).isEqualTo("HR-REF-1; EP-REF-2");
             assertThat(details.path("itApplications").asText()).as(reader.getMail()).isEqualTo("KICS");
-            assertThat(details.path("relatedControls").isArray()).as(reader.getMail()).isTrue();
+            assertThat(details.has("relatedControls")).as(reader.getMail()).isFalse();
         }
     }
 
@@ -149,8 +150,8 @@ class RelatedAndItApplicationsAccessIT {
     void changelog_showsTheirRowsToEveryone() throws Exception {
         Control control = control("IN_PROGRESS");
         MockHttpSession soqmSession = login(soqm);
-        assertThat(save(control, soqmSession, "{\"processName\":\"Payroll\",\"itApplications\":\"CQS\","
-                + "\"otherRelatedControls\":\"Changed text\"}")).isEqualTo(200);
+        assertThat(save(control, soqmSession, "{\"processName\":\"Payroll\",\"itApplications\":\"CQS\"}"))
+                .isEqualTo(200);
         assertThat(save(control, soqmSession, "{\"itApplications\":\"GLMS\"}")).isEqualTo(200);
 
         for (User reader : List.of(soqm, fac, op, po, shared, readOnlyAll, editAll)) {
@@ -174,6 +175,7 @@ class RelatedAndItApplicationsAccessIT {
         ControlDetails stored = detailsRepository.findByControlId(control.getId()).orElseThrow();
         assertThat(stored.getControlStepsPerformed()).isEqualTo("Steps 2");
         assertThat(stored.getItApplications()).isEqualTo("KICS");
+        assertThat(stored.getOtherRelatedControls()).isEqualTo("HR-REF-1; EP-REF-2");
     }
 
     @Test
@@ -251,6 +253,7 @@ class RelatedAndItApplicationsAccessIT {
         ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();
         details.setProcessActivities("Process activities");
         details.setItApplications("KICS");
+        details.setOtherRelatedControls("HR-REF-1; EP-REF-2");
         detailsRepository.save(details);
         return control;
     }

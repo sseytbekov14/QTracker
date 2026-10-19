@@ -115,6 +115,7 @@ public final class ControlNextCycle {
             details.setReferencesToControl(source.getReferencesToControl());
             details.setDepartment(source.getDepartment());
             details.setItApplications(source.getItApplications());
+            details.setOtherRelatedControls(source.getOtherRelatedControls());
         }
         return details;
     }

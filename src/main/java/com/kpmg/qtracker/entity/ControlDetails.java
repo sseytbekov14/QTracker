@@ -19,7 +19,13 @@ public class ControlDetails {
     @Column(length = 2000)
     private String processActivities;
 
+    /** IT Applications as ValueList writes them ("SAP; KICS"); TEXT since V18. */
+    @Column(name = "it_applications", columnDefinition = "TEXT")
     private String itApplications;
+
+    /** Other Related Controls: Control IDs as ValueList writes them (RelatedControls, V18). */
+    @Column(name = "other_related_controls", columnDefinition = "TEXT")
+    private String otherRelatedControls;
 
     @Column(length = 2000)
     private String controlStepsPerformed;

@@ -4,6 +4,7 @@ import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.dto.ControlDetailsDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.util.StatusDisplayMapper;
+import com.kpmg.qtracker.util.ValueList;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.FillPatternType;
@@ -82,8 +83,7 @@ public final class CompletedControlExcel {
         add(lines, DETAILS, "Department", d.getDepartment());
         add(lines, DETAILS, "Process Activities", d.getProcessActivities());
         add(lines, DETAILS, ControlStepsFields.OPERATOR_PROGRAM_LABEL, d.getControlOperatorReview());
-        add(lines, DETAILS, RelatedControls.LABEL,
-                d.getRelatedControls() == null ? null : String.join(", ", d.getRelatedControls()));
+        add(lines, DETAILS, RelatedControls.LABEL, ValueList.normalize(d.getOtherRelatedControls()));
         add(lines, DETAILS, "IT Applications", d.getItApplications());
         add(lines, DETAILS, ControlStepsFields.STEPS_LABEL, d.getControlStepsPerformed());
         add(lines, DETAILS, "SoQM Head/Team Comments", d.getSoqmHeadComments());

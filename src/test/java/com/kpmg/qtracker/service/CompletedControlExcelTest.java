@@ -70,7 +70,7 @@ class CompletedControlExcelTest {
         details.setReferencesToControl("REF-7");
         details.setSoqmHeadComments("Checked");
         details.setControlOperatorReview("Program");
-        details.setRelatedControls(List.of("EP-2/FY27", "HR-3/FY27/Central/OCT"));
+        details.setOtherRelatedControls("EP-2/FY27 ;HR-3/FY27/Central/OCT;");
         ControlAssignmentDTO assignment = new ControlAssignmentDTO();
         assignment.setFacilitator(List.of("Anna@kpmg.kz", "unknown@kpmg.kz"));
         assignment.setProcessOwner(List.of("gone@kpmg.kz"));
@@ -92,7 +92,7 @@ class CompletedControlExcelTest {
                 .containsEntry("References to this Control", "REF-7")
                 .containsEntry("SoQM Head/Team Comments", "Checked")
                 .containsEntry(ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Program")
-                .containsEntry("Other Related Controls", "EP-2/FY27, HR-3/FY27/Central/OCT")
+                .containsEntry("Other Related Controls", "EP-2/FY27; HR-3/FY27/Central/OCT")
                 .doesNotContainKey(RelatedControls.EARLIER_TEXT_LABEL)
                 .containsEntry("Attachment (Details)", "plan.pdf; notes.docx")
                 .containsEntry("Facilitator", "Anna Petrova (Anna@kpmg.kz); unknown@kpmg.kz")
