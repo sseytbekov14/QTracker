@@ -8,20 +8,14 @@ import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.support.TestUsers;
-import com.kpmg.qtracker.service.AdhocNotificationService;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.PermissionService;
 import com.kpmg.qtracker.service.NotificationService;
-import com.kpmg.qtracker.service.AnnualNotificationService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
 import com.kpmg.qtracker.service.ControlService;
-import com.kpmg.qtracker.service.MonthlyNotificationService;
-import com.kpmg.qtracker.service.QuarterlyNotificationService;
-import com.kpmg.qtracker.service.RecurringNotificationService;
-import com.kpmg.qtracker.service.SemiAnnualNotificationService;
 import com.kpmg.qtracker.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +30,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -67,18 +60,6 @@ class ControlTabsControllerAuditTest {
     private ControlService controlService;
     @MockBean
     private AdminAuditService adminAuditService;
-    @MockBean
-    private MonthlyNotificationService MonthlyNotificationService;
-    @MockBean
-    private QuarterlyNotificationService QuarterlyNotificationService;
-    @MockBean
-    private RecurringNotificationService RecurringNotificationService;
-    @MockBean
-    private AdhocNotificationService AdhocNotificationService;
-    @MockBean
-    private AnnualNotificationService AnnualNotificationService;
-    @MockBean
-    private SemiAnnualNotificationService semiAnnualNotificationService;
     @MockBean
     private NotificationService notificationService;
     @MockBean
@@ -131,56 +112,6 @@ class ControlTabsControllerAuditTest {
         verify(adminAuditService, never()).logActionWithChanges(
                 any(), any(), any(), any(), any(), any(), any(), any()
         );
-    }
-
-    @Test
-    void saveControlAssignment_doesNotTriggerImmediateDay0Notifications() throws Exception {
-        User sessionUser = new User();
-        sessionUser.setMail("soqm@kpmg.com");
-        TestUsers.withRole(sessionUser, "SOQM_TEAM");
-        sessionUser.setDisplayName("SoQM One");
-
-        User creator = new User();
-        creator.setMail("soqm@kpmg.com");
-
-        Control control = new Control();
-        control.setId(2L);
-        control.setPerformanceStatus("IN_PROGRESS");
-        control.setControlFrequency("Monthly");
-        control.setCreatedBy(creator);
-
-        ControlAssignmentDTO existingAssignment = new ControlAssignmentDTO();
-        existingAssignment.setControlId(2L);
-        existingAssignment.setFacilitator(List.of("fac@kpmg.com"));
-        existingAssignment.setControlOperator(List.of("op@kpmg.com"));
-        existingAssignment.setSoqmLead(List.of("soqm@kpmg.com"));
-        existingAssignment.setProcessOwner(List.of("po@kpmg.com"));
-        existingAssignment.setControlOperationDate(java.time.LocalDate.of(2026, 1, 15));
-
-        ControlAssignmentDTO request = new ControlAssignmentDTO();
-        request.setControlId(2L);
-        request.setFacilitator(List.of("fac@kpmg.com"));
-        request.setControlOperator(List.of("op@kpmg.com"));
-
-        when(controlService.getControlById(2L)).thenReturn(Optional.of(control));
-        when(controlAssignmentService.getAssignmentByControlId(2L)).thenReturn(existingAssignment);
-        when(controlPermissionService.resolve(eq(control), eq(sessionUser), eq(existingAssignment)))
-                .thenReturn(new ControlPermission(true, true, java.util.Set.of(),
-                        true, true, false, false, false, true, false));
-        when(controlAssignmentService.saveAssignment(any())).thenReturn(new ControlAssignment());
-
-        mockMvc.perform(post("/api/control-assignment")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request))
-                        .sessionAttr("currentUser", sessionUser))
-                .andExpect(status().isOk());
-
-        verify(MonthlyNotificationService, never()).maybeSendImmediateDay0(anyLong());
-        verify(QuarterlyNotificationService, never()).maybeSendImmediateDay0(anyLong());
-        verify(RecurringNotificationService, never()).maybeSendImmediateDay0(anyLong());
-        verify(AdhocNotificationService, never()).maybeSendImmediateDay0(anyLong());
-        verify(AnnualNotificationService, never()).maybeSendImmediateDay0(anyLong());
-        verify(semiAnnualNotificationService, never()).maybeSendImmediateDay0(anyLong());
     }
 
     @Test

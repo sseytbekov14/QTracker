@@ -131,24 +131,20 @@ class ReleaseScenarioDatesTest {
         }
     }
 
+    /** The reminders of working days 3 and 6 (NOTIFICATIONS_v5, S3 and S4) come before the deadline day (S5). */
     @Test
-    void reminders_neverAfterTheDeadline_neverOnTheOperationDay_inOrder_forEveryStartOfTwoYears() {
+    void reminders_onWorkingDays3And6_beforeTheDeadline_forEveryStartOfTwoYears() {
         WorkingDaysService workingDays = new WorkingDaysService();
-        List<int[]> offsets = List.of(new int[]{3, 6}, new int[]{5, 12}, new int[]{5, 25});
         for (LocalDate operation = FIRST; operation.isBefore(FIRST.plusYears(2)); operation = operation.plusDays(1)) {
             LocalDate deadline = calculator.calculateDeadline(ControlFrequency.MONTHLY, operation);
-            for (int[] set : offsets) {
-                LocalDate[] dates = ReminderDays.dates(workingDays, operation, deadline, set);
-                LocalDate previous = operation;
-                for (LocalDate date : dates) {
-                    if (date == null) {
-                        continue;
-                    }
-                    assertThat(date).as("%s offsets %s", operation, java.util.Arrays.toString(set))
-                            .isAfter(previous).isBeforeOrEqualTo(deadline);
-                    assertThat(date.getDayOfWeek()).isNotIn(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY);
-                    previous = date;
-                }
+            assertThat(workingDays.workingDaysBetween(operation, deadline)).as("%s", operation).isEqualTo(10);
+            LocalDate previous = operation;
+            for (int day : new int[]{3, 6}) {
+                LocalDate date = workingDays.addWorkingDays(operation, day);
+                assertThat(workingDays.workingDaysBetween(operation, date)).isEqualTo(day);
+                assertThat(date).as("%s day %d", operation, day).isAfter(previous).isBefore(deadline);
+                assertThat(date.getDayOfWeek()).isNotIn(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY);
+                previous = date;
             }
         }
     }

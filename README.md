@@ -35,11 +35,12 @@ Mapped to real modules and classes:
   - `WorkflowServiceImpl`, `WorkflowRequiredFieldService`
 - Role-based authorization and permission checks
   - `SecurityConfig`, `ControlPermissionService`, `PermissionService`, `ControlScope`
-- Notifications (in-app and email)
-  - `NotificationService`, `NotificationTemplateService`, `EmailNotificationService`
-- Reminder scheduling
-  - `ControlReminderScheduler`
-  - `ReminderNotificationService`
+- Notifications (in-app and email, NOTIFICATIONS_v5: texts T1-T12 in table `notification_template`)
+  - `service/notification`: `WorkflowNotifications` (Initiate, Create Control, every workflow move),
+    `PlannedNotificationScheduler` (occurrence day, reminders, deadline, overdue), `NotificationProducer`
+    (in-app notification + e-mail in the outbox `email_outbox`), `EmailOutboxDispatcher` (sends, retries),
+    `MailTransport` (`smtp` or `log`)
+  - `NotificationService`: the Notifications section (read, mark read)
 - Create Control (the next cycle of a Monthly or Quarterly control, by hand only)
   - `ControlNextCycleController`, `ControlCycleService`
 - Attachment upload/download/delete
@@ -144,9 +145,12 @@ Repository-defined variables from `application*.yml`, `.env`, `.env.example`, `.
 - `SPRING_MAIL_PORT`
 - `SPRING_MAIL_USERNAME`
 - `SPRING_MAIL_PASSWORD`
-- `NOTIFICATIONS_EMAIL_ENABLED`
+- `NOTIFICATIONS_EMAIL_ENABLED` (false: the e-mails are recorded `SKIPPED_DISABLED` and never sent)
+- `NOTIFICATIONS_EMAIL_PROVIDER` (`smtp`, default, or `log`)
+- `NOTIFICATIONS_EMAIL_FROM`
 - `NOTIFICATIONS_EMAIL_WHITELIST_ENFORCED`
 - `NOTIFICATIONS_EMAIL_WHITELIST`
+- `NOTIFICATIONS_SCHEDULER_ENABLED` (default true: the planned notifications)
 
 ### Scheduling / behavior
 - `OVERDUE_USE_WORKING_DAYS`
@@ -190,7 +194,7 @@ Core tables created in V1:
 - `workflow_steps`
 - `workflow_history`
 - `notifications`
-- `control_notification_log`
+- `control_notification_log` (no longer written since the notifications of v5; kept with its rows)
 - `admin_audit_log`
 
 Entity model highlights:
@@ -200,14 +204,12 @@ Entity model highlights:
 ## Schedulers
 Schedulers under `src/main/java/com/kpmg/qtracker/scheduler`:
 
-- `ControlReminderScheduler`
-  - Daily reminder run
-  - `@ConditionalOnProperty(reminders.enabled=true)`
-- Periodic schedulers (Monthly, Quarterly, SemiAnnual, Annual)
-- `RecurringNotificationScheduler`
-- `AdhocNotificationScheduler`
+- `PlannedNotificationTrigger`: every 5 minutes Monday to Friday; `PlannedNotificationScheduler` starts at 09:30
+  Asia/Almaty and makes what today calls for (the same for every frequency); off with
+  `NOTIFICATIONS_SCHEDULER_ENABLED=false`
+- `EmailOutboxDispatchTrigger`: every 20 seconds, sends the e-mails of `email_outbox`
 
-All scheduler cron definitions are in code with `Asia/Almaty` timezone.
+The cron is in code with the `Asia/Almaty` timezone; the times come from the `Clock` bean.
 
 ## Security Overview
 Authentication (`AuthMode`, exactly one of the two):
@@ -289,7 +291,7 @@ Checks:
 
 ### 3) SMTP/email not sending
 Symptoms:
-- in-app notification exists but email is missing.
+- in-app notification exists but email is missing (see `email_outbox`: status, attempts, last_error).
 
 Checks:
 - Verify `NOTIFICATIONS_EMAIL_ENABLED=true` when email is required.

@@ -23,12 +23,4 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     int markAllAsReadForUser(@Param("userId") Long userId);
     
     List<Notification> findByControlIdOrderByCreatedAtDesc(Long controlId);
-
-    boolean existsByControlIdAndTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-            Long controlId,
-            String type,
-            java.time.LocalDateTime start,
-            java.time.LocalDateTime end);
-
-    boolean existsByControlIdAndType(Long controlId, String type);
 }

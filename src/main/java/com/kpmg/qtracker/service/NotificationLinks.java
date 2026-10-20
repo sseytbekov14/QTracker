@@ -4,8 +4,9 @@ import java.util.regex.Pattern;
 
 /**
  * The link of a notification to its control (Notification.link): on the notification's page the "Go to Control"
- * button, in the e-mail a button of its own (EmailNotificationChannel); never a line of the text (business decision
- * of 2026-10-16). Notifications made before keep such a line in their stored text, so the page hides it.
+ * button. The page hides the lines of the text that are only an address (the texts before 2026-10-16 had a "Control
+ * Link:" line; the texts of NOTIFICATIONS_v5 have {LINK} on a line of its own in T4, T5, T6..T11, clickable in the
+ * e-mail, see TemplateRenderer), so the button is the one link there.
  */
 public final class NotificationLinks {
 

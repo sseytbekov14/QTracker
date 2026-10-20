@@ -13,7 +13,7 @@ import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.NotificationRepository;
-import com.kpmg.qtracker.repository.ReminderControlProjection;
+import com.kpmg.qtracker.service.notification.PlannedNotificationScheduler;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.AccessPolicy;
@@ -263,10 +263,8 @@ class ReopenCompletedIT {
         com.kpmg.qtracker.service.ComponentControlsList.Row returned = controlsRow(control);
         assertThat(returned.overdue()).isTrue();
         assertThat(returned.closedLate()).isFalse();
-        assertThat(controlRepository.findMonthlyOverdueCandidates())
-                .extracting(ReminderControlProjection::getControlId).doesNotContain(control.getId());
-        assertThat(controlRepository.findAllForReminders())
-                .extracting(ReminderControlProjection::getControlId).doesNotContain(control.getId());
+        assertThat(controlRepository.findIdsForPlannedNotifications(PlannedNotificationScheduler.STATUSES))
+                .doesNotContain(control.getId());
 
         // Completed again by the Process Owner, after the deadline: Closed late now, no longer returned
         mockMvc.perform(as(owner, post("/api/workflow/complete-control"), control))

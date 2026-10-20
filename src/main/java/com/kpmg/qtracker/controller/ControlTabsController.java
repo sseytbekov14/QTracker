@@ -27,12 +27,6 @@ public class ControlTabsController {
     private final UserService userService;
     private final ControlService controlService;
     private final AdminAuditService adminAuditService;
-    private final MonthlyNotificationService monthlyNotificationService;
-    private final QuarterlyNotificationService quarterlyNotificationService;
-    private final RecurringNotificationService recurringNotificationService;
-    private final AdhocNotificationService adhocNotificationService;
-    private final AnnualNotificationService annualNotificationService;
-    private final SemiAnnualNotificationService semiAnnualNotificationService;
     private final ControlPermissionService controlPermissionService;
     private final PermissionService permissionService;
     private final RelatedControls relatedControls;
