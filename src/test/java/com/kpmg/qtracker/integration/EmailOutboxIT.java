@@ -284,6 +284,35 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
     }
 
     @Test
+    void aProviderDown_doesNotTouchTheMove_theEmailIsTriedAgain() throws Exception {
+        User fac = myEdit("ob-move-fac");
+        User op = myEdit("ob-move-op");
+        Control control = control("OB-MOVE", "IN_PROGRESS", people().facilitator(fac).operator(op));
+        RecordingTransport transport = new RecordingTransport();
+        transport.failFor.add(op.getMail());
+
+        // The move only queues the e-mail: the provider is not called in it
+        org.springframework.test.web.servlet.MvcResult moved = call(login(fac),
+                org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/workflow/move")
+                        .param("controlId", String.valueOf(control.getId())).param("targetStatus", "REVIEW"));
+        assertThat(moved.getResponse().getStatus()).as(body(moved)).isEqualTo(200);
+        assertThat(reload(control).getPerformanceStatus()).isEqualTo("REVIEW");
+        assertThat(rows(control)).singleElement().extracting(EmailOutbox::getStatus).isEqualTo(EmailOutbox.PENDING);
+
+        MutableClock clock = soon();
+        dispatcher(clock, transport, true).dispatchPending();
+        assertThat(rows(control)).singleElement().extracting(EmailOutbox::getStatus).isEqualTo(EmailOutbox.FAILED);
+        transport.failFor.clear();
+        dispatcher(clock.plus(Duration.ofMinutes(1)), transport, true).dispatchPending();
+        assertThat(rows(control)).singleElement().satisfies(row -> {
+            assertThat(row.getStatus()).isEqualTo(EmailOutbox.SENT);
+            assertThat(row.getAttempts()).isEqualTo(2);
+            assertThat(row.getTemplateKey()).isEqualTo("T6");
+        });
+        assertThat(transport.count(op.getMail())).isEqualTo(1);
+    }
+
+    @Test
     void emailOff_skipsEverything_andNothingIsSentAfterItIsSwitchedOn() throws Exception {
         User fac = myEdit("ob-off-mail");
         Control control = control("OB-MAILOFF", "IN_PROGRESS", people().facilitator(fac));

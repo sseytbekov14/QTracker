@@ -55,5 +55,11 @@ class MailTransportTest {
 
         assertThat(LogMailTransport.text(html)).isEqualTo("Dear Facilitator,\n\nThe control A & B\nhttps://q/view-control/1");
         new LogMailTransport().send(new MailTransport.OutgoingMail("f", "t", "s", html, true));
+        // The button of T12 on a line of its own
+        String button = "<div>completed in the system.<table role=\"presentation\"><tr><td><a href=\"https://q/1\">Go to Control"
+                + "</a></td></tr></table><p>If the button does not open, copy this address into the browser:<br>\n"
+                + "<a href=\"https://q/1\">https://q/1</a></p>\nKind regards,<br>\nSoQM Team</div>";
+        assertThat(LogMailTransport.text(button)).isEqualTo("completed in the system.\nGo to Control\n"
+                + "If the button does not open, copy this address into the browser:\nhttps://q/1\nKind regards,\nSoQM Team");
     }
 }

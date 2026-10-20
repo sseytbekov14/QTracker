@@ -30,6 +30,7 @@ public class LogMailTransport implements MailTransport {
         String text = html.replace("\r\n", "\n")
                 .replaceAll("<br>\n?", "\n")
                 .replaceAll("</p>\n?", "\n")
+                .replaceAll("<table", "\n<table")
                 .replaceAll("</table>", "\n")
                 .replaceAll("<[^>]+>", "");
         return HtmlUtils.htmlUnescape(text).strip();
