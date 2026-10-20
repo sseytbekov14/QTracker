@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Release test pass, stage I: the Flyway migrations on a real PostgreSQL - from an empty schema to the latest, from
- * data of an earlier version (synthetic rows written at V4) to the latest, then the rollback scripts of V18, V17, V16, V15, V14, V13, V12, V11
+ * data of an earlier version (synthetic rows written at V4) to the latest, then the rollback scripts of V19, V18, V17, V16, V15, V14, V13, V12, V11
  * and V8, and from data of the version before (V12, SoQM Development Materials filled) to V13 and back. Runs only with -Drelease.db.url=jdbc:postgresql://.../qtracker_release_test (and .user, .password): every test
  * empties the public schema of that temporary database (V1 looks its constraints up by table name, so the migrations
  * need a database of their own) and leaves it empty for the next run.
@@ -60,7 +60,7 @@ class ReleaseScenarioPostgresMigrationIT {
         }
     }
 
-    private static final String LATEST = "18";
+    private static final String LATEST = "20";
 
     @Test
     void anEmptyDatabase_migratesToTheLatestVersion_withTheSeedPeopleOfV2() throws Exception {
@@ -139,7 +139,14 @@ class ReleaseScenarioPostgresMigrationIT {
         assertThat(single("SELECT COUNT(*) FROM control_related_controls")).isEqualTo("0");
         assertThat(refTables()).isEqualTo("1");
 
-        // Rollback of V18, V17, V16, V15, V14, V13, V12, V11, then of V8 (the order the scripts are meant for)
+        // V19 and V20: the e-mail outbox, empty, and the twelve texts of v5
+        assertThat(single("SELECT COUNT(*) FROM email_outbox")).isEqualTo("0");
+        assertThat(single("SELECT COUNT(*) FROM notification_template")).isEqualTo("12");
+
+        // Rollback of V19, V18, V17, V16, V15, V14, V13, V12, V11, then of V8 (the order the scripts are meant for)
+        script("db/rollback/V19__undo_email_outbox.sql");
+        assertThat(single("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '" + schema
+                + "' AND table_name IN ('email_outbox', 'notification_template')")).isEqualTo("0");
         script("db/rollback/V18__undo_related_fields_text.sql");
         assertThat(relatedTextColumns()).isEqualTo("0");
         script("db/rollback/V17__undo_related_control_ref.sql");

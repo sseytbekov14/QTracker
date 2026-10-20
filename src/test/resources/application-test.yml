@@ -42,3 +42,8 @@ rate-limit:
   api-write: 100000
   user-list: 100000
   heavy: 100000
+
+# The tests run the outbox dispatcher themselves (EmailOutboxDispatcher.dispatchPending) with their own Clock
+notifications:
+  dispatcher:
+    enabled: false

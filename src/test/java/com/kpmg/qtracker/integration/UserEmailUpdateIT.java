@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(properties = {
         "spring.datasource.url=" + UserEmailUpdateIT.DB,
         "spring.jpa.hibernate.ddl-auto=create-drop",
-        "reminders.enabled=false",
+        "notifications.scheduler.enabled=false",
         "file.upload.dir=target/it-uploads-email-update"
 })
 @ActiveProfiles("test")
@@ -211,7 +211,7 @@ class UserEmailUpdateIT {
                 "--spring.profiles.active=test",
                 "--spring.datasource.url=" + DB,
                 "--spring.jpa.hibernate.ddl-auto=none",
-                "--reminders.enabled=false",
+                "--notifications.scheduler.enabled=false",
                 "--file.upload.dir=target/it-uploads-email-update"));
         try (ConfigurableApplicationContext context = QtrackerApplication.runCommand(args.toArray(String[]::new))) {
             return SpringApplication.exit(context);

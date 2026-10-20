@@ -11,7 +11,7 @@ import org.springframework.test.context.ActiveProfiles;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-@SpringBootTest(properties = "reminders.enabled=false")
+@SpringBootTest(properties = "notifications.scheduler.enabled=false")
 @ActiveProfiles("test")
 class ControlReminderSchedulerDisabledTest {
 

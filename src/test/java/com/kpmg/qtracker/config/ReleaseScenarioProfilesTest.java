@@ -48,7 +48,9 @@ class ReleaseScenarioProfilesTest {
         assertThat(value("auth.username-login.enabled", "dev")).isEqualTo("true");
         assertThat(value("spring.jpa.show-sql", "dev")).isEqualTo("true");
         assertThat(value("spring.datasource.password", "dev")).isEqualTo("postgres");
-        assertThat(value("reminders.enabled")).isEqualTo("true");
+        assertThat(value("notifications.scheduler.enabled")).isEqualTo("true");
+        assertThat(value("reminders.enabled")).isNull();
+        assertThat(value("notifications.email.provider", "prod")).isEqualTo("smtp");
         // Controls are never created by a schedule: Create Control only
         for (String profile : new String[]{"dev", "stage", "prod"}) {
             assertThat(value("controls.auto-create.enabled", profile)).as(profile).isNull();

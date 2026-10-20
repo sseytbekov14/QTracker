@@ -13,10 +13,23 @@ import java.util.Optional;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
-    // Addresses match ignoring case and surrounding spaces: people type them in any case,
-    // and assignment lists may keep a spelling that differs from the stored user
-    @Query("SELECT u FROM User u WHERE LOWER(u.mail) = LOWER(TRIM(:mail))")
-    Optional<User> findByMail(@Param("mail") String mail);
+    /**
+     * The user of an address, ignoring case and surrounding spaces: people type addresses in any case, and assignment
+     * lists may keep a spelling that differs from the stored user. Two users may hold one address in another case
+     * (users.mail is unique only as written): then the active one, else the oldest - never a failure.
+     */
+    default Optional<User> findByMail(String mail) {
+        if (mail == null || mail.isBlank()) {
+            return Optional.empty();
+        }
+        List<User> users = findAllByMail(mail);
+        return users.stream().filter(user -> Boolean.TRUE.equals(user.getEnabled())).findFirst()
+                .or(() -> users.stream().findFirst());
+    }
+
+    /** Every user of an address, ignoring case and surrounding spaces, the oldest first. */
+    @Query("SELECT u FROM User u WHERE LOWER(TRIM(u.mail)) = LOWER(TRIM(:mail)) ORDER BY u.id")
+    List<User> findAllByMail(@Param("mail") String mail);
 
     @Query("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END FROM User u "
             + "WHERE LOWER(u.mail) = LOWER(TRIM(:email))")
@@ -24,6 +37,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEntraOid(String entraOid);
 
     List<User> findByRole(String role);
+
+    /** The active users of a level, the oldest first: SoQM Admin Team for a notification whose control names none. */
+    List<User> findByAccessLevelAndEnabledTrueOrderByIdAsc(AccessLevel level);
 
     /** Active users of a level (the last active SoQM Team member keeps the role and the account). */
     @Query("SELECT COUNT(u) FROM User u WHERE u.accessLevel = :level AND u.enabled = true")

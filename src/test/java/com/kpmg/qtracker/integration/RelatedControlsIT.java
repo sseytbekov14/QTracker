@@ -57,7 +57,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.jpa.show-sql=false",
         "spring.flyway.enabled=false",
-        "reminders.enabled=false",
+        "notifications.scheduler.enabled=false",
         "related-controls.max-per-control=3",
         "file.upload.dir=target/it-uploads-related"
 })

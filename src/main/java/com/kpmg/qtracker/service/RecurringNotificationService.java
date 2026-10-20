@@ -50,7 +50,7 @@ public class RecurringNotificationService {
     private final WorkingDaysService workingDaysService;
     private final Clock clock;
 
-    @Value("${reminders.enabled:true}")
+    @Value("${notifications.scheduler.enabled:true}")
     private boolean remindersEnabled = true;
 
     @Autowired

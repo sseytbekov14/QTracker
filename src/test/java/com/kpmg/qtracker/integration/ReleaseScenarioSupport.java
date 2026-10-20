@@ -62,7 +62,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "spring.datasource.password=${release.db.password:}",
         "spring.jpa.hibernate.ddl-auto=${release.db.ddl:create-drop}",
         "spring.flyway.enabled=${release.db.flyway:false}",
-        "reminders.enabled=false",
+        "notifications.scheduler.enabled=false",
         "notifications.email.enabled=false",
         "file.upload.dir=target/it-uploads-release"
 })

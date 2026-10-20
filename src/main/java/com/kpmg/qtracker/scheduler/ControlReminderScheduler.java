@@ -13,7 +13,7 @@ import java.time.LocalDate;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@ConditionalOnProperty(prefix = "reminders", name = "enabled", havingValue = "true", matchIfMissing = false)
+@ConditionalOnProperty(prefix = "notifications.scheduler", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class ControlReminderScheduler {
 
     private final ReminderNotificationService reminderNotificationService;

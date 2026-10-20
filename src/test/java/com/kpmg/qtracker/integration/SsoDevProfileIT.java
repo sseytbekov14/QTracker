@@ -41,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "auth.sso.metadata-uri=classpath:saml/test-idp-metadata.xml",
         "spring.datasource.url=jdbc:h2:mem:sso-dev-it;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
         "spring.jpa.hibernate.ddl-auto=create-drop",
-        "reminders.enabled=false",
+        "notifications.scheduler.enabled=false",
         "file.upload.dir=target/it-uploads-sso-dev"
 })
 @AutoConfigureMockMvc

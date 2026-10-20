@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.flyway.enabled=false",
         "file.upload.dir=target/it-uploads-sso-cookie",
-        "reminders.enabled=false",
+        "notifications.scheduler.enabled=false",
         "app.base-url=" + SsoTestSupport.SITE,
         "auth.sso.entity-id=" + SsoTestSupport.ENTITY_ID,
         "auth.sso.acs-url=" + SsoTestSupport.ACS_URL,

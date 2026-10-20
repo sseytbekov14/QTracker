@@ -47,7 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.flyway.enabled=false",
         "spring.jpa.open-in-view=true",
-        "reminders.enabled=false",
+        "notifications.scheduler.enabled=false",
         "file.upload.dir=target/it-uploads"
 })
 @AutoConfigureMockMvc

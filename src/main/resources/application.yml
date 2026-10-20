@@ -96,15 +96,23 @@ file:
     dir: ${FILE_UPLOAD_DIR:}
     max-file-size-mb: ${FILE_UPLOAD_MAX_FILE_SIZE_MB:10}
 
-reminders:
-  enabled: true
-
 overdue:
   use-working-days: ${OVERDUE_USE_WORKING_DAYS:true}
 
 notifications:
+  # The planned notifications (occurrence day, reminders, deadline, overdue): every 5 minutes on working days from
+  # 09:30 Asia/Almaty; off: none of them (the notifications of the workflow steps still go)
+  scheduler:
+    enabled: ${NOTIFICATIONS_SCHEDULER_ENABLED:true}
+  # Sends the e-mails of the outbox (email_outbox) every delay-ms; off only in the tests, which run it themselves
+  dispatcher:
+    enabled: ${NOTIFICATIONS_DISPATCHER_ENABLED:true}
+    delay-ms: 20000
   email:
+    # Off: the in-app notifications are made as usual, their e-mails are recorded SKIPPED_DISABLED and never sent
     enabled: ${NOTIFICATIONS_EMAIL_ENABLED:false}
+    # smtp (spring.mail.*) or log (the whole e-mail written to the application log, nothing sent)
+    provider: ${NOTIFICATIONS_EMAIL_PROVIDER:smtp}
     from: ${NOTIFICATIONS_EMAIL_FROM:}
     whitelist-enforced: ${NOTIFICATIONS_EMAIL_WHITELIST_ENFORCED:false}
     whitelist: ${NOTIFICATIONS_EMAIL_WHITELIST:}
