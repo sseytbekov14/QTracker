@@ -53,6 +53,11 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
     List<Control> findByControlStatusIgnoreCase(String controlStatus);
     List<Control> findByPerformanceStatusIgnoreCase(String performanceStatus);
 
+    /** The controls of the planned notifications: in one of the statuses (upper case), not returned from Completed. */
+    @Query("SELECT c.id FROM Control c WHERE UPPER(TRIM(c.performanceStatus)) IN :statuses AND c.reopenedAt IS NULL"
+            + " ORDER BY c.id")
+    List<Long> findIdsForPlannedNotifications(@Param("statuses") java.util.Collection<String> statuses);
+
     @Query(value = """
             SELECT c.id                         AS "controlId",
                    c.control_id                 AS "controlName",

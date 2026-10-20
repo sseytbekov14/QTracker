@@ -30,6 +30,6 @@ springdoc:
 
 logging:
   level:
-    com.kpmg.qtracker.scheduler.ControlReminderScheduler: INFO
-    com.kpmg.qtracker.service.ReminderNotificationService: DEBUG
+    com.kpmg.qtracker.scheduler: INFO
+    com.kpmg.qtracker.service.notification: INFO
     com.kpmg.qtracker.service.NotificationService: DEBUG

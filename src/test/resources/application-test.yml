@@ -4,8 +4,6 @@ logging:
     org.springframework: WARN
     org.hibernate: WARN
     com.kpmg.qtracker: WARN
-    com.kpmg.qtracker.service.ReminderNotificationService: WARN
-    com.kpmg.qtracker.scheduler.ControlReminderScheduler: WARN
 spring:
   main:
     banner-mode: off
