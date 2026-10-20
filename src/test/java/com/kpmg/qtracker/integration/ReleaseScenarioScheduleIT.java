@@ -4,10 +4,7 @@ import com.kpmg.qtracker.dto.ControlResponseDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.service.ControlAutoCreationService;
-import com.kpmg.qtracker.service.ControlScheduleCalculator;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.servlet.ModelAndView;
@@ -23,14 +20,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 /**
  * Release test pass, stage E through the application: the dates a save stores for every frequency, recalculation
- * only when the date or the frequency changes, dates in a wrong form, Overdue and Closed late in the Controls list,
- * and the daily creation of the next cycle (run twice, Deleted and Superseded controls, a returned control, a
- * missed day). The auto-creation is called with the day it runs for, so nothing depends on today's date.
+ * only when the date or the frequency changes, dates in a wrong form, Overdue and Closed late in the Controls list.
+ * The next cycle is made only by hand (Create Control, CreateControlIT).
  */
 class ReleaseScenarioScheduleIT extends ReleaseScenarioSupport {
-
-    @Autowired
-    private ControlAutoCreationService autoCreation;
 
     // ---- what a save stores ----
 
@@ -131,93 +124,7 @@ class ReleaseScenarioScheduleIT extends ReleaseScenarioSupport {
         assertThat(row(session, completedOnTime).closedLate()).isFalse();
     }
 
-    // ---- the next cycle ----
-
-    @Test
-    void theNextCycle_isCreatedOnItsDay_once_evenWhenTheRunRepeats() throws Exception {
-        LocalDate day = uniqueDay();
-        Control monthly = cycleSource("Monthly", day, "ACTIVE", "IN_PROGRESS");
-        autoCreation.runDailyAutoCreation(day);
-        autoCreation.runDailyAutoCreation(day);
-        List<Control> created = createdFrom(monthly, day);
-        assertThat(created).hasSize(1);
-        Control next = created.get(0);
-        assertThat(next.getPerformanceStatus()).isEqualTo("DRAFT");
-        ControlAssignment schedule = assignment(next);
-        assertThat(schedule.getControlOperationDate()).isEqualTo(day);
-        assertThat(schedule.getControlOperationDeadline()).isEqualTo(ControlScheduleCalculator.DEADLINE.from(day));
-        assertThat(schedule.getNextControlOperationDate()).isEqualTo(day.plusMonths(1));
-        assertThat(schedule.getFacilitator()).isEqualTo(assignment(monthly).getFacilitator());
-        // The cycle before is left as it was
-        assertThat(reload(monthly).getPerformanceStatus()).isEqualTo("IN_PROGRESS");
-    }
-
-    @Test
-    void theNextCycle_ofAReturnedControl_isCreated_ofAnAdhocOne_never_aMissedDayIsNotCaughtUp() throws Exception {
-        LocalDate day = uniqueDay();
-        Control reopened = cycleSource("Quarterly", day, "ACTIVE", "REVIEW");
-        Control source = reload(reopened);
-        source.setReopenedAt(java.time.LocalDateTime.now());
-        controlRepository.save(source);
-        Control adhoc = cycleSource("Ad-hoc", day, "ACTIVE", "IN_PROGRESS");
-        LocalDate missed = day.plusDays(1);
-        Control late = cycleSource("Monthly", missed, "ACTIVE", "IN_PROGRESS");
-
-        autoCreation.runDailyAutoCreation(day);
-        assertThat(createdFrom(reopened, day)).hasSize(1);
-        assertThat(createdFrom(adhoc, day)).isEmpty();
-        // The run of "missed" never happened; the next day does not create it (recorded in the report)
-        autoCreation.runDailyAutoCreation(missed.plusDays(1));
-        assertThat(createdFrom(late, missed)).isEmpty();
-        assertThat(createdFrom(late, missed.plusDays(1))).isEmpty();
-    }
-
-    @Test
-    void deletedAndSupersededControls_makeNoNextCycle() throws Exception {
-        LocalDate day = uniqueDay();
-        Control deleted = cycleSource("Monthly", day, "DELETED", "COMPLETED");
-        Control superseded = cycleSource("Monthly", day, "SUPERSEDED", "COMPLETED");
-        autoCreation.runDailyAutoCreation(day);
-        // Q-04, business decision of 2026-10-13: a Deleted or Superseded control makes no next cycle
-        assertThat(createdFrom(deleted, day)).isEmpty();
-        assertThat(createdFrom(superseded, day)).isEmpty();
-    }
-
     // ---- helpers ----
-
-    private static int dayCounter = 0;
-
-    /** A day far ahead, different for every test, so no other control is due on it. */
-    private static synchronized LocalDate uniqueDay() {
-        return LocalDate.of(2031, 1, 1).plusDays(37L * (++dayCounter) + Math.abs(RUN.hashCode() % 20));
-    }
-
-    private Control cycleSource(String frequency, LocalDate nextDate, String controlStatus, String status)
-            throws Exception {
-        Control control = control("HR-CY", status, people().facilitator(myEdit("cy-fac")).operator(myEdit("cy-op"))
-                .soqm(soqm("cy-soqm")).owner(myEdit("cy-po")), c -> {
-            // The form of the real IDs: base / financial year / location / period
-            c.setControlId(c.getControlId() + "/FY27/Central/JAN");
-            c.setControlFrequency(frequency);
-            c.setControlStatus(controlStatus);
-        });
-        ControlAssignment assignment = assignment(control);
-        assignment.setControlOperationDate(nextDate.minusMonths(1));
-        assignment.setControlOperationDeadline(nextDate.minusMonths(1).plusDays(14));
-        assignment.setNextControlOperationDate("Ad-hoc".equals(frequency) ? null : nextDate);
-        assignmentRepository.save(assignment);
-        return reload(control);
-    }
-
-    /** Controls created for the cycle of this day from the source's base ID (the part before the first "/"). */
-    private List<Control> createdFrom(Control source, LocalDate day) {
-        String base = source.getControlId().substring(0, source.getControlId().indexOf('/') + 1);
-        return controlRepository.findAll().stream()
-                .filter(c -> !c.getId().equals(source.getId()))
-                .filter(c -> c.getControlId() != null && c.getControlId().startsWith(base))
-                .filter(c -> day.equals(assignment(c).getControlOperationDate()))
-                .toList();
-    }
 
     private Control assigned(String frequency, User soqm) throws Exception {
         return control("RS-SC", "DRAFT", people().facilitator(myEdit("sc-fac")).operator(myEdit("sc-op")).soqm(soqm)

@@ -184,7 +184,7 @@ class CompletedEditSoqmIT {
         assertThat(saved.getControlStatus()).isEqualTo("ACTIVE");
         assertThat(assignment.getControlOperationDate()).isEqualTo(scheduleBefore.getControlOperationDate());
         assertThat(assignment.getControlOperationDeadline()).isEqualTo(scheduleBefore.getControlOperationDeadline());
-        // The next date drives the auto-creation of the next cycle
+        // The next date becomes the operation date of the next cycle (Create Control)
         assertThat(assignment.getNextControlOperationDate()).isEqualTo(scheduleBefore.getNextControlOperationDate());
         List<WorkflowHistory> history = historyRepository.findByControlIdOrderByCreatedAtDesc(control.getId());
         assertThat(history).hasSize(1);

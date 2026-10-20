@@ -79,46 +79,6 @@ public class ControlIdGeneratorService {
         return controlId;
     }
 
-    /**
-     * Generate a Control ID for auto-created controls (next period of existing control).
-     *
-     * @param baseControlId e.g. "HR-CTRL-MF-424"
-     * @param frequency     e.g. "Monthly"
-     * @param operationDate the date of the new control period
-     * @return the generated Control ID
-     */
-    public String generateNextPeriodControlId(String baseControlId, String frequency, LocalDate operationDate) {
-        if (baseControlId == null || baseControlId.isBlank()) {
-            return generateControlId("AUTO", frequency);
-        }
-
-        String freq = normalizeFrequency(frequency);
-        String fiscalYear = getFiscalYear(operationDate);
-        String period = getPeriodSuffixForDate(freq, operationDate);
-
-        StringBuilder sb = new StringBuilder();
-        sb.append(baseControlId);
-        sb.append("/").append(fiscalYear);
-        sb.append("/").append(LOCATION);
-        if (period != null && !period.isEmpty()) {
-            sb.append("/").append(period);
-        }
-
-        String controlId = sb.toString();
-
-        // Ensure uniqueness
-        if (controlRepository.existsByControlId(controlId)) {
-            for (int i = 1; i <= 100; i++) {
-                String candidate = controlId + "(" + i + ")";
-                if (!controlRepository.existsByControlId(candidate)) {
-                    return candidate;
-                }
-            }
-        }
-
-        return controlId;
-    }
-
     /** The months of the fiscal year in order, October first, as the last segment of a Monthly ID names them. */
     static final List<String> FISCAL_MONTHS =
             List.of("OCT", "NOV", "DEC", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP");

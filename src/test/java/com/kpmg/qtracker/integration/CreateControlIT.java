@@ -531,7 +531,7 @@ class CreateControlIT extends ReleaseScenarioSupport {
     @Test
     void aCycleOfTheSameBaseOnTheNewDate_madeElsewhere_is409() throws Exception {
         Control source = source("COMPLETED", "Monthly", "OCT");
-        // As the daily auto-creation names its cycles: the base, /FY/location/period, maybe "(1)"
+        // As older cycles are named: the base, /FY/location/period, maybe "(1)"
         String base = source.getControlId().substring(0, source.getControlId().indexOf('/'));
         Control other = control("X", "DRAFT", people());
         other.setControlId(base + "/FY27/Central/NOV(1)");

@@ -12,61 +12,6 @@ public interface ControlAssignmentRepository extends JpaRepository<ControlAssign
     Optional<ControlAssignment> findByControlId(Long controlId);
     List<ControlAssignment> findByNextControlOperationDate(LocalDate nextControlOperationDate);
 
-    @Query(value = """
-            SELECT a.*
-            FROM controls a
-            WHERE LOWER(TRIM(a.control_frequency)) = 'monthly'
-              AND a.next_control_operation_date >= :startDateTime
-              AND a.next_control_operation_date < :endDateTime
-            """, nativeQuery = true)
-    List<ControlAssignment> findMonthlyByNextControlOperationDateRange(
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime);
-
-    @Query(value = """
-            SELECT a.*
-            FROM controls a
-            WHERE LOWER(TRIM(a.control_frequency)) = 'quarterly'
-              AND a.next_control_operation_date >= :startDateTime
-              AND a.next_control_operation_date < :endDateTime
-            """, nativeQuery = true)
-    List<ControlAssignment> findQuarterlyByNextControlOperationDateRange(
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime);
-
-    @Query(value = """
-            SELECT a.*
-            FROM controls a
-            WHERE LOWER(TRIM(a.control_frequency)) = 'recurring'
-              AND a.next_control_operation_date >= :startDateTime
-              AND a.next_control_operation_date < :endDateTime
-            """, nativeQuery = true)
-    List<ControlAssignment> findRecurringByNextControlOperationDateRange(
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime);
-
-    @Query(value = """
-            SELECT a.*
-            FROM controls a
-            WHERE LOWER(TRIM(a.control_frequency)) = 'annual'
-              AND a.next_control_operation_date >= :startDateTime
-              AND a.next_control_operation_date < :endDateTime
-            """, nativeQuery = true)
-    List<ControlAssignment> findAnnualByNextControlOperationDateRange(
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime);
-
-    @Query(value = """
-            SELECT a.*
-            FROM controls a
-            WHERE LOWER(TRIM(a.control_frequency)) IN ('semi annual', 'semi-annual', 'semiannual')
-              AND a.next_control_operation_date >= :startDateTime
-              AND a.next_control_operation_date < :endDateTime
-            """, nativeQuery = true)
-    List<ControlAssignment> findSemiAnnualByNextControlOperationDateRange(
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime);
-
     @Query("""
             SELECT COUNT(ca) > 0
             FROM ControlAssignment ca
@@ -79,8 +24,8 @@ public interface ControlAssignmentRepository extends JpaRepository<ControlAssign
 
     /**
      * A cycle of a base control on a day: its ID is the base itself, the base with a "_" suffix (older IDs) or the base
-     * with "/FY../location/period" (ControlIdGeneratorService, maybe with "(n)"). The one rule of "this cycle is already
-     * there" for the daily auto-creation and Create Control.
+     * with "/FY../location/period" (maybe with "(n)"). The rule of "this cycle is already there" for Create Control
+     * (ControlCycleService).
      */
     String CYCLE_OF_BASE_ON_DAY = """
             FROM controls c
@@ -89,12 +34,6 @@ public interface ControlAssignmentRepository extends JpaRepository<ControlAssign
                    OR c.control_id LIKE CONCAT(:baseIdLike, '\\_%') ESCAPE '\\'
                    OR c.control_id LIKE CONCAT(:baseIdLike, '/%') ESCAPE '\\')
             """;
-
-    /** A cycle of this base control on this day already exists ({@link #CYCLE_OF_BASE_ON_DAY}). */
-    @Query(value = "SELECT COUNT(*) > 0 " + CYCLE_OF_BASE_ON_DAY, nativeQuery = true)
-    boolean existsByBaseControlIdAndOperationDate(@Param("baseIdExact") String baseIdExact,
-                                                  @Param("baseIdLike") String baseIdLike,
-                                                  @Param("operationDate") LocalDate operationDate);
 
     /** The ids of the cycles of this base control on this day ({@link #CYCLE_OF_BASE_ON_DAY}), oldest first. */
     @Query(value = "SELECT c.id " + CYCLE_OF_BASE_ON_DAY + " ORDER BY c.id", nativeQuery = true)

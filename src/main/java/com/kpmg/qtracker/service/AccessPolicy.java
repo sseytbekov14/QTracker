@@ -536,7 +536,7 @@ public final class AccessPolicy {
      * calculates them from the Control Operation Date and the frequency by the usual rules
      * (ControlScheduleCalculator) whenever one of those two changes, on a completed control as on any other, and
      * "Closed late" follows the new deadline. Such a change makes no new control and sends no e-mail by itself
-     * (TODO: BUSINESS CONFIRMATION); the daily auto-creation later follows the new next date as for every control.
+     * (TODO: BUSINESS CONFIRMATION); Create Control later takes the new next date as for every control.
      * The Control ID changes only through Rename ID ({@link #canRenameId}) and the workflow status only through a
      * workflow move ({@link #soqmTargets}).
      */
@@ -578,7 +578,7 @@ public final class AccessPolicy {
     /**
      * Why a control makes no next cycle with Create Control (400), empty when it does: Monthly and Quarterly only
      * ({@link #frequencyOffersCreateControl}); a draft is initiated first; a Deleted or Superseded control has no next
-     * cycle, as for the daily auto-creation. Any working status and Completed make one (TODO: BUSINESS CONFIRMATION:
+     * cycle. Any working status and Completed make one (TODO: BUSINESS CONFIRMATION:
      * from which statuses of the source).
      */
     public static Optional<String> nextCycleRefusal(String frequency, String performanceStatus, String controlStatus) {

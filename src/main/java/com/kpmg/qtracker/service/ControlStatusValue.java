@@ -12,8 +12,8 @@ import java.util.Optional;
  * not the workflow status (performance_status).
  *
  * <p>A Deleted or Superseded control stays in every list and counter, marked with its badge; Overdue, Active and
- * Completed count it by its workflow status as any other control. The daily auto-creation makes no next cycle
- * from it (business decision of 2026-10-13, {@link ControlAutoCreationService}).
+ * Completed count it by its workflow status as any other control. Create Control makes no next cycle from it
+ * (business decision of 2026-10-13, {@link AccessPolicy#nextCycleRefusal}).
  */
 public final class ControlStatusValue {
 
