@@ -30,6 +30,7 @@ public class NotificationTypeDisplayMapper {
             return new Display("Control Reminder (1)", CLASS_REMINDER);
         }
 
+        // Older notifications only: nothing makes this type since the daily creation of controls was removed
         if ("CONTROL_AUTO_CREATED".equals(normalized)) {
             return new Display("New Control Created", CLASS_AUTO_CREATED);
         }

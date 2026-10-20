@@ -32,12 +32,9 @@ public class NotificationService {
     private final NotificationTemplateService notificationTemplateService;
     private final ObjectProvider<EmailNotificationChannel> emailNotificationChannelProvider;
     private final StatusDisplayMapper statusDisplayMapper;
-    private static final String TYPE_AUTO_CREATED = "CONTROL_AUTO_CREATED";
     private static final String TYPE_INITIATE = "INITIATE";
     /** In-app copy to the assigned people when SoQM made their step's move for them. */
     public static final String TYPE_ON_BEHALF = "ON_BEHALF";
-    private static final java.time.format.DateTimeFormatter AUTO_CREATE_DATE_FORMAT =
-            java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy");
     
     /**
      * Whether a person gets notifications at all, in the application and by e-mail (AccessPolicy.hasNotifications: not
@@ -106,32 +103,6 @@ public class NotificationService {
                         "Control " + control.getControlId() + " status changed",
                         "Status changed from '" + displayOld + "' to '" + displayNew + "'",
                         "STATUS_CHANGE");
-        createNotification(recipientEmail, control, template);
-    }
-
-    @Transactional
-    public void sendAutoCreatedNotification(Control control,
-                                            String recipientEmail,
-                                            String frequencyLabel,
-                                            java.time.LocalDate operationDate) {
-        if (control == null || recipientEmail == null || recipientEmail.isBlank() || operationDate == null) {
-            return;
-        }
-        if (notificationRepository.existsByControlIdAndType(control.getId(), TYPE_AUTO_CREATED)) {
-            return;
-        }
-        String controlName = control.getControlId() != null ? control.getControlId() : "Control";
-        String frequency = (frequencyLabel == null || frequencyLabel.isBlank())
-                ? "scheduled"
-                : frequencyLabel.trim();
-        String dateText = operationDate.format(AUTO_CREATE_DATE_FORMAT);
-        NotificationTemplateService.NotificationTemplate template =
-                new NotificationTemplateService.NotificationTemplate(
-                        "Auto-created control: " + controlName,
-                        "A new " + frequency + " control occurrence was created automatically for " + dateText
-                                + ". Please review and initiate.",
-                        TYPE_AUTO_CREATED
-                );
         createNotification(recipientEmail, control, template);
     }
 
