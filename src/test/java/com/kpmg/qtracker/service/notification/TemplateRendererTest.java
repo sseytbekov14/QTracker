@@ -46,25 +46,39 @@ class TemplateRendererTest {
         return values;
     }
 
+    /** The rule of the link: "Go to Control" in the e-mail with the address hidden; nothing of it in-app. */
     @Test
-    void t1_isTheTextOfV5_withItsValues() {
+    void everyTemplate_linksGoToControlInTheEmail_andHasNoLinkInApp() {
+        for (Template template : Template.values()) {
+            TemplateRenderer.Rendered rendered = renderer.render(template, values()).rendered();
+
+            assertThat(rendered.html()).as(template.name())
+                    .containsPattern("<a href=\"https://qtracker\\.example\\.test/view-control/7\"[^>]*>Go to Control</a>");
+            assertThat(rendered.html().replaceAll("href=\"[^\"]*\"", "")).as(template.name()).doesNotContain("http");
+            assertThat(rendered.text()).as(template.name()).doesNotContain("http").doesNotContain("{LINK}")
+                    .doesNotEndWith("\n");
+        }
+    }
+
+    @Test
+    void aLineOfLink_isAButton_aLinkWithinALine_aBoldLink_inAppWithoutBoth() {
+        stored.get("T3").setBody("Dear {ROLE},\nOpen {LINK} now.\n{LINK}\n\nKind regards,\nSoQM Team");
+
+        TemplateRenderer.Rendered rendered = renderer.render(Template.T3, values()).rendered();
+
+        assertThat(rendered.html()).contains("Open <a href=\"https://qtracker.example.test/view-control/7\" "
+                + "style=\"color:#00338D;font-weight:bold\">Go to Control</a> now.<br>\n<table role=\"presentation\"")
+                .contains("</table>\n<br>\nKind regards,<br>\nSoQM Team");
+        assertThat(rendered.text()).isEqualTo("Dear Control Operator,\nOpen  now.\n\nKind regards,\nSoQM Team");
+    }
+
+    @Test
+    void typedText_isEscapedInTheEmail() {
         TemplateRenderer.Rendered t1 = renderer.render(Template.T1, values()).rendered();
 
         assertThat(t1.subject()).isEqualTo("The creation of the SoQM control");
-        assertThat(t1.text()).isEqualTo("""
-                Dear Facilitator, Control Operator and Process Owner,
-
-                The scheduled control HR-1/FY27 Payroll <check> & review has been activated today. The occurrence date is 05-11-2026. Kindly complete and submit the control as required before the deadline 19-11-2026.
-
-                You can access the control using the following link: https://qtracker.example.test/view-control/7
-
-                Thank you,
-                Kind regards,
-                SoQM Team""");
-        // HTML: escaped, line breaks kept, the link clickable, no button where the text has {LINK}
-        assertThat(t1.html()).contains("HR-1/FY27 Payroll &lt;check&gt; &amp; review",
-                "<a href=\"https://qtracker.example.test/view-control/7\" style=\"color:#00338D\">https://qtracker.example.test/view-control/7</a>",
-                "Thank you,<br>\nKind regards,<br>\nSoQM Team").doesNotContain(TemplateRenderer.BUTTON_LABEL);
+        assertThat(t1.html()).contains("HR-1/FY27 Payroll &lt;check&gt; &amp; review");
+        assertThat(t1.text()).contains("HR-1/FY27 Payroll <check> & review");
     }
 
     @Test

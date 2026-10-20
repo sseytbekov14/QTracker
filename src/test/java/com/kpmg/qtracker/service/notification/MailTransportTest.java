@@ -50,16 +50,14 @@ class MailTransportTest {
 
     @Test
     void log_writesTheTextOfTheHtml() {
-        String html = "<div style=\"x\">Dear Facilitator,<br>\n<br>\nThe control A &amp; B<br>\n"
-                + "<a href=\"https://q/view-control/1\" style=\"color:#00338D\">https://q/view-control/1</a></div>";
+        // The link: "Go to Control: <address>", the button on a line of its own
+        String html = "<div style=\"x\">Dear Anna,<br>\n<br>\nThe control A &amp; B<br>\n"
+                + TemplateRenderer.button("https://q/view-control/1") + "<br>\nKind regards,<br>\nSoQM Team</div>";
 
-        assertThat(LogMailTransport.text(html)).isEqualTo("Dear Facilitator,\n\nThe control A & B\nhttps://q/view-control/1");
+        assertThat(LogMailTransport.text(html)).isEqualTo("Dear Anna,\n\nThe control A & B\n"
+                + "Go to Control: https://q/view-control/1\n\nKind regards,\nSoQM Team");
         new LogMailTransport().send(new MailTransport.OutgoingMail("f", "t", "s", html, true));
-        // The button of T12 on a line of its own
-        String button = "<div>completed in the system.<table role=\"presentation\"><tr><td><a href=\"https://q/1\">Go to Control"
-                + "</a></td></tr></table><p>If the button does not open, copy this address into the browser:<br>\n"
-                + "<a href=\"https://q/1\">https://q/1</a></p>\nKind regards,<br>\nSoQM Team</div>";
-        assertThat(LogMailTransport.text(button)).isEqualTo("completed in the system.\nGo to Control\n"
-                + "If the button does not open, copy this address into the browser:\nhttps://q/1\nKind regards,\nSoQM Team");
+        String inline = "<div>Open <a href=\"https://q/1\" style=\"color:#00338D;font-weight:bold\">Go to Control</a> now.</div>";
+        assertThat(LogMailTransport.text(inline)).isEqualTo("Open Go to Control: https://q/1 now.");
     }
 }

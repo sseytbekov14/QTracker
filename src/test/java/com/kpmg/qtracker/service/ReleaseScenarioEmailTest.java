@@ -79,17 +79,15 @@ class ReleaseScenarioEmailTest {
         assertThat(String.valueOf(sent.getValue().getContent())).contains("Контроль ✅");
     }
 
-    /** A text without {LINK} (T12): a "Go to Control" button before the closing words, the address under it. */
+    /** The link: a "Go to Control" button, the address only in the href, before the closing words. */
     @Test
-    void theLink_isAGoToControlButton_beforeTheClosingWords_whereTheTextHasNoLink() {
+    void theLink_isAGoToControlButton_theAddressNotShown() {
         String html = renderer.render(Template.T12, values("Payroll", "https://qtracker.kz:8081/view-control/6"))
                 .rendered().html();
 
-        assertThat(html).contains("<a href=\"https://qtracker.kz:8081/view-control/6\"").contains(">Go to Control</a>")
-                .contains("copy this address into the browser")
-                .contains(">https://qtracker.kz:8081/view-control/6</a>");
-        assertThat(html.indexOf(">Go to Control</a>")).isGreaterThan(html.indexOf("completed in the system."))
-                .isLessThan(html.indexOf("Kind regards,"));
+        assertThat(html).containsPattern("<a href=\"https://qtracker\\.kz:8081/view-control/6\"[^>]*>Go to Control</a>")
+                .doesNotContain(">https://qtracker.kz:8081/view-control/6<").doesNotContain("copy this address");
+        assertThat(html.indexOf(">Go to Control</a>")).isLessThan(html.indexOf("Kind regards,"));
     }
 
     @Test

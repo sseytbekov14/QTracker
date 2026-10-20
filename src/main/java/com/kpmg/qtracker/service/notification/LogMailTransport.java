@@ -22,16 +22,21 @@ public class LogMailTransport implements MailTransport {
                 mail.subject(), mail.highImportance() ? "High" : "Normal", text(mail.html()));
     }
 
-    /** The text of the HTML of an e-mail: line breaks kept, links as their address, the button as its label. */
+    /**
+     * The text of the HTML of an e-mail: line breaks kept, the link "Go to Control: address", another link as its
+     * text, the button on a line of its own.
+     */
     public static String text(String html) {
         if (html == null) {
             return "";
         }
         String text = html.replace("\r\n", "\n")
+                .replaceAll("<a href=\"([^\"]*)\"[^>]*>" + TemplateRenderer.BUTTON_LABEL + "</a>",
+                        TemplateRenderer.BUTTON_LABEL + ": $1")
                 .replaceAll("<br>\n?", "\n")
                 .replaceAll("</p>\n?", "\n")
-                .replaceAll("<table", "\n<table")
-                .replaceAll("</table>", "\n")
+                .replaceAll("(?<!\n)<table", "\n<table")
+                .replaceAll("</table>\n?", "\n")
                 .replaceAll("<[^>]+>", "");
         return HtmlUtils.htmlUnescape(text).strip();
     }

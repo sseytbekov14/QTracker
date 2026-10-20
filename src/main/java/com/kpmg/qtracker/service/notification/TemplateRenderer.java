@@ -16,8 +16,9 @@ import java.util.regex.Pattern;
 /**
  * Puts the values into a notification's text, read from notification_template at every call (a text changed there is
  * used at once). Every placeholder must get a value: otherwise nothing is made (TP-2, FAILED_RENDER).
- * <p>The e-mail is HTML: the text escaped, its line breaks kept, {LINK} a clickable address. A text without {LINK}
- * (T12) gets the "Go to Control" button before its closing words. The in-app notification keeps the plain text.
+ * <p>The link (the rule of 2026-10-20): {LINK} stands on a line of its own. In the e-mail (HTML: the text escaped, its
+ * line breaks kept) it is a "Go to Control" button, a link to the control whose address is not shown. In the in-app
+ * notification its line is left out: no address and no word of a link (the page has its own "Go to Control" button).
  */
 @Component
 public class TemplateRenderer {
@@ -26,6 +27,7 @@ public class TemplateRenderer {
     public static final String BUTTON_LABEL = "Go to Control";
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([A-Z_]+)}");
     private static final Pattern PLACEHOLDER_LINK = Pattern.compile("\\{" + LINK + "}");
+    private static final Pattern THREE_OR_MORE_BREAKS = Pattern.compile("\\n(?:[ \\t]*\\n){2,}");
 
     private final NotificationTemplateTextRepository templates;
 
@@ -51,19 +53,19 @@ public class TemplateRenderer {
             return new Result(null, "no text " + template.name() + " in notification_template", template.defaultSubject());
         }
         String subject = stored.get().getSubject();
-        String body = stored.get().getBody();
+        String body = stored.get().getBody() == null ? "" : stored.get().getBody().replace("\r\n", "\n");
         Set<String> missing = new LinkedHashSet<>();
         missing.addAll(missing(subject, values));
         missing.addAll(missing(body, values));
         if (!missing.isEmpty()) {
             return new Result(null, "no value for " + String.join(", ", missing) + " in " + template.name(), subject);
         }
-        String text = substitute(body, values, false);
-        String html = substitute(body, values, true);
+        String html = html(body, values);
         if (!PLACEHOLDER_LINK.matcher(body).find() && values.get(LINK) != null) {
             html = withButton(html, values.get(LINK));
         }
-        return new Result(new Rendered(substitute(subject, values, false).replaceAll("\\s+", " ").trim(), text,
+        return new Result(new Rendered(substitute(subject, values, false).replaceAll("\\s+", " ").trim(),
+                text(body, values),
                 "<div style=\"font-family:Arial,sans-serif;font-size:14px;color:#222222\">" + html + "</div>"), null, subject);
     }
 
@@ -78,8 +80,45 @@ public class TemplateRenderer {
         return missing;
     }
 
+    /** The in-app text: the lines of {LINK} left out (and {LINK} anywhere else), no empty line at the end. */
+    private static String text(String body, Map<String, String> values) {
+        StringBuilder out = new StringBuilder();
+        for (String line : body.split("\n", -1)) {
+            if (isLinkLine(line)) {
+                continue;
+            }
+            if (!out.isEmpty()) {
+                out.append('\n');
+            }
+            out.append(substitute(PLACEHOLDER_LINK.matcher(line).replaceAll(""), values, false).stripTrailing());
+        }
+        return THREE_OR_MORE_BREAKS.matcher(out).replaceAll("\n\n").strip();
+    }
+
+    /** The e-mail: each line escaped, a line of {LINK} the button, {LINK} within a line a bold link. */
+    private static String html(String body, Map<String, String> values) {
+        String[] lines = body.split("\n", -1);
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < lines.length; i++) {
+            if (isLinkLine(lines[i])) {
+                // A table is a block of its own: no line break after it
+                out.append(button(values.get(LINK)));
+                continue;
+            }
+            out.append(substitute(lines[i], values, true));
+            if (i < lines.length - 1) {
+                out.append("<br>\n");
+            }
+        }
+        return out.toString();
+    }
+
+    private static boolean isLinkLine(String line) {
+        return line.strip().equals("{" + LINK + "}");
+    }
+
     private static String substitute(String text, Map<String, String> values, boolean html) {
-        String source = text == null ? "" : text.replace("\r\n", "\n");
+        String source = text == null ? "" : text;
         StringBuilder out = new StringBuilder();
         Matcher matcher = PLACEHOLDER.matcher(source);
         int at = 0;
@@ -103,25 +142,28 @@ public class TemplateRenderer {
         return HtmlUtils.htmlEscape(text, StandardCharsets.UTF_8.name()).replace("\n", "<br>\n");
     }
 
+    /** {LINK} within a line: "Go to Control" in bold, the address not shown. */
     private static String anchor(String link) {
-        String href = HtmlUtils.htmlEscape(link, StandardCharsets.UTF_8.name());
-        return "<a href=\"" + href + "\" style=\"color:#00338D\">" + href + "</a>";
+        return "<a href=\"" + HtmlUtils.htmlEscape(link, StandardCharsets.UTF_8.name())
+                + "\" style=\"color:#00338D;font-weight:bold\">" + BUTTON_LABEL + "</a>";
     }
 
-    /** The button before "Thank you" / "Kind regards", at the end without them; the address under it as well. */
+    /** The "Go to Control" button: a table cell, as Outlook draws it, holding the link; the address not shown. */
+    static String button(String link) {
+        String href = HtmlUtils.htmlEscape(link, StandardCharsets.UTF_8.name());
+        return "<table role=\"presentation\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\" style=\"margin:12px 0\">"
+                + "<tr><td style=\"background:#00338D;border-radius:4px\">"
+                + "<a href=\"" + href + "\" style=\"display:inline-block;padding:10px 22px;font-family:Arial,sans-serif;"
+                + "font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none\">" + BUTTON_LABEL + "</a>"
+                + "</td></tr></table>\n";
+    }
+
+    /** A text without {LINK}: the button before "Thank you" / "Kind regards", at the end without them. */
     private static String withButton(String html, String link) {
         int closing = closingWordsAt(html);
         String before = closing < 0 ? html : html.substring(0, closing);
         String after = closing < 0 ? "" : html.substring(closing);
-        String href = HtmlUtils.htmlEscape(link, StandardCharsets.UTF_8.name());
-        String button = "<table role=\"presentation\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\" style=\"margin:16px 0 8px\">"
-                + "<tr><td style=\"background:#00338D;border-radius:4px\">"
-                + "<a href=\"" + href + "\" style=\"display:inline-block;padding:10px 22px;font-family:Arial,sans-serif;"
-                + "font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none\">" + BUTTON_LABEL + "</a></td></tr></table>"
-                + "<p style=\"margin:0 0 16px;font-family:Arial,sans-serif;font-size:12px;color:#666666\">"
-                + "If the button does not open, copy this address into the browser:<br>\n"
-                + "<a href=\"" + href + "\" style=\"color:#00338D\">" + href + "</a></p>\n";
-        return stripTrailingBreaks(before) + button + after;
+        return stripTrailingBreaks(before) + button(link) + after;
     }
 
     private static int closingWordsAt(String html) {
