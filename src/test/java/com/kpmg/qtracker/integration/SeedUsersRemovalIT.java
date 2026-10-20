@@ -36,7 +36,6 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.datasource.url=" + SeedUsersRemovalIT.DB,
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "reminders.enabled=false",
-        "controls.auto-create.enabled=false",
         "file.upload.dir=target/it-uploads-seed-removal"
 })
 @ActiveProfiles("test")
@@ -127,7 +126,6 @@ class SeedUsersRemovalIT {
                 "--spring.datasource.url=" + DB,
                 "--spring.jpa.hibernate.ddl-auto=none",
                 "--reminders.enabled=false",
-                "--controls.auto-create.enabled=false",
                 "--file.upload.dir=target/it-uploads-seed-removal")) {
             exitCode = SpringApplication.exit(context);
         }

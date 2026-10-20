@@ -32,7 +32,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.url=jdbc:h2:mem:username-login-it;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "reminders.enabled=false",
-        "controls.auto-create.enabled=false",
         "file.upload.dir=target/it-uploads-username-login"
 })
 @AutoConfigureMockMvc

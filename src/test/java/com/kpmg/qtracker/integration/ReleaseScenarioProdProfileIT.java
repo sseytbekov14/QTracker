@@ -38,7 +38,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "file.upload.dir=target/it-uploads-prod",
         "app.base-url=https://qtracker.example.test",
         "reminders.enabled=false",
-        "controls.auto-create.enabled=false",
         "auth.sso.entity-id=https://qtracker.example.test/saml/qtracker",
         "auth.sso.acs-url=https://qtracker.example.test/login/saml2/sso/entra",
         "auth.sso.metadata-uri=classpath:saml/test-idp-metadata.xml"

@@ -121,8 +121,3 @@ springdoc:
     enabled: ${SPRINGDOC_ENABLED:false}
   swagger-ui:
     enabled: ${SPRINGDOC_ENABLED:false}
-
-controls:
-  auto-create:
-    enabled: ${CONTROLS_AUTO_CREATE_ENABLED:true}
-    

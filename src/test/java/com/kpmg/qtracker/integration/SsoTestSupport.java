@@ -34,7 +34,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "spring.flyway.enabled=false",
         "file.upload.dir=target/it-uploads-sso",
         "reminders.enabled=false",
-        "controls.auto-create.enabled=false",
         "app.base-url=" + SsoTestSupport.SITE,
         "app.canonical-host=qtracker.test",
         "auth.sso.entity-id=" + SsoTestSupport.ENTITY_ID,

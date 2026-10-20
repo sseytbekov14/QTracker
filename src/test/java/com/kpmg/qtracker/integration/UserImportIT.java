@@ -58,7 +58,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.url=" + UserImportIT.DB,
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "reminders.enabled=false",
-        "controls.auto-create.enabled=false",
         "file.upload.dir=target/it-uploads-user-import"
 })
 @AutoConfigureMockMvc
@@ -293,7 +292,6 @@ class UserImportIT {
                 "--spring.datasource.url=" + DB,
                 "--spring.jpa.hibernate.ddl-auto=none",
                 "--reminders.enabled=false",
-                "--controls.auto-create.enabled=false",
                 "--file.upload.dir=target/it-uploads-user-import"));
         try (ConfigurableApplicationContext context = QtrackerApplication.runCommand(args.toArray(String[]::new))) {
             return SpringApplication.exit(context);

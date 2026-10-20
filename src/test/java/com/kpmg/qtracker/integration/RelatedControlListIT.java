@@ -66,7 +66,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "spring.jpa.show-sql=false",
         "spring.flyway.enabled=false",
         "reminders.enabled=false",
-        "controls.auto-create.enabled=false",
         "file.upload.dir=target/it-uploads-related-list"
 })
 @AutoConfigureMockMvc

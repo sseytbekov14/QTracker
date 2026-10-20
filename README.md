@@ -37,9 +37,11 @@ Mapped to real modules and classes:
   - `SecurityConfig`, `ControlPermissionService`, `PermissionService`, `ControlScope`
 - Notifications (in-app and email)
   - `NotificationService`, `NotificationTemplateService`, `EmailNotificationService`
-- Reminder and auto-creation scheduling
-  - `ControlReminderScheduler`, `ControlAutoCreationScheduler`
-  - `ReminderNotificationService`, `ControlAutoCreationService`
+- Reminder scheduling
+  - `ControlReminderScheduler`
+  - `ReminderNotificationService`
+- Create Control (the next cycle of a Monthly or Quarterly control, by hand only)
+  - `ControlNextCycleController`, `ControlCycleService`
 - Attachment upload/download/delete
   - `FileAttachmentController`, `FileStorageService`
 - Dashboard and performance endpoints
@@ -147,7 +149,6 @@ Repository-defined variables from `application*.yml`, `.env`, `.env.example`, `.
 - `NOTIFICATIONS_EMAIL_WHITELIST`
 
 ### Scheduling / behavior
-- `CONTROLS_AUTO_CREATE_ENABLED`
 - `OVERDUE_USE_WORKING_DAYS`
 
 ### Upload / request limits
@@ -202,9 +203,6 @@ Schedulers under `src/main/java/com/kpmg/qtracker/scheduler`:
 - `ControlReminderScheduler`
   - Daily reminder run
   - `@ConditionalOnProperty(reminders.enabled=true)`
-- `ControlAutoCreationScheduler`
-  - Daily auto-creation run
-  - `@ConditionalOnProperty(controls.auto-create.enabled=true)`
 - Periodic schedulers (Monthly, Quarterly, SemiAnnual, Annual)
 - `RecurringNotificationScheduler`
 - `AdhocNotificationScheduler`

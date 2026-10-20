@@ -26,7 +26,6 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.flyway.enabled=false",
         "file.upload.dir=target/it-uploads-sso-cookie",
         "reminders.enabled=false",
-        "controls.auto-create.enabled=false",
         "app.base-url=" + SsoTestSupport.SITE,
         "auth.sso.entity-id=" + SsoTestSupport.ENTITY_ID,
         "auth.sso.acs-url=" + SsoTestSupport.ACS_URL,
