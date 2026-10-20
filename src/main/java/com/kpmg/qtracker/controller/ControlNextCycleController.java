@@ -4,10 +4,10 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.service.AccessPolicy;
-import com.kpmg.qtracker.service.ControlAutoCreationService;
-import com.kpmg.qtracker.service.ControlAutoCreationService.NextCycleCreated;
-import com.kpmg.qtracker.service.ControlAutoCreationService.NextCyclePlan;
-import com.kpmg.qtracker.service.ControlAutoCreationService.NextCycleRefused;
+import com.kpmg.qtracker.service.ControlCycleService;
+import com.kpmg.qtracker.service.ControlCycleService.NextCycleCreated;
+import com.kpmg.qtracker.service.ControlCycleService.NextCyclePlan;
+import com.kpmg.qtracker.service.ControlCycleService.NextCycleRefused;
 import com.kpmg.qtracker.service.ControlNextCycle;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlScheduleCalculator;
@@ -49,7 +49,7 @@ public class ControlNextCycleController {
 
     private final IControlService controlService;
     private final ControlPermissionService controlPermissionService;
-    private final ControlAutoCreationService autoCreationService;
+    private final ControlCycleService controlCycleService;
     private final UserRepository userRepository;
 
     @GetMapping
@@ -60,7 +60,7 @@ public class ControlNextCycleController {
             return refused;
         }
         try {
-            return ResponseEntity.ok(describe(autoCreationService.previewNextCycle(id)));
+            return ResponseEntity.ok(describe(controlCycleService.previewNextCycle(id)));
         } catch (NextCycleRefused e) {
             return answer(e);
         }
@@ -76,7 +76,7 @@ public class ControlNextCycleController {
         }
         String controlId = body == null ? null : body.get("controlId");
         try {
-            NextCycleCreated created = autoCreationService.createNextCycle(id, controlId, currentUser);
+            NextCycleCreated created = controlCycleService.createNextCycle(id, controlId, currentUser);
             Map<String, Object> answer = new LinkedHashMap<>();
             answer.put("id", created.id());
             answer.put("controlId", created.controlId());

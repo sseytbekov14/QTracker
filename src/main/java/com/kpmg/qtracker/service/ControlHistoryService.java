@@ -350,9 +350,9 @@ public class ControlHistoryService {
                 return "Attachment Replaced" + tabSuffix;
             case ControlRenameService.AUDIT_ACTION:
                 return "Rename Control ID";
-            case ControlAutoCreationService.AUDIT_CREATED_FROM:
+            case ControlCycleService.AUDIT_CREATED_FROM:
                 return "Created with Create Control";
-            case ControlAutoCreationService.AUDIT_NEXT_CREATED:
+            case ControlCycleService.AUDIT_NEXT_CREATED:
                 return "Next Control Created";
             default:
                 return "Edit Control";

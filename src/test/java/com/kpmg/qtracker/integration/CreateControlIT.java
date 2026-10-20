@@ -14,9 +14,9 @@ import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.enums.WorkflowActionType;
 import com.kpmg.qtracker.repository.DeletedUserRepository;
 import com.kpmg.qtracker.repository.WorkflowStepRepository;
-import com.kpmg.qtracker.service.ControlAutoCreationService;
-import com.kpmg.qtracker.service.ControlAutoCreationService.NextCycleCreated;
-import com.kpmg.qtracker.service.ControlAutoCreationService.NextCycleRefused;
+import com.kpmg.qtracker.service.ControlCycleService;
+import com.kpmg.qtracker.service.ControlCycleService.NextCycleCreated;
+import com.kpmg.qtracker.service.ControlCycleService.NextCycleRefused;
 import com.kpmg.qtracker.service.ControlScheduleCalculator;
 import com.kpmg.qtracker.service.SoqmYear;
 import com.kpmg.qtracker.service.WorkflowService;
@@ -79,7 +79,7 @@ class CreateControlIT extends ReleaseScenarioSupport {
     private WorkflowService workflowService;
 
     @Autowired
-    private ControlAutoCreationService service;
+    private ControlCycleService service;
 
     @Autowired
     private WorkflowStepRepository stepRepository;
@@ -610,7 +610,7 @@ class CreateControlIT extends ReleaseScenarioSupport {
         // admin_audit_log: who, from which control, which new ID - on both controls
         List<AdminAuditLog> onNew = auditRepository.findByControlIdOrderByCreatedAtDesc(newId);
         assertThat(onNew).singleElement().satisfies(entry -> {
-            assertThat(entry.getActionType()).isEqualTo(ControlAutoCreationService.AUDIT_CREATED_FROM);
+            assertThat(entry.getActionType()).isEqualTo(ControlCycleService.AUDIT_CREATED_FROM);
             assertThat(entry.getAdminEmail()).isEqualTo(soqm.getMail());
             assertThat(entry.getControlControlId()).isEqualTo(newControlId);
             assertThat(entry.getNewValues()).isEqualTo("{\"Created from\":\"" + source.getControlId()
@@ -618,7 +618,7 @@ class CreateControlIT extends ReleaseScenarioSupport {
             assertThat(entry.getActionDescription()).isEqualTo("Created from " + source.getControlId() + " with Create Control");
         });
         assertThat(auditRepository.findByControlIdOrderByCreatedAtDesc(source.getId()))
-                .filteredOn(entry -> ControlAutoCreationService.AUDIT_NEXT_CREATED.equals(entry.getActionType()))
+                .filteredOn(entry -> ControlCycleService.AUDIT_NEXT_CREATED.equals(entry.getActionType()))
                 .singleElement().satisfies(entry -> {
                     assertThat(entry.getAdminEmail()).isEqualTo(soqm.getMail());
                     assertThat(entry.getNewValues()).isEqualTo("{\"Next control\":\"" + newControlId + "\"}");
