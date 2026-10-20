@@ -7,10 +7,13 @@ import com.kpmg.qtracker.service.AccessPolicy;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Who gets a notification, from the addresses of the control's fields (NOTIFICATIONS_v5, decisions 3 and 8):
@@ -37,8 +40,39 @@ public class NotificationRecipients {
         this.userRepository = userRepository;
     }
 
-    /** One address (lower case, trimmed) and the users of it who get the notification. */
-    public record Person(String email, List<User> users) {
+    /**
+     * One address (lower case, trimmed), the users of it who get the notification, and the roles of the control
+     * through which the address came (in the order the roles were added).
+     */
+    public record Person(String email, List<User> users, List<String> roles) {
+
+        /**
+         * The name in "Dear {NAME},": the fields of a control hold e-mail addresses, and the control's page shows the
+         * user's name for them (users.displayname), so the name is that of the user of the address - of the oldest
+         * one when two users share it (they all get notifications, so all are active). No name: the person's role on
+         * the control.
+         */
+        public String name() {
+            return users.stream()
+                    .min(Comparator.comparing(User::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .map(User::getDisplayName)
+                    .filter(name -> name != null && !name.isBlank())
+                    .map(String::trim)
+                    .orElse(roles.isEmpty() ? "" : roles.get(0));
+        }
+
+        /**
+         * {ROLES} of T1 and T2: the person's roles among Facilitator, Control Operator and Process Owner, in that
+         * order - "Facilitator", "Facilitator and Control Operator", "Facilitator, Control Operator and Process Owner".
+         */
+        public String rolesText() {
+            List<String> named = List.of(FACILITATOR, CONTROL_OPERATOR, PROCESS_OWNER).stream()
+                    .filter(roles::contains).toList();
+            if (named.size() <= 1) {
+                return named.isEmpty() ? String.join(" and ", roles) : named.get(0);
+            }
+            return String.join(", ", named.subList(0, named.size() - 1)) + " and " + named.get(named.size() - 1);
+        }
     }
 
     /** Whether a user gets notifications at all: active, not KDN, not Read Only. */
@@ -58,6 +92,7 @@ public class NotificationRecipients {
 
         private final String controlId;
         private final Map<String, List<User>> people = new LinkedHashMap<>();
+        private final Map<String, Set<String>> roles = new LinkedHashMap<>();
         private final List<String> warnings = new ArrayList<>();
 
         private Builder(String controlId) {
@@ -82,7 +117,7 @@ public class NotificationRecipients {
 
         public List<Person> people() {
             List<Person> out = new ArrayList<>();
-            people.forEach((email, users) -> out.add(new Person(email, List.copyOf(users))));
+            people.forEach((email, users) -> out.add(new Person(email, List.copyOf(users), List.copyOf(roles.get(email)))));
             return out;
         }
 
@@ -123,10 +158,12 @@ public class NotificationRecipients {
             if (!receives(user)) {
                 return false;
             }
-            List<User> users = people.computeIfAbsent(user.getMail().trim().toLowerCase(Locale.ROOT), key -> new ArrayList<>());
+            String email = user.getMail().trim().toLowerCase(Locale.ROOT);
+            List<User> users = people.computeIfAbsent(email, key -> new ArrayList<>());
             if (users.stream().noneMatch(known -> known.getId().equals(user.getId()))) {
                 users.add(user);
             }
+            roles.computeIfAbsent(email, key -> new LinkedHashSet<>()).add(role);
             return true;
         }
     }

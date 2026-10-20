@@ -174,6 +174,68 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
         assertThat(notificationRepository.findByControlIdOrderByCreatedAtDesc(control.getId())).hasSize(2);
     }
 
+    /**
+     * "Dear {NAME},": each person's e-mail with their own name - the user's name as the control's page shows it for the
+     * address of the field, escaped in the e-mail, as it is in-app; no name: their role on the control, still sent.
+     * One person in two roles, or one address of two users: one e-mail, one name (of the active user).
+     */
+    @Test
+    void dearName_isEachPersonsOwnName_orTheirRole() throws Exception {
+        NotificationTemplateText t3 = templates.findById("T3").orElseThrow();
+        String body = t3.getBody();
+        t3.setBody("Dear {NAME},\nYour role: {ROLES}\n{LINK}\n\nKind regards,\nSoQM Team");
+        templates.save(t3);
+        try {
+            User anna = myEdit("ob-name");
+            anna.setDisplayName("Anna <O'Neil> & co");
+            anna = userRepository.save(anna);
+            User nameless = myEdit("ob-noname");
+            nameless.setDisplayName(" ");
+            nameless = userRepository.save(nameless);
+            User both = myEdit("ob-both");
+            User oldTwin = disable(myEdit("ob-oldtwin"));
+            User newTwin = person("ob-newtwin", AccessLevel.PARTICIPANT, AccessScope.OWN);
+            newTwin.setMail(oldTwin.getMail().toUpperCase(Locale.ROOT));
+            newTwin.setDisplayName("Active Twin");
+            newTwin = userRepository.save(newTwin);
+            Control control = control("OB-NAMES", "IN_PROGRESS", people().facilitator(anna, both));
+            List<String> facilitators = List.of(anna.getMail(), both.getMail());
+            List<String> operators = List.of(both.getMail().toUpperCase(Locale.ROOT), nameless.getMail());
+            List<String> owners = List.of(oldTwin.getMail());
+
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> producer.produce(control,
+                    Template.T3, values.of(control, assignments.getAssignmentByControlId(control.getId())),
+                    recipients.forControl(control.getControlId()).add("Facilitator", facilitators)
+                            .add("Control Operator", operators).add("Process Owner", owners).people(),
+                    email -> control.getId() + ":T3:NAMES:" + email, null));
+
+            assertThat(rows(control)).hasSize(4).allSatisfy(row -> assertThat(row.getStatus()).isEqualTo(EmailOutbox.PENDING));
+            assertThat(row(control, anna).getBodyHtml()).contains("Dear Anna &lt;O&#39;Neil&gt; &amp; co,<br>",
+                    "Your role: Facilitator<br>");
+            assertThat(inApp(control, anna)).startsWith("Dear Anna <O'Neil> & co,\nYour role: Facilitator\n");
+            assertThat(row(control, both).getBodyHtml()).contains("Dear " + both.getDisplayName() + ",",
+                    "Your role: Facilitator and Control Operator<br>");
+            assertThat(row(control, nameless).getBodyHtml()).contains("Dear Control Operator,<br>");
+            assertThat(rows(control).stream().filter(r -> r.getRecipientEmail().equalsIgnoreCase(oldTwin.getMail())))
+                    .singleElement().satisfies(row -> {
+                        assertThat(row.getBodyHtml()).contains("Dear Active Twin,", "Your role: Process Owner");
+                        assertThat(row.getRecipientUserId()).isEqualTo(userRepository.findByMail(oldTwin.getMail())
+                                .orElseThrow().getId());
+                    });
+            assertThat(notificationRepository.findByControlIdOrderByCreatedAtDesc(control.getId()))
+                    .extracting(Notification::getUserId)
+                    .containsExactlyInAnyOrder(anna.getId(), both.getId(), nameless.getId(), newTwin.getId());
+        } finally {
+            t3.setBody(body);
+            templates.save(t3);
+        }
+    }
+
+    private String inApp(Control control, User user) {
+        return notificationRepository.findByControlIdOrderByCreatedAtDesc(control.getId()).stream()
+                .filter(notice -> notice.getUserId().equals(user.getId())).findFirst().orElseThrow().getMessage();
+    }
+
     @Test
     void aPlaceholderWithoutValue_isFailedRender_withNoInAppNotification() throws Exception {
         User fac = myEdit("ob-render");

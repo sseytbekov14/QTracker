@@ -26,6 +26,10 @@ public class NotificationValues {
     public static final String DEADLINE = "DEADLINE";
     public static final String ROLE = "ROLE";
     public static final String RETURNED_BY = "RETURNED_BY";
+    /** The person's name in "Dear {NAME},", set for each person by NotificationProducer. */
+    public static final String NAME = "NAME";
+    /** The person's roles on the control (T1, T2), set for each person by NotificationProducer. */
+    public static final String ROLES = "ROLES";
 
     private final String baseUrl;
 

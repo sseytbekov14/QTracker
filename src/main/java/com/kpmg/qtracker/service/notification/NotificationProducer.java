@@ -14,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -59,11 +61,15 @@ public class NotificationProducer {
         if (people.isEmpty()) {
             return 0;
         }
-        TemplateRenderer.Result result = renderer.render(template, values);
         LocalDateTime now = LocalDateTime.now(clock);
         int queued = 0;
         for (NotificationRecipients.Person person : people) {
-            User first = person.users().get(0);
+            // Each person's own text: their name, and in T1 and T2 their roles
+            Map<String, String> own = new HashMap<>(values);
+            own.put(NotificationValues.NAME, person.name());
+            own.put(NotificationValues.ROLES, person.rolesText());
+            TemplateRenderer.Result result = renderer.render(template, own);
+            User first = person.users().stream().min(Comparator.comparing(User::getId)).orElseThrow();
             String key = dedupeKey.apply(person.email());
             if (!result.ok()) {
                 if (insert(control, template, first, person.email(), result.rawSubject(), "", key,
