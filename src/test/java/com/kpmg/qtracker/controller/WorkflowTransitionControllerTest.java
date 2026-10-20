@@ -10,7 +10,7 @@ import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
-import com.kpmg.qtracker.service.NotificationService;
+import com.kpmg.qtracker.service.notification.WorkflowNotifications;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
@@ -31,10 +31,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -58,7 +58,7 @@ class WorkflowTransitionControllerTest {
     private WorkflowHistoryRepository workflowHistoryRepository;
 
     @MockBean
-    private NotificationService notificationService;
+    private WorkflowNotifications workflowNotifications;
 
     @MockBean
     private WorkflowRequiredFieldService requiredFieldService;
@@ -117,15 +117,9 @@ class WorkflowTransitionControllerTest {
                         .sessionAttr("currentUser", currentUser))
                 .andExpect(status().isOk());
 
-        verify(notificationService).sendReturnNotifications(
-                eq(control),
-                eq(java.util.List.of("facilitator@kpmg.kz")),
-                eq("Control Operator"),
-                eq("Control Operator"),
-                eq("Facilitator"),
-                eq("Need fixes in control steps"),
-                eq("RETURN_TO_FACILITATOR")
-        );
+        // T7 to the Facilitator, returned by the Control Operator; the comment for the in-app notification
+        verify(workflowNotifications).moved(eq(control), eq(assignmentDto), eq("REVIEW"), eq("IN_PROGRESS"), any(),
+                eq("Need fixes in control steps"));
     }
 
     @Test
@@ -230,8 +224,7 @@ class WorkflowTransitionControllerTest {
                 .andExpect(status().isConflict());
 
         verify(controlService, never()).save(any(Control.class));
-        verify(notificationService, never())
-                .sendReturnNotifications(any(), anyList(), any(), any(), any(), any(), any());
+        verifyNoInteractions(workflowNotifications);
     }
 
     private Control controlInStatus(Long id, String status) {

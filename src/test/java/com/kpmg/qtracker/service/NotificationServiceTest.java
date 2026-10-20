@@ -196,31 +196,6 @@ class NotificationServiceTest {
     }
 
     @Test
-    void sendInitiateNotifications_isIdempotent() {
-        Control control = controlWithId(15L);
-        User userA = userWithId(9L, "fac@example.test", "FACILITATOR");
-        User userB = userWithId(10L, "op@example.test", "CONTROL_OPERATOR");
-
-        when(notificationRepository.existsByControlIdAndType(control.getId(), "INITIATE"))
-                .thenReturn(false, true);
-        when(userRepository.findByMail("fac@example.test")).thenReturn(Optional.of(userA));
-        when(userRepository.findByMail("op@example.test")).thenReturn(Optional.of(userB));
-        stubTemplate();
-        when(emailChannelProvider.getIfAvailable()).thenReturn(null);
-
-        notificationService.sendInitiateNotifications(
-                control,
-                List.of("fac@example.test", "op@example.test")
-        );
-        notificationService.sendInitiateNotifications(
-                control,
-                List.of("fac@example.test", "op@example.test")
-        );
-
-        verify(notificationRepository, times(2)).save(any(Notification.class));
-    }
-
-    @Test
     void sendReturnNotifications_repeatedReturnWithinMinutes_isAnnouncedAgain() {
         Control control = controlWithId(16L);
         User operator = userWithId(11L, "op@example.test", "CONTROL_OPERATOR");
@@ -263,41 +238,6 @@ class NotificationServiceTest {
                 "CONTROL_OPERATOR", "Operator User", "Facilitator", null, "RETURN_TO_FACILITATOR");
 
         verify(notificationRepository, times(1)).save(any(Notification.class));
-    }
-
-    // ------------------------------------------------------------------ the role KDN gets no notification (2026-10-14)
-
-    @Test
-    void theRoleKdn_getsNoNotification_andNoEmail_aUserWithEditOnTheSameKdnControlDoes() {
-        Control control = controlWithId(30L);
-        control.setControlId("KDN-30");
-        User kdn = kdnUser(31L, "kdn@example.test");
-        User editor = userWithId(32L, "editor@example.test", "FACILITATOR");
-        when(userRepository.findByMail("kdn@example.test")).thenReturn(Optional.of(kdn));
-        when(userRepository.findByMail("editor@example.test")).thenReturn(Optional.of(editor));
-        stubTemplate();
-        when(notificationTemplateService.renderReturnNotification(any(), any(), any(), any(), any()))
-                .thenReturn(new NotificationTemplateService.NotificationTemplate("Returned", "Body", "RETURN"));
-        when(notificationTemplateService.buildPerformanceCycleLink(any(Control.class))).thenReturn("/performance-cycle/30");
-        when(emailChannelProvider.getIfAvailable()).thenReturn(emailChannel);
-        List<String> both = List.of("kdn@example.test", "editor@example.test");
-
-        notificationService.sendTemplateNotifications(control, both,
-                NotificationTemplateService.TemplateType.FACILITATOR_TO_OPERATOR, false);
-        notificationService.sendInitiateNotifications(control, both);
-        notificationService.sendReturnNotifications(control, both, "SoQM Team", "SoQM One", "Facilitator",
-                "Redo", "RETURN");
-        notificationService.sendOnBehalfCopy(control, both, "SoQM One", "Facilitator", "Submit", "IN_PROGRESS",
-                "REVIEW", null);
-        notificationService.sendSharedWithNotification(control, "kdn@example.test", "SoQM One");
-        notificationService.sendSharedWithNotification(control, "editor@example.test", "SoQM One");
-
-        ArgumentCaptor<Notification> saved = ArgumentCaptor.forClass(Notification.class);
-        verify(notificationRepository, times(5)).save(saved.capture());
-        assertThat(saved.getAllValues()).extracting(Notification::getUserId).containsOnly(32L);
-        verify(emailChannel, never()).send(eq("kdn@example.test"), any(), any(), any());
-        // template, initiate, return and share by e-mail; the on-behalf copy is in-app only
-        verify(emailChannel, times(4)).send(eq("editor@example.test"), any(), any(), any());
     }
 
     @Test

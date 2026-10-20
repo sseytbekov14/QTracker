@@ -9,7 +9,7 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlService;
-import com.kpmg.qtracker.service.NotificationService;
+import com.kpmg.qtracker.service.notification.WorkflowNotifications;
 import com.kpmg.qtracker.service.ControlRowLock;
 import com.kpmg.qtracker.service.WorkflowMoveService;
 import com.kpmg.qtracker.service.WorkflowRequiredFieldService;
@@ -50,7 +50,7 @@ class WorkflowControllerTransitionGuardTest {
     @Mock
     private WorkflowHistoryRepository workflowHistoryRepository;
     @Mock
-    private NotificationService notificationService;
+    private WorkflowNotifications workflowNotifications;
     @Mock
     private WorkflowRequiredFieldService requiredFieldService;
     @Mock
@@ -67,7 +67,7 @@ class WorkflowControllerTransitionGuardTest {
     void setUp() {
         WorkflowController controller = new WorkflowController(controlService, new WorkflowMoveService(controlService,
                 controlAssignmentService, controlPermissionService, new WorkflowTransitionGuard(), requiredFieldService,
-                workflowHistoryRepository, notificationService, adminAuditService, new ControlRowLock()));
+                workflowHistoryRepository, workflowNotifications, adminAuditService, new ControlRowLock()));
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         currentUser = new User();
@@ -88,7 +88,7 @@ class WorkflowControllerTransitionGuardTest {
         if (!expectChange) {
             verify(controlService, never()).save(any(Control.class));
             verify(workflowHistoryRepository, never()).save(any());
-            verifyNoInteractions(notificationService);
+            verifyNoInteractions(workflowNotifications);
         }
     }
 

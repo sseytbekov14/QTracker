@@ -44,7 +44,8 @@ class NotificationRecipientsTest {
                 }
             }
         }
-        assertThat(lookups).as("recipient lookups found").isGreaterThanOrEqualTo(23);
+        // 21 since the in-app copies of ON_BEHALF and Shared With are no longer made (NOTIFICATIONS_v5)
+        assertThat(lookups).as("recipient lookups found").isGreaterThanOrEqualTo(21);
         assertThat(unfiltered).isEmpty();
     }
 }

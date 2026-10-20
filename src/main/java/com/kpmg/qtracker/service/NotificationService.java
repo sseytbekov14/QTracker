@@ -32,9 +32,6 @@ public class NotificationService {
     private final NotificationTemplateService notificationTemplateService;
     private final ObjectProvider<EmailNotificationChannel> emailNotificationChannelProvider;
     private final StatusDisplayMapper statusDisplayMapper;
-    private static final String TYPE_INITIATE = "INITIATE";
-    /** In-app copy to the assigned people when SoQM made their step's move for them. */
-    public static final String TYPE_ON_BEHALF = "ON_BEHALF";
     
     /**
      * Whether a person gets notifications at all, in the application and by e-mail (AccessPolicy.hasNotifications: not
@@ -44,21 +41,6 @@ public class NotificationService {
         return user != null && AccessPolicy.hasNotifications(AccessPolicy.Subject.of(user));
     }
 
-    /**
-     * Send notification to specific users about control initiation
-     */
-    @Transactional
-    public void sendInitiateNotifications(Control control, List<String> recipientEmails) {
-        if (control == null || recipientEmails == null || recipientEmails.isEmpty()) {
-            return;
-        }
-        if (control.getId() != null
-                && notificationRepository.existsByControlIdAndType(control.getId(), TYPE_INITIATE)) {
-            return;
-        }
-        sendTemplateNotifications(control, recipientEmails, NotificationTemplateService.TemplateType.ACTIVATION, false);
-    }
-    
     /**
      * Send notification about workflow step change
      */
@@ -158,47 +140,6 @@ public class NotificationService {
                 if (emailChannel != null) {
                     emailChannel.send(email, template.getSubject(), template.getBody(), notif.getLink());
                 }
-            });
-        }
-    }
-
-    /**
-     * In-app only, no e-mail: tells the people assigned to a step that a SoQM user made its move for them
-     * (business decision 3; TODO: BUSINESS CONFIRMATION: whether this copy is wanted). The usual notice of
-     * the move goes out as well, to the ones whose step it is now.
-     */
-    @Transactional
-    public void sendOnBehalfCopy(Control control,
-                                 List<String> recipientEmails,
-                                 String actorName,
-                                 String stepLabel,
-                                 String moveLabel,
-                                 String fromStatus,
-                                 String toStatus,
-                                 String comment) {
-        if (control == null || recipientEmails == null || recipientEmails.isEmpty()) {
-            return;
-        }
-        String controlName = control.getControlId() != null ? control.getControlId() : "Control";
-        StringBuilder message = new StringBuilder()
-                .append(normalizeActorName(actorName, "SoQM")).append(" (SoQM Admin Team) made the ").append(stepLabel)
-                .append(" step for you: ").append(moveLabel).append(", ")
-                .append(statusDisplayMapper.display(fromStatus)).append(" -> ")
-                .append(statusDisplayMapper.display(toStatus)).append('.');
-        if (comment != null && !comment.isBlank()) {
-            message.append("\nComment: ").append(comment.trim());
-        }
-        for (String email : uniqueRecipients(recipientEmails)) {
-            userRepository.findByMail(email).filter(NotificationService::receives).ifPresent(user -> {
-                Notification notif = new Notification();
-                notif.setUserId(user.getId());
-                notif.setControlId(control.getId());
-                notif.setType(TYPE_ON_BEHALF);
-                notif.setTitle("SoQM Admin Team acted for you on " + controlName);
-                notif.setMessage(message.toString());
-                notif.setLink(notificationTemplateService.buildControlLink(control));
-                notif.setIsRead(false);
-                notificationRepository.save(notif);
             });
         }
     }
@@ -338,35 +279,6 @@ public class NotificationService {
         }
     }
     
-    /**
-     * Send notification when a control is shared with a user
-     */
-    @Transactional
-    public void sendSharedWithNotification(Control control, String recipientEmail, String sharedByDisplayName) {
-        if (control == null || recipientEmail == null || recipientEmail.isBlank()) {
-            return;
-        }
-        String controlName = control.getControlId() != null ? control.getControlId() : "Control";
-        String title = "Control " + controlName + " shared with you";
-        String message = sharedByDisplayName + " shared control " + controlName + " with you (view-only).";
-
-        userRepository.findByMail(recipientEmail).filter(NotificationService::receives).ifPresent(user -> {
-            Notification notif = new Notification();
-            notif.setUserId(user.getId());
-            notif.setControlId(control.getId());
-            notif.setType("CONTROL_SHARED");
-            notif.setTitle(title);
-            notif.setMessage(message);
-            notif.setLink(notificationTemplateService.buildPerformanceCycleLink(control));
-            notif.setIsRead(false);
-            notificationRepository.save(notif);
-            EmailNotificationChannel emailChannel = emailNotificationChannelProvider.getIfAvailable();
-            if (emailChannel != null) {
-                emailChannel.send(recipientEmail, title, message, notif.getLink());
-            }
-        });
-    }
-
     /**
      * Get all notifications for a user
      */

@@ -5,6 +5,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.entity.DeletedUser;
+import com.kpmg.qtracker.entity.EmailOutbox;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.entity.WorkflowHistory;
@@ -13,6 +14,7 @@ import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.enums.WorkflowActionType;
 import com.kpmg.qtracker.repository.DeletedUserRepository;
+import com.kpmg.qtracker.repository.EmailOutboxRepository;
 import com.kpmg.qtracker.repository.WorkflowStepRepository;
 import com.kpmg.qtracker.service.ControlCycleService;
 import com.kpmg.qtracker.service.ControlCycleService.NextCycleCreated;
@@ -20,21 +22,14 @@ import com.kpmg.qtracker.service.ControlCycleService.NextCycleRefused;
 import com.kpmg.qtracker.service.ControlScheduleCalculator;
 import com.kpmg.qtracker.service.SoqmYear;
 import com.kpmg.qtracker.service.WorkflowService;
-import jakarta.mail.Address;
-import jakarta.mail.Session;
-import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.time.LocalDate;
@@ -42,7 +37,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -55,7 +49,6 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -65,15 +58,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 /**
  * Create Control (business decision of 2026-10-14): the next cycle is made In Progress at once, as Initiate does it,
- * in one transaction; whatever stops it is listed for the source's Assignment tab and nothing is created. E-mail is
- * on here, sent to a mocked mail server.
+ * in one transaction; whatever stops it is listed for the source's Assignment tab and nothing is created. Its
+ * e-mails are the rows of the outbox.
  */
-@TestPropertySource(properties = {"notifications.email.enabled=true", "notifications.email.whitelist-enforced=false",
-        "management.health.mail.enabled=false"})
 class CreateControlIT extends ReleaseScenarioSupport {
 
-    @MockitoBean
-    private JavaMailSender mailSender;
+    @Autowired
+    private EmailOutboxRepository outbox;
 
     @MockitoSpyBean
     private WorkflowService workflowService;
@@ -95,7 +86,6 @@ class CreateControlIT extends ReleaseScenarioSupport {
 
     @BeforeEach
     void setUp() {
-        when(mailSender.createMimeMessage()).thenAnswer(invocation -> new MimeMessage(Session.getInstance(new Properties())));
         doCallRealMethod().when(workflowService).initiateWorkflow(any(), anyString(), any());
         soqm = soqm("cc-soqm");
         facilitator = myEdit("cc-fac");
@@ -217,13 +207,18 @@ class CreateControlIT extends ReleaseScenarioSupport {
             assertThat(entry.getPerformedByEmail()).isEqualTo(soqm.getMail());
             assertThat(entry.getToStep()).isEqualTo("IN_PROGRESS");
         });
-        // Control Initiated to the Facilitator, in the application and by e-mail; nothing else
+        // T1 to the Facilitator, Control Operator and Process Owner, in the application and by e-mail; nothing to
+        // SoQM Admin Team or Shared With
         List<Notification> notices = notificationRepository.findByControlIdOrderByCreatedAtDesc(created.id());
-        assertThat(notices).singleElement().satisfies(notice -> {
+        assertThat(notices).extracting(Notification::getUserId)
+                .containsExactlyInAnyOrder(facilitator.getId(), operator.getId(), owner.getId());
+        assertThat(notices).allSatisfy(notice -> {
             assertThat(notice.getType()).isEqualTo("INITIATE");
-            assertThat(notice.getUserId()).isEqualTo(facilitator.getId());
+            assertThat(notice.getTitle()).isEqualTo("The creation of the SoQM control");
+            assertThat(notice.getMessage()).contains("The occurrence date is 10-11-2026", "before the deadline 24-11-2026");
         });
-        assertThat(mailedTo()).contains(facilitator.getMail());
+        assertThat(outbox.findByControlIdOrderByIdAsc(created.id())).extracting(EmailOutbox::getRecipientEmail)
+                .containsExactlyInAnyOrder(facilitator.getMail(), operator.getMail(), owner.getMail());
 
         // The source is left as it was
         Control after = reload(source);
@@ -587,7 +582,8 @@ class CreateControlIT extends ReleaseScenarioSupport {
                     });
             assertThat(controlRepository.count()).isEqualTo(before + 1);
             assertThat(historyRepository.findByControlIdOrderByCreatedAtDesc(made.get(0).id())).hasSize(1);
-            assertThat(notificationRepository.findByControlIdOrderByCreatedAtDesc(made.get(0).id())).hasSize(1);
+            assertThat(notificationRepository.findByControlIdOrderByCreatedAtDesc(made.get(0).id())).hasSize(3);
+            assertThat(outbox.findByControlIdOrderByIdAsc(made.get(0).id())).hasSize(3);
         } finally {
             pool.shutdownNow();
         }
@@ -709,17 +705,5 @@ class CreateControlIT extends ReleaseScenarioSupport {
         deleted.setDeletedByEmail(soqm.getMail());
         deletedUserRepository.save(deleted);
         userRepository.deleteById(user.getId());
-    }
-
-    private List<String> mailedTo() throws Exception {
-        ArgumentCaptor<MimeMessage> sent = ArgumentCaptor.forClass(MimeMessage.class);
-        verify(mailSender, atLeastOnce()).send(sent.capture());
-        List<String> to = new ArrayList<>();
-        for (MimeMessage message : sent.getAllValues()) {
-            for (Address address : message.getAllRecipients()) {
-                to.add(address.toString());
-            }
-        }
-        return to;
     }
 }

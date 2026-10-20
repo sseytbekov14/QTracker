@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
+import com.kpmg.qtracker.service.notification.WorkflowNotifications;
 import com.kpmg.qtracker.entity.WorkflowHistory;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -23,7 +24,7 @@ public class WorkflowServiceImpl implements WorkflowService {
     private final WorkflowHistoryRepository workflowHistoryRepository;
     private final ControlService controlService;
     private final UserService userService;
-    private final NotificationService notificationService;
+    private final WorkflowNotifications workflowNotifications;
     private final ControlPermissionService controlPermissionService;
 
     @Override
@@ -53,12 +54,9 @@ public class WorkflowServiceImpl implements WorkflowService {
                 "IN_PROGRESS",
                 null);
 
-        // 6. Notify Facilitator(s) that the control has been initiated
-        Control control = controlService.getControlById(controlId).orElse(null);
-        List<String> facilitators = assignment != null && assignment.getFacilitator() != null
-                ? assignment.getFacilitator()
-                : List.of(facilitatorEmail);
-        notificationService.sendInitiateNotifications(control, facilitators);
+        // 6. The control is In Progress: T1 to the Facilitator, Control Operator and Process Owner
+        controlService.getControlById(controlId)
+                .ifPresent(control -> workflowNotifications.initiated(control, assignment));
 
         log.info("Workflow initiated successfully with {} steps", steps.size());
     }

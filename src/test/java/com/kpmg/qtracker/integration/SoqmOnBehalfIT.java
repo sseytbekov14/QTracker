@@ -17,7 +17,6 @@ import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.NotificationRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
-import com.kpmg.qtracker.service.NotificationService;
 import com.kpmg.qtracker.service.WorkflowMoveService;
 import com.kpmg.qtracker.support.TestUsers;
 import org.junit.jupiter.api.AfterEach;
@@ -134,12 +133,14 @@ class SoqmOnBehalfIT {
         assertThat(next.get("On behalf").asBoolean()).isTrue();
         assertThat(next.get("Assigned").asText()).isEqualTo(facilitator.getMail());
 
-        // The usual notice to the Control Operator, and an in-app copy to the Facilitator
-        assertThat(notices(control, operator)).isNotEmpty();
-        assertThat(noticesOfType(control, facilitator, NotificationService.TYPE_ON_BEHALF)).hasSize(1);
-        assertThat(noticesOfType(control, facilitator, NotificationService.TYPE_ON_BEHALF).get(0).getMessage())
-                .contains("Facilitator", "Facilitator on leave, evidence checked");
-        assertThat(noticesOfType(control, operator, NotificationService.TYPE_ON_BEHALF)).isEmpty();
+        // The notice the Facilitator's own submit gives (T6 to the Control Operator), no word of "on behalf", and
+        // no copy to the Facilitator (NOTIFICATIONS_v5, rule 11)
+        assertThat(notices(control, operator)).singleElement().satisfies(notice -> {
+            assertThat(notice.getTitle()).isEqualTo("Control Operator Review");
+            assertThat(notice.getMessage()).startsWith("Dear Control Operator,").doesNotContainIgnoringCase("behalf");
+        });
+        assertThat(notices(control, facilitator)).isEmpty();
+        assertThat(noticesOfType(control, operator, "ON_BEHALF")).isEmpty();
     }
 
     @Test
@@ -182,9 +183,11 @@ class SoqmOnBehalfIT {
         assertThat(history.isOnBehalf()).isTrue();
         assertThat(history.getAssignedPerformer()).isEqualTo(owner.getMail());
 
-        // The Facilitator gets the return, the Process Owner the copy
-        assertThat(noticesOfType(control, facilitator, "RETURN_TO_FACILITATOR")).hasSize(1);
-        assertThat(noticesOfType(control, owner, NotificationService.TYPE_ON_BEHALF)).hasSize(1);
+        // The Facilitator gets the return (T7, returned by the role of the step: Process Owner), nobody a copy
+        assertThat(noticesOfType(control, facilitator, "RETURN_TO_FACILITATOR")).singleElement().satisfies(notice ->
+                assertThat(notice.getMessage()).contains("has been reviewed by the Process Owner and requires some adjustments")
+                        .contains("Return Comment:\nThe March evidence is missing"));
+        assertThat(notices(control, owner)).isEmpty();
         assertThat(notices(control, operator)).isEmpty();
     }
 
@@ -201,7 +204,7 @@ class SoqmOnBehalfIT {
         assertThat(history.getActedAs()).isEqualTo("SoQM Admin Team");
         assertThat(history.isOnBehalf()).isFalse();
         assertThat(notificationRepository.findByControlIdOrderByCreatedAtDesc(control.getId()))
-                .noneMatch(notice -> NotificationService.TYPE_ON_BEHALF.equals(notice.getType()));
+                .noneMatch(notice -> "ON_BEHALF".equals(notice.getType()));
         assertThat(noticesOfType(control, facilitator, "RETURN_TO_FACILITATOR")).hasSize(1);
     }
 
@@ -307,6 +310,8 @@ class SoqmOnBehalfIT {
         assignment.setControlOperator(operator.getMail());
         assignment.setSoqmLead(soqmLead.getMail());
         assignment.setProcessOwner(owner.getMail());
+        assignment.setControlOperationDate(java.time.LocalDate.of(2026, 11, 5));
+        assignment.setControlOperationDeadline(java.time.LocalDate.of(2026, 11, 19));
         assignmentRepository.save(assignment);
 
         ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseGet(ControlDetails::new);

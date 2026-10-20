@@ -380,8 +380,6 @@ class ControlTabsControllerAuditTest {
                 .andExpect(status().isOk());
 
         verify(controlAssignmentService).saveAssignment(any());
-        // Not even the person newly in Shared With hears of it (AccessPolicy.notifiesOnCompletedEdit)
-        verify(notificationService, never()).sendSharedWithNotification(any(), any(), any());
         // The audit: the date, the recalculated deadline and next date, before and after, and the reason
         verify(adminAuditService).logActionWithChanges(eq("soqm@kpmg.com"), any(), eq("EDIT"), eq(control),
                 eq("Edit Control - Edited after completion"),

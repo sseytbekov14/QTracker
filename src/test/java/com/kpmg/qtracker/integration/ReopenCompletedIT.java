@@ -118,8 +118,8 @@ class ReopenCompletedIT {
     @CsvSource({
             "IN_PROGRESS,          FACILITATOR,      RETURN_TO_FACILITATOR,   RETURN_TO_FACILITATOR",
             "REVIEW,               CONTROL_OPERATOR, RETURN_TO_OPERATOR,      RETURN_TO_OPERATOR",
-            "SOQM_HEAD_REVIEW,     SOQM,             RETURN,                  RETURN_TO_SOQM_TEAM",
-            "PROCESS_OWNER_REVIEW, PROCESS_OWNER,    RETURN,                  RETURN_TO_PROCESS_OWNER",
+            "SOQM_HEAD_REVIEW,     SOQM,             RETURN,                  WORKFLOW_STEP",
+            "PROCESS_OWNER_REVIEW, PROCESS_OWNER,    RETURN,                  WORKFLOW_STEP",
     })
     void soqmReturnsACompletedControl_keepsItsValuesAndDeadline_andNotifiesTheTargetStep(
             String target, String notified, WorkflowActionType historyType, String noticeType) throws Exception {

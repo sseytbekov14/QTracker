@@ -33,7 +33,6 @@ public class ControlTabsController {
     private final AdhocNotificationService adhocNotificationService;
     private final AnnualNotificationService annualNotificationService;
     private final SemiAnnualNotificationService semiAnnualNotificationService;
-    private final NotificationService notificationService;
     private final ControlPermissionService controlPermissionService;
     private final PermissionService permissionService;
     private final RelatedControls relatedControls;
@@ -200,23 +199,7 @@ public class ControlTabsController {
             collectChange(changedFields, previousValues, newValues, "Next Control Operation Date",
                     existingAssignment.getNextControlOperationDate(), saved.getNextControlOperationDate());
 
-            // Send notifications to newly shared users; a completed control changed in place tells nobody
-            // (AccessPolicy.notifiesOnCompletedEdit)
-            List<String> oldShared = existingAssignment != null && existingAssignment.getControlSharedWith() != null
-                    ? existingAssignment.getControlSharedWith() : List.of();
-            List<String> newShared = mergedAssignment.getControlSharedWith() != null
-                    ? mergedAssignment.getControlSharedWith() : List.of();
-            Set<String> oldSharedSet = new LinkedHashSet<>();
-            for (String e : oldShared) {
-                if (e != null && !e.isBlank()) oldSharedSet.add(e.trim().toLowerCase());
-            }
-            for (String email : newShared) {
-                if (email != null && !email.isBlank() && !oldSharedSet.contains(email.trim().toLowerCase())
-                        && (!permission.isCompletedEdit() || AccessPolicy.notifiesOnCompletedEdit())) {
-                    notificationService.sendSharedWithNotification(control, email.trim(), currentUser.getDisplayName());
-                }
-            }
-
+            // Nobody is notified of a change of the people, Shared With included (NOTIFICATIONS_v5, decision 8)
             logChanges(session, assignmentDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues,
                     CompletedEdit.reasonOf(permission, assignmentDTO.getEditReason()));
             return ResponseEntity.ok().build();
