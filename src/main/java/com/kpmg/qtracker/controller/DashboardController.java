@@ -18,14 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class DashboardController {
     private final DashboardService dashboardService;
 
-    @GetMapping("/status")
-    public ResponseEntity<DashboardChartDataDTO> getStatus(HttpSession session) {
-        if (!seesOrganisationCharts(session)) {
-            return unauthorizedOrForbidden(session);
-        }
-        return ResponseEntity.ok(dashboardService.getStatusBreakdown());
-    }
-
     @GetMapping("/component-breakdown")
     public ResponseEntity<DashboardChartDataDTO> getComponentBreakdown(HttpSession session) {
         if (!seesOrganisationCharts(session)) {
@@ -40,14 +32,6 @@ public class DashboardController {
             return unauthorizedOrForbidden(session);
         }
         return ResponseEntity.ok(dashboardService.getFrequencyBreakdown());
-    }
-
-    @GetMapping("/overdue-trend")
-    public ResponseEntity<DashboardChartDataDTO> getOverdueTrend(HttpSession session) {
-        if (!seesOrganisationCharts(session)) {
-            return unauthorizedOrForbidden(session);
-        }
-        return ResponseEntity.ok(dashboardService.getOverdueTrend());
     }
 
     private boolean seesOrganisationCharts(HttpSession session) {

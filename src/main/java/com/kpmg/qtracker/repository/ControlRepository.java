@@ -1,7 +1,6 @@
 package com.kpmg.qtracker.repository;
 
 import com.kpmg.qtracker.entity.Control;
-import com.kpmg.qtracker.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -34,8 +33,6 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
     default boolean isControlIdUnique(String controlId) {
         return findByControlId(controlId).isEmpty();
     }
-
-    List<Control> findByCreatedBy(User user);
 
     List<Control> findByCreatedByMailOrderByCreatedAtDesc(String userEmail);
     List<Control> findAllByOrderByIdDesc();

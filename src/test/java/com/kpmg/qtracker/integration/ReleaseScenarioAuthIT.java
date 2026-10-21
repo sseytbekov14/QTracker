@@ -300,8 +300,6 @@ class ReleaseScenarioAuthIT extends ReleaseScenarioSupport {
         // An id nobody has
         assertThat(status(session, get("/api/control-details").param("controlId", "987654321"))).isEqualTo(404);
         assertThat(status(session, get("/view-control/987654321"))).isEqualTo(404);
-        // Someone else's list of created controls
-        assertThat(status(session, get("/api/controls/user/{mail}", owner.getMail()))).isEqualTo(403);
     }
 
     @Test

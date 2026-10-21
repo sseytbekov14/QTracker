@@ -201,50 +201,6 @@ public class UserController {
         }
     }
 
-    @PutMapping("/admin/users/{id}/email")
-    public ResponseEntity<?> updateUserEmail(@PathVariable Long id,
-                                             @RequestParam String email,
-                                             HttpSession session) {
-        User currentUser = (User) session.getAttribute("currentUser");
-        if (currentUser == null) {
-            return ResponseEntity.status(401).body("Unauthorized");
-        }
-        if (!AccessPolicy.canManageUsers(AccessPolicy.Subject.of(currentUser))) {
-            return ResponseEntity.status(403).body("Forbidden");
-        }
-
-        if (serviceAddressWithSso(email)) {
-            return ResponseEntity.badRequest().body(CORPORATE_EMAIL_REQUIRED);
-        }
-        try {
-            User before = userService.getUserById(id)
-                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
-            String oldEmail = before.getMail();
-
-            User updated = userService.updateUserEmail(id, email);
-            String newEmail = updated.getMail();
-
-            adminAuditService.logActionWithChanges(
-                    currentUser.getMail(),
-                    currentUser.getDisplayName(),
-                    "USER_EMAIL_UPDATE",
-                    null,
-                    "Changed email from " + oldEmail + " to " + newEmail + " for user id " + updated.getId(),
-                    "mail",
-                    "mail=" + oldEmail,
-                    "mail=" + newEmail
-            );
-
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("id", updated.getId());
-            payload.put("mail", updated.getMail());
-            payload.put("lastLoginAt", updated.getLastLoginAt());
-            return ResponseEntity.ok(payload);
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(ex.getMessage());
-        }
-    }
-
 
     private boolean serviceAddressWithSso(String email) {
         return authMode.sso() && loginNames.isServiceAddress(email);

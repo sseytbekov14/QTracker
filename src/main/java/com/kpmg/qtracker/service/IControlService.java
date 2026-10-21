@@ -9,7 +9,6 @@ import java.util.Optional;
 public interface IControlService {
     List<Control> getAllControls();
     List<Control> findVisibleControlsForUser(User user);
-    List<Control> getUserControls(String userEmail);
     boolean isControlIdUnique(String controlId);
     Control createControl(Control control);
     Control save(Control control);

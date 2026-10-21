@@ -48,16 +48,6 @@ public class DashboardService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    public DashboardChartDataDTO getStatusBreakdown() {
-        DeadlineOverdue.Counts counts = DeadlineOverdue.count(
-                toDeadlineRows(controlRepository.findAll()), DeadlineRow::status, DeadlineRow::deadline, today());
-        Map<String, Long> chartCounts = new LinkedHashMap<>();
-        chartCounts.put("Active", counts.active());
-        chartCounts.put("Completed", counts.completed());
-        chartCounts.put("Overdue", counts.overdue());
-        return toChartData(chartCounts);
-    }
-
     public DashboardChartDataDTO getComponentBreakdown() {
         Map<String, Long> counts = new LinkedHashMap<>();
         counts.put("HR", 0L);
@@ -116,32 +106,8 @@ public class DashboardService {
         return buildComponentBreakdown(findMyScopedNonDraftControls(currentUser));
     }
 
-    public DashboardChartDataDTO getMyOverdueTrend(User currentUser) {
-        return buildOverdueTrend(toDeadlineRows(findMyScopedNonDraftControls(currentUser)));
-    }
-
     public DashboardChartDataDTO getFrequencyBreakdown() {
         return buildFrequencyBreakdown(controlRepository.findAll());
-    }
-
-    public DashboardChartDataDTO getOverdueTrend() {
-        return buildOverdueTrend(toDeadlineRows(controlRepository.findAll()));
-    }
-
-    // Controls still overdue, by deadline day, over the last 30 days
-    private DashboardChartDataDTO buildOverdueTrend(List<DeadlineRow> rows) {
-        LocalDate today = today();
-        LocalDate startDate = today.minusDays(29);
-        Map<LocalDate, Long> grouped = new LinkedHashMap<>();
-        for (LocalDate date = startDate; !date.isAfter(today); date = date.plusDays(1)) {
-            grouped.put(date, 0L);
-        }
-        for (DeadlineRow row : rows) {
-            if (DeadlineOverdue.isOverdue(row.status(), row.deadline(), today)) {
-                grouped.computeIfPresent(row.deadline(), (key, value) -> value + 1);
-            }
-        }
-        return toTrendChartData(grouped);
     }
 
     public DashboardDeadlineCountdownDTO getDeadlineCountdown(User currentUser, int days, int limit) {
@@ -266,16 +232,6 @@ public class DashboardService {
                 new ArrayList<>(counts.keySet()),
                 new ArrayList<>(counts.values())
         );
-    }
-
-    private DashboardChartDataDTO toTrendChartData(Map<LocalDate, Long> grouped) {
-        List<String> labels = new ArrayList<>(grouped.size());
-        List<Long> values = new ArrayList<>(grouped.size());
-        for (Map.Entry<LocalDate, Long> entry : grouped.entrySet()) {
-            labels.add(entry.getKey().format(TREND_LABEL_FORMAT));
-            values.add(entry.getValue());
-        }
-        return new DashboardChartDataDTO(labels, values);
     }
 
     /**

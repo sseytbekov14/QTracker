@@ -393,29 +393,6 @@ public class UserService {
         return buildDisplayNameFromEmail(fallbackEmail);
     }
 
-    public User updateUserEmail(Long targetUserId, String email) {
-        User targetUser = userRepository.findById(targetUserId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-        if (targetUser.getLastLoginAt() != null) {
-            throw new IllegalArgumentException("Email can be changed only before the first login");
-        }
-
-        String normalizedEmail = normalizeEmail(email);
-
-        String currentEmail = targetUser.getMail() == null ? "" : targetUser.getMail().trim().toLowerCase(Locale.ROOT);
-        if (normalizedEmail.equals(currentEmail)) {
-            return targetUser;
-        }
-
-        if (userRepository.existsByMail(normalizedEmail)) {
-            throw new IllegalArgumentException("User with this email already exists");
-        }
-
-        targetUser.setMail(normalizedEmail);
-        return userRepository.save(targetUser);
-    }
-
     /** The e-mail in lower case, or "Email is required" / "Email format is invalid". */
     private static String normalizeEmail(String email) {
         if (email == null || email.isBlank()) {

@@ -12,7 +12,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -62,9 +61,6 @@ class SsoAdminPanelIT extends SsoTestSupport {
                         .param("enabled", "true").param("email", "moved" + suffix() + "@qtracker.local"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(CORPORATE));
-        mockMvc.perform(put("/api/admin/users/{id}/email", other.getId()).session(soqm).with(csrf().asHeader())
-                        .param("email", "moved" + suffix() + "@qtracker.local"))
-                .andExpect(status().isBadRequest());
     }
 
     private MockHttpSession soqmSession() throws Exception {

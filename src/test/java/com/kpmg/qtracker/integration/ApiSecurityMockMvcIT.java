@@ -161,19 +161,6 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
-    void loginWithDbUser_thenOwnControls_returns200() throws Exception {
-        String qaEmail = "qa-user-" + suffix() + "@example.test";
-        User qaUser = saveUser("qa-user", qaEmail, "FACILITATOR");
-        createControl("CTRL-DB-" + suffix(), qaUser, "DRAFT");
-
-        MockHttpSession session = login(qaEmail);
-
-        mockMvc.perform(get("/api/controls/user/{email}", qaEmail)
-                        .session(session))
-                .andExpect(status().isOk());
-    }
-
-    @Test
     void readForeignControl_returns403() throws Exception {
         User owner = saveUser("owner-" + suffix(), "owner-" + suffix() + "@example.test", "PROCESS_OWNER");
         Control foreignControl = createControl("CTRL-FGN-" + suffix(), owner, "IN_PROGRESS");

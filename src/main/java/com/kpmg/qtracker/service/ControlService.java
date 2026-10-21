@@ -124,45 +124,6 @@ public class ControlService implements IControlService {
                 ControlPermissionService.isCreator(control, user));
     }
 
-    @Override
-    public List<Control> getUserControls(String userEmail) {
-        logger.info("=== GET USER CONTROLS IMPROVED ===");
-        logger.info("User email: {}", userEmail);
-
-        // 1. Найти пользователя по email
-        Optional<User> userOpt = userRepository.findByMail(userEmail);
-
-        if (userOpt.isEmpty()) {
-            logger.error("User not found with email: {}", userEmail);
-            return Collections.emptyList();
-        }
-
-        User user = userOpt.get();
-        logger.info("Found user: ID={}, Email={}", user.getId(), user.getMail());
-
-        // 2. Найти контроли по ID пользователя (created_by)
-        List<Control> controls = controlRepository.findByCreatedBy(user);
-
-        // 3. Если не нашел, попробуем другой способ
-        if (controls.isEmpty()) {
-            logger.warn("No controls found via findByCreatedBy, trying alternative...");
-
-            // Альтернатива: найти все и отфильтровать
-            List<Control> allControls = controlRepository.findAllByOrderByIdDesc();
-            controls = allControls.stream()
-                    .filter(c -> c.getCreatedBy() != null && user.getId().equals(c.getCreatedBy().getId()))
-                    .collect(Collectors.toList());
-
-            logger.info("Alternative method found {} controls", controls.size());
-        } else {
-            // Сортирую по ID в обратном порядке (новые сверху)
-            controls.sort((a, b) -> b.getId().compareTo(a.getId()));
-        }
-
-        logger.info("Returning {} controls for user {}", controls.size(), userEmail);
-        return controls;
-    }
-
 
 
     @Override

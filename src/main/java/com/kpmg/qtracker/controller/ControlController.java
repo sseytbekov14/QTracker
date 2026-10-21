@@ -3,12 +3,10 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.dto.ControlDTO;
 import com.kpmg.qtracker.dto.ControlResponseDTO;
-import com.kpmg.qtracker.dto.ControlHistoryEntryDTO;
 import com.kpmg.qtracker.dto.ControlDetailsDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.repository.ControlRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.AdminAuditService;
@@ -41,14 +39,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/controls")
@@ -144,30 +139,6 @@ public class ControlController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
-    }
-
-    @GetMapping("/user/{email}")
-    public ResponseEntity<?> getUserControls(@PathVariable String email, HttpSession session) {
-        User currentUser = (User) session.getAttribute("currentUser");
-        if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        if (!currentUser.getMail().equalsIgnoreCase(email)
-                && !AccessPolicy.seesAllControls(AccessPolicy.Subject.of(currentUser))) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-        List<Control> created = controlService.getUserControls(email);
-        if (!AccessPolicy.seesAllControls(AccessPolicy.Subject.of(currentUser))) {
-            // Only what the user sees (AccessPolicy.canView): a KDN user's old non-KDN controls stay out
-            Set<Long> visible = controlService.findVisibleControlsForUser(currentUser).stream()
-                    .map(Control::getId)
-                    .collect(Collectors.toSet());
-            created = created.stream().filter(control -> visible.contains(control.getId())).toList();
-        }
-        List<ControlResponseDTO> controls = created.stream()
-                .map(this::convertToResponseDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(controls);
     }
 
     @GetMapping("/{id}/changelog")

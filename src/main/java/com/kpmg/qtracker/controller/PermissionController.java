@@ -65,27 +65,4 @@ public class PermissionController {
         }
     }
 
-    @GetMapping("/{controlId}/can-edit")
-    public ResponseEntity<Map<String, Boolean>> canEditControl(
-            @PathVariable Long controlId,
-            HttpSession session) {
-
-        try {
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(401).build();
-            }
-
-            boolean canEdit = controlPermissionService.resolve(controlId, currentUser).canEdit();
-
-            Map<String, Boolean> response = new HashMap<>();
-            response.put("canEdit", canEdit);
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            log.error("Error checking edit permission: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().build();
-        }
-    }
 }
