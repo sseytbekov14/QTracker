@@ -1622,12 +1622,10 @@ function saveControlData(controlId) {
             editNavPanel.classList.add('d-none');
         }
 
+        // Back as it was: its icon and its label ("Edit" or "Edit (completed control)") stay
         const editBtn = document.getElementById('editBtn');
         if (editBtn) {
             editBtn.classList.remove('d-none');
-            editBtn.textContent = 'Edit';
-            editBtn.classList.remove('btn-success', 'btn-primary');
-            editBtn.classList.add('btn-outline-secondary');
         }
 
         makeAllFormsReadOnly();
@@ -2820,7 +2818,7 @@ function saveDetailsData(controlId) {
                             // Show Submit to Control Operator button for assigned Facilitator
                             const submitToOperatorBtn = document.getElementById('submitForReviewBtn');
                             if (submitToOperatorBtn) {
-                                submitToOperatorBtn.style.display = 'inline-block';
+                                submitToOperatorBtn.style.display = '';
                                 submitToOperatorBtn.disabled = false;
                                 submitToOperatorBtn.removeAttribute('disabled');
                                 console.log('вњ… Button "Submit to Control Operator" shown for assigned Facilitator!');

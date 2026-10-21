@@ -321,94 +321,150 @@ select.form-select.editable-select {
     appearance: none;
 }
 
-/* ── Action Buttons Bar ── */
+/* ── Action Buttons Bar ──
+   Left what to go to (Back, Changelog, More), right what to do. One button system: 36px high, 6px corners, an icon
+   before the label. Filled is only the step that moves the control on (blue; Complete green); returns, Move / Return,
+   Create Control and Edit are outlined, so the next step stands out. */
 .action-buttons {
     position: sticky;
     bottom: 0;
     /* Above the workflow stepper it scrolls over */
     z-index: 10;
     background: var(--kpmg-white);
-    padding: 14px 24px;
+    padding: 12px 24px;
     border-top: 1px solid var(--kpmg-gray-200);
+    box-shadow: 0 -4px 12px rgba(16, 24, 40, 0.04);
     margin-top: 16px;
     border-radius: 0 0 6px 6px;
 }
 
+/* Too many buttons for one row (SoQM on a narrow screen): the actions go to a row of their own, on the right */
+.action-buttons > .d-flex {
+    flex-wrap: wrap;
+    row-gap: 10px;
+    column-gap: 12px;
+}
+.action-buttons .vc-bar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 8px;
+    margin-left: auto;
+}
+
 /* The bar's buttons are inline-flex (style.css), which drops the space between an icon and its label */
-.action-buttons .btn {
+.action-buttons .btn,
+.action-buttons .kpmg-more-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     gap: 6px;
-    padding: 8px 20px;
+    height: auto;
+    min-height: 36px;
+    padding: 0 12px;
     font-size: 0.8rem;
     font-weight: 600;
-    border-radius: 4px;
-    transition: all 0.2s;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    border-radius: 6px;
+    white-space: nowrap;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
-
-.action-buttons .btn-primary {
-    background: var(--kpmg-blue);
-    border-color: var(--kpmg-blue);
+.action-buttons .btn .bi {
+    font-size: 0.95rem;
+    line-height: 1;
 }
-
-.action-buttons .btn-primary:hover {
-    background: var(--kpmg-blue-dark);
-    border-color: var(--kpmg-blue-dark);
-}
-
-.action-buttons .btn-outline-secondary {
-    border-color: var(--kpmg-gray-300);
-    color: var(--kpmg-gray-700);
-}
-
-.action-buttons .btn-outline-secondary:hover {
-    border-color: var(--kpmg-blue);
-    color: var(--kpmg-blue);
-    background: var(--kpmg-gray-50);
-}
-
 .action-buttons .btn:hover {
     transform: none;
+}
+
+/* Neutral: Back, Changelog, More */
+.action-buttons .btn-outline-secondary,
+.action-buttons .kpmg-more-menu-btn {
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-300);
+    color: var(--kpmg-gray-700);
     box-shadow: none;
+}
+.action-buttons .btn-outline-secondary:hover,
+.action-buttons .kpmg-more-menu-btn:hover {
+    background: var(--kpmg-gray-50);
+    border-color: var(--kpmg-gray-400, #9aa3b5);
+    color: var(--kpmg-gray-900, #1f2937);
+}
+.action-buttons .kpmg-more-menu-btn {
+    width: 36px;
+    padding: 0;
+    cursor: pointer;
+}
+
+/* Secondary actions: Move / Return, Create Control, Edit */
+.action-buttons .btn-outline-primary,
+.action-buttons #editBtn {
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-blue);
+    color: var(--kpmg-blue);
+}
+.action-buttons .btn-outline-primary:hover,
+.action-buttons #editBtn:hover {
+    background: #eef3fb;
+    border-color: var(--kpmg-blue-dark);
+    color: var(--kpmg-blue-dark);
+}
+
+/* A line between the workflow step and the other actions, when the control has a step for this person */
+.action-buttons #workflow-buttons-container:has(> .btn:not([style*="display: none"]):not([hidden])) {
+    padding-right: 8px;
+    border-right: 1px solid var(--kpmg-gray-200);
 }
 
 /* ── Workflow Buttons ── */
 #workflow-buttons-container .workflow-submit-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     text-align: center;
-    line-height: 1.2;
-    min-height: 36px;
-    white-space: normal;
 }
+/* The step that moves the control on: filled */
 #workflow-buttons-container .btn-primary,
 #workflow-buttons-container .btn-success:not(#completeControlBtn) {
     background: var(--kpmg-blue);
-    border-color: var(--kpmg-blue);
+    border: 1px solid var(--kpmg-blue);
     color: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 51, 141, 0.18);
 }
-#workflow-buttons-container .btn-primary:hover,
-#workflow-buttons-container .btn-success:not(#completeControlBtn):hover {
+#workflow-buttons-container .btn-primary:hover:not(:disabled),
+#workflow-buttons-container .btn-success:not(#completeControlBtn):hover:not(:disabled) {
     background: var(--kpmg-blue-dark);
     border-color: var(--kpmg-blue-dark);
+    box-shadow: 0 2px 8px rgba(0, 51, 141, 0.25);
 }
 #workflow-buttons-container #completeControlBtn {
-    background: #009a44;
-    border-color: #009a44;
+    background: #00875a;
+    border: 1px solid #00875a;
     color: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 135, 90, 0.2);
 }
-#workflow-buttons-container #completeControlBtn:hover { background: #007d37; border-color: #007d37; }
+#workflow-buttons-container #completeControlBtn:hover:not(:disabled) {
+    background: #006c48;
+    border-color: #006c48;
+    box-shadow: 0 2px 8px rgba(0, 135, 90, 0.28);
+}
+/* A return: outlined, amber */
 #workflow-buttons-container .btn-warning {
     background: #ffffff;
-    border: 1px solid #b86e00;
+    border: 1px solid #c77700;
     color: #8a5300;
 }
-#workflow-buttons-container .btn-warning:hover { background: #fff4e5; color: #6b4100; }
+#workflow-buttons-container .btn-warning:hover:not(:disabled) {
+    background: #fff6e8;
+    border-color: #a86400;
+    color: #6b4100;
+}
 #workflow-buttons-container .workflow-submit-btn:disabled {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: not-allowed;
+    box-shadow: none;
 }
 #workflow-buttons-container .workflow-submit-btn:focus-visible,
-.action-buttons .btn:focus-visible {
+.action-buttons .btn:focus-visible,
+.action-buttons .kpmg-more-menu-btn:focus-visible {
     outline: 2px solid var(--kpmg-blue);
     outline-offset: 2px;
     box-shadow: none;
@@ -1132,20 +1188,21 @@ input[data-date-picker] {
 .completed-fixed-hint .bi { font-size: 0.72rem; }
 .completed-edit-intro { font-size: 0.86rem; color: #3a4260; }
 
-/* Phone: the action bar wraps instead of pushing the last buttons (Edit, Edit (completed control)) off the screen */
+/* Phone: the action bar wraps instead of pushing the last buttons (Edit, Edit (completed control)) off the screen.
+   Back, Changelog and More on the first row; the workflow step, when there is one, on a row of its own; Create
+   Control and Edit share the last row */
 @media (max-width: 575.98px) {
     .action-buttons > .d-flex,
     .action-buttons > .d-flex > .d-flex {
         flex-wrap: wrap;
         gap: 8px;
     }
-    /* Back, Create Control, Edit in this order on one row of their own; the workflow buttons, when there are any,
-       on the row above */
     .action-buttons {
         padding: 12px;
     }
     .action-buttons .btn {
-        padding: 8px 12px;
+        padding: 0 12px;
+        white-space: normal;
     }
     .action-buttons > .d-flex > .d-flex:last-child {
         width: 100%;
@@ -1153,10 +1210,16 @@ input[data-date-picker] {
     .action-buttons #workflow-buttons-container:has(> .btn:not([style*="display: none"]):not([hidden])) {
         flex: 1 1 100%;
         flex-wrap: wrap;
+        padding-right: 0;
+        margin-right: 0;
+        border-right: 0;
     }
-    .action-buttons #backBtn { order: 1; flex: 1 1 auto; }
-    .action-buttons #createControlBtn { order: 2; flex: 1 1 auto; }
-    .action-buttons #editBtn { order: 3; flex: 1 1 auto; }
+    .action-buttons .vc-bar-edit {
+        flex: 1 1 100%;
+    }
+    .action-buttons #workflow-buttons-container > .btn,
+    .action-buttons #createControlBtn,
+    .action-buttons #editBtn { flex: 1 1 auto; }
 }
 
 /* Create Control (create-control.js): the banner of a control made with it, and its confirmation */

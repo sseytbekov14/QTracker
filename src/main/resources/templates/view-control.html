@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=19" rel="stylesheet">
-    <link href="/css/view-control.css?v=33" rel="stylesheet">
+    <link href="/css/view-control.css?v=34" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -351,34 +351,8 @@
             display: none;
         }
 
-        #editBtn {
-            background: #00338D;
-            border-color: #00338D;
-            color: #fff;
-            font-weight: 600;
-            padding: 7px 22px;
-            border-radius: 6px;
-            transition: background 0.18s, box-shadow 0.18s;
-        }
-        #editBtn:hover {
-            background: #00278a;
-            border-color: #00278a;
-            box-shadow: 0 2px 10px rgba(0,51,141,0.25);
-        }
-        /* Rename ID dropdown */
+        /* Rename ID dropdown (the button itself: view-control.css, with the other buttons of the bar) */
         .kpmg-more-menu { position: relative; }
-        .kpmg-more-menu-btn {
-            border: 1px solid #d8dce5;
-            border-radius: 6px;
-            background: #fff;
-            color: #5c6478;
-            padding: 6px 10px;
-            cursor: pointer;
-            font-size: 1rem;
-            line-height: 1;
-            transition: background 0.15s, border-color 0.15s;
-        }
-        .kpmg-more-menu-btn:hover { background: #f0f2f8; border-color: #b0b8cc; }
         .kpmg-more-dropdown {
             display: none;
             position: absolute;
@@ -495,7 +469,7 @@
                             </h1>
                         </div>
                         <a th:if="${canInitiate}" th:href="@{/initiate/{id}(id=${control.id})}" class="vc-header-action"
-                           title="Check what the draft still needs, choose the SoQM Year and initiate it">
+                           title="Check the draft, choose the SoQM Year and initiate it">
                             <i class="bi bi-play-circle" aria-hidden="true"></i>Initiate…
                         </a>
                     </div>
@@ -1267,12 +1241,16 @@
 
                 <div class="action-buttons">
                     <div class="d-flex justify-content-between align-items-center">
-                        <!-- Left: Home, Changelog, and More (Rename ID) -->
-                        <div class="d-flex align-items-center gap-2">
-                            <button class="btn btn-outline-secondary" id="changelogBtn"><i class="bi bi-clock-history" aria-hidden="true"></i> Changelog</button>
+                        <!-- Left: where to go - Back, Changelog, More (Rename ID) -->
+                        <div class="d-flex align-items-center gap-2 vc-bar-nav">
+                            <button type="button" class="btn btn-outline-secondary" id="backBtn" onclick="history.back()"
+                                    title="Previous page"><i class="bi bi-arrow-left" aria-hidden="true"></i>Back</button>
+                            <button type="button" class="btn btn-outline-secondary" id="changelogBtn"
+                                    title="History of status and field changes"><i class="bi bi-clock-history" aria-hidden="true"></i>Changelog</button>
                             <!-- Rename ID as dropdown (SoQM only, also on a completed control, as the server checks) -->
                             <div class="kpmg-more-menu" id="kpmgMoreMenuWrapper" th:if="${canRenameId}">
-                                <button class="kpmg-more-menu-btn" id="kpmgMoreMenuBtn" type="button" title="More actions">
+                                <button class="kpmg-more-menu-btn" id="kpmgMoreMenuBtn" type="button" title="More actions"
+                                        aria-label="More actions">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                         <circle cx="5"  cy="12" r="2"/>
                                         <circle cx="12" cy="12" r="2"/>
@@ -1291,8 +1269,9 @@
                             </div>
                         </div>
 
-                        <!-- Right: Workflow buttons + Back + Edit (primary) -->
-                        <div class="d-flex align-items-center gap-2">
+                        <!-- Right: what to do - the workflow step (the one filled button moves the control on), then
+                             Create Control and Edit -->
+                        <div class="d-flex align-items-center gap-2 vc-bar-actions">
                             <!-- Workflow buttons -->
                             <div id="workflow-buttons-container" class="d-inline-flex align-items-center gap-2"
                                  th:if="${accessNotice == 'NONE'}">
@@ -1301,8 +1280,8 @@
                                         class="btn btn-primary workflow-submit-btn"
                                         id="submitForReviewBtn"
                                         style="display: none;"
-                                        title="Submit this control to Control Operator for review">
-                                    Submit for Review
+                                        title="Send to the Control Operator for review">
+                                    <i class="bi bi-send" aria-hidden="true"></i>Submit for Review
                                 </button>
 
                                 <!-- 2. Submit to SoQM Team button for CONTROL_OPERATOR -->
@@ -1310,8 +1289,8 @@
                                         class="btn btn-success workflow-submit-btn co-action-btn"
                                         id="submitToSoqmLeadBtn"
                                         style="display: none;"
-                                        title="Submit this control to SoQM Team for review">
-                                    Submit for SoQM Team Review
+                                        title="Send to SoQM Admin Team for review">
+                                    <i class="bi bi-send" aria-hidden="true"></i>Submit for SoQM Team Review
                                 </button>
 
                                 <!-- 3. Return to Facilitator button for CONTROL_OPERATOR -->
@@ -1319,8 +1298,8 @@
                                         class="btn btn-warning workflow-submit-btn co-action-btn"
                                         id="returnToFacilitatorBtn"
                                         style="display: none;"
-                                        title="Return this control to Facilitator for revision">
-                                    Return to Facilitator
+                                        title="Return to the Facilitator for rework">
+                                    <i class="bi bi-arrow-return-left" aria-hidden="true"></i>Return to Facilitator
                                 </button>
 
                                 <!-- 4. Submit to Process Owner button for SOQM_TEAM -->
@@ -1329,8 +1308,8 @@
                                         id="submitToProcessOwnerBtn"
                                         style="display: none;"
                                         disabled
-                                        title="Submit this control to Process Owner for review">
-                                    Send to Process Owner
+                                        title="Send to the Process Owner for review">
+                                    <i class="bi bi-send" aria-hidden="true"></i>Send to Process Owner
                                 </button>
 
                                 <!-- 5. Return to Operator button for SOQM_TEAM -->
@@ -1339,8 +1318,8 @@
                                         id="returnToOperatorBtn"
                                         style="display: none;"
                                         disabled
-                                        title="Return this control to Control Operator for revision">
-                                    Return to Operator
+                                        title="Return to the Control Operator for rework">
+                                    <i class="bi bi-arrow-return-left" aria-hidden="true"></i>Return to Operator
                                 </button>
 
                                 <!-- 6. Complete button for PROCESS_OWNER -->
@@ -1351,8 +1330,8 @@
                                         disabled
                                         data-bs-toggle="modal"
                                         data-bs-target="#completeControlModal"
-                                        title="Complete this control">
-                                    Complete
+                                        title="Approve and complete the control">
+                                    <i class="bi bi-check2-circle" aria-hidden="true"></i>Complete
                                 </button>
 
                                 <!-- 7. Return to Control Operator button for PROCESS_OWNER -->
@@ -1361,8 +1340,8 @@
                                         id="ownerReturnToOperatorBtn"
                                         style="display: none;"
                                         disabled
-                                        title="Return this control to the Control Operator for revision">
-                                    Return to Control Operator
+                                        title="Return to the Control Operator for rework">
+                                    <i class="bi bi-arrow-return-left" aria-hidden="true"></i>Return to Control Operator
                                 </button>
 
                                 <!-- 8. SoQM: move the control on or back for any role (AccessPolicy.move) -->
@@ -1372,24 +1351,27 @@
                                         th:if="${!#lists.isEmpty(soqmMoves)}"
                                         data-bs-toggle="modal"
                                         data-bs-target="#soqmMoveModal"
-                                        title="Move this control on or back for any Control role">
-                                    Move / Return&hellip;
+                                        title="Change the status for any role">
+                                    <i class="bi bi-arrow-left-right" aria-hidden="true"></i>Move / Return&hellip;
                                 </button>
                             </div>
 
-                            <button type="button" class="btn btn-outline-secondary" id="backBtn" onclick="history.back()">Back</button>
+                            <!-- Create Control and Edit stay together when the bar wraps -->
+                            <div class="d-inline-flex align-items-center gap-2 vc-bar-edit">
                             <!-- The next cycle of a Monthly or Quarterly control, on every tab (AccessPolicy.offersCreateControl) -->
                             <button type="button" class="btn btn-outline-primary" id="createControlBtn" th:if="${canCreateControl}"
                                     th:attr="data-control-id=${control.id}"
-                                    title="Create the next cycle of this control and start it (In Progress)">
+                                    title="Create and start the next cycle">
                                 <i class="bi bi-plus-circle" aria-hidden="true"></i>Create Control
                             </button>
-                            <button class="btn" id="editBtn"
+                            <button type="button" class="btn" id="editBtn"
                                     th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or canEditAll)}"
-                                    th:text="${completedEdit} ? 'Edit (completed control)' : 'Edit'"
+                                    th:title="${completedEdit} ? 'Edit with a reason; the status stays Completed' : 'Edit the fields of this control'"
                                     th:attr="aria-describedby=${completedEdit} ? 'completedEditBanner' : null">
-                                Edit
+                                <i class="bi bi-pencil" aria-hidden="true"></i><span class="vc-btn-label"
+                                    th:text="${completedEdit} ? 'Edit (completed control)' : 'Edit'">Edit</span>
                             </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1843,7 +1825,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=4"></script>
 <script src="/js/multi-value.js?v=2"></script>
-<script src="/js/view-control.js?v=8.5"></script>
+<script src="/js/view-control.js?v=8.6"></script>
 <script src="/js/create-control.js?v=3"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
@@ -1885,18 +1867,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // FACILITATOR: Show "Submit to Control Operator" button
     if (canUseWorkflowActions && submitToOperatorBtn && isFacilitator && performanceStatus === 'IN_PROGRESS') {
-        submitToOperatorBtn.style.display = 'inline-block';
+        submitToOperatorBtn.style.display = '';
         console.log('   ? Submit to Control Operator button shown for Facilitator');
     }
 
     // CONTROL OPERATOR: Show "Submit to SoQM Team" and "Return to Facilitator" buttons
     if (canUseWorkflowActions && isControlOperator && performanceStatus === 'REVIEW') {
         if (submitToSoqmLeadBtn) {
-            submitToSoqmLeadBtn.style.display = 'inline-block';
+            submitToSoqmLeadBtn.style.display = '';
             console.log('   ? Submit to SoQM Team button shown for Control Operator');
         }
         if (returnToFacilitatorBtn) {
-            returnToFacilitatorBtn.style.display = 'inline-block';
+            returnToFacilitatorBtn.style.display = '';
             console.log('   ? Return to Facilitator button shown for Control Operator');
         }
     }
@@ -1904,7 +1886,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // SoQM Team: Show "Submit to Process Owner" and "Return to Operator" buttons
     if (canUseWorkflowActions && isSoqmLead && performanceStatus === 'SOQM_HEAD_REVIEW') {
         if (submitToProcessOwnerBtn) {
-            submitToProcessOwnerBtn.style.display = 'inline-block';
+            submitToProcessOwnerBtn.style.display = '';
             console.log('   ? Submit to Process Owner button shown for SoQM Team');
 
             // Keep buttons disabled until SoQM Head/Team Comments is filled
@@ -1915,11 +1897,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     submitToProcessOwnerBtn.disabled = !filled;
                     if (returnToOperatorBtn) returnToOperatorBtn.disabled = !filled;
                     // A disabled button says what it waits for
-                    submitToProcessOwnerBtn.title = filled ? 'Submit this control to Process Owner for review'
-                        : 'Fill SoQM Head/Team Comments to enable';
+                    submitToProcessOwnerBtn.title = filled ? 'Send to the Process Owner for review'
+                        : 'Add SoQM Head/Team Comments first';
                     if (returnToOperatorBtn) {
-                        returnToOperatorBtn.title = filled ? 'Return this control to Control Operator for revision'
-                            : 'Fill SoQM Head/Team Comments to enable';
+                        returnToOperatorBtn.title = filled ? 'Return to the Control Operator for rework'
+                            : 'Add SoQM Head/Team Comments first';
                     }
                 };
                 toggleBtns(); // set initial state based on existing value
@@ -1928,7 +1910,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         if (returnToOperatorBtn) {
-            returnToOperatorBtn.style.display = 'inline-block';
+            returnToOperatorBtn.style.display = '';
             console.log('   ? Return to Operator button shown for SoQM Team');
         }
     }
@@ -1936,11 +1918,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // PROCESS OWNER: Show "Complete" and "Return to Control Operator" buttons
     if (canUseWorkflowActions && isProcessOwner && performanceStatus === 'PROCESS_OWNER_REVIEW') {
         if (completeControlBtn) {
-            completeControlBtn.style.display = 'inline-block';
+            completeControlBtn.style.display = '';
             console.log('   ? Complete button shown for Process Owner');
         }
         if (ownerReturnToOperatorBtn) {
-            ownerReturnToOperatorBtn.style.display = 'inline-block';
+            ownerReturnToOperatorBtn.style.display = '';
         }
 
         // Keep buttons disabled until Process Owner Comments is filled
@@ -1952,11 +1934,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (ownerReturnToOperatorBtn) ownerReturnToOperatorBtn.disabled = !filled;
                 // A disabled button says what it waits for
                 if (completeControlBtn) {
-                    completeControlBtn.title = filled ? 'Complete this control' : 'Fill Process Owner Comments to enable';
+                    completeControlBtn.title = filled ? 'Approve and complete the control' : 'Add Process Owner Comments first';
                 }
                 if (ownerReturnToOperatorBtn) {
-                    ownerReturnToOperatorBtn.title = filled ? 'Return this control to the Control Operator for revision'
-                        : 'Fill Process Owner Comments to enable';
+                    ownerReturnToOperatorBtn.title = filled ? 'Return to the Control Operator for rework'
+                        : 'Add Process Owner Comments first';
                 }
             };
             togglePoBtns();
@@ -2064,7 +2046,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!btn.hasAttribute('data-original-title')) {
                         btn.setAttribute('data-original-title', btn.title);
                     }
-                    btn.title = 'Fill ' + label + ' to enable submission';
+                    btn.title = 'Add ' + label + ' first';
                     btn.style.cursor = 'not-allowed';
                     btn.style.opacity = '0.5';
                     btn.style.pointerEvents = 'none';
