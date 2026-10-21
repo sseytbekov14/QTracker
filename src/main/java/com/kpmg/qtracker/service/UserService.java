@@ -1,22 +1,31 @@
 package com.kpmg.qtracker.service;
 
+import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.enums.AccessRight;
 import com.kpmg.qtracker.enums.UserRole;
 import com.kpmg.qtracker.enums.Visibility;
+import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.util.EmailList;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +33,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final com.kpmg.qtracker.repository.DeletedUserRepository deletedUserRepository;
+    private final ControlAssignmentRepository assignmentRepository;
     /** The temporary password of new accounts (the Admin Panel and the user import of dev and test). */
     public static final String DEFAULT_NEW_USER_PASSWORD = "aaa";
     /** The display_name column length. */
@@ -141,14 +151,16 @@ public class UserService {
 
     /**
      * The Admin Panel save of one user. Every value is checked before anything changes, so a refused save
-     * changes nothing. A null e-mail or name keeps the stored one; the e-mail changes only before the first
-     * login. A blank role keeps the stored one; for the role User a blank Visibility or Access keeps the
+     * changes nothing. A null e-mail or name keeps the stored one; the e-mail changes also after the first login
+     * (2026-10-21), not one's own, and the person's places in the controls follow it ({@link #moveAssignments}).
+     * A blank role keeps the stored one; for the role User a blank Visibility or Access keeps the
      * stored one, or, for someone becoming User, starts at My controls and Read Only. Every combination of
      * Visibility and Access is allowed. Refused: changing one's own role or deactivating oneself, and taking
      * the role or the account of the last active SoQM Team member (nobody could open the Admin Panel then).
      * The stored level, scope and admin_access follow the role ({@link AccessPolicy.Profile}); the old role
      * columns are not touched.
      */
+    @Transactional
     public User updateUser(Long targetUserId,
                            String email,
                            String displayName,
@@ -165,8 +177,9 @@ public class UserService {
             String normalizedEmail = normalizeEmail(email);
             String currentEmail = targetUser.getMail() == null ? "" : targetUser.getMail().trim().toLowerCase(Locale.ROOT);
             if (!normalizedEmail.equals(currentEmail)) {
-                if (targetUser.getLastLoginAt() != null) {
-                    throw new IllegalArgumentException("Email can be changed only before the first login");
+                // The session of the one who saves is known by the address: their own would end at once
+                if (actingUserId != null && actingUserId.equals(targetUser.getId())) {
+                    throw new IllegalArgumentException(OWN_EMAIL);
                 }
                 if (userRepository.existsByMail(normalizedEmail)) {
                     throw new IllegalArgumentException("User with this email already exists");
@@ -208,13 +221,76 @@ public class UserService {
             throw new IllegalArgumentException(LAST_SOQM_DEACTIVATE);
         }
 
+        String previousMail = targetUser.getMail();
         targetUser.setMail(nextMail);
         targetUser.setDisplayName(nextName);
         apply(targetUser, next);
         targetUser.setEnabled(nextEnabled);
-        return userRepository.save(targetUser);
+        User saved = userRepository.save(targetUser);
+        if (!Objects.equals(previousMail, nextMail)) {
+            moveAssignments(previousMail, nextMail);
+        }
+        return saved;
     }
 
+    /**
+     * A changed e-mail takes the person's places in the controls with it (2026-10-21): the four people fields and
+     * Control Shared With hold addresses, so the old one would leave the controls with nobody the person is. What
+     * records the past - workflow history and steps, the audit trail, the letters, who uploaded a file, the
+     * creator's e-mail kept as text - stays as it was. Returns how many controls changed.
+     */
+    int moveAssignments(String from, String to) {
+        if (from == null || from.isBlank() || to == null || to.isBlank()) {
+            return 0;
+        }
+        Set<Long> candidates = new TreeSet<>();
+        candidates.addAll(assignmentRepository.findControlIdsByFacilitator(from));
+        candidates.addAll(assignmentRepository.findControlIdsByControlOperator(from));
+        candidates.addAll(assignmentRepository.findControlIdsBySoqmLead(from));
+        candidates.addAll(assignmentRepository.findControlIdsByProcessOwner(from));
+        candidates.addAll(assignmentRepository.findControlIdsByControlSharedWith(from));
+        int changed = 0;
+        for (Long controlId : candidates) {
+            ControlAssignment assignment = assignmentRepository.findByControlId(controlId).orElse(null);
+            if (assignment == null) {
+                continue;
+            }
+            boolean moved = false;
+            String facilitator = replaced(assignment.getFacilitator(), from, to);
+            String operator = replaced(assignment.getControlOperator(), from, to);
+            String soqm = replaced(assignment.getSoqmLead(), from, to);
+            String owner = replaced(assignment.getProcessOwner(), from, to);
+            String shared = replaced(assignment.getControlSharedWith(), from, to);
+            if (facilitator != null) { assignment.setFacilitator(facilitator); moved = true; }
+            if (operator != null) { assignment.setControlOperator(operator); moved = true; }
+            if (soqm != null) { assignment.setSoqmLead(soqm); moved = true; }
+            if (owner != null) { assignment.setProcessOwner(owner); moved = true; }
+            if (shared != null) { assignment.setControlSharedWith(shared); moved = true; }
+            if (moved) {
+                assignmentRepository.save(assignment);
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    /** The stored list with {@code from} (ignoring case) given as {@code to}, or null when it is not in the list. */
+    private static String replaced(String stored, String from, String to) {
+        if (!EmailList.contains(stored, from)) {
+            return null;
+        }
+        List<String> out = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (String mail : EmailList.parse(stored)) {
+            String next = mail.equalsIgnoreCase(from.trim()) ? to : mail;
+            if (seen.add(next.toLowerCase(Locale.ROOT))) {
+                out.add(next);
+            }
+        }
+        return String.join(",", out);
+    }
+
+    static final String OWN_EMAIL = "You cannot change your own e-mail: ask another admin";
     static final String LAST_SOQM_ROLE =
             "This is the last active SoQM Admin Team member: their role cannot change until someone else is SoQM Admin Team";
     static final String LAST_SOQM_DEACTIVATE =

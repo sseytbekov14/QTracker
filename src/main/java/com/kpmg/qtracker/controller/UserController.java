@@ -53,7 +53,7 @@ public class UserController {
 
     /**
      * The Admin Panel save of one user, in one request: the role (with Visibility and Access for a User),
-     * the status and, when sent, the name and the e-mail (the e-mail only before the first login). Nothing
+     * the status and, when sent, the name and the e-mail (not one's own; the person's controls follow it). Nothing
      * changes when a value is refused ({@link UserService#updateUser}). A save that changes something writes
      * one USER_ACCESS_UPDATE entry with the changed fields before and after; the answer carries the user and
      * that entry for the page.

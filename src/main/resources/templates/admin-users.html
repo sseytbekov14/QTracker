@@ -1269,7 +1269,8 @@ document.addEventListener('DOMContentLoaded', function() {
             user: user,
             self: user.self,
             lastSoqm: !create && user.role === 'SOQM_TEAM' && user.enabled && activeSoqmCount() <= 1,
-            emailEditable: create || !user.lastLogin,
+            // Also after the first sign-in (2026-10-21); not one's own, the server refuses that too
+            emailEditable: create || !user.self,
             saving: false,
             asking: false,
             closing: false
@@ -1296,8 +1297,9 @@ document.addEventListener('DOMContentLoaded', function() {
         emailHint.textContent = create
             ? (SSO ? 'Corporate e-mail: the user signs in with it at Microsoft (no password is set).'
                 : 'The user signs in with this address.')
-            : dialog.emailEditable ? 'Can be changed until the first sign-in.'
-            : 'Cannot be changed: the user has already signed in.';
+            : !dialog.emailEditable ? 'You cannot change your own e-mail.'
+            : (SSO ? 'Corporate e-mail: the user signs in with it at Microsoft.' : 'The user signs in with this address.')
+                + ' A new address also moves the user’s controls to it.';
 
         // What cannot be chosen is disabled, with the reason next to it
         const roleLocked = dialog.self;
