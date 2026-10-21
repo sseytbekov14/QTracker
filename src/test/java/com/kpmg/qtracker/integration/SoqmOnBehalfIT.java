@@ -137,7 +137,7 @@ class SoqmOnBehalfIT {
         // no copy to the Facilitator (NOTIFICATIONS_v5, rule 11)
         assertThat(notices(control, operator)).singleElement().satisfies(notice -> {
             assertThat(notice.getTitle()).isEqualTo("Control Operator Review");
-            assertThat(notice.getMessage()).startsWith("Dear Control Operator,").doesNotContainIgnoringCase("behalf");
+            assertThat(notice.getMessage()).startsWith("Dear " + operator.getDisplayName() + ",").doesNotContainIgnoringCase("behalf");
         });
         assertThat(notices(control, facilitator)).isEmpty();
         assertThat(noticesOfType(control, operator, "ON_BEHALF")).isEmpty();
@@ -185,7 +185,7 @@ class SoqmOnBehalfIT {
 
         // The Facilitator gets the return (T7, returned by the role of the step: Process Owner), nobody a copy
         assertThat(noticesOfType(control, facilitator, "RETURN_TO_FACILITATOR")).singleElement().satisfies(notice ->
-                assertThat(notice.getMessage()).contains("has been reviewed by the Process Owner and requires some adjustments")
+                assertThat(notice.getMessage()).contains("has been returned to you by the Process Owner for rework.")
                         .contains("Return Comment:\nThe March evidence is missing"));
         assertThat(notices(control, owner)).isEmpty();
         assertThat(notices(control, operator)).isEmpty();

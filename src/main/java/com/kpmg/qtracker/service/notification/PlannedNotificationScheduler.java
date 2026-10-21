@@ -117,7 +117,7 @@ public class PlannedNotificationScheduler {
             queued += notifications.send(control, assignment, new ControlNotifications.Notice(Template.T2,
                     List.of(WorkflowTransition.Actor.FACILITATOR, WorkflowTransition.Actor.CONTROL_OPERATOR,
                             WorkflowTransition.Actor.PROCESS_OWNER),
-                    null, null, email -> key + "T2:D0:" + email, null), message -> warn(today, message));
+                    null, email -> key + "T2:D0:" + email, null), message -> warn(today, message));
         }
         WorkflowTransition.Actor holder = holder(control.getPerformanceStatus());
         if (holder == null) {
@@ -139,7 +139,7 @@ public class PlannedNotificationScheduler {
 
     private static ControlNotifications.Notice toHolder(Template template, WorkflowTransition.Actor holder,
                                                         java.util.function.Function<String, String> key) {
-        return new ControlNotifications.Notice(template, List.of(holder), ControlNotifications.roleName(holder), null,
+        return new ControlNotifications.Notice(template, List.of(holder), null,
                 key, null);
     }
 

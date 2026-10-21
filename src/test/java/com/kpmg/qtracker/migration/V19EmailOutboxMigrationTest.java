@@ -1,6 +1,6 @@
 package com.kpmg.qtracker.migration;
 
-import com.kpmg.qtracker.service.notification.Template;
+import db.migration.V20__Notification_templates;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,11 +50,11 @@ class V19EmailOutboxMigrationTest {
         flyway("20").migrate();
 
         assertThat(single("SELECT COUNT(*) FROM notification_template")).isEqualTo("12");
-        for (Template template : Template.values()) {
-            assertThat(single("SELECT subject FROM notification_template WHERE template_key = '" + template.name() + "'"))
-                    .isEqualTo(template.defaultSubject());
-            assertThat(single("SELECT body FROM notification_template WHERE template_key = '" + template.name() + "'"))
-                    .isEqualTo(template.defaultBody());
+        for (java.util.Map.Entry<String, String[]> text : V20__Notification_templates.TEXTS.entrySet()) {
+            assertThat(single("SELECT subject FROM notification_template WHERE template_key = '" + text.getKey() + "'"))
+                    .isEqualTo(text.getValue()[0]);
+            assertThat(single("SELECT body FROM notification_template WHERE template_key = '" + text.getKey() + "'"))
+                    .isEqualTo(text.getValue()[1]);
         }
         execute("INSERT INTO email_outbox (control_id, template_key, recipient_email, subject, body_html, dedupe_key,"
                 + " status, created_at) VALUES (1, 'T3', 'a@x', 's', 'b', '1:T3:D3:a@x', 'PENDING', CURRENT_TIMESTAMP)");

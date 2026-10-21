@@ -114,7 +114,6 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
         return new TransactionTemplate(transactionManager).execute(status -> {
             ControlAssignmentDTO assignment = assignments.getAssignmentByControlId(control.getId());
             Map<String, String> placeholders = values.of(control, assignment);
-            placeholders.put("ROLE", "Facilitator");
             return producer.produce(control, template, placeholders,
                     recipients.forControl(control.getControlId()).add("Facilitator", addresses).people(),
                     email -> control.getId() + ":" + template + ":" + keyLabel + ":" + email, null);
@@ -157,7 +156,7 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
             assertThat(row.getTemplateKey()).isEqualTo("T3");
             assertThat(row.getImportance()).isEqualTo("NORMAL");
             assertThat(row.getSubject()).isEqualTo("Control Reminder");
-            assertThat(row.getBodyHtml()).contains("Dear Facilitator,", control.getControlId(),
+            assertThat(row.getBodyHtml()).contains("Dear " + fac.getDisplayName() + ",", control.getControlId(),
                     "/view-control/" + control.getId() + "\" style=");
         });
         List<Notification> notices = notificationRepository.findByControlIdOrderByCreatedAtDesc(control.getId());
@@ -165,7 +164,7 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
         assertThat(notices).allSatisfy(notice -> {
             assertThat(notice.getTitle()).isEqualTo("Control Reminder");
             assertThat(notice.getType()).isEqualTo("REMINDER");
-            assertThat(notice.getMessage()).startsWith("Dear Facilitator,").contains("Kind regards,\nSoQM Team");
+            assertThat(notice.getMessage()).startsWith("Dear " + fac.getDisplayName() + ",").contains("Kind regards,\nSoQM Team");
         });
 
         // The same key again (another run, another instance): nothing new, no second in-app notification
@@ -263,7 +262,6 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
 
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             Map<String, String> placeholders = values.of(control, assignments.getAssignmentByControlId(control.getId()));
-            placeholders.put("ROLE", "Facilitator");
             producer.produce(control, Template.T3, placeholders,
                     recipients.forControl(control.getControlId()).add("Facilitator", List.of(fac.getMail())).people(),
                     email -> control.getId() + ":T3:D3:" + email, null);

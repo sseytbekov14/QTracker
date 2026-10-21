@@ -47,7 +47,7 @@ public class WorkflowNotifications {
     /** The control became In Progress: T1. */
     public int initiated(Control control, ControlAssignmentDTO assignment) {
         return notifications.send(control, assignment, new ControlNotifications.Notice(Template.T1,
-                List.of(FACILITATOR, CONTROL_OPERATOR, PROCESS_OWNER), null, null,
+                List.of(FACILITATOR, CONTROL_OPERATOR, PROCESS_OWNER), null,
                 email -> control.getId() + ":T1:" + email, null), WorkflowNotifications::warn);
     }
 
@@ -64,7 +64,7 @@ public class WorkflowNotifications {
         }
         String note = returnComment == null || returnComment.isBlank() ? null : "Return Comment:\n" + returnComment.trim();
         return notifications.send(control, assignment, new ControlNotifications.Notice(event.template(), event.roles(),
-                null, event.returnedBy(), email -> control.getId() + ":" + event.template() + ":" + email + ":" + historyId,
+                event.returnedBy(), email -> control.getId() + ":" + event.template() + ":" + email + ":" + historyId,
                 note), WorkflowNotifications::warn);
     }
 

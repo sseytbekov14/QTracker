@@ -52,7 +52,8 @@ class ReleaseScenarioEmailTest {
         values.put("OCCURRENCE_DATE", "05-11-2026");
         values.put("DEADLINE", "19-11-2026");
         values.put("LINK", link);
-        values.put("ROLE", "Facilitator");
+        values.put("NAME", "Anna");
+        values.put("ROLES", "Facilitator");
         return values;
     }
 

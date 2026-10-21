@@ -24,7 +24,6 @@ public class NotificationValues {
     public static final String CONTROL_NAME = "CONTROL_NAME";
     public static final String OCCURRENCE_DATE = "OCCURRENCE_DATE";
     public static final String DEADLINE = "DEADLINE";
-    public static final String ROLE = "ROLE";
     public static final String RETURNED_BY = "RETURNED_BY";
     /** The person's name in "Dear {NAME},", set for each person by NotificationProducer. */
     public static final String NAME = "NAME";

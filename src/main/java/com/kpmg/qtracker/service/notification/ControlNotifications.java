@@ -12,8 +12,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * One notification of a control to the people of some of its roles: the values of the control, {ROLE} and
- * {RETURNED_BY} when given, the people of the fields (NotificationRecipients), then NotificationProducer.
+ * One notification of a control to the people of some of its roles: the values of the control,
+ * {RETURNED_BY} when given, the people of the fields (NotificationRecipients, each with their name), then NotificationProducer.
  */
 @Component
 public class ControlNotifications {
@@ -28,8 +28,8 @@ public class ControlNotifications {
         this.producer = producer;
     }
 
-    /** What to send: the template, to the people of which roles, the values of the text, the key of each e-mail. */
-    public record Notice(Template template, List<WorkflowTransition.Actor> roles, String role, String returnedBy,
+    /** What to send: the template, to the people of which roles, {RETURNED_BY}, the key of each e-mail. */
+    public record Notice(Template template, List<WorkflowTransition.Actor> roles, String returnedBy,
                          Function<String, String> dedupeKey, String inAppNote) {
     }
 
@@ -49,9 +49,6 @@ public class ControlNotifications {
         }
         people.warnings().forEach(warn);
         Map<String, String> placeholders = values.of(control, assignment);
-        if (notice.role() != null) {
-            placeholders.put(NotificationValues.ROLE, notice.role());
-        }
         if (notice.returnedBy() != null) {
             placeholders.put(NotificationValues.RETURNED_BY, notice.returnedBy());
         }

@@ -60,13 +60,10 @@ public class TemplateRenderer {
         if (!missing.isEmpty()) {
             return new Result(null, "no value for " + String.join(", ", missing) + " in " + template.name(), subject);
         }
-        String html = html(body, values);
-        if (!PLACEHOLDER_LINK.matcher(body).find() && values.get(LINK) != null) {
-            html = withButton(html, values.get(LINK));
-        }
         return new Result(new Rendered(substitute(subject, values, false).replaceAll("\\s+", " ").trim(),
                 text(body, values),
-                "<div style=\"font-family:Arial,sans-serif;font-size:14px;color:#222222\">" + html + "</div>"), null, subject);
+                "<div style=\"font-family:Arial,sans-serif;font-size:14px;color:#222222\">" + html(body, values) + "</div>"),
+                null, subject);
     }
 
     private static Set<String> missing(String text, Map<String, String> values) {
@@ -156,33 +153,5 @@ public class TemplateRenderer {
                 + "<a href=\"" + href + "\" style=\"display:inline-block;padding:10px 22px;font-family:Arial,sans-serif;"
                 + "font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none\">" + BUTTON_LABEL + "</a>"
                 + "</td></tr></table>\n";
-    }
-
-    /** A text without {LINK}: the button before "Thank you" / "Kind regards", at the end without them. */
-    private static String withButton(String html, String link) {
-        int closing = closingWordsAt(html);
-        String before = closing < 0 ? html : html.substring(0, closing);
-        String after = closing < 0 ? "" : html.substring(closing);
-        return stripTrailingBreaks(before) + button(link) + after;
-    }
-
-    private static int closingWordsAt(String html) {
-        int at = 0;
-        for (String line : html.split("\n", -1)) {
-            String start = line.strip();
-            if (start.startsWith("Thank you") || start.startsWith("Kind regards")) {
-                return at;
-            }
-            at += line.length() + 1;
-        }
-        return -1;
-    }
-
-    private static String stripTrailingBreaks(String html) {
-        String out = html.stripTrailing();
-        while (out.endsWith("<br>")) {
-            out = out.substring(0, out.length() - 4).stripTrailing();
-        }
-        return out;
     }
 }

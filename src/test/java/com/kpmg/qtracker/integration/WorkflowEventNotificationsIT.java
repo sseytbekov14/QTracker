@@ -72,11 +72,14 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
     }
 
     /** The text the template gives for this control, as the role itself would get it. */
-    String expectedHtml(Control control, Template template, String returnedBy) {
+    /** The text the template gives for this control and this person, as the role itself would get it. */
+    String expectedHtml(Control control, Template template, String returnedBy, User person) {
         Map<String, String> placeholders = values.of(reload(control), assignments.getAssignmentByControlId(control.getId()));
         if (returnedBy != null) {
             placeholders.put(NotificationValues.RETURNED_BY, returnedBy);
         }
+        placeholders.put(NotificationValues.NAME, person.getDisplayName());
+        placeholders.put(NotificationValues.ROLES, "-");
         return renderer.render(template, placeholders).rendered().html();
     }
 
@@ -120,16 +123,22 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
         List<EmailOutbox> mails = mails(control);
         assertThat(mails).extracting(EmailOutbox::getRecipientEmail)
                 .containsExactlyInAnyOrderElementsOf(expected.stream().map(User::getMail).toList());
-        String html = expectedHtml(control, Template.valueOf(template), returnedBy);
-        assertThat(mails).allSatisfy(mail -> {
+        // Each person's own e-mail: "Dear <their name>,", the rest as the role itself gets it
+        for (User person : expected) {
+            EmailOutbox mail = mails.stream().filter(m -> m.getRecipientEmail().equals(person.getMail())).findFirst().orElseThrow();
+            String html = expectedHtml(control, Template.valueOf(template), returnedBy, person);
             assertThat(mail.getTemplateKey()).isEqualTo(template);
             assertThat(mail.getSubject()).isEqualTo(Template.valueOf(template).defaultSubject());
-            assertThat(mail.getBodyHtml()).isEqualTo(html).doesNotContainIgnoringCase("behalf")
-                    .doesNotContain("Comment of the move");
+            assertThat(mail.getBodyHtml()).isEqualTo(html).contains("Dear " + person.getDisplayName() + ",<br>")
+                    .doesNotContainIgnoringCase("behalf").doesNotContain("Comment of the move");
             assertThat(mail.getImportance()).isEqualTo("NORMAL");
-        });
-        if (returnedBy != null) {
-            assertThat(html).contains("has been reviewed by the " + returnedBy + " and requires some adjustments.");
+            if (returnedBy != null) {
+                assertThat(html).contains("has been returned to you by the " + returnedBy + " for rework.");
+            }
+            assertThat(notificationRepository.findByControlIdOrderByCreatedAtDesc(control.getId()))
+                    .filteredOn(notice -> notice.getUserId().equals(person.getId())).singleElement()
+                    .satisfies(notice -> assertThat(notice.getMessage()).startsWith("Dear " + person.getDisplayName() + ",\n")
+                            .doesNotContain("http").doesNotContainIgnoringCase("link"));
         }
         // In-app: the same subject and text, the comment of a return under it; nothing ON_BEHALF to anyone
         List<Notification> notices = notificationRepository.findByControlIdOrderByCreatedAtDesc(control.getId());
@@ -170,8 +179,14 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
 
         assertThat(sent(control)).containsExactlyInAnyOrder(line("T1", cast.fac, LocalDate.of(2026, 11, 2)),
                 line("T1", cast.op, LocalDate.of(2026, 11, 2)), line("T1", cast.po, LocalDate.of(2026, 11, 2)));
-        assertThat(mails(control).get(0).getBodyHtml()).contains("The occurrence date is 05-11-2026",
-                "before the deadline 19-11-2026", "https://qtracker.example.test/view-control/" + control.getId());
+        // Each of the three with their own name and role
+        for (User person : List.of(cast.fac, cast.op, cast.po)) {
+            String role = person == cast.fac ? "Facilitator" : person == cast.op ? "Control Operator" : "Process Owner";
+            assertThat(mails(control)).filteredOn(m -> m.getRecipientEmail().equals(person.getMail())).singleElement()
+                    .satisfies(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + person.getDisplayName() + ",<br>",
+                            "Your role: " + role + "<br>", "Occurrence date: 05-11-2026<br>", "Deadline: 19-11-2026<br>",
+                            "href=\"https://qtracker.example.test/view-control/" + control.getId() + "\""));
+        }
     }
 
     @Test

@@ -71,7 +71,7 @@ class PlannedNotificationsIT extends NotificationScenarioSupport {
             assertThat(mail.getCreatedAt().toLocalTime()).isEqualTo(java.time.LocalTime.of(9, 30));
         });
         assertThat(mails(control)).filteredOn(m -> m.getTemplateKey().equals("T3")).allSatisfy(mail ->
-                assertThat(mail.getBodyHtml()).startsWith("<div").contains("Dear Facilitator,"));
+                assertThat(mail.getBodyHtml()).startsWith("<div").contains("Dear " + cast.fac.getDisplayName() + ",<br>"));
     }
 
     @Test
@@ -90,9 +90,9 @@ class PlannedNotificationsIT extends NotificationScenarioSupport {
         // SoQM review: the occurrence day goes to everyone, no reminder to anybody (AC-5)
         assertThat(sent(atSoqm)).containsExactlyElementsOf(calendar(soqmReview, soqmReview.soqm).subList(0, 3));
         assertThat(mails(atOperator)).filteredOn(m -> m.getTemplateKey().equals("T5"))
-                .allSatisfy(mail -> assertThat(mail.getBodyHtml()).contains("Dear Control Operator,"));
+                .allSatisfy(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + review.op.getDisplayName() + ",<br>"));
         assertThat(mails(atOwner)).filteredOn(m -> m.getTemplateKey().equals("T4"))
-                .allSatisfy(mail -> assertThat(mail.getBodyHtml()).contains("Dear Process Owner,"));
+                .allSatisfy(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + ownerReview.po.getDisplayName() + ",<br>"));
     }
 
     @Test

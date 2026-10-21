@@ -35,7 +35,9 @@ Mapped to real modules and classes:
   - `WorkflowServiceImpl`, `WorkflowRequiredFieldService`
 - Role-based authorization and permission checks
   - `SecurityConfig`, `ControlPermissionService`, `PermissionService`, `ControlScope`
-- Notifications (in-app and email, NOTIFICATIONS_v5: texts T1-T12 in table `notification_template`)
+- Notifications (in-app and email, NOTIFICATIONS_v5: texts T1-T12 in table `notification_template`, the shorter
+  texts of 2026-10-20 since V21: "Dear {NAME}," with the person's name, {LINK} on a line of its own - "Go to Control"
+  in the e-mail, left out in-app)
   - `service/notification`: `WorkflowNotifications` (Initiate, Create Control, every workflow move),
     `PlannedNotificationScheduler` (occurrence day, reminders, deadline, overdue), `NotificationProducer`
     (in-app notification + e-mail in the outbox `email_outbox`), `EmailOutboxDispatcher` (sends, retries),

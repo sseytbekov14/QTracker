@@ -99,8 +99,8 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
         assertThat(reminder.getRecipientEmail()).isEqualTo(cast.fac.getMail());
         assertThat(reminder.getCreatedAt()).isEqualTo(LocalDate.of(2026, 11, 10).atTime(LocalTime.of(9, 30)));
         assertThat(reminder.getSubject()).isEqualTo("Control Reminder");
-        assertThat(reminder.getBodyHtml()).contains("Dear Facilitator,", "is pending your action",
-                "The deadline of the control is 19-11-2026.");
+        assertThat(reminder.getBodyHtml()).contains("Dear " + cast.fac.getDisplayName() + ",<br>", "is awaiting your action",
+                "Deadline: 19-11-2026<br>", ">Go to Control</a>");
     }
 
     @Test
@@ -173,7 +173,7 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
                 line("T4", cast.op, DEADLINE),
                 line("T5", cast.op, LocalDate.of(2026, 11, 20)));
         assertThat(inApp(control, cast.op)).anySatisfy(notice -> assertThat(notice.getMessage())
-                .contains("has been reviewed by the Process Owner and requires some adjustments")
+                .contains("has been returned to you by the Process Owner for rework.")
                 .endsWith("Return Comment:\nThe March evidence is missing"));
     }
 
@@ -191,6 +191,11 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
         assertThat(sent(control)).containsExactlyInAnyOrder(line("T1", both, LocalDate.of(2026, 11, 2)),
                 line("T1", owner, LocalDate.of(2026, 11, 2)));
         assertThat(inApp(control, both)).hasSize(1);
+        // One name, both roles
+        assertThat(mails(control)).filteredOn(m -> m.getRecipientEmail().equals(both.getMail())).singleElement()
+                .satisfies(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + both.getDisplayName() + ",<br>",
+                        "Your role: Facilitator and Control Operator<br>"));
+        assertThat(inApp(control, both).get(0).getMessage()).contains("Your role: Facilitator and Control Operator\n");
     }
 
     @Test
@@ -205,9 +210,11 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
         assertThat(sent(control)).containsExactlyInAnyOrder(
                 line("T12", cast.fac, LocalDate.of(2026, 11, 12)), line("T12", cast.op, LocalDate.of(2026, 11, 12)),
                 line("T12", cast.soqm, LocalDate.of(2026, 11, 12)), line("T12", cast.po, LocalDate.of(2026, 11, 12)));
-        assertThat(mails(control).get(0).getBodyHtml())
-                .contains("Dear Facilitator, Control Operator, SoQM Admin Team and Process Owner,",
-                        "has been successfully completed in the system.", "Go to Control");
+        for (User person : List.of(cast.fac, cast.op, cast.soqm, cast.po)) {
+            assertThat(mails(control)).filteredOn(m -> m.getRecipientEmail().equals(person.getMail())).singleElement()
+                    .satisfies(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + person.getDisplayName() + ",<br>",
+                            "has been completed.", ">Go to Control</a>"));
+        }
     }
 
     @Test
@@ -223,7 +230,8 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
             assertThat(mail.getRecipientEmail()).isEqualTo(cast.fac.getMail());
             assertThat(mail.getImportance()).isEqualTo("HIGH");
             assertThat(mail.getSubject()).isEqualTo("Control Deadline Today");
-            assertThat(mail.getBodyHtml()).contains("the deadline for the following control is today, 19-11-2026:");
+            assertThat(mail.getBodyHtml()).contains("Dear " + cast.fac.getDisplayName() + ",<br>", " is today (19-11-2026).",
+                    "Please complete it by the end of the day.");
         });
     }
 }
