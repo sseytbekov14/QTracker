@@ -3,6 +3,9 @@
 // of 2026-10-15) and gone in edit mode with the bar; the confirmation shows what the new control gets
 // (GET /api/controls/{id}/next-cycle), its Control ID editable, and Create makes it (POST, the server checks again).
 // After it is made the page opens the new control, which says "Created from <ID>".
+// A next cycle already there does not stop it (business decision of 2026-10-21): the confirmation opens as always and
+// says so; a Control ID that is already a control's is named under the field as it is typed (GET .../id-check), and
+// Create waits for another one.
 (function () {
     const button = document.getElementById('createControlBtn');
     const modalEl = document.getElementById('createControlModal');
@@ -14,8 +17,14 @@
     const el = id => document.getElementById(id);
     const createBtn = el('ccCreateBtn');
     const idInput = el('ccControlId');
+    const CHECK_DELAY_MS = 300;
     let problems = [];
     let busy = false;
+    // The ID in the field is a control's already (Create waits), or is being checked
+    let taken = false;
+    let checking = false;
+    let checkTimer = null;
+    let checkSeq = 0;
 
     function show(id, visible) {
         el(id).hidden = !visible;
@@ -33,11 +42,15 @@
 
     function reset() {
         problems = [];
+        clearTimeout(checkTimer);
+        checkSeq++;
+        checking = false;
+        setTaken(null);
         show('ccLoading', true);
         show('ccError', false);
-        show('ccExisting', false);
         show('ccContent', false);
         show('ccProblems', false);
+        showExistingNext(null);
         createBtn.hidden = false;
         createBtn.disabled = true;
         createBtn.textContent = 'Create Control';
@@ -49,20 +62,38 @@
         show('ccError', true);
     }
 
-    function showExisting(data) {
-        show('ccLoading', false);
-        show('ccContent', false);
-        el('ccExistingText').textContent = data.message || 'The next control already exists.';
-        const link = el('ccExistingLink');
-        if (data.existing && data.existing.url) {
-            link.href = data.existing.url;
-            link.textContent = 'Open ' + data.existing.controlId;
-            link.hidden = false;
-        } else {
-            link.hidden = true;
+    // The next cycle already made (the note) and the control whose ID is in the field (the red hint)
+    let existingNext = null;
+    let takenControl = null;
+
+    /** The control that already has the ID in the field (null: none); the hint under the field says so. */
+    function setTaken(existing) {
+        takenControl = existing || null;
+        taken = !!existing;
+        idInput.classList.toggle('is-invalid', taken);
+        idInput.setAttribute('aria-invalid', taken ? 'true' : 'false');
+        if (existing) {
+            el('ccIdTakenId').textContent = existing.controlId;
+            el('ccIdTakenLink').href = existing.url;
         }
-        show('ccExisting', true);
-        createBtn.hidden = true;
+        show('ccIdTaken', taken);
+        refreshNote();
+        updateCreate();
+    }
+
+    function showExistingNext(existing) {
+        existingNext = existing || null;
+        if (existing) {
+            const link = el('ccExistingNextLink');
+            link.textContent = existing.controlId;
+            link.href = existing.url;
+        }
+        refreshNote();
+    }
+
+    /** The note, unless the red hint already names the same control. */
+    function refreshNote() {
+        show('ccExistingNext', !!existingNext && !(takenControl && takenControl.id === existingNext.id));
     }
 
     function showProblems(title, items) {
@@ -76,7 +107,7 @@
     }
 
     function updateCreate() {
-        createBtn.disabled = busy || problems.length > 0 || idInput.value.trim() === '';
+        createBtn.disabled = busy || checking || taken || problems.length > 0 || idInput.value.trim() === '';
     }
 
     async function readBody(response) {
@@ -92,6 +123,38 @@
             return 'Your session has expired. Reload the page and sign in again.';
         }
         return data && data.message ? data.message : 'The server answered ' + response.status + '.';
+    }
+
+    /** Whether the ID in the field is already a control's: asked a moment after the last key, the latest answer counts. */
+    function checkId() {
+        clearTimeout(checkTimer);
+        const typed = idInput.value.trim();
+        const seq = ++checkSeq;
+        if (typed === '') {
+            checking = false;
+            setTaken(null);
+            return;
+        }
+        checking = true;
+        updateCreate();
+        checkTimer = setTimeout(async () => {
+            try {
+                const response = await fetch(url + '/id-check?controlId=' + encodeURIComponent(typed),
+                    {headers: {'Accept': 'application/json'}, credentials: 'same-origin'});
+                const data = await readBody(response);
+                if (seq !== checkSeq) {
+                    return;
+                }
+                checking = false;
+                setTaken(response.ok && data.taken ? data.existing : null);
+            } catch (e) {
+                if (seq === checkSeq) {
+                    // The server checks again on Create
+                    checking = false;
+                    setTaken(null);
+                }
+            }
+        }, CHECK_DELAY_MS);
     }
 
     function fill(plan) {
@@ -124,6 +187,8 @@
         fillList('ccLeftOutList', plan.sharedWithLeftOut);
         show('ccLeftOut', (plan.sharedWithLeftOut || []).length > 0);
         fillList('ccNotCopied', plan.notCopied);
+        showExistingNext(plan.existingNext);
+        setTaken(plan.proposedTaken);
         show('ccLoading', false);
         show('ccContent', true);
         showProblems(null, plan.problems);
@@ -141,8 +206,6 @@
         const data = await readBody(response);
         if (response.ok) {
             fill(data);
-        } else if (response.status === 409) {
-            showExisting(data);
         } else {
             showError(sessionMessage(response, data));
         }
@@ -178,8 +241,10 @@
         }
         busy = false;
         createBtn.textContent = 'Create Control';
-        if (response.status === 409 && data.existing && /already exists/.test(data.message || '')) {
-            showExisting(data);
+        // The ID was taken meanwhile (someone else, or a second click): the hint under the field, the form stays
+        if (response.status === 409 && data.existing) {
+            setTaken(data.existing);
+            idInput.focus();
             return;
         }
         if (data.problems && data.problems.length) {
@@ -191,7 +256,7 @@
         show('ccError', true);
     }
 
-    idInput.addEventListener('input', updateCreate);
+    idInput.addEventListener('input', checkId);
     idInput.addEventListener('keydown', event => {
         if (event.key === 'Enter' && !createBtn.disabled) {
             event.preventDefault();

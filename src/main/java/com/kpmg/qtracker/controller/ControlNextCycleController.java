@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
@@ -60,10 +61,43 @@ public class ControlNextCycleController {
             return refused;
         }
         try {
-            return ResponseEntity.ok(describe(controlCycleService.previewNextCycle(id)));
+            NextCyclePlan plan = controlCycleService.previewNextCycle(id);
+            Map<String, Object> out = describe(plan);
+            // Notes, not refusals (business decision of 2026-10-21): the next cycle already made, the proposed ID taken
+            out.put("existingNext", controlCycleService.existingNextCycle(plan).map(ControlNextCycleController::link)
+                    .orElse(null));
+            out.put("proposedTaken", controlCycleService.controlWithId(plan.proposedControlId())
+                    .map(ControlNextCycleController::link).orElse(null));
+            return ResponseEntity.ok(out);
         } catch (NextCycleRefused e) {
             return answer(e);
         }
+    }
+
+    /**
+     * Whether a Control ID typed in the confirmation is already taken (ignoring case and surrounding spaces), for the
+     * hint under the field: {taken, existing}. SoQM Admin Team only, as the rest of Create Control.
+     */
+    @GetMapping("/id-check")
+    public ResponseEntity<?> idCheck(@PathVariable Long id, @RequestParam(required = false) String controlId,
+                                     HttpSession session) {
+        ResponseEntity<?> refused = refusedFor(id, (User) session.getAttribute("currentUser"));
+        if (refused != null) {
+            return refused;
+        }
+        Optional<Control> taken = controlCycleService.controlWithId(controlId);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("taken", taken.isPresent());
+        out.put("existing", taken.map(ControlNextCycleController::link).orElse(null));
+        return ResponseEntity.ok(out);
+    }
+
+    private static Map<String, Object> link(Control control) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("id", control.getId());
+        out.put("controlId", control.getControlId());
+        out.put("url", "/view-control/" + control.getId());
+        return out;
     }
 
     @PostMapping
@@ -89,7 +123,7 @@ public class ControlNextCycleController {
         } catch (DataIntegrityViolationException e) {
             // Another request took the same Control ID at the same moment (the unique key of control_id)
             return ResponseEntity.status(HttpStatus.CONFLICT).body(error(
-                    "Control ID " + (controlId == null ? "" : controlId.trim()) + " is already used. Enter another Control ID.",
+                    "Control ID " + (controlId == null ? "" : controlId.trim()) + " already exists. Enter another Control ID.",
                     List.of(), null));
         }
     }

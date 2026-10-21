@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Create Control: the next cycle of a Monthly or Quarterly control, made by hand from View Control by SoQM Admin Team
@@ -128,44 +129,48 @@ public class ControlCycleService {
 
     /**
      * The preview of Create Control for its confirmation, nothing saved: 400 when the source makes no next cycle
-     * (AccessPolicy.nextCycleRefusal); whatever else stops it is in the plan's problems.
+     * (AccessPolicy.nextCycleRefusal); whatever else stops it is in the plan's problems. A next cycle already there
+     * does not stop it ({@link #existingNextCycle}: the confirmation says so, and another one can be made under
+     * another Control ID).
      */
     @Transactional(readOnly = true)
     public NextCyclePlan previewNextCycle(Long sourceId) {
         Control source = controlRepository.findById(sourceId)
                 .orElseThrow(() -> new NextCycleRefused(404, "Control not found", null, null));
         refuseUnlessMakesNextCycle(source);
-        NextCyclePlan plan = planNextCycle(source, null);
-        refuseIfNextCycleExists(plan);
-        return plan;
+        return planNextCycle(source, null);
     }
 
     /**
-     * 409 when the next cycle is already there: a control made from this one with Create Control (created_from, whatever
-     * its ID), or a control of the same base ID on the new operation date (ControlAssignmentRepository
-     * .CYCLE_OF_BASE_ON_DAY: a cycle without created_from, made before Create Control, by New Control or by the
-     * import). A double click, or two people at once, get the one control the first request made.
+     * A next cycle already there (business decision of 2026-10-21: a note, no longer a refusal): a control made from
+     * this one with Create Control (created_from, whatever its ID), or a control of the same base ID on the new
+     * operation date (ControlAssignmentRepository.CYCLE_OF_BASE_ON_DAY: a cycle without created_from, made before
+     * Create Control, by New Control or by the import). A double click, or two people at once, still make one control:
+     * the second request finds the Control ID taken (409 with that control).
      */
-    private void refuseIfNextCycleExists(NextCyclePlan plan) {
+    @Transactional(readOnly = true)
+    public Optional<Control> existingNextCycle(NextCyclePlan plan) {
         Control source = plan.source();
-        controlRepository.findByCreatedFromControlIdOrderByIdAsc(source.getId()).stream().findFirst()
-                .ifPresent(existing -> {
-                    throw new NextCycleRefused(409, "The next control of " + source.getControlId()
-                            + " already exists: " + existing.getControlId(), null, existing);
-                });
-        if (plan.dates() == null) {
-            return;
+        Optional<Control> made = controlRepository.findByCreatedFromControlIdOrderByIdAsc(source.getId()).stream()
+                .findFirst();
+        if (made.isPresent() || plan.dates() == null) {
+            return made;
         }
         String baseControlId = controlIdGeneratorService.extractBaseId(source.getControlId());
-        assignmentRepository.findIdsByBaseControlIdAndOperationDate(baseControlId, escapeForLike(baseControlId),
+        return assignmentRepository.findIdsByBaseControlIdAndOperationDate(baseControlId, escapeForLike(baseControlId),
                         plan.dates().operationDate()).stream()
                 .filter(id -> !id.equals(source.getId()))
                 .findFirst()
-                .flatMap(controlRepository::findById)
-                .ifPresent(existing -> {
-                    throw new NextCycleRefused(409, "The next control of " + source.getControlId()
-                            + " already exists: " + existing.getControlId(), null, existing);
-                });
+                .flatMap(controlRepository::findById);
+    }
+
+    /** The control that already has this Control ID, compared ignoring case and surrounding spaces. */
+    @Transactional(readOnly = true)
+    public Optional<Control> controlWithId(String controlId) {
+        if (controlId == null || controlId.isBlank()) {
+            return Optional.empty();
+        }
+        return controlRepository.findByControlIdIgnoringCase(controlId).stream().findFirst();
     }
 
     private static void refuseUnlessMakesNextCycle(Control source) {
@@ -193,7 +198,6 @@ public class ControlCycleService {
         String typed = requestedControlId == null ? "" : requestedControlId.trim();
         refuseUnlessMakesNextCycle(source);
         NextCyclePlan plan = planNextCycle(source, typed);
-        refuseIfNextCycleExists(plan);
         if (!plan.problems().isEmpty()) {
             throw new NextCycleRefused(400, "The next control cannot be created. Fix this on the Assignment tab of "
                     + source.getControlId() + ":", plan.problems(), null);
@@ -205,7 +209,7 @@ public class ControlCycleService {
         List<Control> sameId = controlRepository.findByControlIdIgnoringCase(newControlId);
         if (!sameId.isEmpty()) {
             throw new NextCycleRefused(409, "Control ID " + sameId.get(0).getControlId()
-                    + " is already used. Enter another Control ID.", null, sameId.get(0));
+                    + " already exists. Enter another Control ID.", null, sameId.get(0));
         }
 
         LocalDateTime now = LocalDateTime.now(Notification.ZONE);

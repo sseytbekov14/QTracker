@@ -1430,6 +1430,30 @@ input[data-date-picker] {
 #createControlModal .cc-alert ul { margin: 6px 0 0; padding-left: 18px; overflow-wrap: anywhere; }
 #createControlModal .cc-alert-title { margin: 0; font-weight: 600; }
 #createControlModal .cc-alert-danger { border: 1px solid #f1b8bd; background: #fdf0f1; color: #842029; }
+/* Under the new Control ID: the ID is already a control's (red, Create waits), a next cycle already made (a note) */
+#createControlModal .cc-id-taken,
+#createControlModal .cc-id-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+#createControlModal .cc-id-taken[hidden],
+#createControlModal .cc-id-note[hidden] { display: none; }
+#createControlModal .cc-id-taken { color: #b42318; }
+#createControlModal .cc-id-taken a { margin-left: auto; white-space: nowrap; color: #b42318; font-weight: 600; }
+#createControlModal .cc-id-note {
+    padding: 8px 10px;
+    border: 1px solid #c9d6ef;
+    border-radius: 6px;
+    background: #f1f5fc;
+    color: #2b3a5c;
+}
+#createControlModal .cc-id-note a { font-weight: 600; color: var(--kpmg-blue); }
+#createControlModal .cc-id-taken .bi,
+#createControlModal .cc-id-note .bi { margin-top: 1px; }
 #createControlModal .cc-alert-warning { border: 1px solid #f0d58c; background: #fffaf0; color: #6b4a00; }
 #createControlModal .cc-alert-warning .btn { margin-top: 8px; }
 #createControlModal #ccCreateBtn { background: #00338D; border-color: #00338D; font-weight: 600; }

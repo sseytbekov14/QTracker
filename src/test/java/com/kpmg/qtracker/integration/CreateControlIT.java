@@ -515,17 +515,42 @@ class CreateControlIT extends ReleaseScenarioSupport {
             assertThat(error.get("existing").get("id").asLong()).isEqualTo(firstId);
             assertThat(error.get("existing").get("url").asText()).isEqualTo("/view-control/" + firstId);
         }
+        // The confirmation opens all the same (business decision of 2026-10-21): it names the next control already
+        // made and the proposed ID that is taken; nothing is created
         MvcResult preview = call(session, get("/api/controls/{id}/next-cycle", source.getId()));
-        assertThat(preview.getResponse().getStatus()).isEqualTo(409);
-        JsonNode error = objectMapper.readTree(body(preview));
-        assertThat(error.get("message").asText()).isEqualTo("The next control of " + source.getControlId()
-                + " already exists: " + source.getControlId().replace("/OCT", "/NOV"));
-        assertThat(error.get("existing").get("controlId").asText()).isEqualTo(source.getControlId().replace("/OCT", "/NOV"));
+        assertThat(preview.getResponse().getStatus()).isEqualTo(200);
+        JsonNode plan = objectMapper.readTree(body(preview));
+        String nov = source.getControlId().replace("/OCT", "/NOV");
+        assertThat(plan.get("proposedControlId").asText()).isEqualTo(nov);
+        assertThat(plan.get("existingNext").get("controlId").asText()).isEqualTo(nov);
+        assertThat(plan.get("existingNext").get("url").asText()).isEqualTo("/view-control/" + firstId);
+        assertThat(plan.get("proposedTaken").get("id").asLong()).isEqualTo(firstId);
         assertThat(controlRepository.count()).isEqualTo(count);
     }
 
     @Test
-    void aCycleOfTheSameBaseOnTheNewDate_madeElsewhere_is409() throws Exception {
+    void theIdCheck_namesTheControlOfATakenId_ignoringCase_forSoqmOnly() throws Exception {
+        Control source = source("IN_PROGRESS", "Monthly", "OCT");
+        Control other = control("HR-TAKEN", "DRAFT", people());
+        MockHttpSession session = login(soqm);
+
+        JsonNode taken = json(call(session, get("/api/controls/{id}/next-cycle/id-check", source.getId())
+                .param("controlId", "  " + other.getControlId().toLowerCase(Locale.ROOT) + " ")));
+        assertThat(taken.get("taken").asBoolean()).isTrue();
+        assertThat(taken.get("existing").get("controlId").asText()).isEqualTo(other.getControlId());
+        assertThat(taken.get("existing").get("url").asText()).isEqualTo("/view-control/" + other.getId());
+
+        JsonNode free = json(call(session, get("/api/controls/{id}/next-cycle/id-check", source.getId())
+                .param("controlId", "FREE-" + next() + "-" + RUN)));
+        assertThat(free.get("taken").asBoolean()).isFalse();
+        assertThat(free.get("existing").isNull()).isTrue();
+
+        assertThat(status(login(facilitator), get("/api/controls/{id}/next-cycle/id-check", source.getId())
+                .param("controlId", other.getControlId()))).isEqualTo(403);
+    }
+
+    @Test
+    void aCycleOfTheSameBaseOnTheNewDate_madeElsewhere_isNamed_andAnotherCanBeCreated() throws Exception {
         Control source = source("COMPLETED", "Monthly", "OCT");
         // As older cycles are named: the base, /FY/location/period, maybe "(1)"
         String base = source.getControlId().substring(0, source.getControlId().indexOf('/'));
@@ -536,10 +561,17 @@ class CreateControlIT extends ReleaseScenarioSupport {
         otherAssignment.setControlOperationDate(LocalDate.of(2026, 11, 10));
         assignmentRepository.save(otherAssignment);
 
-        NextCycleRefused refused = refused(source, "SOMETHING-ELSE-" + next());
+        MockHttpSession session = login(soqm);
 
-        assertThat(refused.status()).isEqualTo(409);
-        assertThat(refused.existing().getId()).isEqualTo(other.getId());
+        // The confirmation names it ...
+        JsonNode plan = json(call(session, get("/api/controls/{id}/next-cycle", source.getId())));
+        assertThat(plan.get("existingNext").get("id").asLong()).isEqualTo(other.getId());
+        assertThat(plan.get("proposedTaken").isNull()).isTrue();
+        // ... and another one is created all the same, under the ID typed
+        String typed = "SOMETHING-ELSE-" + next() + "-" + RUN;
+        NextCycleCreated created = service.createNextCycle(source.getId(), typed, soqm);
+        assertThat(created.controlId()).isEqualTo(typed);
+        assertThat(controlRepository.findById(created.id()).orElseThrow().getPerformanceStatus()).isEqualTo("IN_PROGRESS");
     }
 
     @Test
@@ -658,17 +690,23 @@ class CreateControlIT extends ReleaseScenarioSupport {
         assertThat(facilitatorPage).doesNotContain("id=\"createControlBtn\"", "id=\"createControlModal\"");
     }
 
+    /** Business decision of 2026-10-21: a next cycle already made does not stop another one under another Control ID. */
     @Test
-    void aSecondCycleFromTheSameSource_underAnotherTypedId_is409() throws Exception {
+    void aSecondCycleFromTheSameSource_underAnotherTypedId_isCreated() throws Exception {
         Control source = source("IN_PROGRESS", "Monthly", "OCT");
         NextCycleCreated first = service.createNextCycle(source.getId(), "FIRST-" + next() + "-" + RUN, soqm);
 
-        NextCycleRefused refused = refused(source, "SECOND-" + next() + "-" + RUN);
+        NextCycleCreated second = service.createNextCycle(source.getId(), "SECOND-" + next() + "-" + RUN, soqm);
 
+        assertThat(second.id()).isNotEqualTo(first.id());
+        assertThat(controlRepository.findByCreatedFromControlIdOrderByIdAsc(source.getId()))
+                .extracting(Control::getId).containsExactly(first.id(), second.id());
+        // The same ID again (any case) is refused, naming the control that has it
+        NextCycleRefused refused = refused(source, first.controlId().toLowerCase(Locale.ROOT));
         assertThat(refused.status()).isEqualTo(409);
         assertThat(refused.existing().getId()).isEqualTo(first.id());
-        assertThat(refused.getMessage()).isEqualTo("The next control of " + source.getControlId()
-                + " already exists: " + first.controlId());
+        assertThat(refused.getMessage()).isEqualTo("Control ID " + first.controlId()
+                + " already exists. Enter another Control ID.");
     }
 
     // ---------------------------------------------------------------- helpers
