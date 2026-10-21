@@ -90,39 +90,72 @@ public class ControlIdGeneratorService {
      * The Control ID proposed for the next cycle of a Monthly or Quarterly control (Create Control, business decision
      * of 2026-10-14): only the last segment, the period, moves on - the month (OCT -> NOV) or the fiscal quarter
      * (1Q -> 2Q, Q1 -> Q2: the form it is written in) - and the rest stays as it is. Into a new fiscal year
-     * (SEP -> OCT, 4Q -> 1Q, Q4 -> Q1) the FYnn segment goes up by one as well (TODO: BUSINESS CONFIRMATION). Empty when the ID is not in that form, or another frequency:
-     * the person then types the ID.
+     * (SEP -> OCT, 4Q -> 1Q, Q4 -> Q1) the FYnn segment goes up by one as well (TODO: BUSINESS CONFIRMATION).
+     * Empty when the ID is not in that form, or another frequency: the person then types the ID
+     * ({@link #whyNoNextPeriodId} says why).
      * <p>
      * HR-CTRL-MF-3/FY27/Central/OCT -> HR-CTRL-MF-3/FY27/Central/NOV; .../FY27/Central/4Q -> .../FY28/Central/1Q
      */
     public static Optional<String> nextPeriodId(String controlId, ControlFrequency frequency) {
-        if (controlId == null || controlId.isBlank()
-                || (frequency != ControlFrequency.MONTHLY && frequency != ControlFrequency.QUARTERLY)) {
-            return Optional.empty();
+        return Optional.ofNullable(nextPeriod(controlId, frequency).id());
+    }
+
+    /**
+     * Why no Control ID is proposed for the next cycle, for the hint under the field of Create Control: the period at
+     * the end of the ID does not match the frequency (a quarter in a Monthly control), there is none, or the fiscal
+     * year cannot move on. Empty when an ID is proposed.
+     */
+    public static String whyNoNextPeriodId(String controlId, ControlFrequency frequency) {
+        String reason = nextPeriod(controlId, frequency).reason();
+        return reason == null ? "" : reason;
+    }
+
+    /** The next period's Control ID, or why there is none (exactly one of the two). */
+    private record NextPeriod(String id, String reason) {
+        static NextPeriod refused(String reason) {
+            return new NextPeriod(null, reason);
         }
-        String[] segments = controlId.trim().split("/", -1);
+    }
+
+    private static final String MONTHS_TEXT = "a month (OCT … SEP)";
+    private static final String QUARTERS_TEXT = "a quarter (Q1 … Q4 or 1Q … 4Q)";
+
+    private static NextPeriod nextPeriod(String controlId, ControlFrequency frequency) {
+        if (controlId == null || controlId.isBlank()) {
+            return NextPeriod.refused("The control has no Control ID.");
+        }
+        String id = controlId.trim();
+        if (frequency != ControlFrequency.MONTHLY && frequency != ControlFrequency.QUARTERLY) {
+            return NextPeriod.refused(id + " is not Monthly or Quarterly, so it has no period that moves on.");
+        }
+        boolean monthly = frequency == ControlFrequency.MONTHLY;
+        String frequencyName = monthly ? "Monthly" : "Quarterly";
+        String expected = monthly ? MONTHS_TEXT : QUARTERS_TEXT;
+        String[] segments = id.split("/", -1);
         if (segments.length < 2) {
-            return Optional.empty();
+            return NextPeriod.refused(id + " has no period at the end (after the last \"/\"); a " + frequencyName
+                    + " control ends in " + expected + ".");
         }
         String period = segments[segments.length - 1];
+        boolean isMonth = FISCAL_MONTHS.contains(period.toUpperCase(Locale.ROOT));
+        Matcher quarter = QUARTER_SEGMENT.matcher(period);
+        boolean isQuarter = quarter.matches();
         String next;
         boolean newFiscalYear;
-        if (frequency == ControlFrequency.MONTHLY) {
+        if (monthly && isMonth) {
             int month = FISCAL_MONTHS.indexOf(period.toUpperCase(Locale.ROOT));
-            if (month < 0) {
-                return Optional.empty();
-            }
             next = FISCAL_MONTHS.get((month + 1) % FISCAL_MONTHS.size());
             newFiscalYear = month == FISCAL_MONTHS.size() - 1;
-        } else {
-            Matcher quarter = QUARTER_SEGMENT.matcher(period);
-            if (!quarter.matches()) {
-                return Optional.empty();
-            }
+        } else if (!monthly && isQuarter) {
             boolean letterFirst = quarter.group(1) == null;
             int number = Integer.parseInt(letterFirst ? quarter.group(2) : quarter.group(1));
             next = letterFirst ? "Q" + (number % 4 + 1) : (number % 4 + 1) + "Q";
             newFiscalYear = number == 4;
+        } else if (isMonth || isQuarter) {
+            return NextPeriod.refused(id + " ends in " + period + ", but the control is " + frequencyName
+                    + ": the last part should be " + expected + ".");
+        } else {
+            return NextPeriod.refused(id + " ends in " + period + ", not in " + expected + ".");
         }
         // The period keeps the case it was written in (oct -> nov)
         segments[segments.length - 1] = period.equals(period.toLowerCase(Locale.ROOT))
@@ -132,19 +165,21 @@ public class ControlIdGeneratorService {
             for (int i = 0; i < segments.length - 1; i++) {
                 if (FY_SEGMENT.matcher(segments[i]).matches()) {
                     if (fySegment >= 0) {
-                        return Optional.empty(); // two FY segments: which one moves is not known
+                        // Two FY segments: which one moves is not known
+                        return NextPeriod.refused(id + " moves into the next fiscal year, but it has two FYnn parts.");
                     }
                     fySegment = i;
                 }
             }
             if (fySegment < 0) {
-                return Optional.empty();
+                // Without the year the ID would repeat the period of a year ago
+                return NextPeriod.refused(id + " moves into the next fiscal year, but it has no FYnn part.");
             }
             Matcher fy = FY_SEGMENT.matcher(segments[fySegment]);
             fy.matches();
             segments[fySegment] = fy.group(1) + String.format(Locale.ROOT, "%02d", (Integer.parseInt(fy.group(2)) + 1) % 100);
         }
-        return Optional.of(String.join("/", segments));
+        return new NextPeriod(String.join("/", segments), null);
     }
 
     /**

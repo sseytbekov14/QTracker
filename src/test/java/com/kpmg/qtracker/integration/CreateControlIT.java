@@ -394,6 +394,22 @@ class CreateControlIT extends ReleaseScenarioSupport {
     }
 
     @Test
+    void aQuarterWrittenAsQ2_isProposedAsQ3_andAQuarterInAMonthlyControl_isExplained() throws Exception {
+        MockHttpSession session = login(soqm);
+        Control quarterly = source("IN_PROGRESS", "Quarterly", "Q2");
+        JsonNode plan = objectMapper.readTree(body(call(session, get("/api/controls/{id}/next-cycle",
+                quarterly.getId()))));
+        assertThat(plan.get("proposedControlId").asText()).isEqualTo(quarterly.getControlId().replace("/Q2", "/Q3"));
+        assertThat(plan.get("noProposalReason").asText()).isEmpty();
+
+        Control monthly = source("IN_PROGRESS", "Monthly", "Q2");
+        plan = objectMapper.readTree(body(call(session, get("/api/controls/{id}/next-cycle", monthly.getId()))));
+        assertThat(plan.get("proposedControlId").asText()).isEmpty();
+        assertThat(plan.get("noProposalReason").asText()).isEqualTo(monthly.getControlId()
+                + " ends in Q2, but the control is Monthly: the last part should be a month (OCT … SEP).");
+    }
+
+    @Test
     void everyoneElse_403_noButton_nothingCreated() throws Exception {
         User kdnUser = kdn("cc-kdn");
         User editAssigned = myEdit("cc-edit");

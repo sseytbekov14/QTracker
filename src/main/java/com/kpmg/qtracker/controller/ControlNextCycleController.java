@@ -8,6 +8,7 @@ import com.kpmg.qtracker.service.ControlCycleService;
 import com.kpmg.qtracker.service.ControlCycleService.NextCycleCreated;
 import com.kpmg.qtracker.service.ControlCycleService.NextCyclePlan;
 import com.kpmg.qtracker.service.ControlCycleService.NextCycleRefused;
+import com.kpmg.qtracker.service.ControlIdGeneratorService;
 import com.kpmg.qtracker.service.ControlNextCycle;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlScheduleCalculator;
@@ -169,6 +170,9 @@ public class ControlNextCycleController {
         out.put("sourceControlId", plan.source().getControlId());
         out.put("frequency", plan.source().getControlFrequency());
         out.put("proposedControlId", plan.proposedControlId());
+        // Why none is proposed, for the hint under the field (empty when one is)
+        out.put("noProposalReason", ControlIdGeneratorService.whyNoNextPeriodId(plan.source().getControlId(),
+                plan.frequency()));
         ControlNextCycle.Dates dates = plan.dates();
         out.put("operationDate", date(dates == null ? null : dates.operationDate()));
         out.put("deadline", date(dates == null ? null : dates.deadline()));

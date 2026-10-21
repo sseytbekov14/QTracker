@@ -7,6 +7,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import static com.kpmg.qtracker.service.ControlIdGeneratorService.nextPeriodId;
+import static com.kpmg.qtracker.service.ControlIdGeneratorService.whyNoNextPeriodId;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** The Control ID proposed for the next cycle (Create Control): only the period moves on, FY at the year's turn. */
@@ -106,5 +107,41 @@ class ControlIdNextPeriodTest {
         assertThat(nextPeriodId("HR-CTRL-MF-300/FY26/Central/1H", frequency)).isEmpty();
         assertThat(nextPeriodId("HR-CTRL-MF-300/FY26/Central/OCT", frequency)).isEmpty();
         assertThat(nextPeriodId("HR-CTRL-MF-300/FY26/Central/1Q", frequency)).isEmpty();
+    }
+
+    // ---------------------------------------------------------------- why none is proposed (the hint of Create Control)
+
+    @Test
+    void whyNone_namesThePeriodThatDoesNotMatchTheFrequency() {
+        assertThat(whyNoNextPeriodId("HR-CTRL-MF-1/FY27/Central/Q2", ControlFrequency.MONTHLY)).isEqualTo(
+                "HR-CTRL-MF-1/FY27/Central/Q2 ends in Q2, but the control is Monthly: the last part should be"
+                        + " a month (OCT … SEP).");
+        assertThat(whyNoNextPeriodId("HR-CTRL-MF-1/FY27/Central/NOV", ControlFrequency.QUARTERLY)).isEqualTo(
+                "HR-CTRL-MF-1/FY27/Central/NOV ends in NOV, but the control is Quarterly: the last part should be"
+                        + " a quarter (Q1 … Q4 or 1Q … 4Q).");
+        assertThat(whyNoNextPeriodId("HR-1/FY27/Central/OCTOBER", ControlFrequency.MONTHLY))
+                .isEqualTo("HR-1/FY27/Central/OCTOBER ends in OCTOBER, not in a month (OCT … SEP).");
+        assertThat(whyNoNextPeriodId("HR-1/FY27/Central/Q5", ControlFrequency.QUARTERLY))
+                .isEqualTo("HR-1/FY27/Central/Q5 ends in Q5, not in a quarter (Q1 … Q4 or 1Q … 4Q).");
+    }
+
+    @Test
+    void whyNone_noPeriod_noYear_otherFrequency() {
+        assertThat(whyNoNextPeriodId("HR-CTRL-MF-424", ControlFrequency.MONTHLY)).isEqualTo(
+                "HR-CTRL-MF-424 has no period at the end (after the last \"/\"); a Monthly control ends in"
+                        + " a month (OCT … SEP).");
+        assertThat(whyNoNextPeriodId("HR-1/Central/SEP", ControlFrequency.MONTHLY))
+                .isEqualTo("HR-1/Central/SEP moves into the next fiscal year, but it has no FYnn part.");
+        assertThat(whyNoNextPeriodId("HR-1/FY26/FY27/Q4", ControlFrequency.QUARTERLY))
+                .isEqualTo("HR-1/FY26/FY27/Q4 moves into the next fiscal year, but it has two FYnn parts.");
+        assertThat(whyNoNextPeriodId("HR-1/FY27/Central", ControlFrequency.ANNUAL))
+                .isEqualTo("HR-1/FY27/Central is not Monthly or Quarterly, so it has no period that moves on.");
+        assertThat(whyNoNextPeriodId(" ", ControlFrequency.MONTHLY)).isEqualTo("The control has no Control ID.");
+    }
+
+    @Test
+    void whyNone_isEmpty_whenOneIsProposed() {
+        assertThat(whyNoNextPeriodId("HR-1/FY27/Central/Q2", ControlFrequency.QUARTERLY)).isEmpty();
+        assertThat(whyNoNextPeriodId("HR-1/FY27/Central/SEP", ControlFrequency.MONTHLY)).isEmpty();
     }
 }

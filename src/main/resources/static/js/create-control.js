@@ -162,7 +162,8 @@
         idInput.value = plan.proposedControlId || '';
         el('ccControlIdHint').textContent = plan.proposedControlId
             ? 'Proposed from ' + plan.sourceControlId + ': only the period moves on. You can change it; the Control ID must be unique (ignoring case).'
-            : 'The Control ID of ' + plan.sourceControlId + ' is not in a form whose period moves on: enter the new Control ID. It must be unique (ignoring case).';
+            : (plan.noProposalReason || 'No Control ID can be proposed from ' + plan.sourceControlId + '.')
+                + ' Enter the new Control ID; it must be unique (ignoring case).';
         el('ccOperationDate').textContent = plan.operationDate || 'Not set';
         el('ccDeadline').textContent = plan.deadline || 'Not set';
         el('ccNextDate').textContent = plan.nextOperationDate || 'Not set';
