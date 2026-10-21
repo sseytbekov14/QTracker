@@ -999,7 +999,14 @@ public class ViewController {
                 ? WorkflowRequiredFieldService.stepField(normalizedStatus).orElse(null) : null);
 
         // SoQM moves the control on or back for any role (the Move dialog); everyone else has their step buttons
-        model.addAttribute("soqmMoves", soqmMoves(permission, normalizedStatus, assignment));
+        List<WorkflowMoveOptionDTO> soqmMoves = soqmMoves(permission, normalizedStatus, assignment);
+        model.addAttribute("soqmMoves", soqmMoves);
+        // At SoQM's own step its buttons make the moves: Send to Process Owner, and the Return menu - to the Control
+        // Operator and, through the Move dialog, to In Progress - so the Move / Return button is not offered
+        boolean soqmOwnStep = yourTurn && "SOQM_HEAD_REVIEW".equals(normalizedStatus) && permission.isSoqmLead();
+        model.addAttribute("soqmOwnStep", soqmOwnStep);
+        model.addAttribute("soqmReturnToInProgress", soqmOwnStep
+                && soqmMoves.stream().anyMatch(move -> "IN_PROGRESS".equals(move.getTarget())));
 
         // A draft links to its Initiate page for whoever the server lets initiate it
         model.addAttribute("canInitiate",

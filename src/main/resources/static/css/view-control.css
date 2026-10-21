@@ -470,6 +470,51 @@ select.form-select.editable-select {
     box-shadow: none;
 }
 
+/* SoQM's Return menu (SoQM Head Review): the amber outlined button opens a list of where to return */
+#workflow-buttons-container .vc-return-menu > .btn {
+    border-radius: 6px;
+}
+#workflow-buttons-container .vc-return-menu > .dropdown-toggle::after {
+    margin-left: 2px;
+    vertical-align: 0.15em;
+}
+.vc-return-menu .dropdown-menu {
+    min-width: 270px;
+    padding: 6px;
+    border: 1px solid var(--kpmg-gray-200);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+}
+.vc-return-menu .dropdown-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    white-space: normal;
+}
+.vc-return-menu .dropdown-item:hover,
+.vc-return-menu .dropdown-item:focus {
+    background: #fff6e8;
+    color: #6b4100;
+}
+.vc-return-to {
+    font-weight: 600;
+}
+.vc-return-status {
+    font-size: 0.78rem;
+    color: var(--kpmg-gray-500, #6c757d);
+}
+.vc-return-status::before { content: "\2192\00a0"; }
+.vc-return-wait {
+    flex-basis: 100%;
+    font-size: 0.75rem;
+    color: #b42318;
+}
+.vc-return-menu .dropdown-item:disabled .vc-return-to { color: var(--kpmg-gray-500, #6c757d); }
+
 /* ── User Dropdowns ── */
 
 .selected-users-container {
@@ -889,6 +934,8 @@ select.form-select.editable-select {
 #confirmReturnOperatorBtn::before { content: "\f131"; }
 #confirmCompleteControlBtn::before { content: "\f270"; }
 #soqmMoveConfirmBtn::before { content: "\f12b"; }
+/* Opened from SoQM's Return menu: a return like the others */
+#soqmMoveModal.vc-move-return #soqmMoveConfirmBtn::before { content: "\f131"; }
 #ccCreateBtn::before { content: "\f4fa"; }
 /* While the step is being sent the spinner takes the icon's place */
 .modal .modal-footer .btn:has(.spinner-border)::before,

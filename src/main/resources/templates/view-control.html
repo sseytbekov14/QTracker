@@ -8,7 +8,7 @@
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/style.css?v=20" rel="stylesheet">
-    <link href="/css/view-control.css?v=36" rel="stylesheet">
+    <link href="/css/view-control.css?v=37" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -1312,15 +1312,38 @@
                                     <i class="bi bi-send" aria-hidden="true"></i>Send to Process Owner
                                 </button>
 
-                                <!-- 5. Return to Operator button for SOQM_TEAM -->
-                                <button type="button"
-                                        class="btn btn-warning workflow-submit-btn soqm-action-btn"
-                                        id="returnToOperatorBtn"
-                                        style="display: none;"
-                                        disabled
-                                        title="Return to the Control Operator for rework">
-                                    <i class="bi bi-arrow-return-left" aria-hidden="true"></i>Return to Operator
-                                </button>
+                                <!-- 5. SOQM_TEAM at its own step: one Return menu - to the Control Operator (its own return)
+                                     and to the Facilitator (In Progress, the SoQM move); the Move dialog is not offered then -->
+                                <div class="btn-group dropup vc-return-menu" id="soqmReturnGroup" style="display: none;">
+                                    <button type="button"
+                                            class="btn btn-warning workflow-submit-btn soqm-action-btn dropdown-toggle"
+                                            id="soqmReturnMenuBtn"
+                                            data-bs-toggle="dropdown"
+                                            aria-expanded="false"
+                                            title="Return to an earlier step for rework">
+                                        <i class="bi bi-arrow-return-left" aria-hidden="true"></i>Return
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="soqmReturnMenuBtn">
+                                        <li>
+                                            <button type="button" class="dropdown-item" id="returnToOperatorBtn" disabled
+                                                    aria-describedby="returnToOperatorWait">
+                                                <span class="vc-return-to">To Control Operator</span>
+                                                <span class="vc-return-status">Review</span>
+                                                <span class="vc-return-wait" id="returnToOperatorWait">Add SoQM Head/Team Comments first</span>
+                                            </button>
+                                        </li>
+                                        <li th:if="${soqmReturnToInProgress}">
+                                            <button type="button" class="dropdown-item" id="soqmReturnToInProgressBtn"
+                                                    data-bs-toggle="modal" data-bs-target="#soqmMoveModal"
+                                                    data-soqm-move-target="IN_PROGRESS"
+                                                    data-soqm-move-title="Return to Facilitator"
+                                                    data-soqm-move-intro="Return this control to the Facilitator (In Progress) for rework?">
+                                                <span class="vc-return-to">To Facilitator</span>
+                                                <span class="vc-return-status">In Progress</span>
+                                            </button>
+                                        </li>
+                                    </ul>
+                                </div>
 
                                 <!-- 6. Complete button for PROCESS_OWNER -->
                                 <button type="button"
@@ -1344,11 +1367,12 @@
                                     <i class="bi bi-arrow-return-left" aria-hidden="true"></i>Return to Control Operator
                                 </button>
 
-                                <!-- 8. SoQM: move the control on or back for any role (AccessPolicy.move) -->
+                                <!-- 8. SoQM: move the control on or back for any role (AccessPolicy.move); not at SoQM's own
+                                     step, whose buttons and Return menu already make every move -->
                                 <button type="button"
                                         class="btn btn-outline-primary"
                                         id="soqmMoveBtn"
-                                        th:if="${!#lists.isEmpty(soqmMoves)}"
+                                        th:if="${!#lists.isEmpty(soqmMoves) and soqmOwnStep != true}"
                                         data-bs-toggle="modal"
                                         data-bs-target="#soqmMoveModal"
                                         title="Change the status for any role">
@@ -1734,15 +1758,17 @@
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                <p class="soqm-move-now">
+                                <p class="soqm-move-now" id="soqmMoveIntro">
                                     Current status: <strong th:text="${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">In Progress</strong>.
                                     <span th:unless="${completedControl}">Move the control on, or return it to an earlier step, for any Control role.</span>
                                 </p>
+                                <!-- Opened from the Return menu: one move, named here instead of the list -->
+                                <p class="mb-3" id="soqmMovePresetIntro" hidden></p>
                                 <p class="soqm-move-now" th:if="${completedControl}" id="soqmMoveCompletedNote">
                                     A completed control is locked for everyone. Returning it keeps its values, its deadline
                                     and the completion in the history; it can be changed again from the step it goes back to.
                                 </p>
-                                <fieldset class="mb-3">
+                                <fieldset class="mb-3" id="soqmMoveTargets">
                                     <legend class="form-label fw-bold soqm-move-legend">Move to</legend>
                                     <div class="form-check soqm-move-option" th:each="m, it : ${soqmMoves}">
                                         <input class="form-check-input" type="radio" name="soqmMoveTarget"
@@ -1764,7 +1790,7 @@
                                 </fieldset>
                                 <div class="soqm-move-note d-none" id="soqmMoveNote" role="note"></div>
                                 <div class="mb-1">
-                                    <label for="soqmMoveComment" class="form-label">Comment
+                                    <label for="soqmMoveComment" class="form-label"><span id="soqmMoveCommentLabel">Comment</span>
                                         <span class="text-danger d-none" id="soqmMoveCommentMark" aria-hidden="true">*</span></label>
                                     <textarea class="form-control" id="soqmMoveComment" rows="3" maxlength="2000"
                                               aria-describedby="soqmMoveCommentError"
@@ -1848,7 +1874,7 @@
 <script src="/js/multi-value.js?v=2"></script>
 <script src="/js/view-control.js?v=8.7"></script>
 <script src="/js/create-control.js?v=5"></script>
-<script src="/js/workflow-move.js?v=1"></script>
+<script src="/js/workflow-move.js?v=2"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {
@@ -1913,26 +1939,24 @@ document.addEventListener('DOMContentLoaded', function() {
             // Keep buttons disabled until SoQM Head/Team Comments is filled
             const soqmCommentsField = document.getElementById('soqmHeadComments');
             if (soqmCommentsField) {
+                const returnWait = document.getElementById('returnToOperatorWait');
                 const toggleBtns = () => {
                     const filled = !!soqmCommentsField.value.trim();
                     submitToProcessOwnerBtn.disabled = !filled;
                     if (returnToOperatorBtn) returnToOperatorBtn.disabled = !filled;
-                    // A disabled button says what it waits for
+                    // A disabled button says what it waits for (the menu item under its label)
                     submitToProcessOwnerBtn.title = filled ? 'Send to the Process Owner for review'
                         : 'Add SoQM Head/Team Comments first';
-                    if (returnToOperatorBtn) {
-                        returnToOperatorBtn.title = filled ? 'Return to the Control Operator for rework'
-                            : 'Add SoQM Head/Team Comments first';
-                    }
+                    if (returnWait) returnWait.hidden = filled;
                 };
                 toggleBtns(); // set initial state based on existing value
                 soqmCommentsField.addEventListener('input', toggleBtns);
                 soqmCommentsField.addEventListener('change', toggleBtns);
             }
         }
-        if (returnToOperatorBtn) {
-            returnToOperatorBtn.style.display = '';
-            console.log('   ? Return to Operator button shown for SoQM Team');
+        const soqmReturnGroup = document.getElementById('soqmReturnGroup');
+        if (soqmReturnGroup) {
+            soqmReturnGroup.style.display = '';
         }
     }
 
