@@ -82,14 +82,15 @@ public class ControlIdGeneratorService {
     /** The months of the fiscal year in order, October first, as the last segment of a Monthly ID names them. */
     static final List<String> FISCAL_MONTHS =
             List.of("OCT", "NOV", "DEC", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP");
-    private static final Pattern QUARTER_SEGMENT = Pattern.compile("([1-4])Q", Pattern.CASE_INSENSITIVE);
+    /** A fiscal quarter as the last segment of a Quarterly ID: 1Q or Q1 (both are in use), any case. */
+    private static final Pattern QUARTER_SEGMENT = Pattern.compile("([1-4])Q|Q([1-4])", Pattern.CASE_INSENSITIVE);
     private static final Pattern FY_SEGMENT = Pattern.compile("(FY)(\\d{2})", Pattern.CASE_INSENSITIVE);
 
     /**
      * The Control ID proposed for the next cycle of a Monthly or Quarterly control (Create Control, business decision
      * of 2026-10-14): only the last segment, the period, moves on - the month (OCT -> NOV) or the fiscal quarter
-     * (1Q -> 2Q) - and the rest stays as it is. Into a new fiscal year (SEP -> OCT, 4Q -> 1Q) the FYnn segment goes
-     * up by one as well (TODO: BUSINESS CONFIRMATION). Empty when the ID is not in that form, or another frequency:
+     * (1Q -> 2Q, Q1 -> Q2: the form it is written in) - and the rest stays as it is. Into a new fiscal year
+     * (SEP -> OCT, 4Q -> 1Q, Q4 -> Q1) the FYnn segment goes up by one as well (TODO: BUSINESS CONFIRMATION). Empty when the ID is not in that form, or another frequency:
      * the person then types the ID.
      * <p>
      * HR-CTRL-MF-3/FY27/Central/OCT -> HR-CTRL-MF-3/FY27/Central/NOV; .../FY27/Central/4Q -> .../FY28/Central/1Q
@@ -118,8 +119,9 @@ public class ControlIdGeneratorService {
             if (!quarter.matches()) {
                 return Optional.empty();
             }
-            int number = Integer.parseInt(quarter.group(1));
-            next = (number % 4 + 1) + "Q";
+            boolean letterFirst = quarter.group(1) == null;
+            int number = Integer.parseInt(letterFirst ? quarter.group(2) : quarter.group(1));
+            next = letterFirst ? "Q" + (number % 4 + 1) : (number % 4 + 1) + "Q";
             newFiscalYear = number == 4;
         }
         // The period keeps the case it was written in (oct -> nov)

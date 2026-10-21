@@ -46,10 +46,19 @@ class ControlIdNextPeriodTest {
                 .contains("HR-CTRL-MF-416/FY26/Central/" + to);
     }
 
+    @ParameterizedTest
+    @CsvSource({"Q1, Q2", "Q2, Q3", "Q3, Q4", "q2, q3"})
+    void quarterly_letterFirst_keepsItsForm(String from, String to) {
+        assertThat(nextPeriodId("HR-CTRL-MF-1/FY27/Central/" + from, ControlFrequency.QUARTERLY))
+                .contains("HR-CTRL-MF-1/FY27/Central/" + to);
+    }
+
     @Test
     void quarterly_fourthToFirst_startsTheNextFiscalYear() {
         assertThat(nextPeriodId("HR-CTRL-MF-416/FY26/Central/4Q", ControlFrequency.QUARTERLY))
                 .contains("HR-CTRL-MF-416/FY27/Central/1Q");
+        assertThat(nextPeriodId("HR-CTRL-MF-1/FY27/Central/Q4", ControlFrequency.QUARTERLY))
+                .contains("HR-CTRL-MF-1/FY28/Central/Q1");
     }
 
     @Test
@@ -69,7 +78,10 @@ class ControlIdNextPeriodTest {
         assertThat(nextPeriodId("HR-CTRL-MF-424/FY26/Central/1Q", ControlFrequency.MONTHLY)).isEmpty();
         assertThat(nextPeriodId("HR-CTRL-MF-416/FY26/Central/OCT", ControlFrequency.QUARTERLY)).isEmpty();
         assertThat(nextPeriodId("HR-CTRL-MF-416/FY26/Central/5Q", ControlFrequency.QUARTERLY)).isEmpty();
-        assertThat(nextPeriodId("HR-CTRL-MF-416/FY26/Central/Q1", ControlFrequency.QUARTERLY)).isEmpty();
+        assertThat(nextPeriodId("HR-CTRL-MF-416/FY26/Central/Q5", ControlFrequency.QUARTERLY)).isEmpty();
+        assertThat(nextPeriodId("HR-CTRL-MF-416/FY26/Central/Q1Q", ControlFrequency.QUARTERLY)).isEmpty();
+        assertThat(nextPeriodId("HR-CTRL-MF-416/FY26/Central/QQ", ControlFrequency.QUARTERLY)).isEmpty();
+        assertThat(nextPeriodId("HR-CTRL-MF-1/FY27/Central/Q2", ControlFrequency.MONTHLY)).isEmpty();
         assertThat(nextPeriodId("OCT", ControlFrequency.MONTHLY)).isEmpty();
         assertThat(nextPeriodId("HR-CTRL-MF-424_OCT", ControlFrequency.MONTHLY)).isEmpty();
         assertThat(nextPeriodId("", ControlFrequency.MONTHLY)).isEmpty();
