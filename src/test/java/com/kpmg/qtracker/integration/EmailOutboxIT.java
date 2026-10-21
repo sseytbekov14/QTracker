@@ -472,7 +472,7 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
                 "EDIT", true)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("already exists");
         User fresh = myEdit("ob-dup4");
         assertThatThrownBy(() -> userService.updateUser(fresh.getId(), other.getMail().toUpperCase(Locale.ROOT), null,
-                null, null, null, null, fresh.getId())).isInstanceOf(IllegalArgumentException.class)
+                null, null, null, null, null)).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("already exists");
     }
 
