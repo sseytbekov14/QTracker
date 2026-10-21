@@ -329,17 +329,17 @@ function handleWorkflowButtonClick(event) {
 
 function getConfirmationText(action, label) {
     const messages = {
-        'INITIATE': 'Initiate this control? Status will change from "Draft" to "In Progress".',
-        'SUBMIT_FOR_REVIEW': 'Submit this control for review? Status will change to "Review" and Control Operator will be notified.',
-        'SUBMIT_FOR_SOQM': 'Submit this control to SoQM Team? Status will change to "SoQM Head Review".',
-        'RETURN_TO_FACILITATOR': 'Return this control to Facilitator for revision?',
-        'SEND_TO_PROCESS_OWNER': 'Send this control to Process Owner? Status will change to "Process Owner Review".',
-        'SEND_BACK_TO_OPERATOR': 'Send this control back to Control Operator?',
-        'COMPLETE': 'Complete this control workflow? Status will change to "Completed".',
-        'SOQM_COMMENT': 'Add SOQM Head/Team comments'
+        'INITIATE': 'Initiate this control? Its status becomes In Progress.',
+        'SUBMIT_FOR_REVIEW': 'Send this control to the Control Operator for review?',
+        'SUBMIT_FOR_SOQM': 'Send this control to SoQM Admin Team for review?',
+        'RETURN_TO_FACILITATOR': 'Return this control to the Facilitator for rework?',
+        'SEND_TO_PROCESS_OWNER': 'Send this control to the Process Owner for review?',
+        'SEND_BACK_TO_OPERATOR': 'Return this control to the Control Operator for rework?',
+        'COMPLETE': 'Complete this control? Its status becomes Completed.',
+        'SOQM_COMMENT': 'Add SoQM Head/Team Comments'
     };
 
-    return messages[action] || `Are you sure you want to: ${label}?`;
+    return messages[action] || `${label}?`;
 }
 
 function confirmWorkflowAction() {
@@ -394,7 +394,7 @@ function confirmWorkflowAction() {
         // Р•СЃР»Рё Сѓ С‚РµР±СЏ СѓР¶Рµ РµСЃС‚СЊ С„СѓРЅРєС†РёСЏ showModal РёР»Рё РїРѕРґРѕР±РЅР°СЏ, РёСЃРїРѕР»СЊР·СѓР№ РµС‘
         // РРЅР°С‡Рµ СЃРѕР·РґР°Р№ РїСЂРѕСЃС‚СѓСЋ РІРµСЂСЃРёСЋ:
 
-        const modalMessage = confirmationMessage || `Are you sure you want to perform: ${label}?`;
+        const modalMessage = confirmationMessage || `${label}?`;
 
         if (requiresComment) {
             // РџРѕРєР°Р·Р°С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ СЃ РїРѕР»РµРј РґР»СЏ РєРѕРјРјРµРЅС‚Р°СЂРёСЏ
@@ -3368,7 +3368,7 @@ function submitWorkflowActionWithModal(options) {
 
         if (confirmBtn) {
             confirmBtn.disabled = false;
-            confirmBtn.innerHTML = originalBtnText || 'Confirm Submission';
+            confirmBtn.innerHTML = originalBtnText || 'Send for Review';
         }
 
         throw error;
@@ -3388,17 +3388,17 @@ function openSubmitConfirmationModal(actionKey) {
 
     if (actionKey === 'SUBMIT_TO_PROCESS_OWNER') {
         if (titleElement) {
-            titleElement.textContent = 'Submit Control to Process Owner';
+            titleElement.textContent = 'Send to Process Owner';
         }
         if (messageElement) {
-            messageElement.innerHTML = 'Are you sure you want to submit this control to the <strong>Process Owner</strong> for review?';
+            messageElement.innerHTML = 'Send this control to the <strong>Process Owner</strong> for review?';
         }
     } else {
         if (titleElement) {
-            titleElement.textContent = 'Submit Control to Control Operator';
+            titleElement.textContent = 'Send to Control Operator';
         }
         if (messageElement) {
-            messageElement.innerHTML = 'Are you sure you want to submit this control to the <strong>Control Operator</strong> for review?';
+            messageElement.innerHTML = 'Send this control to the <strong>Control Operator</strong> for review?';
         }
     }
 
@@ -3621,7 +3621,7 @@ function handleWorkflowButtonClick(event) {
     const modal = document.getElementById('workflowActionModal');
     if (modal) {
         const messageElement = document.getElementById('workflowActionMessage');
-        messageElement.textContent = btn.textContent + ' - Are you sure?';
+        messageElement.textContent = btn.textContent.trim().replace(/\s+/g, ' ') + '?';
 
         const commentSection = document.getElementById('workflowCommentSection');
         if (commentSection) {
@@ -4360,7 +4360,7 @@ async function confirmCompleteControl() {
 
         // Re-enable button
         confirmBtn.disabled = false;
-        confirmBtn.innerHTML = 'Confirm Complete';
+        confirmBtn.innerHTML = 'Complete Control';
     });
 }
 

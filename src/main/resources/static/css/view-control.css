@@ -780,21 +780,173 @@ select.form-select.editable-select {
     margin-top: 12px;
 }
 
-.edit-nav-panel .btn:hover {
+/* ── The same buttons outside the action bar: the edit bar, Initiate, the dialogs ──
+   36px high, 6px corners, an icon before the label; Cancel neutral, the action filled in its colour (send blue,
+   return amber, complete green). The icons of the dialogs' buttons are in CSS: the scripts rewrite their labels
+   ("Submitting…", "Saving...") and would drop an <i>. */
+.edit-nav-panel .btn,
+.modal .modal-footer .btn,
+.vc-header-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: auto;
+    min-height: 36px;
+    padding: 0 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    border-radius: 6px;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.edit-nav-panel .btn:hover,
+.modal .modal-footer .btn:hover {
     transform: none;
+}
+.edit-nav-panel .btn .bi { font-size: 0.95rem; line-height: 1; }
+.edit-nav-panel .btn-outline-secondary,
+.modal .modal-footer .btn-outline-secondary {
+    background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-300);
+    color: var(--kpmg-gray-700);
+    box-shadow: none;
+}
+.edit-nav-panel .btn-outline-secondary:hover,
+.modal .modal-footer .btn-outline-secondary:hover {
+    background: var(--kpmg-gray-50);
+    border-color: var(--kpmg-gray-400);
+    color: #1f2937;
+}
+.edit-nav-panel .btn-primary,
+.modal .modal-footer .btn-primary {
+    background: var(--kpmg-blue);
+    border: 1px solid var(--kpmg-blue);
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 51, 141, 0.18);
+}
+.edit-nav-panel .btn-primary:hover:not(:disabled),
+.modal .modal-footer .btn-primary:hover:not(:disabled) {
+    background: var(--kpmg-blue-dark);
+    border-color: var(--kpmg-blue-dark);
+    box-shadow: 0 2px 8px rgba(0, 51, 141, 0.25);
+}
+.modal .modal-footer .btn-success {
+    background: #00875a;
+    border: 1px solid #00875a;
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 135, 90, 0.2);
+}
+.modal .modal-footer .btn-success:hover:not(:disabled) { background: #006c48; border-color: #006c48; }
+.modal .modal-footer .btn-warning {
+    background: #c77700;
+    border: 1px solid #c77700;
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgba(199, 119, 0, 0.22);
+}
+.modal .modal-footer .btn-warning:hover:not(:disabled) { background: #a86400; border-color: #a86400; color: #ffffff; }
+.modal .modal-footer .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+.edit-nav-panel .btn:focus-visible,
+.modal .modal-footer .btn:focus-visible {
+    outline: 2px solid var(--kpmg-blue);
+    outline-offset: 2px;
     box-shadow: none;
 }
 
-.edit-nav-panel #saveEditBtn:hover {
-    background: var(--kpmg-blue-dark) !important;
-    border-color: var(--kpmg-blue-dark) !important;
+/* Icons of the buttons whose label the scripts rewrite (bootstrap-icons glyphs) */
+#saveEditBtn::before,
+#cancelEditBtn::before,
+#confirmSubmitBtn::before,
+#confirmSubmitSoqmLeadBtn::before,
+#confirmSubmitProcessOwnerBtn::before,
+#confirmReturnFacilitatorBtn::before,
+#confirmReturnOperatorBtn::before,
+#confirmCompleteControlBtn::before,
+#soqmMoveConfirmBtn::before,
+#ccCreateBtn::before,
+#confirmRenameBtn::before,
+#completedEditReasonConfirm::before,
+#confirmWorkflowAction::before {
+    font-family: "bootstrap-icons";
+    font-weight: normal;
+    font-size: 0.95rem;
+    line-height: 1;
 }
+#saveEditBtn::before,
+#confirmRenameBtn::before,
+#completedEditReasonConfirm::before,
+#confirmWorkflowAction::before { content: "\f272"; }
+#cancelEditBtn::before { content: "\f659"; font-size: 0.8rem; }
+#confirmSubmitBtn::before,
+#confirmSubmitSoqmLeadBtn::before,
+#confirmSubmitProcessOwnerBtn::before { content: "\f6c0"; }
+#confirmReturnFacilitatorBtn::before,
+#confirmReturnOperatorBtn::before { content: "\f131"; }
+#confirmCompleteControlBtn::before { content: "\f270"; }
+#soqmMoveConfirmBtn::before { content: "\f12b"; }
+#ccCreateBtn::before { content: "\f4fa"; }
+/* While the step is being sent the spinner takes the icon's place */
+.modal .modal-footer .btn:has(.spinner-border)::before,
+.edit-nav-panel .btn:has(.spinner-border)::before { display: none; }
 
-.edit-nav-panel .btn-outline-secondary:hover {
-    border-color: var(--kpmg-blue) !important;
-    color: var(--kpmg-blue) !important;
-    background: var(--kpmg-gray-50) !important;
+/* Initiate (the header of a draft): the same height and corners */
+.vc-header-action { padding: 0 16px; }
+
+/* ── Dialogs: a white header with the action's icon, a calm footer ── */
+.modal:not(#appNotificationModal) .modal-content {
+    border: 0;
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(16, 24, 40, 0.18);
+    overflow: hidden;
 }
+.modal:not(#appNotificationModal) .modal-header {
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--kpmg-white);
+    color: #1f2937;
+    border-bottom: 1px solid var(--kpmg-gray-200);
+}
+.modal:not(#appNotificationModal) .modal-header .modal-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1f2937;
+    line-height: 1.3;
+}
+.modal:not(#appNotificationModal) .modal-header .btn-close {
+    margin-left: auto;
+    font-size: 0.8rem;
+}
+.modal:not(#appNotificationModal) .modal-body {
+    padding: 20px;
+    font-size: 0.875rem;
+    color: #374151;
+}
+.modal:not(#appNotificationModal) .modal-footer {
+    gap: 8px;
+    padding: 12px 20px;
+    background: var(--kpmg-gray-50);
+    border-top: 1px solid var(--kpmg-gray-200);
+}
+.modal:not(#appNotificationModal) .modal-footer > * { margin: 0; }
+.vc-modal-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 1rem;
+    background: #eaf0fa;
+    color: var(--kpmg-blue);
+}
+.vc-modal-icon-return { background: #fff4e5; color: #a86400; }
+.vc-modal-icon-complete { background: #e6f4ee; color: #00875a; }
 
 /* A field marked invalid stays red, focused or not: the two rules above are !important */
 

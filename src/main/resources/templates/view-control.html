@@ -7,8 +7,8 @@
     <title th:text="'Control - ' + ${control.controlId}">Control - Sultan</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=19" rel="stylesheet">
-    <link href="/css/view-control.css?v=34" rel="stylesheet">
+    <link href="/css/style.css?v=20" rel="stylesheet">
+    <link href="/css/view-control.css?v=35" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -1378,10 +1378,11 @@
 
                 <div class="edit-nav-panel d-none" id="editNavPanel">
                     <div class="d-flex justify-content-between align-items-center">
-                        <a href="/" class="btn btn-outline-secondary" style="border-color:#d8dce5; color:#495057; font-size:0.8rem; font-weight:600;">Home</a>
+                        <a href="/" class="btn btn-outline-secondary" title="Home page"><i class="bi bi-house" aria-hidden="true"></i>Home</a>
                         <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-secondary" id="cancelEditBtn" style="border-color:#d8dce5; color:#495057; font-size:0.8rem; font-weight:600;">Cancel</button>
-                            <button type="button" class="btn" id="saveEditBtn" style="background:#00338D; border-color:#00338D; color:#fff; font-size:0.8rem; font-weight:600;">Save</button>
+                            <button type="button" class="btn btn-outline-secondary" id="cancelEditBtn"
+                                    title="Discard the changes">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="saveEditBtn" title="Save the changes">Save</button>
                         </div>
                     </div>
                 </div>
@@ -1392,6 +1393,7 @@
                     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
                         <div class="modal-content">
                             <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-plus-circle"></i></span>
                                 <h5 class="modal-title" id="createControlTitle">Create Control</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
@@ -1404,7 +1406,7 @@
                                 </div>
                                 <div id="ccContent" hidden>
                                     <p class="cc-intro">The next cycle of <strong id="ccSource">HR-CTRL-MF-3/FY27/Central/OCT</strong>
-                                        is created and started at once (In Progress): the Facilitator is notified.</p>
+                                        is created and started at once (In Progress). Facilitator, Control Operator and Process Owner are notified.</p>
                                     <div class="cc-alert cc-alert-danger" id="ccProblems" role="alert" hidden>
                                         <p class="cc-alert-title" id="ccProblemsTitle">The next control cannot be created. Fix this on the Assignment tab of this control:</p>
                                         <ul id="ccProblemsList"></ul>
@@ -1448,6 +1450,7 @@
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
                             <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-input-cursor-text"></i></span>
                                 <h5 class="modal-title">Rename Control ID</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
@@ -1477,7 +1480,7 @@
                                 </div>
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                                 <button type="button" class="btn btn-primary" id="confirmRenameBtn">Rename</button>
                             </div>
                         </div>
@@ -1486,12 +1489,13 @@
 
                 <div class="modal fade" id="changelogModal" tabindex="-1">
                     <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                        <div class="modal-content" style="border: 1px solid #d8dce5; border-radius: 6px;">
-                            <div class="modal-header" style="border-bottom: 2px solid #00338D; padding: 14px 20px;">
-                                <h5 class="modal-title" style="font-size: 0.95rem; font-weight: 700; color: #2d3340;">Control Changelog</h5>
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-clock-history"></i></span>
+                                <h5 class="modal-title">Control Changelog</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
-                            <div class="modal-body" style="padding: 16px 20px;">
+                            <div class="modal-body">
                                 <div id="changelogToolbar" class="changelog-toolbar d-none">
                                     <div class="btn-group" role="group" aria-label="Changelog filter">
                                         <button type="button" class="btn changelog-filter-btn active" data-changelog-filter="all" id="changelogFilterAll">All</button>
@@ -1515,13 +1519,14 @@
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
                             <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-arrow-left-right"></i></span>
                                 <h5 class="modal-title">Workflow Action</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
                                 <!-- ��������� ������������� -->
                                 <div id="workflowActionMessage" class="mb-3">
-                                    Are you sure you want to perform this action?
+                                    Confirm this action?
                                 </div>
 
                                 <!-- ����������� Yes/No (������ ��� SoQM Team) -->
@@ -1555,7 +1560,7 @@
                                 </div>
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                                 <button type="button" class="btn btn-primary" id="confirmWorkflowAction">
                                     Confirm
                                 </button>
@@ -1568,15 +1573,14 @@
                 <div class="modal fade" id="submitConfirmationModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
-                            <div class="modal-header bg-info text-white">
-                                <h5 class="modal-title">Submit to Control Operator</h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-send"></i></span>
+                                <h5 class="modal-title">Send to Control Operator</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="mb-0">
-                                    Are you sure you want to submit this control to the <strong>Control Operator</strong> for review?
-                                </p>
-                                <p class="text-muted mt-3 mb-0">
+                                    Send this control to the <strong>Control Operator</strong> for review?
                                 </p>
                             </div>
                             <div class="modal-footer">
@@ -1584,7 +1588,7 @@
                                     Cancel
                                 </button>
                                 <button type="button" class="btn btn-primary" id="confirmSubmitBtn">
-                                    Confirm Submission
+                                    Send for Review
                                 </button>
                             </div>
                         </div>
@@ -1595,21 +1599,22 @@
                 <div class="modal fade" id="submitSoqmLeadModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
-                            <div class="modal-header bg-success text-white">
-                                <h5 class="modal-title">Submit to SoQM Team</h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-send"></i></span>
+                                <h5 class="modal-title">Send to SoQM Admin Team</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="mb-0">
-                                    Are you sure you want to submit this control to the <strong>SoQM Team</strong> for review?
+                                    Send this control to <strong>SoQM Admin Team</strong> for review?
                                 </p>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                                     Cancel
                                 </button>
-                                <button type="button" class="btn btn-success" id="confirmSubmitSoqmLeadBtn">
-                                    Confirm Submission
+                                <button type="button" class="btn btn-primary" id="confirmSubmitSoqmLeadBtn">
+                                    Send for Review
                                 </button>
                             </div>
                         </div>
@@ -1620,19 +1625,20 @@
                 <div class="modal fade" id="returnFacilitatorModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
-                            <div class="modal-header bg-warning text-dark">
-                                <h5 class="modal-title">Return Control to Facilitator</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-return" aria-hidden="true"><i class="bi bi-arrow-return-left"></i></span>
+                                <h5 class="modal-title">Return to Facilitator</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="mb-3">
-                                    Are you sure you want to return this control to the <strong>Facilitator</strong> for revision?
+                                    Return this control to the <strong>Facilitator</strong> for rework?
                                 </p>
                                 <div class="mb-3">
                                     <label for="returnComments" class="form-label">Reason for the return <span class="text-danger" aria-hidden="true">*</span></label>
                                     <textarea class="form-control" id="returnComments" rows="3" maxlength="2000" required
                                               aria-describedby="returnCommentsError"
-                                              placeholder="Provide feedback for the Facilitator..."></textarea>
+                                              placeholder="What needs to change"></textarea>
                                     <div class="invalid-feedback" id="returnCommentsError">Enter the reason for the return.</div>
                                 </div>
                             </div>
@@ -1641,7 +1647,7 @@
                                     Cancel
                                 </button>
                                 <button type="button" class="btn btn-warning" id="confirmReturnFacilitatorBtn">
-                                    Confirm Return
+                                    Return Control
                                 </button>
                             </div>
                         </div>
@@ -1652,21 +1658,22 @@
                 <div class="modal fade" id="submitProcessOwnerModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
-                            <div class="modal-header bg-success text-white">
-                                <h5 class="modal-title">Submit to Process Owner</h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-send"></i></span>
+                                <h5 class="modal-title">Send to Process Owner</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="mb-0">
-                                    Are you sure you want to submit this control to the <strong>Process Owner</strong> for review?
+                                    Send this control to the <strong>Process Owner</strong> for review?
                                 </p>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                                     Cancel
                                 </button>
-                                <button type="button" class="btn btn-success" id="confirmSubmitProcessOwnerBtn">
-                                    Confirm Submission
+                                <button type="button" class="btn btn-primary" id="confirmSubmitProcessOwnerBtn">
+                                    Send for Review
                                 </button>
                             </div>
                         </div>
@@ -1677,19 +1684,20 @@
                 <div class="modal fade" id="returnOperatorModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
-                            <div class="modal-header bg-warning text-dark">
-                                <h5 class="modal-title">Return Control to Control Operator</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-return" aria-hidden="true"><i class="bi bi-arrow-return-left"></i></span>
+                                <h5 class="modal-title">Return to Control Operator</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="mb-3">
-                                    Are you sure you want to return this control to the <strong>Control Operator</strong> for revision?
+                                    Return this control to the <strong>Control Operator</strong> for rework?
                                 </p>
                                 <div class="mb-3">
                                     <label for="returnOperatorComments" class="form-label">Reason for the return <span class="text-danger" aria-hidden="true">*</span></label>
                                     <textarea class="form-control" id="returnOperatorComments" rows="3" maxlength="2000" required
                                               aria-describedby="returnOperatorCommentsError"
-                                              placeholder="Provide feedback for the Control Operator..."></textarea>
+                                              placeholder="What needs to change"></textarea>
                                     <div class="invalid-feedback" id="returnOperatorCommentsError">Enter the reason for the return.</div>
                                 </div>
                             </div>
@@ -1698,7 +1706,7 @@
                                     Cancel
                                 </button>
                                 <button type="button" class="btn btn-warning" id="confirmReturnOperatorBtn">
-                                    Confirm Return
+                                    Return Control
                                 </button>
                             </div>
                         </div>
@@ -1711,13 +1719,14 @@
                     <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
                         <div class="modal-content">
                             <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-arrow-left-right"></i></span>
                                 <h5 class="modal-title" id="soqmMoveTitle">Move the control</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="soqm-move-now">
-                                    Now: <strong th:text="${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">In Progress</strong>.
-                                    <span th:unless="${completedControl}">As SoQM Admin Team you can make the step of any Control role: on to the next status or back to an earlier one.</span>
+                                    Current status: <strong th:text="${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">In Progress</strong>.
+                                    <span th:unless="${completedControl}">Move the control on, or return it to an earlier step, for any Control role.</span>
                                 </p>
                                 <p class="soqm-move-now" th:if="${completedControl}" id="soqmMoveCompletedNote">
                                     A completed control is locked for everyone. Returning it keeps its values, its deadline
@@ -1749,7 +1758,7 @@
                                         <span class="text-danger d-none" id="soqmMoveCommentMark" aria-hidden="true">*</span></label>
                                     <textarea class="form-control" id="soqmMoveComment" rows="3" maxlength="2000"
                                               aria-describedby="soqmMoveCommentError"
-                                              placeholder="Why the control moves, for the history and the notification"></textarea>
+                                              placeholder="Reason for the move, kept in the history"></textarea>
                                     <div class="invalid-feedback" id="soqmMoveCommentError">Enter a comment: a return and a step made for a Control role need one.</div>
                                 </div>
                                 <div class="text-danger small mt-2 d-none" id="soqmMoveError" role="alert"></div>
@@ -1768,6 +1777,7 @@
                     <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
                         <div class="modal-content">
                             <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-pencil"></i></span>
                                 <h5 class="modal-title" id="completedEditReasonTitle">Save changes to a completed control</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
@@ -1794,13 +1804,14 @@
                 <div class="modal fade" id="completeControlModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
-                            <div class="modal-header bg-success text-white">
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-complete" aria-hidden="true"><i class="bi bi-check2-circle"></i></span>
                                 <h5 class="modal-title">Complete Control</h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="mb-0">
-                                    Are you sure you want to complete this control? The workflow will be marked as <strong>Completed</strong>.
+                                    Complete this control? Its status becomes <strong>Completed</strong>.
                                 </p>
                             </div>
                             <div class="modal-footer">
@@ -1808,7 +1819,7 @@
                                     Cancel
                                 </button>
                                 <button type="button" class="btn btn-success" id="confirmCompleteControlBtn">
-                                    Confirm Completion
+                                    Complete Control
                                 </button>
                             </div>
                         </div>
@@ -1825,7 +1836,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=4"></script>
 <script src="/js/multi-value.js?v=2"></script>
-<script src="/js/view-control.js?v=8.6"></script>
+<script src="/js/view-control.js?v=8.7"></script>
 <script src="/js/create-control.js?v=3"></script>
 <script src="/js/workflow-move.js?v=1"></script>
 <script>
