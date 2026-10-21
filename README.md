@@ -154,9 +154,6 @@ Repository-defined variables from `application*.yml`, `.env`, `.env.example`, `.
 - `NOTIFICATIONS_EMAIL_WHITELIST`
 - `NOTIFICATIONS_SCHEDULER_ENABLED` (default true: the planned notifications)
 
-### Scheduling / behavior
-- `OVERDUE_USE_WORKING_DAYS`
-
 ### Upload / request limits
 - `MAX_UPLOAD_FILE_SIZE`
 - `MAX_UPLOAD_REQUEST_SIZE`

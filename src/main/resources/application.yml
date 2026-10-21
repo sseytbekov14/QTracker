@@ -96,9 +96,6 @@ file:
     dir: ${FILE_UPLOAD_DIR:}
     max-file-size-mb: ${FILE_UPLOAD_MAX_FILE_SIZE_MB:10}
 
-overdue:
-  use-working-days: ${OVERDUE_USE_WORKING_DAYS:true}
-
 notifications:
   # The planned notifications (occurrence day, reminders, deadline, overdue): every 5 minutes on working days from
   # 09:30 Asia/Almaty; off: none of them (the notifications of the workflow steps still go)
