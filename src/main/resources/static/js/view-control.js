@@ -389,66 +389,6 @@ function confirmWorkflowAction() {
     performWorkflowAction(action, comment);
 }
 
-    // РџРѕРєР°Р·Р°С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ
-    function showWorkflowConfirmationModal(action, label, requiresComment, confirmationMessage) {
-        // Р•СЃР»Рё Сѓ С‚РµР±СЏ СѓР¶Рµ РµСЃС‚СЊ С„СѓРЅРєС†РёСЏ showModal РёР»Рё РїРѕРґРѕР±РЅР°СЏ, РёСЃРїРѕР»СЊР·СѓР№ РµС‘
-        // РРЅР°С‡Рµ СЃРѕР·РґР°Р№ РїСЂРѕСЃС‚СѓСЋ РІРµСЂСЃРёСЋ:
-
-        const modalMessage = confirmationMessage || `${label}?`;
-
-        if (requiresComment) {
-            // РџРѕРєР°Р·Р°С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ СЃ РїРѕР»РµРј РґР»СЏ РєРѕРјРјРµРЅС‚Р°СЂРёСЏ
-            showCommentModal(modalMessage, action);
-        } else {
-            // РџСЂРѕСЃС‚Рѕ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ Р±РµР· РєРѕРјРјРµРЅС‚Р°СЂРёСЏ
-            if (confirm(modalMessage)) {
-                performWorkflowAction(action, null);
-            }
-        }
-    }
-
-    // Р¤СѓРЅРєС†РёСЏ РїРѕРєР°Р·Р° РјРѕРґР°Р»СЊРЅРѕРіРѕ РѕРєРЅР° СЃ РєРѕРјРјРµРЅС‚Р°СЂРёРµРј
-    function showCommentModal(message, action) {
-        // Р•СЃР»Рё Сѓ С‚РµР±СЏ СѓР¶Рµ РµСЃС‚СЊ СЃРёСЃС‚РµРјР° РјРѕРґР°Р»СЊРЅС‹С… РѕРєРѕРЅ, РёРЅС‚РµРіСЂРёСЂСѓР№ РІ РЅРµС‘
-        // РРЅР°С‡Рµ СЃРѕР·РґР°Р№ РїСЂРѕСЃС‚РѕРµ:
-
-        const modalHTML = `
-            <div class="modal fade" id="workflowCommentModal" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Workflow Action</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <p>${message}</p>
-                            <div class="mt-3">
-                                <label for="workflowComment" class="form-label">Comment (required):</label>
-                                <textarea id="workflowComment" class="form-control" rows="3"
-                                          placeholder="Enter your comment here..."></textarea>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" onclick="submitWorkflowAction()">Confirm</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // РЈРґР°Р»РёС‚СЊ СЃС‚Р°СЂСѓСЋ РјРѕРґР°Р»РєСѓ РµСЃР»Рё РµСЃС‚СЊ
-        const oldModal = document.getElementById('workflowCommentModal');
-        if (oldModal) oldModal.remove();
-
-        // Р”РѕР±Р°РІРёС‚СЊ РЅРѕРІСѓСЋ
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-        // РџРѕРєР°Р·Р°С‚СЊ
-        const modal = new bootstrap.Modal(document.getElementById('workflowCommentModal'));
-        modal.show();
-    }
-
     function getCurrentControlId() {
         // РџСЂРёРјРµСЂ: РёР· URL /view-control/123 РІРѕР·РІСЂР°С‰Р°РµС‚ 123
         const path = window.location.pathname;
@@ -524,15 +464,6 @@ function confirmWorkflowAction() {
         if (modal) modal.hide();
 
         performWorkflowAction(currentWorkflowAction, comment);
-    }
-
-    // РЎРєСЂС‹С‚СЊ workflow РєРЅРѕРїРєРё
-    function hideWorkflowButtons() {
-        const container = document.getElementById('workflow-buttons-container');
-        if (container) {
-            container.innerHTML = '';
-            container.style.display = 'none';
-        }
     }
 
     function createCompactUserItem(user, isSelected = false) {
@@ -1557,20 +1488,6 @@ function saveControlData(controlId) {
         normalizeAssignmentDateFieldsForDisplay();
     }
 
-    function resetAllForms() {
-        const controlForm = document.getElementById('controlForm');
-        if (controlForm) controlForm.reset();
-
-        const detailsForm = document.getElementById('detailsForm');
-        if (detailsForm) detailsForm.reset();
-
-        const assignmentForm = document.getElementById('assignmentForm');
-        if (assignmentForm) assignmentForm.reset();
-
-        const documentsForm = document.getElementById('documentsForm');
-        if (documentsForm) documentsForm.reset();
-    }
-
     function switchToEditMode() {
         captureEditModeSnapshot();
         document.body.classList.add('edit-mode-active');
@@ -1676,12 +1593,6 @@ function renameControlId(newControlId, comment) {
                 });
             }
         });
-    }
-
-    // ========== VALIDATION FUNCTIONS ==========
-    function isValidEmail(email) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
     }
 
     function parseIsoDate(value) {
