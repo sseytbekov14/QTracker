@@ -14,12 +14,6 @@ public interface WorkflowHistoryRepository extends JpaRepository<WorkflowHistory
 
     List<WorkflowHistory> findByControlIdOrderByCreatedAtDesc(Long controlId); // ★ ИЗМЕНИТЬ
 
-    List<WorkflowHistory> findByControlIdAndPerformedByEmailOrderByCreatedAtDesc( // ★ ИЗМЕНИТЬ имя поля
-                                                                                  Long controlId, String performedByEmail); // ★ ИЗМЕНИТЬ параметр
-    @Query("SELECT h FROM WorkflowHistory h WHERE h.controlId = :controlId " + // ★ ИЗМЕНИТЬ
-            "ORDER BY h.createdAt DESC")
-    List<WorkflowHistory> findWorkflowHistory(@Param("controlId") Long controlId); // ★ ИЗМЕНИТЬ тип
-
     List<WorkflowHistory> findByActionTypeOrderByCreatedAtDesc(WorkflowActionType actionType); // ★ ИЗМЕНИТЬ тип
 
     // Check if control reached specific workflow stage

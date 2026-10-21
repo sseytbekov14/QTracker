@@ -280,9 +280,4 @@ public class UserDeletion {
         steps.entrySet().removeIf(entry -> clock.instant().isAfter(entry.getValue().expires()));
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
-
-    /** Tests move the clock (token expiry). */
-    void useClock(Clock clock) {
-        this.clock = clock;
-    }
 }

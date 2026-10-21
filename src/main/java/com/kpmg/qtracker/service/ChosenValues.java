@@ -23,10 +23,6 @@ public final class ChosenValues {
 
     /** What a save stores (the values joined, ValueList), or why it is refused. */
     public record Checked(String stored, String refusal) {
-
-        public Optional<String> refusalIfAny() {
-            return Optional.ofNullable(refusal);
-        }
     }
 
     /** The stored values in their order, each marked when the list (by ValueList.key) does not have it. */

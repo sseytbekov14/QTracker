@@ -36,8 +36,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByMail(@Param("email") String email);
     Optional<User> findByEntraOid(String entraOid);
 
-    List<User> findByRole(String role);
-
     /** The active users of a level, the oldest first: SoQM Admin Team for a notification whose control names none. */
     List<User> findByAccessLevelAndEnabledTrueOrderByIdAsc(AccessLevel level);
 

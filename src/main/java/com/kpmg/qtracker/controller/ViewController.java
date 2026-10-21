@@ -2,14 +2,12 @@ package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.Control;
-import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.enums.WorkflowActionType;
 import com.kpmg.qtracker.exception.ControlNotAvailableException;
 import com.kpmg.qtracker.exception.ForbiddenException;
 import com.kpmg.qtracker.exception.ResourceNotFoundException;
-import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.repository.WorkflowStepRepository;
 import com.kpmg.qtracker.service.*;
@@ -29,7 +27,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import com.kpmg.qtracker.service.WorkflowService;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -37,7 +34,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.UUID;
 
 @Controller
 @RequiredArgsConstructor
@@ -46,17 +42,13 @@ public class ViewController {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ViewController.class);
 
     private static final int DASHBOARD_ACTION_ITEMS_LIMIT = 8;
-    private static final int DUE_SOON_DAYS = 3;
     private static final int NOTIFICATIONS_PAGE_SIZE = 50;
     private static final int NOTIFICATIONS_MAX_LIMIT = 1000;
 
     private final UserService userService;
     private final IControlService controlService;
     private final IPerformanceService performanceService;
-    private final DashboardService dashboardService;
     private final ControlAssignmentService controlAssignmentService;
-    private final WorkflowService workflowService;
-    private final ControlAssignmentRepository controlAssignmentRepository;
     private final ControlDetailsService controlDetailsService;
     private final NotificationService notificationService;
     private final WorkflowHistoryRepository workflowHistoryRepository;

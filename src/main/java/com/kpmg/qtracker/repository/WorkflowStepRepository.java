@@ -1,7 +1,6 @@
 package com.kpmg.qtracker.repository;
 
 import com.kpmg.qtracker.entity.WorkflowStep;
-import com.kpmg.qtracker.enums.WorkflowStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -19,12 +18,6 @@ public interface WorkflowStepRepository extends JpaRepository<WorkflowStep, Long
     // Найти текущий активный шаг
     @Query("SELECT ws FROM WorkflowStep ws WHERE ws.controlId = :controlId AND ws.status IN ('IN_PROGRESS', 'REVIEW', 'SOQM_HEAD_REVIEW', 'PROCESS_OWNER_REVIEW')")
     Optional<WorkflowStep> findCurrentStep(@Param("controlId") Long controlId);
-
-    // Найти шаг по controlId и типу шага
-    Optional<WorkflowStep> findByControlIdAndStepType(Long controlId, String stepType);
-
-    // Найти шаг по controlId и sequenceOrder
-    Optional<WorkflowStep> findByControlIdAndSequenceOrder(Long controlId, Integer sequenceOrder);
 
     @Query("SELECT ws.controlId, MAX(ws.completedAt) " +
            "FROM WorkflowStep ws " +

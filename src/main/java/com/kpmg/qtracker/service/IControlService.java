@@ -4,26 +4,16 @@ import com.kpmg.qtracker.dto.ControlResponseDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 public interface IControlService {
     List<Control> getAllControls();
     List<Control> findVisibleControlsForUser(User user);
     List<Control> getUserControls(String userEmail);
-    List<Control> getAllUserControls(String userEmail);
-    List<Control> getFacilitatorControls(String userEmail);
-    List<Control> getControlOperatorControls(String userEmail);
-    List<Control> getProcessOwnerControls(String userEmail);
-    List<Control> getSoqmLeadControls(String userEmail);
     boolean isControlIdUnique(String controlId);
-    List<ControlResponseDTO> getUserControlsDTO(String userEmail);
-    List<ControlResponseDTO> getFacilitatorControlsDTO(String userEmail);
     Control createControl(Control control);
     Control save(Control control);
-    boolean isControlComplete(Control control);
     Optional<Control> getControlById(Long id);
-    Map<String, Long> getComponentStatistics();
     Control updateControl(Control control);
     String getControlFrequency(Long controlId);
     ControlResponseDTO convertToResponseDTO(Control control);
@@ -31,6 +21,5 @@ public interface IControlService {
     /** The rows of a list: the same as convertToResponseDTO for each, with the people read in one query. */
     List<ControlResponseDTO> convertToResponseDTOs(List<Control> controls);
     Optional<Control> findById(Long id);
-    List<String> getFacilitatorsForControl(Long controlId);
 
 }

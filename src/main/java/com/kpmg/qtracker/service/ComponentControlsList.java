@@ -302,11 +302,6 @@ public final class ComponentControlsList {
                     basePath + "/export");
         }
 
-        /** The same list with the KDN filter switched the other way. */
-        public String kdnToggleHref() {
-            return href(query.q(), query.status(), query.sort(), query.desc(), 1, query.size(), basePath, !query.kdn());
-        }
-
         /** Every column both ways, for the phone's "Sort by" (the headers are hidden there). */
         public List<SortOption> sortOptions() {
             List<SortOption> options = new ArrayList<>();

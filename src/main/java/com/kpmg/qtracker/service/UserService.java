@@ -145,10 +145,6 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public boolean userExists(String email) {
-        return userRepository.existsByMail(email);
-    }
-
     /**
      * The Admin Panel save of one user. Every value is checked before anything changes, so a refused save
      * changes nothing. A null e-mail or name keeps the stored one; the e-mail changes also after the first login

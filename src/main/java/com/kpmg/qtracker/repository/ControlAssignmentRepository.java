@@ -10,7 +10,6 @@ import java.util.Optional;
 
 public interface ControlAssignmentRepository extends JpaRepository<ControlAssignment, Long> {
     Optional<ControlAssignment> findByControlId(Long controlId);
-    List<ControlAssignment> findByNextControlOperationDate(LocalDate nextControlOperationDate);
 
     @Query("""
             SELECT COUNT(ca) > 0

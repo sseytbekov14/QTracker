@@ -12,5 +12,4 @@ public interface EmailOutboxRepository extends JpaRepository<EmailOutbox, Long> 
 
     List<EmailOutbox> findByControlIdOrderByIdAsc(Long controlId);
 
-    List<EmailOutbox> findByStatusOrderByIdAsc(String status);
 }

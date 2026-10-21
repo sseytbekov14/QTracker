@@ -54,12 +54,6 @@ public class ControlResponseDTO {
     private String workflowStatus;
     private String workflowStatusDisplay;
     private List<WorkflowHistoryDTO> workflowHistory;
-    private boolean canInitiateWorkflow;
-    private boolean canSubmitForReview;
-    private boolean canSubmitForSoQM;
-    private boolean canSendToProcessOwner;
-    private boolean canCompleteWorkflow;
-    private boolean canReturnWorkflow;
 
     private List<String> facilitators;
     private List<String> controlOperators;

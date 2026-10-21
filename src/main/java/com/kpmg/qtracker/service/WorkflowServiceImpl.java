@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.notification.WorkflowNotifications;
 import com.kpmg.qtracker.entity.WorkflowHistory;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -270,15 +269,6 @@ public class WorkflowServiceImpl implements WorkflowService {
         dto.setReturnReason(step.getReturnReason());
         dto.setReturnedToStep(step.getReturnedToStep());
         return dto;
-    }
-
-    private WorkflowStatus statusForStepType(WorkflowStepType stepType) {
-        return switch (stepType) {
-            case FACILITATOR -> WorkflowStatus.IN_PROGRESS;
-            case CONTROL_OPERATOR -> WorkflowStatus.REVIEW;
-            case SOQM_TEAM -> WorkflowStatus.SOQM_HEAD_REVIEW;
-            case PROCESS_OWNER -> WorkflowStatus.PROCESS_OWNER_REVIEW;
-        };
     }
 
     private void createHistoryRecord(Long controlId, String performerEmail,

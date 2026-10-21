@@ -16,8 +16,6 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
     /** The controls a user created (the user's deletion keeps them, with the creator as text). */
     List<Control> findByCreatedById(Long userId);
 
-    List<Control> findByCreatedByMail(String userEmail);
-    List<Control> findByComponent(String component);
 
     Optional<Control> findByControlId(String controlId);
 
@@ -37,21 +35,10 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
         return findByControlId(controlId).isEmpty();
     }
 
-    @Query("SELECT MAX(c.id) FROM Control c")
-    Optional<Long> findMaxId();
-
     List<Control> findByCreatedBy(User user);
-
-    @Query("SELECT COUNT(c) FROM Control c WHERE c.component = :component")
-    Long countByComponent(@Param("component") String component);
-
-    @Query("SELECT COUNT(c) FROM Control c")
-    Long countAllControls();
 
     List<Control> findByCreatedByMailOrderByCreatedAtDesc(String userEmail);
     List<Control> findAllByOrderByIdDesc();
-    List<Control> findByControlStatusIgnoreCase(String controlStatus);
-    List<Control> findByPerformanceStatusIgnoreCase(String performanceStatus);
 
     /** The controls of the planned notifications: in one of the statuses (upper case), not returned from Completed. */
     @Query("SELECT c.id FROM Control c WHERE UPPER(TRIM(c.performanceStatus)) IN :statuses AND c.reopenedAt IS NULL"
