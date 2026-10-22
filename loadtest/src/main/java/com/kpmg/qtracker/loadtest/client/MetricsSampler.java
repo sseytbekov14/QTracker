@@ -30,6 +30,9 @@ final class MetricsSampler implements Runnable {
         METRICS.put("hikari_acquire_total_s", new String[]{"hikaricp.connections.acquire", "TOTAL_TIME"});
         METRICS.put("hikari_acquire_max_s", new String[]{"hikaricp.connections.acquire", "MAX"});
         METRICS.put("hikari_timeouts", new String[]{"hikaricp.connections.timeout", "COUNT"});
+        METRICS.put("hikari_usage_count", new String[]{"hikaricp.connections.usage", "COUNT"});
+        METRICS.put("hikari_usage_total_s", new String[]{"hikaricp.connections.usage", "TOTAL_TIME"});
+        METRICS.put("hikari_usage_max_s", new String[]{"hikaricp.connections.usage", "MAX"});
         METRICS.put("tomcat_busy", new String[]{"tomcat.threads.busy", "VALUE"});
         METRICS.put("tomcat_current", new String[]{"tomcat.threads.current", "VALUE"});
         METRICS.put("heap_used_mb", new String[]{"jvm.memory.used?tag=area:heap", "VALUE"});
@@ -99,7 +102,12 @@ final class MetricsSampler implements Runnable {
         }
         double[] row = rows.get(rows.size() - 1);
         return String.format(Locale.ROOT, "hikari active=%.0f pending=%.0f tomcat busy=%.0f heap=%.0fMB live=%.0fMB cpu=%.0f%%",
-                row[0], row[1], row[7], row[9], row[11], row[15] * 100);
+                row[column("hikari_active")], row[column("hikari_pending")], row[column("tomcat_busy")],
+                row[column("heap_used_mb")], row[column("live_after_gc_mb")], row[column("process_cpu")] * 100);
+    }
+
+    private static int column(String key) {
+        return new ArrayList<>(METRICS.keySet()).indexOf(key);
     }
 
     synchronized void write(Path csv) throws IOException {
