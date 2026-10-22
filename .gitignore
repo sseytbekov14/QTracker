@@ -66,3 +66,7 @@ qtracker-backup-*.sql/
 /users.sql
 /qtracker-app.tar*
 /qtracker-deploy/
+
+### Локальные скрипты, не коммитить ###
+PUSH_TO_GIT.txt
+build*.ps1
