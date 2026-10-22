@@ -869,8 +869,12 @@ public class ViewController {
         AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
         LocalDate today = DeadlineOverdue.today(Instant.now());
         List<ControlResponseDTO> controls = listControls(code, findControlsVisibleToUser(currentUser));
-        // "Closed late": the completion day from the workflow history, two queries for the whole list
-        Map<Long, LocalDateTime> completedAt = resolveCompletionTimes(controls);
+        // "Closed late": the completion day from the workflow history, two queries for the completed controls with a
+        // deadline, the only ones the mark can be on (DeadlineOverdue.isClosedLate)
+        Map<Long, LocalDateTime> completedAt = resolveCompletionTimes(controls.stream()
+                .filter(control -> DeadlineOverdue.isCompleted(control.getPerformanceStatus())
+                        && control.getDeadline() != null)
+                .toList());
         Set<Long> yourTurn = new java.util.HashSet<>();
         for (ControlResponseDTO control : controls) {
             control.setOverdue(DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), today));
