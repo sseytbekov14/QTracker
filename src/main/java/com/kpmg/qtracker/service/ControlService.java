@@ -77,17 +77,14 @@ public class ControlService implements IControlService {
 
         List<Control> candidates;
         if (AccessPolicy.seesWithoutBeingOn(subject)) {
-            // KDN: every control is a candidate, the policy keeps the KDN ones (the rule stays in one place)
-            candidates = getAllControls();
+            // KDN: the controls with KDN in the ID are the candidates, the policy keeps the KDN ones (the rule stays
+            // in one place)
+            candidates = controlRepository.findKdnCandidatesOrderByIdDesc();
         } else {
             // LIKE finds the address anywhere in a column, including inside another address
-            // (a@kpmg.kz in ba@kpmg.kz); the policy below checks whole addresses
+            // (a@kpmg.kz in ba@kpmg.kz); the policy below checks whole addresses. One pass over the five columns.
             Set<Long> candidateIds = new LinkedHashSet<>();
-            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByFacilitator(userEmail));
-            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlOperator(userEmail));
-            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsBySoqmLead(userEmail));
-            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByProcessOwner(userEmail));
-            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlSharedWith(userEmail));
+            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByPerson(userEmail));
             // My controls also cover the controls the user created
             controlRepository.findByCreatedByMailOrderByCreatedAtDesc(userEmail)
                     .forEach(control -> candidateIds.add(control.getId()));

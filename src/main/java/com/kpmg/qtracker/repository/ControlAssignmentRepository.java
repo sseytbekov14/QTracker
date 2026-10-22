@@ -59,4 +59,19 @@ public interface ControlAssignmentRepository extends JpaRepository<ControlAssign
     @Query("SELECT ca.controlId FROM ControlAssignment ca "
             + "WHERE LOWER(ca.controlSharedWith) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))")
     List<Long> findControlIdsByControlSharedWith(@Param("email") String email);
+
+    /**
+     * The five queries above in one pass over the table: the controls with the address anywhere in Facilitator,
+     * Control Operator, SoQM Team, Process Owner or Shared With (the candidates of My controls; the access policy then
+     * checks whole addresses). Five full passes per list made My lists the heaviest statements of the load test.
+     */
+    @Query("SELECT ca.controlId FROM ControlAssignment ca WHERE " + ANY_PERSON_FIELD)
+    List<Long> findControlIdsByPerson(@Param("email") String email);
+
+    /** The address anywhere in one of the five people fields (whole addresses are checked by the access policy). */
+    String ANY_PERSON_FIELD = "LOWER(ca.facilitator) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))"
+            + " OR LOWER(ca.controlOperator) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))"
+            + " OR LOWER(ca.soqmLead) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))"
+            + " OR LOWER(ca.processOwner) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))"
+            + " OR LOWER(ca.controlSharedWith) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))";
 }

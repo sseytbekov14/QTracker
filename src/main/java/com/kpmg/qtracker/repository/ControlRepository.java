@@ -37,6 +37,14 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
     List<Control> findByCreatedByMailOrderByCreatedAtDesc(String userEmail);
     List<Control> findAllByOrderByIdDesc();
 
+    /**
+     * The controls with "KDN" anywhere in the Control ID, any case, newest first: every KDN control and some others
+     * (AccessPolicy.isKdnControl, the one rule, then keeps the KDN ones). The KDN users' lists read these instead of
+     * the whole table.
+     */
+    @Query("SELECT c FROM Control c WHERE UPPER(c.controlId) LIKE '%KDN%' ORDER BY c.id DESC")
+    List<Control> findKdnCandidatesOrderByIdDesc();
+
     /** The controls of the planned notifications: in one of the statuses (upper case), not returned from Completed. */
     @Query("SELECT c.id FROM Control c WHERE UPPER(TRIM(c.performanceStatus)) IN :statuses AND c.reopenedAt IS NULL"
             + " ORDER BY c.id")

@@ -66,6 +66,32 @@ class ReleaseScenarioQueriesIT extends ReleaseScenarioSupport {
         }
     }
 
+    /**
+     * KDN users: the candidates read from the database (KDN anywhere in the ID) and the policy give exactly the
+     * controls every control filtered by AccessPolicy.isKdnControl gives, spaces and case included.
+     */
+    @Test
+    void theKdnCandidates_giveTheSameControlsAsTheWholeTable() throws Exception {
+        People people = people().facilitator(myEdit("qk-f")).operator(myEdit("qk-op")).soqm(soqm("qk-soqm"))
+                .owner(myEdit("qk-po"));
+        for (String id : java.util.List.of("  kdn-qk-1  ", "KDN-QK-2", "kdnQK3", "X-KDN-QK-4", "KD-N-QK-5", "HR-QK-6")) {
+            control("unused", "REVIEW", people, control -> control.setControlId(id + "-" + next()));
+        }
+        control("KDN-QK-DRAFT", "DRAFT", people);
+        User kdnUser = kdn("qk-kdn");
+
+        java.util.List<Long> visible = controlService.findVisibleControlsForUser(kdnUser).stream()
+                .map(com.kpmg.qtracker.entity.Control::getId).toList();
+        java.util.List<Long> expected = controlRepository.findAllByOrderByIdDesc().stream()
+                .filter(control -> com.kpmg.qtracker.service.AccessPolicy.isKdnControl(control.getControlId()))
+                .map(com.kpmg.qtracker.entity.Control::getId).toList();
+
+        assertThat(visible).isNotEmpty().containsExactlyElementsOf(expected);
+    }
+
+    @Autowired
+    private com.kpmg.qtracker.service.IControlService controlService;
+
     private long count(MockHttpSession session, MockHttpServletRequestBuilder request) throws Exception {
         Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         statistics.clear();
