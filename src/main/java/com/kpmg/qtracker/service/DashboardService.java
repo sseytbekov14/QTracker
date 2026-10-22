@@ -107,7 +107,8 @@ public class DashboardService {
     }
 
     public DashboardChartDataDTO getFrequencyBreakdown() {
-        return buildFrequencyBreakdown(controlRepository.findAll());
+        // The frequencies only, not every control's whole row (the chart of every SoQM dashboard)
+        return frequencyBreakdown(controlRepository.findAllControlFrequencies());
     }
 
     public DashboardDeadlineCountdownDTO getDeadlineCountdown(User currentUser, int days, int limit) {
@@ -184,6 +185,11 @@ public class DashboardService {
     }
 
     private DashboardChartDataDTO buildFrequencyBreakdown(List<Control> controls) {
+        return frequencyBreakdown(safeControls(controls).stream().map(Control::getControlFrequency).toList());
+    }
+
+    /** The chart of these controls' frequencies (one per control, null for none). */
+    private DashboardChartDataDTO frequencyBreakdown(List<String> frequencies) {
         Map<String, Long> counts = new LinkedHashMap<>();
         counts.put("Monthly", 0L);
         counts.put("Quarterly", 0L);
@@ -193,8 +199,8 @@ public class DashboardService {
         counts.put("Ad-Hoc", 0L);
         counts.put("Unspecified", 0L);
 
-        for (Control control : safeControls(controls)) {
-            String label = normalizeFrequency(control.getControlFrequency());
+        for (String frequency : frequencies) {
+            String label = normalizeFrequency(frequency);
             counts.compute(label, (key, value) -> value == null ? 1L : value + 1);
         }
 

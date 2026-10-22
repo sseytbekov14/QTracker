@@ -37,6 +37,10 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
     List<Control> findByCreatedByMailOrderByCreatedAtDesc(String userEmail);
     List<Control> findAllByOrderByIdDesc();
 
+    /** The Control Frequency of every control, one value each (null for none): the dashboard's frequency chart. */
+    @Query("SELECT c.controlFrequency FROM Control c")
+    List<String> findAllControlFrequencies();
+
     /**
      * The controls with "KDN" anywhere in the Control ID, any case, newest first: every KDN control and some others
      * (AccessPolicy.isKdnControl, the one rule, then keeps the KDN ones). The KDN users' lists read these instead of
