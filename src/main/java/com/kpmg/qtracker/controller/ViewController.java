@@ -305,12 +305,16 @@ public class ViewController {
                 .filter(control -> control != null && control.getId() != null)
                 .toList();
         // All rows in one conversion (the people read once, not per control)
+        List<ControlResponseDTO> rows = controlService.convertToResponseDTOs(listed);
+        // Shared With of the controls the person is not assigned to, in one read (one read per control before)
+        Map<Long, ControlAssignmentDTO> notAssigned = seesAll ? Map.of()
+                : sharedWithOf(rows.stream().filter(dto -> !isDirectlyAssignedToUser(dto, userEmail))
+                        .map(ControlResponseDTO::getId).filter(Objects::nonNull).toList());
         Map<Long, ControlResponseDTO> controlMap = new LinkedHashMap<>();
-        for (ControlResponseDTO dto : controlService.convertToResponseDTOs(listed)) {
-            // The assignment is read again only for a control the person is not assigned to
+        for (ControlResponseDTO dto : rows) {
             boolean sharedOnly = !seesAll
                     && !isDirectlyAssignedToUser(dto, userEmail)
-                    && isSharedWithUser(dto.getId(), userEmail);
+                    && isSharedWithUser(notAssigned.get(dto.getId()), userEmail);
             dto.setSharedViewOnly(sharedOnly);
             controlMap.put(dto.getId(), dto);
         }
@@ -511,18 +515,23 @@ public class ViewController {
                 || listContains(control.getProcessOwners(), userEmail);
     }
 
-    private boolean isSharedWithUser(Long controlId, String userEmail) {
-        if (controlId == null || userEmail == null) {
+    private boolean isSharedWithUser(ControlAssignmentDTO assignment, String userEmail) {
+        if (assignment == null || userEmail == null) {
             return false;
         }
+        return containsEmailNormalized(assignment.getControlSharedWith(), userEmail);
+    }
+
+    /** The assignments of these controls in one read; none (every control not shared) when it fails. */
+    private Map<Long, ControlAssignmentDTO> sharedWithOf(List<Long> controlIds) {
+        if (controlIds.isEmpty()) {
+            return Map.of();
+        }
         try {
-            ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
-            if (assignment == null) {
-                return false;
-            }
-            return containsEmailNormalized(assignment.getControlSharedWith(), userEmail);
+            return controlAssignmentService.getAssignmentsByControlIds(controlIds);
         } catch (Exception e) {
-            return false;
+            log.warn("Could not read Shared With of {} controls", controlIds.size(), e);
+            return Map.of();
         }
     }
 
