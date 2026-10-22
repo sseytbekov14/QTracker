@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -430,10 +431,7 @@ public class ControlService implements IControlService {
 
             // ★ ПРОВЕРКА НА ДУБЛИКАТ
             if (controlRepository.existsByControlId(control.getControlId())) {
-                throw new IllegalArgumentException(
-                        String.format("Control ID '%s' already exists in the system. Please use a different ID.",
-                                control.getControlId())
-                );
+                throw duplicateControlId(control.getControlId());
             }
 
             control.setCreatedAt(LocalDateTime.now(Notification.ZONE));
@@ -444,7 +442,18 @@ public class ControlService implements IControlService {
                 control.setPerformanceStatus("DRAFT");
             }
 
-            Control savedControl = controlRepository.save(control);
+            Control savedControl;
+            try {
+                savedControl = controlRepository.save(control);
+            } catch (DataIntegrityViolationException e) {
+                // Another request saved the same Control ID between the check above and this insert (the unique
+                // key of control_id): the same refusal as the check, 409 DUPLICATE_ID, not a database error
+                if (control.getControlId() != null && controlRepository.existsByControlId(control.getControlId())) {
+                    logger.warn("Control ID {} was taken by another request at the same moment", control.getControlId());
+                    throw duplicateControlId(control.getControlId());
+                }
+                throw e;
+            }
             logger.info("Control created successfully: {}", control.getControlId());
 
             return savedControl;
@@ -455,6 +464,12 @@ public class ControlService implements IControlService {
             logger.error("Error creating control: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to create control: " + e.getMessage(), e);
         }
+    }
+
+    /** The refusal of a Control ID that is taken (ControlController answers it 409 DUPLICATE_ID). */
+    private static IllegalArgumentException duplicateControlId(String controlId) {
+        return new IllegalArgumentException(
+                String.format("Control ID '%s' already exists in the system. Please use a different ID.", controlId));
     }
 
     @Override
