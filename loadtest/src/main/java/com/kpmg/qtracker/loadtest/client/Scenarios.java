@@ -260,7 +260,7 @@ final class Scenarios {
 
     /** Create Control (the next cycle) of a Monthly or Quarterly control nobody has made it of yet. */
     private void createControl(Session session, Random random) {
-        Control control = Data.any(data.controls, c -> !c.nextCycleMade && !c.draft()
+        Control control = Data.any(data.controls, c -> !c.nextCycleMade && !c.draft() && c.active()
                 && ("Monthly".equals(c.frequency) || "Quarterly".equals(c.frequency)), random);
         if (control == null || !control.busy.compareAndSet(false, true)) {
             return;

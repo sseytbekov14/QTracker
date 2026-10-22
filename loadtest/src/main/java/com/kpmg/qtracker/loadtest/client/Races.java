@@ -35,7 +35,7 @@ final class Races {
 
         // 1. Create Control of the same control from two sessions
         for (int n = 0; n < rounds; n++) {
-            Control control = Data.any(data.controls, c -> !c.nextCycleMade && !c.draft() && !c.kdn
+            Control control = Data.any(data.controls, c -> !c.nextCycleMade && !c.draft() && !c.kdn && c.active()
                     && ("Monthly".equals(c.frequency) || "Quarterly".equals(c.frequency)), random);
             control.nextCycleMade = true;
             both("create-control same source " + control.controlId, adminA, adminB,

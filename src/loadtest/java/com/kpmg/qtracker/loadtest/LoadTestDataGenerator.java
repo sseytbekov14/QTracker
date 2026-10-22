@@ -96,7 +96,7 @@ public class LoadTestDataGenerator implements ApplicationRunner {
     /** One generated control, as the client needs it. */
     record Gen(long id, String controlId, String status, String frequency, boolean kdn, String component,
                List<Person> facilitators, List<Person> operators, List<Person> soqm, List<Person> owners,
-               List<Person> sharedWith, LocalDate operationDate, List<String> files) {
+               List<Person> sharedWith, LocalDate operationDate, List<String> files, String controlStatus) {
     }
 
     @Override
@@ -273,7 +273,7 @@ public class LoadTestDataGenerator implements ApplicationRunner {
                     status, controlStatus, random.nextInt(10) < 8 ? CURRENT_YEAR : PREVIOUS_YEAR,
                     !draft && random.nextInt(10) == 0 ? "Please add the evidence of step 3" : null});
             generated.add(new Gen(i, controlId, status, frequency, controlId.startsWith("KDN"), component, facilitators,
-                    operators, leads, processOwners, shared, operation, new ArrayList<>()));
+                    operators, leads, processOwners, shared, operation, new ArrayList<>(), controlStatus));
             if (rows.size() == BATCH) {
                 insertControls(rows);
             }
@@ -522,12 +522,13 @@ public class LoadTestDataGenerator implements ApplicationRunner {
         Files.write(folder.resolve("users.csv"), users, StandardCharsets.UTF_8);
 
         List<String> lines = new ArrayList<>(List.of(
-                "id,controlId,status,frequency,kdn,component,facilitators,operators,soqm,owners,shared,files"));
+                "id,controlId,status,frequency,kdn,component,facilitators,operators,soqm,owners,shared,files,controlStatus"));
         for (Gen control : generated) {
             lines.add(String.join(",", String.valueOf(control.id()), control.controlId(), control.status(),
                     control.frequency(), String.valueOf(control.kdn()), control.component(),
                     mailsOf(control.facilitators()), mailsOf(control.operators()), mailsOf(control.soqm()),
-                    mailsOf(control.owners()), mailsOf(control.sharedWith()), String.join("|", control.files())));
+                    mailsOf(control.owners()), mailsOf(control.sharedWith()), String.join("|", control.files()),
+                    control.controlStatus() == null ? "" : control.controlStatus()));
         }
         Files.write(folder.resolve("controls.csv"), lines, StandardCharsets.UTF_8);
         log.info("Load test client data: {}", folder.toAbsolutePath());

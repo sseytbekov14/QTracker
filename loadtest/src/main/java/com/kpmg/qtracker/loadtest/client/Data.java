@@ -45,6 +45,8 @@ final class Data {
         volatile String status;
         final AtomicBoolean busy = new AtomicBoolean();
         volatile boolean nextCycleMade;
+        /** Control Status: empty or ACTIVE makes a next cycle; Superseded, Deleted, Not applicable do not. */
+        final String controlStatus;
 
         Control(String[] f) {
             id = Long.parseLong(f[0]);
@@ -59,6 +61,11 @@ final class Data {
             owners = list(f[9]);
             shared = list(f[10]);
             files = list(f.length > 11 ? f[11] : "");
+            controlStatus = f.length > 12 ? f[12] : "";
+        }
+
+        boolean active() {
+            return controlStatus.isEmpty() || "ACTIVE".equals(controlStatus);
         }
 
         boolean draft() {
