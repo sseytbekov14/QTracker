@@ -59,6 +59,15 @@ class ReleaseScenarioProfilesTest {
         assertThat(value("spring.servlet.multipart.max-request-size")).isEqualTo("100MB");
     }
 
+    /** open-in-view stays on, as the Spring Boot default, written out so the start has no warning (2026-10-22). */
+    @Test
+    void openInView_isOnInEveryProfile() {
+        assertThat(value("spring.jpa.open-in-view")).isEqualTo("true");
+        for (String profile : new String[]{"dev", "stage", "prod"}) {
+            assertThat(value("spring.jpa.open-in-view", profile)).as(profile).isEqualTo("true");
+        }
+    }
+
     /**
      * Sign-in: prod with Microsoft Entra ID only, dev and stage with the password until their variables say
      * otherwise; Logout follows the mode unless set. X-Forwarded-* is not trusted unless a proxy is configured.

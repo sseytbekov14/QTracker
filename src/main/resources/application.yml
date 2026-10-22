@@ -22,6 +22,10 @@ logging:
 
 # No default profile: the start is refused without SPRING_PROFILES_ACTIVE=dev, stage or prod (StartupGuard)
 spring:
+  jpa:
+    # The Spring Boot default, written out so the start has no warning about it: the pages read lazy fields after
+    # the service calls (off only in the tests, application-test.yml)
+    open-in-view: true
   flyway:
     baseline-on-migrate: true
     baseline-version: 0
