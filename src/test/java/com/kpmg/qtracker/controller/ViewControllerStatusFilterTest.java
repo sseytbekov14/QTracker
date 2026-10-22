@@ -1330,7 +1330,13 @@ class ViewControllerStatusFilterTest {
                 .thenReturn(controls);
         // The menu's KDN item: the interface's own rule over the list above
         org.mockito.Mockito.doCallRealMethod().when(controlService).findVisibleKdnControlsForUser(user);
-        when(controlService.convertToResponseDTOs(controls)).thenReturn(dtos);
+        // Each control given is converted to its row (a component's list converts only its own controls)
+        java.util.Map<Long, ControlResponseDTO> byId = new java.util.HashMap<>();
+        dtos.forEach(dto -> byId.put(dto.getId(), dto));
+        when(controlService.convertToResponseDTOs(anyList())).thenAnswer(invocation -> {
+            List<Control> given = invocation.getArgument(0);
+            return given.stream().map(control -> byId.get(control.getId())).toList();
+        });
     }
 }
 

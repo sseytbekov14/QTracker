@@ -298,6 +298,15 @@ public class ViewController {
     }
 
     private List<ControlResponseDTO> findControlsVisibleToUser(User currentUser) {
+        return findControlsVisibleToUser(currentUser, control -> true);
+    }
+
+    /**
+     * @param candidates which of the visible controls are converted to rows at all: a list of one component (or the
+     *                   KDN list) spares converting every other control; the list's own filter still decides
+     */
+    private List<ControlResponseDTO> findControlsVisibleToUser(User currentUser,
+                                                               java.util.function.Predicate<Control> candidates) {
         if (currentUser == null) {
             return new ArrayList<>();
         }
@@ -307,6 +316,7 @@ public class ViewController {
         List<Control> visibleControls = controlService.findVisibleControlsForUser(currentUser);
         List<Control> listed = visibleControls.stream()
                 .filter(control -> control != null && control.getId() != null)
+                .filter(candidates)
                 .toList();
         // All rows in one conversion (the people read once, not per control)
         List<ControlResponseDTO> rows = controlService.convertToResponseDTOs(listed);
@@ -416,6 +426,23 @@ public class ViewController {
      * The controls of an Action Centre list: a component's, the KDN controls, or ALL = every control the user sees,
      * whatever its component (what the "All components" card counts; it took the place of the Controls page).
      */
+    /**
+     * The visible controls that can be in the list {@code code}, before they are converted to rows (a superset of
+     * {@link #listControls}, which then decides on the rows): every control for ALL; for KDN the ones with KDN anywhere
+     * in the ID; for a component the ones whose component is its code (trimmed, any case: the row keeps it so, or has
+     * none). A component's list converted every visible control, ten times its own.
+     */
+    private static java.util.function.Predicate<Control> candidatesOf(String code) {
+        if (ComponentControlsList.ALL_CODE.equals(code)) {
+            return control -> true;
+        }
+        if (ComponentControlsList.KDN_CODE.equalsIgnoreCase(code)) {
+            return control -> control.getControlId() != null
+                    && control.getControlId().toUpperCase(Locale.ROOT).contains("KDN");
+        }
+        return control -> control.getComponent() != null && control.getComponent().trim().equalsIgnoreCase(code.trim());
+    }
+
     private static List<ControlResponseDTO> listControls(String code, List<ControlResponseDTO> visible) {
         if (!ComponentControlsList.ALL_CODE.equals(code)) {
             return ComponentControlsList.controlsOf(code, visible);
@@ -877,7 +904,7 @@ public class ViewController {
     private ListData listData(String code, User currentUser) {
         AccessPolicy.Subject subject = AccessPolicy.Subject.of(currentUser);
         LocalDate today = DeadlineOverdue.today(Instant.now());
-        List<ControlResponseDTO> controls = listControls(code, findControlsVisibleToUser(currentUser));
+        List<ControlResponseDTO> controls = listControls(code, findControlsVisibleToUser(currentUser, candidatesOf(code)));
         // "Closed late": the completion day from the workflow history, two queries for the completed controls with a
         // deadline, the only ones the mark can be on (DeadlineOverdue.isClosedLate)
         Map<Long, LocalDateTime> completedAt = resolveCompletionTimes(controls.stream()
