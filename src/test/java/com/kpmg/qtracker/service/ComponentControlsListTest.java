@@ -324,6 +324,57 @@ class ComponentControlsListTest {
         }
     }
 
+    /**
+     * The list sorts the controls before their rows are built (rows only for the page): every column both ways it
+     * gives the rows of every control sorted by the comparator, people by their names included.
+     */
+    @Test
+    void theRowsOfEveryPage_areTheRowsSortedByTheComparator() {
+        java.util.Random random = new java.util.Random(9);
+        String[] texts = {null, "", " ", "Manual", "manual", " Auto ", "Monthly", "Quarterly", "b"};
+        String[] people = {"a@kpmg.kz", "B@kpmg.kz", "c@kpmg.kz", "no-name@kpmg.kz", "Not an e-mail"};
+        Map<String, String> names = Map.of("a@kpmg.kz", "Zara", "b@kpmg.kz", "alan", "c@kpmg.kz", "Alan");
+        String[] statuses = {"DRAFT", "IN_PROGRESS", "REVIEW", "COMPLETED", " review ", null, ""};
+        LocalDate today = LocalDate.of(2026, 10, 22);
+        for (int round = 0; round < 100; round++) {
+            List<ControlResponseDTO> controls = new ArrayList<>();
+            for (int n = 0; n < 30; n++) {
+                ControlResponseDTO control = control(1 + random.nextInt(40), texts[random.nextInt(texts.length)], "HR",
+                        statuses[random.nextInt(statuses.length)], random.nextBoolean() ? null : today.plusDays(random.nextInt(9) - 4));
+                control.setControlType(texts[random.nextInt(texts.length)]);
+                control.setControlFrequency(texts[random.nextInt(texts.length)]);
+                control.setControlCategory(texts[random.nextInt(texts.length)]);
+                control.setControlOperationDate(random.nextBoolean() ? null : today.plusDays(random.nextInt(5)));
+                control.setFacilitators(somePeople(people, random));
+                control.setControlOperators(somePeople(people, random));
+                control.setProcessOwners(somePeople(people, random));
+                control.setSoqmLeads(somePeople(people, random));
+                controls.add(control);
+            }
+            for (ComponentControlsList.Sort sort : ComponentControlsList.Sort.values()) {
+                for (String dir : new String[]{"asc", "desc"}) {
+                    ComponentControlsList.Query query = ComponentControlsList.Query.of(null, null, sort.key(), dir, 1, null);
+                    List<ComponentControlsList.Row> expected = controls.stream()
+                            .map(control -> ComponentControlsList.rowOf(control, names, today))
+                            .sorted(ComponentControlsList.comparator(sort, "desc".equals(dir)))
+                            .toList();
+                    assertThat(ComponentControlsList.allRows(controls, names, query, today, ComponentControlsList.Marks.NONE))
+                            .as("%s %s", sort, dir).containsExactlyElementsOf(expected);
+                    assertThat(ComponentControlsList.of("/component/HR", controls, names, query, today).rows())
+                            .as("page 1, %s %s", sort, dir).containsExactlyElementsOf(expected.subList(0, 25));
+                }
+            }
+        }
+    }
+
+    private static List<String> somePeople(String[] people, java.util.Random random) {
+        List<String> chosen = new ArrayList<>();
+        for (int n = random.nextInt(3); n > 0; n--) {
+            chosen.add(people[random.nextInt(people.length)]);
+        }
+        return chosen;
+    }
+
     @Test
     void nothingMatches_noRows_countersStay() {
         ComponentControlsList.Result empty = result(List.of(), null, null, null, null, null, null);

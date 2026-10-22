@@ -483,17 +483,26 @@ public final class ComponentControlsList {
                             Query query, LocalDate today, Marks marks) {
         List<ControlResponseDTO> all = base(controls, query);
         Counts counts = Counts.of(all, today);
-        List<Row> rows = matching(all, names, query, today, marks);
-        int pages = Math.max(1, (rows.size() + query.size() - 1) / query.size());
+        List<ControlResponseDTO> matching = matching(all, names, query, today, marks);
+        int pages = Math.max(1, (matching.size() + query.size() - 1) / query.size());
         int page = Math.min(query.page(), pages);
-        List<Row> pageRows = rows.subList((page - 1) * query.size(), Math.min(page * query.size(), rows.size()));
-        return new Result(basePath, query, counts, List.copyOf(pageRows), rows.size(), page, pages);
+        // The rows (people's names, marks) only for the page shown, not for every control of the list
+        List<Row> pageRows = new ArrayList<>();
+        for (ControlResponseDTO control : matching.subList((page - 1) * query.size(),
+                Math.min(page * query.size(), matching.size()))) {
+            pageRows.add(rowOf(control, names, today, marks));
+        }
+        return new Result(basePath, query, counts, List.copyOf(pageRows), matching.size(), page, pages);
     }
 
     /** Every row the query asks for, sorted, all pages: what the Excel export holds. */
     public static List<Row> allRows(Collection<ControlResponseDTO> controls, Map<String, String> names, Query query,
                                     LocalDate today, Marks marks) {
-        return matching(base(controls, query), names, query, today, marks);
+        List<Row> rows = new ArrayList<>();
+        for (ControlResponseDTO control : matching(base(controls, query), names, query, today, marks)) {
+            rows.add(rowOf(control, names, today, marks));
+        }
+        return rows;
     }
 
     private static List<ControlResponseDTO> base(Collection<ControlResponseDTO> controls, Query query) {
@@ -504,38 +513,72 @@ public final class ComponentControlsList {
                         .toList();
     }
 
-    private static List<Row> matching(List<ControlResponseDTO> all, Map<String, String> names, Query query,
-                                      LocalDate today, Marks marks) {
+    /**
+     * The controls the query asks for, in the order of {@link #comparator} on their rows; the rows themselves are not
+     * built here, only the value of the sorted column (one column's names, not the four of every row).
+     */
+    private static List<ControlResponseDTO> matching(List<ControlResponseDTO> all, Map<String, String> names,
+                                                     Query query, LocalDate today, Marks marks) {
         List<String> terms = Arrays.stream(query.q().toLowerCase(Locale.ROOT).split("\\s+"))
                 .filter(term -> !term.isEmpty())
                 .toList();
-        return sorted(all.stream()
-                .filter(control -> query.status().matches(control, today, marks))
-                .filter(control -> terms.isEmpty() || matches(control, names, terms))
-                .map(control -> rowOf(control, names, today, marks))
-                .toList(), query.sort(), query.desc());
+        return inOrder(all.stream()
+                        .filter(control -> query.status().matches(control, today, marks))
+                        .filter(control -> terms.isEmpty() || matches(control, names, terms))
+                        .toList(),
+                control -> sortValue(query.sort(), control, names), ControlResponseDTO::getControlId,
+                ControlResponseDTO::getId, query.desc());
+    }
+
+    /** The rows in the order of {@link #comparator}. */
+    static List<Row> sorted(List<Row> rows, Sort sort, boolean desc) {
+        return inOrder(rows, row -> sortValue(sort, row), Row::controlId, Row::id, desc);
     }
 
     /**
-     * The rows in the order of {@link #comparator}, each row's sort values worked out once instead of in every
+     * The items in the order of {@link #comparator}, each item's sort values worked out once instead of in every
      * comparison: sorting a list of thousands of rows lower-cased the same texts again and again, a third of the time
      * of the page in the load test.
      */
-    static List<Row> sorted(List<Row> rows, Sort sort, boolean desc) {
-        List<SortKey> keyed = new ArrayList<>(rows.size());
-        for (Row row : rows) {
-            keyed.add(new SortKey(row, sortValue(sort, row), textKey(row.controlId())));
+    private static <T> List<T> inOrder(List<T> items, Function<T, Comparable<Object>> column,
+                                       Function<T, String> controlId, Function<T, Long> id, boolean desc) {
+        List<SortKey<T>> keyed = new ArrayList<>(items.size());
+        for (T item : items) {
+            keyed.add(new SortKey<>(item, column.apply(item), textKey(controlId.apply(item)), id.apply(item)));
         }
         Comparator<Comparable<Object>> natural = Comparator.naturalOrder();
-        keyed.sort(Comparator.comparing(SortKey::column, Comparator.nullsLast(desc ? natural.reversed() : natural))
+        keyed.sort(Comparator.<SortKey<T>, Comparable<Object>>comparing(SortKey::column,
+                        Comparator.nullsLast(desc ? natural.reversed() : natural))
                 .thenComparing(SortKey::controlId, Comparator.nullsLast(Comparator.<String>naturalOrder()))
-                .thenComparing(key -> key.row().id(), Comparator.nullsLast(Comparator.<Long>naturalOrder())));
-        List<Row> ordered = new ArrayList<>(keyed.size());
-        keyed.forEach(key -> ordered.add(key.row()));
+                .thenComparing(SortKey::id, Comparator.nullsLast(Comparator.<Long>naturalOrder())));
+        List<T> ordered = new ArrayList<>(keyed.size());
+        keyed.forEach(key -> ordered.add(key.item()));
         return ordered;
     }
 
-    private record SortKey(Row row, Comparable<Object> column, String controlId) {
+    private record SortKey<T>(T item, Comparable<Object> column, String controlId, Long id) {
+    }
+
+    /** The value the control's row ({@link #rowOf}) is sorted by in the column: only that column worked out. */
+    @SuppressWarnings("unchecked")
+    private static Comparable<Object> sortValue(Sort sort, ControlResponseDTO control, Map<String, String> names) {
+        Object value = switch (sort) {
+            case ID -> textKey(control.getControlId());
+            case TYPE -> textKey(control.getControlType());
+            case FREQUENCY -> textKey(control.getControlFrequency());
+            case FACILITATOR -> textKey(joinNames(control.getFacilitators(), names));
+            case OPERATOR -> textKey(joinNames(control.getControlOperators(), names));
+            case OWNER -> textKey(joinNames(control.getProcessOwners(), names));
+            case SOQM -> textKey(joinNames(control.getSoqmLeads(), names));
+            case CATEGORY -> textKey(control.getControlCategory());
+            case DATE -> control.getControlOperationDate();
+            case STATUS -> statusPosition(statusOf(control));
+        };
+        return (Comparable<Object>) value;
+    }
+
+    private static Integer statusPosition(String status) {
+        return STATUS_ORDER.contains(status) ? STATUS_ORDER.indexOf(status) : null;
     }
 
     /** The value {@link #comparator} sorts the column by: lower-case text, the date or the workflow position. */
@@ -551,7 +594,7 @@ public final class ComponentControlsList {
             case SOQM -> textKey(row.soqmLeads());
             case CATEGORY -> textKey(row.category());
             case DATE -> row.operationDate();
-            case STATUS -> STATUS_ORDER.contains(row.status()) ? STATUS_ORDER.indexOf(row.status()) : null;
+            case STATUS -> statusPosition(row.status());
         };
         return (Comparable<Object>) value;
     }
