@@ -1,5 +1,7 @@
 HELP.md
 target/
+# The load test build (mvnw -Ploadtest) and its files
+target-loadtest/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

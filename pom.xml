@@ -28,6 +28,8 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<!-- ProductionJarIT: the jar of this build must not hold the load test code (off in the loadtest profile) -->
+		<production.jar.check>true</production.jar.check>
 	</properties>
 	<repositories>
 		<!-- OpenSAML (spring-security-saml2-service-provider) is published only here, not on Maven Central -->
@@ -152,6 +154,10 @@
 				<artifactId>maven-failsafe-plugin</artifactId>
 				<configuration>
 					<argLine>@{argLine} -XX:+EnableDynamicAgentLoading</argLine>
+					<systemPropertyVariables>
+						<production.jar>${project.build.directory}/${project.build.finalName}.jar</production.jar>
+						<production.jar.check>${production.jar.check}</production.jar.check>
+					</systemPropertyVariables>
 				</configuration>
 			</plugin>
 			<plugin>
@@ -187,5 +193,71 @@
 			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<!--
+		  The load test build (migration/analysis/9_performance_report.md): mvnw -Ploadtest -DskipTests package.
+		  Adds src/loadtest (the loadtest profile's settings, its database guard, the data generator, the SQL count)
+		  and builds into target-loadtest/qtracker-loadtest.jar, so neither its classes nor its jar ever reach
+		  target/ and the image (Dockerfile: COPY target/*.jar). The usual build never sees src/loadtest;
+		  ProductionJarIT checks that on every mvn verify.
+		-->
+		<profile>
+			<id>loadtest</id>
+			<properties>
+				<production.jar.check>false</production.jar.check>
+			</properties>
+			<build>
+				<directory>${project.basedir}/target-loadtest</directory>
+				<finalName>${project.artifactId}-loadtest</finalName>
+				<plugins>
+					<plugin>
+						<groupId>org.codehaus.mojo</groupId>
+						<artifactId>build-helper-maven-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>loadtest-sources</id>
+								<phase>generate-sources</phase>
+								<goals>
+									<goal>add-source</goal>
+								</goals>
+								<configuration>
+									<sources>
+										<source>src/loadtest/java</source>
+									</sources>
+								</configuration>
+							</execution>
+							<execution>
+								<id>loadtest-resources</id>
+								<phase>generate-resources</phase>
+								<goals>
+									<goal>add-resource</goal>
+								</goals>
+								<configuration>
+									<resources>
+										<resource>
+											<directory>src/loadtest/resources</directory>
+										</resource>
+									</resources>
+								</configuration>
+							</execution>
+							<execution>
+								<id>loadtest-test-sources</id>
+								<phase>generate-test-sources</phase>
+								<goals>
+									<goal>add-test-source</goal>
+								</goals>
+								<configuration>
+									<sources>
+										<source>src/loadtest/test</source>
+									</sources>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 
 </project>
