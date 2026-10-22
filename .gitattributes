@@ -1,2 +1,4 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+# The load test scripts run in bash (Git Bash on Windows): LF also in a Windows checkout
+*.sh text eol=lf
