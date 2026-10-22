@@ -9,6 +9,13 @@ import java.util.Optional;
 public interface IControlService {
     List<Control> getAllControls();
     List<Control> findVisibleControlsForUser(User user);
+
+    /** The KDN controls the user sees: {@link #findVisibleControlsForUser} kept to AccessPolicy.isKdnControl. */
+    default List<Control> findVisibleKdnControlsForUser(User user) {
+        return findVisibleControlsForUser(user).stream()
+                .filter(control -> control != null && AccessPolicy.isKdnControl(control.getControlId()))
+                .toList();
+    }
     boolean isControlIdUnique(String controlId);
     Control createControl(Control control);
     Control save(Control control);

@@ -89,6 +89,40 @@ class ReleaseScenarioQueriesIT extends ReleaseScenarioSupport {
         assertThat(visible).isNotEmpty().containsExactlyElementsOf(expected);
     }
 
+    /**
+     * The menu's KDN item of someone with My controls: the KDN controls read on their own are exactly the KDN controls
+     * of the whole list, and the page reads only those.
+     */
+    @Test
+    void theKdnControlsOfMyControls_areTheKdnOnesOfTheWholeList() throws Exception {
+        User me = myEdit("qm-me");
+        People mine = people().facilitator(me).operator(myEdit("qm-op")).soqm(soqm("qm-soqm")).owner(myEdit("qm-po"));
+        People sharedOnly = people().facilitator(myEdit("qm-f2")).operator(myEdit("qm-op2")).soqm(soqm("qm-soqm2"))
+                .owner(myEdit("qm-po2")).shared(me);
+        People notMine = people().facilitator(myEdit("qm-f3")).operator(myEdit("qm-op3")).soqm(soqm("qm-soqm3"))
+                .owner(myEdit("qm-po3"));
+        control("KDN-QM", "REVIEW", mine);
+        control("unused", "IN_PROGRESS", sharedOnly, control -> control.setControlId(" kdn-qm-shared-" + next()));
+        control("X-KDN-QM", "REVIEW", mine);
+        control("HR-QM", "REVIEW", mine);
+        control("KDN-QM-OTHER", "REVIEW", notMine);
+        for (int i = 0; i < CONTROLS; i++) {
+            control("RS-QM", "IN_PROGRESS", mine);
+        }
+
+        java.util.List<Long> kdn = controlService.findVisibleKdnControlsForUser(me).stream()
+                .map(com.kpmg.qtracker.entity.Control::getId).toList();
+        java.util.List<Long> expected = controlService.findVisibleControlsForUser(me).stream()
+                .filter(control -> com.kpmg.qtracker.service.AccessPolicy.isKdnControl(control.getControlId()))
+                .map(com.kpmg.qtracker.entity.Control::getId).toList();
+
+        assertThat(kdn).hasSize(2).containsExactlyElementsOf(expected);
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.clear();
+        controlService.findVisibleKdnControlsForUser(me);
+        assertThat(statistics.getEntityLoadCount()).as("controls read for the KDN item").isLessThan(CONTROLS / 2);
+    }
+
     @Autowired
     private com.kpmg.qtracker.service.IControlService controlService;
 

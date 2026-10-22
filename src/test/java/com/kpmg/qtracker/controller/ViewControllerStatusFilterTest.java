@@ -1328,6 +1328,8 @@ class ViewControllerStatusFilterTest {
         }
         when(controlService.findVisibleControlsForUser(user))
                 .thenReturn(controls);
+        // The menu's KDN item: the interface's own rule over the list above
+        org.mockito.Mockito.doCallRealMethod().when(controlService).findVisibleKdnControlsForUser(user);
         when(controlService.convertToResponseDTOs(controls)).thenReturn(dtos);
     }
 }

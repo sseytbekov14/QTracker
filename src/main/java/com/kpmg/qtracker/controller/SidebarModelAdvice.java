@@ -121,9 +121,8 @@ public class SidebarModelAdvice {
                 long kdnControls = 0;
                 IControlService controls = controlService.getIfAvailable();
                 if (!AccessPolicy.seesKdnPage(subject, 0) && controls != null && user.getId() != null) {
-                    kdnControls = controls.findVisibleControlsForUser(user).stream()
-                            .filter(control -> control != null && AccessPolicy.isKdnControl(control.getControlId()))
-                            .count();
+                    // Only the KDN controls are read, not all of the person's controls on every page
+                    kdnControls = controls.findVisibleKdnControlsForUser(user).size();
                 }
                 kdnPage = AccessPolicy.seesKdnPage(subject, kdnControls);
             }

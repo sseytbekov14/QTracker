@@ -68,6 +68,11 @@ public interface ControlAssignmentRepository extends JpaRepository<ControlAssign
     @Query("SELECT ca.controlId FROM ControlAssignment ca WHERE " + ANY_PERSON_FIELD)
     List<Long> findControlIdsByPerson(@Param("email") String email);
 
+    /** As {@link #findControlIdsByPerson}, only the controls with KDN anywhere in the Control ID (the menu's KDN item). */
+    @Query("SELECT ca.controlId FROM ControlAssignment ca JOIN Control c ON c.id = ca.controlId"
+            + " WHERE UPPER(c.controlId) LIKE '%KDN%' AND (" + ANY_PERSON_FIELD + ")")
+    List<Long> findKdnControlIdsByPerson(@Param("email") String email);
+
     /** The address anywhere in one of the five people fields (whole addresses are checked by the access policy). */
     String ANY_PERSON_FIELD = "LOWER(ca.facilitator) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))"
             + " OR LOWER(ca.controlOperator) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))"

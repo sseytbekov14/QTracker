@@ -66,12 +66,28 @@ public class ControlService implements IControlService {
      */
     @Override
     public List<Control> findVisibleControlsForUser(User user) {
+        return visibleControls(user, false);
+    }
+
+    /**
+     * The same rule read from the controls with KDN in the ID only: the menu's KDN item of a person with My controls
+     * needs just these, and used to read every control of theirs on every page.
+     */
+    @Override
+    public List<Control> findVisibleKdnControlsForUser(User user) {
+        return visibleControls(user, true).stream()
+                .filter(control -> AccessPolicy.isKdnControl(control.getControlId()))
+                .collect(Collectors.toList());
+    }
+
+    /** {@code kdnOnly}: only the candidates with KDN anywhere in the Control ID (a superset of the KDN controls). */
+    private List<Control> visibleControls(User user, boolean kdnOnly) {
         if (user == null || user.getMail() == null || user.getMail().isBlank()) {
             return Collections.emptyList();
         }
         AccessPolicy.Subject subject = AccessPolicy.Subject.of(user);
         if (AccessPolicy.seesAllControls(subject)) {
-            return getAllControls();
+            return kdnOnly ? controlRepository.findKdnCandidatesOrderByIdDesc() : getAllControls();
         }
         String userEmail = user.getMail();
 
@@ -84,7 +100,8 @@ public class ControlService implements IControlService {
             // LIKE finds the address anywhere in a column, including inside another address
             // (a@kpmg.kz in ba@kpmg.kz); the policy below checks whole addresses. One pass over the five columns.
             Set<Long> candidateIds = new LinkedHashSet<>();
-            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByPerson(userEmail));
+            addVisibleIds(candidateIds, kdnOnly ? controlAssignmentRepository.findKdnControlIdsByPerson(userEmail)
+                    : controlAssignmentRepository.findControlIdsByPerson(userEmail));
             // My controls also cover the controls the user created
             controlRepository.findByCreatedByMailOrderByCreatedAtDesc(userEmail)
                     .forEach(control -> candidateIds.add(control.getId()));
