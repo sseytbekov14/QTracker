@@ -295,6 +295,35 @@ class ComponentControlsListTest {
         assertThat(result(List.of(), null, null, null, null, 1, null).pageLinks()).containsExactly(1);
     }
 
+    /** Sorting with the values worked out once orders the rows as the comparator does, every column, both ways. */
+    @Test
+    void sorted_ordersAsTheComparator_everyColumnBothWays() {
+        java.util.Random random = new java.util.Random(5);
+        String[] texts = {null, "", "  ", "alpha", "Alpha", " alpha ", "beta", "B", "a b", "Zeta", "zeta"};
+        // A row always has a status (statusOf: none is DRAFT)
+        String[] statuses = {"DRAFT", "IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW", "COMPLETED",
+                "UNKNOWN"};
+        for (int round = 0; round < 200; round++) {
+            List<ComponentControlsList.Row> rows = new ArrayList<>();
+            for (int n = 0; n < 40; n++) {
+                rows.add(new ComponentControlsList.Row(random.nextInt(5) == 0 ? null : (long) random.nextInt(30),
+                        texts[random.nextInt(texts.length)], texts[random.nextInt(texts.length)],
+                        texts[random.nextInt(texts.length)], texts[random.nextInt(texts.length)],
+                        texts[random.nextInt(texts.length)], texts[random.nextInt(texts.length)],
+                        texts[random.nextInt(texts.length)], texts[random.nextInt(texts.length)],
+                        random.nextInt(4) == 0 ? null : LocalDate.of(2026, 10, 1 + random.nextInt(5)),
+                        statuses[random.nextInt(statuses.length)], false, null, false, false, false, false, false));
+            }
+            for (ComponentControlsList.Sort sort : ComponentControlsList.Sort.values()) {
+                for (boolean desc : new boolean[]{false, true}) {
+                    assertThat(ComponentControlsList.sorted(rows, sort, desc)).as("%s %s", sort, desc)
+                            .containsExactlyElementsOf(rows.stream().sorted(ComponentControlsList.comparator(sort, desc))
+                                    .toList());
+                }
+            }
+        }
+    }
+
     @Test
     void nothingMatches_noRows_countersStay() {
         ComponentControlsList.Result empty = result(List.of(), null, null, null, null, null, null);

@@ -509,12 +509,56 @@ public final class ComponentControlsList {
         List<String> terms = Arrays.stream(query.q().toLowerCase(Locale.ROOT).split("\\s+"))
                 .filter(term -> !term.isEmpty())
                 .toList();
-        return all.stream()
+        return sorted(all.stream()
                 .filter(control -> query.status().matches(control, today, marks))
                 .filter(control -> terms.isEmpty() || matches(control, names, terms))
                 .map(control -> rowOf(control, names, today, marks))
-                .sorted(comparator(query.sort(), query.desc()))
-                .toList();
+                .toList(), query.sort(), query.desc());
+    }
+
+    /**
+     * The rows in the order of {@link #comparator}, each row's sort values worked out once instead of in every
+     * comparison: sorting a list of thousands of rows lower-cased the same texts again and again, a third of the time
+     * of the page in the load test.
+     */
+    static List<Row> sorted(List<Row> rows, Sort sort, boolean desc) {
+        List<SortKey> keyed = new ArrayList<>(rows.size());
+        for (Row row : rows) {
+            keyed.add(new SortKey(row, sortValue(sort, row), textKey(row.controlId())));
+        }
+        Comparator<Comparable<Object>> natural = Comparator.naturalOrder();
+        keyed.sort(Comparator.comparing(SortKey::column, Comparator.nullsLast(desc ? natural.reversed() : natural))
+                .thenComparing(SortKey::controlId, Comparator.nullsLast(Comparator.<String>naturalOrder()))
+                .thenComparing(key -> key.row().id(), Comparator.nullsLast(Comparator.<Long>naturalOrder())));
+        List<Row> ordered = new ArrayList<>(keyed.size());
+        keyed.forEach(key -> ordered.add(key.row()));
+        return ordered;
+    }
+
+    private record SortKey(Row row, Comparable<Object> column, String controlId) {
+    }
+
+    /** The value {@link #comparator} sorts the column by: lower-case text, the date or the workflow position. */
+    @SuppressWarnings("unchecked")
+    private static Comparable<Object> sortValue(Sort sort, Row row) {
+        Object value = switch (sort) {
+            case ID -> textKey(row.controlId());
+            case TYPE -> textKey(row.type());
+            case FREQUENCY -> textKey(row.frequency());
+            case FACILITATOR -> textKey(row.facilitators());
+            case OPERATOR -> textKey(row.operators());
+            case OWNER -> textKey(row.owners());
+            case SOQM -> textKey(row.soqmLeads());
+            case CATEGORY -> textKey(row.category());
+            case DATE -> row.operationDate();
+            case STATUS -> STATUS_ORDER.contains(row.status()) ? STATUS_ORDER.indexOf(row.status()) : null;
+        };
+        return (Comparable<Object>) value;
+    }
+
+    /** A text as the list sorts it: trimmed, lower-case; empty as none (last either way). */
+    private static String textKey(String text) {
+        return text == null || text.isBlank() ? null : text.trim().toLowerCase(Locale.ROOT);
     }
 
     private static boolean matches(ControlResponseDTO control, Map<String, String> names, List<String> terms) {
@@ -551,10 +595,7 @@ public final class ComponentControlsList {
     }
 
     private static Comparator<Row> text(Function<Row, String> value, boolean desc) {
-        return nullsLast(row -> {
-            String text = value.apply(row);
-            return text == null || text.isBlank() ? null : text.trim().toLowerCase(Locale.ROOT);
-        }, Comparator.<String>naturalOrder(), desc);
+        return nullsLast(row -> textKey(value.apply(row)), Comparator.<String>naturalOrder(), desc);
     }
 
     private static <T> Comparator<Row> nullsLast(Function<Row, T> value, Comparator<T> order, boolean desc) {
