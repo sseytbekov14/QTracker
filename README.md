@@ -149,7 +149,7 @@ Repository-defined variables from `application*.yml`, `.env`, `.env.example`, `.
 - `SPRING_MAIL_PASSWORD`
 - `NOTIFICATIONS_EMAIL_ENABLED` (false: the e-mails are recorded `SKIPPED_DISABLED` and never sent)
 - `NOTIFICATIONS_EMAIL_PROVIDER` (`smtp`, default, or `log`)
-- `NOTIFICATIONS_EMAIL_FROM`
+- `NOTIFICATIONS_EMAIL_FROM` (the service mailbox the e-mails come from; empty by default: with `NOTIFICATIONS_EMAIL_ENABLED=true` the start logs a WARN, the application still starts, and the e-mails go without a From address, which the SMTP relay may refuse)
 - `NOTIFICATIONS_EMAIL_WHITELIST_ENFORCED` (default false: everybody gets e-mails; true: only the addresses of `NOTIFICATIONS_EMAIL_WHITELIST`, the others are recorded `SKIPPED_DISABLED` "not in the whitelist"; true with an empty list sends to nobody, with a WARN at start)
 - `NOTIFICATIONS_EMAIL_WHITELIST` (comma-separated addresses, compared ignoring case)
 - `NOTIFICATIONS_SCHEDULER_ENABLED` (default true: the planned notifications)
