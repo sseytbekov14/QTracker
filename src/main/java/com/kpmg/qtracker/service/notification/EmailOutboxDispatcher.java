@@ -218,7 +218,8 @@ public class EmailOutboxDispatcher {
         return !whitelistEnforced || whitelist.contains(to.trim().toLowerCase(Locale.ROOT));
     }
 
-    private static Set<String> parseWhitelist(String raw) {
+    /** The addresses of notifications.email.whitelist, lower-case; empty for none. */
+    static Set<String> parseWhitelist(String raw) {
         if (raw == null || raw.isBlank()) {
             return Collections.emptySet();
         }

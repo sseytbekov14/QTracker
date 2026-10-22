@@ -105,6 +105,13 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
                 enabled, "qtracker@example.test", false, "");
     }
 
+    EmailOutboxDispatcher dispatcher(MutableClock clock, MailTransport transport, boolean whitelistEnforced,
+                                     String whitelist) {
+        StaticListableBeanFactory beans = new StaticListableBeanFactory(Map.of("transport", transport));
+        return new EmailOutboxDispatcher(jdbc, beans.getBeanProvider(MailTransport.class), userRepository, clock,
+                true, "qtracker@example.test", whitelistEnforced, whitelist);
+    }
+
     static MutableClock soon() {
         return new MutableClock(LocalDateTime.now(ALMATY).plusSeconds(5).withNano(0));
     }
@@ -474,6 +481,61 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
         assertThatThrownBy(() -> userService.updateUser(fresh.getId(), other.getMail().toUpperCase(Locale.ROOT), null,
                 null, null, null, null, null)).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("already exists");
+    }
+
+    /**
+     * NOTIFICATIONS_EMAIL_WHITELIST with NOTIFICATIONS_EMAIL_WHITELIST_ENFORCED=true (2026-10-22): a listed address
+     * gets its e-mail, compared ignoring case and spaces; any other is SKIPPED_DISABLED "not in the whitelist" and
+     * never tried again.
+     */
+    @Test
+    void theWhitelist_sendsOnlyToTheListedAddresses_ignoringCase() throws Exception {
+        User listed = myEdit("ob-wl-in");
+        User outside = myEdit("ob-wl-out");
+        Control control = control("OB-WL", "IN_PROGRESS", people().facilitator(listed, outside));
+        produce(control, Template.T3, List.of(listed.getMail(), outside.getMail()), "D3");
+        RecordingTransport transport = new RecordingTransport();
+        MutableClock clock = soon();
+
+        dispatcher(clock, transport, true, " other@example.test , " + listed.getMail().toUpperCase(Locale.ROOT) + " ")
+                .dispatchPending();
+
+        assertThat(transport.count(listed.getMail())).isEqualTo(1);
+        assertThat(row(control, listed).getStatus()).isEqualTo(EmailOutbox.SENT);
+        assertThat(transport.count(outside.getMail())).isZero();
+        assertThat(row(control, outside)).satisfies(row -> {
+            assertThat(row.getStatus()).isEqualTo(EmailOutbox.SKIPPED_DISABLED);
+            assertThat(row.getLastError()).isEqualTo("not in the whitelist");
+            assertThat(row.getNextAttemptAt()).isNull();
+        });
+        dispatcher(clock.plus(Duration.ofMinutes(20)), transport, false, "").dispatchPending();
+        assertThat(transport.count(outside.getMail())).isZero();
+    }
+
+    /**
+     * The list is checked only when enforced: not enforced, everybody gets e-mails whatever the list; enforced with an
+     * empty list, nobody does (kept so on 2026-10-22; EmailSettingsCheck warns about it at start).
+     */
+    @Test
+    void notEnforced_sendsToEverybody_enforcedWithAnEmptyList_toNobody() throws Exception {
+        User anyone = myEdit("ob-wl-any");
+        Control open = control("OB-WL-OFF", "IN_PROGRESS", people().facilitator(anyone));
+        produce(open, Template.T3, List.of(anyone.getMail()), "D3");
+        RecordingTransport transport = new RecordingTransport();
+
+        dispatcher(soon(), transport, false, "someone.else@example.test").dispatchPending();
+        assertThat(transport.count(anyone.getMail())).isEqualTo(1);
+        assertThat(row(open, anyone).getStatus()).isEqualTo(EmailOutbox.SENT);
+
+        User nobody = myEdit("ob-wl-none");
+        Control closed = control("OB-WL-EMPTY", "IN_PROGRESS", people().facilitator(nobody));
+        produce(closed, Template.T3, List.of(nobody.getMail()), "D3");
+        dispatcher(soon(), transport, true, " , ").dispatchPending();
+        assertThat(transport.count(nobody.getMail())).isZero();
+        assertThat(row(closed, nobody)).satisfies(row -> {
+            assertThat(row.getStatus()).isEqualTo(EmailOutbox.SKIPPED_DISABLED);
+            assertThat(row.getLastError()).isEqualTo("not in the whitelist");
+        });
     }
 
     /** 2026-10-22: every failed try is a WARN with the recipient, the Control ID, the reply code and the attempt. */
