@@ -3,17 +3,25 @@ package com.kpmg.qtracker.service.notification;
 import com.kpmg.qtracker.entity.EmailOutbox;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.UserRepository;
+import jakarta.mail.MessagingException;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.angus.mail.smtp.SMTPAddressFailedException;
+import org.eclipse.angus.mail.smtp.SMTPSendFailedException;
+import org.eclipse.angus.mail.smtp.SMTPSenderFailedException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mail.MailSendException;
 import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayDeque;
 import java.util.Collections;
+import java.util.Deque;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -28,7 +36,8 @@ import java.util.Set;
  * sent, also after e-mail is switched on;</li>
  * <li>every waiting e-mail is taken by one conditional UPDATE (so two instances never send one e-mail twice) and sent:
  * SENT; the person deactivated meanwhile: SKIPPED_INACTIVE; an address outside the whitelist: SKIPPED_DISABLED; a
- * failure: FAILED, tried again after 1, 5 and 15 minutes, then left FAILED with a warning. One failure does not stop
+ * failure: FAILED, tried again after 1, 5 and 15 minutes, then left FAILED; every failed try is a warning with the
+ * recipient, the Control ID, the SMTP reply code and the attempt, never the text of the e-mail. One failure does not stop
  * the others.</li>
  * </ol>
  * {@link #dispatchPending()} is public for the tests, which call it with their own Clock.
@@ -110,8 +119,9 @@ public class EmailOutboxDispatcher {
     }
 
     private void send(Long id) {
-        Map<String, Object> row = jdbc.queryForMap("SELECT recipient_user_id, recipient_email, subject, body_html,"
-                + " importance, attempts, control_id, template_key FROM email_outbox WHERE id = ?", id);
+        Map<String, Object> row = jdbc.queryForMap("SELECT o.recipient_user_id, o.recipient_email, o.subject,"
+                + " o.body_html, o.importance, o.attempts, o.control_id, o.template_key, c.control_id AS control_code"
+                + " FROM email_outbox o LEFT JOIN controls c ON c.id = o.control_id WHERE o.id = ?", id);
         String to = (String) row.get("recipient_email");
         Number userId = (Number) row.get("recipient_user_id");
         User user = userId == null ? null : userRepository.findById(userId.longValue()).orElse(null);
@@ -137,14 +147,18 @@ public class EmailOutboxDispatcher {
         } catch (Exception failure) {
             int attempts = ((Number) row.get("attempts")).intValue();
             String error = failure.getClass().getSimpleName() + ": " + failure.getMessage();
+            // Never the subject or the text of the e-mail: the recipient, the control, the server's answer
             if (attempts < MAX_ATTEMPTS) {
-                finish(id, EmailOutbox.FAILED, error, LocalDateTime.now(clock).plus(PAUSES[attempts - 1]));
-                log.info("E-mail {} ({} of control {}) to {} failed, attempt {} of {}: {}", id, row.get("template_key"),
-                        row.get("control_id"), to, attempts, MAX_ATTEMPTS, error);
+                Duration pause = PAUSES[attempts - 1];
+                finish(id, EmailOutbox.FAILED, error, LocalDateTime.now(clock).plus(pause));
+                log.warn("E-mail {} ({}) to {} for control {} failed, response code {}, attempt {} of {},"
+                                + " next try in {} min: {}", id, row.get("template_key"), to, control(row),
+                        responseCode(failure), attempts, MAX_ATTEMPTS, pause.toMinutes(), error);
             } else {
                 finish(id, EmailOutbox.FAILED, error, null);
-                log.warn("E-mail {} ({} of control {}) to {} not sent after {} attempts: {}", id,
-                        row.get("template_key"), row.get("control_id"), to, attempts, error);
+                log.warn("E-mail {} ({}) to {} for control {} failed, response code {}, attempt {} of {},"
+                                + " not sent, no more tries: {}", id, row.get("template_key"), to, control(row),
+                        responseCode(failure), attempts, MAX_ATTEMPTS, error);
             }
             if (mail != null) {
                 jdbc.update("UPDATE email_outbox SET provider = ? WHERE id = ?", mail.name(), id);
@@ -156,6 +170,48 @@ public class EmailOutboxDispatcher {
         jdbc.update("UPDATE email_outbox SET status = ?, last_error = ?, next_attempt_at = ?, claimed_at = NULL"
                 + " WHERE id = ?", status, error == null ? null : error.length() > 2000 ? error.substring(0, 2000) : error,
                 nextAttempt == null ? null : Timestamp.valueOf(nextAttempt), id);
+    }
+
+    /** The Control ID of the e-mail's control (its row id when the control is gone), or "-" for none. */
+    private static String control(Map<String, Object> row) {
+        Object code = row.get("control_code");
+        Object id = row.get("control_id");
+        return code != null ? code.toString() : id != null ? "id " + id : "-";
+    }
+
+    /**
+     * The SMTP server's reply code (550, 452, ...) found in the failure or its causes, or "-" when there is none (no
+     * connection, no server, another provider).
+     */
+    static String responseCode(Throwable failure) {
+        Deque<Throwable> pending = new ArrayDeque<>();
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        pending.add(failure);
+        while (!pending.isEmpty()) {
+            Throwable next = pending.poll();
+            if (next == null || !seen.add(next)) {
+                continue;
+            }
+            if (next instanceof SMTPSendFailedException smtp) {
+                return String.valueOf(smtp.getReturnCode());
+            }
+            if (next instanceof SMTPAddressFailedException smtp) {
+                return String.valueOf(smtp.getReturnCode());
+            }
+            if (next instanceof SMTPSenderFailedException smtp) {
+                return String.valueOf(smtp.getReturnCode());
+            }
+            if (next instanceof MessagingException messaging && messaging.getNextException() != null) {
+                pending.add(messaging.getNextException());
+            }
+            if (next instanceof MailSendException send) {
+                pending.addAll(send.getFailedMessages().values());
+            }
+            if (next.getCause() != null) {
+                pending.add(next.getCause());
+            }
+        }
+        return "-";
     }
 
     private boolean allowed(String to) {

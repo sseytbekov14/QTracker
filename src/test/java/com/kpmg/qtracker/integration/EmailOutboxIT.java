@@ -476,6 +476,54 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
                 .hasMessageContaining("already exists");
     }
 
+    /** 2026-10-22: every failed try is a WARN with the recipient, the Control ID, the reply code and the attempt. */
+    @Test
+    void aFailedTry_isAWarning_withRecipientControlCodeAndAttempt_neverTheText() throws Exception {
+        User fac = myEdit("ob-warn");
+        Control control = control("OB-WARN", "IN_PROGRESS", people().facilitator(fac));
+        produce(control, Template.T3, List.of(fac.getMail()), "D3");
+        MailTransport refused = new MailTransport() {
+            @Override
+            public String name() {
+                return "test";
+            }
+
+            @Override
+            public void send(OutgoingMail mail) {
+                throw new org.springframework.mail.MailSendException("Failed messages", new jakarta.mail.MessagingException(
+                        "send failed", new org.eclipse.angus.mail.smtp.SMTPSendFailedException("DATA", 550,
+                        "550 5.7.1 relay not permitted", null, null, null, null)));
+            }
+        };
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(EmailOutboxDispatcher.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        MutableClock clock = soon();
+        try {
+            dispatcher(clock, refused, true).dispatchPending();
+            clock.plus(Duration.ofMinutes(1));
+            dispatcher(clock, refused, true).dispatchPending();
+        } finally {
+            logger.detachAppender(appender);
+        }
+
+        EmailOutbox row = row(control, fac);
+        List<String> warnings = appender.list.stream()
+                .filter(event -> event.getLevel() == ch.qos.logback.classic.Level.WARN)
+                .map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                .filter(message -> message.startsWith("E-mail " + row.getId() + " "))
+                .toList();
+        assertThat(warnings).hasSize(2);
+        assertThat(warnings.get(0)).contains("to " + fac.getMail(), "for control " + control.getControlId(),
+                "response code 550", "attempt 1 of 4", "next try in 1 min");
+        assertThat(warnings.get(1)).contains("response code 550", "attempt 2 of 4", "next try in 5 min");
+        assertThat(warnings).allSatisfy(message -> assertThat(message)
+                .doesNotContain(row.getSubject()).doesNotContain(row.getBodyHtml()).doesNotContain("Dear"));
+    }
+
     private EmailOutbox row(Control control, User user) {
         return rows(control).stream().filter(row -> row.getRecipientEmail().equals(user.getMail())).findFirst().orElseThrow();
     }
