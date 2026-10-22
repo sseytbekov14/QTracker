@@ -50,8 +50,6 @@ class UserServiceAccessTest {
         User user = new User();
         user.setId(TARGET_ID);
         user.setMail("target@example.test");
-        user.setRole("FACILITATOR");
-        user.setSecondaryRole("PROCESS_OWNER");
         user.setAccessLevel(level);
         user.setAccessScope(scope);
         user.setEnabled(true);
@@ -97,7 +95,6 @@ class UserServiceAccessTest {
         User created = service.createUser("new@example.test", "New", "USER", null, null, true);
 
         assertThat(stored(created)).isEqualTo("READ_ONLY/OWN/false");
-        assertThat(created.getRole()).isNull();
     }
 
     @Test
@@ -109,9 +106,6 @@ class UserServiceAccessTest {
         assertThat(stored(update("USER", "", "READ_ONLY", true, ADMIN_ID))).isEqualTo("READ_ONLY/ALL/false");
         assertThat(stored(update("", "", "", false, ADMIN_ID))).isEqualTo("READ_ONLY/ALL/false");
         assertThat(user.getEnabled()).isFalse();
-        // The old role columns stay as they were
-        assertThat(user.getRole()).isEqualTo("FACILITATOR");
-        assertThat(user.getSecondaryRole()).isEqualTo("PROCESS_OWNER");
     }
 
     @Test

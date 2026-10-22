@@ -404,7 +404,7 @@ class WorkflowFlowIT {
         return post(path)
                 .param("controlId", String.valueOf(controlId))
                 .sessionAttr("currentUser", actor)
-                .with(user(actor.getMail()).roles(actor.getRole()))
+                .with(user(actor.getMail()).roles(actor.getAccessLevel().name()))
                 .with(csrf());
     }
 
@@ -415,7 +415,7 @@ class WorkflowFlowIT {
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                         .content(body)
                         .sessionAttr("currentUser", actor)
-                        .with(user(actor.getMail()).roles(actor.getRole()))
+                        .with(user(actor.getMail()).roles(actor.getAccessLevel().name()))
                         .with(csrf()))
                 .andExpect(status().isOk());
     }

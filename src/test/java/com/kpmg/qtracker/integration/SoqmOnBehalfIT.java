@@ -217,7 +217,7 @@ class SoqmOnBehalfIT {
 
         String json = mockMvc.perform(get("/api/controls/{id}/changelog", control.getId())
                         .sessionAttr("currentUser", soqmLead)
-                        .with(user(soqmLead.getMail()).roles(soqmLead.getRole())))
+                        .with(user(soqmLead.getMail()).roles(soqmLead.getAccessLevel().name())))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         JsonNode entries = objectMapper.readTree(json);
@@ -269,14 +269,14 @@ class SoqmOnBehalfIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"processOwnerComments\":\"Agreed with the owner by phone\"}")
                         .sessionAttr("currentUser", soqmLead)
-                        .with(user(soqmLead.getMail()).roles(soqmLead.getRole()))
+                        .with(user(soqmLead.getMail()).roles(soqmLead.getAccessLevel().name()))
                         .with(csrf()))
                 .andExpect(status().isOk());
         mockMvc.perform(post("/api/control-details")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"controlId\":" + control.getId() + ",\"controlOperatorReview\":\"Reviewed for the Operator\"}")
                         .sessionAttr("currentUser", soqmLead)
-                        .with(user(soqmLead.getMail()).roles(soqmLead.getRole()))
+                        .with(user(soqmLead.getMail()).roles(soqmLead.getAccessLevel().name()))
                         .with(csrf()))
                 .andExpect(status().isOk());
 

@@ -891,7 +891,8 @@ class ApiSecurityMockMvcIT {
                         .session(session))
                 .andExpect(status().isForbidden());
 
-        assertThat(((User) session.getAttribute("currentUser")).getRole()).isEqualTo("FACILITATOR");
+        assertThat(((User) session.getAttribute("currentUser")).getAccessLevel())
+                .isEqualTo(com.kpmg.qtracker.enums.AccessLevel.PARTICIPANT);
     }
 
     @Test
@@ -1262,7 +1263,7 @@ class ApiSecurityMockMvcIT {
         // SoQM and admin: every control, drafts included; never a completed one
         for (User viewer : List.of(soqm, admin)) {
             assertThat(overdueEverywhere(viewer))
-                    .as(viewer.getRole())
+                    .as(viewer.getMail())
                     .contains(openOverdue.getId(), draftOverdue.getId(), othersOverdue.getId())
                     .doesNotContain(closedLate.getId(), dueToday.getId());
         }
@@ -1301,8 +1302,8 @@ class ApiSecurityMockMvcIT {
         com.kpmg.qtracker.service.ComponentControlsList.Result list =
                 ListPages.page(mockMvc, request -> request.session(session), "/component/ALL");
 
-        assertThat(tile).as("tile vs deadlines block for " + viewer.getRole()).isEqualTo(blockTotal);
-        assertThat(listed).as("View all list for " + viewer.getRole()).hasSize(blockTotal);
+        assertThat(tile).as("tile vs deadlines block for " + viewer.getMail()).isEqualTo(blockTotal);
+        assertThat(listed).as("View all list for " + viewer.getMail()).hasSize(blockTotal);
         assertThat(list.counts().overdue()).isEqualTo(blockTotal);
         assertThat(listed).allSatisfy(row -> assertThat(row.overdue()).isTrue());
         return ListPages.ids(listed);
@@ -1854,11 +1855,9 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
-    void accessUpdate_byRole_keepsTheOldRoleColumns_andAllowsEveryUserCombination() throws Exception {
+    void accessUpdate_byRole_allowsEveryUserCombination() throws Exception {
         MockHttpSession adminSession = login(adminUser().getMail());
         User target = saveUser("lv-target", "lv-target-" + suffix() + "@example.test", "FACILITATOR");
-        target.setSecondaryRole("PROCESS_OWNER");
-        userRepository.save(target);
 
         for (String[] combination : new String[][]{
                 {"ALL", "EDIT", "PARTICIPANT", "ALL"}, {"ALL", "READ_ONLY", "READ_ONLY", "ALL"},
@@ -1885,8 +1884,6 @@ class ApiSecurityMockMvcIT {
                 .andExpect(jsonPath("$.summary").value("KDN · All KDN controls · Read Only"))
                 .andExpect(jsonPath("$.visibility").doesNotExist());
         User saved = userRepository.findById(target.getId()).orElseThrow();
-        assertThat(saved.getRole()).isEqualTo("FACILITATOR");
-        assertThat(saved.getSecondaryRole()).isEqualTo("PROCESS_OWNER");
         assertThat(saved.getAccessScope()).isEqualTo(com.kpmg.qtracker.enums.AccessScope.KDN);
 
         // KDN back to User starts at My controls, Read Only
@@ -1928,7 +1925,6 @@ class ApiSecurityMockMvcIT {
                 .andExpect(jsonPath("$.audit.action").value("Created user"));
         User created = userRepository.findByMail(mail).orElseThrow();
         createdUserIds.add(created.getId());
-        assertThat(created.getRole()).isNull();
         assertThat(created.getAccessLevel()).isEqualTo(com.kpmg.qtracker.enums.AccessLevel.READ_ONLY);
 
         mockMvc.perform(post("/api/users").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
@@ -2037,7 +2033,7 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isNotFound());
 
         User unchanged = userRepository.findById(target.getId()).orElseThrow();
-        assertThat(unchanged.getRole()).isEqualTo("FACILITATOR");
+        assertThat(unchanged.getAccessLevel()).isEqualTo(com.kpmg.qtracker.enums.AccessLevel.PARTICIPANT);
         assertThat(unchanged.getEnabled()).isTrue();
     }
 

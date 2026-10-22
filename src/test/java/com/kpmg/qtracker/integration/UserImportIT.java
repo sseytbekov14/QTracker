@@ -156,7 +156,6 @@ class UserImportIT {
         assertThat(soqm.getAccessLevel()).isEqualTo(AccessLevel.SOQM);
         assertThat(soqm.getAccessScope()).isEqualTo(AccessScope.ALL);
         assertThat(soqm.getAdminAccess()).isTrue();
-        assertThat(soqm.getRole()).isNull();
         assertThat(passwordEncoder.matches("aaa", soqm.getPassword())).isTrue();
         assertThat(users.get("msmith2@qtracker.local").getAccessLevel()).isEqualTo(AccessLevel.PARTICIPANT);
         assertThat(users.get("msmith2@qtracker.local").getAccessScope()).isEqualTo(AccessScope.OWN);
