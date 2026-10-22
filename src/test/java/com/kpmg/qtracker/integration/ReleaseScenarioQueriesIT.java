@@ -49,6 +49,23 @@ class ReleaseScenarioQueriesIT extends ReleaseScenarioSupport {
                 .isLessThan(CONTROLS / 2));
     }
 
+    /**
+     * The dashboard's own charts of someone who sees every control read the controls' assignments in one query
+     * (load test: one query per control, thousands per chart).
+     */
+    @Test
+    void theOwnChartsOfAllControls_readTheAssignmentsWithAFixedNumberOfStatements() throws Exception {
+        User me = allEdit("qc-all");
+        People people = people().facilitator(me).operator(myEdit("qc-op")).soqm(soqm("qc-soqm")).owner(myEdit("qc-po"));
+        for (int i = 0; i < CONTROLS; i++) {
+            control("RS-QC", "IN_PROGRESS", people);
+        }
+        MockHttpSession session = login(me);
+        for (String chart : java.util.List.of("/api/dashboard/my/frequency", "/api/dashboard/my/component")) {
+            assertThat(count(session, get(chart))).as(chart).isLessThan(CONTROLS / 2);
+        }
+    }
+
     private long count(MockHttpSession session, MockHttpServletRequestBuilder request) throws Exception {
         Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         statistics.clear();

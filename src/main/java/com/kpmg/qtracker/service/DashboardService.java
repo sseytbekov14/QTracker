@@ -298,8 +298,13 @@ public class DashboardService {
             // KDN: every KDN control, as their tiles and Controls list
             return safeControls(candidates);
         }
-        Predicate<Control> predicate = buildMyScopePredicate(currentUser);
-        return safeControls(candidates).stream()
+        List<Control> controls = safeControls(candidates);
+        // The assignments of all the controls in one query: one query per control made the charts of a user who sees
+        // every control read thousands of rows one by one (load test, migration/analysis/9_performance_report.md)
+        Map<Long, ControlAssignmentDTO> assignments = controlAssignmentService.getAssignmentsByControlIds(
+                controls.stream().map(Control::getId).filter(Objects::nonNull).toList());
+        Predicate<Control> predicate = buildMyScopePredicate(currentUser, assignments);
+        return controls.stream()
                 .filter(predicate)
                 .collect(Collectors.toList());
     }
@@ -310,14 +315,14 @@ public class DashboardService {
                 .collect(Collectors.toList());
     }
 
-    private Predicate<Control> buildMyScopePredicate(User currentUser) {
+    private Predicate<Control> buildMyScopePredicate(User currentUser, Map<Long, ControlAssignmentDTO> assignments) {
         Set<String> identities = resolveUserIdentities(currentUser);
         return control -> {
             if (control == null || control.getId() == null || identities.isEmpty()) {
                 return false;
             }
             try {
-                ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
+                ControlAssignmentDTO assignment = assignments.get(control.getId());
                 if (assignment == null) {
                     return false;
                 }
