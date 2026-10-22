@@ -88,7 +88,8 @@ public final class LoadTest {
             case "sqlcount" -> sqlCount(data, url, quiet, timeout, executor, password, out.resolve(name + "-sql.csv"));
             case "smoke" -> smoke(data, url, recorder, timeout, executor, password);
             default -> mixed(data, url, recorder, quiet, timeout, executor, password, users, duration, warmup, rampup,
-                    thinkMin, thinkMax, out, name, Integer.parseInt(options.getOrDefault("metrics-every", "5")));
+                    thinkMin, thinkMax, out, name, Integer.parseInt(options.getOrDefault("metrics-every", "5")),
+                    Integer.parseInt(options.getOrDefault("heavy-users", "0")));
         }
         if (!"sqlcount".equals(mode)) {
             if ("races".equals(mode) || "smoke".equals(mode)) {
@@ -106,7 +107,8 @@ public final class LoadTest {
 
     private static void mixed(Data data, String url, Recorder recorder, Recorder quiet, Duration timeout,
                               ExecutorService executor, String password, int users, int duration, int warmup, int rampup,
-                              int thinkMin, int thinkMax, Path out, String name, int metricsEvery) throws Exception {
+                              int thinkMin, int thinkMax, Path out, String name, int metricsEvery, int heavyUsers)
+            throws Exception {
         Session metricsSession = signedIn(data.of("soqm").get(data.of("soqm").size() - 1), url, quiet, timeout, executor,
                 password);
         MetricsSampler sampler = new MetricsSampler(metricsSession, recorder, metricsEvery * 1000L);
@@ -143,6 +145,34 @@ public final class LoadTest {
                 }
             }));
         }
+        // Heavy users (--heavy-users): SoQM accounts that only download the 3-5 MB files, export Excel and upload,
+        // with little pause, counted apart; the others' times show what files and exports do to everyone else
+        Recorder heavyRecorder = new Recorder();
+        List<Person> soqm = data.of("soqm");
+        for (int n = 0; n < heavyUsers; n++) {
+            Person person = soqm.get(n % soqm.size());
+            long seed = 5000L + n;
+            threads.add(Thread.ofVirtual().start(() -> {
+                Random random = new Random(seed);
+                try {
+                    Session session = new Session(person, url, heavyRecorder, timeout, executor);
+                    if (!session.login(password)) {
+                        loginFailed.incrementAndGet();
+                        return;
+                    }
+                    while (running.get()) {
+                        int roll = random.nextInt(100);
+                        scenarios.run(roll < 60 ? Scenarios.Action.DOWNLOAD_BIG : roll < 75 ? Scenarios.Action.EXPORT_LIST
+                                : roll < 90 ? Scenarios.Action.EXPORT_ONE : Scenarios.Action.UPLOAD, session, random);
+                        Thread.sleep(100 + random.nextInt(400));
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } catch (RuntimeException e) {
+                    System.out.println("heavy user " + person.mail() + " stopped: " + e);
+                }
+            }));
+        }
         System.out.printf("%d virtual users (%s), ramp-up %ds, warm-up %ds, measured %ds, think %d-%dms%n", users,
                 describe(assigned), rampup, warmup, duration, thinkMin, thinkMax);
 
@@ -155,6 +185,7 @@ public final class LoadTest {
             long elapsed = recorder.now() - started;
             if (!measuring && elapsed >= warmup * 1000L) {
                 recorder.startMeasuring();
+                heavyRecorder.startMeasuring();
                 measuring = true;
                 System.out.println("-- warm-up over, measuring");
             }
@@ -165,6 +196,7 @@ public final class LoadTest {
             }
         }
         recorder.stopMeasuring();
+        heavyRecorder.stopMeasuring();
         running.set(false);
         for (Thread thread : threads) {
             thread.join(TimeUnit.SECONDS.toMillis(60));
@@ -178,6 +210,12 @@ public final class LoadTest {
         System.out.println();
         System.out.print(Recorder.table(metrics));
         System.out.printf("signed in %d of %d (failed %d)%n", signedIn.get(), users, loginFailed.get());
+        if (heavyUsers > 0) {
+            List<String> heavy = heavyRecorder.summary(out.resolve(name + "-heavy-summary.csv"));
+            heavyRecorder.writeErrors(out.resolve(name + "-heavy-errors.txt"));
+            System.out.println("heavy users (" + heavyUsers + "), counted apart:");
+            System.out.print(Recorder.table(heavy));
+        }
     }
 
     /** The virtual users' accounts: the role shares, each kind's accounts in turn (one account may serve two). */

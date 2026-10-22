@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
  */
 final class Scenarios {
 
-    enum Action { DASHBOARD, LIST_ALL, LIST_COMPONENT, LIST_KDN, CARD, SAVE_DETAILS, MOVE, DOWNLOAD, UPLOAD,
+    enum Action { DASHBOARD, LIST_ALL, LIST_COMPONENT, LIST_KDN, CARD, SAVE_DETAILS, MOVE, DOWNLOAD, DOWNLOAD_BIG, UPLOAD,
         EXPORT_LIST, EXPORT_ONE, CREATE_CONTROL }
 
     /** Per role: the actions and their weights (out of 100). */
@@ -87,6 +87,7 @@ final class Scenarios {
             case SAVE_DETAILS -> saveDetails(session, random);
             case MOVE -> move(session, random);
             case DOWNLOAD -> download(session, random);
+            case DOWNLOAD_BIG -> downloadBig(session, random);
             case UPLOAD -> upload(session, random);
             case EXPORT_LIST -> session.get("export.list", "/component/ALL/export" + listQuery(random)
                     .replaceAll("[&?](page|size)=\\d+", ""), Session.ok2xx(), true);
@@ -242,6 +243,16 @@ final class Scenarios {
         session.get(control.files.size() > 1 ? "file.download.big" : "file.download.small",
                 "/api/attachments/download/" + Session.encode(file).replace("+", "%20") + "?controlId=" + control.id,
                 Session.ok2xx(), true);
+    }
+
+    /** One of the 3-5 MB files (the heavy users of --heavy-users). */
+    private void downloadBig(Session session, Random random) {
+        Control control = Data.any(data.withFiles, c -> c.files.size() > 1, random);
+        if (control != null) {
+            String file = control.files.get(random.nextInt(control.files.size()));
+            session.get("file.download.big", "/api/attachments/download/" + Session.encode(file).replace("+", "%20")
+                    + "?controlId=" + control.id, Session.ok2xx(), true);
+        }
     }
 
     private void upload(Session session, Random random) {
