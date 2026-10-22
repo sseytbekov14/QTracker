@@ -177,9 +177,7 @@ public class UserService {
                 if (actingUserId != null && actingUserId.equals(targetUser.getId())) {
                     throw new IllegalArgumentException(OWN_EMAIL);
                 }
-                if (userRepository.existsByMail(normalizedEmail)) {
-                    throw new IllegalArgumentException("User with this email already exists");
-                }
+                refuseTaken(normalizedEmail);
                 nextMail = normalizedEmail;
             }
         }
@@ -227,6 +225,32 @@ public class UserService {
             moveAssignments(previousMail, nextMail);
         }
         return saved;
+    }
+
+    /**
+     * Only the e-mail, changed the way the Admin Panel changes it ({@link #updateUser}), for --update-user-emails
+     * (2026-10-22): refused when the address is someone else's, and the person's places in the controls follow it
+     * in the same transaction. Returns how many controls changed; 0 when it is their address already.
+     */
+    @Transactional
+    public int changeEmail(Long userId, String email) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        String nextMail = normalizeEmail(email);
+        String previousMail = user.getMail();
+        if (previousMail != null && previousMail.trim().equalsIgnoreCase(nextMail)) {
+            return 0;
+        }
+        refuseTaken(nextMail);
+        user.setMail(nextMail);
+        userRepository.save(user);
+        return moveAssignments(previousMail, nextMail);
+    }
+
+    private void refuseTaken(String mail) {
+        if (userRepository.existsByMail(mail)) {
+            throw new IllegalArgumentException(EMAIL_TAKEN);
+        }
     }
 
     /**
@@ -286,6 +310,7 @@ public class UserService {
         return String.join(",", out);
     }
 
+    static final String EMAIL_TAKEN = "User with this email already exists";
     static final String OWN_EMAIL = "You cannot change your own e-mail: ask another admin";
     static final String LAST_SOQM_ROLE =
             "This is the last active SoQM Admin Team member: their role cannot change until someone else is SoQM Admin Team";
@@ -373,9 +398,7 @@ public class UserService {
     private User newUser(String email, String displayName, AccessPolicy.Profile profile, Boolean enabled,
                          boolean withPassword) {
         String normalizedEmail = normalizeEmail(email);
-        if (userRepository.existsByMail(normalizedEmail)) {
-            throw new IllegalArgumentException("User with this email already exists");
-        }
+        refuseTaken(normalizedEmail);
 
         User user = new User();
         user.setMail(normalizedEmail);

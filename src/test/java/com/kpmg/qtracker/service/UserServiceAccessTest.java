@@ -228,6 +228,25 @@ class UserServiceAccessTest {
         verify(assignmentRepository, never()).findControlIdsByFacilitator(any());
     }
 
+    /** 2026-10-22: --update-user-emails changes only the e-mail, with the Admin Panel's check and moved controls. */
+    @Test
+    void changeEmail_movesTheControls_andRefusesSomeoneElsesAddress() {
+        User user = stored(AccessLevel.PARTICIPANT, AccessScope.OWN);
+        when(userRepository.existsByMail("taken@example.test")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.changeEmail(TARGET_ID, "Taken@example.test"))
+                .hasMessage(UserService.EMAIL_TAKEN);
+        assertThat(user.getMail()).isEqualTo("target@example.test");
+        verify(assignmentRepository, never()).findControlIdsByFacilitator(any());
+        assertThat(service.changeEmail(TARGET_ID, " TARGET@example.test ")).isZero();
+        verify(assignmentRepository, never()).findControlIdsByFacilitator(any());
+
+        assertThat(service.changeEmail(TARGET_ID, "Moved@Example.test")).isZero();
+        assertThat(user.getMail()).isEqualTo("moved@example.test");
+        verify(assignmentRepository).findControlIdsByFacilitator("target@example.test");
+        verify(assignmentRepository).findControlIdsByControlSharedWith("target@example.test");
+    }
+
     @Test
     void createUser_byRole() {
         when(userRepository.existsByMail(any())).thenReturn(false);

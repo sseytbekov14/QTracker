@@ -4,6 +4,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.security.LoginNameResolver;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.UserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,8 +27,11 @@ import java.util.regex.Pattern;
  * they sign in with at Microsoft). A dry run unless applied; all or nothing - any problem in the file refuses the
  * whole run (a person on two lines, an address on two lines or already someone else's, an address on the service
  * domain, an unknown or ambiguous person, a broken line). Running it again changes nothing (already that
- * address). Also for people who have signed in before (the Admin Panel allows a change only before the first
- * sign-in); the stored Entra object id stays. Each change is an audit entry with the address before and after.
+ * address). Also for people who have signed in before; the stored Entra object id stays. Each change is the Admin
+ * Panel's ({@link UserService#changeEmail}, 2026-10-22): the person's places in the controls - Facilitator, Control
+ * Operator, SoQM Team / Delegate, Process Owner, Control Shared With - follow the new address in the same
+ * transaction, and the report says how many controls moved. Each change is also an audit entry with the address
+ * before and after.
  *
  * <p>The console report names line numbers and user ids only; the list with the addresses
  * ({@code update_emails_<date>.csv}) is written next to the file (migration\, ignored by git).
@@ -60,7 +64,8 @@ public class UserEmailUpdate {
     }
 
     /** One line of the file: the person found (null when not), the addresses, what happens or why not. */
-    public record Line(int line, Outcome outcome, Long userId, String oldMail, String newMail, String reason) {
+    public record Line(int line, Outcome outcome, Long userId, String oldMail, String newMail, String reason,
+                       int moved) {
     }
 
     public record Report(boolean applied, String refusal, List<Line> lines, Path listFile) {
@@ -87,6 +92,9 @@ public class UserEmailUpdate {
                 out.append("  line ").append(line.line()).append(": ")
                         .append(line.userId() == null ? "-" : "user " + line.userId()).append(", ")
                         .append(line.outcome() == Outcome.CHANGE && applied ? "changed" : line.outcome().label());
+                if (line.outcome() == Outcome.CHANGE && applied) {
+                    out.append(", assignments moved ").append(line.moved());
+                }
                 if (line.reason() != null) {
                     out.append(" (").append(line.reason()).append(')');
                 }
@@ -100,11 +108,14 @@ public class UserEmailUpdate {
     }
 
     private final UserRepository userRepository;
+    private final UserService userService;
     private final AdminAuditService auditService;
     private final LoginNameResolver loginNames;
 
-    public UserEmailUpdate(UserRepository userRepository, AdminAuditService auditService, LoginNameResolver loginNames) {
+    public UserEmailUpdate(UserRepository userRepository, UserService userService, AdminAuditService auditService,
+                           LoginNameResolver loginNames) {
         this.userRepository = userRepository;
+        this.userService = userService;
         this.auditService = auditService;
         this.loginNames = loginNames;
     }
@@ -137,18 +148,19 @@ public class UserEmailUpdate {
         }
 
         String actorName = "E-mail update" + (actor == null || actor.isBlank() ? "" : " (" + actor + ")");
+        List<Line> done = new ArrayList<>();
         for (Line line : lines) {
             if (line.outcome() != Outcome.CHANGE) {
+                done.add(line);
                 continue;
             }
-            User user = userRepository.findById(line.userId()).orElseThrow();
-            user.setMail(line.newMail());
-            userRepository.save(user);
+            int moved = userService.changeEmail(line.userId(), line.newMail());
             auditService.logActionWithChanges(ACTOR_MAIL, actorName, AUDIT_ACTION, null,
-                    "Changed email from " + line.oldMail() + " to " + line.newMail() + " for user id " + user.getId(),
+                    "Changed email from " + line.oldMail() + " to " + line.newMail() + " for user id " + line.userId(),
                     "mail", "mail=" + line.oldMail(), "mail=" + line.newMail());
+            done.add(new Line(line.line(), line.outcome(), line.userId(), line.oldMail(), line.newMail(), null, moved));
         }
-        return new Report(true, null, lines, writeList(file, lines, true, today));
+        return new Report(true, null, done, writeList(file, done, true, today));
     }
 
     private List<Line> plan(List<UsersCsv.Record> records) {
@@ -202,9 +214,9 @@ public class UserEmailUpdate {
                 lines.add(error(record.line(), user.getId(), oldMail, newMail,
                         "Email already belongs to user " + owner.get().getId()));
             } else if (oldMail != null && oldMail.trim().equalsIgnoreCase(newMail)) {
-                lines.add(new Line(record.line(), Outcome.UNCHANGED, user.getId(), oldMail, newMail, null));
+                lines.add(new Line(record.line(), Outcome.UNCHANGED, user.getId(), oldMail, newMail, null, 0));
             } else {
-                lines.add(new Line(record.line(), Outcome.CHANGE, user.getId(), oldMail, newMail, null));
+                lines.add(new Line(record.line(), Outcome.CHANGE, user.getId(), oldMail, newMail, null, 0));
             }
         }
         return lines;
@@ -239,7 +251,7 @@ public class UserEmailUpdate {
     }
 
     private static Line error(int line, Long userId, String oldMail, String newMail, String reason) {
-        return new Line(line, Outcome.ERROR, userId, oldMail, newMail, reason);
+        return new Line(line, Outcome.ERROR, userId, oldMail, newMail, reason, 0);
     }
 
     // update_emails_<date>.csv next to the file: line, user id, the addresses, the result
