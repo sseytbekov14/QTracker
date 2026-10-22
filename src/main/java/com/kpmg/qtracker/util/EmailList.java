@@ -2,11 +2,10 @@ package com.kpmg.qtracker.util;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 /**
  * E-mail lists as the assignment columns store them (controls.facilitator, control_operator,
@@ -14,7 +13,6 @@ import java.util.regex.Pattern;
  * with or without spaces. Everything that reads such a list goes through here.
  */
 public final class EmailList {
-    private static final Pattern SEPARATOR = Pattern.compile("[,;]");
 
     private EmailList() {
     }
@@ -27,15 +25,33 @@ public final class EmailList {
         if (raw == null || raw.isBlank()) {
             return Collections.emptyList();
         }
+        // Cut at the separators by hand: a list page parses five columns of every control, and the regular expression
+        // with a set per call was a tenth of the CPU of the load test (the same result as split("[,;]"))
+        int end = nextSeparator(raw, 0);
+        if (end == raw.length()) {
+            String email = raw.trim();
+            return email.isEmpty() ? Collections.emptyList() : Collections.singletonList(email);
+        }
         List<String> emails = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        for (String part : SEPARATOR.split(raw)) {
-            String email = part.trim();
+        Set<String> seen = new HashSet<>();
+        for (int start = 0; start <= raw.length(); start = end + 1, end = nextSeparator(raw, start)) {
+            String email = raw.substring(start, end).trim();
             if (!email.isEmpty() && seen.add(email.toLowerCase(Locale.ROOT))) {
                 emails.add(email);
             }
         }
         return Collections.unmodifiableList(emails);
+    }
+
+    /** The index of the next ',' or ';' from {@code from}, or the length of the text when there is none. */
+    private static int nextSeparator(String raw, int from) {
+        for (int i = from; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c == ',' || c == ';') {
+                return i;
+            }
+        }
+        return raw.length();
     }
 
     /** Whether the stored list holds this exact address, ignoring case and surrounding spaces. */
