@@ -258,7 +258,8 @@ final class Scenarios {
     private void upload(Session session, Random random) {
         Person person = session.person;
         Control control = "soqm".equals(person.kind())
-                ? Data.any(data.withFiles, c -> !c.kdn && !c.draft() && c.files.size() > 1, random)
+                // Any control SoQM may change: a few controls would reach the limit of 50 files (a 400 by the rule)
+                ? Data.any(data.controls, c -> !c.kdn && !c.draft(), random)
                 : Data.any(data.byPerson.getOrDefault(person.mail(), List.of()),
                         c -> "IN_PROGRESS".equals(c.status) && c.facilitators.contains(person.mail()), random);
         if (control == null) {
