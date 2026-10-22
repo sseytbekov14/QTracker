@@ -70,3 +70,6 @@ qtracker-backup-*.sql/
 ### Локальные скрипты, не коммитить ###
 PUSH_TO_GIT.txt
 build*.ps1
+
+# локальная копия серверного compose, не коммитить (содержит внутренние имена)
+docker-compose.server.yml
