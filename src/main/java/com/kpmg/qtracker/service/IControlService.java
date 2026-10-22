@@ -20,6 +20,15 @@ public interface IControlService {
     Control createControl(Control control);
     Control save(Control control);
     Optional<Control> getControlById(Long id);
+
+    /** The controls of these ids, by id (a missing id is not in the map). */
+    default java.util.Map<Long, Control> getControlsByIds(java.util.Collection<Long> ids) {
+        java.util.Map<Long, Control> controls = new java.util.HashMap<>();
+        for (Long id : ids) {
+            getControlById(id).ifPresent(control -> controls.put(id, control));
+        }
+        return controls;
+    }
     Control updateControl(Control control);
     String getControlFrequency(Long controlId);
     ControlResponseDTO convertToResponseDTO(Control control);

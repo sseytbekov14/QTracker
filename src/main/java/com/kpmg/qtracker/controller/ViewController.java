@@ -237,9 +237,13 @@ public class ViewController {
                 notificationService.getUserNotifications(currentUser.getId()).stream()
                         .filter(notif -> !notificationTypeDisplayMapper.isHiddenType(notif.getType()))
                         .collect(Collectors.toList());
-        List<NotificationItemDTO> notifications = visibleNotifications.stream()
-                .limit(limit)
-                .map(this::convertNotificationToDTO)
+        List<com.kpmg.qtracker.entity.Notification> shown = visibleNotifications.stream().limit(limit).toList();
+        // The controls of the notifications shown, in one read: one read per notification went, each time, through
+        // every control the dashboard had already loaded (SoQM Admin Team: half of the page's time in the load test)
+        Map<Long, Control> controls = controlService.getControlsByIds(shown.stream()
+                .map(com.kpmg.qtracker.entity.Notification::getControlId).filter(Objects::nonNull).distinct().toList());
+        List<NotificationItemDTO> notifications = shown.stream()
+                .map(notif -> convertNotificationToDTO(notif, controls.get(notif.getControlId())))
                 .collect(Collectors.toList());
         model.addAttribute("notificationGroups", groupNotificationsByDate(notifications));
         model.addAttribute("notificationsTotal", visibleNotifications.size());
@@ -656,17 +660,22 @@ public class ViewController {
     }
 
     private NotificationItemDTO convertNotificationToDTO(com.kpmg.qtracker.entity.Notification notif) {
+        return convertNotificationToDTO(notif, controlService.getControlById(notif.getControlId()).orElse(null));
+    }
+
+    /** @param control the notification's control, read by the caller; null when it is gone */
+    private NotificationItemDTO convertNotificationToDTO(com.kpmg.qtracker.entity.Notification notif, Control control) {
         NotificationItemDTO dto = new NotificationItemDTO();
         dto.setId(String.valueOf(notif.getId()));
         dto.setType(notif.getType());
         dto.setControlId(notif.getControlId());
-        
+
         // Get control details
-        controlService.getControlById(notif.getControlId()).ifPresent(control -> {
+        if (control != null) {
             dto.setControlIdNumber(control.getControlId());
             dto.setComponent(control.getComponent());
-        });
-        
+        }
+
         dto.setMessage(notif.getTitle());
         // The link is the "Go to Control" button; an older text's link line is not shown (NotificationLinks)
         dto.setFullText(com.kpmg.qtracker.service.NotificationLinks.withoutLinkLines(notif.getMessage()));

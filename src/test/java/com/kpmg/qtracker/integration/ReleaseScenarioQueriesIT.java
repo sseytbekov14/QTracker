@@ -123,6 +123,27 @@ class ReleaseScenarioQueriesIT extends ReleaseScenarioSupport {
         assertThat(statistics.getEntityLoadCount()).as("controls read for the KDN item").isLessThan(CONTROLS / 2);
     }
 
+    /** The dashboard's notifications read their controls in one query, not one per notification. */
+    @Test
+    void theDashboardsNotifications_readTheirControlsWithAFixedNumberOfStatements() throws Exception {
+        User me = myEdit("qn-me");
+        People others = people().facilitator(myEdit("qn-f")).operator(myEdit("qn-op")).soqm(soqm("qn-soqm"))
+                .owner(myEdit("qn-po"));
+        for (int i = 0; i < CONTROLS; i++) {
+            com.kpmg.qtracker.entity.Control control = control("RS-QN", "IN_PROGRESS", others);
+            com.kpmg.qtracker.entity.Notification notification = new com.kpmg.qtracker.entity.Notification();
+            notification.setUserId(me.getId());
+            notification.setControlId(control.getId());
+            notification.setType("WORKFLOW_STEP");
+            notification.setTitle("Control Operator Review");
+            notification.setMessage("Dear " + me.getDisplayName());
+            notification.setCreatedAt(java.time.LocalDateTime.now());
+            notificationRepository.save(notification);
+        }
+
+        assertThat(count(login(me), get("/"))).as("/ with %d notifications", CONTROLS).isLessThan(CONTROLS / 2);
+    }
+
     @Autowired
     private com.kpmg.qtracker.service.IControlService controlService;
 

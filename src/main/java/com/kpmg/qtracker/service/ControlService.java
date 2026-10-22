@@ -498,6 +498,16 @@ public class ControlService implements IControlService {
         return controlRepository.findById(id);
     }
 
+    /** One query for all of them. */
+    @Override
+    public Map<Long, Control> getControlsByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        return controlRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Control::getId, control -> control, (a, b) -> a));
+    }
+
     @Override
     public String getControlFrequency(Long controlId) {
         return getControlById(controlId)
