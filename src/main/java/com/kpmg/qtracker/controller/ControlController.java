@@ -192,6 +192,18 @@ public class ControlController {
                                 "error", "INVALID_FREQUENCY",
                                 "message", "Control Frequency must be one of Monthly, Quarterly, Ad-hoc, Recurring, Annual, Semi Annual"));
             }
+            // Control Status: Active when none is given; a given one must be one of the choices, as on edit
+            String controlStatus = ControlStatusValue.ACTIVE;
+            if (controlDTO.getControlStatus() != null && !controlDTO.getControlStatus().isBlank()) {
+                Optional<String> code = ControlStatusValue.canonical(controlDTO.getControlStatus());
+                if (code.isEmpty()) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("success", false,
+                                    "error", "INVALID_CONTROL_STATUS",
+                                    "message", ControlStatusValue.invalidMessage()));
+                }
+                controlStatus = code.get();
+            }
             control.setControlFrequency(canonicalFrequency);
             control.setControlCategory(controlDTO.getControlCategory());
             control.setControlType(controlDTO.getControlType());
@@ -201,7 +213,7 @@ public class ControlController {
             control.setPriority(controlDTO.getPriority());
             control.setNonAuditServicesApplicability(controlDTO.getNonAuditServicesApplicability());
             control.setHomogeneity(controlDTO.getHomogeneity());
-            control.setControlStatus(controlDTO.getControlStatus());
+            control.setControlStatus(controlStatus);
             control.setPerformanceStatus("DRAFT"); // Initial workflow status before initiate
             control.setControlDescription(controlDTO.getControlDescription());
             control.setPrp(controlDTO.getPrp());

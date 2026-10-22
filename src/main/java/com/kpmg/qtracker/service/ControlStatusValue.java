@@ -17,6 +17,8 @@ import java.util.Optional;
  */
 public final class ControlStatusValue {
 
+    /** A new control's Control Status when none is given (the old system's default, decided 2026-10-22). */
+    public static final String ACTIVE = "ACTIVE";
     public static final String DELETED = "DELETED";
     public static final String SUPERSEDED = "SUPERSEDED";
 
@@ -24,7 +26,7 @@ public final class ControlStatusValue {
 
     static {
         LABELS.put("NOT_APPLICABLE", "Not Applicable");
-        LABELS.put("ACTIVE", "Active");
+        LABELS.put(ACTIVE, "Active");
         LABELS.put(DELETED, "Deleted");
         LABELS.put(SUPERSEDED, "Superseded");
     }

@@ -1338,7 +1338,22 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('#controlForm select[data-stored-value]').forEach(select => {
         keepStoredSelectValue(select, select.dataset.storedValue);
     });
+    document.querySelectorAll('#controlForm select option[value=""][data-edit-text]').forEach(watchEmptyChoiceText);
 });
+
+/**
+ * An empty choice that reads one way while its field is read-only (data-view-text, "Not set") and another while it is
+ * edited (data-edit-text, "Select Status"): swapped whenever readonly-field comes or goes.
+ */
+function watchEmptyChoiceText(option) {
+    const select = option.parentElement;
+    const sync = () => {
+        option.textContent = select.classList.contains('readonly-field')
+            ? option.dataset.viewText : option.dataset.editText;
+    };
+    sync();
+    new MutationObserver(sync).observe(select, { attributes: true, attributeFilter: ['class'] });
+}
 
 function saveControlData(controlId) {
     console.log('=== SAVE CONTROL DATA ===');
