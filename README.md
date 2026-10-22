@@ -221,8 +221,8 @@ Authentication (`AuthMode`, exactly one of the two):
 Authorization:
 - Endpoint protection configured in `SecurityConfig`
 - Per-control permissions in `ControlPermissionService`; one read rule for pages and the REST API in `PermissionService.readAccess` / `requireReadable` (no field is hidden on read)
-- Roles (`users.role`): `FACILITATOR`, `CONTROL_OPERATOR`, `PROCESS_OWNER`, `SOQM_TEAM`, `KDN` (read-only, KDN controls only); optional secondary role `FACILITATOR`, `CONTROL_OPERATOR` or `PROCESS_OWNER`
-- Administration through the `admin_access` flag, independent of the role; the dev seeder's `ADMIN` role sees all controls in lists but has no other admin rights
+- Roles from `users.access_level` and `users.access_scope` (`AccessPolicy.Profile`): SoQM Team, User (My or All controls, Edit or Read Only), KDN (read-only, KDN controls only); Facilitator, Control Operator and Process Owner are assignments on a control, not user roles. The old `users.role` / `secondary_role` columns were dropped in V22
+- Administration (Admin Panel) belongs to SoQM Team; `admin_access` follows the level (V11)
 
 Request protection:
 - CSRF token repository enabled (with configured exclusions)

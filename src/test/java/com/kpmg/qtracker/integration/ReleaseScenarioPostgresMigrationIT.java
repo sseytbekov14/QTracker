@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Release test pass, stage I: the Flyway migrations on a real PostgreSQL - from an empty schema to the latest, from
- * data of an earlier version (synthetic rows written at V4) to the latest, then the rollback scripts of V21, V19, V18, V17, V16, V15, V14, V13, V12, V11
+ * data of an earlier version (synthetic rows written at V4) to the latest, then the rollback scripts of V22, V21, V19, V18, V17, V16, V15, V14, V13, V12, V11
  * and V8, and from data of the version before (V12, SoQM Development Materials filled) to V13 and back. Runs only with -Drelease.db.url=jdbc:postgresql://.../qtracker_release_test (and .user, .password): every test
  * empties the public schema of that temporary database (V1 looks its constraints up by table name, so the migrations
  * need a database of their own) and leaves it empty for the next run.
@@ -60,7 +60,7 @@ class ReleaseScenarioPostgresMigrationIT {
         }
     }
 
-    private static final String LATEST = "21";
+    private static final String LATEST = "22";
 
     @Test
     void anEmptyDatabase_migratesToTheLatestVersion_withTheSeedPeopleOfV2() throws Exception {
@@ -83,6 +83,9 @@ class ReleaseScenarioPostgresMigrationIT {
                 .hasSize(9);
         assertThat(single("SELECT COUNT(*) FROM users WHERE password IS NOT NULL AND mail LIKE '%@qtracker.local'"))
                 .isEqualTo("9");
+        // V22: the old role columns are gone, the seed people's role words are in the backup
+        assertThat(roleColumns()).isEqualTo("0");
+        assertThat(single("SELECT COUNT(*) FROM users_role_backup")).isEqualTo("9");
     }
 
     @Test
@@ -148,7 +151,26 @@ class ReleaseScenarioPostgresMigrationIT {
                     .as(template.name()).isEqualTo(template.defaultBody());
         }
 
-        // Rollback of V21, V19, V18, V17, V16, V15, V14, V13, V12, V11, then of V8 (the order the scripts are meant for)
+        // V22: role and secondary_role gone, every role word of the old people kept
+        assertThat(roleColumns()).isEqualTo("0");
+        Map<String, String> oldRoles = Map.of("old-soqm@release.test", "SOQM_TEAM", "old-admin@release.test", "ADMIN",
+                "old-fac@release.test", "FACILITATOR", "old-po@release.test", "Process Owner",
+                "old-kdn@release.test", "KDN", "old-viewer@release.test", "VIEWER");
+        assertThat(rows("SELECT u.mail, b.role FROM users_role_backup b JOIN users u ON u.id = b.user_id "
+                + "WHERE u.mail LIKE 'old-%' AND b.secondary_role IS NULL")).isEqualTo(oldRoles);
+
+        // Rollback of V22, V21, V19, V18, V17, V16, V15, V14, V13, V12, V11, then of V8 (the order the scripts are meant for)
+        script("db/rollback/V22__undo_drop_user_role_columns.sql");
+        assertThat(roleColumns()).isEqualTo("2");
+        assertThat(rows("SELECT column_name, is_nullable || '|' || data_type || '|' || character_maximum_length "
+                + "FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'users' "
+                + "AND column_name IN ('role', 'secondary_role')"))
+                .containsEntry("role", "YES|character varying|255")
+                .containsEntry("secondary_role", "YES|character varying|255");
+        assertThat(rows("SELECT mail, role FROM users WHERE mail LIKE 'old-%' AND secondary_role IS NULL"))
+                .isEqualTo(oldRoles);
+        assertThat(single("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '" + schema
+                + "' AND table_name = 'users_role_backup'")).isEqualTo("0");
         script("db/rollback/V21__undo_notification_texts.sql");
         for (java.util.Map.Entry<String, String[]> text : db.migration.V20__Notification_templates.TEXTS.entrySet()) {
             assertThat(single("SELECT body FROM notification_template WHERE template_key = '" + text.getKey() + "'"))
@@ -444,6 +466,11 @@ class ReleaseScenarioPostgresMigrationIT {
     }
 
     // ---- helpers ----
+
+    private String roleColumns() throws Exception {
+        return single("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '" + schema
+                + "' AND table_name = 'users' AND column_name IN ('role', 'secondary_role')");
+    }
 
     private String relatedTables() throws Exception {
         return single("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '" + schema
