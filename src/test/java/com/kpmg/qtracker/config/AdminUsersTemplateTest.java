@@ -83,11 +83,15 @@ class AdminUsersTemplateTest {
         assertThat(html).contains("<script src=\"/js/app-modal.js?v=", "showConfirmModal(", "hide.bs.modal");
     }
 
-    /** Item 8: Delete user (two steps: e-mail and reason, then the controls with an acknowledgement) and Disable user. */
+    /**
+     * Item 8: Delete user (two steps: e-mail and reason, then the controls with an acknowledgement). Disabling is the
+     * Status field alone (2026-10-23): no "Disable user" button doing the same save.
+     */
     @Test
-    void theDialogDeletesInTwoSteps_andOffersDisableInstead() throws IOException {
+    void theDialogDeletesInTwoSteps_andPointsToStatusInstead() throws IOException {
         String html = read();
-        assertThat(html).contains("id=\"userDeleteBtn\"", "id=\"userDisableBtn\"", "Disable user",
+        assertThat(html).doesNotContain("userDisableBtn", ">Disable user<");
+        assertThat(html).contains("id=\"userDeleteBtn\"", "set <strong>Status</strong> to Inactive instead",
                 "for=\"userDeleteEmail\"", "for=\"userDeleteReason\"", "maxlength=\"500\"",
                 "id=\"userDeleteControls\"", "for=\"userDeleteAck\"", "This cannot be undone",
                 "'/api/users/' + dialog.row.dataset.userId + '/delete-check'",

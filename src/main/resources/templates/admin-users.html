@@ -897,7 +897,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     <p>Kept as they are, with this person's name and e-mail: the Audit Trail, the controls' history and
                         Changelog, the e-mail log and who uploaded each file. Their e-mail stays in the controls' people
                         and Shared With, shown as &ldquo;(deleted user)&rdquo;: change those people yourself where needed.</p>
-                    <p>To keep the account and only stop the sign-in, use <strong>Disable user</strong> instead.</p>
+                    <p>To keep the account and only stop the sign-in, set <strong>Status</strong> to Inactive instead.</p>
                 </div>
                 <div id="userDeleteStep1">
                     <div class="mb-3">
@@ -932,7 +932,6 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-danger js-delete-start me-auto" id="userDeleteBtn" hidden>
                     <i class="bi bi-trash3" aria-hidden="true"></i> Delete user</button>
-                <button type="button" class="btn btn-outline-secondary" id="userDisableBtn" hidden>Disable user</button>
                 <span class="dirty-note" id="userDirtyNote" hidden><i class="bi bi-circle-fill" aria-hidden="true"></i>Unsaved changes</span>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="userCancelBtn">Cancel</button>
                 <button type="button" class="btn btn-outline-secondary" id="userDeleteBackBtn" hidden>Back</button>
@@ -1495,7 +1494,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const deletePanel = document.getElementById('userDeletePanel');
     const deleteBtn = document.getElementById('userDeleteBtn');
-    const disableBtn = document.getElementById('userDisableBtn');
     const deleteBackBtn = document.getElementById('userDeleteBackBtn');
     const deleteConfirmBtn = document.getElementById('userDeleteConfirmBtn');
     const deleteEmail = document.getElementById('userDeleteEmail');
@@ -1505,13 +1503,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteAck = document.getElementById('userDeleteAck');
     const deleteMessage = document.getElementById('userDeleteMessage');
 
-    // Delete and Disable for an existing user who is not oneself; the last active SoQM Admin Team member neither
+    // Delete for an existing user who is not oneself; not for the last active SoQM Admin Team member. Disabling an
+    // account is the Status field (the former "Disable user" button saved Status Inactive the same way)
     function showDeleteButtons() {
         const existing = dialog && dialog.mode !== 'create' && !dialog.self;
         deleteBtn.hidden = !existing;
         deleteBtn.disabled = Boolean(existing && dialog.lastSoqm);
         deleteBtn.title = existing && dialog.lastSoqm ? 'The last active SoQM Admin Team member cannot be deleted' : '';
-        disableBtn.hidden = !existing || !dialog.user.enabled || dialog.lastSoqm;
     }
 
     // step: 0 = the form, 1 = e-mail and reason, 2 = the controls that keep the person
@@ -1529,7 +1527,6 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteConfirmBtn.disabled = step === 2 && !deleteAck.checked;
         if (step > 0) {
             deleteBtn.hidden = true;
-            disableBtn.hidden = true;
         } else {
             showDeleteButtons();
         }
@@ -1572,16 +1569,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     deleteAck.addEventListener('change', function() {
         deleteConfirmBtn.disabled = !deleteAck.checked;
-    });
-
-    // Disable user: the safe alternative, the usual save with the status Inactive (and its confirmation)
-    disableBtn.addEventListener('click', function() {
-        if (!dialog || dialog.saving) {
-            return;
-        }
-        fields.status.value = 'INACTIVE';
-        updateDirtyState();
-        form.requestSubmit();
     });
 
     deleteConfirmBtn.addEventListener('click', async function() {

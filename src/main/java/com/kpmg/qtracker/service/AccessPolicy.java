@@ -886,6 +886,34 @@ public final class AccessPolicy {
         return Optional.empty();
     }
 
+    /**
+     * Setting a user's Status in the Admin Panel, the one way to disable an account (2026-10-23: the separate
+     * "Disable user" button is gone): nobody deactivates themselves ({@link #DEACTIVATE_SELF}), and the last active
+     * SoQM Admin Team member stays active ({@link #DEACTIVATE_LAST_SOQM}), as for deleting. Making someone active is
+     * never refused. An inactive user cannot sign in, and their session ends on the next request
+     * (UserEnabledGuardFilter).
+     *
+     * @param activeSoqmLeft active SoQM Admin Team members, the target included
+     */
+    public static Optional<String> statusChangeRefusal(Long actorId, Subject target, Long targetId, boolean nextEnabled,
+                                                       long activeSoqmLeft) {
+        if (nextEnabled) {
+            return Optional.empty();
+        }
+        if (actorId != null && actorId.equals(targetId)) {
+            return Optional.of(DEACTIVATE_SELF);
+        }
+        if (target != null && target.enabled() && target.level() == AccessLevel.SOQM && activeSoqmLeft <= 1) {
+            return Optional.of(DEACTIVATE_LAST_SOQM);
+        }
+        return Optional.empty();
+    }
+
+    public static final String DEACTIVATE_SELF = "You cannot deactivate your own account";
+    public static final String DEACTIVATE_LAST_SOQM = "This is the last active "
+            + com.kpmg.qtracker.enums.UserRole.SOQM_TEAM_NAME + " member: they cannot be deactivated until someone else is "
+            + com.kpmg.qtracker.enums.UserRole.SOQM_TEAM_NAME;
+
     public static final String DELETE_NOT_ALLOWED =
             "Only " + com.kpmg.qtracker.enums.UserRole.SOQM_TEAM_NAME + " can delete users";
     public static final String DELETE_SELF = "You cannot delete your own account";

@@ -152,7 +152,8 @@ public class UserService {
      * A blank role keeps the stored one; for the role User a blank Visibility or Access keeps the
      * stored one, or, for someone becoming User, starts at My controls and Read Only. Every combination of
      * Visibility and Access is allowed. Refused: changing one's own role or deactivating oneself, and taking
-     * the role or the account of the last active SoQM Team member (nobody could open the Admin Panel then).
+     * the role or the account of the last active SoQM Team member (nobody could open the Admin Panel then); the
+     * Status rules are {@link AccessPolicy#statusChangeRefusal}.
      * The stored level, scope and admin_access follow the role ({@link AccessPolicy.Profile}); the old role
      * columns are not touched.
      */
@@ -203,16 +204,17 @@ public class UserService {
         if (selfUpdate && next.role() != current.role()) {
             throw new IllegalArgumentException("You cannot change your own role");
         }
-        if (selfUpdate && !nextEnabled) {
-            throw new IllegalArgumentException("You cannot deactivate your own account");
-        }
-        boolean lastActiveSoqm = current.role() == UserRole.SOQM_TEAM && enabledNow
-                && userRepository.countActiveByAccessLevel(AccessLevel.SOQM) <= 1;
+        long activeSoqm = current.role() == UserRole.SOQM_TEAM && enabledNow
+                ? userRepository.countActiveByAccessLevel(AccessLevel.SOQM) : 0;
+        boolean lastActiveSoqm = current.role() == UserRole.SOQM_TEAM && enabledNow && activeSoqm <= 1;
         if (lastActiveSoqm && next.role() != UserRole.SOQM_TEAM) {
             throw new IllegalArgumentException(LAST_SOQM_ROLE);
         }
-        if (lastActiveSoqm && !nextEnabled) {
-            throw new IllegalArgumentException(LAST_SOQM_DEACTIVATE);
+        // Status is the one way to disable an account: oneself and the last active SoQM Admin Team member stay active
+        Optional<String> statusRefusal = AccessPolicy.statusChangeRefusal(actingUserId,
+                AccessPolicy.Subject.of(targetUser), targetUser.getId(), nextEnabled, activeSoqm);
+        if (statusRefusal.isPresent()) {
+            throw new IllegalArgumentException(statusRefusal.get());
         }
 
         String previousMail = targetUser.getMail();
@@ -314,8 +316,7 @@ public class UserService {
     static final String OWN_EMAIL = "You cannot change your own e-mail: ask another admin";
     static final String LAST_SOQM_ROLE =
             "This is the last active SoQM Admin Team member: their role cannot change until someone else is SoQM Admin Team";
-    static final String LAST_SOQM_DEACTIVATE =
-            "This is the last active SoQM Admin Team member: they cannot be deactivated until someone else is SoQM Admin Team";
+    static final String LAST_SOQM_DEACTIVATE = AccessPolicy.DEACTIVATE_LAST_SOQM;
 
     /**
      * A new user with a role; no old role. A User without Visibility or Access starts at My controls and

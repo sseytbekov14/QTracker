@@ -290,6 +290,58 @@ class UserAccessAuditIT {
         assertThat(accessEntries(admin).get(0).getNewValues()).contains(moved);
     }
 
+    /**
+     * Status is the one way to disable an account (2026-10-23, the "Disable user" button is gone): Inactive ends the
+     * person's session on the next request, refuses the sign-in and writes one audit entry; Active gives the access
+     * back, with its own entry.
+     */
+    @Test
+    void statusInactive_blocksSignInAndEndsTheSession_isAudited_andActiveGivesTheAccessBack() throws Exception {
+        User admin = saveAdmin();
+        User target = saveUser("audit-status-" + suffix() + "@example.test", "FACILITATOR");
+        MockHttpSession adminSession = login(admin.getMail());
+        MockHttpSession targetSession = login(target.getMail());
+        mockMvc.perform(get("/").session(targetSession)).andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).session(adminSession)
+                        .param("role", "USER")
+                        .param("enabled", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(false))
+                .andExpect(jsonPath("$.audit.action").value("Changed status from Active to Inactive"))
+                .andExpect(jsonPath("$.audit.target").value(target.getMail()));
+
+        assertThat(userRepository.findById(target.getId()).orElseThrow().getEnabled()).isFalse();
+        List<AdminAuditLog> entries = accessEntries(admin);
+        assertThat(entries).hasSize(1);
+        assertThat(entries.get(0).getActionType()).isEqualTo("USER_ACCESS_UPDATE");
+        assertThat(entries.get(0).getActionDescription())
+                .isEqualTo("Changed status from Active to Inactive for " + target.getMail());
+        assertThat(entries.get(0).getChangedFields()).isEqualTo("enabled");
+        assertThat(entries.get(0).getPreviousValues()).isEqualTo("enabled=Active");
+        assertThat(entries.get(0).getNewValues()).isEqualTo("enabled=Inactive");
+        // The open session ends on its next request, and signing in again is refused
+        mockMvc.perform(get("/").session(targetSession))
+                .andExpect(status().isForbidden());
+        assertThat(targetSession.getAttribute("currentUser")).isNull();
+        mockMvc.perform(post("/login").with(csrf())
+                        .param("username", target.getMail())
+                        .param("password", PASSWORD))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/login?error"));
+
+        mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).session(adminSession)
+                        .param("role", "USER")
+                        .param("enabled", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(true))
+                .andExpect(jsonPath("$.audit.action").value("Changed status from Inactive to Active"));
+
+        assertThat(accessEntries(admin)).hasSize(2);
+        MockHttpSession again = login(target.getMail());
+        mockMvc.perform(get("/").session(again)).andExpect(status().isOk());
+    }
+
     private void assertSelfSaveRefused(MockHttpSession session, User admin, String role, String enabled,
                                        String message) throws Exception {
         mockMvc.perform(post("/api/users/" + admin.getId() + "/access").with(csrf().asHeader()).session(session)
