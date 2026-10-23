@@ -1191,7 +1191,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const from = totalItems === 0 ? 0 : startIndex + 1;
         const to = totalItems === 0 ? 0 : Math.min(endIndex, totalItems);
-        paginationInfo.textContent = 'Showing ' + from + '-' + to + ' of ' + totalItems + ' users';
+        paginationInfo.textContent = 'Showing ' + from + '-' + to + ' of ' + totalItems + (totalItems === 1 ? ' user' : ' users');
         pageIndicator.textContent = currentPage + ' / ' + totalPages;
         prevPageBtn.disabled = currentPage <= 1;
         nextPageBtn.disabled = currentPage >= totalPages;
