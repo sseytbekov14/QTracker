@@ -1786,7 +1786,7 @@ class ApiSecurityMockMvcIT {
                 "<th scope=\"col\">Role</th>", "<th scope=\"col\">Access</th>", "<th scope=\"col\">Status</th>",
                 "<th scope=\"col\">Last Login</th>",
                 "id=\"filterRole\"", "id=\"filterVisibility\"", "id=\"filterAccess\"", "id=\"filterStatus\"",
-                "id=\"searchUsers\"", "id=\"clearFiltersBtn\"");
+                "id=\"searchUsers\"", "id=\"clearFiltersBtn\"", "id=\"clearToolbarFiltersBtn\"");
         assertThat(html).doesNotContain("<th scope=\"col\">Level</th>", "<th scope=\"col\">Scope</th>",
                 "Admin Access", "Administrator", "Participant", "Additional Role", "js-secondary-role", "(not in list)");
         // SoQM Team and KDN have no Visibility and Access of their own (Thymeleaf drops the empty attributes)

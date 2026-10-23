@@ -72,6 +72,22 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 }
 .toolbar-select { width: auto; min-width: 160px; }
 .toolbar-control:focus { border-color: var(--kpmg-blue); box-shadow: 0 0 0 3px rgba(0, 51, 141, 0.12); }
+/* Shown while a search or a filter is set */
+.toolbar-clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: none;
+    padding: 4px 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--kpmg-blue);
+    white-space: nowrap;
+}
+.toolbar-clear:hover { text-decoration: underline; }
+.toolbar-clear:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; border-radius: 3px; }
+.toolbar-clear[hidden] { display: none; }
 
 /* Table: read only; the Edit button of a row opens the user dialog */
 .table-wrapper {
@@ -586,6 +602,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                         <option value="ACTIVE">Active</option>
                         <option value="INACTIVE">Inactive</option>
                     </select>
+                    <button type="button" class="toolbar-clear" id="clearToolbarFiltersBtn" hidden>
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>Clear search and filters</button>
                 </div>
 
                 <!-- Table: read only; only the Edit button of a row opens the user dialog -->
@@ -957,7 +975,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const paginationInfo = document.getElementById('paginationInfo');
     const noUsersClientRow = document.getElementById('noUsersClientRow');
     const noUsersClientTitle = document.getElementById('noUsersClientTitle');
-    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+    const clearToolbarFiltersBtn = document.getElementById('clearToolbarFiltersBtn');
     const auditFilter = document.getElementById('auditFilter');
     const auditTableBody = document.getElementById('auditTableBody');
 
@@ -1167,6 +1185,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const q = searchInput.value.trim();
         noUsersClientTitle.textContent = q ? 'No users match “' + q + '”.' : 'No users match the filters.';
         noUsersClientRow.classList.toggle('d-none', totalItems > 0 || rows.length === 0);
+        clearToolbarFiltersBtn.hidden = !filterControls.some(function(control) {
+            return control.value.trim() !== '';
+        });
 
         const from = totalItems === 0 ? 0 : startIndex + 1;
         const to = totalItems === 0 ? 0 : Math.min(endIndex, totalItems);
@@ -1192,12 +1213,15 @@ document.addEventListener('DOMContentLoaded', function() {
     [roleFilter, visibilityFilter, accessFilter, statusFilter].forEach(function(select) {
         select.addEventListener('change', applyFilters);
     });
-    clearFiltersBtn.addEventListener('click', function() {
-        filterControls.forEach(function(control) {
-            control.value = '';
+    // In the toolbar while a search or a filter is set, and in the empty table
+    document.querySelectorAll('#clearFiltersBtn, #clearToolbarFiltersBtn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            filterControls.forEach(function(control) {
+                control.value = '';
+            });
+            applyFilters();
+            searchInput.focus();
         });
-        applyFilters();
-        searchInput.focus();
     });
     pageSizeSelect.addEventListener('change', function() {
         pageSize = Number(pageSizeSelect.value || 10);
