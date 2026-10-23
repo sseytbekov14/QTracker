@@ -56,6 +56,16 @@ public class Control {
     @JoinColumn(name = "created_by")
     private User createdBy;
 
+    /**
+     * Who created the control, as text (V12): kept when the creator is deleted from QTracker (createdBy is then
+     * null), so the control still names them, "Name (deleted user)" ({@link #creatorName}).
+     */
+    @Column(name = "created_by_email")
+    private String createdByEmail;
+
+    @Column(name = "created_by_name")
+    private String createdByName;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -65,6 +75,11 @@ public class Control {
     @Column(name = "deadline")
     private LocalDate deadline;
 
+    /**
+     * Read only here: the column belongs to ControlAssignment (the same row of table controls). A Control loaded
+     * before an Assignment save and saved after it (its deadline) used to write the old date back over the new one.
+     */
+    @Column(insertable = false, updatable = false)
     private LocalDate controlOperationDate;
 
     @Column(name = "attachment_details_path", columnDefinition = "TEXT")
@@ -92,12 +107,38 @@ public class Control {
     @Column(name = "reopened_at")
     private LocalDateTime reopenedAt;
 
+    /** The control this one was made from with Create Control (its next cycle, V14); null for every other control. */
+    @Column(name = "created_from_control_id")
+    private Long createdFromControlId;
+
     @PrePersist
     @PreUpdate
     private void ensurePerformanceStatus() {
         if (performanceStatus == null || performanceStatus.isBlank()) {
             performanceStatus = "DRAFT";
         }
+        // The creator as text, while the creator's row is there
+        if (createdBy != null && (createdByEmail == null || createdByEmail.isBlank())) {
+            createdByEmail = createdBy.getMail();
+            createdByName = createdBy.getDisplayName();
+        }
+    }
+
+    /** Suffix of a person who was deleted from QTracker, wherever their name or e-mail is still shown. */
+    public static final String DELETED_USER_MARK = " (deleted user)";
+
+    /** The creator's name: the user's, or the one kept as text with "(deleted user)"; null when not known. */
+    public String creatorName() {
+        if (createdBy != null) {
+            return createdBy.getDisplayName();
+        }
+        String kept = createdByName != null && !createdByName.isBlank() ? createdByName : createdByEmail;
+        return kept == null || kept.isBlank() ? null : kept.trim() + DELETED_USER_MARK;
+    }
+
+    /** The creator's e-mail: the user's, or the one kept as text; null when not known. */
+    public String creatorEmail() {
+        return createdBy != null ? createdBy.getMail() : createdByEmail;
     }
 
     public String getPerformanceStatus() {

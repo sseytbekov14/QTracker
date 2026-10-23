@@ -15,8 +15,8 @@ import java.util.Arrays;
 /**
  * {@code java -jar qtracker.jar --remove-seed-users} prints which Flyway seed accounts a freshly created local
  * QTracker database would lose, writing nothing; add {@code --apply} to delete them (SeedUsersRemoval). Refused
- * (exit code 1) for any database but the local QTracker one and once it holds a control. Runs like
- * DeadlineRecalculationCommand: no web server, stops after the report.
+ * (exit code 1) for any database but the local QTracker one and once it holds a control. Runs as a one-off
+ * command (QtrackerApplication.runCommand): no web server, stops after the report.
  */
 @Component
 @RequiredArgsConstructor

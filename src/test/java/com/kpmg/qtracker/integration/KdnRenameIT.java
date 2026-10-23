@@ -252,17 +252,6 @@ class KdnRenameIT {
     }
 
     @Test
-    void ownCreatedControlsApi_givesAKdnUserOnlyTheKdnOnes() throws Exception {
-        // Old data: a KDN user as the creator of a non-KDN control
-        Control kdn = control("KDN-66-" + s);
-        Control hr = control("HR-66-" + s);
-        mockMvc.perform(as(kdnCreator, get("/api/controls/user/{email}", kdnCreator.getMail())))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].id", hasItem(kdn.getId().intValue())))
-                .andExpect(jsonPath("$[*].id", not(hasItem(hr.getId().intValue()))));
-    }
-
-    @Test
     void renamedControl_takesItsAttachmentsAlong_forSoqmAndKdnToDownload() throws Exception {
         Control control = control("HR-ATT-" + s + "/FY26/Central/2H");
         Path oldFolder = Files.createDirectories(UPLOADS.resolve("HR-ATT-" + s + "_FY26_Central_2H"));

@@ -9,6 +9,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.enums.WorkflowActionType;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
+import com.kpmg.qtracker.service.notification.WorkflowNotifications;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,7 +30,8 @@ import java.util.Set;
  * {@link AccessPolicy}), the comment, the required fields, the new status, the history entry, the audit
  * entry and the notifications. A SoQM user may make the move of any role (business decision 3); history and
  * audit then name the SoQM user as the one who did it, the role they acted for, the people assigned to that
- * step and "on behalf", and those people get an in-app copy of the notification.
+ * step and "on behalf". The notifications follow the change of status only (WorkflowNotifications): the same as
+ * when the role makes the move itself, with no word of "on behalf".
  */
 @Service
 @RequiredArgsConstructor
@@ -48,8 +50,9 @@ public class WorkflowMoveService {
     private final WorkflowTransitionGuard transitionGuard;
     private final WorkflowRequiredFieldService requiredFieldService;
     private final WorkflowHistoryRepository workflowHistoryRepository;
-    private final NotificationService notificationService;
+    private final WorkflowNotifications workflowNotifications;
     private final AdminAuditService adminAuditService;
+    private final ControlRowLock controlRowLock;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** What happened: 200 with the new status, or the HTTP status and message of the refusal. */
@@ -67,6 +70,7 @@ public class WorkflowMoveService {
     /** A standard step (the endpoint of one transition, or the transitions of a perform-action name). */
     @Transactional
     public Outcome perform(Control control, User user, Collection<WorkflowTransition> candidates, String comment) {
+        control = controlRowLock.lockedFresh(control);
         ControlPermission permission = controlPermissionService.resolve(control, user);
         return execute(control, user, transitionGuard.check(control, permission, candidates), comment);
     }
@@ -74,6 +78,7 @@ public class WorkflowMoveService {
     /** A move to a target status: a step of the user's own, or any of SoQM's ({@link AccessPolicy#move}). */
     @Transactional
     public Outcome moveTo(Control control, User user, String targetStatus, String comment) {
+        control = controlRowLock.lockedFresh(control);
         ControlPermission permission = controlPermissionService.resolve(control, user);
         return execute(control, user, transitionGuard.checkMove(control, permission, targetStatus), comment);
     }
@@ -93,7 +98,7 @@ public class WorkflowMoveService {
         }
         if (move.commentRequired() && trimmedComment == null) {
             return Outcome.refused(400, move.isReturn() ? RETURN_COMMENT_REQUIRED
-                    : "A comment is required when SoQM acts for the " + move.actingFor().getDisplayName());
+                    : "A comment is required when SoQM Admin Team acts for the " + move.actingFor().getDisplayName());
         }
         if (trimmedComment != null && trimmedComment.length() > MAX_COMMENT) {
             return Outcome.refused(400, COMMENT_TOO_LONG);
@@ -127,13 +132,10 @@ public class WorkflowMoveService {
         controlService.save(control);
 
         List<String> assigned = peopleOf(move.actingFor(), assignment);
-        recordHistory(control, user, move, trimmedComment, assigned);
+        WorkflowHistory history = recordHistory(control, user, move, trimmedComment, assigned);
         recordAudit(control, user, move, trimmedComment, assigned);
-        notifyMove(control, user, move, trimmedComment, assignment);
-        if (move.onBehalf()) {
-            notificationService.sendOnBehalfCopy(control, assigned, user.getDisplayName(),
-                    move.actingFor().getDisplayName(), move.label(), move.from(), move.to(), trimmedComment);
-        }
+        workflowNotifications.moved(control, assignment, move.from(), move.to(), history.getId(),
+                move.isReturn() ? trimmedComment : null);
         log.info("Workflow move {} -> {} on control {} by {}{}", move.from(), move.to(), control.getId(),
                 user.getMail(), move.onBehalf() ? " on behalf of the " + move.actingFor().getDisplayName() : "");
         return new Outcome(200, null, move.to(), move);
@@ -145,14 +147,16 @@ public class WorkflowMoveService {
             case "REVIEW" -> isEmpty(assignment.getControlOperator())
                     ? "Control Operator not assigned. Please assign a Control Operator first." : null;
             case "SOQM_HEAD_REVIEW" -> isEmpty(assignment.getSoqmLead())
-                    ? "SoQM Team not assigned. Please assign a SoQM Team first." : null;
+                    ? AccessPolicy.Slot.SOQM_LEAD.getLabel() + " is not assigned. Please assign a "
+                    + AccessPolicy.Slot.SOQM_LEAD.getLabel() + " first." : null;
             case "PROCESS_OWNER_REVIEW" -> isEmpty(assignment.getProcessOwner())
                     ? "Process Owner not assigned. Please assign a Process Owner first." : null;
             default -> null;
         };
     }
 
-    private void recordHistory(Control control, User user, WorkflowMove move, String comment, List<String> assigned) {
+    private WorkflowHistory recordHistory(Control control, User user, WorkflowMove move, String comment,
+                                          List<String> assigned) {
         WorkflowHistory history = new WorkflowHistory();
         history.setControlId(control.getId());
         history.setActionType(historyType(move));
@@ -166,6 +170,7 @@ public class WorkflowMoveService {
         history.setAssignedPerformer(assigned.isEmpty() ? null : String.join(", ", assigned));
         history.setCreatedAt(LocalDateTime.now(Notification.ZONE));
         workflowHistoryRepository.save(history);
+        return history;
     }
 
     /** One audit entry per move (spec 9.3, 21.2): previous and new status, who did it and for whom. */
@@ -180,46 +185,13 @@ public class WorkflowMoveService {
         next.put("Comment", comment);
         String description = move.label() + ": " + WorkflowMove.displayStatus(move.from()) + " -> "
                 + WorkflowMove.displayStatus(move.to())
-                + (move.onBehalf() ? " (SoQM on behalf of the " + move.actingFor().getDisplayName() + ")" : "");
+                + (move.onBehalf() ? " (SoQM Admin Team on behalf of the " + move.actingFor().getDisplayName() + ")" : "");
         try {
             adminAuditService.logActionWithChanges(user.getMail(), user.getDisplayName(), AUDIT_ACTION, control,
                     description, objectMapper.writeValueAsString(List.of("Performance Status")),
                     objectMapper.writeValueAsString(previous), objectMapper.writeValueAsString(next));
         } catch (JsonProcessingException e) {
             log.error("Could not write the audit entry of a workflow move on control {}", control.getId(), e);
-        }
-    }
-
-    /**
-     * The notice of the move, as each step sends it: a submit to the people of the next step, Complete to the
-     * Facilitator, Control Operator and SoQM, a return to the people of the step it goes back to.
-     */
-    private void notifyMove(Control control, User user, WorkflowMove move, String comment,
-                            ControlAssignmentDTO assignment) {
-        if (move.isReturn()) {
-            WorkflowTransition.Actor target = AccessPolicy.stepOwner(move.to());
-            notificationService.sendReturnNotifications(control, peopleOf(target, assignment),
-                    move.actingFor().getDisplayName(), user.getDisplayName(), target.getDisplayName(), comment,
-                    returnType(move.to()));
-            return;
-        }
-        switch (move.to()) {
-            case "REVIEW" -> notificationService.sendTemplateNotifications(control, assignment.getControlOperator(),
-                    NotificationTemplateService.TemplateType.FACILITATOR_TO_OPERATOR, false);
-            case "SOQM_HEAD_REVIEW" -> notificationService.sendTemplateNotifications(control, assignment.getSoqmLead(),
-                    NotificationTemplateService.TemplateType.OPERATOR_TO_SOQM, false);
-            case "PROCESS_OWNER_REVIEW" -> notificationService.sendTemplateNotifications(control,
-                    assignment.getProcessOwner(), NotificationTemplateService.TemplateType.SOQM_TO_OWNER, false);
-            case "COMPLETED" -> {
-                Set<String> recipients = new LinkedHashSet<>();
-                addAll(recipients, assignment.getFacilitator());
-                addAll(recipients, assignment.getControlOperator());
-                addAll(recipients, assignment.getSoqmLead());
-                notificationService.sendTemplateNotifications(control, new ArrayList<>(recipients),
-                        NotificationTemplateService.TemplateType.COMPLETED_ALL, false);
-            }
-            default -> {
-            }
         }
     }
 
@@ -263,15 +235,6 @@ public class WorkflowMoveService {
             case "PROCESS_OWNER_REVIEW" -> "Control submitted to Process Owner for review";
             case "COMPLETED" -> "Control completed by Process Owner";
             default -> null;
-        };
-    }
-
-    private static String returnType(String to) {
-        return switch (to) {
-            case "IN_PROGRESS" -> "RETURN_TO_FACILITATOR";
-            case "REVIEW" -> "RETURN_TO_OPERATOR";
-            case "SOQM_HEAD_REVIEW" -> "RETURN_TO_SOQM_TEAM";
-            default -> "RETURN_TO_PROCESS_OWNER";
         };
     }
 

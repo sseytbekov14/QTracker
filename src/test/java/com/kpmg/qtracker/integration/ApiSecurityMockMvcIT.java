@@ -16,7 +16,6 @@ import com.kpmg.qtracker.repository.AdminAuditLogRepository;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlAttachmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
-import com.kpmg.qtracker.repository.ControlDocumentsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.NotificationRepository;
 import com.kpmg.qtracker.repository.UserRepository;
@@ -88,7 +87,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.jpa.show-sql=false",
         "spring.flyway.enabled=false",
-        "reminders.enabled=false",
+        "notifications.scheduler.enabled=false",
         "file.upload.dir=target/it-uploads"
 })
 @AutoConfigureMockMvc
@@ -108,9 +107,6 @@ class ApiSecurityMockMvcIT {
 
     @Autowired
     private ControlAssignmentRepository assignmentRepository;
-
-    @Autowired
-    private ControlDocumentsRepository documentsRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -162,19 +158,6 @@ class ApiSecurityMockMvcIT {
             assertThat(connection.getMetaData().getURL()).startsWith("jdbc:h2:mem:");
         }
         assertThat(userRepository.existsByMail("fac1@qtracker.local")).isFalse();
-    }
-
-    @Test
-    void loginWithDbUser_thenOwnControls_returns200() throws Exception {
-        String qaEmail = "qa-user-" + suffix() + "@example.test";
-        User qaUser = saveUser("qa-user", qaEmail, "FACILITATOR");
-        createControl("CTRL-DB-" + suffix(), qaUser, "DRAFT");
-
-        MockHttpSession session = login(qaEmail);
-
-        mockMvc.perform(get("/api/controls/user/{email}", qaEmail)
-                        .session(session))
-                .andExpect(status().isOk());
     }
 
     @Test
@@ -251,7 +234,7 @@ class ApiSecurityMockMvcIT {
                                 + ",\"processOwner\":[\"" + p.facilitator.getMail() + "\"]}")
                         .session(session))
                 .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString("Only SoQM Team can change control assignment")));
+                .andExpect(content().string(containsString("Only SoQM Admin Team can change control assignment")));
 
         assertThat(assignmentRepository.findByControlId(control.getId()).orElseThrow().getProcessOwner())
                 .isEqualTo(p.owner.getMail());
@@ -315,20 +298,20 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isOk());
 
         ControlAssignment stored = assignmentRepository.findByControlId(control.getId()).orElseThrow();
-        assertThat(stored.getControlOperationDeadline()).isEqualTo(LocalDate.of(2026, 2, 14));
+        assertThat(stored.getControlOperationDeadline()).isEqualTo(LocalDate.of(2026, 2, 13));
         assertThat(stored.getNextControlOperationDate()).isEqualTo(LocalDate.of(2026, 2, 28));
         String loggedValues = auditLogRepository.findByControlIdOrderByCreatedAtDesc(control.getId())
                 .get(0).getNewValues();
         assertThat(loggedValues)
-                .contains("\"Control Operation Deadline\":\"2026-02-14\"")
+                .contains("\"Control Operation Deadline\":\"2026-02-13\"")
                 .contains("\"Next Control Operation Date\":\"2026-02-28\"")
                 .doesNotContain("2026-02-09")
                 .doesNotContain("2026-03-03");
     }
 
-    /** Deadline = operation date + 14 days only for a new date or frequency; a stored one stays otherwise. */
+    /** Deadline = operation date + 10 working days only for a new date or frequency; a stored one stays otherwise. */
     @Test
-    void storedDeadline_staysOnAnAssignmentSave_newDateOrFrequencyGetsFourteenDays() throws Exception {
+    void storedDeadline_staysOnAnAssignmentSave_newDateOrFrequencyGetsTenWorkingDays() throws Exception {
         Participants p = participants();
         Control control = createControl("CTRL-D14-" + suffix(), p.soqm, "IN_PROGRESS");
         assign(control, p);
@@ -351,6 +334,10 @@ class ApiSecurityMockMvcIT {
 
         saveAssignment(control, soqm, "2026-02-02", "2026-02-03");
         assertSchedule(control, LocalDate.of(2026, 2, 16), LocalDate.of(2026, 5, 2));
+
+        // A Saturday: counted from Monday, due on the Friday two weeks later
+        saveAssignment(control, soqm, "2026-02-07", "2026-02-21");
+        assertSchedule(control, LocalDate.of(2026, 2, 20), LocalDate.of(2026, 5, 7));
     }
 
     private void saveAssignment(Control control, MockHttpSession session, String operationDate,
@@ -446,21 +433,21 @@ class ApiSecurityMockMvcIT {
                         .content(controlForm("Monthly", "GOV", "IN_PROGRESS"))
                         .session(session))
                 .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString("Component can be changed only by SoQM Team")));
+                .andExpect(content().string(containsString("Component can be changed only by SoQM Admin Team")));
 
         mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlForm("Monthly", "HR", "DELETED"))
                         .session(session))
                 .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString("Control Status can be changed only by SoQM Team")));
+                .andExpect(content().string(containsString("Control Status can be changed only by SoQM Admin Team")));
 
         mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlForm("Quarterly", "HR", "IN_PROGRESS"))
                         .session(session))
                 .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString("Control Frequency can be changed only by SoQM Team")));
+                .andExpect(content().string(containsString("Control Frequency can be changed only by SoQM Admin Team")));
 
         Control stored = controlRepository.findById(control.getId()).orElseThrow();
         assertThat(stored.getComponent()).isEqualTo("HR");
@@ -614,10 +601,11 @@ class ApiSecurityMockMvcIT {
         String draftPage = "/initiate/" + draft.getId();
         MockHttpSession soqmSession = login(p.soqm.getMail());
 
-        mockMvc.perform(get("/controls").session(soqmSession))
+        // The All components list (in place of the Controls page): a draft opens View Control, a running control
+        // its Performance Cycle page
+        mockMvc.perform(get("/component/ALL").param("status", "OVERDUE").param("size", "50").session(soqmSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("href=\"" + draftPage + "\"")))
-                .andExpect(content().string(not(containsString("href=\"/view-control/" + draft.getId() + "\""))))
+                .andExpect(content().string(containsString("href=\"/view-control/" + draft.getId() + "\"")))
                 .andExpect(content().string(containsString("href=\"/performance-cycle/" + running.getId() + "\"")));
         mockMvc.perform(get("/api/dashboard/deadline-countdown").param("limit", "50").session(soqmSession))
                 .andExpect(status().isOk())
@@ -733,7 +721,7 @@ class ApiSecurityMockMvcIT {
                         .content(controlFormWithSoqmYear(newYear))
                         .session(facilitatorSession))
                 .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString("SoQM Year can be changed only by SoQM Team")));
+                .andExpect(content().string(containsString("SoQM Year can be changed only by SoQM Admin Team")));
         mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(controlFormWithSoqmYear("1 OCT 2025 - 30 SEP 2026"))
@@ -785,41 +773,62 @@ class ApiSecurityMockMvcIT {
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getSoqmYear()).isNull();
     }
 
+    /**
+     * SoQM Development Materials is gone (2026-10-14): no select on the Documents tab, no API of its own (404), and the
+     * value sent with another tab's save is ignored; the Documents attachments still upload.
+     */
     @Test
-    void assignedFacilitator_cannotChangeSoqmDevelopmentMaterials_returns403() throws Exception {
+    void developmentMaterials_isGone_itsApiAnswers404_andAValueSentWithASaveIsIgnored() throws Exception {
         Participants p = participants();
         Control control = createControl("CTRL-DOC-" + suffix(), p.soqm, "IN_PROGRESS");
         assign(control, p);
-
-        MockHttpSession session = login(p.facilitator.getMail());
-
-        mockMvc.perform(post("/api/control-documents").with(csrf().asHeader())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Available\"}")
-                        .session(session))
-                .andExpect(status().isForbidden())
-                .andExpect(content().string(containsString("Only SoQM Team can change SoQM Development Materials")));
-
-        assertThat(documentsRepository.findByControlId(control.getId()).orElseThrow().getSoqmDevelopmentMaterials())
-                .isNull();
-    }
-
-    @Test
-    void soqm_canChangeSoqmDevelopmentMaterials_returns200() throws Exception {
-        Participants p = participants();
-        Control control = createControl("CTRL-DOC-" + suffix(), p.soqm, "IN_PROGRESS");
-        assign(control, p);
-
         MockHttpSession session = login(p.soqm.getMail());
 
         mockMvc.perform(post("/api/control-documents").with(csrf().asHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Available\"}")
                         .session(session))
-                .andExpect(status().isOk());
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/control-documents").param("controlId", String.valueOf(control.getId()))
+                        .session(session))
+                .andExpect(status().isNotFound());
 
-        assertThat(documentsRepository.findByControlId(control.getId()).orElseThrow().getSoqmDevelopmentMaterials())
-                .isEqualTo("Available");
+        mockMvc.perform(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlDescription\":\"Still saved\",\"soqmDevelopmentMaterials\":\"Available\"}")
+                        .session(session))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/control-details").with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId() + ",\"processName\":\"Payroll\","
+                                + "\"soqmDevelopmentMaterials\":\"Available\"}")
+                        .session(session))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Available\"}")
+                        .session(session))
+                .andExpect(status().isOk());
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getControlDescription()).isEqualTo("Still saved");
+        assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getProcessName()).isEqualTo("Payroll");
+        // The Changelog of these saves does not name the field
+        assertThat(auditLogRepository.findByControlIdOrderByCreatedAtDesc(control.getId()))
+                .noneMatch(log -> String.valueOf(log.getChangedFields()).contains("Development Materials")
+                        || String.valueOf(log.getNewValues()).contains("Development Materials"));
+
+        String page = mockMvc.perform(get("/view-control/{id}", control.getId()).session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(page).doesNotContain("Development Materials").doesNotContain("soqmDevelopmentMaterials")
+                .contains("id=\"documentsUploadZone\"").contains("id=\"attachmentDocumentsInput\"");
+
+        mockMvc.perform(multipart("/api/attachments/upload/{id}", control.getId())
+                        .file(new MockMultipartFile("attachmentDocuments", "plan.pdf", "application/pdf",
+                                "%PDF-1.4 plan".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                        .with(csrf().asHeader())
+                        .session(session))
+                .andExpect(status().isOk());
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getAttachmentDocumentsPath()).contains("plan");
     }
 
     @Test
@@ -832,9 +841,6 @@ class ApiSecurityMockMvcIT {
         control.setControlFrequency("Annual/Semi-annual");
         control.setHomogeneity("Homogeneous");
         controlRepository.save(control);
-        var documents = documentsRepository.findByControlId(control.getId()).orElseThrow();
-        documents.setSoqmDevelopmentMaterials("Partly available");
-        documentsRepository.save(documents);
 
         MockHttpSession session = login(p.soqm.getMail());
 
@@ -858,11 +864,6 @@ class ApiSecurityMockMvcIT {
                         .content("{\"controlId\":" + control.getId() + ",\"processName\":\"Payroll\",\"homogeneity\":null}")
                         .session(session))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/control-documents").with(csrf().asHeader())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":null}")
-                        .session(session))
-                .andExpect(status().isOk());
 
         Control stored = controlRepository.findById(control.getId()).orElseThrow();
         assertThat(stored.getControlFrequency()).isEqualTo("Annual/Semi-annual");
@@ -872,8 +873,6 @@ class ApiSecurityMockMvcIT {
         assertThat(stored.getComponent()).isEqualTo("GOV");
         assertThat(stored.getPriority()).isEqualTo("Low");
         assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getProcessName()).isEqualTo("Payroll");
-        assertThat(documentsRepository.findByControlId(control.getId()).orElseThrow().getSoqmDevelopmentMaterials())
-                .isEqualTo("Partly available");
     }
 
     @Test
@@ -892,7 +891,8 @@ class ApiSecurityMockMvcIT {
                         .session(session))
                 .andExpect(status().isForbidden());
 
-        assertThat(((User) session.getAttribute("currentUser")).getRole()).isEqualTo("FACILITATOR");
+        assertThat(((User) session.getAttribute("currentUser")).getAccessLevel())
+                .isEqualTo(com.kpmg.qtracker.enums.AccessLevel.PARTICIPANT);
     }
 
     @Test
@@ -1263,23 +1263,22 @@ class ApiSecurityMockMvcIT {
         // SoQM and admin: every control, drafts included; never a completed one
         for (User viewer : List.of(soqm, admin)) {
             assertThat(overdueEverywhere(viewer))
-                    .as(viewer.getRole())
+                    .as(viewer.getMail())
                     .contains(openOverdue.getId(), draftOverdue.getId(), othersOverdue.getId())
                     .doesNotContain(closedLate.getId(), dueToday.getId());
         }
 
         // The control finished after its deadline is labelled "Closed late" in the list instead
-        MvcResult completed = mockMvc.perform(get("/controls").param("filter", "COMPLETED").session(login(soqm.getMail())))
-                .andExpect(status().isOk())
-                .andReturn();
-        assertThat(controlsIn(completed))
-                .filteredOn(control -> closedLate.getId().equals(control.getId()))
+        MockHttpSession soqmSession = login(soqm.getMail());
+        assertThat(listRows(soqmSession, "/component/ALL?status=COMPLETED"))
+                .filteredOn(row -> closedLate.getId().equals(row.id()))
                 .singleElement()
-                .satisfies(control -> {
-                    assertThat(control.isClosedLate()).isTrue();
-                    assertThat(control.isOverdue()).isFalse();
+                .satisfies(row -> {
+                    assertThat(row.closedLate()).isTrue();
+                    assertThat(row.overdue()).isFalse();
                 });
-        assertThat(completed.getResponse().getContentAsString()).contains(">Closed late<");
+        assertThat(mockMvc.perform(get("/component/ALL").param("status", "COMPLETED").param("q", closedLate.getControlId())
+                        .session(soqmSession)).andReturn().getResponse().getContentAsString()).contains(">Closed late<");
     }
 
     /**
@@ -1298,21 +1297,22 @@ class ApiSecurityMockMvcIT {
                 .andReturn().getResponse().getContentAsString();
         int blockTotal = com.jayway.jsonpath.JsonPath.read(block, "$.overdueTotal");
 
-        MvcResult list = mockMvc.perform(get("/controls").param("filter", "OVERDUE").session(session))
-                .andExpect(status().isOk())
-                .andReturn();
-        List<com.kpmg.qtracker.dto.ControlResponseDTO> listed = controlsIn(list);
+        List<com.kpmg.qtracker.service.ComponentControlsList.Row> listed =
+                listRows(session, "/component/ALL?status=OVERDUE");
+        com.kpmg.qtracker.service.ComponentControlsList.Result list =
+                ListPages.page(mockMvc, request -> request.session(session), "/component/ALL");
 
-        assertThat(tile).as("tile vs deadlines block for " + viewer.getRole()).isEqualTo(blockTotal);
-        assertThat(listed).as("View all list for " + viewer.getRole()).hasSize(blockTotal);
-        assertThat(list.getModelAndView().getModel().get("overdueControls")).isEqualTo(blockTotal);
-        assertThat(listed).allSatisfy(control -> assertThat(control.isOverdue()).isTrue());
-        return listed.stream().map(com.kpmg.qtracker.dto.ControlResponseDTO::getId).toList();
+        assertThat(tile).as("tile vs deadlines block for " + viewer.getMail()).isEqualTo(blockTotal);
+        assertThat(listed).as("View all list for " + viewer.getMail()).hasSize(blockTotal);
+        assertThat(list.counts().overdue()).isEqualTo(blockTotal);
+        assertThat(listed).allSatisfy(row -> assertThat(row.overdue()).isTrue());
+        return ListPages.ids(listed);
     }
 
-    @SuppressWarnings("unchecked")
-    private List<com.kpmg.qtracker.dto.ControlResponseDTO> controlsIn(MvcResult result) {
-        return (List<com.kpmg.qtracker.dto.ControlResponseDTO>) result.getModelAndView().getModel().get("controls");
+    /** Every row of an Action Centre list as the person of the session. */
+    private List<com.kpmg.qtracker.service.ComponentControlsList.Row> listRows(MockHttpSession session, String path)
+            throws Exception {
+        return ListPages.rows(mockMvc, request -> request.session(session), path);
     }
 
     @Test
@@ -1342,12 +1342,7 @@ class ApiSecurityMockMvcIT {
         assignment.setFacilitator(" " + facilitator.getMail().toUpperCase());
         assignmentRepository.save(assignment);
 
-        MvcResult list = mockMvc.perform(get("/controls").session(login(facilitator.getMail())))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        assertThat(controlsIn(list)).extracting(com.kpmg.qtracker.dto.ControlResponseDTO::getId)
-                .contains(control.getId());
+        assertThat(ListPages.ids(listRows(login(facilitator.getMail()), "/component/ALL"))).contains(control.getId());
     }
 
     @Test
@@ -1359,17 +1354,10 @@ class ApiSecurityMockMvcIT {
         // "a@kpmg.kz" is part of "ba@kpmg.kz", which a plain LIKE used to treat as a match
         Control baControl = deadlineControl("CTRL-BA-" + suffix(), ba, "IN_PROGRESS", deadline);
 
-        MvcResult asA = mockMvc.perform(get("/controls").session(login(a.getMail())))
-                .andExpect(status().isOk())
-                .andReturn();
-        assertThat(controlsIn(asA)).extracting(com.kpmg.qtracker.dto.ControlResponseDTO::getId)
+        assertThat(ListPages.ids(listRows(login(a.getMail()), "/component/ALL")))
                 .contains(ownControl.getId())
                 .doesNotContain(baControl.getId());
-
-        MvcResult asBa = mockMvc.perform(get("/controls").session(login(ba.getMail())))
-                .andExpect(status().isOk())
-                .andReturn();
-        assertThat(controlsIn(asBa)).extracting(com.kpmg.qtracker.dto.ControlResponseDTO::getId)
+        assertThat(ListPages.ids(listRows(login(ba.getMail()), "/component/ALL")))
                 .contains(baControl.getId())
                 .doesNotContain(ownControl.getId());
     }
@@ -1377,7 +1365,7 @@ class ApiSecurityMockMvcIT {
     // ---- Reads of one control follow the View Control rule ----
 
     private static final List<String> TAB_READS =
-            List.of("/api/control-details", "/api/control-assignment", "/api/control-documents");
+            List.of("/api/control-details", "/api/control-assignment");
 
     @Test
     void controlTabReads_participant200_stranger403_unknownControl404() throws Exception {
@@ -1687,7 +1675,7 @@ class ApiSecurityMockMvcIT {
         assertAssignmentRefused(session, control, p.facilitator.getMail(), kdn.getMail(), p.soqm.getMail(),
                 "Control Operator: " + kdn.getMail() + " sees only KDN controls");
         assertAssignmentRefused(session, control, p.facilitator.getMail(), p.operator.getMail(), p.facilitator.getMail(),
-                "SoQM Team / Delegate: " + p.facilitator.getMail() + " is not SoQM Team");
+                "SoQM Team / Delegate: " + p.facilitator.getMail() + " is not SoQM Admin Team");
 
         // One person may hold several fields; a read-only user may be shared with
         mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader()).with(ownAddress()).session(session)
@@ -1706,7 +1694,7 @@ class ApiSecurityMockMvcIT {
         assertAssignmentRefused(session, kdnControl, readOnly.getMail(), p.operator.getMail(), p.soqm.getMail(),
                 "Facilitator: " + readOnly.getMail() + " has Read Only access and cannot be assigned");
         assertAssignmentRefused(session, kdnControl, kdn.getMail(), kdn.getMail(), kdn.getMail(),
-                "SoQM Team / Delegate: " + kdn.getMail() + " is not SoQM Team");
+                "SoQM Team / Delegate: " + kdn.getMail() + " is not SoQM Admin Team");
         mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader()).with(ownAddress()).session(session)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(assignmentJson(kdnControl, kdn.getMail(), kdn.getMail(), p.soqm.getMail(), null)))
@@ -1803,7 +1791,7 @@ class ApiSecurityMockMvcIT {
                 "Admin Access", "Administrator", "Participant", "Additional Role", "js-secondary-role", "(not in list)");
         // SoQM Team and KDN have no Visibility and Access of their own (Thymeleaf drops the empty attributes)
         assertThat(userRow(html, soqm)).contains("data-role=\"SOQM_TEAM\"",
-                "<span class=\"role-badge is-soqm_team\">SoQM Team</span>", "data-label=\"Access\">SoQM Team</td>")
+                "<span class=\"role-badge is-soqm_team\">SoQM Admin Team</span>", "data-label=\"Access\">SoQM Admin Team</td>")
                 .doesNotContain("data-visibility=\"MY\"", "data-visibility=\"ALL\"", "data-access=\"EDIT\"");
         assertThat(userRow(html, kdn)).contains("data-role=\"KDN\"",
                 "<span class=\"role-badge is-kdn\">KDN</span>",
@@ -1867,11 +1855,9 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
-    void accessUpdate_byRole_keepsTheOldRoleColumns_andAllowsEveryUserCombination() throws Exception {
+    void accessUpdate_byRole_allowsEveryUserCombination() throws Exception {
         MockHttpSession adminSession = login(adminUser().getMail());
         User target = saveUser("lv-target", "lv-target-" + suffix() + "@example.test", "FACILITATOR");
-        target.setSecondaryRole("PROCESS_OWNER");
-        userRepository.save(target);
 
         for (String[] combination : new String[][]{
                 {"ALL", "EDIT", "PARTICIPANT", "ALL"}, {"ALL", "READ_ONLY", "READ_ONLY", "ALL"},
@@ -1898,8 +1884,6 @@ class ApiSecurityMockMvcIT {
                 .andExpect(jsonPath("$.summary").value("KDN · All KDN controls · Read Only"))
                 .andExpect(jsonPath("$.visibility").doesNotExist());
         User saved = userRepository.findById(target.getId()).orElseThrow();
-        assertThat(saved.getRole()).isEqualTo("FACILITATOR");
-        assertThat(saved.getSecondaryRole()).isEqualTo("PROCESS_OWNER");
         assertThat(saved.getAccessScope()).isEqualTo(com.kpmg.qtracker.enums.AccessScope.KDN);
 
         // KDN back to User starts at My controls, Read Only
@@ -1919,7 +1903,7 @@ class ApiSecurityMockMvcIT {
                         .param("role", "SOQM_TEAM")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary").value("SoQM Team"));
+                .andExpect(jsonPath("$.summary").value("SoQM Admin Team"));
         assertThat(userRepository.findById(target.getId()).orElseThrow().getAdminAccess()).isTrue();
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
                         .param("role", "MASTER")
@@ -1941,7 +1925,6 @@ class ApiSecurityMockMvcIT {
                 .andExpect(jsonPath("$.audit.action").value("Created user"));
         User created = userRepository.findByMail(mail).orElseThrow();
         createdUserIds.add(created.getId());
-        assertThat(created.getRole()).isNull();
         assertThat(created.getAccessLevel()).isEqualTo(com.kpmg.qtracker.enums.AccessLevel.READ_ONLY);
 
         mockMvc.perform(post("/api/users").with(csrf().asHeader()).with(ownAddress()).session(adminSession)
@@ -2050,7 +2033,7 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isNotFound());
 
         User unchanged = userRepository.findById(target.getId()).orElseThrow();
-        assertThat(unchanged.getRole()).isEqualTo("FACILITATOR");
+        assertThat(unchanged.getAccessLevel()).isEqualTo(com.kpmg.qtracker.enums.AccessLevel.PARTICIPANT);
         assertThat(unchanged.getEnabled()).isTrue();
     }
 

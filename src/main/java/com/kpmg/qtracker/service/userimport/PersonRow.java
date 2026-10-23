@@ -1,6 +1,7 @@
 package com.kpmg.qtracker.service.userimport;
 
 import com.kpmg.qtracker.enums.AccessRight;
+import com.kpmg.qtracker.enums.UserRole;
 import com.kpmg.qtracker.enums.Visibility;
 import com.kpmg.qtracker.service.AccessPolicy;
 
@@ -20,7 +21,9 @@ public record PersonRow(int line, Kind kind, String displayName, AccessPolicy.Pr
         PERSON, SERVICE_ACCOUNT, ERROR
     }
 
-    public static final String SOQM_TEAM = "SoQM Team";
+    /** The role as the user file names it; the earlier name "SoQM Team" is still read (files made before the rename). */
+    public static final String SOQM_TEAM = UserRole.SOQM_TEAM_NAME;
+    public static final String SOQM_TEAM_EARLIER = "SoQM Team";
     public static final String USER = "User";
     public static final String KDN = "KDN";
     public static final String KDN_ACCESS = "All KDN Controls, Read Only";
@@ -62,15 +65,16 @@ public record PersonRow(int line, Kind kind, String displayName, AccessPolicy.Pr
     }
 
     /**
-     * Role SoQM Team (Access empty or "SoQM Team"), KDN (Access empty or "All KDN Controls, Read Only") or User
+     * Role SoQM Admin Team or SoQM Team (Access empty or the role again), KDN (Access empty or "All KDN Controls, Read Only") or User
      * with Access "<My Controls|All Controls>, <Edit|Read Only>"; case and extra spaces do not count.
      */
     public static Profile profile(String roleValue, String accessValue) {
         String role = roleValue == null ? "" : roleValue;
         String access = accessValue == null ? "" : accessValue;
-        if (same(role, SOQM_TEAM)) {
-            return access.isBlank() || same(access, SOQM_TEAM) ? Profile.of(AccessPolicy.Profile.soqmTeam())
-                    : Profile.refused("Access " + shown(access) + " does not fit the role SoQM Team");
+        if (same(role, SOQM_TEAM) || same(role, SOQM_TEAM_EARLIER)) {
+            return access.isBlank() || same(access, SOQM_TEAM) || same(access, SOQM_TEAM_EARLIER)
+                    ? Profile.of(AccessPolicy.Profile.soqmTeam())
+                    : Profile.refused("Access " + shown(access) + " does not fit the role SoQM Admin Team");
         }
         if (same(role, KDN)) {
             return access.isBlank() || same(access, KDN_ACCESS) ? Profile.of(AccessPolicy.Profile.kdn())
@@ -94,7 +98,7 @@ public record PersonRow(int line, Kind kind, String displayName, AccessPolicy.Pr
             return Profile.of(AccessPolicy.Profile.user(visibility.get(), right.get()));
         }
         return Profile.refused(role.isBlank() ? "empty Role"
-                : "unknown Role " + shown(role) + " (SoQM Team, User or KDN)");
+                : "unknown Role " + shown(role) + " (SoQM Admin Team, User or KDN)");
     }
 
     private static Optional<Visibility> visibility(String value) {

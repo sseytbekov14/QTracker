@@ -14,9 +14,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -55,44 +55,6 @@ public class ControlService implements IControlService {
         this.controlAssignmentService = controlAssignmentService;
     }
 
-    // В ControlService добавить метод:
-    public List<Control> getControlsForControlOperator(String userEmail) {
-        // 1. Получить все контроли
-        List<Control> allControls = getAllControls();
-
-        // 2. Filter by status "REVIEW"
-        return allControls.stream()
-                .filter(control -> "REVIEW".equals(control.getPerformanceStatus()))
-                .collect(Collectors.toList());
-    }
-
-    public List<Control> getControlsForFacilitator(String userEmail) {
-        return getUserControls(userEmail); // уже существует
-    }
-
-    public List<Control> getControlsForSoqmLead() {
-        // SOQM Team sees controls in status "SOQM_HEAD_REVIEW"
-        return getAllControls().stream()
-                .filter(control -> "SOQM_HEAD_REVIEW".equals(control.getPerformanceStatus()))
-                .collect(Collectors.toList());
-    }
-
-    public List<Control> getControlsForProcessOwner() {
-        // Process Owner sees controls in status "PROCESS_OWNER_REVIEW"
-        return getAllControls().stream()
-                .filter(control -> "PROCESS_OWNER_REVIEW".equals(control.getPerformanceStatus()))
-                .collect(Collectors.toList());
-    }
-
-    public List<Control> getControlsByPerformanceStatus(String performanceStatus) {
-        // Now use performance_status instead
-        List<Control> allControls = getAllControls();
-
-        return allControls.stream()
-                .filter(control -> performanceStatus.equals(control.getPerformanceStatus()))
-                .collect(Collectors.toList());
-    }
-
     @Override
     public List<Control> getAllControls() {
         return controlRepository.findAllByOrderByIdDesc();
@@ -104,28 +66,42 @@ public class ControlService implements IControlService {
      */
     @Override
     public List<Control> findVisibleControlsForUser(User user) {
+        return visibleControls(user, false);
+    }
+
+    /**
+     * The same rule read from the controls with KDN in the ID only: the menu's KDN item of a person with My controls
+     * needs just these, and used to read every control of theirs on every page.
+     */
+    @Override
+    public List<Control> findVisibleKdnControlsForUser(User user) {
+        return visibleControls(user, true).stream()
+                .filter(control -> AccessPolicy.isKdnControl(control.getControlId()))
+                .collect(Collectors.toList());
+    }
+
+    /** {@code kdnOnly}: only the candidates with KDN anywhere in the Control ID (a superset of the KDN controls). */
+    private List<Control> visibleControls(User user, boolean kdnOnly) {
         if (user == null || user.getMail() == null || user.getMail().isBlank()) {
             return Collections.emptyList();
         }
         AccessPolicy.Subject subject = AccessPolicy.Subject.of(user);
         if (AccessPolicy.seesAllControls(subject)) {
-            return getAllControls();
+            return kdnOnly ? controlRepository.findKdnCandidatesOrderByIdDesc() : getAllControls();
         }
         String userEmail = user.getMail();
 
         List<Control> candidates;
         if (AccessPolicy.seesWithoutBeingOn(subject)) {
-            // KDN: every control is a candidate, the policy keeps the KDN ones (the rule stays in one place)
-            candidates = getAllControls();
+            // KDN: the controls with KDN in the ID are the candidates, the policy keeps the KDN ones (the rule stays
+            // in one place)
+            candidates = controlRepository.findKdnCandidatesOrderByIdDesc();
         } else {
             // LIKE finds the address anywhere in a column, including inside another address
-            // (a@kpmg.kz in ba@kpmg.kz); the policy below checks whole addresses
+            // (a@kpmg.kz in ba@kpmg.kz); the policy below checks whole addresses. One pass over the five columns.
             Set<Long> candidateIds = new LinkedHashSet<>();
-            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByFacilitator(userEmail));
-            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlOperator(userEmail));
-            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsBySoqmLead(userEmail));
-            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByProcessOwner(userEmail));
-            addVisibleIds(candidateIds, controlAssignmentRepository.findControlIdsByControlSharedWith(userEmail));
+            addVisibleIds(candidateIds, kdnOnly ? controlAssignmentRepository.findKdnControlIdsByPerson(userEmail)
+                    : controlAssignmentRepository.findControlIdsByPerson(userEmail));
             // My controls also cover the controls the user created
             controlRepository.findByCreatedByMailOrderByCreatedAtDesc(userEmail)
                     .forEach(control -> candidateIds.add(control.getId()));
@@ -163,45 +139,6 @@ public class ControlService implements IControlService {
                 ControlPermissionService.isCreator(control, user));
     }
 
-    @Override
-    public List<Control> getUserControls(String userEmail) {
-        logger.info("=== GET USER CONTROLS IMPROVED ===");
-        logger.info("User email: {}", userEmail);
-
-        // 1. Найти пользователя по email
-        Optional<User> userOpt = userRepository.findByMail(userEmail);
-
-        if (userOpt.isEmpty()) {
-            logger.error("User not found with email: {}", userEmail);
-            return Collections.emptyList();
-        }
-
-        User user = userOpt.get();
-        logger.info("Found user: ID={}, Email={}", user.getId(), user.getMail());
-
-        // 2. Найти контроли по ID пользователя (created_by)
-        List<Control> controls = controlRepository.findByCreatedBy(user);
-
-        // 3. Если не нашел, попробуем другой способ
-        if (controls.isEmpty()) {
-            logger.warn("No controls found via findByCreatedBy, trying alternative...");
-
-            // Альтернатива: найти все и отфильтровать
-            List<Control> allControls = controlRepository.findAllByOrderByIdDesc();
-            controls = allControls.stream()
-                    .filter(c -> c.getCreatedBy() != null && user.getId().equals(c.getCreatedBy().getId()))
-                    .collect(Collectors.toList());
-
-            logger.info("Alternative method found {} controls", controls.size());
-        } else {
-            // Сортирую по ID в обратном порядке (новые сверху)
-            controls.sort((a, b) -> b.getId().compareTo(a.getId()));
-        }
-
-        logger.info("Returning {} controls for user {}", controls.size(), userEmail);
-        return controls;
-    }
-
 
 
     @Override
@@ -211,101 +148,58 @@ public class ControlService implements IControlService {
     }
 
     @Override
-    public List<ControlResponseDTO> getUserControlsDTO(String userEmail) {
-        List<Control> controls = controlRepository.findByCreatedByMailOrderByCreatedAtDesc(userEmail);
-        
-        // Fix empty performance_status values
-        for (Control control : controls) {
-            if (control.getPerformanceStatus() == null || control.getPerformanceStatus().trim().isEmpty()) {
-                control.setPerformanceStatus("DRAFT");
-                logger.info("Fixed control {} performance status to 'DRAFT'", control.getControlId());
-            }
-        }
-        
-        logger.info("Converting {} controls to DTO for user: {}", controls.size(), userEmail);
-        List<ControlResponseDTO> result = controls.stream()
-                .map(this::convertToResponseDTOWithDeadline)
-                .collect(Collectors.toList());
-        result.forEach(dto -> {
-            logger.info("Control {}: status={}, initiated={}",
-                    dto.getControlId(), dto.getPerformanceStatus(), dto.isPerformanceInitiated());
-        });
-
-        return result;
-    }
-
-    @Override
-    public List<ControlResponseDTO> getFacilitatorControlsDTO(String userEmail) {
-        logger.info("=== GET FACILITATOR CONTROLS DTO ===");
-        logger.info("Facilitator email: {}", userEmail);
-
-        // Query only controls where user is facilitator
-        List<Long> controlIds = controlAssignmentRepository.findControlIdsByFacilitator(userEmail);
-        List<Control> facilitatorControls = controlRepository.findAllById(controlIds);
-        
-        logger.info("Found {} controls for facilitator: {}", facilitatorControls.size(), userEmail);
-
-        // Convert to DTOs and ensure facilitators are set from controlAssignmentService
-        return facilitatorControls.stream()
-                .map(control -> {
-                    System.out.println("🔄 Converting facilitator control " + control.getControlId() + " to DTO (id=" + control.getId() + ")");
-                    ControlResponseDTO dto = convertToResponseDTOWithDeadline(control);
-                    System.out.println("   After convertToResponseDTOWithDeadline: facilitators=" + dto.getFacilitators());
-                    
-                    // Make sure facilitators are loaded from assignment
-                    if ((dto.getFacilitators() == null || dto.getFacilitators().isEmpty()) && dto.getId() != null) {
-                        System.out.println("   Facilitators empty/null, re-loading from assignment service...");
-                        try {
-                            ControlAssignmentDTO assignment = this.controlAssignmentService.getAssignmentByControlId(control.getId());
-                            System.out.println("   Assignment retrieved: " + (assignment != null ? "NOT NULL" : "NULL"));
-                            if (assignment != null) {
-                                System.out.println("   Assignment facilitators: " + assignment.getFacilitator());
-                                if (assignment.getFacilitator() != null && !assignment.getFacilitator().isEmpty()) {
-                                    System.out.println("🔧 Re-loaded facilitators for control " + control.getControlId() + ": " + assignment.getFacilitator());
-                                    dto.setFacilitators(assignment.getFacilitator());
-                                    System.out.println("   DTO facilitators after set: " + dto.getFacilitators());
-                                } else {
-                                    System.out.println("   Assignment facilitators is null or empty!");
-                                }
-                            } else {
-                                System.out.println("   Assignment is null!");
-                            }
-                        } catch (Exception e) {
-                            System.out.println("   ERROR re-loading: " + e.getMessage());
-                            e.printStackTrace();
-                        }
-                    } else {
-                        System.out.println("   Facilitators already set: " + dto.getFacilitators());
-                    }
-                    
-                    System.out.println("   ✅ Final DTO facilitators: " + dto.getFacilitators());
-                    return dto;
-                })
-                .collect(Collectors.toList());
-    }
-
-    private ControlResponseDTO convertToResponseDTOWithDeadline(Control control) {
-        ControlResponseDTO dto = convertToResponseDTO(control); // Теперь этот метод уже включает все данные
-
+    public ControlResponseDTO convertToResponseDTO(Control control) {
+        ControlAssignmentDTO assignment = null;
         try {
-            if (this.controlAssignmentService != null && dto.getDeadline() == null) {
-                ControlAssignmentDTO assignment = this.controlAssignmentService.getAssignmentByControlId(control.getId());
-                if (assignment != null && assignment.getControlOperationDeadline() != null) {
-                    dto.setDeadline(assignment.getControlOperationDeadline());
-                }
+            if (this.controlAssignmentService != null) {
+                assignment = this.controlAssignmentService.getAssignmentByControlId(control.getId());
             }
         } catch (Exception e) {
-            logger.error("Error getting deadline for control {}: {}", control.getId(), e.getMessage());
+            logger.error("Error getting assignment for control {}: {}", control.getId(), e.getMessage());
         }
-
-        logger.debug("Control {} - Status: {}, Go to cycle: {}",
-                control.getControlId(), dto.getPerformanceStatus(), dto.isGoToPerformanceCycle());
-
-        return dto;
+        return toResponseDTO(control, assignment, userService::getUserByEmail, true);
     }
 
+    /**
+     * The rows of a list (Controls, dashboard, Action Centre): the assignments of all the controls in one query
+     * and their people in one more, instead of about seven queries per control (N+1).
+     */
     @Override
-    public ControlResponseDTO convertToResponseDTO(Control control) {
+    public List<ControlResponseDTO> convertToResponseDTOs(List<Control> controls) {
+        List<ControlResponseDTO> rows = new ArrayList<>();
+        if (controls == null || controls.isEmpty()) {
+            return rows;
+        }
+        List<Long> ids = controls.stream().map(Control::getId).filter(Objects::nonNull).toList();
+        Map<Long, ControlAssignmentDTO> assignments = this.controlAssignmentService != null
+                ? this.controlAssignmentService.getAssignmentsByControlIds(ids) : Map.of();
+        Set<String> mails = new HashSet<>();
+        for (ControlAssignmentDTO assignment : assignments.values()) {
+            for (List<String> people : Arrays.asList(assignment.getFacilitator(), assignment.getControlOperator(),
+                    assignment.getProcessOwner(), assignment.getSoqmLead())) {
+                if (people != null) {
+                    mails.addAll(people);
+                }
+            }
+        }
+        Map<String, User> users = userService.usersByEmail(mails);
+        java.util.function.Function<String, Optional<User>> lookup = mail -> mail == null ? Optional.empty()
+                : Optional.ofNullable(users.get(mail.trim().toLowerCase(Locale.ROOT)));
+        for (Control control : controls) {
+            // As getAssignmentByControlId: a control without an assignment row gets an empty one
+            rows.add(toResponseDTO(control, assignments.getOrDefault(control.getId(), new ControlAssignmentDTO()), lookup,
+                    false));
+        }
+        return rows;
+    }
+
+    /**
+     * @param workflowStep read the current workflow step (one query); the list pages do not show it, their rows
+     *                     take the workflow status from the performance status
+     */
+    private ControlResponseDTO toResponseDTO(Control control, ControlAssignmentDTO assignment,
+                                             java.util.function.Function<String, Optional<User>> users,
+                                             boolean workflowStep) {
         ControlResponseDTO dto = new ControlResponseDTO();
 
         // Основные данные контроля
@@ -316,7 +210,7 @@ public class ControlService implements IControlService {
         String component = control.getComponent();
         
         // Log raw values for debugging (use INFO level to see in logs)
-        logger.info("🔍 Converting control id={}: raw controlId='{}', raw component='{}'", 
+        logger.debug("🔍 Converting control id={}: raw controlId='{}', raw component='{}'", 
             control.getId(), controlId, component);
         
         // Normalize controlId - handle null, empty, or whitespace-only strings
@@ -349,7 +243,7 @@ public class ControlService implements IControlService {
         }
         
         // Log final values (use INFO level to see in logs)
-        logger.info("✅ Control id={}: final controlId='{}', final component='{}'", 
+        logger.debug("✅ Control id={}: final controlId='{}', final component='{}'", 
             control.getId(), controlId, component);
         
         dto.setControlId(controlId);
@@ -366,14 +260,15 @@ public class ControlService implements IControlService {
         // Set UI control status (no workflow defaults here)
         String status = control.getControlStatus();
         dto.setControlStatus(status != null && !status.trim().isEmpty() ? status : null);
+        dto.setReopened(control.getReopenedAt() != null);
         
         dto.setControlDescription(control.getControlDescription());
         dto.setPrp(control.getPrp());
 
-        if (control.getCreatedBy() != null) {
-            dto.setCreatedBy(control.getCreatedBy().getDisplayName());
-            dto.setCreatedByEmail(control.getCreatedBy().getMail());
-            logger.info("Control {}: createdBy='{}', createdByEmail='{}', controlStatus='{}'", 
+        if (control.creatorName() != null) {
+            dto.setCreatedBy(control.creatorName());
+            dto.setCreatedByEmail(control.creatorEmail());
+            logger.debug("Control {}: createdBy='{}', createdByEmail='{}', controlStatus='{}'", 
                 control.getControlId(), dto.getCreatedBy(), dto.getCreatedByEmail(), dto.getControlStatus());
         } else {
             dto.setCreatedBy("Unknown");
@@ -386,39 +281,37 @@ public class ControlService implements IControlService {
         // Получаем данные assignment
         try {
             if (this.controlAssignmentService != null) {
-                ControlAssignmentDTO assignment = this.controlAssignmentService.getAssignmentByControlId(control.getId());
-
                 if (assignment != null) {
-                    logger.info("📋 Assignment found for control {}: facilitators={}, operators={}, owners={}, soqm={}", 
+                    logger.debug("📋 Assignment found for control {}: facilitators={}, operators={}, owners={}, soqm={}", 
                         control.getId(), assignment.getFacilitator(), assignment.getControlOperator(), 
                         assignment.getProcessOwner(), assignment.getSoqmLead());
                     
                     List<String> facilitators = assignment.getFacilitator();
-                    logger.info("📋 assignment.getFacilitator() returned: {} (type: {})", 
+                    logger.debug("📋 assignment.getFacilitator() returned: {} (type: {})", 
                         facilitators, 
                         facilitators != null ? facilitators.getClass().getName() : "null");
                     
                     if (facilitators != null && !facilitators.isEmpty()) {
-                        facilitators.forEach(fac -> logger.info("   - Facilitator item: '{}'", fac));
+                        facilitators.forEach(fac -> logger.debug("   - Facilitator item: '{}'", fac));
                     } else {
-                        logger.info("   - Facilitator list is null or empty!");
+                        logger.debug("   - Facilitator list is null or empty!");
                     }
                     
                     dto.setFacilitators(facilitators);
-                    logger.info("DTO facilitators set to: {}", dto.getFacilitators());
-                    logger.info("DTO facilitators type: {}", dto.getFacilitators() != null ? dto.getFacilitators().getClass().getName() : "null");
+                    logger.debug("DTO facilitators set to: {}", dto.getFacilitators());
+                    logger.debug("DTO facilitators type: {}", dto.getFacilitators() != null ? dto.getFacilitators().getClass().getName() : "null");
                     if (dto.getFacilitators() != null && !dto.getFacilitators().isEmpty()) {
-                        dto.getFacilitators().forEach(fac -> logger.info("  - In DTO: '{}'", fac));
+                        dto.getFacilitators().forEach(fac -> logger.debug("  - In DTO: '{}'", fac));
                     }
                     
                     dto.setControlOperators(assignment.getControlOperator());
                     dto.setProcessOwners(assignment.getProcessOwner());
                     dto.setSoqmLeads(assignment.getSoqmLead());
 
-                    dto.setFacilitatorUsers(convertEmailsToUserDTOs(assignment.getFacilitator()));
-                    dto.setControlOperatorUsers(convertEmailsToUserDTOs(assignment.getControlOperator()));
-                    dto.setProcessOwnerUsers(convertEmailsToUserDTOs(assignment.getProcessOwner()));
-                    dto.setSoqmLeadUsers(convertEmailsToUserDTOs(assignment.getSoqmLead()));
+                    dto.setFacilitatorUsers(convertEmailsToUserDTOs(assignment.getFacilitator(), users));
+                    dto.setControlOperatorUsers(convertEmailsToUserDTOs(assignment.getControlOperator(), users));
+                    dto.setProcessOwnerUsers(convertEmailsToUserDTOs(assignment.getProcessOwner(), users));
+                    dto.setSoqmLeadUsers(convertEmailsToUserDTOs(assignment.getSoqmLead(), users));
 
                     dto.setControlOperationDate(assignment.getControlOperationDate());
 
@@ -426,7 +319,7 @@ public class ControlService implements IControlService {
                         dto.setDeadline(assignment.getControlOperationDeadline());
                     }
                 } else {
-                    logger.info("📋 No assignment found for control {}", control.getId());
+                    logger.debug("📋 No assignment found for control {}", control.getId());
                 }
             }
         } catch (Exception e) {
@@ -474,7 +367,10 @@ public class ControlService implements IControlService {
         dto.setPerformanceInitiated(isInitiated);
         dto.setGoToPerformanceCycle(isInitiated);
 
-        if (this.workflowService != null) {
+        if (!workflowStep) {
+            dto.setWorkflowStatus(performanceStatus);
+            dto.setWorkflowStatusDisplay(dto.getPerformanceStatusDisplay());
+        } else if (this.workflowService != null) {
             try {
                 // ★ ИСПОЛЬЗУЕМ getCurrentStep() вместо getCurrentWorkflowStatus()
                 WorkflowStepDTO currentStep = workflowService.getCurrentStep(control.getId());
@@ -498,24 +394,25 @@ public class ControlService implements IControlService {
         return dto;
     }
 
-    private List<UserDTO> convertEmailsToUserDTOs(List<String> emails) {
+    private List<UserDTO> convertEmailsToUserDTOs(List<String> emails,
+                                                java.util.function.Function<String, Optional<User>> users) {
         if (emails == null || emails.isEmpty()) {
-            logger.info("convertEmailsToUserDTOs: emails is null or empty");
+            logger.debug("convertEmailsToUserDTOs: emails is null or empty");
             return Collections.emptyList();
         }
 
-        logger.info("convertEmailsToUserDTOs: processing {} emails: {}", emails.size(), emails);
+        logger.debug("convertEmailsToUserDTOs: processing {} emails: {}", emails.size(), emails);
 
         return emails.stream()
                 .map(email -> {
                     try {
-                        Optional<User> userOpt = userService.getUserByEmail(email);
+                        Optional<User> userOpt = users.apply(email);
                         if (userOpt.isPresent()) {
                             User user = userOpt.get();
-                            logger.info("✅ Found user for email {}: {}", email, user.getDisplayName());
+                            logger.debug("✅ Found user for email {}: {}", email, user.getDisplayName());
                             return convertToUserDTO(user);
                         } else {
-                            logger.info("❌ User not found for email: {}", email);
+                            logger.debug("❌ User not found for email: {}", email);
                             UserDTO userDTO = new UserDTO();
                             userDTO.setMail(email);
                             userDTO.setDisplayName(email); // показываем email как имя
@@ -548,10 +445,7 @@ public class ControlService implements IControlService {
 
             // ★ ПРОВЕРКА НА ДУБЛИКАТ
             if (controlRepository.existsByControlId(control.getControlId())) {
-                throw new IllegalArgumentException(
-                        String.format("Control ID '%s' already exists in the system. Please use a different ID.",
-                                control.getControlId())
-                );
+                throw duplicateControlId(control.getControlId());
             }
 
             control.setCreatedAt(LocalDateTime.now(Notification.ZONE));
@@ -562,7 +456,18 @@ public class ControlService implements IControlService {
                 control.setPerformanceStatus("DRAFT");
             }
 
-            Control savedControl = controlRepository.save(control);
+            Control savedControl;
+            try {
+                savedControl = controlRepository.save(control);
+            } catch (DataIntegrityViolationException e) {
+                // Another request saved the same Control ID between the check above and this insert (the unique
+                // key of control_id): the same refusal as the check, 409 DUPLICATE_ID, not a database error
+                if (control.getControlId() != null && controlRepository.existsByControlId(control.getControlId())) {
+                    logger.warn("Control ID {} was taken by another request at the same moment", control.getControlId());
+                    throw duplicateControlId(control.getControlId());
+                }
+                throw e;
+            }
             logger.info("Control created successfully: {}", control.getControlId());
 
             return savedControl;
@@ -575,6 +480,12 @@ public class ControlService implements IControlService {
         }
     }
 
+    /** The refusal of a Control ID that is taken (ControlController answers it 409 DUPLICATE_ID). */
+    private static IllegalArgumentException duplicateControlId(String controlId) {
+        return new IllegalArgumentException(
+                String.format("Control ID '%s' already exists in the system. Please use a different ID.", controlId));
+    }
+
     @Override
     public Control save(Control control) {
         logger.info("Saving control with ID: {}", control.getControlId());
@@ -583,18 +494,18 @@ public class ControlService implements IControlService {
     }
 
     @Override
-    public boolean isControlComplete(Control control) {
-        return control.getControlFrequency() != null && !control.getControlFrequency().isEmpty()
-                && control.getControlType() != null && !control.getControlType().isEmpty()
-                && control.getComponent() != null && !control.getComponent().isEmpty()
-                && control.getOperatedBy() != null && !control.getOperatedBy().isEmpty()
-                && control.getPriority() != null && !control.getPriority().isEmpty()
-                && control.getNonAuditServicesApplicability() != null && !control.getNonAuditServicesApplicability().isEmpty();
-    }
-
-    @Override
     public Optional<Control> getControlById(Long id) {
         return controlRepository.findById(id);
+    }
+
+    /** One query for all of them. */
+    @Override
+    public Map<Long, Control> getControlsByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        return controlRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Control::getId, control -> control, (a, b) -> a));
     }
 
     @Override
@@ -605,185 +516,9 @@ public class ControlService implements IControlService {
     }
 
     @Override
-    public Map<String, Long> getComponentStatistics() {
-        Map<String, Long> stats = new HashMap<>();
-
-        String[] components = {"HR", "INTR", "M&R", "RAP", "A&C", "I&C", "GOV", "EP", "RER", "TECHR"};
-        for (String component : components) {
-            Long count = controlRepository.countByComponent(component);
-            stats.put(component, count != null ? count : 0L);
-        }
-        Long totalControls = controlRepository.countAllControls();
-        stats.put("All", totalControls != null ? totalControls : 0L);
-
-        return stats;
-    }
-
-    // Добавьте этот метод в конец класса ControlService
-
-    public ControlResponseDTO enrichWithWorkflowPermissions(ControlResponseDTO dto, String userEmail) {
-        // Проверяем, является ли пользователь facilitator
-        boolean isFacilitator = dto.getFacilitators() != null &&
-                dto.getFacilitators().contains(userEmail);
-
-        boolean isControlOperator = dto.getControlOperators() != null &&
-                dto.getControlOperators().contains(userEmail);
-
-        boolean isSoqmLead = dto.getSoqmLeads() != null &&
-                dto.getSoqmLeads().contains(userEmail);
-
-        boolean isProcessOwner = dto.getProcessOwners() != null &&
-                dto.getProcessOwners().contains(userEmail);
-
-        String workflowStatus = dto.getWorkflowStatus();
-
-        dto.setCanInitiateWorkflow(
-                "DRAFT".equals(workflowStatus) && isFacilitator
-        );
-
-        dto.setCanSubmitForReview(
-                "IN_PROGRESS".equals(workflowStatus) && isFacilitator
-        );
-
-        dto.setCanSubmitForSoQM(
-                "REVIEW".equals(workflowStatus) && isControlOperator
-        );
-
-        dto.setCanSendToProcessOwner(
-                "SOQM_HEAD_REVIEW".equals(workflowStatus) && isSoqmLead
-        );
-
-        dto.setCanCompleteWorkflow(
-                "PROCESS_OWNER_REVIEW".equals(workflowStatus) && isProcessOwner
-        );
-
-        dto.setCanReturnWorkflow(
-                !"DRAFT".equals(workflowStatus) &&
-                        !"COMPLETED".equals(workflowStatus)
-        );
-
-        return dto;
-    }
-
-    @Override
     public Control updateControl(Control control) {
         control.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
         return controlRepository.save(control);
-    }
-
-    /**
-     * Получить контролы ДЛЯ ДАШБОРДА - используем ТУ ЖЕ логику как на странице /controls
-     * Считаем контролы так же как на странице controls
-     */
-    public List<Control> getAllUserControls(String userEmail) {
-        logger.info("=== GET ALL USER CONTROLS FOR DASHBOARD (SAME AS /controls) ===");
-        logger.info("User email: {}", userEmail);
-
-        Set<Control> allControls = new HashSet<>();
-
-        // 1. Сначала добавляем контролы созданные пользователем
-        List<Control> userCreatedControls = controlRepository.findByCreatedByMailOrderByCreatedAtDesc(userEmail);
-        logger.info("Found {} controls created by user", userCreatedControls.size());
-        allControls.addAll(userCreatedControls);
-
-        // 2. Add controls where user is assigned as Facilitator (regardless of global role)
-        {
-            logger.info("Checking Facilitator assignments for user");
-            
-            List<Control> allControlsList = controlRepository.findAll();
-            for (Control control : allControlsList) {
-                if ("IN_PROGRESS".equals(control.getPerformanceStatus())) {
-                    Optional<ControlAssignment> assignmentOpt = controlAssignmentRepository.findByControlId(control.getId());
-                    if (assignmentOpt.isPresent()) {
-                        ControlAssignment assignment = assignmentOpt.get();
-                        String facilitator = assignment.getFacilitator();
-                        
-                        if (facilitator != null && facilitator.contains(userEmail)) {
-                            allControls.add(control);
-                            logger.info("✅ Control {} assigned to facilitator {}", control.getControlId(), userEmail);
-                        }
-                    }
-                }
-            }
-        }
-
-        logger.info("Found {} total controls for user: {}", allControls.size(), userEmail);
-        return new ArrayList<>(allControls);
-    }
-
-    /**
-     * Получить контролы где юзер является Facilitator (по control_assignments)
-     */
-    public List<Control> getFacilitatorControls(String userEmail) {
-        logger.info("=== GET FACILITATOR CONTROLS ===");
-        logger.info("Facilitator email: {}", userEmail);
-
-        List<Control> result = new ArrayList<>();
-        List<ControlAssignment> assignments = controlAssignmentRepository.findAll();
-        
-        logger.info("Total assignments found: {}", assignments.size());
-
-        for (ControlAssignment ca : assignments) {
-            logger.info("Assignment for control {}: facilitator={}", ca.getControlId(), ca.getFacilitator());
-            if (ca.getFacilitator() != null && ca.getFacilitator().contains(userEmail)) {
-                logger.info("✅ Match found! User {} is facilitator", userEmail);
-                Optional<Control> control = controlRepository.findById(ca.getControlId());
-                control.ifPresent(result::add);
-            }
-        }
-
-        logger.info("Found {} controls for facilitator: {}", result.size(), userEmail);
-        return result;
-    }
-
-    /**
-     * Получить контролы где юзер является Control Operator (по control_assignments)
-     */
-    public List<Control> getControlOperatorControls(String userEmail) {
-        logger.info("=== GET CONTROL OPERATOR CONTROLS ===");
-        logger.info("Control Operator email: {}", userEmail);
-
-        List<Long> controlIds = controlAssignmentRepository.findControlIdsByControlOperator(userEmail);
-        List<Control> result = controlRepository.findAllById(controlIds);
-
-        logger.info("Found {} controls for control operator: {}", result.size(), userEmail);
-        return result;
-    }
-
-    /**
-     * Получить контролы где юзер является Process Owner (по control_assignments)
-     */
-    public List<Control> getProcessOwnerControls(String userEmail) {
-        logger.info("=== GET PROCESS OWNER CONTROLS ===");
-        logger.info("Process Owner email: {}", userEmail);
-
-        List<Long> controlIds = controlAssignmentRepository.findControlIdsByProcessOwner(userEmail);
-        List<Control> result = controlRepository.findAllById(controlIds);
-
-        logger.info("Found {} controls for process owner: {}", result.size(), userEmail);
-        return result;
-    }
-
-    /**
-     * Получить контролы где юзер является SoQM Team (по control_assignments)
-     */
-    public List<Control> getSoqmLeadControls(String userEmail) {
-        logger.info("=== GET SOQM TEAM CONTROLS ===");
-        logger.info("SoQM Team email: {}", userEmail);
-
-        List<Long> controlIds = controlAssignmentRepository.findControlIdsBySoqmLead(userEmail);
-        List<Control> result = controlRepository.findAllById(controlIds);
-
-        logger.info("Found {} controls for soqm team: {}", result.size(), userEmail);
-        return result;
-    }
-
-    public List<String> getFacilitatorsForControl(Long controlId) {
-        Optional<ControlAssignment> assignment = controlAssignmentRepository.findByControlId(controlId);
-        if (assignment.isPresent()) {
-            return new ArrayList<>(EmailList.parse(assignment.get().getFacilitator()));
-        }
-        return new ArrayList<>();
     }
 
     private void addVisibleIds(Set<Long> target, List<Long> source) {

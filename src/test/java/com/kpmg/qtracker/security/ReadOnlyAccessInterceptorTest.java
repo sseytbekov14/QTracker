@@ -37,7 +37,6 @@ class ReadOnlyAccessInterceptorTest {
             "DELETE, /api/attachments/delete/7",
             "POST,   /api/controls/7/rename-id",
             "POST,   /api/users/3/access",
-            "PUT,    /api/admin/users/3/email",
     })
     void readOnlyUser_isRefusedOnEveryWrite(String method, String path) throws Exception {
         MDC.put("correlationId", "cid-1");

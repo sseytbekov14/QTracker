@@ -13,7 +13,7 @@ import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.repository.NotificationRepository;
-import com.kpmg.qtracker.repository.ReminderControlProjection;
+import com.kpmg.qtracker.service.notification.PlannedNotificationScheduler;
 import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.AccessPolicy;
@@ -118,8 +118,8 @@ class ReopenCompletedIT {
     @CsvSource({
             "IN_PROGRESS,          FACILITATOR,      RETURN_TO_FACILITATOR,   RETURN_TO_FACILITATOR",
             "REVIEW,               CONTROL_OPERATOR, RETURN_TO_OPERATOR,      RETURN_TO_OPERATOR",
-            "SOQM_HEAD_REVIEW,     SOQM,             RETURN,                  RETURN_TO_SOQM_TEAM",
-            "PROCESS_OWNER_REVIEW, PROCESS_OWNER,    RETURN,                  RETURN_TO_PROCESS_OWNER",
+            "SOQM_HEAD_REVIEW,     SOQM,             RETURN,                  WORKFLOW_STEP",
+            "PROCESS_OWNER_REVIEW, PROCESS_OWNER,    RETURN,                  WORKFLOW_STEP",
     })
     void soqmReturnsACompletedControl_keepsItsValuesAndDeadline_andNotifiesTheTargetStep(
             String target, String notified, WorkflowActionType historyType, String noticeType) throws Exception {
@@ -252,7 +252,7 @@ class ReopenCompletedIT {
         // Completed on time (the day before its deadline, which has passed since)
         LocalDate deadline = today.minusDays(2);
         Control control = completedControl(deadline, deadline.minusDays(1));
-        assertThat(controlsRow(control).isClosedLate()).isFalse();
+        assertThat(controlsRow(control).closedLate()).isFalse();
 
         mockMvc.perform(as(soqm, post("/api/workflow/move"), control)
                         .param("targetStatus", "PROCESS_OWNER_REVIEW")
@@ -260,13 +260,11 @@ class ReopenCompletedIT {
                 .andExpect(status().isOk());
 
         // Returned: past its deadline it shows as overdue on the pages, but no overdue notice is sent
-        ControlResponseDTO returned = controlsRow(control);
-        assertThat(returned.isOverdue()).isTrue();
-        assertThat(returned.isClosedLate()).isFalse();
-        assertThat(controlRepository.findMonthlyOverdueCandidates())
-                .extracting(ReminderControlProjection::getControlId).doesNotContain(control.getId());
-        assertThat(controlRepository.findAllForReminders())
-                .extracting(ReminderControlProjection::getControlId).doesNotContain(control.getId());
+        com.kpmg.qtracker.service.ComponentControlsList.Row returned = controlsRow(control);
+        assertThat(returned.overdue()).isTrue();
+        assertThat(returned.closedLate()).isFalse();
+        assertThat(controlRepository.findIdsForPlannedNotifications(PlannedNotificationScheduler.STATUSES))
+                .doesNotContain(control.getId());
 
         // Completed again by the Process Owner, after the deadline: Closed late now, no longer returned
         mockMvc.perform(as(owner, post("/api/workflow/complete-control"), control))
@@ -276,7 +274,7 @@ class ReopenCompletedIT {
         assertThat(completed.getReopenedAt()).isNull();
         assertThat(historyRepository.findByControlIdOrderByCreatedAtDesc(control.getId()))
                 .filteredOn(entry -> "COMPLETED".equals(entry.getToStep())).hasSize(2);
-        assertThat(controlsRow(control).isClosedLate()).isTrue();
+        assertThat(controlsRow(control).closedLate()).isTrue();
     }
 
     // ------------------------------------------------------------------ helpers
@@ -325,15 +323,12 @@ class ReopenCompletedIT {
         return controlRepository.findById(control.getId()).orElseThrow();
     }
 
-    /** The control's row on the Controls page (overdue, Closed late), as SoQM sees it. */
-    @SuppressWarnings("unchecked")
-    private ControlResponseDTO controlsRow(Control control) throws Exception {
-        List<ControlResponseDTO> rows = (List<ControlResponseDTO>) mockMvc.perform(get("/controls")
-                        .sessionAttr("currentUser", soqm)
-                        .with(user(soqm.getMail()).roles(String.valueOf(soqm.getAccessLevel()))))
-                .andExpect(status().isOk())
-                .andReturn().getModelAndView().getModel().get("controls");
-        return rows.stream().filter(row -> control.getId().equals(row.getId())).findFirst().orElseThrow();
+    /** The control's row in the All components list (overdue, Closed late), as SoQM sees it. */
+    private com.kpmg.qtracker.service.ComponentControlsList.Row controlsRow(Control control) throws Exception {
+        return ListPages.rows(mockMvc, request -> request.sessionAttr("currentUser", soqm)
+                        .with(user(soqm.getMail()).roles(String.valueOf(soqm.getAccessLevel()))),
+                "/component/ALL?q=" + control.getControlId())
+                .stream().filter(row -> control.getId().equals(row.id())).findFirst().orElseThrow();
     }
 
     private MockHttpServletRequestBuilder as(User actor, MockHttpServletRequestBuilder request, Control control) {

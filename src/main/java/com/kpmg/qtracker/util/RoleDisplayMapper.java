@@ -81,17 +81,6 @@ public final class RoleDisplayMapper {
         };
     }
 
-    /** The subtitle of the Controls list: which controls the user sees. */
-    public static String visibleControls(AccessPolicy.Profile profile) {
-        if (profile.role() == UserRole.KDN) {
-            return "All KDN controls (Control ID starting with KDN), drafts included";
-        }
-        if (profile.role() == UserRole.SOQM_TEAM || profile.visibility() == Visibility.ALL) {
-            return "All controls in QTracker";
-        }
-        return "Controls assigned to you, shared with you or created by you";
-    }
-
     /** What the combination gives, in one or two sentences. */
     public static String hint(AccessPolicy.Profile profile) {
         return switch (profile.role()) {
@@ -136,8 +125,8 @@ public final class RoleDisplayMapper {
     public static List<FixedValue> fixedValues(UserRole role) {
         return switch (role) {
             case SOQM_TEAM -> List.of(
-                    new FixedValue("Visibility", Visibility.ALL.getDisplayName(), "SoQM Team always sees all controls."),
-                    new FixedValue("Access", "Full", "SoQM Team edits every control."));
+                    new FixedValue("Visibility", Visibility.ALL.getDisplayName(), "SoQM Admin Team always sees all controls."),
+                    new FixedValue("Access", "Full", "SoQM Admin Team edits every control."));
             case KDN -> List.of(
                     new FixedValue("Visibility", KDN_VISIBILITY, "Fixed for KDN: every KDN control, no other."),
                     new FixedValue("Access", AccessRight.READ_ONLY.getDisplayName(), "Fixed for KDN: view and download only."));

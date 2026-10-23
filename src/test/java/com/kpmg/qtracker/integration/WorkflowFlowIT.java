@@ -89,6 +89,8 @@ class WorkflowFlowIT {
         assignment.setControlOperator(operator.getMail());
         assignment.setSoqmLead(soqmLead.getMail());
         assignment.setProcessOwner(processOwner.getMail());
+        assignment.setControlOperationDate(java.time.LocalDate.of(2026, 11, 5));
+        assignment.setControlOperationDeadline(java.time.LocalDate.of(2026, 11, 19));
         assignmentRepository.save(assignment);
 
         ControlDetails details = new ControlDetails();
@@ -199,7 +201,8 @@ class WorkflowFlowIT {
         expectedCounts.put(facilitator.getMail(), 1);
         expectedCounts.put(operator.getMail(), 4);
         expectedCounts.put(soqmLead.getMail(), 4);
-        // COMPLETED_ALL goes to facilitator, operator and SoQM lead only; the process owner keeps 2
+        // T12 goes to all four roles, the Process Owner included (NOTIFICATIONS_v5, E8)
+        expectedCounts.put(processOwner.getMail(), 3);
         assertNotificationCounts(controlId, expectedCounts);
         assertWorkflowHistoryCount(controlId, 9);
     }
@@ -401,7 +404,7 @@ class WorkflowFlowIT {
         return post(path)
                 .param("controlId", String.valueOf(controlId))
                 .sessionAttr("currentUser", actor)
-                .with(user(actor.getMail()).roles(actor.getRole()))
+                .with(user(actor.getMail()).roles(actor.getAccessLevel().name()))
                 .with(csrf());
     }
 
@@ -412,7 +415,7 @@ class WorkflowFlowIT {
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                         .content(body)
                         .sessionAttr("currentUser", actor)
-                        .with(user(actor.getMail()).roles(actor.getRole()))
+                        .with(user(actor.getMail()).roles(actor.getAccessLevel().name()))
                         .with(csrf()))
                 .andExpect(status().isOk());
     }

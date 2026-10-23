@@ -191,7 +191,7 @@ public class UserImport {
                 .count();
         if (activeSoqm < MIN_ACTIVE_SOQM_TEAM) {
             return new Report(false, "the file must give at least " + MIN_ACTIVE_SOQM_TEAM
-                    + " active SoQM Team members (someone has to run the Admin Panel), found " + activeSoqm,
+                    + " active SoQM Admin Team members (someone has to run the Admin Panel), found " + activeSoqm,
                     table.encoding(), table.delimiter(), lines, null);
         }
 

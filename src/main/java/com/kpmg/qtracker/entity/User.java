@@ -16,12 +16,6 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "role")
-    private String role;
-
-    @Column(name = "secondary_role")
-    private String secondaryRole;
-
     @Column(name = "displayname")
     private String displayName;
 

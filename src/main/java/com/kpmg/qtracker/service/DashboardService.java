@@ -48,16 +48,6 @@ public class DashboardService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    public DashboardChartDataDTO getStatusBreakdown() {
-        DeadlineOverdue.Counts counts = DeadlineOverdue.count(
-                toDeadlineRows(controlRepository.findAll()), DeadlineRow::status, DeadlineRow::deadline, today());
-        Map<String, Long> chartCounts = new LinkedHashMap<>();
-        chartCounts.put("Active", counts.active());
-        chartCounts.put("Completed", counts.completed());
-        chartCounts.put("Overdue", counts.overdue());
-        return toChartData(chartCounts);
-    }
-
     public DashboardChartDataDTO getComponentBreakdown() {
         Map<String, Long> counts = new LinkedHashMap<>();
         counts.put("HR", 0L);
@@ -116,32 +106,9 @@ public class DashboardService {
         return buildComponentBreakdown(findMyScopedNonDraftControls(currentUser));
     }
 
-    public DashboardChartDataDTO getMyOverdueTrend(User currentUser) {
-        return buildOverdueTrend(toDeadlineRows(findMyScopedNonDraftControls(currentUser)));
-    }
-
     public DashboardChartDataDTO getFrequencyBreakdown() {
-        return buildFrequencyBreakdown(controlRepository.findAll());
-    }
-
-    public DashboardChartDataDTO getOverdueTrend() {
-        return buildOverdueTrend(toDeadlineRows(controlRepository.findAll()));
-    }
-
-    // Controls still overdue, by deadline day, over the last 30 days
-    private DashboardChartDataDTO buildOverdueTrend(List<DeadlineRow> rows) {
-        LocalDate today = today();
-        LocalDate startDate = today.minusDays(29);
-        Map<LocalDate, Long> grouped = new LinkedHashMap<>();
-        for (LocalDate date = startDate; !date.isAfter(today); date = date.plusDays(1)) {
-            grouped.put(date, 0L);
-        }
-        for (DeadlineRow row : rows) {
-            if (DeadlineOverdue.isOverdue(row.status(), row.deadline(), today)) {
-                grouped.computeIfPresent(row.deadline(), (key, value) -> value + 1);
-            }
-        }
-        return toTrendChartData(grouped);
+        // The frequencies only, not every control's whole row (the chart of every SoQM dashboard)
+        return frequencyBreakdown(controlRepository.findAllControlFrequencies());
     }
 
     public DashboardDeadlineCountdownDTO getDeadlineCountdown(User currentUser, int days, int limit) {
@@ -218,6 +185,11 @@ public class DashboardService {
     }
 
     private DashboardChartDataDTO buildFrequencyBreakdown(List<Control> controls) {
+        return frequencyBreakdown(safeControls(controls).stream().map(Control::getControlFrequency).toList());
+    }
+
+    /** The chart of these controls' frequencies (one per control, null for none). */
+    private DashboardChartDataDTO frequencyBreakdown(List<String> frequencies) {
         Map<String, Long> counts = new LinkedHashMap<>();
         counts.put("Monthly", 0L);
         counts.put("Quarterly", 0L);
@@ -227,8 +199,8 @@ public class DashboardService {
         counts.put("Ad-Hoc", 0L);
         counts.put("Unspecified", 0L);
 
-        for (Control control : safeControls(controls)) {
-            String label = normalizeFrequency(control.getControlFrequency());
+        for (String frequency : frequencies) {
+            String label = normalizeFrequency(frequency);
             counts.compute(label, (key, value) -> value == null ? 1L : value + 1);
         }
 
@@ -266,16 +238,6 @@ public class DashboardService {
                 new ArrayList<>(counts.keySet()),
                 new ArrayList<>(counts.values())
         );
-    }
-
-    private DashboardChartDataDTO toTrendChartData(Map<LocalDate, Long> grouped) {
-        List<String> labels = new ArrayList<>(grouped.size());
-        List<Long> values = new ArrayList<>(grouped.size());
-        for (Map.Entry<LocalDate, Long> entry : grouped.entrySet()) {
-            labels.add(entry.getKey().format(TREND_LABEL_FORMAT));
-            values.add(entry.getValue());
-        }
-        return new DashboardChartDataDTO(labels, values);
     }
 
     /**
@@ -342,8 +304,13 @@ public class DashboardService {
             // KDN: every KDN control, as their tiles and Controls list
             return safeControls(candidates);
         }
-        Predicate<Control> predicate = buildMyScopePredicate(currentUser);
-        return safeControls(candidates).stream()
+        List<Control> controls = safeControls(candidates);
+        // The assignments of all the controls in one query: one query per control made the charts of a user who sees
+        // every control read thousands of rows one by one (load test, migration/analysis/9_performance_report.md)
+        Map<Long, ControlAssignmentDTO> assignments = controlAssignmentService.getAssignmentsByControlIds(
+                controls.stream().map(Control::getId).filter(Objects::nonNull).toList());
+        Predicate<Control> predicate = buildMyScopePredicate(currentUser, assignments);
+        return controls.stream()
                 .filter(predicate)
                 .collect(Collectors.toList());
     }
@@ -354,14 +321,14 @@ public class DashboardService {
                 .collect(Collectors.toList());
     }
 
-    private Predicate<Control> buildMyScopePredicate(User currentUser) {
+    private Predicate<Control> buildMyScopePredicate(User currentUser, Map<Long, ControlAssignmentDTO> assignments) {
         Set<String> identities = resolveUserIdentities(currentUser);
         return control -> {
             if (control == null || control.getId() == null || identities.isEmpty()) {
                 return false;
             }
             try {
-                ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
+                ControlAssignmentDTO assignment = assignments.get(control.getId());
                 if (assignment == null) {
                     return false;
                 }

@@ -13,8 +13,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,14 +55,12 @@ class DashboardServiceMyScopeTest {
 
         when(controlService.findVisibleControlsForUser(currentUser))
                 .thenReturn(List.of(monthlyVisible, quarterlyNotVisible, annualVisibleById, draftVisible));
-        when(controlAssignmentService.getAssignmentByControlId(100L))
-                .thenReturn(assignment(List.of("reviewer@kpmg.kz"), List.of(), List.of(), List.of()));
-        when(controlAssignmentService.getAssignmentByControlId(101L))
-                .thenReturn(assignment(List.of("other@kpmg.kz"), List.of(), List.of(), List.of()));
-        when(controlAssignmentService.getAssignmentByControlId(102L))
-                .thenReturn(assignment(List.of(), List.of(), List.of("7"), List.of()));
-        when(controlAssignmentService.getAssignmentByControlId(103L))
-                .thenReturn(assignment(List.of("reviewer@kpmg.kz"), List.of(), List.of(), List.of()));
+        // All the assignments in one read, none one by one
+        when(controlAssignmentService.getAssignmentsByControlIds(List.of(100L, 101L, 102L, 103L))).thenReturn(Map.of(
+                100L, assignment(List.of("reviewer@kpmg.kz"), List.of(), List.of(), List.of()),
+                101L, assignment(List.of("other@kpmg.kz"), List.of(), List.of(), List.of()),
+                102L, assignment(List.of(), List.of(), List.of("7"), List.of()),
+                103L, assignment(List.of("reviewer@kpmg.kz"), List.of(), List.of(), List.of())));
 
         DashboardChartDataDTO result = dashboardService.getMyFrequencyBreakdown(currentUser);
 
@@ -80,20 +81,18 @@ class DashboardServiceMyScopeTest {
 
         when(controlService.findVisibleControlsForUser(currentUser))
                 .thenReturn(List.of(hrVisible, acVisibleShared, govNotVisible, draftVisible));
-        when(controlAssignmentService.getAssignmentByControlId(200L))
-                .thenReturn(assignment(List.of(), List.of("operator@kpmg.kz"), List.of(), List.of()));
-        when(controlAssignmentService.getAssignmentByControlId(201L))
-                .thenReturn(assignment(List.of(), List.of(), List.of(), List.of("operator@kpmg.kz")));
-        when(controlAssignmentService.getAssignmentByControlId(202L))
-                .thenReturn(assignment(List.of(), List.of(), List.of("other@kpmg.kz"), List.of()));
-        when(controlAssignmentService.getAssignmentByControlId(203L))
-                .thenReturn(assignment(List.of("operator@kpmg.kz"), List.of(), List.of(), List.of()));
+        // 202 has no assignment row: not the user's, as before
+        when(controlAssignmentService.getAssignmentsByControlIds(List.of(200L, 201L, 202L, 203L))).thenReturn(Map.of(
+                200L, assignment(List.of(), List.of("operator@kpmg.kz"), List.of(), List.of()),
+                201L, assignment(List.of(), List.of(), List.of(), List.of("operator@kpmg.kz")),
+                203L, assignment(List.of("operator@kpmg.kz"), List.of(), List.of(), List.of())));
 
         DashboardChartDataDTO result = dashboardService.getMyComponentBreakdown(currentUser);
 
         assertThat(result.getLabels()).containsExactly("HR", "A&C");
         assertThat(result.getValues()).containsExactly(1L, 1L);
         assertThat(result.getValues().stream().mapToLong(Long::longValue).sum()).isEqualTo(2L);
+        verify(controlAssignmentService, never()).getAssignmentByControlId(org.mockito.ArgumentMatchers.anyLong());
     }
 
     @Test

@@ -7,8 +7,8 @@
     <title th:text="'Control - ' + ${control.controlId}">Control - Sultan</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=17" rel="stylesheet">
-    <link href="/css/view-control.css?v=24" rel="stylesheet">
+    <link href="/css/style.css?v=20" rel="stylesheet">
+    <link href="/css/view-control.css?v=37" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -351,34 +351,8 @@
             display: none;
         }
 
-        #editBtn {
-            background: #00338D;
-            border-color: #00338D;
-            color: #fff;
-            font-weight: 600;
-            padding: 7px 22px;
-            border-radius: 6px;
-            transition: background 0.18s, box-shadow 0.18s;
-        }
-        #editBtn:hover {
-            background: #00278a;
-            border-color: #00278a;
-            box-shadow: 0 2px 10px rgba(0,51,141,0.25);
-        }
-        /* Rename ID dropdown */
+        /* Rename ID dropdown (the button itself: view-control.css, with the other buttons of the bar) */
         .kpmg-more-menu { position: relative; }
-        .kpmg-more-menu-btn {
-            border: 1px solid #d8dce5;
-            border-radius: 6px;
-            background: #fff;
-            color: #5c6478;
-            padding: 6px 10px;
-            cursor: pointer;
-            font-size: 1rem;
-            line-height: 1;
-            transition: background 0.15s, border-color 0.15s;
-        }
-        .kpmg-more-menu-btn:hover { background: #f0f2f8; border-color: #b0b8cc; }
         .kpmg-more-dropdown {
             display: none;
             position: absolute;
@@ -453,7 +427,7 @@
 
 <div class="container-fluid">
     <div class="row">
-        <div th:replace="~{fragments/sidebar :: sidebar('controls')}"></div>
+        <div th:replace="~{fragments/sidebar :: sidebar('action')}"></div>
 
         <div class="col-md-10">
             <div class="view-control-container">
@@ -467,7 +441,8 @@
                         <span>Home</span>
                     </a>
                     <span class="app-breadcrumb-separator">/</span>
-                    <a href="/controls" class="app-breadcrumb-link">Controls</a>
+                    <a href="/component/ALL" class="app-breadcrumb-link" th:href="${sidebar != null ? sidebar.listHref : '/component/ALL'}"
+                       th:text="${sidebar != null ? sidebar.listLabel : 'All components'}">All components</a>
                     <span class="app-breadcrumb-separator">/</span>
                     <span class="app-breadcrumb-current control-id-display" th:text="${control.controlId}">Control</span>
                 </nav>
@@ -494,7 +469,7 @@
                             </h1>
                         </div>
                         <a th:if="${canInitiate}" th:href="@{/initiate/{id}(id=${control.id})}" class="vc-header-action"
-                           title="Check what the draft still needs, choose the SoQM Year and initiate it">
+                           title="Check the draft, choose the SoQM Year and initiate it">
                             <i class="bi bi-play-circle" aria-hidden="true"></i>Initiate…
                         </a>
                     </div>
@@ -534,6 +509,19 @@
                     </p>
                 </div>
 
+                <!-- A control made with Create Control: the control it was created from (Control.createdFromControlId) -->
+                <div class="access-banner access-banner-created-from" id="createdFromBanner" role="status" th:if="${createdFrom != null}">
+                    <i class="bi bi-diagram-2" aria-hidden="true"></i>
+                    <div>
+                        <p class="access-banner-title">Created from
+                            <a th:if="${createdFromLink}" th:href="@{/view-control/{id}(id=${createdFrom.id})}"
+                               th:text="${createdFrom.controlId}">HR-CTRL-MF-3/FY27/Central/OCT</a><span
+                                    th:unless="${createdFromLink}" th:text="${createdFrom.controlId}">HR-CTRL-MF-3/FY27/Central/OCT</span></p>
+                        <p class="access-banner-text">Next cycle of this control. Fields are copied, dates recalculated.
+                            Comments, results and documents are blank.</p>
+                    </div>
+                </div>
+
                 <!-- Who may only look: a calm notice instead of buttons the server would refuse (AccessPolicy.notice) -->
                 <div class="access-banner" id="accessBanner" role="status" th:if="${accessNotice != 'NONE'}"
                      th:attr="data-notice=${accessNotice}">
@@ -544,10 +532,10 @@
                             : (${accessNotice == 'READ_ONLY'} ? 'You have read-only access to this control'
                             : 'You are not assigned to this control')">You have read-only access to this control</p>
                         <p class="access-banner-text" th:text="${accessNotice == 'COMPLETED'}
-                            ? 'You can view it, read its history and download its documents. Only SoQM Team can change it.'
+                            ? 'You can view it, read its history and download its documents. Only SoQM Admin Team can change it.'
                             : (${accessNotice == 'READ_ONLY'}
                             ? 'You can view it, read its history and download its documents. Editing and workflow steps are not available to you.'
-                            : 'You can view it. Only the people assigned to it edit it and perform its steps; ask SoQM Team if you should be one of them.')">Text</p>
+                            : 'You can view it. Only the people assigned to it edit it and perform its steps; ask SoQM Admin Team if you should be one of them.')">Text</p>
                     </div>
                 </div>
 
@@ -555,11 +543,10 @@
                 <div class="access-banner access-banner-completed-edit" id="completedEditBanner" role="status" th:if="${completedEdit}">
                     <i class="bi bi-pencil-square" aria-hidden="true"></i>
                     <div>
-                        <p class="access-banner-title">This control is completed. Your changes are recorded with a reason</p>
-                        <p class="access-banner-text">Use Edit (completed control) to change it: it stays Completed, and every save
-                            asks for a reason and shows in the Changelog as &ldquo;Edited after completion&rdquo;. The Control
-                            Operation Date, the frequency, the deadline, the next date, the SoQM Year and the Control Status
-                            stay as they are. To rework it in the workflow, use Move / Return.</p>
+                        <p class="access-banner-title">Completed. Changes require a reason.</p>
+                        <p class="access-banner-text">Use Edit (completed control). Each change is logged in the Changelog as
+                            &ldquo;Edited after completion&rdquo;. No notifications are sent. To return to the workflow, use
+                            Move / Return.</p>
                     </div>
                 </div>
 
@@ -596,7 +583,7 @@
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field" for="controlFrequency">Control Frequency</label>
                                         <select class="form-control readonly-field" name="controlFrequency" id="controlFrequency" readonly th:data-stored-value="${control.controlFrequency}"
-                                                data-completed-fixed="controlFrequencyFixedHint">
+                                                th:attr="aria-describedby=${completedEdit} ? 'controlFrequencyCompletedHint' : null">
                                             <option value="">Select Frequency</option>
                                             <option value="Monthly" th:selected="${control.controlFrequency == 'Monthly'}">Monthly</option>
                                             <option value="Quarterly" th:selected="${control.controlFrequency == 'Quarterly'}">Quarterly</option>
@@ -606,8 +593,8 @@
                                             <option value="Annual" th:selected="${control.controlFrequency == 'Annual' or control.controlFrequency == 'Annually'}">Annual</option>
                                             <option value="Semi Annual" th:selected="${control.controlFrequency == 'Semi Annual' or control.controlFrequency == 'Semi-annually'}">Semi Annual</option>
                                         </select>
-                                        <div class="completed-fixed-hint" id="controlFrequencyFixedHint" th:if="${completedEdit}">
-                                            <i class="bi bi-lock" aria-hidden="true"></i> Stays as it is on a completed control
+                                        <div class="completed-fixed-hint" id="controlFrequencyCompletedHint" th:if="${completedEdit}">
+                                            <i class="bi bi-info-circle" aria-hidden="true"></i> Another frequency recalculates the deadline and the next date
                                         </div>
                                     </div>
                                     <div class="col-md-3 mb-3">
@@ -660,17 +647,13 @@
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label" for="controlStatusSelect">Control Status</label>
-                                        <select class="form-control readonly-field" name="controlStatus" id="controlStatusSelect" readonly th:data-stored-value="${control.controlStatus}"
-                                                data-completed-fixed="controlStatusFixedHint">
-                                            <option value="">Select Status</option>
+                                        <select class="form-control readonly-field" name="controlStatus" id="controlStatusSelect" readonly th:data-stored-value="${control.controlStatus}">
+                                            <option value="" data-view-text="Not set" data-edit-text="Select Status">Not set</option>
                                             <option value="NOT_APPLICABLE" th:selected="${control.controlStatus == 'NOT_APPLICABLE'}">Not Applicable</option>
                                             <option value="ACTIVE" th:selected="${control.controlStatus == 'ACTIVE'}">Active</option>
                                             <option value="DELETED" th:selected="${control.controlStatus == 'DELETED'}">Deleted</option>
                                             <option value="SUPERSEDED" th:selected="${control.controlStatus == 'SUPERSEDED'}">Superseded</option>
                                         </select>
-                                        <div class="completed-fixed-hint" id="controlStatusFixedHint" th:if="${completedEdit}">
-                                            <i class="bi bi-lock" aria-hidden="true"></i> Stays as it is on a completed control
-                                        </div>
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label required-field">Priority</label>
@@ -696,13 +679,13 @@
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label" for="soqmYear">SoQM Year</label>
                                         <select class="form-control readonly-field" name="soqmYear" id="soqmYear" readonly th:data-stored-value="${control.soqmYear}"
-                                                data-completed-fixed="soqmYearFixedHint">
+                                                th:attr="aria-describedby=${completedEdit} ? 'soqmYearCompletedHint' : null">
                                             <option value="" th:unless="${#lists.contains(soqmYearOptions, control.soqmYear)}">Not set</option>
                                             <option th:each="year : ${soqmYearOptions}" th:value="${year}" th:text="${year}"
                                                     th:selected="${year == control.soqmYear}">1 OCT 2026 - 30 SEP 2027</option>
                                         </select>
-                                        <div class="completed-fixed-hint" id="soqmYearFixedHint" th:if="${completedEdit}">
-                                            <i class="bi bi-lock" aria-hidden="true"></i> Stays as it is on a completed control
+                                        <div class="completed-fixed-hint" id="soqmYearCompletedHint" th:if="${completedEdit}">
+                                            <i class="bi bi-info-circle" aria-hidden="true"></i> Another year moves no date and starts no new cycle
                                         </div>
                                     </div>
                                 </div>
@@ -777,16 +760,83 @@
                                     </div>
                                 </div>
 
-                                <div class="row">
+                                <!--/* Everyone who sees the control sees them; SoQM Admin Team change them (canEditAll) */-->
+                                <div class="row" id="relatedDetailsRow">
                                     <div class="col-md-6 mb-3">
-                                        <label class="form-label">Other Related Controls</label>
-                                        <input type="text" class="form-control" name="otherRelatedControls" maxlength="255"
-                                               placeholder="Enter other related controls">
+                                        <!--/* Other Related Controls: Control IDs from one list for every control (RelatedControls),
+                                             plain text; one the list no longer has is marked "not in list". SoQM Admin Team
+                                             choose them in edit mode (multi-value.js, GET /api/related-controls) */-->
+                                        <div class="sw-field mv-field" id="relatedControlsField" data-mv-field
+                                             data-label="Other Related Controls" data-unit="control" data-units="controls"
+                                             data-source-url="/api/related-controls"
+                                             data-empty-list="No controls in the list yet, contact SoQM Admin Team"
+                                             th:with="rcCount=${#lists.size(relatedControls)}"
+                                             th:attr="data-editable=${canEditAll},data-max=${relatedControlsMax}">
+                                            <div class="sw-head">
+                                                <span class="form-label mb-0" id="relatedControlsLabel"><i class="bi bi-link-45deg mv-label-icon" aria-hidden="true"></i>Other Related Controls</span>
+                                                <span class="sw-count" data-mv-count th:hidden="${rcCount == 0}"
+                                                      th:text="${rcCount == 1 ? '1 control' : rcCount + ' controls'}">2 controls</span>
+                                                <span class="sw-unsaved" data-mv-unsaved th:if="${canEditAll}" hidden>Not saved yet</span>
+                                            </div>
+                                            <div class="sw-box" data-mv-box>
+                                                <ul class="sw-chips" data-mv-chips aria-labelledby="relatedControlsLabel"><li class="sw-chip mv-chip"
+                                                        th:each="related : ${relatedControls}"
+                                                        th:classappend="${related.notInList()} ? 'is-not-in-list'"
+                                                        th:attr="data-value=${related.value()},data-not-in-list=${related.notInList()}"><span class="sw-chip-text"><span class="sw-chip-name" th:text="${related.value()}">HR-CTRL-MF-5/FY27/Central/OCT</span><span class="sw-note mv-not-in-list" th:if="${related.notInList()}">not in list</span></span></li></ul>
+                                                <p class="sw-empty" data-mv-empty th:hidden="${rcCount > 0}">Not selected</p>
+                                                <div class="sw-search" data-mv-search th:if="${canEditAll}" hidden>
+                                                    <svg class="sw-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                                                    <input type="text" class="sw-search-input" id="relatedControlsSearchInput"
+                                                           role="combobox" aria-autocomplete="list" aria-expanded="false"
+                                                           aria-controls="relatedControlsListbox" aria-labelledby="relatedControlsLabel"
+                                                           aria-describedby="relatedControlsKeys" autocomplete="off" spellcheck="false"
+                                                           placeholder="Search by Control ID">
+                                                </div>
+                                            </div>
+                                            <div class="sw-error" data-mv-error role="alert" hidden></div>
+                                            <ul class="sw-listbox" id="relatedControlsListbox" data-mv-listbox role="listbox" aria-multiselectable="true"
+                                                aria-labelledby="relatedControlsLabel" th:if="${canEditAll}" hidden></ul>
+                                            <span class="visually-hidden" id="relatedControlsKeys" th:if="${canEditAll}">Up and down arrows move through the list, Enter adds or removes the control, Backspace in an empty search removes the last control, Escape closes the list.</span>
+                                            <span class="visually-hidden" data-mv-status aria-live="polite"></span>
+                                        </div>
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label class="form-label">IT Applications</label>
-                                        <input type="text" class="form-control" name="itApplications" maxlength="255"
-                                               placeholder="Enter IT applications">
+                                        <!--/* IT Applications: systems of a fixed list (ItApplications.OPTIONS), several; a value saved
+                                             before the list is one chip marked "not in list". SoQM Admin Team choose them in edit
+                                             mode (multi-value.js); the link icon is only a sign */-->
+                                        <div class="sw-field mv-field" id="itApplicationsField" data-mv-field
+                                             data-label="IT Applications" data-unit="application" data-units="applications"
+                                             data-empty-list="There are no IT applications to choose from"
+                                             th:with="itCount=${#lists.size(itApplications)}"
+                                             th:attr="data-editable=${canEditAll},data-max=${itApplicationsMax}">
+                                            <div class="sw-head">
+                                                <span class="form-label mb-0" id="itApplicationsLabel"><i class="bi bi-link-45deg mv-label-icon" aria-hidden="true"></i>IT Applications</span>
+                                                <span class="sw-count" data-mv-count th:hidden="${itCount == 0}"
+                                                      th:text="${itCount == 1 ? '1 application' : itCount + ' applications'}">2 applications</span>
+                                                <span class="sw-unsaved" data-mv-unsaved th:if="${canEditAll}" hidden>Not saved yet</span>
+                                            </div>
+                                            <div class="sw-box" data-mv-box>
+                                                <ul class="sw-chips" data-mv-chips aria-labelledby="itApplicationsLabel"><li class="sw-chip mv-chip"
+                                                        th:each="system : ${itApplications}"
+                                                        th:classappend="${system.notInList()} ? 'is-not-in-list'"
+                                                        th:attr="data-value=${system.value()},data-not-in-list=${system.notInList()}"><span class="sw-chip-text"><span class="sw-chip-name" th:text="${system.value()}">KICS</span><span class="sw-note mv-not-in-list" th:if="${system.notInList()}">not in list</span></span></li></ul>
+                                                <p class="sw-empty" data-mv-empty th:hidden="${itCount > 0}">Not selected</p>
+                                                <div class="sw-search" data-mv-search th:if="${canEditAll}" hidden>
+                                                    <svg class="sw-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                                                    <input type="text" class="sw-search-input" id="itApplicationsSearchInput"
+                                                           role="combobox" aria-autocomplete="list" aria-expanded="false"
+                                                           aria-controls="itApplicationsListbox" aria-labelledby="itApplicationsLabel"
+                                                           aria-describedby="itApplicationsKeys" autocomplete="off" spellcheck="false"
+                                                           placeholder="Search IT applications">
+                                                </div>
+                                            </div>
+                                            <template data-mv-options th:if="${canEditAll}"><span th:each="option : ${itApplicationOptions}" th:attr="data-value=${option}"></span></template>
+                                            <div class="sw-error" data-mv-error role="alert" hidden></div>
+                                            <ul class="sw-listbox" id="itApplicationsListbox" data-mv-listbox role="listbox" aria-multiselectable="true"
+                                                aria-labelledby="itApplicationsLabel" th:if="${canEditAll}" hidden></ul>
+                                            <span class="visually-hidden" id="itApplicationsKeys" th:if="${canEditAll}">Up and down arrows move through the list, Enter adds or removes the application, Backspace in an empty search removes the last application, Escape closes the list.</span>
+                                            <span class="visually-hidden" data-mv-status aria-live="polite"></span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -868,7 +918,7 @@
                                 <h5 class="mb-3">Assignment Details</h5>
                                 <p class="vc-soqm-only-note d-none">
                                     <i class="bi bi-lock" aria-hidden="true"></i>
-                                    Only SoQM Team can change the assignment.
+                                    Only SoQM Admin Team can change the assignment.
                                 </p>
 
                                 <div class="row">
@@ -938,7 +988,7 @@
                                                 <input type="text"
                                                        class="form-control soqm-lead-input"
                                                        id="soqmLeadInput"
-                                                       placeholder="Select SoQM Team..."
+                                                       placeholder="Select SoQM Team / Delegate..."
                                                        readonly
                                                        onclick="viewControl.toggleSoqmLeadDropdown()">
                                             </div>
@@ -1034,18 +1084,21 @@
                                         <label class="form-label required-field" for="controlOperationDate">Control Operation Date</label>
                                         <input type="text" class="form-control" name="controlOperationDate"
                                                id="controlOperationDate" placeholder="dd.mm.yyyy" inputmode="numeric"
-                                               aria-describedby="controlOperationDateFeedback" data-date-picker
-                                               data-completed-fixed="scheduleFixedHint">
+                                               data-date-picker
+                                               th:attr="aria-describedby=${completedEdit} ? 'controlOperationDateFeedback scheduleCompletedHint' : 'controlOperationDateFeedback'">
                                         <div class="invalid-feedback" id="controlOperationDateFeedback">Enter the date as dd.mm.yyyy</div>
                                     </div>
                                     <div class="col-md-4 mb-3">
-                                        <label class="form-label">Control Operation Deadline</label>
+                                        <label class="form-label" for="controlOperationDeadline">Control Operation Deadline</label>
                                         <input type="text"
                                                class="form-control readonly-field"
                                                name="controlOperationDeadline"
                                                id="controlOperationDeadline"
                                                readonly
+                                               aria-describedby="controlOperationDeadlineHint"
                                                style="background-color: #f7f8fa; pointer-events: none;">
+                                        <div class="form-text" id="controlOperationDeadlineHint"
+                                             th:text="${deadlineHint}">10 working days (Monday to Friday) after the Control Operation Date</div>
                                     </div>
                                     <div class="col-md-4 mb-3">
                                         <label class="form-label">Next Control Operation Date</label>
@@ -1057,9 +1110,10 @@
                                                style="background-color: #f7f8fa; pointer-events: none;">
                                     </div>
                                 </div>
-                                <div class="completed-fixed-hint mb-3" id="scheduleFixedHint" th:if="${completedEdit}">
-                                    <i class="bi bi-lock" aria-hidden="true"></i> The Control Operation Date, the deadline and the next date
-                                    stay as they are on a completed control; changing the people does not move them.
+                                <div class="completed-fixed-hint mb-3" id="scheduleCompletedHint" th:if="${completedEdit}">
+                                    <i class="bi bi-info-circle" aria-hidden="true"></i> The deadline and the next date are always calculated
+                                    from the Control Operation Date and the frequency. Changing them here keeps the control completed,
+                                    marks it Closed late if it was completed after the new deadline, and creates no control and sends no e-mail.
                                 </div>
                             </div>
                         </form>
@@ -1092,21 +1146,6 @@
                                             <div class="kpmg-upload-progress"><div class="kpmg-upload-progress-bar" id="documentsProgressBar"></div></div>
                                         </div>
                                         <div id="documentsFileInfo"></div>
-                                    </div>
-                                </div>
-
-                                <div class="row">
-                                    <div class="col-12 mb-3">
-                                        <label class="form-label">SoQM Development Materials</label>
-                                        <select class="form-select" name="soqmDevelopmentMaterials">
-                                            <option value="">Select availability</option>
-                                            <option value="Available">Available</option>
-                                            <option value="Not Available">Not Available</option>
-                                        </select>
-                                        <p class="vc-soqm-only-note d-none">
-                                            <i class="bi bi-lock" aria-hidden="true"></i>
-                                            Only SoQM Team can change SoQM Development Materials.
-                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -1202,12 +1241,16 @@
 
                 <div class="action-buttons">
                     <div class="d-flex justify-content-between align-items-center">
-                        <!-- Left: Home, Changelog, and More (Rename ID) -->
-                        <div class="d-flex align-items-center gap-2">
-                            <button class="btn btn-outline-secondary" id="changelogBtn"><i class="bi bi-clock-history" aria-hidden="true"></i> Changelog</button>
+                        <!-- Left: where to go - Back, Changelog, More (Rename ID) -->
+                        <div class="d-flex align-items-center gap-2 vc-bar-nav">
+                            <button type="button" class="btn btn-outline-secondary" id="backBtn" onclick="history.back()"
+                                    title="Previous page"><i class="bi bi-arrow-left" aria-hidden="true"></i>Back</button>
+                            <button type="button" class="btn btn-outline-secondary" id="changelogBtn"
+                                    title="History of status and field changes"><i class="bi bi-clock-history" aria-hidden="true"></i>Changelog</button>
                             <!-- Rename ID as dropdown (SoQM only, also on a completed control, as the server checks) -->
                             <div class="kpmg-more-menu" id="kpmgMoreMenuWrapper" th:if="${canRenameId}">
-                                <button class="kpmg-more-menu-btn" id="kpmgMoreMenuBtn" type="button" title="More actions">
+                                <button class="kpmg-more-menu-btn" id="kpmgMoreMenuBtn" type="button" title="More actions"
+                                        aria-label="More actions">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                         <circle cx="5"  cy="12" r="2"/>
                                         <circle cx="12" cy="12" r="2"/>
@@ -1226,8 +1269,9 @@
                             </div>
                         </div>
 
-                        <!-- Right: Workflow buttons + Back + Edit (primary) -->
-                        <div class="d-flex align-items-center gap-2">
+                        <!-- Right: what to do - the workflow step (the one filled button moves the control on), then
+                             Create Control and Edit -->
+                        <div class="d-flex align-items-center gap-2 vc-bar-actions">
                             <!-- Workflow buttons -->
                             <div id="workflow-buttons-container" class="d-inline-flex align-items-center gap-2"
                                  th:if="${accessNotice == 'NONE'}">
@@ -1236,8 +1280,8 @@
                                         class="btn btn-primary workflow-submit-btn"
                                         id="submitForReviewBtn"
                                         style="display: none;"
-                                        title="Submit this control to Control Operator for review">
-                                    Submit for Review
+                                        title="Send to the Control Operator for review">
+                                    <i class="bi bi-send" aria-hidden="true"></i>Submit for Review
                                 </button>
 
                                 <!-- 2. Submit to SoQM Team button for CONTROL_OPERATOR -->
@@ -1245,8 +1289,8 @@
                                         class="btn btn-success workflow-submit-btn co-action-btn"
                                         id="submitToSoqmLeadBtn"
                                         style="display: none;"
-                                        title="Submit this control to SoQM Team for review">
-                                    Submit for SoQM Team Review
+                                        title="Send to SoQM Admin Team for review">
+                                    <i class="bi bi-send" aria-hidden="true"></i>Submit for SoQM Team Review
                                 </button>
 
                                 <!-- 3. Return to Facilitator button for CONTROL_OPERATOR -->
@@ -1254,8 +1298,8 @@
                                         class="btn btn-warning workflow-submit-btn co-action-btn"
                                         id="returnToFacilitatorBtn"
                                         style="display: none;"
-                                        title="Return this control to Facilitator for revision">
-                                    Return to Facilitator
+                                        title="Return to the Facilitator for rework">
+                                    <i class="bi bi-arrow-return-left" aria-hidden="true"></i>Return to Facilitator
                                 </button>
 
                                 <!-- 4. Submit to Process Owner button for SOQM_TEAM -->
@@ -1264,19 +1308,42 @@
                                         id="submitToProcessOwnerBtn"
                                         style="display: none;"
                                         disabled
-                                        title="Submit this control to Process Owner for review">
-                                    Send to Process Owner
+                                        title="Send to the Process Owner for review">
+                                    <i class="bi bi-send" aria-hidden="true"></i>Send to Process Owner
                                 </button>
 
-                                <!-- 5. Return to Operator button for SOQM_TEAM -->
-                                <button type="button"
-                                        class="btn btn-warning workflow-submit-btn soqm-action-btn"
-                                        id="returnToOperatorBtn"
-                                        style="display: none;"
-                                        disabled
-                                        title="Return this control to Control Operator for revision">
-                                    Return to Operator
-                                </button>
+                                <!-- 5. SOQM_TEAM at its own step: one Return menu - to the Control Operator (its own return)
+                                     and to the Facilitator (In Progress, the SoQM move); the Move dialog is not offered then -->
+                                <div class="btn-group dropup vc-return-menu" id="soqmReturnGroup" style="display: none;">
+                                    <button type="button"
+                                            class="btn btn-warning workflow-submit-btn soqm-action-btn dropdown-toggle"
+                                            id="soqmReturnMenuBtn"
+                                            data-bs-toggle="dropdown"
+                                            aria-expanded="false"
+                                            title="Return to an earlier step for rework">
+                                        <i class="bi bi-arrow-return-left" aria-hidden="true"></i>Return
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="soqmReturnMenuBtn">
+                                        <li>
+                                            <button type="button" class="dropdown-item" id="returnToOperatorBtn" disabled
+                                                    aria-describedby="returnToOperatorWait">
+                                                <span class="vc-return-to">To Control Operator</span>
+                                                <span class="vc-return-status">Review</span>
+                                                <span class="vc-return-wait" id="returnToOperatorWait">Add SoQM Head/Team Comments first</span>
+                                            </button>
+                                        </li>
+                                        <li th:if="${soqmReturnToInProgress}">
+                                            <button type="button" class="dropdown-item" id="soqmReturnToInProgressBtn"
+                                                    data-bs-toggle="modal" data-bs-target="#soqmMoveModal"
+                                                    data-soqm-move-target="IN_PROGRESS"
+                                                    data-soqm-move-title="Return to Facilitator"
+                                                    data-soqm-move-intro="Return this control to the Facilitator (In Progress) for rework?">
+                                                <span class="vc-return-to">To Facilitator</span>
+                                                <span class="vc-return-status">In Progress</span>
+                                            </button>
+                                        </li>
+                                    </ul>
+                                </div>
 
                                 <!-- 6. Complete button for PROCESS_OWNER -->
                                 <button type="button"
@@ -1286,8 +1353,8 @@
                                         disabled
                                         data-bs-toggle="modal"
                                         data-bs-target="#completeControlModal"
-                                        title="Complete this control">
-                                    Complete
+                                        title="Approve and complete the control">
+                                    <i class="bi bi-check2-circle" aria-hidden="true"></i>Complete
                                 </button>
 
                                 <!-- 7. Return to Control Operator button for PROCESS_OWNER -->
@@ -1296,39 +1363,119 @@
                                         id="ownerReturnToOperatorBtn"
                                         style="display: none;"
                                         disabled
-                                        title="Return this control to the Control Operator for revision">
-                                    Return to Control Operator
+                                        title="Return to the Control Operator for rework">
+                                    <i class="bi bi-arrow-return-left" aria-hidden="true"></i>Return to Control Operator
                                 </button>
 
-                                <!-- 8. SoQM: move the control on or back for any role (AccessPolicy.move) -->
+                                <!-- 8. SoQM: move the control on or back for any role (AccessPolicy.move); not at SoQM's own
+                                     step, whose buttons and Return menu already make every move -->
                                 <button type="button"
                                         class="btn btn-outline-primary"
                                         id="soqmMoveBtn"
-                                        th:if="${!#lists.isEmpty(soqmMoves)}"
+                                        th:if="${!#lists.isEmpty(soqmMoves) and soqmOwnStep != true}"
                                         data-bs-toggle="modal"
                                         data-bs-target="#soqmMoveModal"
-                                        title="Move this control on or back for any Control role">
-                                    Move / Return&hellip;
+                                        title="Change the status for any role">
+                                    <i class="bi bi-arrow-left-right" aria-hidden="true"></i>Move / Return&hellip;
                                 </button>
                             </div>
 
-                            <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Back</button>
-                            <button class="btn" id="editBtn"
-                                    th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or canEditAll)}"
-                                    th:text="${completedEdit} ? 'Edit (completed control)' : 'Edit'"
-                                    th:attr="aria-describedby=${completedEdit} ? 'completedEditBanner' : null">
-                                Edit
+                            <!-- Create Control and Edit stay together when the bar wraps -->
+                            <div class="d-inline-flex align-items-center gap-2 vc-bar-edit">
+                            <!-- The next cycle of a Monthly or Quarterly control, on every tab (AccessPolicy.offersCreateControl) -->
+                            <button type="button" class="btn btn-outline-primary" id="createControlBtn" th:if="${canCreateControl}"
+                                    th:attr="data-control-id=${control.id}"
+                                    title="Create and start the next cycle">
+                                <i class="bi bi-plus-circle" aria-hidden="true"></i>Create Control
                             </button>
+                            <button type="button" class="btn" id="editBtn"
+                                    th:if="${!readOnly and (!#strings.equals(performanceStatus, 'DRAFT') or canEditAll)}"
+                                    th:title="${completedEdit} ? 'Edit with a reason; the status stays Completed' : 'Edit the fields of this control'"
+                                    th:attr="aria-describedby=${completedEdit} ? 'completedEditBanner' : null">
+                                <i class="bi bi-pencil" aria-hidden="true"></i><span class="vc-btn-label"
+                                    th:text="${completedEdit} ? 'Edit (completed control)' : 'Edit'">Edit</span>
+                            </button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="edit-nav-panel d-none" id="editNavPanel">
                     <div class="d-flex justify-content-between align-items-center">
-                        <a href="/" class="btn btn-outline-secondary" style="border-color:#d8dce5; color:#495057; font-size:0.8rem; font-weight:600;">Home</a>
+                        <a href="/" class="btn btn-outline-secondary" title="Home page"><i class="bi bi-house" aria-hidden="true"></i>Home</a>
                         <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-secondary" id="cancelEditBtn" style="border-color:#d8dce5; color:#495057; font-size:0.8rem; font-weight:600;">Cancel</button>
-                            <button type="button" class="btn" id="saveEditBtn" style="background:#00338D; border-color:#00338D; color:#fff; font-size:0.8rem; font-weight:600;">Save</button>
+                            <button type="button" class="btn btn-outline-secondary" id="cancelEditBtn"
+                                    title="Discard the changes">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="saveEditBtn" title="Save the changes">Save</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Create Control: what the next cycle gets, the new Control ID editable (create-control.js) -->
+                <div class="modal fade" id="createControlModal" tabindex="-1" aria-labelledby="createControlTitle"
+                     th:if="${canCreateControl}">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-plus-circle"></i></span>
+                                <h5 class="modal-title" id="createControlTitle">Create Control</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="cc-loading" id="ccLoading" role="status">Loading&hellip;</p>
+                                <div class="cc-alert cc-alert-danger" id="ccError" role="alert" hidden></div>
+                                <div id="ccContent" hidden>
+                                    <p class="cc-intro">The next cycle of <strong id="ccSource">HR-CTRL-MF-3/FY27/Central/OCT</strong>
+                                        is created and started at once (In Progress). Facilitator, Control Operator and Process Owner are notified.</p>
+                                    <div class="cc-alert cc-alert-danger" id="ccProblems" role="alert" hidden>
+                                        <p class="cc-alert-title" id="ccProblemsTitle">The next control cannot be created. Fix this on the Assignment tab of this control:</p>
+                                        <ul id="ccProblemsList"></ul>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="ccControlId" class="form-label required-field">New Control ID</label>
+                                        <input type="text" class="form-control" id="ccControlId" autocomplete="off"
+                                               aria-describedby="ccIdTaken ccControlIdHint">
+                                        <!-- The ID typed is already a control's (checked as it is typed): Create waits for another -->
+                                        <div class="cc-id-taken" id="ccIdTaken" role="alert" hidden>
+                                            <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+                                            <span>Control <strong id="ccIdTakenId"></strong> already exists. Enter another
+                                                Control ID.</span>
+                                            <a id="ccIdTakenLink" href="#" target="_blank" rel="noopener">Open it</a>
+                                        </div>
+                                        <div class="form-text" id="ccControlIdHint">Only the period moves on. The Control ID
+                                            must be unique (ignoring case).</div>
+                                        <!-- A next cycle of this control already made: a note, another one can be created -->
+                                        <div class="cc-id-note" id="ccExistingNext" role="note" hidden>
+                                            <i class="bi bi-info-circle" aria-hidden="true"></i>
+                                            <span>A next control already exists:
+                                                <a id="ccExistingNextLink" href="#" target="_blank" rel="noopener"></a>.
+                                                You can still create another one.</span>
+                                        </div>
+                                    </div>
+                                    <h6 class="cc-section">Dates</h6>
+                                    <dl class="cc-dates">
+                                        <div><dt>Control Operation Date</dt><dd id="ccOperationDate">10.11.2026</dd></div>
+                                        <div><dt>Control Operation Deadline</dt><dd id="ccDeadline">24.11.2026</dd></div>
+                                        <div><dt>Next Control Operation Date</dt><dd id="ccNextDate">10.12.2026</dd></div>
+                                        <div><dt>SoQM Year</dt><dd id="ccSoqmYear">1 OCT 2026 - 30 SEP 2027</dd></div>
+                                    </dl>
+                                    <p class="cc-note" id="ccDatesNote">The Control Operation Date is this control's Next Control
+                                        Operation Date; the deadline is <span id="ccDeadlineHint">10 working days (Monday to
+                                        Friday) after the Control Operation Date</span>.</p>
+                                    <h6 class="cc-section">People (copied)</h6>
+                                    <dl class="cc-people" id="ccPeople"></dl>
+                                    <div class="cc-alert cc-alert-warning" id="ccLeftOut" hidden>
+                                        <p class="cc-alert-title">Not copied to Control Shared With:</p>
+                                        <ul id="ccLeftOutList"></ul>
+                                    </div>
+                                    <h6 class="cc-section">Not copied (start empty)</h6>
+                                    <ul class="cc-not-copied" id="ccNotCopied"></ul>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="ccCreateBtn" disabled>Create Control</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1337,6 +1484,7 @@
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
                             <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-input-cursor-text"></i></span>
                                 <h5 class="modal-title">Rename Control ID</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
@@ -1366,7 +1514,7 @@
                                 </div>
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                                 <button type="button" class="btn btn-primary" id="confirmRenameBtn">Rename</button>
                             </div>
                         </div>
@@ -1375,12 +1523,13 @@
 
                 <div class="modal fade" id="changelogModal" tabindex="-1">
                     <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                        <div class="modal-content" style="border: 1px solid #d8dce5; border-radius: 6px;">
-                            <div class="modal-header" style="border-bottom: 2px solid #00338D; padding: 14px 20px;">
-                                <h5 class="modal-title" style="font-size: 0.95rem; font-weight: 700; color: #2d3340;">Control Changelog</h5>
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-clock-history"></i></span>
+                                <h5 class="modal-title">Control Changelog</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
-                            <div class="modal-body" style="padding: 16px 20px;">
+                            <div class="modal-body">
                                 <div id="changelogToolbar" class="changelog-toolbar d-none">
                                     <div class="btn-group" role="group" aria-label="Changelog filter">
                                         <button type="button" class="btn changelog-filter-btn active" data-changelog-filter="all" id="changelogFilterAll">All</button>
@@ -1404,13 +1553,14 @@
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
                             <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-arrow-left-right"></i></span>
                                 <h5 class="modal-title">Workflow Action</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
                                 <!-- ��������� ������������� -->
                                 <div id="workflowActionMessage" class="mb-3">
-                                    Are you sure you want to perform this action?
+                                    Confirm this action?
                                 </div>
 
                                 <!-- ����������� Yes/No (������ ��� SoQM Team) -->
@@ -1444,7 +1594,7 @@
                                 </div>
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                                 <button type="button" class="btn btn-primary" id="confirmWorkflowAction">
                                     Confirm
                                 </button>
@@ -1457,15 +1607,14 @@
                 <div class="modal fade" id="submitConfirmationModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
-                            <div class="modal-header bg-info text-white">
-                                <h5 class="modal-title">Submit to Control Operator</h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-send"></i></span>
+                                <h5 class="modal-title">Send to Control Operator</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="mb-0">
-                                    Are you sure you want to submit this control to the <strong>Control Operator</strong> for review?
-                                </p>
-                                <p class="text-muted mt-3 mb-0">
+                                    Send this control to the <strong>Control Operator</strong> for review?
                                 </p>
                             </div>
                             <div class="modal-footer">
@@ -1473,7 +1622,7 @@
                                     Cancel
                                 </button>
                                 <button type="button" class="btn btn-primary" id="confirmSubmitBtn">
-                                    Confirm Submission
+                                    Send for Review
                                 </button>
                             </div>
                         </div>
@@ -1484,21 +1633,22 @@
                 <div class="modal fade" id="submitSoqmLeadModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
-                            <div class="modal-header bg-success text-white">
-                                <h5 class="modal-title">Submit to SoQM Team</h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-send"></i></span>
+                                <h5 class="modal-title">Send to SoQM Admin Team</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="mb-0">
-                                    Are you sure you want to submit this control to the <strong>SoQM Team</strong> for review?
+                                    Send this control to <strong>SoQM Admin Team</strong> for review?
                                 </p>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                                     Cancel
                                 </button>
-                                <button type="button" class="btn btn-success" id="confirmSubmitSoqmLeadBtn">
-                                    Confirm Submission
+                                <button type="button" class="btn btn-primary" id="confirmSubmitSoqmLeadBtn">
+                                    Send for Review
                                 </button>
                             </div>
                         </div>
@@ -1509,19 +1659,20 @@
                 <div class="modal fade" id="returnFacilitatorModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
-                            <div class="modal-header bg-warning text-dark">
-                                <h5 class="modal-title">Return Control to Facilitator</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-return" aria-hidden="true"><i class="bi bi-arrow-return-left"></i></span>
+                                <h5 class="modal-title">Return to Facilitator</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="mb-3">
-                                    Are you sure you want to return this control to the <strong>Facilitator</strong> for revision?
+                                    Return this control to the <strong>Facilitator</strong> for rework?
                                 </p>
                                 <div class="mb-3">
                                     <label for="returnComments" class="form-label">Reason for the return <span class="text-danger" aria-hidden="true">*</span></label>
                                     <textarea class="form-control" id="returnComments" rows="3" maxlength="2000" required
                                               aria-describedby="returnCommentsError"
-                                              placeholder="Provide feedback for the Facilitator..."></textarea>
+                                              placeholder="What needs to change"></textarea>
                                     <div class="invalid-feedback" id="returnCommentsError">Enter the reason for the return.</div>
                                 </div>
                             </div>
@@ -1530,7 +1681,7 @@
                                     Cancel
                                 </button>
                                 <button type="button" class="btn btn-warning" id="confirmReturnFacilitatorBtn">
-                                    Confirm Return
+                                    Return Control
                                 </button>
                             </div>
                         </div>
@@ -1541,21 +1692,22 @@
                 <div class="modal fade" id="submitProcessOwnerModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
-                            <div class="modal-header bg-success text-white">
-                                <h5 class="modal-title">Submit to Process Owner</h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-send"></i></span>
+                                <h5 class="modal-title">Send to Process Owner</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="mb-0">
-                                    Are you sure you want to submit this control to the <strong>Process Owner</strong> for review?
+                                    Send this control to the <strong>Process Owner</strong> for review?
                                 </p>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                                     Cancel
                                 </button>
-                                <button type="button" class="btn btn-success" id="confirmSubmitProcessOwnerBtn">
-                                    Confirm Submission
+                                <button type="button" class="btn btn-primary" id="confirmSubmitProcessOwnerBtn">
+                                    Send for Review
                                 </button>
                             </div>
                         </div>
@@ -1566,19 +1718,20 @@
                 <div class="modal fade" id="returnOperatorModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
-                            <div class="modal-header bg-warning text-dark">
-                                <h5 class="modal-title">Return Control to Control Operator</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-return" aria-hidden="true"><i class="bi bi-arrow-return-left"></i></span>
+                                <h5 class="modal-title">Return to Control Operator</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="mb-3">
-                                    Are you sure you want to return this control to the <strong>Control Operator</strong> for revision?
+                                    Return this control to the <strong>Control Operator</strong> for rework?
                                 </p>
                                 <div class="mb-3">
                                     <label for="returnOperatorComments" class="form-label">Reason for the return <span class="text-danger" aria-hidden="true">*</span></label>
                                     <textarea class="form-control" id="returnOperatorComments" rows="3" maxlength="2000" required
                                               aria-describedby="returnOperatorCommentsError"
-                                              placeholder="Provide feedback for the Control Operator..."></textarea>
+                                              placeholder="What needs to change"></textarea>
                                     <div class="invalid-feedback" id="returnOperatorCommentsError">Enter the reason for the return.</div>
                                 </div>
                             </div>
@@ -1587,7 +1740,7 @@
                                     Cancel
                                 </button>
                                 <button type="button" class="btn btn-warning" id="confirmReturnOperatorBtn">
-                                    Confirm Return
+                                    Return Control
                                 </button>
                             </div>
                         </div>
@@ -1600,19 +1753,22 @@
                     <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
                         <div class="modal-content">
                             <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-arrow-left-right"></i></span>
                                 <h5 class="modal-title" id="soqmMoveTitle">Move the control</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                <p class="soqm-move-now">
-                                    Now: <strong th:text="${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">In Progress</strong>.
-                                    <span th:unless="${completedControl}">As SoQM Team you can make the step of any Control role: on to the next status or back to an earlier one.</span>
+                                <p class="soqm-move-now" id="soqmMoveIntro">
+                                    Current status: <strong th:text="${@statusDisplayMapper.display(performanceStatus) ?: 'Draft'}">In Progress</strong>.
+                                    <span th:unless="${completedControl}">Move the control on, or return it to an earlier step, for any Control role.</span>
                                 </p>
+                                <!-- Opened from the Return menu: one move, named here instead of the list -->
+                                <p class="mb-3" id="soqmMovePresetIntro" hidden></p>
                                 <p class="soqm-move-now" th:if="${completedControl}" id="soqmMoveCompletedNote">
                                     A completed control is locked for everyone. Returning it keeps its values, its deadline
                                     and the completion in the history; it can be changed again from the step it goes back to.
                                 </p>
-                                <fieldset class="mb-3">
+                                <fieldset class="mb-3" id="soqmMoveTargets">
                                     <legend class="form-label fw-bold soqm-move-legend">Move to</legend>
                                     <div class="form-check soqm-move-option" th:each="m, it : ${soqmMoves}">
                                         <input class="form-check-input" type="radio" name="soqmMoveTarget"
@@ -1634,11 +1790,11 @@
                                 </fieldset>
                                 <div class="soqm-move-note d-none" id="soqmMoveNote" role="note"></div>
                                 <div class="mb-1">
-                                    <label for="soqmMoveComment" class="form-label">Comment
+                                    <label for="soqmMoveComment" class="form-label"><span id="soqmMoveCommentLabel">Comment</span>
                                         <span class="text-danger d-none" id="soqmMoveCommentMark" aria-hidden="true">*</span></label>
                                     <textarea class="form-control" id="soqmMoveComment" rows="3" maxlength="2000"
                                               aria-describedby="soqmMoveCommentError"
-                                              placeholder="Why the control moves, for the history and the notification"></textarea>
+                                              placeholder="Reason for the move, kept in the history"></textarea>
                                     <div class="invalid-feedback" id="soqmMoveCommentError">Enter a comment: a return and a step made for a Control role need one.</div>
                                 </div>
                                 <div class="text-danger small mt-2 d-none" id="soqmMoveError" role="alert"></div>
@@ -1657,12 +1813,13 @@
                     <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
                         <div class="modal-content">
                             <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-pencil"></i></span>
                                 <h5 class="modal-title" id="completedEditReasonTitle">Save changes to a completed control</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                <p class="completed-edit-intro" id="completedEditReasonIntro">The control stays Completed. The
-                                    Changelog shows your changes as &ldquo;Edited after completion&rdquo;, with your name and this reason.</p>
+                                <p class="completed-edit-intro" id="completedEditReasonIntro">Status remains Completed. The change
+                                    is logged as &ldquo;Edited after completion&rdquo; with your name and reason.</p>
                                 <label for="completedEditReason" class="form-label">Reason
                                     <span class="text-danger" aria-hidden="true">*</span></label>
                                 <textarea class="form-control" id="completedEditReason" rows="3" maxlength="500" required
@@ -1683,13 +1840,14 @@
                 <div class="modal fade" id="completeControlModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
-                            <div class="modal-header bg-success text-white">
+                            <div class="modal-header">
+                                <span class="vc-modal-icon vc-modal-icon-complete" aria-hidden="true"><i class="bi bi-check2-circle"></i></span>
                                 <h5 class="modal-title">Complete Control</h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="mb-0">
-                                    Are you sure you want to complete this control? The workflow will be marked as <strong>Completed</strong>.
+                                    Complete this control? Its status becomes <strong>Completed</strong>.
                                 </p>
                             </div>
                             <div class="modal-footer">
@@ -1697,7 +1855,7 @@
                                     Cancel
                                 </button>
                                 <button type="button" class="btn btn-success" id="confirmCompleteControlBtn">
-                                    Confirm Completion
+                                    Complete Control
                                 </button>
                             </div>
                         </div>
@@ -1712,9 +1870,11 @@
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
-<script src="/js/shared-with.js?v=3"></script>
-<script src="/js/view-control.js?v=7.4"></script>
-<script src="/js/workflow-move.js?v=1"></script>
+<script src="/js/shared-with.js?v=4"></script>
+<script src="/js/multi-value.js?v=2"></script>
+<script src="/js/view-control.js?v=8.9"></script>
+<script src="/js/create-control.js?v=5"></script>
+<script src="/js/workflow-move.js?v=2"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {
@@ -1754,18 +1914,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // FACILITATOR: Show "Submit to Control Operator" button
     if (canUseWorkflowActions && submitToOperatorBtn && isFacilitator && performanceStatus === 'IN_PROGRESS') {
-        submitToOperatorBtn.style.display = 'inline-block';
+        submitToOperatorBtn.style.display = '';
         console.log('   ? Submit to Control Operator button shown for Facilitator');
     }
 
     // CONTROL OPERATOR: Show "Submit to SoQM Team" and "Return to Facilitator" buttons
     if (canUseWorkflowActions && isControlOperator && performanceStatus === 'REVIEW') {
         if (submitToSoqmLeadBtn) {
-            submitToSoqmLeadBtn.style.display = 'inline-block';
+            submitToSoqmLeadBtn.style.display = '';
             console.log('   ? Submit to SoQM Team button shown for Control Operator');
         }
         if (returnToFacilitatorBtn) {
-            returnToFacilitatorBtn.style.display = 'inline-block';
+            returnToFacilitatorBtn.style.display = '';
             console.log('   ? Return to Facilitator button shown for Control Operator');
         }
     }
@@ -1773,43 +1933,41 @@ document.addEventListener('DOMContentLoaded', function() {
     // SoQM Team: Show "Submit to Process Owner" and "Return to Operator" buttons
     if (canUseWorkflowActions && isSoqmLead && performanceStatus === 'SOQM_HEAD_REVIEW') {
         if (submitToProcessOwnerBtn) {
-            submitToProcessOwnerBtn.style.display = 'inline-block';
+            submitToProcessOwnerBtn.style.display = '';
             console.log('   ? Submit to Process Owner button shown for SoQM Team');
 
             // Keep buttons disabled until SoQM Head/Team Comments is filled
             const soqmCommentsField = document.getElementById('soqmHeadComments');
             if (soqmCommentsField) {
+                const returnWait = document.getElementById('returnToOperatorWait');
                 const toggleBtns = () => {
                     const filled = !!soqmCommentsField.value.trim();
                     submitToProcessOwnerBtn.disabled = !filled;
                     if (returnToOperatorBtn) returnToOperatorBtn.disabled = !filled;
-                    // A disabled button says what it waits for
-                    submitToProcessOwnerBtn.title = filled ? 'Submit this control to Process Owner for review'
-                        : 'Fill SoQM Head/Team Comments to enable';
-                    if (returnToOperatorBtn) {
-                        returnToOperatorBtn.title = filled ? 'Return this control to Control Operator for revision'
-                            : 'Fill SoQM Head/Team Comments to enable';
-                    }
+                    // A disabled button says what it waits for (the menu item under its label)
+                    submitToProcessOwnerBtn.title = filled ? 'Send to the Process Owner for review'
+                        : 'Add SoQM Head/Team Comments first';
+                    if (returnWait) returnWait.hidden = filled;
                 };
                 toggleBtns(); // set initial state based on existing value
                 soqmCommentsField.addEventListener('input', toggleBtns);
                 soqmCommentsField.addEventListener('change', toggleBtns);
             }
         }
-        if (returnToOperatorBtn) {
-            returnToOperatorBtn.style.display = 'inline-block';
-            console.log('   ? Return to Operator button shown for SoQM Team');
+        const soqmReturnGroup = document.getElementById('soqmReturnGroup');
+        if (soqmReturnGroup) {
+            soqmReturnGroup.style.display = '';
         }
     }
 
     // PROCESS OWNER: Show "Complete" and "Return to Control Operator" buttons
     if (canUseWorkflowActions && isProcessOwner && performanceStatus === 'PROCESS_OWNER_REVIEW') {
         if (completeControlBtn) {
-            completeControlBtn.style.display = 'inline-block';
+            completeControlBtn.style.display = '';
             console.log('   ? Complete button shown for Process Owner');
         }
         if (ownerReturnToOperatorBtn) {
-            ownerReturnToOperatorBtn.style.display = 'inline-block';
+            ownerReturnToOperatorBtn.style.display = '';
         }
 
         // Keep buttons disabled until Process Owner Comments is filled
@@ -1821,11 +1979,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (ownerReturnToOperatorBtn) ownerReturnToOperatorBtn.disabled = !filled;
                 // A disabled button says what it waits for
                 if (completeControlBtn) {
-                    completeControlBtn.title = filled ? 'Complete this control' : 'Fill Process Owner Comments to enable';
+                    completeControlBtn.title = filled ? 'Approve and complete the control' : 'Add Process Owner Comments first';
                 }
                 if (ownerReturnToOperatorBtn) {
-                    ownerReturnToOperatorBtn.title = filled ? 'Return this control to the Control Operator for revision'
-                        : 'Fill Process Owner Comments to enable';
+                    ownerReturnToOperatorBtn.title = filled ? 'Return to the Control Operator for rework'
+                        : 'Add Process Owner Comments first';
                 }
             };
             togglePoBtns();
@@ -1933,7 +2091,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!btn.hasAttribute('data-original-title')) {
                         btn.setAttribute('data-original-title', btn.title);
                     }
-                    btn.title = 'Fill ' + label + ' to enable submission';
+                    btn.title = 'Add ' + label + ' first';
                     btn.style.cursor = 'not-allowed';
                     btn.style.opacity = '0.5';
                     btn.style.pointerEvents = 'none';
@@ -2459,7 +2617,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (window.qtrackerPermissions && window.qtrackerPermissions.completedEdit) {
             const reason = await askCompletedEditReason({
                 title: 'Hide this file',
-                intro: 'Nobody sees or downloads the file any more; it is kept for the records. The control stays Completed and the Changelog shows the change as \u201cEdited after completion\u201d, with your name and this reason.',
+                intro: 'The file will be hidden from all users and retained for records. Status remains Completed. The change is logged as \u201cEdited after completion\u201d with your name and reason.',
                 confirmText: 'Hide file'
             });
             if (reason === null) return;
@@ -2474,7 +2632,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Download through fetch: an error comes back as JSON, which the browser would otherwise save as the file
-    const FILE_UNAVAILABLE = 'File is not available. Contact SoQM Team';
+    const FILE_UNAVAILABLE = 'File is not available. Contact SoQM Admin Team';
     document.addEventListener('click', async function(e) {
         const link = e.target.closest('a.download-btn');
         if (!link) return;

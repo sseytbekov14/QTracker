@@ -58,7 +58,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.jpa.show-sql=false",
         "spring.flyway.enabled=false",
-        "reminders.enabled=false",
+        "notifications.scheduler.enabled=false",
         "file.upload.dir=target/it-uploads-shared-with"
 })
 @AutoConfigureMockMvc
@@ -327,7 +327,8 @@ class SharedWithFieldIT {
             }
         }
         assertThat(rows).doesNotContainKey("Shared With")
-                .containsEntry("Control Shared With", readerAll.getMail() + ", " + reader.getMail());
+                .containsEntry("Control Shared With", readerAll.getDisplayName() + " (" + readerAll.getMail() + "); "
+                        + reader.getDisplayName() + " (" + reader.getMail() + ")");
     }
 
     // ------------------------------------------------------------------ helpers

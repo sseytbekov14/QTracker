@@ -1,6 +1,7 @@
 package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.security.AuthMode;
 import com.kpmg.qtracker.enums.AccessRight;
 import com.kpmg.qtracker.enums.UserRole;
 import com.kpmg.qtracker.enums.Visibility;
@@ -36,6 +37,7 @@ public class AdminViewController {
 
     private final UserService userService;
     private final AdminAuditTrail adminAuditTrail;
+    private final AuthMode authMode;
 
     /** One row of the users table: the user, their access as people see it, and whether it is the viewer. */
     public record UserRow(User user, AccessPolicy.Profile profile, String summary, String lastLogin, boolean self) {
@@ -95,6 +97,8 @@ public class AdminViewController {
         model.addAttribute("accessHints", RoleDisplayMapper.hints());
         model.addAttribute("roleSummaries", RoleDisplayMapper.roleSummaries());
         model.addAttribute("canManageUsers", AccessPolicy.canManageUsers(subject));
+        // With SSO people sign in with their corporate e-mail at Microsoft and get no password
+        model.addAttribute("sso", authMode.sso());
         AdminAuditTrail.Trail trail = adminAuditTrail.latest();
         model.addAttribute("auditTrail", trail.entries());
         model.addAttribute("auditCounts", trail.counts());

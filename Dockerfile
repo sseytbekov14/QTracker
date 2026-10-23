@@ -10,6 +10,11 @@ RUN chown app:app /app/app.jar
 
 USER app
 
-EXPOSE 8080
+# Порт и HTTPS задаются переменными окружения (SERVER_PORT, SERVER_SSL_*) в docker-compose.yml.
+# Не задавайте их здесь параметрами -D: такие параметры перебивают переменные окружения.
+EXPOSE 8081
 
-ENTRYPOINT ["java", "-Xmx384m", "-Xms384m", "-Dserver.port=${PORT:8080}", "-jar", "/app/app.jar"]
+# Память меняется без пересборки: JAVA_OPTS в .env
+ENV JAVA_OPTS="-Xms256m -Xmx768m"
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]

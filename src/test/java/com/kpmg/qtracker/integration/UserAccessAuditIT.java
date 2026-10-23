@@ -47,7 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.flyway.enabled=false",
         "spring.jpa.open-in-view=true",
-        "reminders.enabled=false",
+        "notifications.scheduler.enabled=false",
         "file.upload.dir=target/it-uploads"
 })
 @AutoConfigureMockMvc
@@ -102,17 +102,17 @@ class UserAccessAuditIT {
                         .param("role", "SOQM_TEAM")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.audit.action").value("Changed role from User · My controls · Edit to SoQM Team"));
+                .andExpect(jsonPath("$.audit.action").value("Changed role from User · My controls · Edit to SoQM Admin Team"));
         AdminAuditLog toSoqm = latestAccessEntry(admin);
         assertThat(toSoqm.getChangedFields()).isEqualTo("role");
         assertThat(toSoqm.getPreviousValues()).isEqualTo("role=User · My controls · Edit");
-        assertThat(toSoqm.getNewValues()).isEqualTo("role=SoQM Team");
+        assertThat(toSoqm.getNewValues()).isEqualTo("role=SoQM Admin Team");
 
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).session(session)
                         .param("role", "KDN")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.audit.action").value("Changed role from SoQM Team to KDN · All KDN controls · Read Only"));
+                .andExpect(jsonPath("$.audit.action").value("Changed role from SoQM Admin Team to KDN · All KDN controls · Read Only"));
         assertThat(accessEntries(admin)).hasSize(2);
     }
 
@@ -249,23 +249,44 @@ class UserAccessAuditIT {
     }
 
     @Test
-    void emailOfSomeoneWhoSignedIn_cannotChange_andTheRestOfTheSaveIsNotApplied() throws Exception {
+    void ownEmail_cannotChange_andTheRestOfTheSaveIsNotApplied() throws Exception {
+        User admin = saveAdmin();
+        String name = admin.getDisplayName();
+
+        mockMvc.perform(post("/api/users/" + admin.getId() + "/access").with(csrf().asHeader()).session(login(admin.getMail()))
+                        .param("email", "audit-moved-" + suffix() + "@example.test")
+                        .param("displayName", "Another Name")
+                        .param("role", "SOQM_TEAM")
+                        .param("enabled", "true"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("You cannot change your own e-mail: ask another admin"));
+
+        User stored = userRepository.findById(admin.getId()).orElseThrow();
+        assertThat(stored.getMail()).isEqualTo(admin.getMail());
+        assertThat(stored.getDisplayName()).isEqualTo(name);
+        assertThat(accessEntries(admin)).isEmpty();
+    }
+
+    /** 2026-10-21: an admin changes the e-mail of someone who has signed in; the audit has it before and after. */
+    @Test
+    void emailOfSomeoneWhoSignedIn_changes_andIsAudited() throws Exception {
         User admin = saveAdmin();
         User target = saveUser("audit-signed-" + suffix() + "@example.test", "FACILITATOR");
         target.setLastLoginAt(LocalDateTime.of(2026, 10, 1, 9, 30));
         userRepository.save(target);
+        String moved = "audit-moved-" + suffix() + "@example.test";
 
         mockMvc.perform(post("/api/users/" + target.getId() + "/access").with(csrf().asHeader()).session(login(admin.getMail()))
-                        .param("email", "audit-moved-" + suffix() + "@example.test")
-                        .param("role", "SOQM_TEAM")
+                        .param("email", moved.toUpperCase(java.util.Locale.ROOT))
+                        .param("role", "USER")
                         .param("enabled", "true"))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string("Email can be changed only before the first login"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mail").value(moved));
 
-        User stored = userRepository.findById(target.getId()).orElseThrow();
-        assertThat(stored.getMail()).isEqualTo(target.getMail());
-        assertThat(stored.getAccessLevel()).isEqualTo(AccessLevel.PARTICIPANT);
-        assertThat(accessEntries(admin)).isEmpty();
+        assertThat(userRepository.findById(target.getId()).orElseThrow().getMail()).isEqualTo(moved);
+        assertThat(accessEntries(admin)).hasSize(1);
+        assertThat(accessEntries(admin).get(0).getPreviousValues()).contains(target.getMail());
+        assertThat(accessEntries(admin).get(0).getNewValues()).contains(moved);
     }
 
     private void assertSelfSaveRefused(MockHttpSession session, User admin, String role, String enabled,

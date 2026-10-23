@@ -129,6 +129,7 @@ class ControlServiceKdnVisibilityTest {
                     .containsExactly("HR-2", "KDN-1");
         }
         // The stored admin flag of a KDN user (before V11) does not open every control: only the KDN ones
+        when(controlRepository.findKdnCandidatesOrderByIdDesc()).thenReturn(List.of(hr, kdn));
         when(controlAssignmentRepository.findAllById(anyIterable())).thenReturn(List.of());
         assertThat(controlService.findVisibleControlsForUser(
                 TestUsers.user("admin@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, true)))
@@ -159,16 +160,19 @@ class ControlServiceKdnVisibilityTest {
         assertThat(controlService.findVisibleControlsForUser(disabled)).isEmpty();
     }
 
-    /** KDN: every control is a candidate, newest first, as the repository gives them. */
+    /**
+     * KDN: the repository's candidates (KDN anywhere in the ID), newest first; given here with other controls too, so
+     * the policy alone decides which are KDN controls (ReleaseScenarioQueriesIT reads the real candidates).
+     */
     private void everyControl(List<Control> controls, List<ControlAssignment> assignments) {
-        when(controlRepository.findAllByOrderByIdDesc()).thenReturn(controls);
+        when(controlRepository.findKdnCandidatesOrderByIdDesc()).thenReturn(controls);
         when(controlAssignmentRepository.findAllById(anyIterable())).thenReturn(assignments);
     }
 
     private void candidates(List<Control> controls, List<ControlAssignment> assignments) {
         List<Long> ids = controls.stream().map(Control::getId).toList();
-        lenient().when(controlAssignmentRepository.findControlIdsByFacilitator(MAIL)).thenReturn(ids);
-        lenient().when(controlAssignmentRepository.findControlIdsByFacilitator("soqm@kpmg.kz")).thenReturn(ids);
+        lenient().when(controlAssignmentRepository.findControlIdsByPerson(MAIL)).thenReturn(ids);
+        lenient().when(controlAssignmentRepository.findControlIdsByPerson("soqm@kpmg.kz")).thenReturn(ids);
         when(controlAssignmentRepository.findAllById(anyIterable())).thenReturn(assignments);
         when(controlRepository.findAllById(anyIterable())).thenReturn(controls);
     }

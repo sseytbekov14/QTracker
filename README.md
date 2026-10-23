@@ -35,11 +35,16 @@ Mapped to real modules and classes:
   - `WorkflowServiceImpl`, `WorkflowRequiredFieldService`
 - Role-based authorization and permission checks
   - `SecurityConfig`, `ControlPermissionService`, `PermissionService`, `ControlScope`
-- Notifications (in-app and email)
-  - `NotificationService`, `NotificationTemplateService`, `EmailNotificationService`
-- Reminder and auto-creation scheduling
-  - `ControlReminderScheduler`, `ControlAutoCreationScheduler`
-  - `ReminderNotificationService`, `ControlAutoCreationService`
+- Notifications (in-app and email, NOTIFICATIONS_v5: texts T1-T12 in table `notification_template`, the shorter
+  texts of 2026-10-20 since V21: "Dear {NAME}," with the person's name, {LINK} on a line of its own - "Go to Control"
+  in the e-mail, left out in-app)
+  - `service/notification`: `WorkflowNotifications` (Initiate, Create Control, every workflow move),
+    `PlannedNotificationScheduler` (occurrence day, reminders, deadline, overdue), `NotificationProducer`
+    (in-app notification + e-mail in the outbox `email_outbox`), `EmailOutboxDispatcher` (sends, retries),
+    `MailTransport` (`smtp` or `log`)
+  - `NotificationService`: the Notifications section (read, mark read)
+- Create Control (the next cycle of a Monthly or Quarterly control, by hand only)
+  - `ControlNextCycleController`, `ControlCycleService`
 - Attachment upload/download/delete
   - `FileAttachmentController`, `FileStorageService`
 - Dashboard and performance endpoints
@@ -97,8 +102,10 @@ Top-level structure:
 3. Run:
 
 ```powershell
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"
 ```
+
+There is no default profile: without `SPRING_PROFILES_ACTIVE` (or `--spring.profiles.active`) set to `dev`, `stage` or `prod` the application refuses to start (`StartupGuard`).
 
 ### Option B: Docker Compose run
 Run database + app containers together:
@@ -113,7 +120,13 @@ Default host app port is from `APP_PORT` in `.env` (fallback `8081`).
 Repository-defined variables from `application*.yml`, `.env`, `.env.example`, `.env.local`:
 
 ### Core application
-- `SPRING_PROFILES_ACTIVE`
+- `SPRING_PROFILES_ACTIVE` (required: `dev`, `stage` or `prod`)
+- `SERVER_FORWARD_HEADERS_STRATEGY` (default `none`; `native` only behind an HTTP proxy that sets `X-Forwarded-*`)
+- `AUTH_SSO_ENABLED`, `AUTH_PASSWORD_ENABLED` (exactly one is true; prod defaults to SSO, dev and stage to the password), `AUTH_LOGOUT_ENABLED` (default: off, with SSO and with the password; `true` brings the Logout link back)
+- `SAML_ENTITY_ID`, `SAML_ACS_URL`, `SAML_METADATA_URI` (required with SSO, no defaults)
+- `AUTH_SSO_DEBUG_ENDPOINT` (default `false`): `GET /me` shows the signed-in person the SAML claims of their own sign-in; a WARN at start when on in prod
+- `SERVER_SERVLET_SESSION_COOKIE_SAME_SITE`, `SERVER_SERVLET_SESSION_COOKIE_SECURE` (with SSO default to `none` and `true`, HttpOnly too: Microsoft's POST to the Assertion Consumer Service is cross-site; HTTPS only)
+- `RATE_LIMIT_WINDOW_SECONDS` (60), `RATE_LIMIT_LOGIN` (20), `RATE_LIMIT_API_WRITE` (120), `RATE_LIMIT_USER_LIST` (120), `RATE_LIMIT_HEAVY` (20): requests per window before 429; sign-ins count per name and address together, the rest per signed-in user (behind the port forward every client has the same address); Microsoft's answers to `/login/saml2/**` are not counted
 - `SERVER_PORT`
 - `APP_PORT`
 - `APP_BASE_URL`
@@ -134,13 +147,12 @@ Repository-defined variables from `application*.yml`, `.env`, `.env.example`, `.
 - `SPRING_MAIL_PORT`
 - `SPRING_MAIL_USERNAME`
 - `SPRING_MAIL_PASSWORD`
-- `NOTIFICATIONS_EMAIL_ENABLED`
-- `NOTIFICATIONS_EMAIL_WHITELIST_ENFORCED`
-- `NOTIFICATIONS_EMAIL_WHITELIST`
-
-### Scheduling / behavior
-- `CONTROLS_AUTO_CREATE_ENABLED`
-- `OVERDUE_USE_WORKING_DAYS`
+- `NOTIFICATIONS_EMAIL_ENABLED` (false: the e-mails are recorded `SKIPPED_DISABLED` and never sent)
+- `NOTIFICATIONS_EMAIL_PROVIDER` (`smtp`, default, or `log`)
+- `NOTIFICATIONS_EMAIL_FROM` (the service mailbox the e-mails come from; empty by default: with `NOTIFICATIONS_EMAIL_ENABLED=true` the start logs a WARN, the application still starts, and the e-mails go without a From address, which the SMTP relay may refuse)
+- `NOTIFICATIONS_EMAIL_WHITELIST_ENFORCED` (default false: everybody gets e-mails; true: only the addresses of `NOTIFICATIONS_EMAIL_WHITELIST`, the others are recorded `SKIPPED_DISABLED` "not in the whitelist"; true with an empty list sends to nobody, with a WARN at start)
+- `NOTIFICATIONS_EMAIL_WHITELIST` (comma-separated addresses, compared ignoring case)
+- `NOTIFICATIONS_SCHEDULER_ENABLED` (default true: the planned notifications)
 
 ### Upload / request limits
 - `MAX_UPLOAD_FILE_SIZE`
@@ -156,6 +168,8 @@ Note:
 
 ## Spring Profiles
 
+Exactly one of `dev`, `stage` and `prod` must be given (the tests use `test`); none is the default.
+
 - `dev`
   - Uses dev datasource defaults if env vars are not provided.
   - Security chain uses form login and `DevAuthenticationProvider`.
@@ -165,9 +179,7 @@ Note:
 - `prod`
   - Externalized datasource and file/upload settings.
   - JPA `ddl-auto=validate`, SQL logging disabled.
-- `ssodev`
-  - Enables OAuth2 login in `SecurityConfig`.
-  - Intended for SSO-based authentication path.
+  - Its own security chain; sign-in with Microsoft Entra ID (SAML 2.0) by default.
 
 ## Database and Migrations
 Flyway migration scripts:
@@ -181,7 +193,7 @@ Core tables created in V1:
 - `workflow_steps`
 - `workflow_history`
 - `notifications`
-- `control_notification_log`
+- `control_notification_log` (no longer written since the notifications of v5; kept with its rows)
 - `admin_audit_log`
 
 Entity model highlights:
@@ -191,28 +203,26 @@ Entity model highlights:
 ## Schedulers
 Schedulers under `src/main/java/com/kpmg/qtracker/scheduler`:
 
-- `ControlReminderScheduler`
-  - Daily reminder run
-  - `@ConditionalOnProperty(reminders.enabled=true)`
-- `ControlAutoCreationScheduler`
-  - Daily auto-creation run
-  - `@ConditionalOnProperty(controls.auto-create.enabled=true)`
-- Periodic schedulers (Monthly, Quarterly, SemiAnnual, Annual)
-- `RecurringNotificationScheduler`
-- `AdhocNotificationScheduler`
+- `PlannedNotificationTrigger`: every 5 minutes Monday to Friday; `PlannedNotificationScheduler` starts at 09:30
+  Asia/Almaty and makes what today calls for (the same for every frequency); off with
+  `NOTIFICATIONS_SCHEDULER_ENABLED=false`
+- `EmailOutboxDispatchTrigger`: every 20 seconds, sends the e-mails of `email_outbox`
 
-All scheduler cron definitions are in code with `Asia/Almaty` timezone.
+The cron is in code with the `Asia/Almaty` timezone; the times come from the `Clock` bean.
 
 ## Security Overview
-Authentication:
-- `dev` profile: form login (`/login`) with `DevAuthenticationProvider`
-- `ssodev` profile: OAuth2 login (`oauth2Login`)
+Authentication (`AuthMode`, exactly one of the two):
+- SSO (`AUTH_SSO_ENABLED=true`, the prod default): SAML 2.0 with Microsoft Entra ID, registration `entra` (`SamlConfig`, `SsoSignIn`). Settings `SAML_ENTITY_ID`, `SAML_ACS_URL` (`https://<site>/login/saml2/sso/entra`), `SAML_METADATA_URI`; the Entra Sign on URL is `APP_BASE_URL/saml2/authenticate/entra`, the service provider metadata is at `/saml2/metadata/entra`. No password form then.
+- Password form (`AUTH_PASSWORD_ENABLED=true`, the dev and stage default): `/login` with `DevAuthenticationProvider`.
+- Without a session `/api/**` answers 401 JSON (`SESSION_EXPIRED`), pages go to the sign-in and come back to the page asked for. Sessions end after 15 minutes without a request; `js/session.js` shows "Session expired, reload the page" on such a 401 (nothing is reloaded or cleared) and, while someone types, calls `GET /api/session/keepalive` at most once in 5 minutes.
+- Before SSO the imported people need their real address (the import gave them `<login>@qtracker.local`, which SSO refuses): `java -jar qtracker.jar --update-user-emails migration/<file>.csv` with the columns `User` (login or display name) and `Email`; a dry run unless `--apply`, all or nothing, idempotent, audited; the console shows line numbers and user ids only, the list with the addresses is written next to the file. With SSO the Admin Panel's Add User needs the corporate e-mail and sets no password.
+- Logout (`AUTH_LOGOUT_ENABLED`, off by default since 2026-10-16): there is no Logout link and no `/logout`, and the sidebar says nothing about it. Switched on with SSO, `/logout` ends only the QTracker session (`/signed-out` says so).
 
 Authorization:
 - Endpoint protection configured in `SecurityConfig`
 - Per-control permissions in `ControlPermissionService`; one read rule for pages and the REST API in `PermissionService.readAccess` / `requireReadable` (no field is hidden on read)
-- Roles (`users.role`): `FACILITATOR`, `CONTROL_OPERATOR`, `PROCESS_OWNER`, `SOQM_TEAM`, `KDN` (read-only, KDN controls only); optional secondary role `FACILITATOR`, `CONTROL_OPERATOR` or `PROCESS_OWNER`
-- Administration through the `admin_access` flag, independent of the role; the dev seeder's `ADMIN` role sees all controls in lists but has no other admin rights
+- Roles from `users.access_level` and `users.access_scope` (`AccessPolicy.Profile`): SoQM Team, User (My or All controls, Edit or Read Only), KDN (read-only, KDN controls only); Facilitator, Control Operator and Process Owner are assignments on a control, not user roles. The old `users.role` / `secondary_role` columns were dropped in V22
+- Administration (Admin Panel) belongs to SoQM Team; `admin_access` follows the level (V11)
 
 Request protection:
 - CSRF token repository enabled (with configured exclusions)
@@ -280,7 +290,7 @@ Checks:
 
 ### 3) SMTP/email not sending
 Symptoms:
-- in-app notification exists but email is missing.
+- in-app notification exists but email is missing (see `email_outbox`: status, attempts, last_error).
 
 Checks:
 - Verify `NOTIFICATIONS_EMAIL_ENABLED=true` when email is required.

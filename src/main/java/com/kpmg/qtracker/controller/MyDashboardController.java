@@ -34,15 +34,6 @@ public class MyDashboardController {
         return ResponseEntity.ok(dashboardService.getMyComponentBreakdown(currentUser));
     }
 
-    @GetMapping("/overdue-trend")
-    public ResponseEntity<DashboardChartDataDTO> getMyOverdueTrend(HttpSession session) {
-        User currentUser = getCurrentUser(session);
-        if (currentUser == null) {
-            return ResponseEntity.status(401).build();
-        }
-        return ResponseEntity.ok(dashboardService.getMyOverdueTrend(currentUser));
-    }
-
     private User getCurrentUser(HttpSession session) {
         Object currentUser = session.getAttribute("currentUser");
         return currentUser instanceof User user ? user : null;

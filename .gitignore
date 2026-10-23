@@ -1,5 +1,7 @@
 HELP.md
 target/
+# The load test build (mvnw -Ploadtest) and its files
+target-loadtest/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
@@ -62,3 +64,14 @@ qtracker-backup-*.sql/
 ### Data migration input (personal data, never commit) ###
 /migration/
 *.csv
+
+/users.sql
+/qtracker-app.tar*
+/qtracker-deploy/
+
+### Локальные скрипты, не коммитить ###
+PUSH_TO_GIT.txt
+build*.ps1
+
+# локальная копия серверного compose, не коммитить (содержит внутренние имена)
+docker-compose.server.yml

@@ -4,6 +4,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.enums.AccessRight;
 import com.kpmg.qtracker.enums.AccessScope;
+import com.kpmg.qtracker.enums.ControlFrequency;
 import com.kpmg.qtracker.enums.UserRole;
 import com.kpmg.qtracker.enums.Visibility;
 
@@ -35,8 +36,8 @@ import java.util.Set;
  *   <li>Shared With only views (spec 5.6): no edit, upload or workflow step, also on completed controls.</li>
  *   <li>A completed control is locked for everyone but SoQM Team ({@link #isLocked}), who change it in place with a
  *   reason ({@link #editsAfterCompletion}, business decision of 2026-10-09) or return it to an earlier status
- *   (business decision 4); its schedule, SoQM Year and status stay ({@link #COMPLETED_FIXED_FIELDS}). Renaming its
- *   Control ID stays SoQM's.</li>
+ *   (business decision 4); its deadline and next date are always calculated ({@link #COMPLETED_FIXED_FIELDS}).
+ *   Renaming its Control ID stays SoQM's.</li>
  * </ul>
  */
 public final class AccessPolicy {
@@ -253,6 +254,15 @@ public final class AccessPolicy {
         return isSoqm(subject);
     }
 
+    /**
+     * Other Related Controls and IT Applications on the Details tab (business decision of 2026-10-16): everyone who
+     * sees the control sees them, only SoQM Admin Team change them (the Details save takes them with canEditAll only)
+     * and only they get the list of controls to choose from.
+     */
+    public static boolean choosesRelatedControls(Subject subject) {
+        return isSoqm(subject);
+    }
+
     /** Renaming the Control ID from one to the other makes the control a KDN control or stops it being one. */
     public static boolean renameChangesKdn(String oldControlId, String newControlId) {
         return isKdnControl(oldControlId) != isKdnControl(newControlId);
@@ -306,12 +316,42 @@ public final class AccessPolicy {
     }
 
     /**
-     * The "KDN" card of the Action Centre ({@link KdnControlsOverview}): shown to those who see the KDN
-     * controls without being on them (SoQM Team, All controls, KDN), even before there is one; to My controls
-     * only when some of the controls they see are KDN controls. Which controls it lists is {@link #canView}'s.
+     * The KDN page (/kdn) and its item in the menu (business decision of 2026-10-13, it took the place of the Action
+     * Centre's "KDN controls" card): the role KDN, SoQM Admin Team and a User with All controls always, even before
+     * there is a KDN control; a User with My controls only when some of the controls they see are KDN controls
+     * ({@link #isKdnControl}). Which controls it lists is {@link #canView}'s.
      */
-    public static boolean showsKdnBlock(Subject subject, long visibleKdnControls) {
+    public static boolean seesKdnPage(Subject subject, long visibleKdnControls) {
         return active(subject) && (visibleKdnControls > 0 || seesWithoutBeingOn(subject));
+    }
+
+    /**
+     * Whether the role KDN has the Dashboard and the Action Centre (their pages and menu items). Off (business
+     * decision of 2026-10-13): a KDN user starts on /kdn, the menu has only KDN ({@link #hasNotifications}), and the dashboard,
+     * the Action Centre and the component lists lead to /kdn. Set to true to give the dashboard back.
+     */
+    public static final boolean KDN_SEES_DASHBOARD = false;
+
+    /** The Dashboard, the Action Centre and the component lists: everyone but the role KDN ({@link #KDN_SEES_DASHBOARD}). */
+    public static boolean seesDashboard(Subject subject) {
+        return !isKdnUser(subject) || KDN_SEES_DASHBOARD;
+    }
+
+    /**
+     * Whether the role KDN has notifications. Off (business decision of 2026-10-14): no Notifications item, bell or
+     * counter in the menu, /notifications leads to /kdn, and no notification is made for a KDN user, in the
+     * application or by e-mail, also where they are assigned to a KDN control. Set to true to give them back.
+     */
+    public static final boolean KDN_HAS_NOTIFICATIONS = false;
+
+    /**
+     * Notifications - receiving them in the application and by e-mail, the menu item and its counter, the pages:
+     * everyone but the role KDN ({@link #KDN_HAS_NOTIFICATIONS}). A User with Edit assigned to a KDN control gets them
+     * like on any other control. The one place this rule lives; null (no user) has none.
+     */
+    public static boolean hasNotifications(Subject subject) {
+        return subject != null
+                && (KDN_HAS_NOTIFICATIONS || subject.scope() != AccessScope.KDN || subject.level() == AccessLevel.SOQM);
     }
 
     /**
@@ -335,8 +375,12 @@ public final class AccessPolicy {
         return isSoqm(subject);
     }
 
-    /** The Excel export of every control (Controls page button and the server export). */
-    public static boolean canExportAllControls(Subject subject) {
+    /**
+     * The Excel export of a list (a component, All components, KDN): SoQM Admin Team only; the button is shown to
+     * them alone and the server refuses everyone else (403). The Excel of one completed control is
+     * {@link #canExportCompletedControl}.
+     */
+    public static boolean canExportControlLists(Subject subject) {
         return isSoqm(subject);
     }
 
@@ -356,7 +400,7 @@ public final class AccessPolicy {
      */
     public static Optional<String> levelScopeRefusal(AccessLevel level, AccessScope scope) {
         if (level == AccessLevel.SOQM && scope != AccessScope.ALL) {
-            return Optional.of("SoQM Team always sees all controls");
+            return Optional.of("SoQM Admin Team always sees all controls");
         }
         if (scope == AccessScope.KDN && level != AccessLevel.READ_ONLY) {
             return Optional.of("KDN access is always Read Only");
@@ -470,36 +514,91 @@ public final class AccessPolicy {
     }
 
     /**
-     * SoQM Team changing a completed control in place, without returning it (business decision of 2026-10-09):
-     * every field of its tabs, Control Operator's Program, Control Steps Performed and Results, the attachments
-     * (upload, and a delete that only hides the file, see FileAttachmentController) and the people, Shared With
-     * included - not {@link #COMPLETED_FIXED_FIELDS}. The status, the completion and its date, reopened_at, "Closed
-     * late", the auto-creation of the next cycle and Overdue stay as they are; every change needs a reason and is
-     * marked "Edited after completion" ({@link CompletedEdit}).
+     * SoQM Admin Team changing a completed control in place, without returning it (business decisions of 2026-10-09
+     * and 2026-10-14): every field of every tab - Control Status, SoQM Year, the Control Operation Date and the
+     * frequency included -, Control Operator's Program, Control Steps Performed and Results, the attachments (upload,
+     * and a delete that only hides the file, see FileAttachmentController) and the people, Shared With included; not
+     * {@link #COMPLETED_FIXED_FIELDS}, which are calculated. Every change needs a reason, is audited before and after
+     * and marked "Edited after completion" ({@link CompletedEdit}); nobody is notified
+     * ({@link #notifiesOnCompletedEdit}). The workflow status, the completion and its date and reopened_at stay as
+     * they are; "Closed late" follows the recalculated deadline.
      */
     public static boolean editsAfterCompletion(Subject subject, ControlFacts control) {
         return isCompleted(control) && isSoqm(subject) && !isLocked(subject, control);
     }
 
     public static final String LOCKED_MESSAGE =
-            "This control is completed and locked: only SoQM Team can change it";
+            "This control is completed and locked: only SoQM Admin Team can change it";
 
     /**
-     * What a completed control keeps for everyone, SoQM Team changing it in place included: its schedule (the
-     * Control Operation Date, the frequency, the deadline and the next date, which the auto-creation of the next
-     * cycle and "Closed late" follow), its SoQM Year and its Control Status. The Control ID changes only through
-     * Rename ID ({@link #canRenameId}) and the workflow status only through a workflow move ({@link #soqmTargets}).
-     * The save paths refuse a change of one of these ({@link #completedFixedMessage}) and keep the stored value
-     * when the same one is sent; the deadline and the next date are never taken from a request.
-     * TODO: BUSINESS CONFIRMATION: may the dates and the frequency of a completed control change?
+     * What nobody changes on a completed control, SoQM Admin Team included (business decision of 2026-10-14): the
+     * deadline and the next date. They are read only on the page and never taken from a request; the server
+     * calculates them from the Control Operation Date and the frequency by the usual rules
+     * (ControlScheduleCalculator) whenever one of those two changes, on a completed control as on any other, and
+     * "Closed late" follows the new deadline. Such a change makes no new control and sends no e-mail by itself
+     * (TODO: BUSINESS CONFIRMATION); Create Control later takes the new next date as for every control.
+     * The Control ID changes only through Rename ID ({@link #canRenameId}) and the workflow status only through a
+     * workflow move ({@link #soqmTargets}).
      */
     public static final List<String> COMPLETED_FIXED_FIELDS = List.of(
-            "Control Operation Date", "Control Frequency", "Control Operation Deadline",
-            "Next Control Operation Date", "SoQM Year", "Control Status");
+            "Control Operation Deadline", "Next Control Operation Date");
 
-    /** Why a save may not change one of {@link #COMPLETED_FIXED_FIELDS}. */
-    public static String completedFixedMessage(String field) {
-        return field + " cannot be changed on a completed control";
+    /**
+     * Whether saving a completed control in place tells anyone, a person newly in Shared With included: no
+     * (business decision of 2026-10-14). The Changelog and the audit trail record the change.
+     */
+    public static boolean notifiesOnCompletedEdit() {
+        return false;
+    }
+
+    /**
+     * Whether a control of this frequency offers the Create Control button for its next cycle (business decision of
+     * 2026-10-14): Monthly and Quarterly only, so the button goes when the frequency stops being one of them, a
+     * completed control included. A frequency the application does not know offers none.
+     */
+    public static boolean frequencyOffersCreateControl(String frequency) {
+        return ControlFrequency.tryFromValue(frequency)
+                .map(value -> value == ControlFrequency.MONTHLY || value == ControlFrequency.QUARTERLY)
+                .orElse(false);
+    }
+
+    /**
+     * Create Control, the next cycle made by hand from View Control (business decision of 2026-10-14): SoQM Admin
+     * Team, on a control they see. Everyone else - Users, Read Only, KDN - is refused (403) before the control itself is
+     * looked at ({@link #nextCycleRefusal}, 400).
+     */
+    public static boolean canCreateNextCycle(ControlPermission permission) {
+        return permission != null && permission.canView() && permission.canUseWorkflowActions()
+                && permission.isSoqmLead();
+    }
+
+    public static final String NEXT_CYCLE_FREQUENCY = "Create Control is only for Monthly and Quarterly controls";
+    public static final String NEXT_CYCLE_DRAFT = "This control is still a Draft: initiate it before creating its next control";
+
+    /**
+     * Why a control makes no next cycle with Create Control (400), empty when it does: Monthly and Quarterly only
+     * ({@link #frequencyOffersCreateControl}); a draft is initiated first; a Deleted or Superseded control has no next
+     * cycle. Any working status and Completed make one (TODO: BUSINESS CONFIRMATION:
+     * from which statuses of the source).
+     */
+    public static Optional<String> nextCycleRefusal(String frequency, String performanceStatus, String controlStatus) {
+        if (!frequencyOffersCreateControl(frequency)) {
+            return Optional.of(NEXT_CYCLE_FREQUENCY);
+        }
+        if ("DRAFT".equals(normalizeStatus(performanceStatus))) {
+            return Optional.of(NEXT_CYCLE_DRAFT);
+        }
+        if (ControlStatusValue.isRetired(controlStatus)) {
+            return Optional.of("This control is " + ControlStatusValue.badge(controlStatus)
+                    + ": it has no next control");
+        }
+        return Optional.empty();
+    }
+
+    /** Whether View Control shows Create Control (on every tab): the person may use it and the control makes a next cycle. */
+    public static boolean offersCreateControl(ControlPermission permission, String frequency, String performanceStatus,
+                                              String controlStatus) {
+        return canCreateNextCycle(permission) && nextCycleRefusal(frequency, performanceStatus, controlStatus).isEmpty();
     }
 
     /** Everything the user may do on the control. */
@@ -709,9 +808,13 @@ public final class AccessPolicy {
         };
     }
 
-    /** The one-control Excel export of a completed control: SoQM, or a user it is shared with. */
+    /**
+     * The one-control Excel export of a completed control (Performance Cycle page): SoQM Admin Team only (decision of
+     * 2026-10-14; a user the control is shared with no longer exports it). The completed status is checked where the
+     * export is made.
+     */
     public static boolean canExportCompletedControl(Subject subject, ControlFacts control) {
-        return canView(subject, control) && (isSoqm(subject) || control.shared());
+        return isSoqm(subject) && canView(subject, control);
     }
 
     // ---------------------------------------------------------------- assignment
@@ -738,16 +841,56 @@ public final class AccessPolicy {
             case SHARED_WITH -> Optional.empty();
             case SOQM_LEAD -> candidate.level() == AccessLevel.SOQM
                     ? Optional.empty()
-                    : Optional.of("is not SoQM Team");
+                    : Optional.of("is not SoQM Admin Team");
             case FACILITATOR, CONTROL_OPERATOR, PROCESS_OWNER -> switch (candidate.level()) {
                 case PARTICIPANT -> Optional.empty();
-                case SOQM -> Optional.of("is SoQM Team; " + slot.getLabel() + " takes a User with Edit access");
+                case SOQM -> Optional.of("is SoQM Admin Team; " + slot.getLabel() + " takes a User with Edit access");
                 case READ_ONLY -> candidate.scope() == AccessScope.KDN && kdnControl
                         ? Optional.empty()
                         : Optional.of("has Read Only access and cannot be assigned");
             };
         };
     }
+
+    /**
+     * As {@link #assignmentRefusal(Subject, Slot, boolean)}, for a save of a control's people: a person deleted from
+     * QTracker (business decision of 2026-10-13) stays where they were until SoQM Admin Team changes it, so a save
+     * that keeps them in the same field is not refused; putting them anywhere new is ("is not a QTracker user").
+     */
+    public static Optional<String> assignmentRefusal(Subject candidate, Slot slot, boolean kdnControl,
+                                                     boolean deletedAndAlreadyThere) {
+        if (candidate == null && deletedAndAlreadyThere) {
+            return Optional.empty();
+        }
+        return assignmentRefusal(candidate, slot, kdnControl);
+    }
+
+    /**
+     * Deleting a user from the Admin Panel (business decision of 2026-10-13): SoQM Admin Team only, never oneself
+     * ({@link #DELETE_SELF}) and never the last active SoQM Admin Team member ({@link #DELETE_LAST_SOQM}); a disabled
+     * user may be deleted. The rest (the two confirmations, what is kept) is UserDeletion's.
+     *
+     * @param activeSoqmLeft active SoQM Admin Team members, the target included
+     */
+    public static Optional<String> userDeletionRefusal(Subject actor, Long actorId, Subject target, Long targetId,
+                                                       long activeSoqmLeft) {
+        if (!isSoqm(actor)) {
+            return Optional.of(DELETE_NOT_ALLOWED);
+        }
+        if (actorId != null && actorId.equals(targetId)) {
+            return Optional.of(DELETE_SELF);
+        }
+        if (target != null && target.enabled() && target.level() == AccessLevel.SOQM && activeSoqmLeft <= 1) {
+            return Optional.of(DELETE_LAST_SOQM);
+        }
+        return Optional.empty();
+    }
+
+    public static final String DELETE_NOT_ALLOWED =
+            "Only " + com.kpmg.qtracker.enums.UserRole.SOQM_TEAM_NAME + " can delete users";
+    public static final String DELETE_SELF = "You cannot delete your own account";
+    public static final String DELETE_LAST_SOQM = "This is the last active "
+            + com.kpmg.qtracker.enums.UserRole.SOQM_TEAM_NAME + " member: they cannot be deleted";
 
     /** Whether a user is offered in the picker of an assignment field (disabled users are not). */
     public static boolean isOfferedFor(Subject candidate, Slot slot, boolean kdnControl) {

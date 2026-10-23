@@ -8,6 +8,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.ControlFrequency;
 import com.kpmg.qtracker.service.*;
 import com.kpmg.qtracker.util.RoleDisplayMapper;
+import com.kpmg.qtracker.util.ValueList;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,19 +24,12 @@ public class ControlTabsController {
 
     private final ControlDetailsService controlDetailsService;
     private final ControlAssignmentService controlAssignmentService;
-    private final ControlDocumentsService controlDocumentsService;
     private final UserService userService;
     private final ControlService controlService;
     private final AdminAuditService adminAuditService;
-    private final MonthlyNotificationService monthlyNotificationService;
-    private final QuarterlyNotificationService quarterlyNotificationService;
-    private final RecurringNotificationService recurringNotificationService;
-    private final AdhocNotificationService adhocNotificationService;
-    private final AnnualNotificationService annualNotificationService;
-    private final SemiAnnualNotificationService semiAnnualNotificationService;
-    private final NotificationService notificationService;
     private final ControlPermissionService controlPermissionService;
     private final PermissionService permissionService;
+    private final RelatedControls relatedControls;
 
     @PostMapping("/api/control-details")
     public ResponseEntity<?> saveControlDetails(@Valid @RequestBody ControlDetailsDTO detailsDTO, HttpSession session) {
@@ -65,6 +59,26 @@ public class ControlTabsController {
                 return ResponseEntity.status(403).body("VALIDATION_ERROR: " + stepsRefusal);
             }
             ControlDetailsDTO mergedDetails = mergeControlDetails(existingDetails, detailsDTO, permission);
+            // Other Related Controls: Control IDs of the list SoQM Admin Team chose; null (or anyone else) keeps them
+            mergedDetails.setOtherRelatedControls(existingDetails.getOtherRelatedControls());
+            if (permission.canEditAll() && detailsDTO.getOtherRelatedControls() != null) {
+                ChosenValues.Checked related = relatedControls.check(existingDetails.getOtherRelatedControls(),
+                        detailsDTO.getOtherRelatedControls());
+                if (related.refusal() != null) {
+                    return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + related.refusal());
+                }
+                mergedDetails.setOtherRelatedControls(related.stored());
+            }
+            // IT Applications: systems of the list (ItApplications), the same rule
+            mergedDetails.setItApplications(existingDetails.getItApplications());
+            if (permission.canEditAll() && detailsDTO.getItApplications() != null) {
+                ChosenValues.Checked applications = ItApplications.check(existingDetails.getItApplications(),
+                        detailsDTO.getItApplications());
+                if (applications.refusal() != null) {
+                    return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + applications.refusal());
+                }
+                mergedDetails.setItApplications(applications.stored());
+            }
             Map<String, String> previousValues = new LinkedHashMap<>();
             Map<String, String> newValues = new LinkedHashMap<>();
             List<String> changedFields = new ArrayList<>();
@@ -79,10 +93,12 @@ public class ControlTabsController {
                     existingDetails.getDepartment(), mergedDetails.getDepartment());
             collectChange(changedFields, previousValues, newValues, "Process Activities",
                     existingDetails.getProcessActivities(), mergedDetails.getProcessActivities());
-            collectChange(changedFields, previousValues, newValues, "Other Related Controls",
-                    existingDetails.getOtherRelatedControls(), mergedDetails.getOtherRelatedControls());
-            collectChange(changedFields, previousValues, newValues, "IT Applications",
-                    existingDetails.getItApplications(), mergedDetails.getItApplications());
+            collectChange(changedFields, previousValues, newValues, RelatedControls.LABEL,
+                    ValueList.normalize(existingDetails.getOtherRelatedControls()),
+                    ValueList.normalize(mergedDetails.getOtherRelatedControls()));
+            collectChange(changedFields, previousValues, newValues, ItApplications.LABEL,
+                    ValueList.normalize(existingDetails.getItApplications()),
+                    ValueList.normalize(mergedDetails.getItApplications()));
             collectChange(changedFields, previousValues, newValues, ControlStepsFields.STEPS_LABEL,
                     existingDetails.getControlStepsPerformed(), mergedDetails.getControlStepsPerformed());
             collectChange(changedFields, previousValues, newValues, ControlStepsFields.OPERATOR_PROGRAM_LABEL,
@@ -128,23 +144,16 @@ public class ControlTabsController {
             // Participants must not reassign roles (e.g. appoint themselves Process Owner and complete alone)
             if (!permission.canEditAll()) {
                 return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Team can change control assignment"));
+                        .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Admin Team can change control assignment"));
             }
-            // A completed control changed in place keeps its schedule (AccessPolicy.COMPLETED_FIXED_FIELDS): another
-            // Control Operation Date is refused, the deadline and the next date are never taken from the request
-            boolean keepSchedule = permission.isCompletedEdit();
-            if (keepSchedule && assignmentDTO.getControlOperationDate() != null
-                    && (existingAssignment == null
-                    || !assignmentDTO.getControlOperationDate().equals(existingAssignment.getControlOperationDate()))) {
-                return ResponseEntity.status(403).body("VALIDATION_ERROR: "
-                        + AccessPolicy.completedFixedMessage("Control Operation Date"));
-            }
+            // The deadline and the next date are never taken from the request (AccessPolicy.COMPLETED_FIXED_FIELDS):
+            // saveAssignment calculates them from the Control Operation Date, on a completed control as on any other
             ControlAssignmentDTO mergedAssignment = mergeControlAssignment(existingAssignment, assignmentDTO);
             String missingField = findMissingAssignmentField(mergedAssignment);
             if (missingField != null) {
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + missingField + " is required");
             }
-            String frequencyError = keepSchedule ? null : findScheduleFrequencyError(control, mergedAssignment);
+            String frequencyError = findScheduleFrequencyError(control, mergedAssignment);
             if (frequencyError != null) {
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + frequencyError);
             }
@@ -156,6 +165,7 @@ public class ControlTabsController {
                     existingAssignment.getFacilitator(), mergedAssignment.getFacilitator());
             collectChange(changedFields, previousValues, newValues, "Control Operator",
                     existingAssignment.getControlOperator(), mergedAssignment.getControlOperator());
+            // Stored as "SoQM Team" as before; the Changelog shows "SoQM Team / Delegate" (ControlHistoryService)
             collectChange(changedFields, previousValues, newValues, "SoQM Team",
                     existingAssignment.getSoqmLead(), mergedAssignment.getSoqmLead());
             collectChange(changedFields, previousValues, newValues, "Process Owner",
@@ -172,7 +182,7 @@ public class ControlTabsController {
 
             ControlAssignment saved;
             try {
-                saved = controlAssignmentService.saveAssignment(mergedAssignment, keepSchedule);
+                saved = controlAssignmentService.saveAssignment(mergedAssignment);
             } catch (IllegalArgumentException refused) {
                 // Someone who may not hold that field (read-only, wrong level, KDN scope on a non-KDN control)
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + refused.getMessage());
@@ -183,69 +193,12 @@ public class ControlTabsController {
             collectChange(changedFields, previousValues, newValues, "Next Control Operation Date",
                     existingAssignment.getNextControlOperationDate(), saved.getNextControlOperationDate());
 
-            // Send notifications to newly shared users
-            List<String> oldShared = existingAssignment != null && existingAssignment.getControlSharedWith() != null
-                    ? existingAssignment.getControlSharedWith() : List.of();
-            List<String> newShared = mergedAssignment.getControlSharedWith() != null
-                    ? mergedAssignment.getControlSharedWith() : List.of();
-            Set<String> oldSharedSet = new LinkedHashSet<>();
-            for (String e : oldShared) {
-                if (e != null && !e.isBlank()) oldSharedSet.add(e.trim().toLowerCase());
-            }
-            for (String email : newShared) {
-                if (email != null && !email.isBlank() && !oldSharedSet.contains(email.trim().toLowerCase())) {
-                    notificationService.sendSharedWithNotification(control, email.trim(), currentUser.getDisplayName());
-                }
-            }
-
+            // Nobody is notified of a change of the people, Shared With included (NOTIFICATIONS_v5, decision 8)
             logChanges(session, assignmentDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues,
                     CompletedEdit.reasonOf(permission, assignmentDTO.getEditReason()));
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error saving assignment: " + e.getMessage());
-        }
-    }
-
-    @PostMapping("/api/control-documents")
-    public ResponseEntity<?> saveControlDocuments(@RequestBody ControlDocumentsDTO documentsDTO, HttpSession session) {
-        System.out.println("🎯 CONTROL DOCUMENTS SAVE REQUEST:");
-        System.out.println("Control ID: " + documentsDTO.getControlId());
-        System.out.println("SOQM Materials: " + documentsDTO.getSoqmDevelopmentMaterials());
-        System.out.println("================================");
-
-        try {
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                return ResponseEntity.status(401).body("User not authenticated");
-            }
-            Control control = controlService.getControlById(documentsDTO.getControlId()).orElse(null);
-            ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(documentsDTO.getControlId());
-            ControlPermission permission = controlPermissionService.resolve(control, currentUser, assignment);
-            // SoQM Development Materials belong to the SoQM Team, not to the stage participants
-            if (!permission.canEditAll()) {
-                return ResponseEntity.status(403)
-                        .body("VALIDATION_ERROR: " + permission.editRefusal("Only SoQM Team can change SoQM Development Materials"));
-            }
-            ControlDocumentsDTO existingDocuments = controlDocumentsService.getDocumentsByControlId(documentsDTO.getControlId());
-            ControlDocumentsDTO mergedDocuments = mergeControlDocuments(existingDocuments, documentsDTO);
-            Map<String, String> previousValues = new LinkedHashMap<>();
-            Map<String, String> newValues = new LinkedHashMap<>();
-            List<String> changedFields = new ArrayList<>();
-
-            collectChange(changedFields, previousValues, newValues, "SoQM Development Materials",
-                    existingDocuments.getSoqmDevelopmentMaterials(), mergedDocuments.getSoqmDevelopmentMaterials());
-
-            Optional<String> reasonRefusal = CompletedEdit.refusal(permission, !changedFields.isEmpty(),
-                    documentsDTO.getEditReason());
-            if (reasonRefusal.isPresent()) {
-                return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + reasonRefusal.get());
-            }
-            controlDocumentsService.saveDocuments(mergedDocuments);
-            logChanges(session, documentsDTO.getControlId(), "Edit Control", changedFields, previousValues, newValues,
-                    CompletedEdit.reasonOf(permission, documentsDTO.getEditReason()));
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error saving documents: " + e.getMessage());
         }
     }
 
@@ -330,10 +283,10 @@ public class ControlTabsController {
 
     @GetMapping("/api/control-details")
     public ResponseEntity<ControlDetailsDTO> getControlDetails(@RequestParam Long controlId, HttpSession session) {
-        permissionService.requireReadable(controlId, (User) session.getAttribute("currentUser"));
+        User currentUser = (User) session.getAttribute("currentUser");
+        permissionService.requireReadable(controlId, currentUser);
         try {
-            ControlDetailsDTO details = controlDetailsService.getDetailsByControlId(controlId);
-            return ResponseEntity.ok(details);
+            return ResponseEntity.ok(controlDetailsService.getDetailsByControlId(controlId));
         } catch (Exception e) {
             return ResponseEntity.ok(new ControlDetailsDTO()); // возвращаем пустой DTO вместо ошибки
         }
@@ -344,21 +297,23 @@ public class ControlTabsController {
         permissionService.requireReadable(controlId, (User) session.getAttribute("currentUser"));
         try {
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(controlId);
+            assignment.setDeletedPeople(List.copyOf(userService.deletedEmails(peopleOf(assignment))));
             return ResponseEntity.ok(assignment);
         } catch (Exception e) {
             return ResponseEntity.ok(new ControlAssignmentDTO()); // возвращаем пустой DTO вместо ошибки
         }
     }
 
-    @GetMapping("/api/control-documents")
-    public ResponseEntity<ControlDocumentsDTO> getControlDocuments(@RequestParam Long controlId, HttpSession session) {
-        permissionService.requireReadable(controlId, (User) session.getAttribute("currentUser"));
-        try {
-            ControlDocumentsDTO documents = controlDocumentsService.getDocumentsByControlId(controlId);
-            return ResponseEntity.ok(documents);
-        } catch (Exception e) {
-            return ResponseEntity.ok(new ControlDocumentsDTO()); // возвращаем пустой DTO вместо ошибки
+    /** Every address of the people fields and Shared With. */
+    static List<String> peopleOf(ControlAssignmentDTO assignment) {
+        List<String> people = new ArrayList<>();
+        for (List<String> field : java.util.Arrays.asList(assignment.getFacilitator(), assignment.getControlOperator(),
+                assignment.getSoqmLead(), assignment.getProcessOwner(), assignment.getControlSharedWith())) {
+            if (field != null) {
+                people.addAll(field);
+            }
         }
+        return people;
     }
 
     private UserDTO convertToUserDTO(User user) {
@@ -442,10 +397,6 @@ public class ControlTabsController {
                 incoming != null ? incoming.getDepartment() : null, allowAll));
         merged.setProcessActivities(resolveString(existing != null ? existing.getProcessActivities() : null,
                 incoming != null ? incoming.getProcessActivities() : null, allowAll));
-        merged.setOtherRelatedControls(resolveString(existing != null ? existing.getOtherRelatedControls() : null,
-                incoming != null ? incoming.getOtherRelatedControls() : null, allowAll));
-        merged.setItApplications(resolveString(existing != null ? existing.getItApplications() : null,
-                incoming != null ? incoming.getItApplications() : null, allowAll));
 
         merged.setControlStepsPerformed(resolveString(existing != null ? existing.getControlStepsPerformed() : null,
                 incoming != null ? incoming.getControlStepsPerformed() : null, allowSteps));
@@ -475,7 +426,7 @@ public class ControlTabsController {
         }
         if (changes(existing != null ? existing.getControlOperatorReview() : null, incoming.getControlOperatorReview())
                 && !permission.canWriteOperatorReview()) {
-            return ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by the SoQM Team";
+            return ControlStepsFields.OPERATOR_PROGRAM_LABEL + " is filled in by SoQM Admin Team";
         }
         return null;
     }
@@ -487,18 +438,6 @@ public class ControlTabsController {
 
     private static String comparableText(String value) {
         return value == null ? "" : value.replace("\r\n", "\n").trim();
-    }
-
-    private ControlDocumentsDTO mergeControlDocuments(ControlDocumentsDTO existing,
-                                                      ControlDocumentsDTO incoming) {
-        ControlDocumentsDTO merged = new ControlDocumentsDTO();
-        Long controlId = incoming != null && incoming.getControlId() != null
-                ? incoming.getControlId()
-                : existing != null ? existing.getControlId() : null;
-        merged.setControlId(controlId);
-        merged.setSoqmDevelopmentMaterials(resolveString(existing != null ? existing.getSoqmDevelopmentMaterials() : null,
-                incoming != null ? incoming.getSoqmDevelopmentMaterials() : null, true));
-        return merged;
     }
 
     private ControlAssignmentDTO mergeControlAssignment(ControlAssignmentDTO existing,

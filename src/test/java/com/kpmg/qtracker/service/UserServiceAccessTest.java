@@ -3,6 +3,7 @@ package com.kpmg.qtracker.service;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.enums.AccessScope;
+import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +40,8 @@ class UserServiceAccessTest {
     private UserRepository userRepository;
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private ControlAssignmentRepository assignmentRepository;
 
     @InjectMocks
     private UserService service;
@@ -47,8 +50,6 @@ class UserServiceAccessTest {
         User user = new User();
         user.setId(TARGET_ID);
         user.setMail("target@example.test");
-        user.setRole("FACILITATOR");
-        user.setSecondaryRole("PROCESS_OWNER");
         user.setAccessLevel(level);
         user.setAccessScope(scope);
         user.setEnabled(true);
@@ -94,7 +95,6 @@ class UserServiceAccessTest {
         User created = service.createUser("new@example.test", "New", "USER", null, null, true);
 
         assertThat(stored(created)).isEqualTo("READ_ONLY/OWN/false");
-        assertThat(created.getRole()).isNull();
     }
 
     @Test
@@ -106,9 +106,6 @@ class UserServiceAccessTest {
         assertThat(stored(update("USER", "", "READ_ONLY", true, ADMIN_ID))).isEqualTo("READ_ONLY/ALL/false");
         assertThat(stored(update("", "", "", false, ADMIN_ID))).isEqualTo("READ_ONLY/ALL/false");
         assertThat(user.getEnabled()).isFalse();
-        // The old role columns stay as they were
-        assertThat(user.getRole()).isEqualTo("FACILITATOR");
-        assertThat(user.getSecondaryRole()).isEqualTo("PROCESS_OWNER");
     }
 
     @Test
@@ -187,8 +184,8 @@ class UserServiceAccessTest {
         user.setLastLoginAt(java.time.LocalDateTime.of(2026, 10, 1, 9, 0));
 
         assertThatThrownBy(() -> service.updateUser(TARGET_ID, "other@example.test", "New Name", "SOQM_TEAM", "", "",
-                true, ADMIN_ID))
-                .hasMessage("Email can be changed only before the first login");
+                true, TARGET_ID))
+                .hasMessage("You cannot change your own e-mail: ask another admin");
         assertThatThrownBy(() -> service.updateUser(TARGET_ID, null, "   ", "SOQM_TEAM", "", "", true, ADMIN_ID))
                 .hasMessage("Name is required");
         assertThatThrownBy(() -> service.updateUser(TARGET_ID, null, "x".repeat(256), "SOQM_TEAM", "", "", true, ADMIN_ID))
@@ -200,6 +197,48 @@ class UserServiceAccessTest {
         // The same address in another case is no change, also after the first login
         assertThat(service.updateUser(TARGET_ID, "TARGET@example.test", null, "", "", "", true, ADMIN_ID).getMail())
                 .isEqualTo("target@example.test");
+    }
+
+    /** 2026-10-21: the e-mail of someone who has signed in changes too. */
+    @Test
+    void updateUser_emailAfterTheFirstLogin_changes() {
+        User user = stored(AccessLevel.PARTICIPANT, AccessScope.OWN);
+        user.setLastLoginAt(java.time.LocalDateTime.of(2026, 10, 1, 9, 0));
+        when(userRepository.existsByMail("moved@example.test")).thenReturn(false);
+
+        User saved = service.updateUser(TARGET_ID, "Moved@Example.test", null, "", "", "", true, ADMIN_ID);
+
+        assertThat(saved.getMail()).isEqualTo("moved@example.test");
+        verify(assignmentRepository).findControlIdsByFacilitator("target@example.test");
+        verify(assignmentRepository).findControlIdsByControlSharedWith("target@example.test");
+    }
+
+    @Test
+    void updateUser_sameEmail_movesNoControls() {
+        stored(AccessLevel.PARTICIPANT, AccessScope.OWN);
+
+        service.updateUser(TARGET_ID, "TARGET@example.test", null, "", "", "", true, ADMIN_ID);
+
+        verify(assignmentRepository, never()).findControlIdsByFacilitator(any());
+    }
+
+    /** 2026-10-22: --update-user-emails changes only the e-mail, with the Admin Panel's check and moved controls. */
+    @Test
+    void changeEmail_movesTheControls_andRefusesSomeoneElsesAddress() {
+        User user = stored(AccessLevel.PARTICIPANT, AccessScope.OWN);
+        when(userRepository.existsByMail("taken@example.test")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.changeEmail(TARGET_ID, "Taken@example.test"))
+                .hasMessage(UserService.EMAIL_TAKEN);
+        assertThat(user.getMail()).isEqualTo("target@example.test");
+        verify(assignmentRepository, never()).findControlIdsByFacilitator(any());
+        assertThat(service.changeEmail(TARGET_ID, " TARGET@example.test ")).isZero();
+        verify(assignmentRepository, never()).findControlIdsByFacilitator(any());
+
+        assertThat(service.changeEmail(TARGET_ID, "Moved@Example.test")).isZero();
+        assertThat(user.getMail()).isEqualTo("moved@example.test");
+        verify(assignmentRepository).findControlIdsByFacilitator("target@example.test");
+        verify(assignmentRepository).findControlIdsByControlSharedWith("target@example.test");
     }
 
     @Test

@@ -47,7 +47,7 @@ class ComponentControlsListTest {
     void tenColumns_inTheAgreedOrder() {
         assertThat(ComponentControlsList.COLUMNS).extracting(ComponentControlsList.Column::label).containsExactly(
                 "Control ID", "Control Type", "Control Frequency", "Facilitator / Preparer(s)", "Control Operator",
-                "Process Owner", "SoQM Lead / Delegate", "Control Category", "Control Operation Date",
+                "Process Owner", "SoQM Team / Delegate", "Control Category", "Control Operation Date",
                 "Performance Status");
     }
 
@@ -62,7 +62,7 @@ class ComponentControlsListTest {
     }
 
     @Test
-    void row_peopleJoinedByComma_dateAsDdMmYyyy_opensViewControl_draftToo() {
+    void row_peopleJoinedByComma_dateAsDdMmYyyy_aDraftOpensViewControl() {
         ControlResponseDTO dto = control(5, "HR-5", "HR", null, null);
         dto.setFacilitators(List.of("anna@kpmg.kz", "x.y@kpmg.kz"));
         dto.setControlOperators(List.of("BORIS@kpmg.kz"));
@@ -76,6 +76,37 @@ class ComponentControlsListTest {
         assertThat(row.operationDateText()).isEqualTo("09.03.2026");
         assertThat(row.status()).isEqualTo("DRAFT");
         assertThat(row.href()).isEqualTo("/view-control/5");
+    }
+
+    /** A control once initiated opens on its Performance Cycle page, a completed one too; a draft on View Control. */
+    @Test
+    void row_ofAnInitiatedControl_opensThePerformanceCycle() {
+        for (String status : List.of("IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW", "COMPLETED")) {
+            ComponentControlsList.Row row = ComponentControlsList.rowOf(control(8, "HR-8", "HR", status, null), NAMES, TODAY);
+            assertThat(row.href()).as(status).isEqualTo("/performance-cycle/8");
+        }
+        assertThat(ComponentControlsList.rowOf(control(9, "HR-9", "HR", "DRAFT", null), NAMES, TODAY).href())
+                .isEqualTo("/view-control/9");
+    }
+
+    @Test
+    void deletedAndSupersededControls_stayListedAndCounted_withTheirBadge() {
+        ControlResponseDTO deleted = control(6, "HR-6", "HR", "IN_PROGRESS", TODAY.minusDays(1));
+        deleted.setControlStatus("DELETED");
+        ControlResponseDTO superseded = control(7, "HR-7", "HR", "COMPLETED", null);
+        superseded.setControlStatus("Superseded");
+        ControlResponseDTO active = control(8, "HR-8", "HR", "IN_PROGRESS", null);
+        active.setControlStatus("ACTIVE");
+
+        ComponentControlsList.Result result = ComponentControlsList.of("/component/HR",
+                List.of(deleted, superseded, active), NAMES, ComponentControlsList.Query.of("", "", "", "", 1, 25), TODAY);
+
+        assertThat(result.rows()).extracting(ComponentControlsList.Row::controlStatusBadge)
+                .containsExactly("Deleted", "Superseded", null);
+        // Counted by their workflow status as any other control: the overdue Deleted one is overdue
+        assertThat(result.counts().total()).isEqualTo(3);
+        assertThat(result.counts().overdue()).isEqualTo(1);
+        assertThat(result.counts().completed()).isEqualTo(1);
     }
 
     @Test
@@ -262,6 +293,86 @@ class ComponentControlsListTest {
         assertThat(result(controls, null, null, null, null, 5, null).pageLinks()).containsExactly(1, 0, 3, 4, 5, 6, 7, 0, 10);
         assertThat(result(controls, null, null, null, null, 1, null).pageLinks()).containsExactly(1, 2, 3, 0, 10);
         assertThat(result(List.of(), null, null, null, null, 1, null).pageLinks()).containsExactly(1);
+    }
+
+    /** Sorting with the values worked out once orders the rows as the comparator does, every column, both ways. */
+    @Test
+    void sorted_ordersAsTheComparator_everyColumnBothWays() {
+        java.util.Random random = new java.util.Random(5);
+        String[] texts = {null, "", "  ", "alpha", "Alpha", " alpha ", "beta", "B", "a b", "Zeta", "zeta"};
+        // A row always has a status (statusOf: none is DRAFT)
+        String[] statuses = {"DRAFT", "IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW", "COMPLETED",
+                "UNKNOWN"};
+        for (int round = 0; round < 200; round++) {
+            List<ComponentControlsList.Row> rows = new ArrayList<>();
+            for (int n = 0; n < 40; n++) {
+                rows.add(new ComponentControlsList.Row(random.nextInt(5) == 0 ? null : (long) random.nextInt(30),
+                        texts[random.nextInt(texts.length)], texts[random.nextInt(texts.length)],
+                        texts[random.nextInt(texts.length)], texts[random.nextInt(texts.length)],
+                        texts[random.nextInt(texts.length)], texts[random.nextInt(texts.length)],
+                        texts[random.nextInt(texts.length)], texts[random.nextInt(texts.length)],
+                        random.nextInt(4) == 0 ? null : LocalDate.of(2026, 10, 1 + random.nextInt(5)),
+                        statuses[random.nextInt(statuses.length)], false, null, false, false, false, false, false));
+            }
+            for (ComponentControlsList.Sort sort : ComponentControlsList.Sort.values()) {
+                for (boolean desc : new boolean[]{false, true}) {
+                    assertThat(ComponentControlsList.sorted(rows, sort, desc)).as("%s %s", sort, desc)
+                            .containsExactlyElementsOf(rows.stream().sorted(ComponentControlsList.comparator(sort, desc))
+                                    .toList());
+                }
+            }
+        }
+    }
+
+    /**
+     * The list sorts the controls before their rows are built (rows only for the page): every column both ways it
+     * gives the rows of every control sorted by the comparator, people by their names included.
+     */
+    @Test
+    void theRowsOfEveryPage_areTheRowsSortedByTheComparator() {
+        java.util.Random random = new java.util.Random(9);
+        String[] texts = {null, "", " ", "Manual", "manual", " Auto ", "Monthly", "Quarterly", "b"};
+        String[] people = {"a@kpmg.kz", "B@kpmg.kz", "c@kpmg.kz", "no-name@kpmg.kz", "Not an e-mail"};
+        Map<String, String> names = Map.of("a@kpmg.kz", "Zara", "b@kpmg.kz", "alan", "c@kpmg.kz", "Alan");
+        String[] statuses = {"DRAFT", "IN_PROGRESS", "REVIEW", "COMPLETED", " review ", null, ""};
+        LocalDate today = LocalDate.of(2026, 10, 22);
+        for (int round = 0; round < 100; round++) {
+            List<ControlResponseDTO> controls = new ArrayList<>();
+            for (int n = 0; n < 30; n++) {
+                ControlResponseDTO control = control(1 + random.nextInt(40), texts[random.nextInt(texts.length)], "HR",
+                        statuses[random.nextInt(statuses.length)], random.nextBoolean() ? null : today.plusDays(random.nextInt(9) - 4));
+                control.setControlType(texts[random.nextInt(texts.length)]);
+                control.setControlFrequency(texts[random.nextInt(texts.length)]);
+                control.setControlCategory(texts[random.nextInt(texts.length)]);
+                control.setControlOperationDate(random.nextBoolean() ? null : today.plusDays(random.nextInt(5)));
+                control.setFacilitators(somePeople(people, random));
+                control.setControlOperators(somePeople(people, random));
+                control.setProcessOwners(somePeople(people, random));
+                control.setSoqmLeads(somePeople(people, random));
+                controls.add(control);
+            }
+            for (ComponentControlsList.Sort sort : ComponentControlsList.Sort.values()) {
+                for (String dir : new String[]{"asc", "desc"}) {
+                    ComponentControlsList.Query query = ComponentControlsList.Query.of(null, null, sort.key(), dir, 1, null);
+                    List<ComponentControlsList.Row> expected = controls.stream()
+                            .map(control -> ComponentControlsList.rowOf(control, names, today))
+                            .sorted(ComponentControlsList.comparator(sort, "desc".equals(dir)))
+                            .toList();
+                    assertThat(ComponentControlsList.allRows(controls, names, query, today, ComponentControlsList.Marks.NONE))
+                            .as("%s %s", sort, dir).containsExactlyElementsOf(expected);
+                    assertThat(ComponentControlsList.of("/component/HR", controls, names, query, today).rows())
+                            .as("page 1, %s %s", sort, dir).containsExactlyElementsOf(expected.subList(0, 25));
+                }
+            }
+        }
+    }
+
+    private static List<String> somePeople(String[] people, java.util.Random random) {
+        List<String> chosen = new ArrayList<>();
+        for (int n = random.nextInt(3); n > 0; n--) {
+            chosen.add(people[random.nextInt(people.length)]);
+        }
+        return chosen;
     }
 
     @Test

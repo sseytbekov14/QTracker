@@ -1,5 +1,16 @@
 server:
   port: ${SERVER_PORT:8080}
+  # Whether to trust X-Forwarded-* (scheme, host, client address) from an HTTP proxy in front of the app. Today
+  # there is none: a TCP port forward (netsh portproxy 443 -> 8081) and TLS ends in the app itself (server.ssl),
+  # so the request already carries the real scheme and host and the headers are not sent - and must not be
+  # trusted, anyone could send them. Set SERVER_FORWARD_HEADERS_STRATEGY=native (or framework) only when an
+  # HTTP reverse proxy (IIS ARR, nginx, a load balancer) that ends TLS and sets these headers is put in front
+  # (migration/analysis/8_sso_setup.md).
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
+  servlet:
+    session:
+      # Signed out after 15 minutes without a request (every request starts the 15 minutes again)
+      timeout: 15m
   tomcat:
     # Let Tomcat read an oversized upload so the client gets a JSON error instead of a connection reset
     max-swallow-size: 100MB
@@ -9,9 +20,12 @@ logging:
     root: INFO
     com.kpmg.qtracker: INFO
 
+# No default profile: the start is refused without SPRING_PROFILES_ACTIVE=dev, stage or prod (StartupGuard)
 spring:
-  profiles:
-    active: dev
+  jpa:
+    # The Spring Boot default, written out so the start has no warning about it: the pages read lazy fields after
+    # the service calls (off only in the tests, application-test.yml)
+    open-in-view: true
   flyway:
     baseline-on-migrate: true
     baseline-version: 0
@@ -40,13 +54,43 @@ spring:
 
 app:
   base-url: ${APP_BASE_URL:}
+  # The one site address (host only, e.g. kzqtracker.go1.kworld.kpmg.com): a request on any other name of the
+  # server gets 301 to https://<this host> with the same path and query before SAML starts
+  # (CanonicalHostRedirectFilter); empty: off. localhost and 127.0.0.1 are never redirected
+  canonical-host: ${APP_CANONICAL_HOST:}
 
 auth:
+  # How people sign in (AuthMode): exactly one of SSO (Microsoft Entra ID, SAML) and the password form.
+  # The profiles give their own defaults (prod: SSO; dev and stage: the password); the variables override them.
+  sso:
+    enabled: ${AUTH_SSO_ENABLED:false}
+    # SAML 2.0 with Microsoft Entra ID (SamlConfig), read only with SSO on, no defaults: the Identifier of the
+    # Entra application, its Reply URL (https://<site>/login/saml2/sso/entra) and its App Federation Metadata Url
+    entity-id: ${SAML_ENTITY_ID:}
+    acs-url: ${SAML_ACS_URL:}
+    metadata-uri: ${SAML_METADATA_URI:}
+    # GET /me: the signed-in person's own SAML claims, for checking the Entra claims on stage; off by default,
+    # a WARN at start when on in prod
+    debug-endpoint: ${AUTH_SSO_DEBUG_ENDPOINT:false}
+  password:
+    enabled: ${AUTH_PASSWORD_ENABLED:true}
+  logout:
+    # The Logout link and /logout; off unless true (no Logout in QTracker, decision of 2026-10-16)
+    enabled: ${AUTH_LOGOUT_ENABLED:}
   # The domain of the addresses the user import gives people: <username>@<domain>
   username-domain: ${AUTH_USERNAME_DOMAIN:qtracker.local}
   username-login:
     # The login form also takes a username (the domain is added); off: e-mail only
     enabled: ${AUTH_USERNAME_LOGIN_ENABLED:false}
+
+# Too many requests answer 429 (RateLimitingFilter): per window, sign-ins per name typed and address together,
+# the rest per signed-in user (behind the port forward all clients share one address)
+rate-limit:
+  window-seconds: ${RATE_LIMIT_WINDOW_SECONDS:60}
+  login: ${RATE_LIMIT_LOGIN:20}
+  api-write: ${RATE_LIMIT_API_WRITE:120}
+  user-list: ${RATE_LIMIT_USER_LIST:120}
+  heavy: ${RATE_LIMIT_HEAVY:20}
 
 file:
   upload:
@@ -56,15 +100,20 @@ file:
     dir: ${FILE_UPLOAD_DIR:}
     max-file-size-mb: ${FILE_UPLOAD_MAX_FILE_SIZE_MB:10}
 
-reminders:
-  enabled: true
-
-overdue:
-  use-working-days: ${OVERDUE_USE_WORKING_DAYS:true}
-
 notifications:
+  # The planned notifications (occurrence day, reminders, deadline, overdue): every 5 minutes on working days from
+  # 09:30 Asia/Almaty; off: none of them (the notifications of the workflow steps still go)
+  scheduler:
+    enabled: ${NOTIFICATIONS_SCHEDULER_ENABLED:true}
+  # Sends the e-mails of the outbox (email_outbox) every delay-ms; off only in the tests, which run it themselves
+  dispatcher:
+    enabled: ${NOTIFICATIONS_DISPATCHER_ENABLED:true}
+    delay-ms: 20000
   email:
+    # Off: the in-app notifications are made as usual, their e-mails are recorded SKIPPED_DISABLED and never sent
     enabled: ${NOTIFICATIONS_EMAIL_ENABLED:false}
+    # smtp (spring.mail.*) or log (the whole e-mail written to the application log, nothing sent)
+    provider: ${NOTIFICATIONS_EMAIL_PROVIDER:smtp}
     from: ${NOTIFICATIONS_EMAIL_FROM:}
     whitelist-enforced: ${NOTIFICATIONS_EMAIL_WHITELIST_ENFORCED:false}
     whitelist: ${NOTIFICATIONS_EMAIL_WHITELIST:}
@@ -74,7 +123,10 @@ dev:
   # of the user import
   seed-users: ${DEV_SEED_USERS:false}
 
-controls:
-  auto-create:
-    enabled: ${CONTROLS_AUTO_CREATE_ENABLED:true}
-    
+# Swagger UI and the API description: off unless SPRINGDOC_ENABLED=true (on in the dev profile); when on,
+# only for people who are signed in (SecurityConfig)
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:false}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:false}

@@ -18,8 +18,6 @@ public class ControlDetailsDTO {
     private String department;
     @Size(max = 2000, message = "Process Activities must be at most 2000 characters")
     private String processActivities;
-    @Size(max = 255, message = "Other Related Controls must be at most 255 characters")
-    private String otherRelatedControls;
     @Size(max = 255, message = "IT Applications must be at most 255 characters")
     private String itApplications;
     @Size(max = 2000, message = ControlStepsFields.STEPS_LABEL + " must be at most 2000 characters")
@@ -30,6 +28,12 @@ public class ControlDetailsDTO {
     private String soqmHeadComments;
     @Size(max = 2000, message = "Process Owner Comments must be at most 2000 characters")
     private String processOwnerComments;
+
+    /**
+     * Other Related Controls (RelatedControls): Control IDs of the list as ValueList writes them ("A; B"); "" clears
+     * them, null keeps them as stored.
+     */
+    private String otherRelatedControls;
 
     /** Why SoQM Team changes a completed control in place (CompletedEdit); sent, never returned. */
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)

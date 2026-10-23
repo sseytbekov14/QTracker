@@ -5,12 +5,12 @@ import java.util.Optional;
 
 /**
  * What a user may do (users.access_level). Which controls they see is {@link AccessScope}. People see it as
- * the role SoQM Team or, for a User, the Access Edit or Read Only ({@code AccessPolicy.Profile}); the display
+ * the role SoQM Admin Team or, for a User, the Access Edit or Read Only ({@code AccessPolicy.Profile}); the display
  * names follow those words.
  */
 public enum AccessLevel {
     /** SoQM Head or Delegate: creates and edits controls, assigns people, performs the SoQM steps. Always scope ALL. */
-    SOQM("SoQM Team"),
+    SOQM(UserRole.SOQM_TEAM_NAME),
     /** Performs the Facilitator, Control Operator and Process Owner steps of the controls they are assigned to. */
     PARTICIPANT("Edit"),
     /** Views, reads the history and downloads attachments; never writes. */

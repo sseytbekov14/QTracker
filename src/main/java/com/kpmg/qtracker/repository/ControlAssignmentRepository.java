@@ -10,62 +10,6 @@ import java.util.Optional;
 
 public interface ControlAssignmentRepository extends JpaRepository<ControlAssignment, Long> {
     Optional<ControlAssignment> findByControlId(Long controlId);
-    List<ControlAssignment> findByNextControlOperationDate(LocalDate nextControlOperationDate);
-
-    @Query(value = """
-            SELECT a.*
-            FROM controls a
-            WHERE LOWER(TRIM(a.control_frequency)) = 'monthly'
-              AND a.next_control_operation_date >= :startDateTime
-              AND a.next_control_operation_date < :endDateTime
-            """, nativeQuery = true)
-    List<ControlAssignment> findMonthlyByNextControlOperationDateRange(
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime);
-
-    @Query(value = """
-            SELECT a.*
-            FROM controls a
-            WHERE LOWER(TRIM(a.control_frequency)) = 'quarterly'
-              AND a.next_control_operation_date >= :startDateTime
-              AND a.next_control_operation_date < :endDateTime
-            """, nativeQuery = true)
-    List<ControlAssignment> findQuarterlyByNextControlOperationDateRange(
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime);
-
-    @Query(value = """
-            SELECT a.*
-            FROM controls a
-            WHERE LOWER(TRIM(a.control_frequency)) = 'recurring'
-              AND a.next_control_operation_date >= :startDateTime
-              AND a.next_control_operation_date < :endDateTime
-            """, nativeQuery = true)
-    List<ControlAssignment> findRecurringByNextControlOperationDateRange(
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime);
-
-    @Query(value = """
-            SELECT a.*
-            FROM controls a
-            WHERE LOWER(TRIM(a.control_frequency)) = 'annual'
-              AND a.next_control_operation_date >= :startDateTime
-              AND a.next_control_operation_date < :endDateTime
-            """, nativeQuery = true)
-    List<ControlAssignment> findAnnualByNextControlOperationDateRange(
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime);
-
-    @Query(value = """
-            SELECT a.*
-            FROM controls a
-            WHERE LOWER(TRIM(a.control_frequency)) IN ('semi annual', 'semi-annual', 'semiannual')
-              AND a.next_control_operation_date >= :startDateTime
-              AND a.next_control_operation_date < :endDateTime
-            """, nativeQuery = true)
-    List<ControlAssignment> findSemiAnnualByNextControlOperationDateRange(
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime);
 
     @Query("""
             SELECT COUNT(ca) > 0
@@ -77,16 +21,24 @@ public interface ControlAssignmentRepository extends JpaRepository<ControlAssign
     boolean existsByControlIdAndOperationDate(@Param("controlId") String controlId,
                                               @Param("operationDate") LocalDate operationDate);
 
-    @Query(value = """
-            SELECT COUNT(*) > 0
+    /**
+     * A cycle of a base control on a day: its ID is the base itself, the base with a "_" suffix (older IDs) or the base
+     * with "/FY../location/period" (maybe with "(n)"). The rule of "this cycle is already there" for Create Control
+     * (ControlCycleService).
+     */
+    String CYCLE_OF_BASE_ON_DAY = """
             FROM controls c
             WHERE c.control_operation_date = :operationDate
               AND (c.control_id = :baseIdExact
-                   OR c.control_id LIKE CONCAT(:baseIdLike, '\\_%') ESCAPE '\\')
-            """, nativeQuery = true)
-    boolean existsByBaseControlIdAndOperationDate(@Param("baseIdExact") String baseIdExact,
-                                                  @Param("baseIdLike") String baseIdLike,
-                                                  @Param("operationDate") LocalDate operationDate);
+                   OR c.control_id LIKE CONCAT(:baseIdLike, '\\_%') ESCAPE '\\'
+                   OR c.control_id LIKE CONCAT(:baseIdLike, '/%') ESCAPE '\\')
+            """;
+
+    /** The ids of the cycles of this base control on this day ({@link #CYCLE_OF_BASE_ON_DAY}), oldest first. */
+    @Query(value = "SELECT c.id " + CYCLE_OF_BASE_ON_DAY + " ORDER BY c.id", nativeQuery = true)
+    List<Long> findIdsByBaseControlIdAndOperationDate(@Param("baseIdExact") String baseIdExact,
+                                                      @Param("baseIdLike") String baseIdLike,
+                                                      @Param("operationDate") LocalDate operationDate);
 
     @Query("SELECT ca.controlId FROM ControlAssignment ca "
             + "WHERE LOWER(ca.controlOperator) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))")
@@ -107,4 +59,24 @@ public interface ControlAssignmentRepository extends JpaRepository<ControlAssign
     @Query("SELECT ca.controlId FROM ControlAssignment ca "
             + "WHERE LOWER(ca.controlSharedWith) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))")
     List<Long> findControlIdsByControlSharedWith(@Param("email") String email);
+
+    /**
+     * The five queries above in one pass over the table: the controls with the address anywhere in Facilitator,
+     * Control Operator, SoQM Team, Process Owner or Shared With (the candidates of My controls; the access policy then
+     * checks whole addresses). Five full passes per list made My lists the heaviest statements of the load test.
+     */
+    @Query("SELECT ca.controlId FROM ControlAssignment ca WHERE " + ANY_PERSON_FIELD)
+    List<Long> findControlIdsByPerson(@Param("email") String email);
+
+    /** As {@link #findControlIdsByPerson}, only the controls with KDN anywhere in the Control ID (the menu's KDN item). */
+    @Query("SELECT ca.controlId FROM ControlAssignment ca JOIN Control c ON c.id = ca.controlId"
+            + " WHERE UPPER(c.controlId) LIKE '%KDN%' AND (" + ANY_PERSON_FIELD + ")")
+    List<Long> findKdnControlIdsByPerson(@Param("email") String email);
+
+    /** The address anywhere in one of the five people fields (whole addresses are checked by the access policy). */
+    String ANY_PERSON_FIELD = "LOWER(ca.facilitator) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))"
+            + " OR LOWER(ca.controlOperator) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))"
+            + " OR LOWER(ca.soqmLead) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))"
+            + " OR LOWER(ca.processOwner) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))"
+            + " OR LOWER(ca.controlSharedWith) LIKE LOWER(CONCAT('%', TRIM(:email), '%'))";
 }

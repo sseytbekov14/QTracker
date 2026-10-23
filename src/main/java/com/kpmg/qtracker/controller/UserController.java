@@ -3,6 +3,8 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.dto.UserDTO;
 import com.kpmg.qtracker.entity.AdminAuditLog;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.security.AuthMode;
+import com.kpmg.qtracker.security.LoginNameResolver;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.AdminAuditTrail;
@@ -25,8 +27,15 @@ import java.util.stream.Collectors;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 public class UserController {
+    /** With SSO an address of the user import's service domain cannot sign in (SsoAdmission). */
+    static final String CORPORATE_EMAIL_REQUIRED =
+            "Use the person's corporate e-mail: with SSO they sign in with it at Microsoft";
+
     private final UserService userService;
     private final AdminAuditService adminAuditService;
+    private final AuthMode authMode;
+    private final LoginNameResolver loginNames;
+    private final com.kpmg.qtracker.service.UserDeletion userDeletion;
 
     /** Dates as the Admin Panel shows them. */
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
@@ -44,7 +53,7 @@ public class UserController {
 
     /**
      * The Admin Panel save of one user, in one request: the role (with Visibility and Access for a User),
-     * the status and, when sent, the name and the e-mail (the e-mail only before the first login). Nothing
+     * the status and, when sent, the name and the e-mail (not one's own; the person's controls follow it). Nothing
      * changes when a value is refused ({@link UserService#updateUser}). A save that changes something writes
      * one USER_ACCESS_UPDATE entry with the changed fields before and after; the answer carries the user and
      * that entry for the page.
@@ -66,6 +75,11 @@ public class UserController {
             return ResponseEntity.status(403).body("Forbidden");
         }
 
+        // A service address kept as it is (an imported person not moved yet) does not stop other changes
+        if (email != null && serviceAddressWithSso(email) && userService.getUserById(id)
+                .map(user -> !email.trim().equalsIgnoreCase(String.valueOf(user.getMail()).trim())).orElse(true)) {
+            return ResponseEntity.badRequest().body(CORPORATE_EMAIL_REQUIRED);
+        }
         try {
             // The service changes the same managed entity, so the values before the change are copied first
             User before = snapshot(userService.getUserById(id)
@@ -98,6 +112,49 @@ public class UserController {
         }
     }
 
+    /**
+     * Deleting a user, step 1 (SoQM Admin Team only, UserDeletion): the refusals (oneself, the last active SoQM Admin
+     * Team member), the controls not completed that keep the person (first 50 with the person's place on each, the
+     * total) and the token of step 2.
+     */
+    @PostMapping("/users/{id}/delete-check")
+    public ResponseEntity<?> checkUserDeletion(@PathVariable Long id, HttpSession session) {
+        try {
+            com.kpmg.qtracker.service.UserDeletion.Check check =
+                    userDeletion.check(id, (User) session.getAttribute("currentUser"));
+            return ResponseEntity.ok(check);
+        } catch (com.kpmg.qtracker.service.UserDeletion.Refused refused) {
+            return ResponseEntity.status(refused.status()).body(refused.getMessage());
+        }
+    }
+
+    /** What step 2 of a deletion sends: the typed e-mail, the reason, the token of step 1, the acknowledgement. */
+    public record DeletionRequest(String email, String reason, String token, boolean acknowledged) {
+    }
+
+    /**
+     * Deleting a user, step 2: the users row goes; history, logs and the controls' people stay (UserDeletion). The
+     * answer carries the Audit Trail line. 404 for a user already deleted.
+     */
+    @PostMapping("/users/{id}/delete")
+    public ResponseEntity<?> deleteUser(@PathVariable Long id, @RequestBody DeletionRequest request,
+                                        HttpSession session) {
+        try {
+            com.kpmg.qtracker.service.UserDeletion.Done done = userDeletion.delete(id,
+                    (User) session.getAttribute("currentUser"), request.email(), request.reason(), request.token(),
+                    request.acknowledged());
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("deleted", true);
+            payload.put("id", done.userId());
+            payload.put("mail", done.email());
+            payload.put("unfinishedControls", done.unfinishedControls());
+            payload.put("audit", auditPayload(done.audit()));
+            return ResponseEntity.ok(payload);
+        } catch (com.kpmg.qtracker.service.UserDeletion.Refused refused) {
+            return ResponseEntity.status(refused.status()).body(refused.getMessage());
+        }
+    }
+
     /** A new user with a role; a User without Visibility or Access starts at My controls and Read Only. */
     @PostMapping("/users")
     public ResponseEntity<?> createUser(@RequestParam String email,
@@ -115,8 +172,13 @@ public class UserController {
             return ResponseEntity.status(403).body("Forbidden");
         }
 
+        if (serviceAddressWithSso(email)) {
+            return ResponseEntity.badRequest().body(CORPORATE_EMAIL_REQUIRED);
+        }
         try {
-            User created = userService.createUser(email, displayName, role, visibility, access, enabled);
+            // With SSO no password: nobody signs in with one
+            User created = userService.createUser(email, displayName, role, visibility, access, enabled,
+                    authMode.password());
 
             AdminAuditLog audit = adminAuditService.logActionWithChanges(
                     currentUser.getMail(),
@@ -139,47 +201,10 @@ public class UserController {
         }
     }
 
-    @PutMapping("/admin/users/{id}/email")
-    public ResponseEntity<?> updateUserEmail(@PathVariable Long id,
-                                             @RequestParam String email,
-                                             HttpSession session) {
-        User currentUser = (User) session.getAttribute("currentUser");
-        if (currentUser == null) {
-            return ResponseEntity.status(401).body("Unauthorized");
-        }
-        if (!AccessPolicy.canManageUsers(AccessPolicy.Subject.of(currentUser))) {
-            return ResponseEntity.status(403).body("Forbidden");
-        }
 
-        try {
-            User before = userService.getUserById(id)
-                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
-            String oldEmail = before.getMail();
-
-            User updated = userService.updateUserEmail(id, email);
-            String newEmail = updated.getMail();
-
-            adminAuditService.logActionWithChanges(
-                    currentUser.getMail(),
-                    currentUser.getDisplayName(),
-                    "USER_EMAIL_UPDATE",
-                    null,
-                    "Changed email from " + oldEmail + " to " + newEmail + " for user id " + updated.getId(),
-                    "mail",
-                    "mail=" + oldEmail,
-                    "mail=" + newEmail
-            );
-
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("id", updated.getId());
-            payload.put("mail", updated.getMail());
-            payload.put("lastLoginAt", updated.getLastLoginAt());
-            return ResponseEntity.ok(payload);
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(ex.getMessage());
-        }
+    private boolean serviceAddressWithSso(String email) {
+        return authMode.sso() && loginNames.isServiceAddress(email);
     }
-
 
     private static User snapshot(User user) {
         User copy = new User();

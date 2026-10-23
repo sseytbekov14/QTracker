@@ -9,7 +9,8 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlService;
-import com.kpmg.qtracker.service.NotificationService;
+import com.kpmg.qtracker.service.notification.WorkflowNotifications;
+import com.kpmg.qtracker.service.ControlRowLock;
 import com.kpmg.qtracker.service.WorkflowMoveService;
 import com.kpmg.qtracker.service.WorkflowRequiredFieldService;
 import com.kpmg.qtracker.service.WorkflowTransitionGuard;
@@ -49,7 +50,7 @@ class WorkflowControllerTransitionGuardTest {
     @Mock
     private WorkflowHistoryRepository workflowHistoryRepository;
     @Mock
-    private NotificationService notificationService;
+    private WorkflowNotifications workflowNotifications;
     @Mock
     private WorkflowRequiredFieldService requiredFieldService;
     @Mock
@@ -66,7 +67,7 @@ class WorkflowControllerTransitionGuardTest {
     void setUp() {
         WorkflowController controller = new WorkflowController(controlService, new WorkflowMoveService(controlService,
                 controlAssignmentService, controlPermissionService, new WorkflowTransitionGuard(), requiredFieldService,
-                workflowHistoryRepository, notificationService, adminAuditService));
+                workflowHistoryRepository, workflowNotifications, adminAuditService, new ControlRowLock()));
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         currentUser = new User();
@@ -87,7 +88,7 @@ class WorkflowControllerTransitionGuardTest {
         if (!expectChange) {
             verify(controlService, never()).save(any(Control.class));
             verify(workflowHistoryRepository, never()).save(any());
-            verifyNoInteractions(notificationService);
+            verifyNoInteractions(workflowNotifications);
         }
     }
 
@@ -99,7 +100,7 @@ class WorkflowControllerTransitionGuardTest {
         call("/api/workflow/complete-control")
                 .andExpect(status().isBadRequest())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
-                        .string("A comment is required when SoQM acts for the Process Owner"));
+                        .string("A comment is required when SoQM Admin Team acts for the Process Owner"));
     }
 
     @Test

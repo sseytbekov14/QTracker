@@ -11,7 +11,6 @@ import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlAuditChangeService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
-import com.kpmg.qtracker.service.ControlDocumentsService;
 import com.kpmg.qtracker.service.ControlHistoryService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
@@ -29,6 +28,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Map;
@@ -49,6 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 @WebMvcTest(controllers = ControlController.class)
+@ActiveProfiles("test")
 @AutoConfigureMockMvc(addFilters = false)
 @Import(ControlAuditChangeService.class)
 class ControlControllerSecurityTest {
@@ -70,9 +71,6 @@ class ControlControllerSecurityTest {
 
     @MockBean
     private ControlDetailsService controlDetailsService;
-
-    @MockBean
-    private ControlDocumentsService controlDocumentsService;
 
     @MockBean
     private IPerformanceService performanceService;
@@ -97,6 +95,9 @@ class ControlControllerSecurityTest {
 
     @MockBean
     private com.kpmg.qtracker.service.ControlRenameService controlRenameService;
+
+    @MockBean
+    private com.kpmg.qtracker.service.RelatedControls relatedControls;
 
     private ControlDTO requestBody;
 
@@ -239,7 +240,7 @@ class ControlControllerSecurityTest {
                         .content(objectMapper.writeValueAsString(requestBody))
                         .sessionAttr("currentUser", sessionUser))
                 .andExpect(status().isForbidden())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Only SoQM Team can create controls")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Only SoQM Admin Team can create controls")));
 
         verify(controlService, never()).createControl(any(Control.class));
     }
@@ -310,26 +311,49 @@ class ControlControllerSecurityTest {
         verify(controlService, never()).updateControl(any(Control.class));
     }
 
-    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
-    @org.junit.jupiter.params.provider.CsvSource({
-            "Control Frequency, controlFrequency, Quarterly",
-            "SoQM Year,         soqmYear,         1 OCT 2027 - 30 SEP 2028",
-            "Control Status,    controlStatus,    SUPERSEDED"
-    })
-    void updateControl_completedControlChangedInPlace_refusesAFixedField(String label, String field, String value)
+    @Test
+    void updateControl_completedControlChangedInPlace_anotherFrequency_recalculatesTheSchedule_auditedBeforeAndAfter()
             throws Exception {
         User sessionUser = userWithRole("SOQM_TEAM");
         Control existing = completedForEditInPlace(sessionUser, 202L);
+        when(controlService.updateControl(any(Control.class))).thenAnswer(inv -> inv.getArgument(0));
+        ControlAssignmentDTO before = new ControlAssignmentDTO();
+        before.setControlOperationDate(java.time.LocalDate.of(2026, 1, 15));
+        before.setControlOperationDeadline(java.time.LocalDate.of(2026, 1, 29));
+        before.setNextControlOperationDate(java.time.LocalDate.of(2026, 2, 15));
+        ControlAssignmentDTO after = new ControlAssignmentDTO();
+        after.setControlOperationDate(java.time.LocalDate.of(2026, 1, 15));
+        after.setControlOperationDeadline(java.time.LocalDate.of(2026, 1, 29));
+        after.setNextControlOperationDate(java.time.LocalDate.of(2026, 4, 15));
+        when(controlAssignmentService.getAssignmentByControlId(202L)).thenReturn(before, after);
 
+        // Without a reason: refused, nothing saved
         mockMvc.perform(put("/api/controls/202")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"" + field + "\":\"" + value + "\",\"controlDescription\":\"Changed\"}")
+                        .content("{\"controlFrequency\":\"Quarterly\"}")
                         .sessionAttr("currentUser", sessionUser))
-                .andExpect(status().isForbidden())
-                .andExpect(content().string("VALIDATION_ERROR: " + label + " cannot be changed on a completed control"));
-
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("VALIDATION_ERROR: Give a reason for changing a completed control"));
         verify(controlService, never()).updateControl(any(Control.class));
-        org.assertj.core.api.Assertions.assertThat(existing.getControlDescription()).isNull();
+
+        existing.setControlFrequency("Monthly");
+        when(controlAssignmentService.getAssignmentByControlId(202L)).thenReturn(before, after);
+        mockMvc.perform(put("/api/controls/202")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlFrequency\":\"Quarterly\",\"editReason\":\"Operated quarterly\"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(existing.getControlFrequency()).isEqualTo("Quarterly");
+        org.assertj.core.api.Assertions.assertThat(existing.getPerformanceStatus()).isEqualTo("COMPLETED");
+        verify(controlAssignmentService).recalculateSchedule(202L);
+        // The frequency, and of the schedule what moved (the next date), before and after, then the reason
+        verify(adminAuditService).logActionWithChanges(eq(sessionUser.getMail()), any(), eq("EDIT"), eq(existing),
+                eq("Edit Control - Edited after completion"),
+                eq("[\"control_frequency\",\"Next Control Operation Date\",\"Reason\"]"),
+                eq("{\"control_frequency\":\"Monthly\",\"Next Control Operation Date\":\"2026-02-15\"}"),
+                eq("{\"control_frequency\":\"Quarterly\",\"Next Control Operation Date\":\"2026-04-15\","
+                        + "\"Reason\":\"Operated quarterly\"}"));
     }
 
     @Test
@@ -357,6 +381,50 @@ class ControlControllerSecurityTest {
                 eq("[\"control_description\",\"Reason\"]"),
                 eq("{\"control_description\":null}"),
                 eq("{\"control_description\":\"Changed\",\"Reason\":\"Description was wrong\"}"));
+    }
+
+    @Test
+    void updateControl_completedControlChangedInPlace_controlStatusAndSoqmYearChange_withAReason() throws Exception {
+        User sessionUser = userWithRole("SOQM_TEAM");
+        Control existing = completedForEditInPlace(sessionUser, 206L);
+        when(controlService.updateControl(any(Control.class))).thenAnswer(inv -> inv.getArgument(0));
+        String otherYear = com.kpmg.qtracker.service.SoqmYear.options(
+                com.kpmg.qtracker.service.DeadlineOverdue.today(java.time.Instant.now())).get(0);
+
+        mockMvc.perform(put("/api/controls/206")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlStatus\":\"superseded\",\"soqmYear\":\"" + otherYear + "\","
+                                + "\"editReason\":\"Replaced by the new control\"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(existing.getControlStatus()).isEqualTo("SUPERSEDED");
+        org.assertj.core.api.Assertions.assertThat(existing.getSoqmYear()).isEqualTo(otherYear);
+        org.assertj.core.api.Assertions.assertThat(existing.getPerformanceStatus()).isEqualTo("COMPLETED");
+        // A new SoQM Year moves no date
+        verify(controlAssignmentService, never()).recalculateSchedule(any());
+        verify(adminAuditService).logActionWithChanges(eq(sessionUser.getMail()), any(), eq("EDIT"), eq(existing),
+                eq("Edit Control - Edited after completion"), any(), any(), any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0} = {1}")
+    @org.junit.jupiter.params.provider.CsvSource({
+            "controlStatus, ARCHIVED",
+            "controlStatus, Deleted soon",
+            "soqmYear,      1 OCT 2019 - 30 SEP 2020",
+            "soqmYear,      2026-27"
+    })
+    void updateControl_aValueNotInTheList_returns400(String field, String value) throws Exception {
+        User sessionUser = userWithRole("SOQM_TEAM");
+        Control existing = completedForEditInPlace(sessionUser, 207L);
+        existing.setPerformanceStatus("IN_PROGRESS");
+
+        mockMvc.perform(put("/api/controls/207")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"" + field + "\":\"" + value + "\",\"editReason\":\"Why\"}")
+                        .sessionAttr("currentUser", sessionUser))
+                .andExpect(status().isBadRequest());
+        verify(controlService, never()).updateControl(any(Control.class));
     }
 
     @Test
@@ -450,11 +518,11 @@ class ControlControllerSecurityTest {
         updated.setId(210L);
         updated.setControlId("CTRL-210");
         updated.setControlFrequency("Monthly");
-        updated.setControlStatus("Inactive");
+        updated.setControlStatus("SUPERSEDED");
         updated.setCreatedBy(sessionUser);
 
         ControlDTO updateRequest = new ControlDTO();
-        updateRequest.setControlStatus("Inactive");
+        updateRequest.setControlStatus("Superseded");
 
         when(controlService.getControlById(210L)).thenReturn(Optional.of(existing));
         when(controlService.updateControl(any(Control.class))).thenReturn(updated);
@@ -499,7 +567,7 @@ class ControlControllerSecurityTest {
 
         assertTrue(changedFields.contains("control_status"));
         assertEquals("Active", previousValues.get("control_status"));
-        assertEquals("Inactive", newValues.get("control_status"));
+        assertEquals("SUPERSEDED", newValues.get("control_status"));
     }
 
     @Test

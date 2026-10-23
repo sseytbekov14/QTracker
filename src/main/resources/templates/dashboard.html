@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" th:attr="data-notifications-only=${notificationsOnly} ? 'true' : null">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -14,6 +14,12 @@
             else if (hash === '#notifications') { activeTab = 'notifications'; document.title = 'Notifications - QTracker'; }
             else { document.title = 'Dashboard - QTracker'; }
             // Store for use during DOM init
+            // The role KDN: Notifications only (/notifications), no dashboard
+            if (document.documentElement.getAttribute('data-notifications-only') === 'true') {
+                activeTab = 'notifications';
+                document.title = 'Notifications - QTracker';
+                window.__qtNotificationsOnly = true;
+            }
             window.__qtActiveTab = activeTab;
             document.documentElement.setAttribute('data-active-tab', activeTab);
             document.documentElement.classList.add('tab-init-pending');
@@ -21,7 +27,7 @@
     </script>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=17" rel="stylesheet">
+    <link href="/css/style.css?v=20" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
 :root {
@@ -1007,7 +1013,8 @@ a.stat-block:focus-visible,
                 <div class="tab-content" id="mainTabContent">
 
                     <!-- ========== DASHBOARD ========== -->
-                    <div class="tab-pane fade" id="pane-dashboard" role="tabpanel">
+                    <!--/* Not rendered for the role KDN (notificationsOnly, AccessPolicy.KDN_SEES_DASHBOARD) */-->
+                    <div class="tab-pane fade" id="pane-dashboard" role="tabpanel" th:unless="${notificationsOnly}">
 
                         <!-- Header -->
                         <div class="page-header dashboard-header-panel">
@@ -1022,19 +1029,19 @@ a.stat-block:focus-visible,
 
                         <!-- Stats -->
                         <div class="stats-strip">
-                            <a class="stat-block total" href="/controls" title="Open all controls">
+                            <a class="stat-block total" href="/component/ALL" title="Open all controls">
                                 <span class="stat-num" th:text="${totalControls}">0</span>
                                 <span class="stat-label">Total Controls</span>
                             </a>
-                            <a class="stat-block active" href="/controls?scope=active" title="Open active controls">
+                            <a class="stat-block active" href="/component/ALL?status=ACTIVE" title="Open active controls">
                                 <span class="stat-num" th:text="${activeControls}">0</span>
                                 <span class="stat-label">Active</span>
                             </a>
-                            <a class="stat-block completed" href="/controls?filter=COMPLETED" title="Open completed controls">
+                            <a class="stat-block completed" href="/component/ALL?status=COMPLETED" title="Open completed controls">
                                 <span class="stat-num" th:text="${completedControls}">0</span>
                                 <span class="stat-label">Completed</span>
                             </a>
-                            <a class="stat-block overdue" href="/controls?filter=OVERDUE" title="Open overdue controls">
+                            <a class="stat-block overdue" href="/component/ALL?status=OVERDUE" title="Open overdue controls">
                                 <span class="stat-num" th:text="${overdueControls}">0</span>
                                 <span class="stat-label">Overdue</span>
                             </a>
@@ -1049,7 +1056,7 @@ a.stat-block:focus-visible,
                                 </h2>
                                 <a th:if="${actionItemsTotal > #lists.size(actionItems)}"
                                    class="action-queue-all"
-                                   th:href="${userIsSoqm} ? '/controls?status=SOQM_HEAD_REVIEW' : '/controls?scope=active'"
+                                   th:href="${userIsSoqm} ? '/component/ALL?status=SOQM_HEAD_REVIEW' : '/component/ALL?status=YOUR_TURN'"
                                    th:text="'View all (' + ${actionItemsTotal} + ')'">View all</a>
                             </div>
 
@@ -1134,7 +1141,7 @@ a.stat-block:focus-visible,
                     </div>
 
                     <!-- ========== ACTION CENTRE ========== -->
-                    <div class="tab-pane fade" id="pane-action" role="tabpanel">
+                    <div class="tab-pane fade" id="pane-action" role="tabpanel" th:unless="${notificationsOnly}">
 
                         <div class="page-header pane-header">
                             <div>
@@ -1163,17 +1170,10 @@ a.stat-block:focus-visible,
                                 </div>
                             </a>
 
-                            <!-- Components -->
-                            <!--/* KDN is one more card: first for KDN users, last for the others */-->
+                            <!-- Components (the KDN controls have their own page, KDN in the menu) -->
                             <div class="ac-grid">
-                                <th:block th:if="${kdnUser and kdnSummary != null}">
-                                    <a th:replace="~{fragments/action-centre :: card(${kdnSummary}, ${kdnHref})}"></a>
-                                </th:block>
                                 <th:block th:each="c : ${componentSummaries}">
                                     <a th:replace="~{fragments/action-centre :: card(${c}, ${'/component/' + c.code()})}"></a>
-                                </th:block>
-                                <th:block th:if="${!kdnUser and kdnSummary != null}">
-                                    <a th:replace="~{fragments/action-centre :: card(${kdnSummary}, ${kdnHref})}"></a>
                                 </th:block>
                             </div>
                             <div class="ac-legend" aria-hidden="true">
@@ -1263,7 +1263,8 @@ a.stat-block:focus-visible,
                                 <div class="notif-more" th:if="${notificationsTotal != null and notificationsTotal > notificationsShown}">
                                     <span th:text="'Showing ' + ${notificationsShown} + ' of ' + ${notificationsTotal}">Showing 50 of 120</span>
                                     <a class="notif-more-link"
-                                       th:href="@{/(notifLimit=${notificationsNextLimit})} + '#notifications'">Show more</a>
+                                       th:href="${notificationsOnly} ? @{/notifications(notifLimit=${notificationsNextLimit})}
+                                               : @{/(notifLimit=${notificationsNextLimit})} + '#notifications'">Show more</a>
                                 </div>
                             </div>
                         </div>
@@ -1340,17 +1341,21 @@ document.addEventListener('DOMContentLoaded', function() {
         tabEl.addEventListener('shown.bs.tab', function(event) {
             document.querySelectorAll('.sidebar .nav-link').forEach(l => l.classList.remove('active'));
             const id = event.target.id;
-            if (id === 'tab-dashboard') { document.getElementById('sidebarDashboard').classList.add('active'); window.history.replaceState({}, '', '/'); }
-            else if (id === 'tab-action') { document.getElementById('sidebarActionCentre').classList.add('active'); window.history.replaceState({}, '', '/#action-centre'); }
-            else if (id === 'tab-notifications') { document.getElementById('sidebarNotifications').classList.add('active'); window.history.replaceState({}, '', '/#notifications'); }
+            if (id === 'tab-dashboard') { document.getElementById('sidebarDashboard')?.classList.add('active'); window.history.replaceState({}, '', '/'); }
+            else if (id === 'tab-action') { document.getElementById('sidebarActionCentre')?.classList.add('active'); window.history.replaceState({}, '', '/#action-centre'); }
+            else if (id === 'tab-notifications') {
+                document.getElementById('sidebarNotifications')?.classList.add('active');
+                if (!window.__qtNotificationsOnly) { window.history.replaceState({}, '', '/#notifications'); }
+            }
             setPageTitleByHashOrTab(null, id);
         });
     });
 
     // Sidebar clicks
-    document.getElementById('sidebarDashboard').addEventListener('click', function(e) { e.preventDefault(); new bootstrap.Tab(document.getElementById('tab-dashboard')).show(); });
-    document.getElementById('sidebarActionCentre').addEventListener('click', function(e) { e.preventDefault(); new bootstrap.Tab(document.getElementById('tab-action')).show(); });
-    document.getElementById('sidebarNotifications').addEventListener('click', function(e) { e.preventDefault(); new bootstrap.Tab(document.getElementById('tab-notifications')).show(); });
+    // The role KDN has neither Dashboard nor Action Centre in the menu
+    document.getElementById('sidebarDashboard')?.addEventListener('click', function(e) { e.preventDefault(); new bootstrap.Tab(document.getElementById('tab-dashboard')).show(); });
+    document.getElementById('sidebarActionCentre')?.addEventListener('click', function(e) { e.preventDefault(); new bootstrap.Tab(document.getElementById('tab-action')).show(); });
+    document.getElementById('sidebarNotifications')?.addEventListener('click', function(e) { e.preventDefault(); new bootstrap.Tab(document.getElementById('tab-notifications')).show(); });
 
     const dashboardCharts = document.getElementById('dashboardCharts');
     if (dashboardCharts && window.Chart) {
@@ -1846,7 +1851,7 @@ function renderDeadlineCountdown(data) {
         html += '<div class="deadline-group-title is-overdue">'
             + '<span>Overdue <span class="deadline-group-count">' + overdueTotal + '</span></span>'
             + (overdueTotal > overdue.length
-                ? '<a href="/controls?filter=OVERDUE" class="deadline-group-link">View all</a>'
+                ? '<a href="/component/ALL?status=OVERDUE" class="deadline-group-link">View all</a>'
                 : '')
             + '</div>'
             + overdue.map(renderDeadlineItem).join('');

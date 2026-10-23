@@ -7,7 +7,7 @@
     <title>Admin Panel - QTracker</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=17" rel="stylesheet">
+    <link href="/css/style.css?v=20" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
 /* Colours come from the tokens in style.css (:root) */
@@ -322,6 +322,21 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .form-message .btn { flex-shrink: 0; font-size: 0.76rem; padding: 2px 10px; }
 .user-dialog .modal-footer { padding: 10px 20px 14px; border-top: 1px solid var(--kpmg-gray-100); gap: 8px; }
 .user-dialog .modal-footer > * { margin: 0; }
+.user-dialog .modal-footer .me-auto { margin-right: auto; }
+.delete-panel .delete-title { font-size: 1.05rem; font-weight: 700; color: #a30000; margin: 0 0 10px; overflow-wrap: anywhere; }
+.delete-consequences { font-size: 0.85rem; background: #fff4f4; border: 1px solid #f1c2c2; border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; }
+.delete-consequences p { margin: 0 0 6px; }
+.delete-consequences p:last-child { margin-bottom: 0; }
+.delete-warning { display: flex; gap: 8px; font-size: 0.85rem; background: #fff3cd; border: 1px solid #e0c46c; border-radius: 6px; padding: 10px 12px; }
+.delete-warning p { margin: 0; }
+.delete-warning .bi { color: #8a5a00; }
+.delete-controls { list-style: none; padding: 0; margin: 10px 0; max-height: 220px; overflow-y: auto; border: 1px solid var(--kpmg-gray-100); border-radius: 6px; font-size: 0.82rem; }
+.delete-controls li { padding: 6px 10px; border-bottom: 1px solid var(--kpmg-gray-100); display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.delete-controls li:last-child { border-bottom: 0; }
+.delete-controls .dc-id { font-weight: 600; overflow-wrap: anywhere; }
+.delete-controls .dc-places { color: #555; }
+.delete-more { font-size: 0.8rem; color: #555; }
+.delete-ack { margin-top: 8px; font-size: 0.85rem; }
 .dirty-note { margin-right: auto !important; font-size: 0.76rem; font-weight: 600; color: var(--kpmg-amber-text); }
 .dirty-note .bi { margin-right: 5px; font-size: 0.5rem; vertical-align: 2px; }
 .user-dialog .btn { font-size: 0.85rem; font-weight: 600; padding: 7px 18px; border-radius: 4px; }
@@ -552,7 +567,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     </div>
                     <select id="filterRole" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by role">
                         <option value="">All roles</option>
-                        <option th:each="role : ${roles}" th:value="${role.name()}" th:text="${role.displayName}">SoQM Team</option>
+                        <option th:each="role : ${roles}" th:value="${role.name()}" th:text="${role.displayName}">SoQM Admin Team</option>
                     </select>
                     <select id="filterVisibility" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by visibility">
                         <option value="">Any visibility</option>
@@ -793,7 +808,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     <label for="userRole" class="form-label">Role <span class="required-mark" aria-hidden="true">*</span></label>
                     <select id="userRole" class="form-select" aria-describedby="userRole-reason userRole-error" required>
                         <option value="">Choose a role…</option>
-                        <option th:each="role : ${roles}" th:value="${role.name()}" th:text="${role.displayName}">SoQM Team</option>
+                        <option th:each="role : ${roles}" th:value="${role.name()}" th:text="${role.displayName}">SoQM Admin Team</option>
                     </select>
                     <div class="field-reason" id="userRole-reason"></div>
                     <div class="field-error" id="userRole-error" aria-live="polite"></div>
@@ -849,9 +864,55 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     <div class="field-error" id="userStatus-error" aria-live="polite"></div>
                 </div>
             </form>
+            <!-- Deleting the user (SoQM Admin Team; UserDeletion on the server checks both steps) -->
+            <section class="modal-body delete-panel" id="userDeletePanel" aria-labelledby="userDeleteTitle" hidden>
+                <h3 class="delete-title" id="userDeleteTitle">Delete <span id="userDeleteWho">user</span>?</h3>
+                <div class="delete-consequences" id="userDeleteConsequences">
+                    <p><strong>This cannot be undone.</strong> The account goes: the user can no longer sign in, and their
+                        Microsoft sign-in link, password and own notifications are removed.</p>
+                    <p>Kept as they are, with this person's name and e-mail: the Audit Trail, the controls' history and
+                        Changelog, the e-mail log and who uploaded each file. Their e-mail stays in the controls' people
+                        and Shared With, shown as &ldquo;(deleted user)&rdquo;: change those people yourself where needed.</p>
+                    <p>To keep the account and only stop the sign-in, use <strong>Disable user</strong> instead.</p>
+                </div>
+                <div id="userDeleteStep1">
+                    <div class="mb-3">
+                        <label for="userDeleteEmail" class="form-label">Type the user's e-mail to confirm <span class="required-mark" aria-hidden="true">*</span></label>
+                        <input type="email" id="userDeleteEmail" class="form-control" autocomplete="off" spellcheck="false"
+                               aria-describedby="userDeleteEmail-error">
+                        <div class="field-error" id="userDeleteEmail-error" aria-live="polite"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="userDeleteReason" class="form-label">Reason <span class="required-mark" aria-hidden="true">*</span></label>
+                        <textarea id="userDeleteReason" class="form-control" rows="3" maxlength="500"
+                                  aria-describedby="userDeleteReason-error"></textarea>
+                        <div class="field-error" id="userDeleteReason-error" aria-live="polite"></div>
+                    </div>
+                </div>
+                <div id="userDeleteStep2" hidden>
+                    <div class="delete-warning" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                        <p><strong id="userDeleteCount">0 controls</strong> not completed keep this person. They stay with
+                            the deleted person (their e-mail, &ldquo;deleted user&rdquo;) until someone changes them.</p>
+                    </div>
+                    <ul class="delete-controls" id="userDeleteControls" aria-label="Controls that keep the person"></ul>
+                    <p class="delete-more" id="userDeleteMore" hidden></p>
+                    <div class="form-check delete-ack">
+                        <input type="checkbox" class="form-check-input" id="userDeleteAck">
+                        <label class="form-check-label" for="userDeleteAck">I understand that these controls stay with the
+                            deleted person</label>
+                    </div>
+                </div>
+                <div class="alert alert-danger d-none" id="userDeleteMessage" role="alert" tabindex="-1"></div>
+            </section>
             <div class="modal-footer">
+                <button type="button" class="btn btn-outline-danger js-delete-start me-auto" id="userDeleteBtn" hidden>
+                    <i class="bi bi-trash3" aria-hidden="true"></i> Delete user</button>
+                <button type="button" class="btn btn-outline-secondary" id="userDisableBtn" hidden>Disable user</button>
                 <span class="dirty-note" id="userDirtyNote" hidden><i class="bi bi-circle-fill" aria-hidden="true"></i>Unsaved changes</span>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="userCancelBtn">Cancel</button>
+                <button type="button" class="btn btn-outline-secondary" id="userDeleteBackBtn" hidden>Back</button>
+                <button type="button" class="btn btn-danger" id="userDeleteConfirmBtn" hidden>Continue</button>
                 <button type="submit" class="btn btn-primary" id="userSaveBtn" form="userForm" disabled>Save</button>
             </div>
         </div>
@@ -867,6 +928,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const ROLE_CAN_DO = /*[[${roleCanDo}]]*/ {};
     const ROLE_FIXED = /*[[${roleFixedValues}]]*/ {};
     const ROLE_SUMMARIES = /*[[${roleSummaries}]]*/ {};
+    // Sign-in with Microsoft: a new user needs the corporate e-mail and gets no password
+    const SSO = /*[[${sso}]]*/ false;
     const MAX_NAME_LENGTH = 255;
     const SEPARATOR = ' · ';
 
@@ -1206,7 +1269,8 @@ document.addEventListener('DOMContentLoaded', function() {
             user: user,
             self: user.self,
             lastSoqm: !create && user.role === 'SOQM_TEAM' && user.enabled && activeSoqmCount() <= 1,
-            emailEditable: create || !user.lastLogin,
+            // Also after the first sign-in (2026-10-21); not one's own, the server refuses that too
+            emailEditable: create || !user.self,
             saving: false,
             asking: false,
             closing: false
@@ -1230,9 +1294,12 @@ document.addEventListener('DOMContentLoaded', function() {
         nameRequiredMark.hidden = create;
         emailRequiredMark.hidden = !dialog.emailEditable;
         nameHint.textContent = create ? 'Leave empty to take the name from the e-mail.' : '';
-        emailHint.textContent = create ? 'The user signs in with this address.'
-            : dialog.emailEditable ? 'Can be changed until the first sign-in.'
-            : 'Cannot be changed: the user has already signed in.';
+        emailHint.textContent = create
+            ? (SSO ? 'Corporate e-mail: the user signs in with it at Microsoft (no password is set).'
+                : 'The user signs in with this address.')
+            : !dialog.emailEditable ? 'You cannot change your own e-mail.'
+            : (SSO ? 'Corporate e-mail: the user signs in with it at Microsoft.' : 'The user signs in with this address.')
+                + ' A new address also moves the user’s controls to it.';
 
         // What cannot be chosen is disabled, with the reason next to it
         const roleLocked = dialog.self;
@@ -1242,19 +1309,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 : dialog.lastSoqm && option.value !== 'SOQM_TEAM';
         });
         roleReason.textContent = dialog.self ? 'You cannot change your own role.'
-            : dialog.lastSoqm ? 'This is the last active SoQM Team member: make someone else SoQM Team first.'
+            : dialog.lastSoqm ? 'This is the last active SoQM Admin Team member: make someone else SoQM Admin Team first.'
             : '';
         const statusLocked = dialog.self || dialog.lastSoqm;
         inactiveOption.disabled = statusLocked && user.enabled;
         fields.status.disabled = dialog.self;
         statusReason.textContent = dialog.self ? 'You cannot deactivate your own account.'
-            : dialog.lastSoqm ? 'The last active SoQM Team member cannot be deactivated.'
+            : dialog.lastSoqm ? 'The last active SoQM Admin Team member cannot be deactivated.'
             : '';
 
         saveBtn.textContent = create ? 'Create user' : 'Save';
         syncRoleFields(false);
         dialog.initial = currentValues();
         updateDirtyState();
+        resetDelete();
+        setDeleteStep(0);
         userModal.show();
     }
 
@@ -1378,12 +1447,242 @@ document.addEventListener('DOMContentLoaded', function() {
 
     modalEl.addEventListener('hidden.bs.modal', function() {
         const opener = dialog ? dialog.opener : null;
+        form.hidden = false;
+        deletePanel.hidden = true;
         dialog = null;
         clearErrors();
         if (opener && document.body.contains(opener) && opener.offsetParent !== null) {
             opener.focus();
         }
     });
+
+    // ---------------------------------------------------------------- deleting a user
+
+    const deletePanel = document.getElementById('userDeletePanel');
+    const deleteBtn = document.getElementById('userDeleteBtn');
+    const disableBtn = document.getElementById('userDisableBtn');
+    const deleteBackBtn = document.getElementById('userDeleteBackBtn');
+    const deleteConfirmBtn = document.getElementById('userDeleteConfirmBtn');
+    const deleteEmail = document.getElementById('userDeleteEmail');
+    const deleteReason = document.getElementById('userDeleteReason');
+    const deleteStep1 = document.getElementById('userDeleteStep1');
+    const deleteStep2 = document.getElementById('userDeleteStep2');
+    const deleteAck = document.getElementById('userDeleteAck');
+    const deleteMessage = document.getElementById('userDeleteMessage');
+
+    // Delete and Disable for an existing user who is not oneself; the last active SoQM Admin Team member neither
+    function showDeleteButtons() {
+        const existing = dialog && dialog.mode !== 'create' && !dialog.self;
+        deleteBtn.hidden = !existing;
+        deleteBtn.disabled = Boolean(existing && dialog.lastSoqm);
+        deleteBtn.title = existing && dialog.lastSoqm ? 'The last active SoQM Admin Team member cannot be deleted' : '';
+        disableBtn.hidden = !existing || !dialog.user.enabled || dialog.lastSoqm;
+    }
+
+    // step: 0 = the form, 1 = e-mail and reason, 2 = the controls that keep the person
+    function setDeleteStep(step) {
+        dialog.deleteStep = step;
+        form.hidden = step > 0;
+        deletePanel.hidden = step === 0;
+        deleteStep1.hidden = step !== 1;
+        deleteStep2.hidden = step !== 2;
+        saveBtn.hidden = step > 0;
+        dirtyNote.hidden = step > 0 || !isDirty();
+        deleteBackBtn.hidden = step === 0;
+        deleteConfirmBtn.hidden = step === 0;
+        deleteConfirmBtn.textContent = step === 2 ? 'Delete user' : 'Continue';
+        deleteConfirmBtn.disabled = step === 2 && !deleteAck.checked;
+        if (step > 0) {
+            deleteBtn.hidden = true;
+            disableBtn.hidden = true;
+        } else {
+            showDeleteButtons();
+        }
+        deleteMessage.classList.add('d-none');
+    }
+
+    function resetDelete() {
+        deleteEmail.value = '';
+        deleteReason.value = '';
+        deleteAck.checked = false;
+        [deleteEmail, deleteReason].forEach(function(field) {
+            setFieldError(field, '');
+        });
+        if (dialog) {
+            dialog.deleteToken = null;
+        }
+    }
+
+    function showDeleteMessage(text) {
+        deleteMessage.textContent = text;
+        deleteMessage.classList.remove('d-none');
+        deleteMessage.focus();
+    }
+
+    deleteBtn.addEventListener('click', function() {
+        if (!dialog || dialog.saving) {
+            return;
+        }
+        resetDelete();
+        document.getElementById('userDeleteWho').textContent = dialog.user.name || dialog.user.email;
+        setDeleteStep(1);
+        deleteEmail.focus();
+    });
+
+    deleteBackBtn.addEventListener('click', function() {
+        resetDelete();
+        setDeleteStep(0);
+        deleteBtn.focus();
+    });
+
+    deleteAck.addEventListener('change', function() {
+        deleteConfirmBtn.disabled = !deleteAck.checked;
+    });
+
+    // Disable user: the safe alternative, the usual save with the status Inactive (and its confirmation)
+    disableBtn.addEventListener('click', function() {
+        if (!dialog || dialog.saving) {
+            return;
+        }
+        fields.status.value = 'INACTIVE';
+        updateDirtyState();
+        form.requestSubmit();
+    });
+
+    deleteConfirmBtn.addEventListener('click', async function() {
+        if (!dialog || dialog.saving) {
+            return;
+        }
+        if (dialog.deleteStep === 1) {
+            const typed = deleteEmail.value.trim().toLowerCase();
+            const reason = deleteReason.value.trim();
+            setFieldError(deleteEmail, typed === String(dialog.user.email || '').toLowerCase() ? ''
+                : 'Type the user\'s e-mail exactly to confirm');
+            setFieldError(deleteReason, reason ? '' : 'Give a reason for deleting the user');
+            if (typed !== String(dialog.user.email || '').toLowerCase()) {
+                deleteEmail.focus();
+                return;
+            }
+            if (!reason) {
+                deleteReason.focus();
+                return;
+            }
+            await checkDeletion();
+        } else if (dialog.deleteStep === 2 && deleteAck.checked) {
+            await runDeletion(true);
+        }
+    });
+
+    async function checkDeletion() {
+        dialog.saving = true;
+        deleteConfirmBtn.disabled = true;
+        try {
+            const response = await fetch('/api/users/' + dialog.row.dataset.userId + '/delete-check', { method: 'POST' });
+            if (!response.ok) {
+                showDeleteMessage(await deletionProblem(response));
+                return;
+            }
+            const check = await response.json();
+            dialog.deleteToken = check.token;
+            if (!check.secondConfirmation) {
+                dialog.saving = false;
+                await runDeletion(false);
+                return;
+            }
+            const list = document.getElementById('userDeleteControls');
+            list.replaceChildren.apply(list, check.controls.map(function(control) {
+                return element('li', null, null, [
+                    element('span', 'dc-id', control.controlId || ('#' + control.id)),
+                    element('span', 'dc-places', control.places.join(', '))
+                ]);
+            }));
+            document.getElementById('userDeleteCount').textContent =
+                check.total + (check.total === 1 ? ' control' : ' controls');
+            const more = document.getElementById('userDeleteMore');
+            more.hidden = check.total <= check.controls.length;
+            more.textContent = 'The first ' + check.controls.length + ' of ' + check.total + ' are listed.';
+            deleteAck.checked = false;
+            setDeleteStep(2);
+            deleteAck.focus();
+        } catch (error) {
+            showDeleteMessage('The server could not be reached. Nothing was deleted: try again.');
+        } finally {
+            if (dialog) {
+                dialog.saving = false;
+                if (dialog.deleteStep === 1) {
+                    deleteConfirmBtn.disabled = false;
+                }
+            }
+        }
+    }
+
+    async function runDeletion(acknowledged) {
+        dialog.saving = true;
+        deleteConfirmBtn.disabled = true;
+        deleteConfirmBtn.textContent = 'Deleting…';
+        try {
+            const response = await fetch('/api/users/' + dialog.row.dataset.userId + '/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: deleteEmail.value.trim(),
+                    reason: deleteReason.value.trim(),
+                    token: dialog.deleteToken,
+                    acknowledged: acknowledged
+                })
+            });
+            if (!response.ok) {
+                showDeleteMessage(await deletionProblem(response));
+                return;
+            }
+            const result = await response.json();
+            const row = dialog.row;
+            const who = dialog.user.name || dialog.user.email;
+            row.remove();
+            rows = Array.from(tableBody.querySelectorAll('.admin-user-row'));
+            applyFilters();
+            if (result.audit) {
+                addAuditRow(result.audit);
+            }
+            dialog.opener = openAddUserBtn;
+            dialog.saving = false;
+            dialog.closing = true;
+            userModal.hide();
+            showClientAlert('User ' + who + ' (' + result.mail + ') deleted.'
+                + (result.unfinishedControls > 0 ? ' ' + result.unfinishedControls
+                    + ' controls not completed keep the deleted person.' : ''), 'success');
+        } catch (error) {
+            showDeleteMessage('The server could not be reached. Check the list before trying again.');
+        } finally {
+            if (dialog && !dialog.closing) {
+                dialog.saving = false;
+                deleteConfirmBtn.textContent = dialog.deleteStep === 2 ? 'Delete user' : 'Continue';
+                deleteConfirmBtn.disabled = dialog.deleteStep === 2 && !deleteAck.checked;
+            }
+        }
+    }
+
+    // The server's refusal in words (UserDeletion's messages are plain text)
+    async function deletionProblem(response) {
+        if (response.status === 401) {
+            return 'Your session has expired. Reload the page and sign in again.';
+        }
+        const text = (await response.text().catch(function() {
+            return '';
+        })).trim();
+        if (response.status === 404) {
+            return 'This user no longer exists: reload the page.';
+        }
+        if (text.startsWith('{')) {
+            try {
+                const json = JSON.parse(text);
+                return json.message || 'The deletion was refused (error ' + response.status + ').';
+            } catch (error) {
+                return 'The deletion was refused (error ' + response.status + ').';
+            }
+        }
+        return text && !text.startsWith('<') ? text : 'The deletion was refused (error ' + response.status + ').';
+    }
 
     async function askToDiscard() {
         if (dialog.asking) {
@@ -1545,10 +1844,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (values.role === 'SOQM_TEAM' && before.role !== 'SOQM_TEAM') {
             changes.push({
                 field: fields.role,
-                title: create ? 'Create ' + who + ' as SoQM Team?' : 'Make ' + who + ' SoQM Team?',
+                title: create ? 'Create ' + who + ' as SoQM Admin Team?' : 'Make ' + who + ' SoQM Admin Team?',
                 text: who + ' will see every control, drafts included, edit any control, assign people, move'
                     + ' controls on or back for any Control role, and manage users and the audit trail in the Admin Panel.',
-                ok: create ? 'Create SoQM Team user' : 'Make SoQM Team'
+                ok: create ? 'Create SoQM Admin Team user' : 'Make SoQM Admin Team'
             });
         }
         const allEdit = values.role === 'USER' && values.visibility === 'ALL' && values.access === 'EDIT';
@@ -1715,7 +2014,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return { message: json.message || 'This page is out of date. Reload the page and try again.', reload: true };
             }
             return {
-                message: 'Only SoQM Team can change users. Your role may have changed: reload the page.',
+                message: 'Only SoQM Admin Team can change users. Your role may have changed: reload the page.',
                 reload: true
             };
         }

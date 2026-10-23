@@ -30,6 +30,7 @@ public class NotificationTypeDisplayMapper {
             return new Display("Control Reminder (1)", CLASS_REMINDER);
         }
 
+        // Older notifications only: nothing makes this type since the daily creation of controls was removed
         if ("CONTROL_AUTO_CREATED".equals(normalized)) {
             return new Display("New Control Created", CLASS_AUTO_CREATED);
         }
@@ -55,11 +56,11 @@ public class NotificationTypeDisplayMapper {
         }
 
         if ("ON_BEHALF".equals(normalized)) {
-            return new Display("Done for you by SoQM", CLASS_DEFAULT);
+            return new Display("Done for you by SoQM Admin Team", CLASS_DEFAULT);
         }
 
         if ("RETURN_TO_SOQM_TEAM".equals(normalized)) {
-            return new Display("Returned to SoQM Team", CLASS_DEFAULT);
+            return new Display("Returned to SoQM Admin Team", CLASS_DEFAULT);
         }
 
         if ("RETURN_TO_PROCESS_OWNER".equals(normalized)) {

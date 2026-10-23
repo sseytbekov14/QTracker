@@ -436,18 +436,23 @@
     color: #0b8aa7;
 }
 
+/* The KPMG blue of the other buttons (View Control's bar and dialogs) */
 #appModalOkBtn {
-    background: #6c63ff;
-    border-color: #6c63ff;
-    padding: 6px 18px;
+    min-width: 88px;
+    min-height: 36px;
+    background: #00338D;
+    border-color: #00338D;
+    padding: 0 18px;
     border-radius: 6px;
+    font-size: 0.85rem;
     font-weight: 600;
-    box-shadow: 0 6px 14px rgba(108, 99, 255, 0.28);
+    box-shadow: 0 1px 2px rgba(0, 51, 141, 0.18);
 }
 
 #appModalOkBtn:hover {
-    background: #5d54f3;
-    border-color: #5d54f3;
+    background: #002060;
+    border-color: #002060;
+    box-shadow: 0 2px 8px rgba(0, 51, 141, 0.25);
 }
 
 .notif-pill {
@@ -1571,6 +1576,43 @@
     font-weight: 600;
     text-decoration: none;
     transition: all 0.12s ease;
+}
+/* js/session.js: the session ended, the page and what was typed stay */
+.session-expired-banner {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: calc(100% - 32px);
+    padding: 10px 14px;
+    border: 1px solid #c8102e;
+    border-left-width: 4px;
+    border-radius: 4px;
+    background: #fff5f6;
+    color: #1f2937;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    font-size: 0.875rem;
+}
+.session-expired-banner strong {
+    display: block;
+    color: #a00d25;
+}
+.session-expired-banner button {
+    flex: none;
+    padding: 5px 12px;
+    border: 0;
+    border-radius: 3px;
+    background: #00338d;
+    color: #ffffff;
+    font-weight: 600;
+}
+.session-expired-banner button:focus-visible {
+    outline: 2px solid #7fb0ff;
+    outline-offset: 2px;
 }
 .sidebar-logout:hover {
     background: rgba(200, 16, 46, 0.2);

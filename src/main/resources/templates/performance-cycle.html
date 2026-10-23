@@ -7,7 +7,7 @@
     <title th:text="${controlId} + ' - Performance Cycle - QTracker'">Performance Cycle - QTracker</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=17" rel="stylesheet">
+    <link href="/css/style.css?v=20" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         :root {
@@ -143,7 +143,7 @@
 </script>
 <div class="container-fluid">
     <div class="row">
-        <div th:replace="~{fragments/sidebar :: sidebar('controls')}"></div>
+        <div th:replace="~{fragments/sidebar :: sidebar('action')}"></div>
 
         <div class="col-md-10">
             <div class="page-wrapper"
@@ -154,7 +154,7 @@
                 <nav class="page-breadcrumb" aria-label="Breadcrumb">
                     <a href="/">Dashboard</a>
                     <span aria-hidden="true">/</span>
-                    <a href="/controls">Controls</a>
+                    <a href="/component/ALL" th:href="${sidebar != null ? sidebar.listHref : '/component/ALL'}" th:text="${sidebar != null ? sidebar.listLabel : 'All components'}">All components</a>
                     <span aria-hidden="true">/</span>
                     <span aria-current="page" th:text="${controlId}">Control</span>
                 </nav>
@@ -178,9 +178,10 @@
                            th:text="${control.controlDescription}">Description</p>
                     </div>
                     <div class="pc-actions">
+                        <!-- Download: the Excel of a completed control, SoQM Admin Team only (AccessPolicy.canExportCompletedControl) -->
                         <a th:if="${canExportCompleted and #strings.equals(status, 'COMPLETED')}"
                            th:href="@{/api/controls/{id}/export/completed(id=${control.id})}"
-                           class="btn-pc-secondary">
+                           id="exportCompletedBtn" class="btn-pc-secondary" title="Download this completed control as Excel">
                             <i class="bi bi-download" aria-hidden="true"></i>Download
                         </a>
                         <a th:href="@{/view-control/{id}(id=${control.id})}" class="btn-pc-primary">
@@ -238,7 +239,7 @@
                             <div class="pc-field"><dt>Control Operator</dt>
                                 <dd th:if="${controlOperator != null}" th:text="${controlOperator}">Name</dd>
                                 <dd th:if="${controlOperator == null}" class="pc-empty">Not assigned</dd></div>
-                            <div class="pc-field"><dt>SoQM Team</dt>
+                            <div class="pc-field"><dt>SoQM Team / Delegate</dt>
                                 <dd th:if="${soqmTeam != null}" th:text="${soqmTeam}">Name</dd>
                                 <dd th:if="${soqmTeam == null}" class="pc-empty">Not assigned</dd></div>
                             <div class="pc-field"><dt>Process Owner</dt>

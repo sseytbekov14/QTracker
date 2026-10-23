@@ -4,30 +4,37 @@ import com.kpmg.qtracker.dto.ControlResponseDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 public interface IControlService {
     List<Control> getAllControls();
     List<Control> findVisibleControlsForUser(User user);
-    List<Control> getUserControls(String userEmail);
-    List<Control> getAllUserControls(String userEmail);
-    List<Control> getFacilitatorControls(String userEmail);
-    List<Control> getControlOperatorControls(String userEmail);
-    List<Control> getProcessOwnerControls(String userEmail);
-    List<Control> getSoqmLeadControls(String userEmail);
+
+    /** The KDN controls the user sees: {@link #findVisibleControlsForUser} kept to AccessPolicy.isKdnControl. */
+    default List<Control> findVisibleKdnControlsForUser(User user) {
+        return findVisibleControlsForUser(user).stream()
+                .filter(control -> control != null && AccessPolicy.isKdnControl(control.getControlId()))
+                .toList();
+    }
     boolean isControlIdUnique(String controlId);
-    List<ControlResponseDTO> getUserControlsDTO(String userEmail);
-    List<ControlResponseDTO> getFacilitatorControlsDTO(String userEmail);
     Control createControl(Control control);
     Control save(Control control);
-    boolean isControlComplete(Control control);
     Optional<Control> getControlById(Long id);
-    Map<String, Long> getComponentStatistics();
+
+    /** The controls of these ids, by id (a missing id is not in the map). */
+    default java.util.Map<Long, Control> getControlsByIds(java.util.Collection<Long> ids) {
+        java.util.Map<Long, Control> controls = new java.util.HashMap<>();
+        for (Long id : ids) {
+            getControlById(id).ifPresent(control -> controls.put(id, control));
+        }
+        return controls;
+    }
     Control updateControl(Control control);
     String getControlFrequency(Long controlId);
     ControlResponseDTO convertToResponseDTO(Control control);
+
+    /** The rows of a list: the same as convertToResponseDTO for each, with the people read in one query. */
+    List<ControlResponseDTO> convertToResponseDTOs(List<Control> controls);
     Optional<Control> findById(Long id);
-    List<String> getFacilitatorsForControl(Long controlId);
 
 }

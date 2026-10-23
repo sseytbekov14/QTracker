@@ -49,9 +49,9 @@ public class ControlHistoryService {
             created.setEventName("New Control");
             created.setTableType("SINGLE");
             created.setCreatedAt(control.getCreatedAt());
-            if (control.getCreatedBy() != null) {
-                created.setActorName(control.getCreatedBy().getDisplayName());
-                created.setActorEmail(control.getCreatedBy().getMail());
+            if (control.creatorName() != null) {
+                created.setActorName(control.creatorName());
+                created.setActorEmail(control.creatorEmail());
             }
 
             List<FieldChangeDTO> createdRows = new ArrayList<>();
@@ -250,12 +250,22 @@ public class ControlHistoryService {
             case "Non-Audit Services Applicability":
             case "non_audit_services_applicability":
                 return "Non-Audit Services Control Applicability";
+            // The field SoQM Team / Delegate, stored under its earlier names
             case "SoQM Team":
             case "soqm_lead":
             case "soqm_team":
-                return "SoQM Head/Lead";
+                return AccessPolicy.Slot.SOQM_LEAD.getLabel();
             case "control_id":
                 return "Control ID";
+            // humanizeFieldLabel would make them "It Applications" and "(earlier Text)"
+            case "IT Applications":
+            case "it_applications":
+                return "IT Applications";
+            case RelatedControls.LABEL:
+            case "other_related_controls":
+                return RelatedControls.LABEL;
+            case RelatedControls.EARLIER_TEXT_LABEL:
+                return RelatedControls.EARLIER_TEXT_LABEL;
             case "prp":
                 return "PRP";
             case "soqm_head_comments":
@@ -340,6 +350,10 @@ public class ControlHistoryService {
                 return "Attachment Replaced" + tabSuffix;
             case ControlRenameService.AUDIT_ACTION:
                 return "Rename Control ID";
+            case ControlCycleService.AUDIT_CREATED_FROM:
+                return "Created with Create Control";
+            case ControlCycleService.AUDIT_NEXT_CREATED:
+                return "Next Control Created";
             default:
                 return "Edit Control";
         }

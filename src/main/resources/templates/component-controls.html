@@ -7,19 +7,21 @@
     <title th:text="${listTitle} + ' - QTracker'">Performance - QTracker</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=17" rel="stylesheet">
-    <link href="/css/component-controls.css?v=3" rel="stylesheet">
+    <link href="/css/style.css?v=20" rel="stylesheet">
+    <link href="/css/component-controls.css?v=6" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 </head>
 <body class="theme-light">
 <!--/*
-  The Action Centre's list of a component's controls, or of the KDN controls (ViewController.controlsByComponent).
-  Model: listCode, listName, listTitle, kdnList, query (ComponentControlsList.Query),
-  list (ComponentControlsList.Result; absent when loadError).
+  The Action Centre's list of a component's controls, of every control the user sees (ALL, which took the place of
+  the Controls page) or of the KDN controls (ViewController.controlsByComponent).
+  The KDN page (/kdn, kdnPage) is the same list of the KDN controls, with its own menu item and no Action Centre crumb.
+  Model: listCode, listName, listTitle, listPath, kdnList, kdnPage, allList, canExport, query (ComponentControlsList.Query),
+  list (ComponentControlsList.Result; absent when loadError), accessDeniedMessage (flash, after a revoked control).
 */-->
 <div class="container-fluid">
     <div class="row">
-        <div th:replace="~{fragments/sidebar :: sidebar('action')}"></div>
+        <div th:replace="~{fragments/sidebar :: sidebar(${kdnPage} ? 'kdn' : 'action')}"></div>
 
         <main class="col-md-10">
             <div class="p-3">
@@ -29,8 +31,10 @@
                         <i class="bi bi-house app-breadcrumb-home-icon" aria-hidden="true"></i>
                         <span>Home</span>
                     </a>
-                    <span class="app-breadcrumb-separator" aria-hidden="true">/</span>
-                    <a href="/#action-centre" class="app-breadcrumb-link">Action Centre</a>
+                    <th:block th:unless="${kdnPage}">
+                        <span class="app-breadcrumb-separator" aria-hidden="true">/</span>
+                        <a href="/#action-centre" class="app-breadcrumb-link">Action Centre</a>
+                    </th:block>
                     <span class="app-breadcrumb-separator" aria-hidden="true">/</span>
                     <span class="app-breadcrumb-current" aria-current="page" th:text="${listName}">Human Resources</span>
                 </nav>
@@ -38,10 +42,20 @@
                 <div class="page-header">
                     <div>
                         <h1 th:text="${listTitle}">Performance: Human Resources (HR)</h1>
-                        <p class="subtitle" th:text="${kdnList} ? 'Controls whose ID starts with KDN, of the controls you can see'
-                                : (${allList} ? 'The controls of every component that you can see'
+                        <p class="subtitle" th:text="${kdnList} ? 'KDN controls available to you'
+                                : (${allList} ? 'Every control you can see, of every component'
                                 : 'The controls of this component that you can see')">The controls of this component that you can see</p>
                     </div>
+                    <!--/* The Excel of the rows asked for: SoQM Admin Team only (the server refuses everyone else) */-->
+                    <a th:if="${canExport and list != null and list.matching() > 0}" class="cc-export" id="ccExport"
+                       th:href="${list.exportHref()}" download>
+                        <i class="bi bi-download" aria-hidden="true"></i>Export to Excel
+                    </a>
+                </div>
+
+                <div th:if="${accessDeniedMessage}" class="cc-error" role="alert">
+                    <i class="bi bi-shield-exclamation" aria-hidden="true"></i>
+                    <div><strong th:text="${accessDeniedMessage}">Access revoked</strong></div>
                 </div>
 
                 <!-- Loading failed: no numbers rather than wrong ones -->
@@ -49,8 +63,8 @@
                     <i class="bi bi-exclamation-octagon" aria-hidden="true"></i>
                     <div>
                         <strong>The controls could not be loaded.</strong>
-                        <span>Reload the page. If it happens again, contact SoQM Team.</span>
-                        <a th:href="@{/component/{code}(code=${listCode})}">Reload</a>
+                        <span>Reload the page. If it happens again, contact SoQM Admin Team.</span>
+                        <a th:href="${listPath}">Reload</a>
                     </div>
                 </div>
 
@@ -85,9 +99,11 @@
                         </a>
                     </nav>
 
-                    <!-- Search and status filter: a plain GET form, so it works without scripts too -->
+                    <!-- Search and status filter: a plain GET form (Enter sends it without scripts too); the search and
+                         the KDN box apply as one types or clicks (component-controls.js). It stays with the KDN box on
+                         and no KDN controls, so that the box can be cleared -->
                     <form class="cc-toolbar" method="get" role="search" id="ccFilters"
-                          th:action="@{/component/{code}(code=${listCode})}" th:if="${counts.total() > 0}">
+                          th:action="${listPath}" th:if="${counts.total() > 0 or query.kdn()}">
                         <div class="cc-field cc-search">
                             <label for="ccSearch">Search</label>
                             <div class="search-box">
@@ -104,7 +120,7 @@
                             </select>
                         </div>
                         <!--/* Phone only: the column headers are hidden there; no name, it navigates (component-controls.js) */-->
-                        <div class="cc-field cc-sort-phone">
+                        <div class="cc-field cc-sort-phone" id="ccSortPhoneField">
                             <label for="ccSortPhone">Sort by</label>
                             <select id="ccSortPhone" class="cc-select">
                                 <option th:each="o : ${list.sortOptions()}" th:value="${o.href()}" th:text="${o.label()}"
@@ -113,24 +129,31 @@
                         </div>
                         <input type="hidden" name="sort" th:if="${query.sort().name() != 'ID' or query.desc()}" th:value="${query.sort().key()}">
                         <input type="hidden" name="dir" th:if="${query.sort().name() != 'ID' or query.desc()}" th:value="${query.desc()} ? 'desc' : 'asc'">
+                        <!--/* Only the KDN controls of this list (not on the KDN list itself) */-->
+                        <div class="cc-field cc-check" th:unless="${kdnList}">
+                            <input type="checkbox" id="ccKdn" name="kdn" value="1" th:checked="${query.kdn()}">
+                            <label for="ccKdn">KDN controls only</label>
+                        </div>
                         <input type="hidden" name="size" th:if="${query.size() != 25}" th:value="${query.size()}">
-                        <div class="cc-actions">
-                            <button type="submit" class="cc-btn">Apply</button>
+                        <div class="cc-actions" id="ccActions">
                             <a th:if="${query.filtered()}" class="cc-clear" th:href="${list.clearHref()}">Clear</a>
                         </div>
                     </form>
 
+                    <!--/* What the search and the KDN box change: replaced as a whole as one types (component-controls.js) */-->
+                    <div id="ccResults" class="cc-results">
+
                     <!-- Nothing at all in this component, as far as the user sees -->
-                    <div th:if="${counts.total() == 0}" class="cc-panel empty-state">
+                    <div th:if="${counts.total() == 0 and !query.kdn()}" class="cc-panel empty-state">
                         <i class="bi bi-inbox" aria-hidden="true"></i>
                         <p th:text="${kdnList} ? 'There are no KDN controls you can see.'
                                 : (${allList} ? 'There are no controls you can see.' : 'There are no controls in this component that you can see.')">
                             There are no controls in this component that you can see.</p>
-                        <a href="/#action-centre">Back to Action Centre</a>
+                        <a th:unless="${kdnPage}" href="/#action-centre">Back to Action Centre</a>
                     </div>
 
                     <!-- Controls exist, but none match the search or the filter -->
-                    <div th:if="${counts.total() > 0 and list.matching() == 0}" class="cc-panel empty-state">
+                    <div th:if="${(counts.total() > 0 or query.kdn()) and list.matching() == 0}" class="cc-panel empty-state">
                         <i class="bi bi-search" aria-hidden="true"></i>
                         <p>No controls match your search or filter.</p>
                         <a th:href="${list.clearHref()}">Clear search and filter</a>
@@ -169,13 +192,14 @@
                                     th:attr="data-href=${row.href()}, data-control-id=${row.controlId()}">
                                     <td data-label="Control ID" class="cc-id">
                                         <a class="control-link" th:href="${row.href()}" th:text="${row.controlId()}">HR-CTRL-1</a>
+                                        <span th:if="${row.kdn()}" class="badge status-kdn" title="Control ID starts with KDN">KDN</span>
                                     </td>
                                     <td data-label="Control Type" th:with="v=${row.type()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Manual</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
                                     <td data-label="Control Frequency" th:with="v=${row.frequency()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Monthly</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
                                     <td data-label="Facilitator / Preparer(s)" th:with="v=${row.facilitators()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
                                     <td data-label="Control Operator" th:with="v=${row.operators()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
                                     <td data-label="Process Owner" th:with="v=${row.owners()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
-                                    <td data-label="SoQM Lead / Delegate" th:with="v=${row.soqmLeads()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
+                                    <td data-label="SoQM Team / Delegate" th:with="v=${row.soqmLeads()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Name</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
                                     <td data-label="Control Category" th:with="v=${row.category()}"><span th:if="${!#strings.isEmpty(v)}" th:text="${v}">Key</span><span th:if="${#strings.isEmpty(v)}" class="muted" title="Not set">&mdash;</span></td>
                                     <td data-label="Control Operation Date">
                                         <span th:if="${row.operationDate() != null}" th:text="${row.operationDateText()}">01.10.2026</span>
@@ -195,6 +219,12 @@
                                         </span>
                                         <span th:if="${row.overdue()}" class="badge status-overdue" title="Deadline passed">
                                             <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>Overdue</span>
+                                        <span th:if="${row.closedLate()}" class="badge status-closed-late" title="Completed after its deadline">Closed late</span>
+                                        <span th:if="${row.reopened()}" class="badge status-reopened" title="Returned from Completed">Reopened</span>
+                                        <span th:if="${row.dueSoon()}" class="badge status-due-soon" title="Deadline within 3 days">Due soon</span>
+                                        <span th:if="${row.yourTurn()}" class="badge status-your-turn" title="The current step is yours">Your turn</span>
+                                        <span th:if="${row.controlStatusBadge() != null}" class="badge status-retired"
+                                              th:text="${row.controlStatusBadge()}" title="Control Status">Deleted</span>
                                         </div>
                                     </td>
                                 </tr>
@@ -224,11 +254,12 @@
                             </nav>
                         </div>
                     </th:block>
+                    </div>
                 </th:block>
             </div>
         </main>
     </div>
 </div>
-<script src="/js/component-controls.js?v=2"></script>
+<script src="/js/component-controls.js?v=3"></script>
 </body>
 </html>

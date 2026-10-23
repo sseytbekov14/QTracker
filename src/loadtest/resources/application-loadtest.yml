@@ -1,0 +1,72 @@
+# The load test (migration/analysis/9_performance_report.md), together with prod: SPRING_PROFILES_ACTIVE=prod,loadtest.
+# Only in target-loadtest/qtracker-loadtest.jar (mvnw -Ploadtest), never in the usual jar or the image.
+# LoadTestDatabaseGuard refuses any database but PostgreSQL on localhost whose name ends with _loadtest.
+# The pool, Tomcat and the memory stay as prod has them (defaults; -Xmx768m as the Dockerfile).
+
+server:
+  port: ${SERVER_PORT:8092}
+  tomcat:
+    # tomcat.threads.busy / current in /actuator/metrics
+    mbeanregistry:
+      enabled: true
+
+spring:
+  datasource:
+    # A local container (docker run ... -p 127.0.0.1:5433:5432 postgres:18.4); its password is not a secret
+    url: ${LOADTEST_DATASOURCE_URL:jdbc:postgresql://localhost:5433/qtracker_loadtest?reWriteBatchedInserts=true}
+    username: ${LOADTEST_DATASOURCE_USERNAME:qtracker_loadtest}
+    password: ${LOADTEST_DATASOURCE_PASSWORD:loadtest}
+  jpa:
+    properties:
+      hibernate:
+        # The SQL of each request (SqlCountFilter, metric loadtest.sql.statements)
+        session_factory:
+          statement_inspector: com.kpmg.qtracker.loadtest.SqlStatementCounter
+        generate_statistics: ${LOADTEST_HIBERNATE_STATISTICS:false}
+
+app:
+  base-url: http://localhost:${server.port}
+
+auth:
+  sso:
+    enabled: false
+  password:
+    enabled: true
+
+file:
+  upload:
+    dir: ${LOADTEST_UPLOAD_DIR:${user.dir}/target-loadtest/uploads}
+
+# The limits answer 429 to one person's many requests; the virtual users of the test are such persons.
+# Off here, so the results show the speed; RateLimitingFilterTest covers the limits themselves.
+rate-limit:
+  login: 1000000
+  api-write: 1000000
+  user-list: 1000000
+  heavy: 1000000
+
+notifications:
+  email:
+    enabled: true
+    # The whole e-mail into the log, nothing sent
+    provider: log
+    from: qtracker-loadtest@localhost
+    whitelist-enforced: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: false
+
+logging:
+  level:
+    com.kpmg.qtracker.service.notification.LogMailTransport: WARN
+
+loadtest:
+  # The made-up accounts' password (LoadTestDataGenerator); only in this local database
+  password: ${LOADTEST_PASSWORD:LoadTest-2026}

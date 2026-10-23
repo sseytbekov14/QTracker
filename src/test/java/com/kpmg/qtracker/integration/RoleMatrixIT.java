@@ -71,7 +71,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.jpa.show-sql=false",
         "spring.flyway.enabled=false",
-        "reminders.enabled=false",
+        "notifications.scheduler.enabled=false",
         "file.upload.dir=target/it-uploads-matrix"
 })
 @AutoConfigureMockMvc
@@ -112,8 +112,8 @@ class RoleMatrixIT {
     private static final AccessScope ALL = AccessScope.ALL;
 
     private static final List<Who> PEOPLE = List.of(
-            new Who("soqm", "SoQM Team", AccessLevel.SOQM, ALL, Place.NONE, false, false, false),
-            new Who("soqm-kdn", "SoQM Team, KDN control", AccessLevel.SOQM, ALL, Place.NONE, true, false, false),
+            new Who("soqm", "SoQM Admin Team", AccessLevel.SOQM, ALL, Place.NONE, false, false, false),
+            new Who("soqm-kdn", "SoQM Admin Team, KDN control", AccessLevel.SOQM, ALL, Place.NONE, true, false, false),
             new Who("part-step", "User · My controls · Edit, assigned", EDIT, MY, Place.STEP, false, false, false),
             new Who("part-none", "User · My controls · Edit, not on it", EDIT, MY, Place.NONE, false, false, false),
             new Who("part-shared", "User · My controls · Edit, shared only", EDIT, MY, Place.SHARED, false, false, false),
@@ -146,14 +146,15 @@ class RoleMatrixIT {
             new Who("anonymous", "not signed in", null, null, Place.NONE, false, false, true));
 
     private static final List<String> CONTROL_OPS = List.of(
-            "In Controls list", "In component list", "View page", "Program on page", "Notice", "KDN mark", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
-            "Edit, no reason", "Fixed field", "Operation Date", "Assign", "Upload", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
-            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)");
+            "In component list", "View page", "Program on page", "Notice", "KDN mark", "Related / IT fields", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
+            "Edit, no reason", "Frequency", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Development Materials (removed)", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
+            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)", "Excel button",
+            "Performance Cycle", "Create Control", "Create Control button");
 
     /** The operations that change a control: none may pass where the page shows a notice. */
     private static final List<String> WRITES = List.of("Save details", "Steps field", "Operator's Program", "Edit control",
-            "Edit, no reason", "Fixed field", "Operation Date", "Assign", "Upload", "Rename ID", "Rename ±KDN", "Step", "Return",
-            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review");
+            "Edit, no reason", "Frequency", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Rename ID", "Rename ±KDN", "Step", "Return",
+            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Create Control");
 
     /** The working statuses in order; "Move to X" is POST /api/workflow/move, a return when X is earlier. */
     private static final List<String> WORKING = List.of(
@@ -175,7 +176,8 @@ class RoleMatrixIT {
     private static final String REASON = ",\"editReason\":\"Matrix check\"";
 
     private static final List<String> USER_OPS = List.of(
-            "Create control", "Export button", "Assignment picker", "Admin Panel", "Admin Panel change", "KDN block");
+            "Create control", "Export button", "Export list", "Old /controls link", "Assignment picker", "Admin Panel",
+            "Admin Panel change", "Delete user", "KDN page", "Dashboard", "Notifications");
 
     @Autowired
     private MockMvc mockMvc;
@@ -235,7 +237,8 @@ class RoleMatrixIT {
                     boolean matches = "Notice".equals(op) ? expected.equals(actual) : expected.equals("ok") == actual.equals("ok")
                             && (!expected.equals("not yet") || actual.equals("not yet"))
                             && !actual.startsWith("5") && expected.equals("400") == actual.equals("400")
-                            && (!expected.equals("403") || actual.equals("403"));
+                            && (!expected.equals("403") || actual.equals("403"))
+                            && (!expected.equals("404") || actual.equals("404"));
                     if (!matches) {
                         mismatches.add(status + " | " + who.label() + " | " + op + ": expected " + expected + ", got " + actual);
                     }
@@ -300,8 +303,9 @@ class RoleMatrixIT {
         // A draft someone is only shared with opens once initiated, except for those who see it anyway
         boolean notYet = "DRAFT".equals(status) && shared && !(active && (seesAll || kdnUser));
         boolean writer = active && who.level() != AccessLevel.READ_ONLY;
-        // A completed control: SoQM Team changes it in place with a reason, its schedule, SoQM Year and status
-        // fixed; everyone else only reads it (decision of 2026-10-09). Renaming is not an edit
+        // A completed control: SoQM Admin Team changes every field in place with a reason, the deadline and the next
+        // date calculated (decisions of 2026-10-13 and 2026-10-14); everyone else only reads it (2026-10-09).
+        // Renaming is not an edit
         boolean completed = "COMPLETED".equals(status);
         boolean soqmEdits = soqm;
         // A User with Edit acts only in the field they are listed in (also with All controls)
@@ -326,8 +330,9 @@ class RoleMatrixIT {
                     : soqm || listed ? "NONE" : "NOT_ASSIGNED";
             // The "KDN control" mark on the control's page: SoQM Team only, on a KDN control
             case "KDN mark" -> soqm && who.kdnControl() ? "ok" : "refused";
-            // The Controls list (and the dashboard tiles counted from it) holds every control the user sees
-            case "In Controls list" -> sees ? "ok" : "refused";
+            // Other Related Controls and IT Applications on the Details tab (decision of 2026-10-16): everyone who sees
+            // the page; only SoQM Admin Team change them ("Save details" with canEditAll)
+            case "Related / IT fields" -> !sees ? "refused" : notYet ? "not yet" : "ok";
             // The Action Centre's lists: the component's (and the KDN list for a KDN control) hold the same
             // controls, each row opening its own control; a non-KDN control is never in the KDN list
             case "In component list" -> sees ? "ok" : "refused";
@@ -337,14 +342,20 @@ class RoleMatrixIT {
             case "Program on page" -> !sees ? "refused"
                     : notYet ? "not yet" : "ok";
             case "Read API", "History", "Download" -> sees && !notYet ? "ok" : "refused";
-            case "Save details", "Upload" -> sees && writer && (soqmEdits || participantStep) ? "ok" : "refused";
+            case "Save details", "Upload", "Upload Documents" -> sees && writer && (soqmEdits || participantStep) ? "ok" : "refused";
+            // The field SoQM Development Materials and its API are gone (2026-10-14): 404 for everyone signed in who
+            // may write; Read Only and KDN get 403 first, as for any write (ReadOnlyAccessInterceptor)
+            case "Development Materials (removed)" -> !active ? "refused" : writer ? "404" : "403";
             case "Steps field" -> sees && writer && stepsField ? "ok" : "refused";
             case "Operator's Program" -> sees && writer && operatorField ? "ok" : "refused";
             case "Edit control", "Assign" -> soqmEdits ? "ok" : "refused";
             // The same change without a reason: refused only on a completed control, where it needs one
             case "Edit, no reason" -> !soqmEdits ? "refused" : completed ? "400" : "ok";
-            // Another frequency (Edit control) or Control Operation Date (Assign): fixed on a completed control
-            case "Fixed field", "Operation Date" -> !soqmEdits ? "refused" : completed ? "403" : "ok";
+            // Another frequency (Edit control) or Control Operation Date (Assign): SoQM Admin Team only, a completed
+            // control too, with a reason; the deadline and the next date follow (decision of 2026-10-14)
+            case "Frequency", "Operation Date" -> soqmEdits ? "ok" : "refused";
+            // Control Status (Superseded) and SoQM Year: SoQM Admin Team only, a completed control too (with a reason)
+            case "Status / Year" -> soqmEdits ? "ok" : "refused";
             case "Rename ID" -> soqm ? "ok" : "refused";
             // "KDN" appearing at or going from the start of the ID changes who sees the control: SoQM gives a comment
             case "Rename ±KDN, no comment" -> soqm ? "400" : "refused";
@@ -375,7 +386,17 @@ class RoleMatrixIT {
                 }
                 yield from >= 0 && to == from + 1 ? expectedControlOp(who, status, "Step") : "refused";
             }
-            case "Excel (completed)" -> "COMPLETED".equals(status) && sees && (soqm || shared) ? "ok" : "refused";
+            // The Excel of a completed control (Export on the Performance Cycle page): SoQM Admin Team only (2026-10-14)
+            case "Excel (completed)" -> "COMPLETED".equals(status) && sees && soqm ? "ok" : "refused";
+            // Its Download button on the Performance Cycle page: shown to the same people only
+            case "Excel button" -> "COMPLETED".equals(status) && sees && soqm ? "ok" : "refused";
+            // The page a list row opens once the control is initiated; the same people as View Control, a shared-only
+            // draft not yet (sent back to the list)
+            case "Performance Cycle" -> sees && !notYet ? "ok" : "refused";
+            // Create Control, the next cycle of a Monthly control (decision of 2026-10-14): SoQM Admin Team only (403 for
+            // everyone else); a draft is initiated first (400). The button on the Assignment tab: the same, past Draft
+            case "Create Control" -> !(soqm && sees) ? "refused" : "DRAFT".equals(status) ? "400" : "ok";
+            case "Create Control button" -> soqm && sees && !"DRAFT".equals(status) ? "ok" : "refused";
             default -> throw new IllegalArgumentException(op);
         };
     }
@@ -385,11 +406,24 @@ class RoleMatrixIT {
         boolean soqm = active && who.level() == AccessLevel.SOQM;
         return switch (op) {
             case "Create control", "Export button", "Assignment picker" -> soqm;
+            // The Excel of a list (All components, a component, KDN): SoQM Admin Team only, 403 for everyone else
+            case "Export list" -> soqm;
+            // The Controls page is gone: its address leads to the All components list for everyone signed in
+            case "Old /controls link" -> active;
             // Admin Panel, users and audit: SoQM Team and only SoQM Team
             case "Admin Panel", "Admin Panel change" -> soqm;
+            // Deleting a user (step 1, the check; nobody is deleted here): SoQM Admin Team only (decision of 2026-10-13)
+            case "Delete user" -> soqm;
             // Action Centre "KDN" card: SoQM Team, All controls and KDN always; My controls only with a KDN
             // control among theirs, and no My controls row of the matrix is on one
-            case "KDN block" -> active && (soqm || who.scope() == AccessScope.ALL || who.scope() == AccessScope.KDN);
+            // The KDN page and its menu item (decision of 2026-10-13): SoQM Admin Team, All controls and KDN always;
+            // My controls only with a KDN control among theirs, and no My controls row of the matrix is on one
+            case "KDN page" -> active && (soqm || who.scope() == AccessScope.ALL || who.scope() == AccessScope.KDN);
+            // The role KDN has no dashboard (AccessPolicy.KDN_SEES_DASHBOARD): "/" leads to /kdn
+            case "Dashboard" -> active && who.scope() != AccessScope.KDN;
+            // Notifications - the menu item and the page: everyone signed in but the role KDN, whose /notifications
+            // leads to /kdn (AccessPolicy.KDN_HAS_NOTIFICATIONS, decision of 2026-10-14)
+            case "Notifications" -> active && who.scope() != AccessScope.KDN;
             default -> throw new IllegalArgumentException(op);
         };
     }
@@ -401,18 +435,25 @@ class RoleMatrixIT {
         MockHttpSession session = sessions.get(who.key());
 
         Control control = control(who, status);
-        row.put("In Controls list", inControlsList(control, session));
         row.put("In component list", inComponentLists(control, session));
         row.put("View page", page(get("/view-control/{id}", control.getId()), session));
         row.put("Program on page", programOnPage(control, session));
         row.put("Notice", notice(control, session));
         row.put("KDN mark", kdnMark(control, session));
+        row.put("Related / IT fields", relatedAndItFields(control, session));
         row.put("Read API", answer(get("/api/control-details").param("controlId", String.valueOf(control.getId())), session));
         row.put("History", answer(get("/api/controls/{id}/changelog", control.getId()), session));
         row.put("Download", answer(get("/api/attachments/download/{name}", control.getAttachmentDetailsPath())
                 .param("controlId", String.valueOf(control.getId())), session));
+        row.put("Performance Cycle", page(get("/performance-cycle/{id}", control.getId()), session));
+        row.put("Create Control button", createControlButton(control, session));
+        // Before the writes below change the control (frequency, status); the next cycle gets an ID of its own
+        row.put("Create Control", answer(post("/api/controls/{id}/next-cycle", control.getId()).with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlId\":\"" + control.getControlId() + "/NEXT\"}"), session));
         row.put("Excel (completed)", "COMPLETED".equals(status)
                 ? answer(get("/api/controls/{id}/export/completed", control.getId()), session) : "n/a");
+        row.put("Excel button", excelButton(control, session));
         row.put("Save details", answer(post("/api/control-details").with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlId\":" + control.getId() + ",\"" + stepFieldOf(who, status) + "\":\"Saved by " + who.key() + "\"" + REASON + "}"), session));
@@ -428,9 +469,13 @@ class RoleMatrixIT {
         row.put("Edit, no reason", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlDescription\":\"Changed again by " + who.key() + "\"}"), session));
-        row.put("Fixed field", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
+        row.put("Frequency", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlFrequency\":\"Quarterly\"" + REASON + "}"), session));
+        row.put("Status / Year", answer(put("/api/controls/{id}", control.getId()).with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlStatus\":\"SUPERSEDED\",\"soqmYear\":\""
+                        + com.kpmg.qtracker.service.SoqmYear.options(today()).get(0) + "\"" + REASON + "}"), session));
         row.put("Operation Date", answer(post("/api/control-assignment").with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlId\":" + control.getId() + ",\"controlOperationDate\":\""
@@ -443,6 +488,14 @@ class RoleMatrixIT {
                         "%PDF-1.4 matrix".getBytes(StandardCharsets.UTF_8)))
                 .param("editReason", "Matrix check")
                 .with(csrf().asHeader()), session));
+        row.put("Upload Documents", answer(multipart("/api/attachments/upload/{id}", control.getId())
+                .file(new MockMultipartFile("attachmentDocuments", "matrix-doc-" + who.key() + ".pdf", "application/pdf",
+                        "%PDF-1.4 matrix".getBytes(StandardCharsets.UTF_8)))
+                .param("editReason", "Matrix check")
+                .with(csrf().asHeader()), session));
+        row.put("Development Materials (removed)", answer(post("/api/control-documents").with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlId\":" + control.getId() + ",\"soqmDevelopmentMaterials\":\"Available\"}"), session));
         row.put("Rename ID", answer(post("/api/controls/{id}/rename-id", control.getId()).with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"newControlId\":\"" + control.getControlId() + "-R\"}"), session));
@@ -497,11 +550,19 @@ class RoleMatrixIT {
                 .content("{\"controlId\":\"HR-NEW-" + who.key() + "\",\"controlFrequency\":\"Monthly\","
                         + "\"controlType\":\"Preventive\",\"component\":\"HR\",\"operatedBy\":\"Finance\","
                         + "\"priority\":\"High\",\"nonAuditServicesApplicability\":\"No\"}"), session));
-        MvcResult controls = perform(get("/controls"), session);
+        MvcResult controls = perform(get("/component/ALL"), session);
         ModelAndView mav = controls.getModelAndView();
         row.put("Export button", controls.getResponse().getStatus() == 200 && mav != null
-                ? (Boolean.TRUE.equals(mav.getModel().get("canExportAll")) ? "ok" : "hidden")
+                ? (Boolean.TRUE.equals(mav.getModel().get("canExport")) ? "ok" : "hidden")
                 : outcome(controls));
+        java.util.Set<String> exports = new java.util.LinkedHashSet<>();
+        for (String path : List.of("/component/ALL/export", "/component/HR/export", "/component/KDN/export")) {
+            exports.add(answer(get(path), session));
+        }
+        row.put("Export list", exports.size() == 1 ? exports.iterator().next() : String.join("/", exports));
+        MvcResult old = perform(get("/controls").param("filter", "OVERDUE"), session);
+        row.put("Old /controls link", "/component/ALL?status=OVERDUE".equals(old.getResponse().getRedirectedUrl())
+                ? "ok" : outcome(old));
         row.put("Assignment picker", answer(get("/api/users/role/FACILITATOR"), session));
         MvcResult adminPage = perform(get("/admin/users"), session);
         row.put("Admin Panel", adminPage.getResponse().getStatus() == 200 ? "ok" : outcome(adminPage));
@@ -510,12 +571,37 @@ class RoleMatrixIT {
                 .param("visibility", "MY")
                 .param("access", "EDIT")
                 .param("enabled", "true"), session));
+        row.put("Delete user", answer(post("/api/users/{id}/delete-check", adminTarget.getId()).with(csrf().asHeader()),
+                session));
         MvcResult dashboard = perform(get("/"), session);
         ModelAndView dashboardView = dashboard.getModelAndView();
-        row.put("KDN block", dashboard.getResponse().getStatus() == 200 && dashboardView != null
-                ? (dashboardView.getModel().get("kdnSummary") != null ? "ok" : "hidden")
-                : outcome(dashboard));
+        row.put("Dashboard", dashboard.getResponse().getStatus() == 200 && dashboardView != null ? "ok"
+                : "/kdn".equals(dashboard.getResponse().getRedirectedUrl()) ? "-> /kdn" : outcome(dashboard));
+        MvcResult kdnPage = perform(get("/kdn"), session);
+        String sidebarItem = kdnPage.getResponse().getStatus() == 200
+                && kdnPage.getResponse().getContentAsString().contains("id=\"sidebarKdn\"") ? "ok" : "no menu item!";
+        row.put("KDN page", kdnPage.getResponse().getStatus() == 200 ? sidebarItem : outcome(kdnPage));
+        row.put("Notifications", notifications(session));
         return row;
+    }
+
+    /**
+     * "ok" when /notifications opens the notifications (the dashboard's tab) and the menu of the user's start page has
+     * the Notifications item; "-> /kdn" when it leads to the KDN page ("menu item!" if the item is still shown).
+     */
+    private String notifications(MockHttpSession session) throws Exception {
+        MvcResult notifications = perform(get("/notifications"), session);
+        String target = notifications.getResponse().getRedirectedUrl();
+        boolean opens = notifications.getResponse().getStatus() == 200 || "/#notifications".equals(target);
+        if (!opens && !"/kdn".equals(target)) {
+            return outcome(notifications);
+        }
+        MvcResult start = perform(get(opens ? "/" : "/kdn"), session);
+        boolean item = start.getResponse().getContentAsString().contains("id=\"sidebarNotifications\"");
+        if (opens) {
+            return item ? "ok" : "no menu item!";
+        }
+        return item ? "menu item!" : "-> /kdn";
     }
 
     /**
@@ -550,6 +636,46 @@ class RoleMatrixIT {
                 && html.contains(">" + HtmlUtils.htmlEscape(ControlStepsFields.OPERATOR_PROGRAM_LABEL) + "<") ? "ok" : "none";
     }
 
+    /**
+     * "ok" when the Performance Cycle page shows the Download button of the completed control's Excel, "none" when it
+     * does not, else what the page answered.
+     */
+    private String excelButton(Control control, MockHttpSession session) throws Exception {
+        MvcResult result = perform(get("/performance-cycle/{id}", control.getId()), session);
+        ModelAndView mav = result.getModelAndView();
+        if (result.getResponse().getStatus() != 200 || mav == null || !"performance-cycle".equals(mav.getViewName())) {
+            return outcome(result);
+        }
+        String html = result.getResponse().getContentAsString();
+        return html.contains("id=\"exportCompletedBtn\"") || html.contains("/export/completed") ? "ok" : "none";
+    }
+
+    /** "ok" when View Control offers Create Control (its model's canCreateControl), "none" when not, else as "View page". */
+    private String createControlButton(Control control, MockHttpSession session) throws Exception {
+        MvcResult result = perform(get("/view-control/{id}", control.getId()), session);
+        ModelAndView mav = result.getModelAndView();
+        if (result.getResponse().getStatus() != 200 || mav == null || !"view-control".equals(mav.getViewName())) {
+            return mav != null && "control-not-available".equals(mav.getViewName()) ? "not yet" : outcome(result);
+        }
+        return Boolean.TRUE.equals(mav.getModel().get("canCreateControl")) ? "ok" : "none";
+    }
+
+    /**
+     * "ok" when the control's page has Other Related Controls and IT Applications, "none" when it has neither,
+     * "one of them!" when only one, else as "View page".
+     */
+    private String relatedAndItFields(Control control, MockHttpSession session) throws Exception {
+        MvcResult result = perform(get("/view-control/{id}", control.getId()), session);
+        ModelAndView mav = result.getModelAndView();
+        if (result.getResponse().getStatus() != 200 || mav == null || !"view-control".equals(mav.getViewName())) {
+            return mav != null && "control-not-available".equals(mav.getViewName()) ? "not yet" : outcome(result);
+        }
+        String html = result.getResponse().getContentAsString();
+        boolean related = html.contains("id=\"relatedControlsField\"");
+        boolean applications = html.contains("id=\"itApplicationsField\"");
+        return related && applications ? "ok" : related || applications ? "one of them!" : "none";
+    }
+
     /** "ok" when the control's page carries the "KDN control" mark, "none" when it does not, else as "View page". */
     private String kdnMark(Control control, MockHttpSession session) throws Exception {
         MvcResult result = perform(get("/view-control/{id}", control.getId()), session);
@@ -560,38 +686,35 @@ class RoleMatrixIT {
         return result.getResponse().getContentAsString().contains("vc-kdn-badge") ? "ok" : "none";
     }
 
-    /** "ok" when /controls lists the control, "absent" when it does not, otherwise what the page answered. */
-    private String inControlsList(Control control, MockHttpSession session) throws Exception {
-        MvcResult result = perform(get("/controls"), session);
-        ModelAndView mav = result.getModelAndView();
-        if (result.getResponse().getStatus() != 200 || mav == null || !"controls".equals(mav.getViewName())) {
-            return outcome(result);
-        }
-        @SuppressWarnings("unchecked")
-        List<ControlResponseDTO> listed = (List<ControlResponseDTO>) mav.getModel().get("controls");
-        return listed.stream().anyMatch(dto -> control.getId().equals(dto.getId())) ? "ok" : "absent";
-    }
-
     /**
-     * "ok" when /component/HR and /component/ALL list the control with a row opening its page, and so does
-     * /component/KDN for a KDN control; "absent" when a list leaves it out, "in KDN list!" when a non-KDN control shows up there,
-     * otherwise what the page answered. Searched by Control ID, so no page of the list is missed.
+     * "ok" when /component/HR and /component/ALL list the control with a row opening its page, and so does the KDN
+     * page /kdn for a KDN control (the role KDN has only /kdn); "absent" when a list leaves it out, "in KDN list!" when
+     * a non-KDN control shows up there, otherwise what the page answered. Searched by Control ID, so no page of the
+     * list is missed.
      */
     private String inComponentLists(Control control, MockHttpSession session) throws Exception {
         boolean kdnControl = AccessPolicy.isKdnControl(control.getControlId());
+        User signedIn = session == null ? null : (User) session.getAttribute("currentUser");
+        boolean dashboard = signedIn == null || AccessPolicy.seesDashboard(AccessPolicy.Subject.of(signedIn));
         java.util.Set<String> answers = new java.util.LinkedHashSet<>();
-        for (String path : List.of("/component/HR", "/component/ALL", "/component/KDN")) {
+        for (String path : dashboard ? List.of("/component/HR", "/component/ALL", "/kdn") : List.of("/kdn")) {
             MvcResult result = perform(get(path).param("q", control.getControlId()).param("size", "50"), session);
             ModelAndView mav = result.getModelAndView();
+            if (path.equals("/kdn") && result.getResponse().getStatus() == 403) {
+                continue; // My controls without a KDN control: no KDN page
+            }
             if (result.getResponse().getStatus() != 200 || mav == null || !"component-controls".equals(mav.getViewName())) {
                 answers.add(outcome(result));
                 continue;
             }
             ComponentControlsList.Result list = (ComponentControlsList.Result) mav.getModel().get("list");
-            boolean listed = list.rows().stream().anyMatch(row -> control.getId().equals(row.id())
-                    && row.href().equals("/view-control/" + control.getId()))
-                    && result.getResponse().getContentAsString().contains("data-href=\"/view-control/" + control.getId() + "\"");
-            if (path.endsWith("KDN") && !kdnControl) {
+            // A row opens View Control for a draft, the Performance Cycle page once initiated
+            String html = result.getResponse().getContentAsString();
+            boolean listed = list.rows().stream().anyMatch(row -> {
+                String href = ("DRAFT".equals(row.status()) ? "/view-control/" : "/performance-cycle/") + control.getId();
+                return control.getId().equals(row.id()) && row.href().equals(href) && html.contains("data-href=\"" + href + "\"");
+            });
+            if (path.equals("/kdn") && !kdnControl) {
                 if (listed) {
                     answers.add("in KDN list!");
                 }
@@ -599,7 +722,7 @@ class RoleMatrixIT {
             }
             answers.add(listed ? "ok" : "absent");
         }
-        return answers.size() == 1 ? answers.iterator().next() : String.join(" / ", answers);
+        return answers.isEmpty() ? "absent" : answers.size() == 1 ? answers.iterator().next() : String.join(" / ", answers);
     }
 
     private String page(MockHttpServletRequestBuilder request, MockHttpSession session) throws Exception {
@@ -607,7 +730,7 @@ class RoleMatrixIT {
         ModelAndView mav = result.getModelAndView();
         if (result.getResponse().getStatus() == 200 && mav != null) {
             return switch (String.valueOf(mav.getViewName())) {
-                case "view-control" -> "ok";
+                case "view-control", "performance-cycle" -> "ok";
                 case "control-not-available" -> "not yet";
                 default -> mav.getViewName();
             };
@@ -720,6 +843,7 @@ class RoleMatrixIT {
         assignment.setControlSharedWith(who.place() == Place.SHARED && mail != null ? mail : null);
         assignment.setControlOperationDate(today().plusDays(10));
         assignment.setControlOperationDeadline(today().plusDays(17));
+        assignment.setNextControlOperationDate(today().plusDays(10).plusMonths(1));
         assignmentRepository.save(assignment);
 
         ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();

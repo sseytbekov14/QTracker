@@ -3,27 +3,24 @@ package com.kpmg.qtracker.controller;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.dto.ControlDTO;
 import com.kpmg.qtracker.dto.ControlResponseDTO;
-import com.kpmg.qtracker.dto.ControlHistoryEntryDTO;
 import com.kpmg.qtracker.dto.ControlDetailsDTO;
-import com.kpmg.qtracker.dto.ControlDocumentsDTO;
-import com.kpmg.qtracker.dto.PerformanceDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.repository.ControlRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.CompletedControlExcel;
 import com.kpmg.qtracker.service.CompletedEdit;
 import com.kpmg.qtracker.service.ControlAuditChangeService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
 import com.kpmg.qtracker.service.ControlDetailsService;
-import com.kpmg.qtracker.service.ControlDocumentsService;
 import com.kpmg.qtracker.service.ControlHistoryService;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlRenameService;
-import com.kpmg.qtracker.service.ControlStepsFields;
+import com.kpmg.qtracker.service.ControlStatusValue;
+import com.kpmg.qtracker.service.DeadlineOverdue;
 import com.kpmg.qtracker.service.IControlService;
 import com.kpmg.qtracker.service.IPerformanceService;
 import com.kpmg.qtracker.service.PermissionService;
@@ -34,8 +31,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -44,14 +39,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/controls")
@@ -61,7 +53,6 @@ public class ControlController {
     private final UserService userService;
     private final ControlAssignmentService controlAssignmentService;
     private final ControlDetailsService controlDetailsService;
-    private final ControlDocumentsService controlDocumentsService;
     private final IPerformanceService performanceService; // ДОБАВЛЕНО: поле для performanceService
     private final AdminAuditService adminAuditService;
     private final ControlHistoryService controlHistoryService;
@@ -150,30 +141,6 @@ public class ControlController {
         }
     }
 
-    @GetMapping("/user/{email}")
-    public ResponseEntity<?> getUserControls(@PathVariable String email, HttpSession session) {
-        User currentUser = (User) session.getAttribute("currentUser");
-        if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        if (!currentUser.getMail().equalsIgnoreCase(email)
-                && !AccessPolicy.seesAllControls(AccessPolicy.Subject.of(currentUser))) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-        List<Control> created = controlService.getUserControls(email);
-        if (!AccessPolicy.seesAllControls(AccessPolicy.Subject.of(currentUser))) {
-            // Only what the user sees (AccessPolicy.canView): a KDN user's old non-KDN controls stay out
-            Set<Long> visible = controlService.findVisibleControlsForUser(currentUser).stream()
-                    .map(Control::getId)
-                    .collect(Collectors.toSet());
-            created = created.stream().filter(control -> visible.contains(control.getId())).toList();
-        }
-        List<ControlResponseDTO> controls = created.stream()
-                .map(this::convertToResponseDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(controls);
-    }
-
     @GetMapping("/{id}/changelog")
     public ResponseEntity<?> getControlChangelog(@PathVariable Long id, HttpSession session) {
         permissionService.requireReadable(id, (User) session.getAttribute("currentUser"));
@@ -192,7 +159,7 @@ public class ControlController {
             }
             if (!AccessPolicy.canCreateControls(AccessPolicy.Subject.of(currentUser))) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("success", false, "message", "Only SoQM Team can create controls"));
+                        .body(Map.of("success", false, "message", "Only SoQM Admin Team can create controls"));
             }
 
             // Проверяем, не пустой ли Control ID
@@ -225,6 +192,18 @@ public class ControlController {
                                 "error", "INVALID_FREQUENCY",
                                 "message", "Control Frequency must be one of Monthly, Quarterly, Ad-hoc, Recurring, Annual, Semi Annual"));
             }
+            // Control Status: Active when none is given; a given one must be one of the choices, as on edit
+            String controlStatus = ControlStatusValue.ACTIVE;
+            if (controlDTO.getControlStatus() != null && !controlDTO.getControlStatus().isBlank()) {
+                Optional<String> code = ControlStatusValue.canonical(controlDTO.getControlStatus());
+                if (code.isEmpty()) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("success", false,
+                                    "error", "INVALID_CONTROL_STATUS",
+                                    "message", ControlStatusValue.invalidMessage()));
+                }
+                controlStatus = code.get();
+            }
             control.setControlFrequency(canonicalFrequency);
             control.setControlCategory(controlDTO.getControlCategory());
             control.setControlType(controlDTO.getControlType());
@@ -234,7 +213,7 @@ public class ControlController {
             control.setPriority(controlDTO.getPriority());
             control.setNonAuditServicesApplicability(controlDTO.getNonAuditServicesApplicability());
             control.setHomogeneity(controlDTO.getHomogeneity());
-            control.setControlStatus(controlDTO.getControlStatus());
+            control.setControlStatus(controlStatus);
             control.setPerformanceStatus("DRAFT"); // Initial workflow status before initiate
             control.setControlDescription(controlDTO.getControlDescription());
             control.setPrp(controlDTO.getPrp());
@@ -301,202 +280,6 @@ public class ControlController {
         }
     }
 
-    @GetMapping("/export/excel")
-    public void exportToExcel(
-            @RequestParam(required = false) String component,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String search,
-            @RequestParam(defaultValue = "filtered") String exportType,
-            @RequestParam(required = false) String userEmail,
-            HttpServletResponse response,
-            HttpSession session
-    ) throws IOException {
-        try {
-            User currentUser = (User) session.getAttribute("currentUser");
-            if (currentUser == null) {
-                response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                response.setContentType("text/plain");
-                response.getWriter().write("User not authenticated");
-                return;
-            }
-            if (!AccessPolicy.canExportAllControls(AccessPolicy.Subject.of(currentUser))) {
-                response.setStatus(HttpStatus.FORBIDDEN.value());
-                response.setContentType("text/plain");
-                response.getWriter().write("Forbidden");
-                return;
-            }
-            logger.info("=== EXPORT PARAMETERS ===");
-            logger.info("exportType: {}", exportType);
-            logger.info("userEmail: {}", userEmail);
-            logger.info("========================");
-
-            List<Control> controls;
-
-            if ("user".equals(exportType) && userEmail != null && !userEmail.isEmpty()) {
-                logger.info("Calling getUserControls for: {}", userEmail);
-                controls = controlService.getUserControls(userEmail);
-                logger.info("getUserControls returned {} controls", controls.size());
-
-                // ★ ЛОГИРУЕМ ДЕТАЛИ
-                logger.info("Controls details:");
-                for (Control c : controls) {
-                    logger.info("  - ID: {}, ControlID: {}, Status: {}",
-                            c.getId(), c.getControlId(), c.getPerformanceStatus());
-                }
-            } else if ("filtered".equals(exportType)) {
-                controls = controlService.getAllControls().stream()
-                        .filter(control -> component == null || component.isEmpty() ||
-                                component.equals(control.getComponent()))
-                        .filter(control -> status == null || status.isEmpty() ||
-                                (control.getPerformanceStatus() != null && status.equals(control.getPerformanceStatus())))
-                        .filter(control -> search == null || search.isEmpty() ||
-                                (control.getControlId() != null && control.getControlId().toLowerCase().contains(search.toLowerCase())) ||
-                                (control.getControlDescription() != null && control.getControlDescription().toLowerCase().contains(search.toLowerCase())))
-                        .collect(Collectors.toList());
-            } else {
-                controls = controlService.getAllControls();
-            }
-
-            logger.info("Exporting {} controls to Excel", controls.size());
-
-            // ★ ПРОВЕРКА ЕСЛИ НЕТ ДАННЫХ
-            if (controls.isEmpty()) {
-                logger.warn("No controls to export!");
-                response.setContentType("text/plain");
-                response.getWriter().write("No controls found for export");
-                return;
-            }
-
-            // Создаем Excel workbook
-            Workbook workbook = new XSSFWorkbook();
-            Sheet sheet = workbook.createSheet("Controls");
-
-            // Стили для заголовков
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerFont.setColor(IndexedColors.WHITE.getIndex());
-            headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            headerStyle.setAlignment(HorizontalAlignment.CENTER);
-
-            // Заголовки колонок
-            String[] headers = {
-                    "№",
-                    "CONTROL ID",
-                    "Component",
-                    "Control Type",
-                    "Frequency of Control",
-                    "Control operation date",
-                    "Control Operator",
-                    "Process Owner",
-                    "SoQM Head/Delegate",
-                    "Deadline",
-                    "Performance Status"
-            };
-
-            Row headerRow = sheet.createRow(0);
-            for (int i = 0; i < headers.length; i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers[i]);
-                cell.setCellStyle(headerStyle);
-                sheet.setColumnWidth(i, 20 * 256);
-            }
-
-            // Формат для даты
-            CellStyle dateStyle = workbook.createCellStyle();
-            CreationHelper createHelper = workbook.getCreationHelper();
-            dateStyle.setDataFormat(createHelper.createDataFormat().getFormat("dd.mm.yyyy"));
-
-            // Заполняем данными
-            int rowNum = 1;
-            int index = 1;
-            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-
-            for (Control control : controls) {
-                Row row = sheet.createRow(rowNum++);
-
-                ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
-                String operatorNames = resolveDisplayNames(assignment != null ? assignment.getControlOperator() : null);
-                String processOwnerNames = resolveDisplayNames(assignment != null ? assignment.getProcessOwner() : null);
-                String soqmNames = resolveDisplayNames(assignment != null ? assignment.getSoqmLead() : null);
-                LocalDate operationDate = assignment != null ? assignment.getControlOperationDate() : null;
-
-                int colNum = 0;
-                row.createCell(colNum++).setCellValue(index++);
-                row.createCell(colNum++).setCellValue(control.getControlId() != null ? control.getControlId() : "");
-                row.createCell(colNum++).setCellValue(control.getComponent() != null ? control.getComponent() : "");
-                row.createCell(colNum++).setCellValue(control.getControlType() != null ? control.getControlType() : "");
-                row.createCell(colNum++).setCellValue(control.getControlFrequency() != null ? control.getControlFrequency() : "");
-                row.createCell(colNum++).setCellValue(operationDate != null ? operationDate.format(dateFormatter) : "");
-                row.createCell(colNum++).setCellValue(operatorNames);
-                row.createCell(colNum++).setCellValue(processOwnerNames);
-                row.createCell(colNum++).setCellValue(soqmNames);
-                row.createCell(colNum++).setCellValue(control.getDeadline() != null ? control.getDeadline().format(dateFormatter) : "");
-                row.createCell(colNum).setCellValue(control.getPerformanceStatus() != null ? control.getPerformanceStatus() : "DRAFT");
-            }
-
-            // Авто-размер для последней колонки (описание)
-            sheet.setColumnWidth(headers.length - 1, 50 * 256);
-
-            // ★ СОХРАНЕНИЕ НА ДИСК
-            String outputDir = "C:\\Sultan\\QTracker\\output";
-            File dir = new File(outputDir);
-            if (!dir.exists()) {
-                dir.mkdirs();
-                logger.info("Created directory: {}", outputDir);
-            }
-
-            // ★ ГЕНЕРАЦИЯ ИМЕНИ ФАЙЛА
-            String timestamp = LocalDateTime.now(Notification.ZONE).format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-            String userPart = "all";
-            if (userEmail != null && !userEmail.isEmpty()) {
-                userPart = userEmail.split("@")[0];
-            }
-            String fileName = String.format("QT_%s_%s.xlsx", userPart, timestamp);
-            String filePath = outputDir + File.separator + fileName;
-
-            // ★ СОХРАНЯЕМ НА ДИСК
-            try (FileOutputStream fileOut = new FileOutputStream(filePath)) {
-                workbook.write(fileOut);
-                logger.info("Excel file saved to disk: {}", filePath);
-                logger.info("File size: {} bytes", new File(filePath).length());
-            }
-
-            // ★ ТАКЖЕ ОТДАЕМ ДЛЯ СКАЧИВАНИЯ
-            String downloadFilename;
-            if ("user".equals(exportType) && userEmail != null) {
-                String simpleUserPart = userEmail.split("@")[0];
-                downloadFilename = "QTracker_MyControls_" + simpleUserPart + "_" +
-                        LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + ".xlsx";
-            } else {
-                downloadFilename = "QTracker_Controls_" +
-                        LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + ".xlsx";
-            }
-
-            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-            response.setHeader(HttpHeaders.CONTENT_DISPOSITION,
-                    "attachment; filename=\"" + downloadFilename + "\"");
-
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            workbook.write(outputStream);
-            workbook.close();
-
-            response.getOutputStream().write(outputStream.toByteArray());
-            response.getOutputStream().flush();
-
-            logger.info("Excel export completed successfully, {} rows exported, saved to: {}",
-                    controls.size(), filePath);
-
-        } catch (Exception e) {
-            logger.error("Error during Excel export", e);
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.setContentType("text/plain");
-            response.getWriter().write("Error generating Excel: " + e.getMessage());
-        }
-    }
-
     // ★ Вспомогательный метод для генерации предложений по ID
     private String generateControlIdSuggestion(String originalId) {
         String baseId = originalId.replaceAll("\\s*[-_]?\\d+$", ""); // Удаляем существующий суффикс
@@ -533,26 +316,29 @@ public class ControlController {
                 return ResponseEntity.badRequest()
                         .body("VALIDATION_ERROR: " + missingField + " is required");
             }
-            // A blank SoQM Year leaves the stored one; any other value must be a real SoQM year
+            // A blank SoQM Year leaves the stored one; another one must be one of the years offered
             String requestedSoqmYear = controlDTO.getSoqmYear() == null || controlDTO.getSoqmYear().isBlank()
                     ? null : controlDTO.getSoqmYear().trim();
-            controlDTO.setSoqmYear(requestedSoqmYear);
-            // A completed control changed in place keeps its frequency, SoQM Year and Control Status
-            // (AccessPolicy.COMPLETED_FIXED_FIELDS): a change is refused, the same value sent is not applied
-            if (permission.isCompletedEdit()) {
-                String fixedField = findChangedCompletedFixedField(controlDTO, existingControl);
-                if (fixedField != null) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: " + AccessPolicy.completedFixedMessage(fixedField));
-                }
-                controlDTO.setControlFrequency(null);
-                controlDTO.setSoqmYear(null);
-                controlDTO.setControlStatus(null);
+            if (requestedSoqmYear != null && requestedSoqmYear.equals(normalizeValue(existingControl.getSoqmYear()))) {
                 requestedSoqmYear = null;
             }
-            if (requestedSoqmYear != null && !SoqmYear.isValid(requestedSoqmYear)) {
+            controlDTO.setSoqmYear(requestedSoqmYear);
+            if (requestedSoqmYear != null
+                    && !SoqmYear.options(DeadlineOverdue.today(java.time.Instant.now())).contains(requestedSoqmYear)) {
                 return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + SoqmYear.invalidMessage());
             }
+            // Control Status: one of the choices; the stored value sent back (any spelling) is kept as it is
+            String requestedControlStatus = null;
+            if (controlDTO.getControlStatus() != null && !controlDTO.getControlStatus().isBlank()
+                    && !controlDTO.getControlStatus().trim().equalsIgnoreCase(normalizeValue(existingControl.getControlStatus()))) {
+                Optional<String> code = ControlStatusValue.canonical(controlDTO.getControlStatus());
+                if (code.isEmpty()) {
+                    return ResponseEntity.badRequest().body("VALIDATION_ERROR: " + ControlStatusValue.invalidMessage());
+                }
+                requestedControlStatus = code.get().equals(normalizeValue(existingControl.getControlStatus()))
+                        ? null : code.get();
+            }
+            controlDTO.setControlStatus(requestedControlStatus);
             String previousFrequency = existingControl.getControlFrequency();
             String requestedFrequency = controlDTO.getControlFrequency();
             String canonicalFrequency = null;
@@ -568,7 +354,7 @@ public class ControlController {
                 String lockedField = findChangedRestrictedField(controlDTO, existingControl, canonicalFrequency, permission);
                 if (lockedField != null) {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body("VALIDATION_ERROR: " + lockedField + " can be changed only by SoQM Team");
+                            .body("VALIDATION_ERROR: " + lockedField + " can be changed only by SoQM Admin Team");
                 }
             }
 
@@ -617,8 +403,8 @@ public class ControlController {
                 existingControl.setSoqmYear(requestedSoqmYear);
             }
             // NOTE: DO NOT update performanceStatus here - it should only change via workflow transitions (Submit buttons)
-            if (controlDTO.getControlStatus() != null && !controlDTO.getControlStatus().isBlank()) {
-                existingControl.setControlStatus(controlDTO.getControlStatus().trim());
+            if (requestedControlStatus != null) {
+                existingControl.setControlStatus(requestedControlStatus);
             }
             if (controlDTO.getControlDescription() != null) {
                 existingControl.setControlDescription(controlDTO.getControlDescription());
@@ -654,9 +440,13 @@ public class ControlController {
             existingControl.setUpdatedAt(LocalDateTime.now(Notification.ZONE));
 
             Control updatedControl = controlService.updateControl(existingControl);
+            // Another frequency recalculates the deadline and the next date by the usual rules, a completed control's
+            // too (AccessPolicy.COMPLETED_FIXED_FIELDS); the audit shows both before and after
+            ControlAssignmentDTO recalculated = null;
             if (canonicalFrequency != null
                     && !Objects.equals(normalizeValue(previousFrequency), normalizeValue(canonicalFrequency))) {
                 controlAssignmentService.recalculateSchedule(updatedControl.getId());
+                recalculated = controlAssignmentService.getAssignmentByControlId(updatedControl.getId());
             }
             ControlAuditChangeService.ControlAuditChangeSet auditChangeSet =
                     controlAuditChangeService.diff(originalSnapshot, updatedControl);
@@ -664,7 +454,11 @@ public class ControlController {
                 try {
                     ObjectMapper mapper = new ObjectMapper();
                     List<String> changedFields = new ArrayList<>(auditChangeSet.getChangedFields());
+                    Map<String, String> previousValues = new LinkedHashMap<>(auditChangeSet.getPreviousValues());
                     Map<String, String> newValues = new LinkedHashMap<>(auditChangeSet.getNewValues());
+                    if (recalculated != null) {
+                        addScheduleChanges(assignment, recalculated, changedFields, previousValues, newValues);
+                    }
                     String description = "Edit Control";
                     if (completedEditReason != null) {
                         description = CompletedEdit.describe(description);
@@ -677,7 +471,7 @@ public class ControlController {
                             updatedControl,
                             description,
                             mapper.writeValueAsString(changedFields),
-                            mapper.writeValueAsString(auditChangeSet.getPreviousValues()),
+                            mapper.writeValueAsString(previousValues),
                             mapper.writeValueAsString(newValues)
                     );
                 } catch (Exception e) {
@@ -703,7 +497,7 @@ public class ControlController {
             Control control = controlService.getControlById(id)
                     .orElseThrow(() -> new RuntimeException("Control not found with id: " + id));
 
-            // SoQM, or a user the control is shared with
+            // SoQM Admin Team only (AccessPolicy.canExportCompletedControl)
             if (!AccessPolicy.canExportCompletedControl(AccessPolicy.Subject.of(currentUser),
                     controlPermissionService.facts(control, currentUser, null))) {
                 response.setStatus(HttpStatus.FORBIDDEN.value());
@@ -723,86 +517,11 @@ public class ControlController {
                 return;
             }
 
+            // Every field of the Control, Details and Assignment tabs, as View Control shows them (CompletedControlExcel)
             ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(control.getId());
             ControlDetailsDTO details = controlDetailsService.getDetailsByControlId(control.getId());
-            ControlDocumentsDTO documents = controlDocumentsService.getDocumentsByControlId(control.getId());
-            PerformanceDTO performanceDTO = performanceService.buildPerformanceDTO(control);
-
-            Workbook workbook = new XSSFWorkbook();
-            Sheet sheet = workbook.createSheet("Control");
-
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerStyle.setFont(headerFont);
-
-            Row headerRow = sheet.createRow(0);
-            Cell headerField = headerRow.createCell(0);
-            headerField.setCellValue("Field");
-            headerField.setCellStyle(headerStyle);
-            Cell headerValue = headerRow.createCell(1);
-            headerValue.setCellValue("Value");
-            headerValue.setCellStyle(headerStyle);
-
-            int rowNum = 1;
-            rowNum = addRow(sheet, rowNum, "Control ID", control.getControlId());
-            rowNum = addRow(sheet, rowNum, "Control Status", statusDisplayMapper.display(control.getControlStatus()));
-            rowNum = addRow(sheet, rowNum, "Control Type", control.getControlType());
-            rowNum = addRow(sheet, rowNum, "Control Frequency", control.getControlFrequency());
-            rowNum = addRow(sheet, rowNum, "Control Category", control.getControlCategory());
-            rowNum = addRow(sheet, rowNum, "Component", control.getComponent());
-            rowNum = addRow(sheet, rowNum, "Operated By", control.getOperatedBy());
-            rowNum = addRow(sheet, rowNum, "References to this Control", control.getReferencesToControl());
-            rowNum = addRow(sheet, rowNum, "Priority", control.getPriority());
-            rowNum = addRow(sheet, rowNum, "Non-Audit Services Control Applicability", control.getNonAuditServicesApplicability());
-            rowNum = addRow(sheet, rowNum, "Homogeneity", control.getHomogeneity());
-            rowNum = addRow(sheet, rowNum, "Control Description", control.getControlDescription());
-            rowNum = addRow(sheet, rowNum, "PRP", control.getPrp());
-            rowNum = addRow(sheet, rowNum, "SoQM Head/Team Comments", control.getSoqmHeadComments());
-            rowNum = addRow(sheet, rowNum, "Process Owner Comments", control.getProcessOwnerComments());
-
-            rowNum = addRow(sheet, rowNum, "Created By",
-                    control.getCreatedBy() != null ? control.getCreatedBy().getDisplayName() : null);
-            rowNum = addRow(sheet, rowNum, "Created", formatDateTime(control.getCreatedAt()));
-            rowNum = addRow(sheet, rowNum, "Updated At", formatDateTime(control.getUpdatedAt()));
-            rowNum = addRow(sheet, rowNum, "Deadline", formatDate(control.getDeadline()));
-
-            if (assignment != null) {
-                rowNum = addRow(sheet, rowNum, "Facilitator(s)", joinList(assignment.getFacilitator()));
-                rowNum = addRow(sheet, rowNum, "Control Operator(s)", joinList(assignment.getControlOperator()));
-                rowNum = addRow(sheet, rowNum, "SoQM Team/Delegate(s)", joinList(assignment.getSoqmLead()));
-                rowNum = addRow(sheet, rowNum, "Process Owner(s)", joinList(assignment.getProcessOwner()));
-                // The name View Control and the Changelog give the field; addresses in the stored order
-                rowNum = addRow(sheet, rowNum, "Control Shared With", joinList(assignment.getControlSharedWith()));
-                rowNum = addRow(sheet, rowNum, "Control Operation Date", formatDate(assignment.getControlOperationDate()));
-                rowNum = addRow(sheet, rowNum, "Control Operation Deadline", formatDate(assignment.getControlOperationDeadline()));
-                rowNum = addRow(sheet, rowNum, "Next Control Operation Date", formatDate(assignment.getNextControlOperationDate()));
-            }
-
-            rowNum = addRow(sheet, rowNum, "SoQM Year", performanceDTO.getSoqmYear());
-            rowNum = addRow(sheet, rowNum, "Performance Status", performanceStatus);
-
-            if (details != null) {
-                rowNum = addRow(sheet, rowNum, "Process Name", details.getProcessName());
-                rowNum = addRow(sheet, rowNum, "Department", details.getDepartment());
-                rowNum = addRow(sheet, rowNum, "Process Activities", details.getProcessActivities());
-                // In the order of View Control's Details: the Program (put in by SoQM Team) right after Process
-                // Activities; an empty value has no row, as every field
-                rowNum = addRow(sheet, rowNum, ControlStepsFields.OPERATOR_PROGRAM_LABEL, details.getControlOperatorReview());
-                rowNum = addRow(sheet, rowNum, "Other Related Controls", details.getOtherRelatedControls());
-                rowNum = addRow(sheet, rowNum, "IT Applications", details.getItApplications());
-                rowNum = addRow(sheet, rowNum, ControlStepsFields.STEPS_LABEL, details.getControlStepsPerformed());
-            }
-
-            if (documents != null) {
-                rowNum = addRow(sheet, rowNum, "SoQM Development Materials", documents.getSoqmDevelopmentMaterials());
-            }
-
-            rowNum = addRow(sheet, rowNum, "Attachments (Details)", extractAttachmentNames(control.getAttachmentDetailsPath()));
-            rowNum = addRow(sheet, rowNum, "Attachments (Documents)", extractAttachmentNames(control.getAttachmentDocumentsPath()));
-
-            sheet.setColumnWidth(0, 35 * 256);
-            sheet.setColumnWidth(1, 80 * 256);
+            List<CompletedControlExcel.Line> lines = CompletedControlExcel.lines(control, performanceStatus, assignment,
+                    details, userService.displayNamesByEmail(CompletedControlExcel.emailsOf(assignment)), statusDisplayMapper);
 
             String downloadFilename = "QTracker_Control_" +
                     (control.getControlId() != null ? control.getControlId() : "Completed") +
@@ -813,8 +532,7 @@ public class ControlController {
                     "attachment; filename=\"" + downloadFilename + "\"");
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            workbook.write(outputStream);
-            workbook.close();
+            CompletedControlExcel.write(lines, outputStream);
 
             response.getOutputStream().write(outputStream.toByteArray());
             response.getOutputStream().flush();
@@ -845,8 +563,8 @@ public class ControlController {
         dto.setSoqmHeadComments(control.getSoqmHeadComments());
         dto.setProcessOwnerComments(control.getProcessOwnerComments());
 
-        if (control.getCreatedBy() != null) {
-            dto.setCreatedBy(control.getCreatedBy().getDisplayName()); // передаем ИМЯ как String
+        if (control.creatorName() != null) {
+            dto.setCreatedBy(control.creatorName()); // передаем ИМЯ как String
         } else {
             dto.setCreatedBy("Unknown");
         }
@@ -903,71 +621,6 @@ public class ControlController {
             previousValues.put(fieldName, oldValue);
             newValues.put(fieldName, newValue);
         }
-    }
-
-    private int addRow(Sheet sheet, int rowNum, String field, String value) {
-        if (value == null) {
-            return rowNum;
-        }
-        String trimmed = value.trim();
-        if (trimmed.isEmpty()) {
-            return rowNum;
-        }
-        Row row = sheet.createRow(rowNum++);
-        row.createCell(0).setCellValue(field);
-        row.createCell(1).setCellValue(trimmed);
-        return rowNum;
-    }
-
-    private String joinList(List<String> items) {
-        if (items == null || items.isEmpty()) return null;
-        return String.join(", ", items);
-    }
-
-    private String resolveDisplayNames(List<String> emails) {
-        if (emails == null || emails.isEmpty()) {
-            return "";
-        }
-        List<String> names = new ArrayList<>();
-        for (String email : emails) {
-            if (email == null || email.trim().isEmpty()) {
-                continue;
-            }
-            String displayName = userService.getUserByEmail(email.trim())
-                    .map(User::getDisplayName)
-                    .orElse("");
-            if (displayName != null && !displayName.trim().isEmpty()) {
-                names.add(displayName.trim());
-            }
-        }
-        return names.isEmpty() ? "" : String.join(", ", names);
-    }
-
-    private String formatDate(LocalDate date) {
-        if (date == null) return null;
-        return date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
-    }
-
-    private String formatDateTime(LocalDateTime dateTime) {
-        if (dateTime == null) return null;
-        return dateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"));
-    }
-
-    private String extractAttachmentNames(String raw) {
-        if (raw == null || raw.trim().isEmpty()) return null;
-        String[] parts = raw.split(";");
-        List<String> names = new ArrayList<>();
-        for (String part : parts) {
-            String trimmed = part.trim();
-            if (trimmed.isEmpty()) continue;
-            String name = trimmed;
-            int lastSlash = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
-            if (lastSlash >= 0 && lastSlash + 1 < trimmed.length()) {
-                name = trimmed.substring(lastSlash + 1);
-            }
-            names.add(name);
-        }
-        return names.isEmpty() ? null : String.join(", ", names);
     }
 
     private static String normalizeValue(String value) {
@@ -1042,27 +695,26 @@ public class ControlController {
     }
 
     /**
-     * The first field of a completed control that stays as it is (AccessPolicy.COMPLETED_FIXED_FIELDS) whose sent
-     * value differs from the stored one, or null. A frequency counts as the same in another spelling of it.
+     * The deadline and the next date a new frequency recalculated, as the Assignment tab names them, instead of the
+     * control's own copy of the deadline ("deadline"), so the audit and the Changelog show each once.
      */
-    private String findChangedCompletedFixedField(ControlDTO dto, Control existing) {
-        String sentFrequency = dto.getControlFrequency();
-        if (sentFrequency != null && !sentFrequency.isBlank()
-                && !normalizeValue(sentFrequency).equalsIgnoreCase(normalizeValue(existing.getControlFrequency()))) {
-            String canonical = canonicalizeFrequency(sentFrequency);
-            if (canonical == null || !canonical.equals(canonicalizeFrequency(existing.getControlFrequency()))) {
-                return "Control Frequency";
+    private static void addScheduleChanges(ControlAssignmentDTO before, ControlAssignmentDTO after,
+                                           List<String> changedFields, Map<String, String> previousValues,
+                                           Map<String, String> newValues) {
+        changedFields.remove("deadline");
+        previousValues.remove("deadline");
+        newValues.remove("deadline");
+        java.time.LocalDate[][] dates = {
+                {before != null ? before.getControlOperationDeadline() : null, after.getControlOperationDeadline()},
+                {before != null ? before.getNextControlOperationDate() : null, after.getNextControlOperationDate()}};
+        String[] labels = {"Control Operation Deadline", "Next Control Operation Date"};
+        for (int i = 0; i < labels.length; i++) {
+            if (!Objects.equals(dates[i][0], dates[i][1])) {
+                changedFields.add(labels[i]);
+                previousValues.put(labels[i], dates[i][0] != null ? dates[i][0].toString() : null);
+                newValues.put(labels[i], dates[i][1] != null ? dates[i][1].toString() : null);
             }
         }
-        if (dto.getSoqmYear() != null && !dto.getSoqmYear().trim().equals(normalizeValue(existing.getSoqmYear()))) {
-            return "SoQM Year";
-        }
-        String sentStatus = dto.getControlStatus();
-        if (sentStatus != null && !sentStatus.isBlank()
-                && !sentStatus.trim().equalsIgnoreCase(normalizeValue(existing.getControlStatus()))) {
-            return "Control Status";
-        }
-        return null;
     }
 
     private String canonicalizeFrequency(String raw) {

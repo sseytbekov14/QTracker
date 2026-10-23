@@ -2,10 +2,8 @@ package com.kpmg.qtracker.controller;
 
 import com.kpmg.qtracker.dto.WorkflowButtonDTO;
 import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.service.WorkflowService;
 import jakarta.servlet.http.HttpSession;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +15,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class WorkflowApiController {
 
-    private final ControlRepository controlRepository; // ← добавьте это
     private final WorkflowService workflowService;
 
     @GetMapping("/{controlId}/available-buttons")

@@ -10,33 +10,37 @@ import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.IControlService;
-import com.kpmg.qtracker.service.NotificationService;
+import com.kpmg.qtracker.service.notification.WorkflowNotifications;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlAssignmentService;
+import com.kpmg.qtracker.service.ControlRowLock;
 import com.kpmg.qtracker.service.WorkflowMoveService;
 import com.kpmg.qtracker.service.WorkflowRequiredFieldService;
 import com.kpmg.qtracker.service.WorkflowTransitionGuard;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = WorkflowTransitionController.class)
+@ActiveProfiles("test")
 @AutoConfigureMockMvc(addFilters = false)
 @Import({WorkflowTransitionGuard.class, WorkflowMoveService.class})
 class WorkflowTransitionControllerTest {
@@ -54,7 +58,7 @@ class WorkflowTransitionControllerTest {
     private WorkflowHistoryRepository workflowHistoryRepository;
 
     @MockBean
-    private NotificationService notificationService;
+    private WorkflowNotifications workflowNotifications;
 
     @MockBean
     private WorkflowRequiredFieldService requiredFieldService;
@@ -67,6 +71,15 @@ class WorkflowTransitionControllerTest {
 
     @MockBean
     private AdminAuditService adminAuditService;
+
+    /** No database here: the row lock of a move hands the control back as it is. */
+    @MockBean
+    private ControlRowLock controlRowLock;
+
+    @BeforeEach
+    void rowLockPassesTheControlThrough() {
+        when(controlRowLock.lockedFresh(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    }
 
     @Test
     void returnToFacilitator_includesCommentInReturnNotification() throws Exception {
@@ -104,15 +117,9 @@ class WorkflowTransitionControllerTest {
                         .sessionAttr("currentUser", currentUser))
                 .andExpect(status().isOk());
 
-        verify(notificationService).sendReturnNotifications(
-                eq(control),
-                eq(java.util.List.of("facilitator@kpmg.kz")),
-                eq("Control Operator"),
-                eq("Control Operator"),
-                eq("Facilitator"),
-                eq("Need fixes in control steps"),
-                eq("RETURN_TO_FACILITATOR")
-        );
+        // T7 to the Facilitator, returned by the Control Operator; the comment for the in-app notification
+        verify(workflowNotifications).moved(eq(control), eq(assignmentDto), eq("REVIEW"), eq("IN_PROGRESS"), any(),
+                eq("Need fixes in control steps"));
     }
 
     @Test
@@ -217,8 +224,7 @@ class WorkflowTransitionControllerTest {
                 .andExpect(status().isConflict());
 
         verify(controlService, never()).save(any(Control.class));
-        verify(notificationService, never())
-                .sendReturnNotifications(any(), anyList(), any(), any(), any(), any(), any());
+        verifyNoInteractions(workflowNotifications);
     }
 
     private Control controlInStatus(Long id, String status) {

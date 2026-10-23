@@ -11,8 +11,8 @@ import com.kpmg.qtracker.service.ControlPermission;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlService;
-import com.kpmg.qtracker.service.NotificationService;
-import com.kpmg.qtracker.service.NotificationTemplateService;
+import com.kpmg.qtracker.service.notification.WorkflowNotifications;
+import com.kpmg.qtracker.service.ControlRowLock;
 import com.kpmg.qtracker.service.WorkflowMoveService;
 import com.kpmg.qtracker.service.WorkflowRequiredFieldService;
 import com.kpmg.qtracker.service.WorkflowTransitionGuard;
@@ -20,7 +20,6 @@ import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
@@ -29,7 +28,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -47,7 +45,7 @@ class WorkflowControllerCompletedRecipientsTest {
     @Mock
     private WorkflowHistoryRepository workflowHistoryRepository;
     @Mock
-    private NotificationService notificationService;
+    private WorkflowNotifications workflowNotifications;
     @Mock
     private WorkflowRequiredFieldService requiredFieldService;
     @Mock
@@ -63,11 +61,11 @@ class WorkflowControllerCompletedRecipientsTest {
     void setUp() {
         controller = new WorkflowController(controlService, new WorkflowMoveService(controlService,
                 controlAssignmentService, controlPermissionService, new WorkflowTransitionGuard(), requiredFieldService,
-                workflowHistoryRepository, notificationService, adminAuditService));
+                workflowHistoryRepository, workflowNotifications, adminAuditService, new ControlRowLock()));
     }
 
     @Test
-    void completeControl_sendsCompletedOnlyToFacilitatorOperatorSoqmLead() {
+    void completeControl_notifiesTheCompletion_byTheChangeOfStatus() {
         Long controlId = 100L;
         Control control = new Control();
         control.setId(controlId);
@@ -94,17 +92,9 @@ class WorkflowControllerCompletedRecipientsTest {
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(control.getPerformanceStatus()).isEqualTo("COMPLETED");
 
-        ArgumentCaptor<List<String>> recipientsCaptor = ArgumentCaptor.forClass(List.class);
-        verify(notificationService).sendTemplateNotifications(
-                eq(control),
-                recipientsCaptor.capture(),
-                eq(NotificationTemplateService.TemplateType.COMPLETED_ALL),
-                eq(false)
-        );
-
-        List<String> recipients = recipientsCaptor.getValue();
-        assertThat(recipients).containsExactlyInAnyOrder("fac@kpmg.kz", "op@kpmg.kz", "soqm@kpmg.kz");
-        assertThat(recipients).doesNotContain("owner@kpmg.kz", "owner2@kpmg.kz");
+        // The notification follows the change of status (T12 to all four roles, WorkflowNotifications)
+        verify(workflowNotifications).moved(eq(control), any(ControlAssignmentDTO.class), eq("PROCESS_OWNER_REVIEW"),
+                eq("COMPLETED"), any(), eq(null));
     }
 
     @Test
@@ -133,7 +123,7 @@ class WorkflowControllerCompletedRecipientsTest {
         assertThat(response.getBody()).isEqualTo("Required field is missing: Process Owner Comments");
         assertThat(control.getPerformanceStatus()).isEqualTo("PROCESS_OWNER_REVIEW");
         verify(controlService, never()).save(any(Control.class));
-        verifyNoInteractions(notificationService);
+        verifyNoInteractions(workflowNotifications);
     }
 
     @Test
@@ -169,21 +159,9 @@ class WorkflowControllerCompletedRecipientsTest {
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(control.getReturnToOperatorComment()).isEqualTo(comment);
 
-        verify(notificationService).sendReturnNotifications(
-                eq(control),
-                eq(List.of("operator@kpmg.kz")),
-                eq("SoQM Team"),
-                eq("SoQM Reviewer"),
-                eq("Control Operator"),
-                eq(comment),
-                eq("RETURN_TO_OPERATOR")
-        );
-        verify(notificationService, never()).sendTemplateNotifications(
-                eq(control),
-                anyList(),
-                eq(NotificationTemplateService.TemplateType.SOQM_TO_OPERATOR_RETURN),
-                eq(false)
-        );
+        // T9 to the Control Operator; the comment goes to the in-app notification only
+        verify(workflowNotifications).moved(eq(control), eq(assignment), eq("SOQM_HEAD_REVIEW"), eq("REVIEW"), any(),
+                eq(comment));
     }
 
     @Test
@@ -227,17 +205,9 @@ class WorkflowControllerCompletedRecipientsTest {
         assertThat(history.getValue().getToStep()).isEqualTo("REVIEW");
         assertThat(history.getValue().getComments()).isEqualTo(comment);
 
-        // The Process Owner is also an Operator here: the control comes back to their own step, so they
-        // are notified as well, like every Operator
-        verify(notificationService).sendReturnNotifications(
-                eq(control),
-                eq(List.of("operator@kpmg.kz", "po.current@kpmg.kz")),
-                any(),
-                eq("Process Owner"),
-                eq("Control Operator"),
-                eq(comment),
-                eq("RETURN_TO_OPERATOR")
-        );
+        // T11 to every Control Operator, the Process Owner too when they are one (their own step)
+        verify(workflowNotifications).moved(eq(control), eq(assignment), eq("PROCESS_OWNER_REVIEW"), eq("REVIEW"), any(),
+                eq(comment));
     }
 
     private ControlAssignmentDTO completedAssignment() {
@@ -273,11 +243,6 @@ class WorkflowControllerCompletedRecipientsTest {
         ResponseEntity<?> response = controller.completeControl(controlId, null, session);
 
         assertThat(response.getStatusCode().value()).isEqualTo(403);
-        verify(notificationService, never()).sendTemplateNotifications(
-                eq(control),
-                anyList(),
-                eq(NotificationTemplateService.TemplateType.COMPLETED_ALL),
-                eq(false)
-        );
+        verifyNoInteractions(workflowNotifications);
     }
 }

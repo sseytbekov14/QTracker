@@ -18,6 +18,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -78,7 +79,7 @@ class AccessPolicyTest {
         assertThat(AccessPolicy.canOpenAdminPanel(s)).as("canOpenAdminPanel").isEqualTo(adminPanel);
         assertThat(AccessPolicy.canManageUsers(s)).as("canManageUsers").isEqualTo(manageUsers);
         assertThat(AccessPolicy.canCreateControls(s)).as("canCreateControls").isEqualTo(create);
-        assertThat(AccessPolicy.canExportAllControls(s)).as("canExportAllControls").isEqualTo(exportAll);
+        assertThat(AccessPolicy.canExportControlLists(s)).as("canExportControlLists").isEqualTo(exportAll);
         assertThat(AccessPolicy.canListAllUsers(s)).as("canListAllUsers").isEqualTo(allUsers);
     }
 
@@ -382,9 +383,9 @@ class AccessPolicyTest {
     @ParameterizedTest(name = "{0} {1}")
     @CsvSource({
             "SOQM,       -,      true",
-            "PART,       SHARED, true",
+            "PART,       SHARED, false",
             "PART,       PO,     false",
-            "RO,         SHARED, true",
+            "RO,         SHARED, false",
             "RO_ALL,     -,      false",
             "PART_ALL,   -,      false",
             "DISABLED_SOQM, -,   false",
@@ -443,9 +444,9 @@ class AccessPolicyTest {
         assertThat(AccessPolicy.levelScopeRefusal(AccessLevel.PARTICIPANT, AccessScope.KDN))
                 .hasValue("KDN access is always Read Only");
         assertThat(AccessPolicy.assignmentRefusal(who("SOQM"), Slot.PROCESS_OWNER, false))
-                .hasValue("is SoQM Team; Process Owner takes a User with Edit access");
+                .hasValue("is SoQM Admin Team; Process Owner takes a User with Edit access");
         assertThat(AccessPolicy.assignmentRefusal(who("PART"), Slot.SOQM_LEAD, false))
-                .hasValue("is not SoQM Team");
+                .hasValue("is not SoQM Admin Team");
         assertThat(AccessPolicy.assignmentRefusal(null, Slot.FACILITATOR, false))
                 .hasValue("is not a QTracker user");
     }
@@ -693,7 +694,7 @@ class AccessPolicyTest {
             "PART, 0, false", "PART, 1, true", "RO, 0, false", "RO, 2, true",
             "DISABLED_SOQM, 4, false", "DISABLED_PART, 1, false", "NONE, 1, false"})
     void kdnBlock_seenWithoutBeingOn_orWhenMyControlsHoldSome(String key, long kdnControls, boolean shown) {
-        assertThat(AccessPolicy.showsKdnBlock(who(key), kdnControls)).isEqualTo(shown);
+        assertThat(AccessPolicy.seesKdnPage(who(key), kdnControls)).isEqualTo(shown);
     }
 
     @Test
@@ -832,5 +833,61 @@ class AccessPolicyTest {
         for (String user : List.of("PART", "PART_ALL", "KDN", "RO", "RO_ALL", "DISABLED_SOQM", "NONE")) {
             assertThat(AccessPolicy.seesSharedWithNotes(who(user))).as(user).isFalse();
         }
+    }
+    /** Decision of 2026-10-14: on a completed control only the deadline and the next date are fixed (calculated). */
+    @Test
+    void completedControl_onlyTheDeadlineAndTheNextDateAreFixed_andAChangeTellsNobody() {
+        assertThat(AccessPolicy.COMPLETED_FIXED_FIELDS)
+                .containsExactly("Control Operation Deadline", "Next Control Operation Date");
+        assertThat(AccessPolicy.notifiesOnCompletedEdit()).isFalse();
+    }
+
+    /** The Create Control button (it comes later): Monthly and Quarterly only, in any spelling the app reads. */
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0} -> {1}")
+    @org.junit.jupiter.params.provider.CsvSource(value = {
+            "Monthly, true", "monthly, true", "Quarterly, true", "QUARTERLY, true",
+            "Ad-hoc, false", "Recurring, false", "Annual, false", "Semi Annual, false", "Bi-weekly, false", "NULL, false"
+    }, nullValues = "NULL")
+    void frequencyOffersCreateControl_monthlyAndQuarterlyOnly(String frequency, boolean offers) {
+        assertThat(AccessPolicy.frequencyOffersCreateControl(frequency)).isEqualTo(offers);
+    }
+
+    @ParameterizedTest(name = "{0} {1} {2}")
+    @CsvSource({
+            "SOQM, IN_PROGRESS, -, true", "SOQM, COMPLETED, -, true", "SOQM, DRAFT, -, true",
+            "SOQM, REVIEW, -, true", "DISABLED_SOQM, IN_PROGRESS, -, false",
+            "PART, IN_PROGRESS, F+CO+PO, false", "PART_ALL, REVIEW, -, false", "PART, COMPLETED, CREATOR, false",
+            "RO, IN_PROGRESS, SHARED, false", "RO_ALL, IN_PROGRESS, -, false", "KDN, IN_PROGRESS, F, false",
+            "NONE, IN_PROGRESS, -, false"
+    })
+    void canCreateNextCycle_soqmAdminTeamOnly(String user, String status, String places, boolean allowed) {
+        boolean kdn = "KDN".equals(user);
+        ControlPermission permission = who(user) == null ? ControlPermission.denied()
+                : AccessPolicy.resolve(who(user), control(status, kdn, places));
+        assertThat(AccessPolicy.canCreateNextCycle(permission)).isEqualTo(allowed);
+        assertThat(AccessPolicy.canCreateNextCycle(null)).isFalse();
+    }
+
+    @ParameterizedTest(name = "{0} {1} {2}")
+    @CsvSource(value = {
+            "Monthly, IN_PROGRESS, ACTIVE, NULL", "Quarterly, COMPLETED, ACTIVE, NULL", "Monthly, REVIEW, NULL, NULL",
+            "Monthly, SOQM_HEAD_REVIEW, ACTIVE, NULL", "Quarterly, PROCESS_OWNER_REVIEW, ACTIVE, NULL",
+            "Annual, IN_PROGRESS, ACTIVE, Create Control is only for Monthly and Quarterly controls",
+            "Semi Annual, COMPLETED, ACTIVE, Create Control is only for Monthly and Quarterly controls",
+            "Recurring, IN_PROGRESS, ACTIVE, Create Control is only for Monthly and Quarterly controls",
+            "Ad-hoc, IN_PROGRESS, ACTIVE, Create Control is only for Monthly and Quarterly controls",
+            "NULL, IN_PROGRESS, ACTIVE, Create Control is only for Monthly and Quarterly controls",
+            "Monthly, DRAFT, ACTIVE, This control is still a Draft: initiate it before creating its next control",
+            "Monthly, NULL, ACTIVE, This control is still a Draft: initiate it before creating its next control",
+            "Monthly, COMPLETED, DELETED, This control is Deleted: it has no next control",
+            "Quarterly, IN_PROGRESS, SUPERSEDED, This control is Superseded: it has no next control"
+    }, nullValues = "NULL")
+    void nextCycleRefusal_frequencyThenDraftThenRetired(String frequency, String status, String controlStatus,
+                                                        String reason) {
+        assertThat(AccessPolicy.nextCycleRefusal(frequency, status, controlStatus)).isEqualTo(Optional.ofNullable(reason));
+        ControlPermission soqm = AccessPolicy.resolve(who("SOQM"), control(status == null ? "DRAFT" : status, false, "-"));
+        assertThat(AccessPolicy.offersCreateControl(soqm, frequency, status, controlStatus)).isEqualTo(reason == null);
+        ControlPermission user = AccessPolicy.resolve(who("PART"), control(status == null ? "DRAFT" : status, false, "F"));
+        assertThat(AccessPolicy.offersCreateControl(user, frequency, status, controlStatus)).isFalse();
     }
 }

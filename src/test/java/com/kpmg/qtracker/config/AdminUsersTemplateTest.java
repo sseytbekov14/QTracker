@@ -83,6 +83,18 @@ class AdminUsersTemplateTest {
         assertThat(html).contains("<script src=\"/js/app-modal.js?v=", "showConfirmModal(", "hide.bs.modal");
     }
 
+    /** Item 8: Delete user (two steps: e-mail and reason, then the controls with an acknowledgement) and Disable user. */
+    @Test
+    void theDialogDeletesInTwoSteps_andOffersDisableInstead() throws IOException {
+        String html = read();
+        assertThat(html).contains("id=\"userDeleteBtn\"", "id=\"userDisableBtn\"", "Disable user",
+                "for=\"userDeleteEmail\"", "for=\"userDeleteReason\"", "maxlength=\"500\"",
+                "id=\"userDeleteControls\"", "for=\"userDeleteAck\"", "This cannot be undone",
+                "'/api/users/' + dialog.row.dataset.userId + '/delete-check'",
+                "'/api/users/' + dialog.row.dataset.userId + '/delete'", "acknowledged: acknowledged",
+                "token: dialog.deleteToken");
+    }
+
     private static String read() throws IOException {
         return Files.readString(TEMPLATE, StandardCharsets.UTF_8);
     }

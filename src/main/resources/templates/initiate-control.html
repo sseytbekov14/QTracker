@@ -7,7 +7,7 @@
     <title th:text="${control.controlId} + ' - Initiate - QTracker'">Initiate - QTracker</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=17" rel="stylesheet">
+    <link href="/css/style.css?v=20" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         :root {
@@ -125,7 +125,7 @@
 </script>
 <div class="container-fluid">
     <div class="row">
-        <div th:replace="~{fragments/sidebar :: sidebar('controls')}"></div>
+        <div th:replace="~{fragments/sidebar :: sidebar('action')}"></div>
 
         <div class="col-md-10">
             <div class="page-wrapper">
@@ -133,7 +133,7 @@
                 <nav class="page-breadcrumb" aria-label="Breadcrumb">
                     <a href="/">Dashboard</a>
                     <span aria-hidden="true">/</span>
-                    <a href="/controls">Controls</a>
+                    <a href="/component/ALL" th:href="${sidebar != null ? sidebar.listHref : '/component/ALL'}" th:text="${sidebar != null ? sidebar.listLabel : 'All components'}">All components</a>
                     <span aria-hidden="true">/</span>
                     <a th:href="@{/view-control/{id}(id=${control.id})}" th:text="${control.controlId}">HR-CTRL-MF-1</a>
                     <span aria-hidden="true">/</span>
@@ -191,7 +191,7 @@
                                         th:selected="${year == initiateSoqmYear}">1 OCT 2026 - 30 SEP 2027</option>
                             </select>
                             <div class="form-text" id="initiateSoqmYearHint">
-                                Later only SoQM Team can change it, with Edit on the Control tab.</div>
+                                Later only SoQM Admin Team can change it, with Edit on the Control tab.</div>
                             <div class="ic-actions">
                                 <button type="button" class="btn-ic-primary" id="initiateBtn"
                                         th:attr="data-control-id=${control.id},aria-describedby=${initiationReady ? null : 'initiateNotReady'}"

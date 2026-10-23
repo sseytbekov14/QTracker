@@ -346,7 +346,7 @@ public class FileAttachmentController {
             if (!controlAttachmentService.canDelete(control, tabLabel, decodedFilename.trim(), currentUser, permission)) {
                 response.put("success", false);
                 response.put("message", permission.editRefusal(
-                        "Only the user who uploaded this file (in the same workflow stage) or SoQM Team can delete it"));
+                        "Only the user who uploaded this file (in the same workflow stage) or SoQM Admin Team can delete it"));
                 return ResponseEntity.status(403).body(response);
             }
             Optional<String> reasonRefusal = CompletedEdit.refusal(permission, true, editReason);

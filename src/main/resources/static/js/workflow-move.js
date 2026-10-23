@@ -1,6 +1,7 @@
 // View Control, SoQM only: the Move dialog (#soqmMoveModal) moves the control on or back for any role through
 // POST /api/workflow/move. The server decides what is allowed (AccessPolicy.move) and checks the comment and
-// the required fields again; the page only offers the moves it was given.
+// the required fields again; the page only offers the moves it was given. At SoQM's own step (SoQM Head Review) the
+// dialog opens from the Return menu with its one move chosen.
 (function () {
     'use strict';
 
@@ -48,7 +49,8 @@
             note.classList.add('d-none');
         }
         confirmBtn.disabled = !option || sending;
-        confirmBtn.textContent = option && option.dataset.return === 'true' ? 'Return' : 'Move';
+        confirmBtn.textContent = presetReturn ? 'Return Control'
+            : option && option.dataset.return === 'true' ? 'Return' : 'Move';
     }
 
     options.forEach(function (option) {
@@ -63,8 +65,46 @@
         }
     });
 
-    modalEl.addEventListener('show.bs.modal', function () {
-        options.forEach(function (option) { option.checked = false; });
+    // Opened from the Return menu (data-soqm-move-target): that one move, its own title and question, no list
+    const title = document.getElementById('soqmMoveTitle');
+    const titleText = title.textContent;
+    const intro = document.getElementById('soqmMoveIntro');
+    const presetIntro = document.getElementById('soqmMovePresetIntro');
+    const targets = document.getElementById('soqmMoveTargets');
+    // ...and it looks like the other return dialogs: the return icon, "Reason for the return", an amber Return Control
+    const icon = modalEl.querySelector('.vc-modal-icon');
+    const iconGlyph = icon ? icon.querySelector('.bi') : null;
+    const commentLabel = document.getElementById('soqmMoveCommentLabel');
+    const commentPlaceholder = comment.getAttribute('placeholder');
+    let presetReturn = false;
+
+    function setReturnLook(on) {
+        presetReturn = on;
+        modalEl.classList.toggle('vc-move-return', on);
+        if (icon) {
+            icon.classList.toggle('vc-modal-icon-return', on);
+            icon.classList.toggle('vc-modal-icon-send', !on);
+        }
+        if (iconGlyph) {
+            iconGlyph.className = on ? 'bi bi-arrow-return-left' : 'bi bi-arrow-left-right';
+        }
+        commentLabel.textContent = on ? 'Reason for the return' : 'Comment';
+        comment.setAttribute('placeholder', on ? 'What needs to change' : commentPlaceholder);
+        confirmBtn.classList.toggle('btn-warning', on);
+        confirmBtn.classList.toggle('btn-primary', !on);
+    }
+
+    modalEl.addEventListener('show.bs.modal', function (event) {
+        const opener = event.relatedTarget;
+        const preset = opener && opener.dataset ? opener.dataset.soqmMoveTarget || '' : '';
+        const presetOption = preset ? options.find(function (option) { return option.value === preset; }) : null;
+        setReturnLook(!!presetOption && presetOption.dataset.return === 'true');
+        options.forEach(function (option) { option.checked = option === presetOption; });
+        targets.hidden = !!presetOption;
+        intro.hidden = !!presetOption;
+        presetIntro.hidden = !presetOption;
+        presetIntro.textContent = presetOption ? opener.dataset.soqmMoveIntro || '' : '';
+        title.textContent = presetOption ? opener.dataset.soqmMoveTitle || titleText : titleText;
         comment.value = '';
         comment.classList.remove('is-invalid');
         showError('');

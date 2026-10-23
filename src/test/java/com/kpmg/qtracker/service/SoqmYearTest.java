@@ -16,9 +16,8 @@ class SoqmYearTest {
     }
 
     @Test
-    void optionsAreTwoYearsBackToOneYearAhead() {
+    void optionsAreOneYearBackToOneYearAhead() {
         assertThat(SoqmYear.options(LocalDate.of(2026, 10, 1))).containsExactly(
-                "1 OCT 2024 - 30 SEP 2025",
                 "1 OCT 2025 - 30 SEP 2026",
                 "1 OCT 2026 - 30 SEP 2027",
                 "1 OCT 2027 - 30 SEP 2028");

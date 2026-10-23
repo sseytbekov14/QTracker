@@ -29,25 +29,25 @@ public class DevUserSeeder implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        seed("fac1@qtracker.local", "Facilitator 1", "FACILITATOR", AccessLevel.PARTICIPANT, AccessScope.OWN);
-        seed("fac2@qtracker.local", "Facilitator 2", "FACILITATOR", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        seed("fac1@qtracker.local", "Facilitator 1", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        seed("fac2@qtracker.local", "Facilitator 2", AccessLevel.PARTICIPANT, AccessScope.OWN);
 
-        seed("op1@qtracker.local", "Control Operator 1", "CONTROL_OPERATOR", AccessLevel.PARTICIPANT, AccessScope.OWN);
-        seed("op2@qtracker.local", "Control Operator 2", "CONTROL_OPERATOR", AccessLevel.PARTICIPANT, AccessScope.OWN);
-        seed("admin@qtracker.local", "Admin User", "ADMIN", AccessLevel.SOQM, AccessScope.ALL);
+        seed("op1@qtracker.local", "Control Operator 1", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        seed("op2@qtracker.local", "Control Operator 2", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        seed("admin@qtracker.local", "Admin User", AccessLevel.SOQM, AccessScope.ALL);
         makeSoqmTeam("admin@qtracker.local");
 
-        seed("soqm1@qtracker.local", "SoQM Team 1", "SOQM_TEAM", AccessLevel.SOQM, AccessScope.ALL);
-        seed("soqm2@qtracker.local", "SoQM Team 2", "SOQM_TEAM", AccessLevel.SOQM, AccessScope.ALL);
+        seed("soqm1@qtracker.local", "SoQM Team 1", AccessLevel.SOQM, AccessScope.ALL);
+        seed("soqm2@qtracker.local", "SoQM Team 2", AccessLevel.SOQM, AccessScope.ALL);
 
-        seed("po1@qtracker.local", "Process Owner 1", "PROCESS_OWNER", AccessLevel.PARTICIPANT, AccessScope.OWN);
-        seed("po2@qtracker.local", "Process Owner 2", "PROCESS_OWNER", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        seed("po1@qtracker.local", "Process Owner 1", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        seed("po2@qtracker.local", "Process Owner 2", AccessLevel.PARTICIPANT, AccessScope.OWN);
 
-        // The access kinds that have no old role (there is no Master any more)
-        seed("kdn1@qtracker.local", "KDN 1", "KDN", AccessLevel.READ_ONLY, AccessScope.KDN);
-        seed("ro1@qtracker.local", "Read Only 1", null, AccessLevel.READ_ONLY, AccessScope.OWN);
-        seed("roall1@qtracker.local", "Read Only All 1", null, AccessLevel.READ_ONLY, AccessScope.ALL);
-        seed("alledit1@qtracker.local", "All Controls Edit 1", null, AccessLevel.PARTICIPANT, AccessScope.ALL);
+        // The other access kinds
+        seed("kdn1@qtracker.local", "KDN 1", AccessLevel.READ_ONLY, AccessScope.KDN);
+        seed("ro1@qtracker.local", "Read Only 1", AccessLevel.READ_ONLY, AccessScope.OWN);
+        seed("roall1@qtracker.local", "Read Only All 1", AccessLevel.READ_ONLY, AccessScope.ALL);
+        seed("alledit1@qtracker.local", "All Controls Edit 1", AccessLevel.PARTICIPANT, AccessScope.ALL);
     }
 
     /**
@@ -65,7 +65,7 @@ public class DevUserSeeder implements ApplicationRunner {
                 });
     }
 
-    private void seed(String mail, String displayName, String role, AccessLevel level, AccessScope scope) {
+    private void seed(String mail, String displayName, AccessLevel level, AccessScope scope) {
         if (userRepository.existsByMail(mail)) {
             return;
         }
@@ -73,7 +73,6 @@ public class DevUserSeeder implements ApplicationRunner {
         User user = new User();
         user.setMail(mail);
         user.setDisplayName(displayName);
-        user.setRole(role);
         user.setAccessLevel(level);
         user.setAccessScope(scope);
         user.setAdminAccess(level == AccessLevel.SOQM);

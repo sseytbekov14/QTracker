@@ -33,6 +33,12 @@ public class UserPrincipalService {
                 .map(userRecord -> new UserPrincipal(userRecord.id(), userRecord.email(), userRecord.roles()));
     }
 
+    /** The principal of an account found another way (SSO: the account may have no password at all). */
+    public UserPrincipal principalOf(User user) {
+        UserRecord userRecord = toUserRecord(user);
+        return new UserPrincipal(userRecord.id(), userRecord.email(), userRecord.roles());
+    }
+
     /** Authorities: the access level (SOQM, PARTICIPANT, READ_ONLY) and ADMIN for the Admin Panel (SoQM Team). */
     private UserRecord toUserRecord(User user) {
         Set<String> roles = new LinkedHashSet<>();

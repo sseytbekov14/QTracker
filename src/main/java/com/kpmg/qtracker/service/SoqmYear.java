@@ -14,8 +14,8 @@ import java.util.stream.IntStream;
 public final class SoqmYear {
 
     private static final Pattern LABEL = Pattern.compile("1 OCT (\\d{4}) - 30 SEP (\\d{4})");
-    // Choices offered: the two previous years, the current one and the next one
-    private static final int YEARS_BACK = 2;
+    // Choices offered: the previous year, the current one and the next one
+    private static final int YEARS_BACK = 1;
     private static final int YEARS_AHEAD = 1;
 
     private SoqmYear() {

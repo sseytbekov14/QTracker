@@ -15,11 +15,21 @@ app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
 
 auth:
+  sso:
+    enabled: ${AUTH_SSO_ENABLED:false}
+  password:
+    enabled: ${AUTH_PASSWORD_ENABLED:true}
   username-login:
     enabled: true
 
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:true}
+
 logging:
   level:
-    com.kpmg.qtracker.scheduler.ControlReminderScheduler: INFO
-    com.kpmg.qtracker.service.ReminderNotificationService: DEBUG
+    com.kpmg.qtracker.scheduler: INFO
+    com.kpmg.qtracker.service.notification: INFO
     com.kpmg.qtracker.service.NotificationService: DEBUG

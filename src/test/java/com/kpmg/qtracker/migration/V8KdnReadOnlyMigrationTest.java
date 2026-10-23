@@ -1,6 +1,5 @@
 package com.kpmg.qtracker.migration;
 
-import com.kpmg.qtracker.service.LegacyRoleAccess;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,9 +31,6 @@ class V8KdnReadOnlyMigrationTest {
 
     private String url;
     private Connection connection;
-
-    /** mail -> role, secondary_role */
-    private final Map<String, String[]> users = new LinkedHashMap<>();
 
     @BeforeEach
     void setUp() throws Exception {
@@ -100,21 +96,6 @@ class V8KdnReadOnlyMigrationTest {
     }
 
     @Test
-    void javaMapping_matchesTheMigratedDatabase() throws Exception {
-        flyway("8").migrate();
-
-        Map<String, String> migrated = access();
-        users.forEach((mail, values) -> {
-            if (LegacyRoleAccess.excludedFromImport(values[0])) {
-                // Master: V6 gave it PARTICIPANT / ALL; the import leaves it out since 2026-10-07
-                return;
-            }
-            LegacyRoleAccess.Access access = LegacyRoleAccess.of(values[0], values[1]);
-            assertThat(migrated.get(mail)).as(mail).isEqualTo(access.level() + "/" + access.scope());
-        });
-    }
-
-    @Test
     void undoScript_givesTheMigratedUsersTheirOldLevelBack() throws Exception {
         flyway("6").migrate();
         insertUser("ro-kdn@x.kz", "READ_ONLY", "KDN");
@@ -173,7 +154,6 @@ class V8KdnReadOnlyMigrationTest {
     }
 
     private void user(String mail, String role, String secondaryRole) throws SQLException {
-        users.put(mail, new String[]{role, secondaryRole});
         try (PreparedStatement insert = connection.prepareStatement(
                 "INSERT INTO users (mail, role, secondary_role) VALUES (?, ?, ?)")) {
             insert.setString(1, mail);

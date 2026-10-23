@@ -47,17 +47,13 @@ public class ControlResponseDTO {
     private boolean overdue;
     // Completed on a day after the deadline ("Closed late"); never overdue
     private boolean closedLate;
+    // Returned from Completed and not completed again (Control.reopenedAt): the lists' "Reopened"
+    private boolean reopened;
     private boolean sharedViewOnly;
     // Workflow fields
     private String workflowStatus;
     private String workflowStatusDisplay;
     private List<WorkflowHistoryDTO> workflowHistory;
-    private boolean canInitiateWorkflow;
-    private boolean canSubmitForReview;
-    private boolean canSubmitForSoQM;
-    private boolean canSendToProcessOwner;
-    private boolean canCompleteWorkflow;
-    private boolean canReturnWorkflow;
 
     private List<String> facilitators;
     private List<String> controlOperators;

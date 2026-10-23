@@ -1,16 +1,26 @@
 package com.kpmg.qtracker.controller;
 
+import com.kpmg.qtracker.security.AuthMode;
 import com.kpmg.qtracker.security.LoginNameResolver;
+import com.kpmg.qtracker.security.SsoSignIn;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.logout.CookieClearingLogoutHandler;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.server.ResponseStatusException;
 
 @Controller
 @RequiredArgsConstructor
@@ -20,10 +30,17 @@ public class AuthController {
     private static final String MSG_DISABLED = "Your account is disabled. Please contact the system administrator.";
     private static final String MSG_LOCKED = "Too many failed login attempts. Try again later.";
 
-    private final LoginNameResolver loginNames;
+    public static final String SIGNED_OUT_PATH = "/signed-out";
 
+    private final LoginNameResolver loginNames;
+    private final AuthMode authMode;
+
+    /** The password form; with SSO there is none and the address leads to the Microsoft sign-in instead. */
     @GetMapping("/login")
     public String loginPage(HttpSession session, Model model, @RequestParam(required = false) String error) {
+        if (!authMode.password()) {
+            return "redirect:/";
+        }
         model.addAttribute("usernameLogin", loginNames.usernameLogin());
         if (error != null) {
             AuthenticationException exception = (AuthenticationException) session.getAttribute("SPRING_SECURITY_LAST_EXCEPTION");
@@ -50,9 +67,57 @@ public class AuthController {
         return MSG_BAD_CREDENTIALS;
     }
 
+    /**
+     * Microsoft signed the person in but QTracker has no active account for them: no details (which account,
+     * why) on the page, they are in the log and the audit trail. No way back to the Dashboard: it would only
+     * come back here.
+     */
+    @GetMapping(SsoSignIn.ACCESS_NOT_GRANTED_PATH)
+    public String accessNotGranted(Model model, HttpServletResponse response) {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        model.addAttribute("title", "Access is not granted");
+        model.addAttribute("text", "Access is not granted, contact SoQM Admin Team.");
+        model.addAttribute("retry", false);
+        return "sign-in-problem";
+    }
+
+    /** The answer of Microsoft could not be used (expired, from another tab, ...): trying again usually helps. */
+    @GetMapping(SsoSignIn.SIGN_IN_FAILED_PATH)
+    public String signInFailed(Model model, HttpServletResponse response) {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        model.addAttribute("title", "Sign-in did not complete");
+        model.addAttribute("text", "The sign-in with Microsoft did not complete. Try again; if it happens again,"
+                + " contact SoQM Admin Team.");
+        model.addAttribute("retry", true);
+        return "sign-in-problem";
+    }
+
+    /**
+     * The Logout link of the sidebar: ends the server session (and with it the Spring Security sign-in) and
+     * forgets the CSRF token, like the POST /logout of Spring Security; an old session cookie then opens nothing.
+     * Only with auth.logout.enabled=true (off by default, AuthMode): otherwise there is no such address. With SSO it
+     * ends only the QTracker session; the page after it says that the Microsoft one stays.
+     */
     @GetMapping("/logout")
-    public String logout(HttpSession session) {
-        session.removeAttribute("currentUser");
-        return "redirect:/login";
+    public String logout(HttpServletRequest request, HttpServletResponse response) {
+        if (!authMode.logout()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        new CookieClearingLogoutHandler("XSRF-TOKEN").logout(request, response, authentication);
+        new SecurityContextLogoutHandler().logout(request, response, authentication);
+        return authMode.sso() ? "redirect:" + SIGNED_OUT_PATH : "redirect:/login";
+    }
+
+    /** After Logout with SSO: QTracker is closed, the Microsoft session is not (the next visit signs in again). */
+    @GetMapping(SIGNED_OUT_PATH)
+    public String signedOut(Model model) {
+        model.addAttribute("title", "Signed out of QTracker");
+        model.addAttribute("text", "You are signed out of QTracker. Your Microsoft account stays signed in in this"
+                + " browser, so opening QTracker again signs you in without a password: close the browser to end"
+                + " the Microsoft session.");
+        model.addAttribute("retry", true);
+        model.addAttribute("action", "Open QTracker");
+        return "sign-in-problem";
     }
 }

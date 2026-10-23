@@ -10,8 +10,8 @@ import java.nio.file.Path;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The Action Centre grid (dashboard.html): the KDN card is the same card as a component's
- * (fragments/action-centre.html), first for KDN users, whose page has no action block, last for the others.
+ * The Action Centre grid (dashboard.html): the components' cards only (fragments/action-centre.html); the KDN controls
+ * have their own page (/kdn, decision of 2026-10-13), and the role KDN has no dashboard at all.
  */
 class KdnControlsTemplateTest {
 
@@ -23,17 +23,21 @@ class KdnControlsTemplateTest {
     }
 
     @Test
-    void componentsAndKdn_oneCard_kdnFirstForKdnUsers_lastForOthers() throws IOException {
+    void theGrid_isTheComponentsCards_noKdnCard() throws IOException {
         String html = read(DASHBOARD);
         String grid = html.substring(html.indexOf("<div class=\"ac-grid\">"), html.indexOf("<div class=\"ac-legend\""));
-        String kdnFirst = "<th:block th:if=\"${kdnUser and kdnSummary != null}\">";
-        String components = "<th:block th:each=\"c : ${componentSummaries}\">";
-        String kdnLast = "<th:block th:if=\"${!kdnUser and kdnSummary != null}\">";
-        assertThat(grid.indexOf(kdnFirst)).isNotNegative().isLessThan(grid.indexOf(components));
-        assertThat(grid.indexOf(kdnLast)).isGreaterThan(grid.indexOf(components));
-        assertThat(grid.split("~\\{fragments/action-centre :: card\\(", -1)).hasSize(4);
-        assertThat(grid).contains("card(${kdnSummary}, ${kdnHref})", "card(${c}, ${'/component/' + c.code()})")
-                .doesNotContain("<div class=\"ac-card-head\">");
+        assertThat(grid.split(java.util.regex.Pattern.quote("fragments/action-centre :: card("), -1)).hasSize(2);
+        assertThat(grid).contains("card(${c}, ${'/component/' + c.code()})")
+                .doesNotContain("kdnSummary", "kdnHref", "<div class=\"ac-card-head\">");
+    }
+
+    @Test
+    void theRoleKdn_getsOnlyTheNotificationsPane() throws IOException {
+        String html = read(DASHBOARD);
+        assertThat(html).contains("id=\"pane-dashboard\" role=\"tabpanel\" th:unless=\"${notificationsOnly}\"",
+                "id=\"pane-action\" role=\"tabpanel\" th:unless=\"${notificationsOnly}\"",
+                "document.getElementById('sidebarDashboard')?.addEventListener",
+                "document.getElementById('sidebarActionCentre')?.addEventListener");
     }
 
     @Test

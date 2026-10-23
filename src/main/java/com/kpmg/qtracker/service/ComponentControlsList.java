@@ -19,17 +19,19 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * The Action Centre's list of one component's controls (/component/{code}), or of the KDN controls
- * (/component/KDN): rows, counters, sorting, search, status filter and pages, all over the controls the user
- * already sees (the policy decided that before; nothing here widens or narrows it). The counters are the same
- * ones the component's card shows, so the card, the list and each counter's link agree.
+ * The Action Centre's list of one component's controls (/component/{code}), of every control the user sees
+ * (/component/ALL, "All components", which took the place of the Controls page) or of the KDN controls: rows,
+ * counters, sorting, search, the status filter (a status, the review steps, Active, Overdue, Reopened, Your turn),
+ * the KDN filter, pages and the Excel export of the rows asked for, all over the controls the user already sees
+ * (the policy decided that before; nothing here widens it). The counters are the same ones the card shows, so the
+ * card, the list and each counter's link agree.
  */
 public final class ComponentControlsList {
 
     /** The KDN controls' list code; not a component, see {@link AccessPolicy#isKdnControl}. */
     public static final String KDN_CODE = "KDN";
     public static final String KDN_NAME = "KDN controls";
-    /** Every component's controls together (the "All components" card). */
+    /** Every control the user sees, whatever its component (the "All components" card, the old Controls page). */
     public static final String ALL_CODE = "ALL";
     public static final String ALL_NAME = "All components";
 
@@ -125,7 +127,7 @@ public final class ComponentControlsList {
             new Column("facilitator", "Facilitator / Preparer(s)"),
             new Column("operator", "Control Operator"),
             new Column("owner", "Process Owner"),
-            new Column("soqm", "SoQM Lead / Delegate"),
+            new Column("soqm", AccessPolicy.Slot.SOQM_LEAD.getLabel()),
             new Column("category", "Control Category"),
             new Column("date", "Control Operation Date"),
             new Column("status", "Performance Status"));
@@ -152,7 +154,11 @@ public final class ComponentControlsList {
         }
     }
 
-    /** The status filter: one status, the review steps together, or overdue. */
+    /**
+     * The status filter: one status, the review steps together, Active and Overdue (the dashboard tiles' rules:
+     * {@link DeadlineOverdue#count}), Reopened (returned from Completed and not completed again), or Your turn
+     * (the current step is the user's, {@link AccessPolicy#isMyTurn}).
+     */
     public enum StatusFilter {
         ALL("", "All statuses"),
         DRAFT("DRAFT", "Draft"),
@@ -162,7 +168,10 @@ public final class ComponentControlsList {
         SOQM_HEAD_REVIEW("SOQM_HEAD_REVIEW", "SoQM Head Review"),
         PROCESS_OWNER_REVIEW("PROCESS_OWNER_REVIEW", "Process Owner Review"),
         COMPLETED("COMPLETED", "Completed"),
-        OVERDUE("OVERDUE", "Overdue");
+        ACTIVE("ACTIVE", "Active (open, not overdue)"),
+        OVERDUE("OVERDUE", "Overdue"),
+        REOPENED("REOPENED", "Reopened"),
+        YOUR_TURN("YOUR_TURN", "Your turn");
 
         private final String key;
         private final String label;
@@ -185,41 +194,78 @@ public final class ComponentControlsList {
             return Arrays.stream(values()).filter(filter -> filter.key.equalsIgnoreCase(wanted)).findFirst().orElse(ALL);
         }
 
-        boolean matches(ControlResponseDTO control, LocalDate today) {
+        boolean matches(ControlResponseDTO control, LocalDate today, Marks marks) {
             String status = statusOf(control);
+            boolean overdue = DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), today);
             return switch (this) {
                 case ALL -> true;
                 case IN_REVIEW -> REVIEW_STATUSES.contains(status);
-                case OVERDUE -> DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), today);
+                case OVERDUE -> overdue;
+                // As the Active tile counts: not completed and not overdue
+                case ACTIVE -> !DeadlineOverdue.isCompleted(control.getPerformanceStatus()) && !overdue;
+                case REOPENED -> control.isReopened();
+                case YOUR_TURN -> marks.yourTurn().contains(control.getId());
                 default -> key.equals(status);
             };
         }
     }
 
-    /** What the user asked for in the URL, made safe: unknown values fall back to the defaults. */
-    public record Query(String q, StatusFilter status, Sort sort, boolean desc, int page, int size) {
+    /**
+     * What the user asked for in the URL, made safe: unknown values fall back to the defaults. {@code kdn}: only the
+     * KDN controls ({@link AccessPolicy#isKdnControl}) of the list, counters included.
+     */
+    public record Query(String q, StatusFilter status, Sort sort, boolean desc, int page, int size, boolean kdn) {
 
         public static Query of(String q, String status, String sort, String dir, Integer page, Integer size) {
+            return of(q, status, sort, dir, page, size, null);
+        }
+
+        public static Query of(String q, String status, String sort, String dir, Integer page, Integer size,
+                               String kdn) {
+            String kdnValue = trim(kdn);
             return new Query(trim(q), StatusFilter.of(status), Sort.of(sort), "desc".equalsIgnoreCase(trim(dir)),
                     page == null || page < 1 ? 1 : page,
-                    size != null && PAGE_SIZES.contains(size) ? size : DEFAULT_PAGE_SIZE);
+                    size != null && PAGE_SIZES.contains(size) ? size : DEFAULT_PAGE_SIZE,
+                    "1".equals(kdnValue) || "true".equalsIgnoreCase(kdnValue));
         }
 
         public boolean filtered() {
-            return !q.isEmpty() || status != StatusFilter.ALL;
+            return !q.isEmpty() || status != StatusFilter.ALL || kdn;
+        }
+    }
+
+    /**
+     * What the list marks per user: the controls whose current step is theirs ("Your turn") and whether the
+     * "KDN" badge is shown ({@link AccessPolicy#seesKdnMark}).
+     */
+    public record Marks(Set<Long> yourTurn, boolean kdnMark) {
+
+        public static final Marks NONE = new Marks(Set.of(), false);
+
+        public Marks {
+            yourTurn = yourTurn == null ? Set.of() : Set.copyOf(yourTurn);
         }
     }
 
     // ---------------------------------------------------------------- rows
 
-    /** One line of the list; people already as names, joined by ", ". */
+    /**
+     * One line of the list; people already as names, joined by ", ". The badges: Overdue, Closed late (completed
+     * after its deadline), Reopened, Due soon, Your turn, KDN (SoQM Admin Team only) and the Control Status
+     * Deleted / Superseded.
+     */
     public record Row(Long id, String controlId, String type, String frequency, String facilitators,
                       String operators, String owners, String soqmLeads, String category,
-                      LocalDate operationDate, String status, boolean overdue) {
+                      LocalDate operationDate, String status, boolean overdue, String controlStatusBadge,
+                      boolean closedLate, boolean reopened, boolean dueSoon, boolean yourTurn, boolean kdn) {
 
-        /** Every control, a draft too, opens on View Control. */
+        /**
+         * A control once initiated opens on its Performance Cycle page (as the Controls page did; Export of a completed
+         * control and "Open control" are there); a draft has no cycle yet and opens on View Control.
+         */
         public String href() {
-            return "/view-control/" + id;
+            boolean draft = status == null || status.isBlank() || "DRAFT".equalsIgnoreCase(status.trim());
+            return (draft ? "/view-control/" : "/performance-cycle/") + id;
         }
 
         public String operationDateText() {
@@ -248,6 +294,12 @@ public final class ComponentControlsList {
             Sort sort = Sort.of(key);
             boolean desc = query.sort() == sort && !query.desc();
             return href(query.q(), query.status(), sort, desc, 1, query.size());
+        }
+
+        /** The Excel of the rows asked for (search, filter, KDN and sorting; every page). */
+        public String exportHref() {
+            return href(query.q(), query.status(), query.sort(), query.desc(), 1, DEFAULT_PAGE_SIZE,
+                    basePath + "/export");
         }
 
         /** Every column both ways, for the phone's "Sort by" (the headers are hidden there). */
@@ -315,7 +367,16 @@ public final class ComponentControlsList {
         }
 
         private String href(String q, StatusFilter status, Sort sort, boolean desc, int page, int size) {
-            UriComponentsBuilder builder = UriComponentsBuilder.fromPath(basePath);
+            return href(q, status, sort, desc, page, size, basePath);
+        }
+
+        private String href(String q, StatusFilter status, Sort sort, boolean desc, int page, int size, String path) {
+            return href(q, status, sort, desc, page, size, path, query.kdn());
+        }
+
+        private String href(String q, StatusFilter status, Sort sort, boolean desc, int page, int size, String path,
+                            boolean kdn) {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromPath(path);
             if (!q.isEmpty()) {
                 builder.queryParam("q", q);
             }
@@ -331,6 +392,9 @@ public final class ComponentControlsList {
             }
             if (size != DEFAULT_PAGE_SIZE) {
                 builder.queryParam("size", size);
+            }
+            if (kdn) {
+                builder.queryParam("kdn", "1");
             }
             return builder.build().encode().toUriString();
         }
@@ -383,37 +447,161 @@ public final class ComponentControlsList {
                 .collect(Collectors.joining(", "));
     }
 
+    /** Days before the deadline a control is "Due soon" (as the Controls page had it). */
+    public static final int DUE_SOON_DAYS = 3;
+
     public static Row rowOf(ControlResponseDTO control, Map<String, String> names, LocalDate today) {
+        return rowOf(control, names, today, Marks.NONE);
+    }
+
+    public static Row rowOf(ControlResponseDTO control, Map<String, String> names, LocalDate today, Marks marks) {
+        boolean kdnControl = AccessPolicy.isKdnControl(control.getControlId());
         return new Row(control.getId(), control.getControlId(), control.getControlType(),
                 control.getControlFrequency(),
                 joinNames(control.getFacilitators(), names), joinNames(control.getControlOperators(), names),
                 joinNames(control.getProcessOwners(), names), joinNames(control.getSoqmLeads(), names),
                 control.getControlCategory(), control.getControlOperationDate(), statusOf(control),
-                DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), today));
+                DeadlineOverdue.isOverdue(control.getPerformanceStatus(), control.getDeadline(), today),
+                ControlStatusValue.badge(control.getControlStatus()),
+                control.isClosedLate(), control.isReopened(),
+                DeadlineOverdue.isDueSoon(control.getPerformanceStatus(), control.getDeadline(), today, DUE_SOON_DAYS),
+                marks.yourTurn().contains(control.getId()),
+                marks.kdnMark() && kdnControl);
+    }
+
+    public static Result of(String basePath, Collection<ControlResponseDTO> controls, Map<String, String> names,
+                            Query query, LocalDate today) {
+        return of(basePath, controls, names, query, today, Marks.NONE);
     }
 
     /**
-     * The list's page: counters over all {@code controls}; the status filter and the search (Control ID or a
-     * person's name or e-mail, every word must match) narrow the rows; then sorting and the page.
+     * The list's page: counters over all {@code controls} (the KDN ones only with the KDN filter); the status
+     * filter and the search (Control ID or a person's name or e-mail, every word must match) narrow the rows; then
+     * sorting and the page.
      */
     public static Result of(String basePath, Collection<ControlResponseDTO> controls, Map<String, String> names,
-                            Query query, LocalDate today) {
-        List<ControlResponseDTO> all = controls == null ? List.of()
-                : controls.stream().filter(Objects::nonNull).toList();
+                            Query query, LocalDate today, Marks marks) {
+        List<ControlResponseDTO> all = base(controls, query);
         Counts counts = Counts.of(all, today);
+        List<ControlResponseDTO> matching = matching(all, names, query, today, marks);
+        int pages = Math.max(1, (matching.size() + query.size() - 1) / query.size());
+        int page = Math.min(query.page(), pages);
+        // The rows (people's names, marks) only for the page shown, not for every control of the list
+        List<Row> pageRows = new ArrayList<>();
+        for (ControlResponseDTO control : matching.subList((page - 1) * query.size(),
+                Math.min(page * query.size(), matching.size()))) {
+            pageRows.add(rowOf(control, names, today, marks));
+        }
+        return new Result(basePath, query, counts, List.copyOf(pageRows), matching.size(), page, pages);
+    }
+
+    /** Every row the query asks for, sorted, all pages: what the Excel export holds. */
+    public static List<Row> allRows(Collection<ControlResponseDTO> controls, Map<String, String> names, Query query,
+                                    LocalDate today, Marks marks) {
+        List<Row> rows = new ArrayList<>();
+        for (ControlResponseDTO control : matching(base(controls, query), names, query, today, marks)) {
+            rows.add(rowOf(control, names, today, marks));
+        }
+        return rows;
+    }
+
+    private static List<ControlResponseDTO> base(Collection<ControlResponseDTO> controls, Query query) {
+        return controls == null ? List.of()
+                : controls.stream()
+                        .filter(Objects::nonNull)
+                        .filter(control -> !query.kdn() || AccessPolicy.isKdnControl(control.getControlId()))
+                        .toList();
+    }
+
+    /**
+     * The controls the query asks for, in the order of {@link #comparator} on their rows; the rows themselves are not
+     * built here, only the value of the sorted column (one column's names, not the four of every row).
+     */
+    private static List<ControlResponseDTO> matching(List<ControlResponseDTO> all, Map<String, String> names,
+                                                     Query query, LocalDate today, Marks marks) {
         List<String> terms = Arrays.stream(query.q().toLowerCase(Locale.ROOT).split("\\s+"))
                 .filter(term -> !term.isEmpty())
                 .toList();
-        List<Row> rows = all.stream()
-                .filter(control -> query.status().matches(control, today))
-                .filter(control -> terms.isEmpty() || matches(control, names, terms))
-                .map(control -> rowOf(control, names, today))
-                .sorted(comparator(query.sort(), query.desc()))
-                .toList();
-        int pages = Math.max(1, (rows.size() + query.size() - 1) / query.size());
-        int page = Math.min(query.page(), pages);
-        List<Row> pageRows = rows.subList((page - 1) * query.size(), Math.min(page * query.size(), rows.size()));
-        return new Result(basePath, query, counts, List.copyOf(pageRows), rows.size(), page, pages);
+        return inOrder(all.stream()
+                        .filter(control -> query.status().matches(control, today, marks))
+                        .filter(control -> terms.isEmpty() || matches(control, names, terms))
+                        .toList(),
+                control -> sortValue(query.sort(), control, names), ControlResponseDTO::getControlId,
+                ControlResponseDTO::getId, query.desc());
+    }
+
+    /** The rows in the order of {@link #comparator}. */
+    static List<Row> sorted(List<Row> rows, Sort sort, boolean desc) {
+        return inOrder(rows, row -> sortValue(sort, row), Row::controlId, Row::id, desc);
+    }
+
+    /**
+     * The items in the order of {@link #comparator}, each item's sort values worked out once instead of in every
+     * comparison: sorting a list of thousands of rows lower-cased the same texts again and again, a third of the time
+     * of the page in the load test.
+     */
+    private static <T> List<T> inOrder(List<T> items, Function<T, Comparable<Object>> column,
+                                       Function<T, String> controlId, Function<T, Long> id, boolean desc) {
+        List<SortKey<T>> keyed = new ArrayList<>(items.size());
+        for (T item : items) {
+            keyed.add(new SortKey<>(item, column.apply(item), textKey(controlId.apply(item)), id.apply(item)));
+        }
+        Comparator<Comparable<Object>> natural = Comparator.naturalOrder();
+        keyed.sort(Comparator.<SortKey<T>, Comparable<Object>>comparing(SortKey::column,
+                        Comparator.nullsLast(desc ? natural.reversed() : natural))
+                .thenComparing(SortKey::controlId, Comparator.nullsLast(Comparator.<String>naturalOrder()))
+                .thenComparing(SortKey::id, Comparator.nullsLast(Comparator.<Long>naturalOrder())));
+        List<T> ordered = new ArrayList<>(keyed.size());
+        keyed.forEach(key -> ordered.add(key.item()));
+        return ordered;
+    }
+
+    private record SortKey<T>(T item, Comparable<Object> column, String controlId, Long id) {
+    }
+
+    /** The value the control's row ({@link #rowOf}) is sorted by in the column: only that column worked out. */
+    @SuppressWarnings("unchecked")
+    private static Comparable<Object> sortValue(Sort sort, ControlResponseDTO control, Map<String, String> names) {
+        Object value = switch (sort) {
+            case ID -> textKey(control.getControlId());
+            case TYPE -> textKey(control.getControlType());
+            case FREQUENCY -> textKey(control.getControlFrequency());
+            case FACILITATOR -> textKey(joinNames(control.getFacilitators(), names));
+            case OPERATOR -> textKey(joinNames(control.getControlOperators(), names));
+            case OWNER -> textKey(joinNames(control.getProcessOwners(), names));
+            case SOQM -> textKey(joinNames(control.getSoqmLeads(), names));
+            case CATEGORY -> textKey(control.getControlCategory());
+            case DATE -> control.getControlOperationDate();
+            case STATUS -> statusPosition(statusOf(control));
+        };
+        return (Comparable<Object>) value;
+    }
+
+    private static Integer statusPosition(String status) {
+        return STATUS_ORDER.contains(status) ? STATUS_ORDER.indexOf(status) : null;
+    }
+
+    /** The value {@link #comparator} sorts the column by: lower-case text, the date or the workflow position. */
+    @SuppressWarnings("unchecked")
+    private static Comparable<Object> sortValue(Sort sort, Row row) {
+        Object value = switch (sort) {
+            case ID -> textKey(row.controlId());
+            case TYPE -> textKey(row.type());
+            case FREQUENCY -> textKey(row.frequency());
+            case FACILITATOR -> textKey(row.facilitators());
+            case OPERATOR -> textKey(row.operators());
+            case OWNER -> textKey(row.owners());
+            case SOQM -> textKey(row.soqmLeads());
+            case CATEGORY -> textKey(row.category());
+            case DATE -> row.operationDate();
+            case STATUS -> statusPosition(row.status());
+        };
+        return (Comparable<Object>) value;
+    }
+
+    /** A text as the list sorts it: trimmed, lower-case; empty as none (last either way). */
+    private static String textKey(String text) {
+        return text == null || text.isBlank() ? null : text.trim().toLowerCase(Locale.ROOT);
     }
 
     private static boolean matches(ControlResponseDTO control, Map<String, String> names, List<String> terms) {
@@ -450,10 +638,7 @@ public final class ComponentControlsList {
     }
 
     private static Comparator<Row> text(Function<Row, String> value, boolean desc) {
-        return nullsLast(row -> {
-            String text = value.apply(row);
-            return text == null || text.isBlank() ? null : text.trim().toLowerCase(Locale.ROOT);
-        }, Comparator.<String>naturalOrder(), desc);
+        return nullsLast(row -> textKey(value.apply(row)), Comparator.<String>naturalOrder(), desc);
     }
 
     private static <T> Comparator<Row> nullsLast(Function<Row, T> value, Comparator<T> order, boolean desc) {

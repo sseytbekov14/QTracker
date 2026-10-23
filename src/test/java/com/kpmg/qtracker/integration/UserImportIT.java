@@ -57,8 +57,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
         "spring.datasource.url=" + UserImportIT.DB,
         "spring.jpa.hibernate.ddl-auto=create-drop",
-        "reminders.enabled=false",
-        "controls.auto-create.enabled=false",
+        "notifications.scheduler.enabled=false",
         "file.upload.dir=target/it-uploads-user-import"
 })
 @AutoConfigureMockMvc
@@ -124,7 +123,7 @@ class UserImportIT {
 
         String console = report.render();
         assertThat(console).contains("DRY RUN, nothing written")
-                .contains("would create: 6 (SoQM Team 2, User 3, KDN 1, inactive 1)")
+                .contains("would create: 6 (SoQM Admin Team 2, User 3, KDN 1, inactive 1)")
                 .contains("service accounts: 1, errors: 3")
                 .contains("line   2  a******a")
                 .contains("line   8  skipped: service account")
@@ -157,7 +156,6 @@ class UserImportIT {
         assertThat(soqm.getAccessLevel()).isEqualTo(AccessLevel.SOQM);
         assertThat(soqm.getAccessScope()).isEqualTo(AccessScope.ALL);
         assertThat(soqm.getAdminAccess()).isTrue();
-        assertThat(soqm.getRole()).isNull();
         assertThat(passwordEncoder.matches("aaa", soqm.getPassword())).isTrue();
         assertThat(users.get("msmith2@qtracker.local").getAccessLevel()).isEqualTo(AccessLevel.PARTICIPANT);
         assertThat(users.get("msmith2@qtracker.local").getAccessScope()).isEqualTo(AccessScope.OWN);
@@ -244,7 +242,7 @@ class UserImportIT {
 
         assertThat(report.refused()).isTrue();
         assertThat(report.render()).contains("REFUSED, nothing written")
-                .contains("at least 2 active SoQM Team members").contains("found 1");
+                .contains("at least 2 active SoQM Admin Team members").contains("found 1");
         assertThat(userRepository.count()).isZero();
         assertThat(auditLogRepository.count()).isZero();
         assertThat(folder.resolve("import_logins_2026-10-08.csv")).doesNotExist();
@@ -292,8 +290,7 @@ class UserImportIT {
                 "--spring.profiles.active=test,dev",
                 "--spring.datasource.url=" + DB,
                 "--spring.jpa.hibernate.ddl-auto=none",
-                "--reminders.enabled=false",
-                "--controls.auto-create.enabled=false",
+                "--notifications.scheduler.enabled=false",
                 "--file.upload.dir=target/it-uploads-user-import"));
         try (ConfigurableApplicationContext context = QtrackerApplication.runCommand(args.toArray(String[]::new))) {
             return SpringApplication.exit(context);

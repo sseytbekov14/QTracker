@@ -49,6 +49,11 @@ public class LoginNameResolver {
         return normalize(username) + "@" + domain;
     }
 
+    /** An address on the service domain (the user import's), not a person's corporate one. */
+    public boolean isServiceAddress(String mail) {
+        return mail != null && normalize(mail).endsWith("@" + domain);
+    }
+
     public boolean usernameLogin() {
         return usernameLogin;
     }

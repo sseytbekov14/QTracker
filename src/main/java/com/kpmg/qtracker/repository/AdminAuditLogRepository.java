@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -20,12 +19,6 @@ public interface AdminAuditLogRepository extends JpaRepository<AdminAuditLog, Lo
     
     // Find logs by action type
     List<AdminAuditLog> findByActionTypeOrderByCreatedAtDesc(String actionType);
-    
-    // Find logs within date range
-    List<AdminAuditLog> findByCreatedAtBetweenOrderByCreatedAtDesc(
-        LocalDateTime startDate, 
-        LocalDateTime endDate
-    );
     
     // Admin Panel Audit Trail: the latest entries of one event type (AdminAuditTrail)
     List<AdminAuditLog> findTop100ByActionTypeStartingWithOrderByCreatedAtDesc(String actionTypePrefix);

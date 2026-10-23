@@ -19,6 +19,8 @@ class PersonRowTest {
     @CsvSource(delimiter = '|', emptyValue = "", value = {
             "SoQM Team|SoQM Team|SOQM|ALL",
             "soqm  team||SOQM|ALL",
+            "SoQM Admin Team|SoQM Admin Team|SOQM|ALL",
+            "soqm admin team||SOQM|ALL",
             "KDN|All KDN Controls, Read only|READ_ONLY|KDN",
             "kdn||READ_ONLY|KDN",
             "User|My Controls, Edit|PARTICIPANT|OWN",
@@ -39,7 +41,7 @@ class PersonRowTest {
             "Master|My Controls, Edit|unknown Role \"Master\"",
             "Read Only||unknown Role \"Read Only\"",
             "||empty Role",
-            "SoQM Team|My Controls, Edit|does not fit the role SoQM Team",
+            "SoQM Team|My Controls, Edit|does not fit the role SoQM Admin Team",
             "KDN|My Controls, Edit|does not fit the role KDN",
             "User||for the role User is not",
             "User|Edit|for the role User is not",

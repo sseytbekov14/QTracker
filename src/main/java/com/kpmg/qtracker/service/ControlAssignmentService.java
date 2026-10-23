@@ -27,6 +27,7 @@ public class ControlAssignmentService {
     private final UserRepository userRepository;
     private final ControlRepository controlRepository;
     private final ControlScheduleCalculator scheduleCalculator;
+    private final com.kpmg.qtracker.repository.DeletedUserRepository deletedUserRepository;
 
     // ★ ДОБАВИТЬ этот метод - его используют другие сервисы!
     public ControlAssignmentDTO getAssignmentByControlId(Long controlId) {
@@ -42,17 +43,12 @@ public class ControlAssignmentService {
         }
     }
 
+    /**
+     * The people and the Control Operation Date; the deadline and the next date are calculated here, never taken from
+     * the request (a completed control too, AccessPolicy.COMPLETED_FIXED_FIELDS).
+     */
     @Transactional
     public ControlAssignment saveAssignment(ControlAssignmentDTO assignmentDTO) {
-        return saveAssignment(assignmentDTO, false);
-    }
-
-    /**
-     * @param keepSchedule keep the stored Control Operation Date, deadline and next date as they are, whatever the
-     *                     request holds, and leave the control's deadline alone: a completed control changed in place
-     *                     (AccessPolicy.COMPLETED_FIXED_FIELDS), whose people change but whose dates do not
-     */
-    public ControlAssignment saveAssignment(ControlAssignmentDTO assignmentDTO, boolean keepSchedule) {
         log.debug("saveAssignment: controlId={}, facilitators={}, operators={}, owners={}, soqm={}",
                 assignmentDTO.getControlId(),
                 assignmentDTO.getFacilitator(),
@@ -62,13 +58,19 @@ public class ControlAssignmentService {
         
         Optional<Control> controlOpt = controlRepository.findById(assignmentDTO.getControlId());
         boolean kdnControl = controlOpt.map(control -> AccessPolicy.isKdnControl(control.getControlId())).orElse(false);
-        validateAssignees(assignmentDTO.getFacilitator(), AccessPolicy.Slot.FACILITATOR, kdnControl);
-        validateAssignees(assignmentDTO.getControlOperator(), AccessPolicy.Slot.CONTROL_OPERATOR, kdnControl);
-        validateAssignees(assignmentDTO.getSoqmLead(), AccessPolicy.Slot.SOQM_LEAD, kdnControl);
-        validateAssignees(assignmentDTO.getProcessOwner(), AccessPolicy.Slot.PROCESS_OWNER, kdnControl);
-        validateAssignees(assignmentDTO.getControlSharedWith(), AccessPolicy.Slot.SHARED_WITH, kdnControl);
-
         Optional<ControlAssignment> existingAssignment = assignmentRepository.findByControlId(assignmentDTO.getControlId());
+        ControlAssignment before = existingAssignment.orElse(null);
+        validateAssignees(assignmentDTO.getFacilitator(), AccessPolicy.Slot.FACILITATOR, kdnControl,
+                before == null ? null : before.getFacilitator());
+        validateAssignees(assignmentDTO.getControlOperator(), AccessPolicy.Slot.CONTROL_OPERATOR, kdnControl,
+                before == null ? null : before.getControlOperator());
+        validateAssignees(assignmentDTO.getSoqmLead(), AccessPolicy.Slot.SOQM_LEAD, kdnControl,
+                before == null ? null : before.getSoqmLead());
+        validateAssignees(assignmentDTO.getProcessOwner(), AccessPolicy.Slot.PROCESS_OWNER, kdnControl,
+                before == null ? null : before.getProcessOwner());
+        validateAssignees(assignmentDTO.getControlSharedWith(), AccessPolicy.Slot.SHARED_WITH, kdnControl,
+                before == null ? null : before.getControlSharedWith());
+
         ControlAssignment assignment = existingAssignment.orElse(new ControlAssignment());
 
         LocalDate operationDate = assignmentDTO.getControlOperationDate();
@@ -83,11 +85,7 @@ public class ControlAssignmentService {
         LocalDate deadline = null;
         LocalDate nextDate = null;
         ControlAssignment stored = existingAssignment.orElse(null);
-        if (keepSchedule && stored != null) {
-            operationDate = stored.getControlOperationDate();
-            deadline = stored.getControlOperationDeadline();
-            nextDate = stored.getNextControlOperationDate();
-        } else if (operationDate != null && stored != null
+        if (operationDate != null && stored != null
                 && operationDate.equals(stored.getControlOperationDate())
                 && stored.getControlOperationDeadline() != null) {
             deadline = stored.getControlOperationDeadline();
@@ -126,7 +124,7 @@ public class ControlAssignmentService {
                 saved.getControlId(), saved.getFacilitator(), saved.getProcessOwner());
 
         // ★ Обновляем deadline в таблице control_controls
-        if (controlOpt.isPresent() && deadline != null && !keepSchedule) {
+        if (controlOpt.isPresent() && deadline != null) {
             Control control = controlOpt.get();
             control.setDeadline(deadline);
             controlRepository.save(control);
@@ -171,9 +169,17 @@ public class ControlAssignmentService {
      * an existing user, a participant in Facilitator / Control Operator / Process Owner, a SoQM user in
      * SoQM Team / Delegate, nobody read-only except in Shared With, a KDN-scope user only on a KDN control.
      */
-    private void validateAssignees(List<String> userEmails, AccessPolicy.Slot slot, boolean kdnControl) {
+    /**
+     * @param stored the field as stored before this save: a deleted person already there stays
+     *               (AccessPolicy.assignmentRefusal with deletedAndAlreadyThere)
+     */
+    private void validateAssignees(List<String> userEmails, AccessPolicy.Slot slot, boolean kdnControl, String stored) {
         if (userEmails == null) {
             return;
+        }
+        java.util.Set<String> before = new java.util.HashSet<>();
+        for (String mail : EmailList.parse(stored)) {
+            before.add(mail.trim().toLowerCase(java.util.Locale.ROOT));
         }
         for (String email : userEmails) {
             if (email == null || email.isBlank()) {
@@ -182,7 +188,10 @@ public class ControlAssignmentService {
             AccessPolicy.Subject candidate = userRepository.findByMail(email.trim())
                     .map(AccessPolicy.Subject::of)
                     .orElse(null);
-            AccessPolicy.assignmentRefusal(candidate, slot, kdnControl).ifPresent(reason -> {
+            String lower = email.trim().toLowerCase(java.util.Locale.ROOT);
+            boolean deletedAndThere = candidate == null && before.contains(lower) && deletedUserRepository != null
+                    && !deletedUserRepository.findByMailLowerIn(List.of(lower)).isEmpty();
+            AccessPolicy.assignmentRefusal(candidate, slot, kdnControl, deletedAndThere).ifPresent(reason -> {
                 throw new IllegalArgumentException(slot.getLabel() + ": " + email.trim() + " " + reason);
             });
         }
@@ -197,6 +206,18 @@ public class ControlAssignmentService {
 
     private List<String> convertStringToList(String str) {
         return new ArrayList<>(EmailList.parse(str));
+    }
+
+    /** The assignments of these controls in one query, by control id; a control without one is left out. */
+    public Map<Long, ControlAssignmentDTO> getAssignmentsByControlIds(Collection<Long> controlIds) {
+        Map<Long, ControlAssignmentDTO> assignments = new HashMap<>();
+        if (controlIds == null || controlIds.isEmpty()) {
+            return assignments;
+        }
+        for (ControlAssignment assignment : assignmentRepository.findAllById(controlIds)) {
+            assignments.put(assignment.getControlId(), convertToDTO(assignment));
+        }
+        return assignments;
     }
 
     private ControlAssignmentDTO convertToDTO(ControlAssignment assignment) {

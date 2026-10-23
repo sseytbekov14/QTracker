@@ -5,6 +5,7 @@ import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlAttachmentRepository;
 import com.kpmg.qtracker.service.AdminAuditService;
 import com.kpmg.qtracker.service.ControlAttachmentService;
+import com.kpmg.qtracker.service.ControlRowLock;
 import com.kpmg.qtracker.service.ControlPermissionService;
 import com.kpmg.qtracker.service.ControlRenameService;
 import com.kpmg.qtracker.service.ControlService;
@@ -70,7 +71,8 @@ class FileAttachmentDownloadPathTest {
         PermissionService permissionService = mock(PermissionService.class);
         when(permissionService.requireReadable(1L, user)).thenReturn(control);
         ControlAttachmentService attachmentService =
-                new ControlAttachmentService(mock(ControlAttachmentRepository.class), controlService);
+                new ControlAttachmentService(mock(ControlAttachmentRepository.class), controlService,
+                        new ControlRowLock());
 
         ControlRenameService renameService = mock(ControlRenameService.class);
         when(renameService.attachmentFolders(control)).thenReturn(List.of("HR1"));
