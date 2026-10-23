@@ -1802,9 +1802,10 @@ class ApiSecurityMockMvcIT {
                 "data-label=\"Access\"><span class=\"access-line\">My controls · Read Only</span></td>");
         assertThat(userRow(html, allEdit)).contains("data-visibility=\"ALL\"", "data-access=\"EDIT\"",
                 "data-label=\"Access\"><span class=\"access-line\">All controls · Edit</span></td>");
-        // Every combination's hint and what SoQM Team and KDN can do reach the dialog script
-        assertThat(html).containsPattern("USER\\\\?/ALL\\\\?/EDIT")
-                .contains("What this role can do", "All KDN controls", "Full access")
+        // The Permissions texts reach the dialog script (one per role, a User's per Access)
+        assertThat(html).containsPattern("USER\\\\?/EDIT").containsPattern("USER\\\\?/READ_ONLY")
+                .contains("Permissions</h3>", "All KDN controls", "Full access",
+                        "Views KDN controls and downloads files. No editing.", "Views controls. No editing.")
                 .doesNotContain("KDN users have read-only access", "KDN controls they are on",
                         "Sees only KDN controls", "SoQM Team does that for them");
     }

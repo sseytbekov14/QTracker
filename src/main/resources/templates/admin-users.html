@@ -400,7 +400,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .field-reason { font-size: 0.74rem; color: var(--kpmg-amber-text); margin-top: 3px; }
 .field-reason:empty { display: none; }
 
-/* SoQM Team and KDN: what the role can do (read only) */
+/* Permissions of the chosen role (and Access), with the values SoQM Team and KDN fix (read only) */
 .role-info {
     margin: 0 0 14px;
     padding: 10px 14px;
@@ -410,8 +410,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 }
 .role-info[hidden] { display: none; }
 .role-info-title { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; color: var(--kpmg-gray-800); }
-.role-info-list { margin: 0 0 8px; padding-left: 18px; font-size: 0.78rem; color: var(--kpmg-gray-800); }
-.role-info-list li + li { margin-top: 2px; }
+.role-info-text { margin: 0; font-size: 0.78rem; color: var(--kpmg-gray-800); }
+.role-info-text + .role-fixed { margin-top: 8px; }
 .role-fixed { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; align-items: baseline; margin: 0; font-size: 0.78rem; }
 .role-fixed:empty { display: none; }
 .role-fixed dt { font-weight: 600; color: var(--kpmg-gray-600); }
@@ -430,7 +430,6 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .fixed-value .bi { font-size: 0.72rem; }
 .fixed-reason { color: var(--kpmg-gray-600); }
 .summary-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--kpmg-gray-600); }
-.summary-hint { color: var(--kpmg-gray-800); }
 
 @media (max-width: 767.98px) {
     .page-header { flex-wrap: wrap; padding: 14px 16px; }
@@ -849,10 +848,10 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     </fieldset>
                 </div>
 
-                <!-- SoQM Team and KDN: what the role can do, and the values it fixes (read only) -->
-                <section id="userRoleInfo" class="role-info" aria-labelledby="userRoleInfo-title" hidden>
-                    <h3 class="role-info-title" id="userRoleInfo-title">What this role can do</h3>
-                    <ul class="role-info-list" id="userRoleInfo-list"></ul>
+                <!-- Permissions of the chosen role (RoleDisplayMapper), and the values SoQM Team and KDN fix (read only) -->
+                <section id="userRoleInfo" class="role-info" aria-labelledby="userRoleInfo-title" aria-live="polite" hidden>
+                    <h3 class="role-info-title" id="userRoleInfo-title">Permissions</h3>
+                    <p class="role-info-text" id="userRoleInfo-text"></p>
                     <dl class="role-fixed" id="userRoleInfo-fixed"></dl>
                 </section>
 
@@ -929,8 +928,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 <script th:inline="javascript">
 document.addEventListener('DOMContentLoaded', function() {
     // The words of the roles come from the server (RoleDisplayMapper), so the page and the server agree
-    const ACCESS_HINTS = /*[[${accessHints}]]*/ {};
-    const ROLE_CAN_DO = /*[[${roleCanDo}]]*/ {};
+    const PERMISSIONS = /*[[${permissions}]]*/ {};
     const ROLE_FIXED = /*[[${roleFixedValues}]]*/ {};
     const ROLE_ACCESS_LINES = /*[[${roleAccessLines}]]*/ {};
     // Sign-in with Microsoft: a new user needs the corporate e-mail and gets no password
@@ -980,7 +978,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const accessRadios = Array.from(form.querySelectorAll('input[name="userAccess"]'));
     const choicesEl = document.getElementById('userChoices');
     const roleInfoEl = document.getElementById('userRoleInfo');
-    const roleInfoList = document.getElementById('userRoleInfo-list');
+    const roleInfoText = document.getElementById('userRoleInfo-text');
     const roleInfoFixed = document.getElementById('userRoleInfo-fixed');
     const roleReason = document.getElementById('userRole-reason');
     const statusReason = document.getElementById('userStatus-reason');
@@ -1033,8 +1031,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function hintOf(user) {
-        return ACCESS_HINTS[user.role === 'USER' ? 'USER/' + user.visibility + '/' + user.access : user.role] || '';
+    // Permissions: by role, and for a User by Access (RoleDisplayMapper.permissionsByKey)
+    function permissionsOf(user) {
+        return PERMISSIONS[user.role === 'USER' ? 'USER/' + user.access : user.role] || '';
     }
 
     // ---------------------------------------------------------------- table
@@ -1382,8 +1381,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Visibility and Access show only for a User; someone who becomes User starts at My controls and Read
-    // Only (a User who was one when the dialog opened gets their values back). SoQM Team and KDN show what
-    // the role can do and the values it fixes instead.
+    // Only (a User who was one when the dialog opened gets their values back). Every role shows its
+    // Permissions; SoQM Team and KDN also the values the role fixes.
     function syncRoleFields(roleChanged) {
         const role = fields.role.value;
         const user = role === 'USER';
@@ -1394,12 +1393,8 @@ document.addEventListener('DOMContentLoaded', function() {
             setRadio(accessRadios, wasUser ? dialog.user.access : 'READ_ONLY');
         }
 
-        const canDo = ROLE_CAN_DO[role] || [];
         const fixed = ROLE_FIXED[role] || [];
-        roleInfoEl.hidden = !role || user;
-        roleInfoList.replaceChildren.apply(roleInfoList, canDo.map(function(line) {
-            return element('li', null, line);
-        }));
+        roleInfoEl.hidden = !role;
         const fixedItems = [];
         fixed.forEach(function(value) {
             fixedItems.push(element('dt', null, value.label));
@@ -1412,8 +1407,10 @@ document.addEventListener('DOMContentLoaded', function() {
         updateAccessSummary();
     }
 
+    // The Access lines and the Permissions text of the chosen values
     function updateAccessSummary() {
         const values = currentValues();
+        roleInfoText.textContent = values.role ? permissionsOf(values) : '';
         accessSummaryEl.replaceChildren();
         if (!values.role) {
             return;
@@ -1422,7 +1419,6 @@ document.addEventListener('DOMContentLoaded', function() {
             element('span', 'summary-label', 'Access'), ' ',
             element('strong', null, accessLinesOf(values).join(', '))
         ]));
-        accessSummaryEl.appendChild(element('p', 'summary-hint', hintOf(values)));
     }
 
     Object.keys(fields).forEach(function(key) {
@@ -1858,8 +1854,7 @@ document.addEventListener('DOMContentLoaded', function() {
             changes.push({
                 field: fields.role,
                 title: create ? 'Create ' + who + ' as SoQM Admin Team?' : 'Make ' + who + ' SoQM Admin Team?',
-                text: who + ' will see every control, drafts included, edit any control, assign people, move'
-                    + ' controls on or back for any Control role, and manage users and the audit trail in the Admin Panel.',
+                text: who + ' gets the permissions of SoQM Admin Team: ' + PERMISSIONS.SOQM_TEAM,
                 ok: create ? 'Create SoQM Admin Team user' : 'Make SoQM Admin Team'
             });
         }

@@ -2,20 +2,20 @@ package com.kpmg.qtracker.util;
 
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.enums.AccessLevel;
+import com.kpmg.qtracker.enums.AccessRight;
 import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.enums.UserRole;
+import com.kpmg.qtracker.enums.Visibility;
 import com.kpmg.qtracker.service.AccessPolicy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 import static org.assertj.core.api.Assertions.tuple;
 
-/** The words people see for a user's access: role, one-line summary, hints. */
+/** The words people see for a user's access: role, one-line summary, Access lines, Permissions. */
 class RoleDisplayMapperTest {
 
     @ParameterizedTest(name = "{0} {1}")
@@ -52,26 +52,47 @@ class RoleDisplayMapperTest {
     }
 
     @Test
-    void everyCombinationHasAHint_inTheNewWords() {
-        Map<String, String> hints = RoleDisplayMapper.hints();
-        assertThat(hints).containsOnlyKeys("SOQM_TEAM", "USER/MY/EDIT", "USER/MY/READ_ONLY", "USER/ALL/EDIT",
-                "USER/ALL/READ_ONLY", "KDN");
-        assertThat(hints.get("USER/ALL/EDIT")).contains("every control", "only the controls they are assigned to");
-        assertThat(hints.get("USER/MY/READ_ONLY")).contains("assigned to, shared with or created", "Views and downloads only");
-        assertThat(hints.get("KDN")).contains("every KDN control", "drafts included", "views and downloads only")
-                .doesNotContain("assigned", "shared", "created");
-        hints.values().forEach(hint -> assertThat(hint)
-                .doesNotContain("Participant", "participant", "Level", "Scope", "Admin access", "Administrator"));
+    void permissions_areOneShortTextPerRoleAndAccess() {
+        assertThat(RoleDisplayMapper.permissionsByKey()).containsExactly(
+                entry("SOQM_TEAM", "Manages all controls and users. Completes or returns steps on behalf of any role."
+                        + " Exports data and accesses the Admin Panel."),
+                entry("USER/EDIT", "Completes steps and edits controls assigned to them."),
+                entry("USER/READ_ONLY", "Views controls. No editing."),
+                entry("KDN", "Views KDN controls and downloads files. No editing."));
+        // What a User sees is the Visibility next to it: both give the same text
+        for (AccessRight access : AccessRight.values()) {
+            assertThat(RoleDisplayMapper.permissions(AccessPolicy.Profile.user(Visibility.ALL, access)))
+                    .isEqualTo(RoleDisplayMapper.permissions(AccessPolicy.Profile.user(Visibility.MY, access)));
+        }
+    }
+
+    /** Each text claims only what AccessPolicy gives the profile, and says "No editing" exactly when it writes nothing. */
+    @ParameterizedTest(name = "{0} {1}")
+    @CsvSource(delimiter = '|', value = {
+            "SOQM        | ALL",
+            "PARTICIPANT | OWN",
+            "PARTICIPANT | ALL",
+            "READ_ONLY   | OWN",
+            "READ_ONLY   | ALL",
+            "READ_ONLY   | KDN",
+    })
+    void permissions_doNotContradictAccessPolicy(AccessLevel level, AccessScope scope) {
+        AccessPolicy.Subject subject = new AccessPolicy.Subject(level, scope, true);
+        String text = RoleDisplayMapper.permissions(AccessPolicy.Profile.of(subject));
+        assertThat(text.contains("Admin Panel")).isEqualTo(AccessPolicy.canOpenAdminPanel(subject));
+        assertThat(text.contains("and users")).isEqualTo(AccessPolicy.canManageUsers(subject));
+        assertThat(text.contains("Exports")).isEqualTo(AccessPolicy.canExportControlLists(subject));
+        assertThat(text.contains("on behalf of any role")).isEqualTo(AccessPolicy.isSoqm(subject));
+        assertThat(text.contains("No editing")).isEqualTo(!AccessPolicy.mayWrite(subject));
+        assertThat(text.contains("Completes")).isEqualTo(AccessPolicy.mayWrite(subject));
+        assertThat(text.contains("KDN controls")).isEqualTo(AccessPolicy.isKdnUser(subject));
     }
 
     @Test
-    void soqmTeamAndKdn_sayWhatTheyCanDo_andWhyTheirValuesAreFixed() {
-        assertThat(RoleDisplayMapper.canDo(UserRole.SOQM_TEAM)).hasSizeBetween(3, 4)
-                .anyMatch(line -> line.contains("Admin Panel"));
-        assertThat(RoleDisplayMapper.canDo(UserRole.KDN)).hasSizeBetween(3, 4)
-                .anyMatch(line -> line.contains("every KDN control"))
-                .noneMatch(line -> line.contains("assigned") || line.contains("read-only access"));
-        assertThat(RoleDisplayMapper.canDo(UserRole.USER)).isEmpty();
+    void soqmTeamAndKdn_sayWhyTheirValuesAreFixed() {
+        assertThat(RoleDisplayMapper.fixedValues(UserRole.SOQM_TEAM))
+                .extracting(RoleDisplayMapper.FixedValue::label, RoleDisplayMapper.FixedValue::value)
+                .containsExactly(tuple("Visibility", "All controls"), tuple("Access", "Full access"));
         assertThat(RoleDisplayMapper.fixedValues(UserRole.KDN))
                 .extracting(RoleDisplayMapper.FixedValue::label, RoleDisplayMapper.FixedValue::value)
                 .containsExactly(tuple("Visibility", "All KDN controls"), tuple("Access", "Read Only"));

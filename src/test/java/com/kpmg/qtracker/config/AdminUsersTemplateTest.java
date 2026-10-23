@@ -50,11 +50,11 @@ class AdminUsersTemplateTest {
         }
         assertThat(unnamed).as("dialog fields without a label").isEmpty();
         assertThat(labelled).contains("userName", "userEmail", "userRole", "userStatus");
-        // Visibility and Access are groups with a legend; SoQM Team and KDN get "What this role can do"
+        // Visibility and Access are groups with a legend; every role gets "Permissions"
         assertThat(dialog).contains("<fieldset class=\"choice-group mb-3\" id=\"userVisibility\"",
                 "<legend class=\"form-label\">Visibility</legend>",
                 "<fieldset class=\"choice-group mb-3\" id=\"userAccess\"", "<legend class=\"form-label\">Access</legend>",
-                "What this role can do", "id=\"userRole-reason\"", "id=\"userStatus-reason\"");
+                "Permissions</h3>", "id=\"userRole-reason\"", "id=\"userStatus-reason\"");
         assertThat(html).doesNotContain("Administrator", "Admin access", "userAdmin", "Participant", "Level", "Scope");
         assertThat(dialog).contains("aria-labelledby=\"userModalTitle\"", "<h2 class=\"modal-title\" id=\"userModalTitle\"");
     }

@@ -86,16 +86,13 @@ public class AdminViewController {
         model.addAttribute("roles", UserRole.values());
         model.addAttribute("visibilities", Visibility.values());
         model.addAttribute("accessRights", AccessRight.values());
-        // What each role can do and the values it fixes, for the user dialog
-        Map<String, List<String>> roleCanDo = new LinkedHashMap<>();
+        // The Permissions text of each role and the values a role fixes, for the user dialog
         Map<String, List<RoleDisplayMapper.FixedValue>> roleFixedValues = new LinkedHashMap<>();
         for (UserRole role : UserRole.values()) {
-            roleCanDo.put(role.name(), RoleDisplayMapper.canDo(role));
             roleFixedValues.put(role.name(), RoleDisplayMapper.fixedValues(role));
         }
-        model.addAttribute("roleCanDo", roleCanDo);
         model.addAttribute("roleFixedValues", roleFixedValues);
-        model.addAttribute("accessHints", RoleDisplayMapper.hints());
+        model.addAttribute("permissions", RoleDisplayMapper.permissionsByKey());
         model.addAttribute("roleAccessLines", RoleDisplayMapper.roleAccessLines());
         model.addAttribute("canManageUsers", AccessPolicy.canManageUsers(subject));
         // With SSO people sign in with their corporate e-mail at Microsoft and get no password
