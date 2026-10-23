@@ -29,6 +29,9 @@ public final class RoleDisplayMapper {
     /** The access of SoQM Admin Team in the Admin Panel's Access: every control, every change. */
     public static final String FULL_ACCESS = "Full access";
 
+    /** {@link #FULL_ACCESS} in the Access filter. */
+    private static final String FULL_ACCESS_KEY = "FULL";
+
     /** What each fixed value is and why it cannot be changed, for SoQM Team and KDN. */
     public record FixedValue(String label, String value, String reason) {
     }
@@ -66,6 +69,42 @@ public final class RoleDisplayMapper {
             case SOQM_TEAM -> List.of(FULL_ACCESS);
             case KDN -> List.of(KDN_VISIBILITY + SEPARATOR + AccessRight.READ_ONLY.getDisplayName());
             case USER -> List.of(profile.visibility().getDisplayName() + SEPARATOR + profile.access().getDisplayName());
+        };
+    }
+
+    /**
+     * The Admin Panel's Visibility filter, by the area of the Access lines: every user has one, SoQM Admin Team
+     * counts as All controls (they see every control), KDN as All KDN controls.
+     */
+    public static Map<String, String> visibilityFilter() {
+        Map<String, String> options = new LinkedHashMap<>();
+        for (AccessScope scope : AccessScope.values()) {
+            options.put(scope.name(), scope.getDisplayName());
+        }
+        return options;
+    }
+
+    /** The filter key of a user's area ({@link #visibilityFilter}). */
+    public static String visibilityKey(AccessPolicy.Profile profile) {
+        return profile.scope().name();
+    }
+
+    /** The Admin Panel's Access filter, by the level of the Access lines: Full access, Edit, Read Only (KDN too). */
+    public static Map<String, String> accessFilter() {
+        Map<String, String> options = new LinkedHashMap<>();
+        options.put(FULL_ACCESS_KEY, FULL_ACCESS);
+        for (AccessRight access : AccessRight.values()) {
+            options.put(access.name(), access.getDisplayName());
+        }
+        return options;
+    }
+
+    /** The filter key of a user's level ({@link #accessFilter}). */
+    public static String accessKey(AccessPolicy.Profile profile) {
+        return switch (profile.role()) {
+            case SOQM_TEAM -> FULL_ACCESS_KEY;
+            case KDN -> AccessRight.READ_ONLY.name();
+            case USER -> profile.access().name();
         };
     }
 

@@ -54,6 +54,15 @@ public class AdminViewController {
         public String access() {
             return profile.access() != null ? profile.access().name() : "";
         }
+
+        /** What the Visibility and Access filters match: the Access lines, for every role. */
+        public String visibilityKey() {
+            return RoleDisplayMapper.visibilityKey(profile);
+        }
+
+        public String accessKey() {
+            return RoleDisplayMapper.accessKey(profile);
+        }
     }
 
     @GetMapping("/users")
@@ -86,6 +95,8 @@ public class AdminViewController {
         model.addAttribute("roles", UserRole.values());
         model.addAttribute("visibilities", Visibility.values());
         model.addAttribute("accessRights", AccessRight.values());
+        model.addAttribute("visibilityFilter", RoleDisplayMapper.visibilityFilter());
+        model.addAttribute("accessFilter", RoleDisplayMapper.accessFilter());
         // The Permissions text of each role and the values a role fixes, for the user dialog
         Map<String, List<RoleDisplayMapper.FixedValue>> roleFixedValues = new LinkedHashMap<>();
         for (UserRole role : UserRole.values()) {

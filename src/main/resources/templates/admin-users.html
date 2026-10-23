@@ -575,11 +575,11 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     </select>
                     <select id="filterVisibility" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by visibility">
                         <option value="">Any visibility</option>
-                        <option th:each="visibility : ${visibilities}" th:value="${visibility.name()}" th:text="${visibility.displayName}">My controls</option>
+                        <option th:each="option : ${visibilityFilter}" th:value="${option.key}" th:text="${option.value}">My controls</option>
                     </select>
                     <select id="filterAccess" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by access">
                         <option value="">Any access</option>
-                        <option th:each="right : ${accessRights}" th:value="${right.name()}" th:text="${right.displayName}">Edit</option>
+                        <option th:each="option : ${accessFilter}" th:value="${option.key}" th:text="${option.value}">Edit</option>
                     </select>
                     <select id="filterStatus" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by status">
                         <option value="">All statuses</option>
@@ -613,6 +613,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                      data-role=${row.role()},
                                      data-visibility=${row.visibility()},
                                      data-access=${row.access()},
+                                     data-visibility-key=${row.visibilityKey()},
+                                     data-access-key=${row.accessKey()},
                                      data-enabled=${user.enabled == true},
                                      data-last-login=${row.lastLogin()},
                                      data-self=${row.self()}">
@@ -1071,6 +1073,8 @@ document.addEventListener('DOMContentLoaded', function() {
         row.dataset.role = user.role || '';
         row.dataset.visibility = user.visibility || '';
         row.dataset.access = user.access || '';
+        row.dataset.visibilityKey = user.visibilityKey || '';
+        row.dataset.accessKey = user.accessKey || '';
         row.dataset.enabled = String(Boolean(user.enabled));
         row.dataset.lastLogin = user.lastLoginAt || '';
         if (!row.dataset.self) {
@@ -1119,15 +1123,16 @@ document.addEventListener('DOMContentLoaded', function() {
         row.classList.add('row-saved');
     }
 
-    // Visibility and Access belong to Users: filtering by them shows Users only
+    // Visibility and Access match the Access lines of every role (RoleDisplayMapper.visibilityKey/accessKey):
+    // SoQM Admin Team is All controls and Full access, KDN All KDN controls and Read Only
     function matchesFilters(row) {
         const q = searchInput.value.trim().toLowerCase();
         const searchOk = !q
             || (row.dataset.name || '').toLowerCase().includes(q)
             || (row.dataset.email || '').toLowerCase().includes(q);
         const roleOk = !roleFilter.value || roleFilter.value === row.dataset.role;
-        const visibilityOk = !visibilityFilter.value || visibilityFilter.value === row.dataset.visibility;
-        const accessOk = !accessFilter.value || accessFilter.value === row.dataset.access;
+        const visibilityOk = !visibilityFilter.value || visibilityFilter.value === row.dataset.visibilityKey;
+        const accessOk = !accessFilter.value || accessFilter.value === row.dataset.accessKey;
         const statusOk = !statusFilter.value
             || (statusFilter.value === 'ACTIVE') === (row.dataset.enabled === 'true');
         return searchOk && roleOk && visibilityOk && accessOk && statusOk;

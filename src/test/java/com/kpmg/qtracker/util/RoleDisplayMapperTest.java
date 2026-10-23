@@ -115,6 +115,27 @@ class RoleDisplayMapperTest {
         assertThat(RoleDisplayMapper.accessLines(AccessPolicy.Profile.of(level, scope))).containsExactly(line);
     }
 
+    /** The Visibility and Access filters of the Admin Panel match what the Access lines say, for every role. */
+    @ParameterizedTest(name = "{0} {1}")
+    @CsvSource(delimiter = '|', value = {
+            "SOQM        | ALL | ALL | FULL",
+            "PARTICIPANT | OWN | OWN | EDIT",
+            "PARTICIPANT | ALL | ALL | EDIT",
+            "READ_ONLY   | OWN | OWN | READ_ONLY",
+            "READ_ONLY   | ALL | ALL | READ_ONLY",
+            "READ_ONLY   | KDN | KDN | READ_ONLY",
+    })
+    void filterKeys_followTheAccessLines(AccessLevel level, AccessScope scope, String visibilityKey, String accessKey) {
+        AccessPolicy.Profile profile = AccessPolicy.Profile.of(level, scope);
+        assertThat(RoleDisplayMapper.visibilityKey(profile)).isEqualTo(visibilityKey);
+        assertThat(RoleDisplayMapper.accessKey(profile)).isEqualTo(accessKey);
+        String line = RoleDisplayMapper.accessLines(profile).get(0);
+        assertThat(line).endsWith(RoleDisplayMapper.accessFilter().get(accessKey));
+        if (profile.role() != UserRole.SOQM_TEAM) {
+            assertThat(line).startsWith(RoleDisplayMapper.visibilityFilter().get(visibilityKey) + RoleDisplayMapper.SEPARATOR);
+        }
+    }
+
     @Test
     void roleAccessLines_forTheDialogScript() {
         assertThat(RoleDisplayMapper.roleAccessLines()).containsExactly(

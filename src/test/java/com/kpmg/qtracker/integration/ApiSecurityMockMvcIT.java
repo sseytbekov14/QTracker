@@ -1794,6 +1794,14 @@ class ApiSecurityMockMvcIT {
                 "<span class=\"role-badge is-soqm_team\">SoQM Admin Team</span>",
                 "data-label=\"Access\"><span class=\"access-line\">Full access</span></td>")
                 .doesNotContain("data-visibility=\"MY\"", "data-visibility=\"ALL\"", "data-access=\"EDIT\"");
+        // The Visibility and Access filters match the Access lines of every role
+        assertThat(html).contains("<option value=\"OWN\">My controls</option>", "<option value=\"ALL\">All controls</option>",
+                "<option value=\"KDN\">All KDN controls</option>", "<option value=\"FULL\">Full access</option>",
+                "<option value=\"EDIT\">Edit</option>", "<option value=\"READ_ONLY\">Read Only</option>");
+        assertThat(userRow(html, soqm)).contains("data-visibility-key=\"ALL\"", "data-access-key=\"FULL\"");
+        assertThat(userRow(html, kdn)).contains("data-visibility-key=\"KDN\"", "data-access-key=\"READ_ONLY\"");
+        assertThat(userRow(html, readOnly)).contains("data-visibility-key=\"OWN\"", "data-access-key=\"READ_ONLY\"");
+        assertThat(userRow(html, allEdit)).contains("data-visibility-key=\"ALL\"", "data-access-key=\"EDIT\"");
         assertThat(userRow(html, kdn)).contains("data-role=\"KDN\"",
                 "<span class=\"role-badge is-kdn\">KDN</span>",
                 "data-label=\"Access\"><span class=\"access-line\">All KDN controls · Read Only</span></td>");

@@ -287,6 +287,8 @@ public class UserController {
         payload.put("access", profile.access());
         payload.put("summary", RoleDisplayMapper.summary(profile));
         payload.put("accessLines", RoleDisplayMapper.accessLines(profile));
+        payload.put("visibilityKey", RoleDisplayMapper.visibilityKey(profile));
+        payload.put("accessKey", RoleDisplayMapper.accessKey(profile));
         payload.put("enabled", Boolean.TRUE.equals(user.getEnabled()));
         payload.put("lastLoginAt", user.getLastLoginAt() != null ? user.getLastLoginAt().format(DATE_TIME) : null);
         return payload;
