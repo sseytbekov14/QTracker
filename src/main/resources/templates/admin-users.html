@@ -583,27 +583,27 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     <div class="search-box">
                         <i class="bi bi-search" aria-hidden="true"></i>
                         <input id="searchUsers" type="search" class="form-control form-control-sm toolbar-control"
-                               placeholder="Search name or e-mail…" aria-label="Search users by name or e-mail" autocomplete="off">
+                               placeholder="Search name or email" aria-label="Search by name or email" autocomplete="off">
                     </div>
-                    <select id="filterRole" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by role">
+                    <select id="filterRole" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Role">
                         <option value="">All roles</option>
                         <option th:each="role : ${roles}" th:value="${role.name()}" th:text="${role.displayName}">SoQM Admin Team</option>
                     </select>
-                    <select id="filterVisibility" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by visibility">
-                        <option value="">Any visibility</option>
+                    <select id="filterVisibility" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Visibility">
+                        <option value="">All visibility</option>
                         <option th:each="option : ${visibilityFilter}" th:value="${option.key}" th:text="${option.value}">My controls</option>
                     </select>
-                    <select id="filterAccess" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by access">
-                        <option value="">Any access</option>
+                    <select id="filterAccess" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Access">
+                        <option value="">All access</option>
                         <option th:each="option : ${accessFilter}" th:value="${option.key}" th:text="${option.value}">Edit</option>
                     </select>
-                    <select id="filterStatus" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by status">
+                    <select id="filterStatus" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Status">
                         <option value="">All statuses</option>
                         <option value="ACTIVE">Active</option>
                         <option value="INACTIVE">Inactive</option>
                     </select>
                     <button type="button" class="toolbar-clear" id="clearToolbarFiltersBtn" hidden>
-                        <i class="bi bi-x-lg" aria-hidden="true"></i>Clear search and filters</button>
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>Clear filters</button>
                 </div>
 
                 <!-- Table: read only; only the Edit button of a row opens the user dialog -->
@@ -686,9 +686,9 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                         <tr id="noUsersClientRow" class="d-none empty-row">
                             <td colspan="7">
                                 <div class="empty-state" role="status">
-                                    <p class="empty-title" id="noUsersClientTitle">No users match the filters.</p>
-                                    <p class="empty-text">Check the spelling or clear the search and filters.</p>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="clearFiltersBtn">Clear search and filters</button>
+                                    <p class="empty-title">No users found</p>
+                                    <p class="empty-text">Check the spelling or clear the filters.</p>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="clearFiltersBtn">Clear filters</button>
                                 </div>
                             </td>
                         </tr>
@@ -974,7 +974,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const pageIndicator = document.getElementById('pageIndicator');
     const paginationInfo = document.getElementById('paginationInfo');
     const noUsersClientRow = document.getElementById('noUsersClientRow');
-    const noUsersClientTitle = document.getElementById('noUsersClientTitle');
     const clearToolbarFiltersBtn = document.getElementById('clearToolbarFiltersBtn');
     const auditFilter = document.getElementById('auditFilter');
     const auditTableBody = document.getElementById('auditTableBody');
@@ -1182,8 +1181,6 @@ document.addEventListener('DOMContentLoaded', function() {
         pageRows.forEach(function(row) {
             row.style.display = '';
         });
-        const q = searchInput.value.trim();
-        noUsersClientTitle.textContent = q ? 'No users match “' + q + '”.' : 'No users match the filters.';
         noUsersClientRow.classList.toggle('d-none', totalItems > 0 || rows.length === 0);
         clearToolbarFiltersBtn.hidden = !filterControls.some(function(control) {
             return control.value.trim() !== '';

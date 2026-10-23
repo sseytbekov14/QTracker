@@ -1787,6 +1787,16 @@ class ApiSecurityMockMvcIT {
                 "<th scope=\"col\">Last Login</th>",
                 "id=\"filterRole\"", "id=\"filterVisibility\"", "id=\"filterAccess\"", "id=\"filterStatus\"",
                 "id=\"searchUsers\"", "id=\"clearFiltersBtn\"", "id=\"clearToolbarFiltersBtn\"");
+        // One wording for the toolbar: Search (name, email), Role, Access, Status and their "All ..." values
+        assertThat(html).contains("placeholder=\"Search name or email\" aria-label=\"Search by name or email\"",
+                "aria-label=\"Role\">", "<option value=\"\">All roles</option>",
+                "aria-label=\"Access\">", "<option value=\"\">All access</option>",
+                "aria-label=\"Status\">", "<option value=\"\">All statuses</option>",
+                "Clear filters</button>", "<p class=\"empty-title\">No users found</p>")
+                .doesNotContain("Any visibility", "Any access", "Clear search and filters", "No users match");
+        // SoQM Admin Team is one value of the Role filter, whoever is Head or Delegate
+        assertThat(html.substring(html.indexOf("id=\"filterRole\""), html.indexOf("</select>", html.indexOf("id=\"filterRole\""))))
+                .containsOnlyOnce("SoQM").doesNotContain("Head", "Delegate");
         assertThat(html).doesNotContain("<th scope=\"col\">Level</th>", "<th scope=\"col\">Scope</th>",
                 "Admin Access", "Administrator", "Participant", "Additional Role", "js-secondary-role", "(not in list)");
         // SoQM Team and KDN have no Visibility and Access of their own (Thymeleaf drops the empty attributes)
