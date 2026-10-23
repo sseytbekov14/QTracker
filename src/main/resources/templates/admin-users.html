@@ -1678,7 +1678,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const who = dialog.user.name || dialog.user.email;
             row.remove();
             rows = Array.from(tableBody.querySelectorAll('.admin-user-row'));
-            applyFilters();
+            // The same page and filters; an emptied last page steps back one
+            renderTablePage();
             if (result.audit) {
                 addAuditRow(result.audit);
             }
