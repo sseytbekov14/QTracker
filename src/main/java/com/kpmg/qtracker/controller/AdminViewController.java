@@ -39,8 +39,9 @@ public class AdminViewController {
     private final AdminAuditTrail adminAuditTrail;
     private final AuthMode authMode;
 
-    /** One row of the users table: the user, their access as people see it, and whether it is the viewer. */
-    public record UserRow(User user, AccessPolicy.Profile profile, String summary, String lastLogin, boolean self) {
+    /** One row of the users table: the user, their Access lines, and whether it is the viewer. */
+    public record UserRow(User user, AccessPolicy.Profile profile, List<String> accessLines, String lastLogin,
+                          boolean self) {
 
         public String role() {
             return profile.role().name();
@@ -95,7 +96,7 @@ public class AdminViewController {
         model.addAttribute("roleCanDo", roleCanDo);
         model.addAttribute("roleFixedValues", roleFixedValues);
         model.addAttribute("accessHints", RoleDisplayMapper.hints());
-        model.addAttribute("roleSummaries", RoleDisplayMapper.roleSummaries());
+        model.addAttribute("roleAccessLines", RoleDisplayMapper.roleAccessLines());
         model.addAttribute("canManageUsers", AccessPolicy.canManageUsers(subject));
         // With SSO people sign in with their corporate e-mail at Microsoft and get no password
         model.addAttribute("sso", authMode.sso());
@@ -119,7 +120,7 @@ public class AdminViewController {
 
     private static UserRow row(User user, User viewer) {
         AccessPolicy.Profile profile = AccessPolicy.Profile.of(user);
-        return new UserRow(user, profile, RoleDisplayMapper.summary(profile),
+        return new UserRow(user, profile, RoleDisplayMapper.accessLines(profile),
                 user.getLastLoginAt() != null ? user.getLastLoginAt().format(DATE_TIME) : "",
                 Objects.equals(user.getId(), viewer.getId()));
     }

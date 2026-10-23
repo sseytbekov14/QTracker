@@ -165,7 +165,8 @@ class UserAccessAuditIT {
                         .param("email", mail)
                         .param("role", "KDN"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.summary").value("KDN · All KDN controls · Read Only"));
+                .andExpect(jsonPath("$.summary").value("KDN · All KDN controls · Read Only"))
+                .andExpect(jsonPath("$.accessLines[0]").value("All KDN controls · Read Only"));
 
         AdminAuditLog log = auditLogRepository.findByAdminEmailOrderByCreatedAtDesc(admin.getMail()).stream()
                 .filter(entry -> "USER_CREATE".equals(entry.getActionType()))

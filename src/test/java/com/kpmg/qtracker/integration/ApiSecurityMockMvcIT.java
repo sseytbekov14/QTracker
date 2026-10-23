@@ -1769,7 +1769,7 @@ class ApiSecurityMockMvcIT {
     // ---- Admin Panel: roles (SoQM Team, User with Visibility and Access, KDN) ----
 
     @Test
-    void adminPage_showsRoleBadgeAndAccessOnOneLine_withRoleVisibilityAccessFilters() throws Exception {
+    void adminPage_showsRoleBadgeAndAccessLinesWithoutTheRole_withRoleVisibilityAccessFilters() throws Exception {
         MockHttpSession adminSession = login(adminUser().getMail());
         User soqm = saveUser("lv-soqm", "lv-soqm-" + suffix() + "@example.test", "SOQM_TEAM");
         User kdn = saveUser("lv-kdn", "lv-kdn-" + suffix() + "@example.test", "KDN");
@@ -1791,19 +1791,20 @@ class ApiSecurityMockMvcIT {
                 "Admin Access", "Administrator", "Participant", "Additional Role", "js-secondary-role", "(not in list)");
         // SoQM Team and KDN have no Visibility and Access of their own (Thymeleaf drops the empty attributes)
         assertThat(userRow(html, soqm)).contains("data-role=\"SOQM_TEAM\"",
-                "<span class=\"role-badge is-soqm_team\">SoQM Admin Team</span>", "data-label=\"Access\">SoQM Admin Team</td>")
+                "<span class=\"role-badge is-soqm_team\">SoQM Admin Team</span>",
+                "data-label=\"Access\"><span class=\"access-line\">Full access</span></td>")
                 .doesNotContain("data-visibility=\"MY\"", "data-visibility=\"ALL\"", "data-access=\"EDIT\"");
         assertThat(userRow(html, kdn)).contains("data-role=\"KDN\"",
                 "<span class=\"role-badge is-kdn\">KDN</span>",
-                "data-label=\"Access\">KDN · All KDN controls · Read Only</td>");
+                "data-label=\"Access\"><span class=\"access-line\">All KDN controls · Read Only</span></td>");
         assertThat(userRow(html, readOnly)).contains("data-role=\"USER\"", "data-visibility=\"MY\"",
                 "data-access=\"READ_ONLY\"", "<span class=\"role-badge is-user\">User</span>",
-                "data-label=\"Access\">User · My controls · Read Only</td>");
+                "data-label=\"Access\"><span class=\"access-line\">My controls · Read Only</span></td>");
         assertThat(userRow(html, allEdit)).contains("data-visibility=\"ALL\"", "data-access=\"EDIT\"",
-                "data-label=\"Access\">User · All controls · Edit</td>");
+                "data-label=\"Access\"><span class=\"access-line\">All controls · Edit</span></td>");
         // Every combination's hint and what SoQM Team and KDN can do reach the dialog script
         assertThat(html).containsPattern("USER\\\\?/ALL\\\\?/EDIT")
-                .contains("What this role can do", "All KDN controls", "KDN · All KDN controls · Read Only")
+                .contains("What this role can do", "All KDN controls", "Full access")
                 .doesNotContain("KDN users have read-only access", "KDN controls they are on",
                         "Sees only KDN controls", "SoQM Team does that for them");
     }

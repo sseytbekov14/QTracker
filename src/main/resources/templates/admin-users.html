@@ -364,6 +364,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .role-badge.is-user { background: #eef1f4; color: #3d4652; border-color: #d5dae1; }
 .role-badge.is-kdn { background: #f3ecfa; color: #5b2a86; border-color: #dccbee; }
 .access-cell { color: var(--kpmg-gray-800); }
+/* Access: one line per access, "area · level" (RoleDisplayMapper.accessLines) */
+.access-line { display: block; white-space: nowrap; }
 
 /* Empty table: no users, nothing matches, or the list could not be loaded */
 .empty-state { display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -476,6 +478,9 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     .row-edit-btn { padding: 5px 12px; }
     .admin-user-row.row-saved { animation: row-saved 2.4s ease-out; }
     .users-table tbody tr.empty-row td { display: block; text-align: center; }
+    /* Access: the label on top, one line per access under it */
+    .users-table tbody td.access-cell { flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
+    .access-line { white-space: normal; }
 
     .table-footer { flex-direction: column; align-items: stretch; }
     .pagination-controls { justify-content: space-between; }
@@ -626,7 +631,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                 <span class="role-badge" th:classappend="'is-' + ${#strings.toLowerCase(row.role())}"
                                       th:text="${row.profile().role().displayName}">User</span>
                             </td>
-                            <td class="access-cell js-access" data-label="Access" th:text="${row.summary()}">User · My controls · Read Only</td>
+                            <td class="access-cell js-access" data-label="Access"><span class="access-line" th:each="line : ${row.accessLines()}" th:text="${line}">My controls · Read Only</span></td>
                             <td class="js-status" data-label="Status">
                                 <span class="status-pill"
                                       th:classappend="${user.enabled == true} ? 'is-active' : 'is-inactive'"
@@ -927,7 +932,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const ACCESS_HINTS = /*[[${accessHints}]]*/ {};
     const ROLE_CAN_DO = /*[[${roleCanDo}]]*/ {};
     const ROLE_FIXED = /*[[${roleFixedValues}]]*/ {};
-    const ROLE_SUMMARIES = /*[[${roleSummaries}]]*/ {};
+    const ROLE_ACCESS_LINES = /*[[${roleAccessLines}]]*/ {};
     // Sign-in with Microsoft: a new user needs the corporate e-mail and gets no password
     const SSO = /*[[${sso}]]*/ false;
     const MAX_NAME_LENGTH = 255;
@@ -1012,13 +1017,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ---------------------------------------------------------------- access words
 
-    // "SoQM Team", "User · My controls · Edit", "KDN · All KDN controls · Read Only", as RoleDisplayMapper.summary
-    function summaryOf(user) {
+    // "Full access", "My controls · Edit", "All KDN controls · Read Only", as RoleDisplayMapper.accessLines
+    function accessLinesOf(user) {
         if (user.role !== 'USER') {
-            return ROLE_SUMMARIES[user.role] || ROLE_LABELS[user.role] || user.role || '-';
+            return ROLE_ACCESS_LINES[user.role] || ['-'];
         }
-        return ROLE_LABELS.USER + SEPARATOR + (VISIBILITY_LABELS[user.visibility] || '-')
-            + SEPARATOR + (ACCESS_LABELS[user.access] || '-');
+        // Built first: "[(" would be a Thymeleaf inline expression in this script
+        const line = (VISIBILITY_LABELS[user.visibility] || '-') + SEPARATOR + (ACCESS_LABELS[user.access] || '-');
+        return [line];
+    }
+
+    function accessLineElements(lines) {
+        return lines.map(function(line) {
+            return element('span', 'access-line', line);
+        });
     }
 
     function hintOf(user) {
@@ -1075,7 +1087,8 @@ document.addEventListener('DOMContentLoaded', function() {
         ]));
         row.querySelector('.js-email').textContent = user.mail || '';
         row.querySelector('.js-role').replaceChildren(roleBadge(user.role));
-        row.querySelector('.js-access').textContent = user.summary || summaryOf(rowUser(row));
+        row.querySelector('.js-access').replaceChildren.apply(row.querySelector('.js-access'),
+            accessLineElements(user.accessLines || accessLinesOf(rowUser(row))));
         row.querySelector('.js-status').replaceChildren(element('span',
             'status-pill ' + (user.enabled ? 'is-active' : 'is-inactive'), user.enabled ? 'Active' : 'Inactive'));
         row.querySelector('.js-last-login').textContent = user.lastLoginAt || '-';
@@ -1407,7 +1420,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         accessSummaryEl.appendChild(element('p', 'summary-line', null, [
             element('span', 'summary-label', 'Access'), ' ',
-            element('strong', null, summaryOf(values))
+            element('strong', null, accessLinesOf(values).join(', '))
         ]));
         accessSummaryEl.appendChild(element('p', 'summary-hint', hintOf(values)));
     }

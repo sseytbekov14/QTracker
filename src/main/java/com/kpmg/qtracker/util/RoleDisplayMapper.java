@@ -14,7 +14,8 @@ import java.util.Map;
 
 /**
  * The words people see for a user's access, in one place: the role, the summary on one line
- * ("SoQM Team", "User · My controls · Edit", "KDN · All KDN controls · Read Only"), what each combination
+ * ("SoQM Team", "User · My controls · Edit", "KDN · All KDN controls · Read Only"), the Admin Panel's Access lines
+ * without the role ("Full access", "My controls · Edit"), what each combination
  * gives, and what SoQM Team and KDN can do. The rules themselves are {@link AccessPolicy}; Facilitator, Control Operator and Process Owner
  * are the Control roles of a control, not user roles.
  */
@@ -24,6 +25,9 @@ public final class RoleDisplayMapper {
 
     /** The Visibility the role KDN fixes: every KDN control ({@link AccessPolicy#isKdnControl}). */
     public static final String KDN_VISIBILITY = AccessScope.KDN.getDisplayName();
+
+    /** The access of SoQM Admin Team in the Admin Panel's Access: every control, every change. */
+    public static final String FULL_ACCESS = "Full access";
 
     /** What each fixed value is and why it cannot be changed, for SoQM Team and KDN. */
     public record FixedValue(String label, String value, String reason) {
@@ -51,6 +55,18 @@ public final class RoleDisplayMapper {
         }
         return profile.role().getDisplayName() + SEPARATOR + profile.visibility().getDisplayName()
                 + SEPARATOR + profile.access().getDisplayName();
+    }
+
+    /**
+     * The Admin Panel's Access: one line per access, "area · level", without the role (the Role column and field
+     * show it): "Full access", "My controls · Edit", "All KDN controls · Read Only". Each user has one access today.
+     */
+    public static List<String> accessLines(AccessPolicy.Profile profile) {
+        return switch (profile.role()) {
+            case SOQM_TEAM -> List.of(FULL_ACCESS);
+            case KDN -> List.of(KDN_VISIBILITY + SEPARATOR + AccessRight.READ_ONLY.getDisplayName());
+            case USER -> List.of(profile.visibility().getDisplayName() + SEPARATOR + profile.access().getDisplayName());
+        };
     }
 
     /** The role alone ("SoQM Team", "User", "KDN"), as the sidebar shows it. */
@@ -126,7 +142,7 @@ public final class RoleDisplayMapper {
         return switch (role) {
             case SOQM_TEAM -> List.of(
                     new FixedValue("Visibility", Visibility.ALL.getDisplayName(), "SoQM Admin Team always sees all controls."),
-                    new FixedValue("Access", "Full", "SoQM Admin Team edits every control."));
+                    new FixedValue("Access", FULL_ACCESS,"SoQM Admin Team edits every control."));
             case KDN -> List.of(
                     new FixedValue("Visibility", KDN_VISIBILITY, "Fixed for KDN: every KDN control, no other."),
                     new FixedValue("Access", AccessRight.READ_ONLY.getDisplayName(), "Fixed for KDN: view and download only."));
@@ -134,12 +150,12 @@ public final class RoleDisplayMapper {
         };
     }
 
-    /** The summary of SoQM Team and KDN by role, for the Admin Panel script (a User's is built from the choices). */
-    public static Map<String, String> roleSummaries() {
-        Map<String, String> summaries = new LinkedHashMap<>();
-        summaries.put(UserRole.SOQM_TEAM.name(), summary(AccessPolicy.Profile.soqmTeam()));
-        summaries.put(UserRole.KDN.name(), summary(AccessPolicy.Profile.kdn()));
-        return summaries;
+    /** The Access lines of SoQM Team and KDN by role, for the Admin Panel script (a User's are built from the choices). */
+    public static Map<String, List<String>> roleAccessLines() {
+        Map<String, List<String>> lines = new LinkedHashMap<>();
+        lines.put(UserRole.SOQM_TEAM.name(), accessLines(AccessPolicy.Profile.soqmTeam()));
+        lines.put(UserRole.KDN.name(), accessLines(AccessPolicy.Profile.kdn()));
+        return lines;
     }
 
     /** Every combination's hint by key "ROLE" or "USER/VISIBILITY/ACCESS", for the Admin Panel script. */

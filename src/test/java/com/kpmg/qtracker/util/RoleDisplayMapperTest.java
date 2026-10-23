@@ -81,10 +81,24 @@ class RoleDisplayMapperTest {
         assertThat(RoleDisplayMapper.fixedValues(UserRole.USER)).isEmpty();
     }
 
+    @ParameterizedTest(name = "{0} {1}")
+    @CsvSource(delimiter = '|', value = {
+            "SOQM        | ALL | Full access",
+            "PARTICIPANT | OWN | My controls · Edit",
+            "PARTICIPANT | ALL | All controls · Edit",
+            "READ_ONLY   | OWN | My controls · Read Only",
+            "READ_ONLY   | ALL | All controls · Read Only",
+            "READ_ONLY   | KDN | All KDN controls · Read Only",
+    })
+    void accessLines_areAreaAndLevel_withoutTheRole(AccessLevel level, AccessScope scope, String line) {
+        assertThat(RoleDisplayMapper.accessLines(AccessPolicy.Profile.of(level, scope))).containsExactly(line);
+    }
+
     @Test
-    void roleSummaries_forTheDialogScript() {
-        assertThat(RoleDisplayMapper.roleSummaries()).containsExactly(
-                entry("SOQM_TEAM", "SoQM Admin Team"), entry("KDN", "KDN · All KDN controls · Read Only"));
+    void roleAccessLines_forTheDialogScript() {
+        assertThat(RoleDisplayMapper.roleAccessLines()).containsExactly(
+                entry("SOQM_TEAM", java.util.List.of("Full access")),
+                entry("KDN", java.util.List.of("All KDN controls · Read Only")));
     }
 
     @Test
