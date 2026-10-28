@@ -136,7 +136,7 @@
                         </div>
                         <input type="hidden" name="size" th:if="${query.size() != 25}" th:value="${query.size()}">
                         <div class="cc-actions" id="ccActions">
-                            <a th:if="${query.filtered()}" class="cc-clear" th:href="${list.clearHref()}">Clear</a>
+                            <a th:if="${query.clearable()}" class="cc-clear" th:href="${list.clearHref()}">Clear</a>
                         </div>
                     </form>
 

@@ -229,8 +229,9 @@ public final class ComponentControlsList {
                     "1".equals(kdnValue) || "true".equalsIgnoreCase(kdnValue));
         }
 
-        public boolean filtered() {
-            return !q.isEmpty() || status != StatusFilter.ALL || kdn;
+        /** Clear has something to reset: the search or the status. The KDN box is unticked by itself. */
+        public boolean clearable() {
+            return !q.isEmpty() || status != StatusFilter.ALL;
         }
     }
 
@@ -337,6 +338,7 @@ public final class ComponentControlsList {
             return href("", StatusFilter.of(status), query.sort(), query.desc(), 1, query.size());
         }
 
+        /** Clear: no search, all statuses; the sorting, the page size and the KDN box stay. */
         public String clearHref() {
             return href("", StatusFilter.ALL, query.sort(), query.desc(), 1, query.size());
         }
