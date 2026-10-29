@@ -44,7 +44,9 @@ spring:
     properties:
       mail:
         smtp:
-          auth: false
+          # true: sign in to the relay with spring.mail.username/password (Proofpoint Secure Email Relay);
+          # false: a relay that takes mail without a sign-in
+          auth: ${SPRING_MAIL_SMTP_AUTH:false}
           starttls:
             enable: true
             required: true

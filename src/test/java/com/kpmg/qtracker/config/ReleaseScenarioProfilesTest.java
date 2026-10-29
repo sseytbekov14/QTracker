@@ -2,11 +2,13 @@ package com.kpmg.qtracker.config;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
+import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.MutablePropertySources;
 import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.core.env.PropertySourcesPropertyResolver;
 import org.springframework.core.io.ClassPathResource;
 
+import java.util.Map;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -95,9 +97,29 @@ class ReleaseScenarioProfilesTest {
         assertThat(value("rate-limit.heavy", "prod")).isEqualTo("20");
     }
 
+    /**
+     * SMTP: no sign-in to the relay unless SPRING_MAIL_SMTP_AUTH=true (Proofpoint Secure Email Relay), STARTTLS
+     * required either way.
+     */
+    @Test
+    void smtp_signsInOnlyWhenSpringMailSmtpAuthIsTrue() {
+        String auth = "spring.mail.properties.mail.smtp.auth";
+        assertThat(value(auth, "prod")).isEqualTo("false");
+        assertThat(value(auth, Map.of("SPRING_MAIL_SMTP_AUTH", "true"), "prod")).isEqualTo("true");
+        assertThat(value("spring.mail.properties.mail.smtp.starttls.required", "prod")).isEqualTo("true");
+        assertThat(value("spring.mail.username", Map.of("SPRING_MAIL_USERNAME", "relay-id"), "prod"))
+                .isEqualTo("relay-id");
+    }
+
     /** The property as the profile resolves it with no environment variables (placeholders at their default). */
     static String value(String key, String... profiles) {
+        return value(key, Map.of(), profiles);
+    }
+
+    /** The property as the profile resolves it with these environment variables. */
+    static String value(String key, Map<String, Object> env, String... profiles) {
         MutablePropertySources sources = new MutablePropertySources();
+        sources.addFirst(new MapPropertySource("env", env));
         for (int i = profiles.length - 1; i >= 0; i--) {
             sources.addLast(new PropertiesPropertySource(profiles[i], yaml("application-" + profiles[i] + ".yml")));
         }

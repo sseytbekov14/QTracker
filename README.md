@@ -145,8 +145,9 @@ Repository-defined variables from `application*.yml`, `.env`, `.env.example`, `.
 ### Mail / notifications
 - `SPRING_MAIL_HOST`
 - `SPRING_MAIL_PORT`
-- `SPRING_MAIL_USERNAME`
-- `SPRING_MAIL_PASSWORD`
+- `SPRING_MAIL_SMTP_AUTH` (default false: the relay takes mail without a sign-in; true: sign in with the two below, as Proofpoint Secure Email Relay needs)
+- `SPRING_MAIL_USERNAME` (with `SPRING_MAIL_SMTP_AUTH=true`; for Proofpoint the Relay User ID)
+- `SPRING_MAIL_PASSWORD` (with `SPRING_MAIL_SMTP_AUTH=true`)
 - `NOTIFICATIONS_EMAIL_ENABLED` (false: the e-mails are recorded `SKIPPED_DISABLED` and never sent)
 - `NOTIFICATIONS_EMAIL_PROVIDER` (`smtp`, default, or `log`)
 - `NOTIFICATIONS_EMAIL_FROM` (the service mailbox the e-mails come from; empty by default: with `NOTIFICATIONS_EMAIL_ENABLED=true` the start logs a WARN, the application still starts, and the e-mails go without a From address, which the SMTP relay may refuse)
