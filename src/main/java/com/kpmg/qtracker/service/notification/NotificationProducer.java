@@ -33,8 +33,8 @@ import java.util.function.Function;
 public class NotificationProducer {
 
     private static final String INSERT = "INSERT INTO email_outbox (control_id, template_key, recipient_user_id,"
-            + " recipient_email, subject, body_html, importance, dedupe_key, status, attempts, last_error, created_at,"
-            + " next_attempt_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?) ON CONFLICT DO NOTHING";
+            + " recipient_email, subject, body_html, body_text, importance, dedupe_key, status, attempts, last_error,"
+            + " created_at, next_attempt_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?) ON CONFLICT DO NOTHING";
 
     private final JdbcTemplate jdbc;
     private final NotificationRepository notificationRepository;
@@ -72,7 +72,7 @@ public class NotificationProducer {
             User first = person.users().stream().min(Comparator.comparing(User::getId)).orElseThrow();
             String key = dedupeKey.apply(person.email());
             if (!result.ok()) {
-                if (insert(control, template, first, person.email(), result.rawSubject(), "", key,
+                if (insert(control, template, first, person.email(), result.rawSubject(), "", null, key,
                         EmailOutbox.FAILED_RENDER, result.error(), now, null)) {
                     queued++;
                     log.error("Notification {} of control {} not made for {}: {}", template, control.getId(),
@@ -81,8 +81,8 @@ public class NotificationProducer {
                 continue;
             }
             TemplateRenderer.Rendered rendered = result.rendered();
-            if (!insert(control, template, first, person.email(), rendered.subject(), rendered.html(), key,
-                    EmailOutbox.PENDING, null, now, now)) {
+            if (!insert(control, template, first, person.email(), rendered.subject(), rendered.html(),
+                    rendered.mailText(), key, EmailOutbox.PENDING, null, now, now)) {
                 continue;
             }
             queued++;
@@ -106,9 +106,10 @@ public class NotificationProducer {
 
     /** True when the row is new; false when the key is already in the outbox. */
     private boolean insert(Control control, Template template, User user, String email, String subject, String html,
-                           String key, String status, String error, LocalDateTime now, LocalDateTime nextAttempt) {
+                           String text, String key, String status, String error, LocalDateTime now,
+                           LocalDateTime nextAttempt) {
         return jdbc.update(INSERT, control.getId(), template.name(), user.getId(), email,
-                subject == null ? "" : subject, html, template.importance().name(), key, status, error,
+                subject == null ? "" : subject, html, text, template.importance().name(), key, status, error,
                 Timestamp.valueOf(now), nextAttempt == null ? null : Timestamp.valueOf(nextAttempt)) == 1;
     }
 }

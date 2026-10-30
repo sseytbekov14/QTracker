@@ -6,11 +6,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.springframework.web.util.HtmlUtils;
 
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -92,12 +94,59 @@ class TemplateRendererTest {
         assertThat(rendered.subject()).isEqualTo(template.defaultSubject());
         assertThat(rendered.text()).isEqualTo(inApp(template))
                 .doesNotContain("http").doesNotContainIgnoringCase("link").doesNotEndWith("\n");
-        assertThat(rendered.html()).startsWith("<div").contains("Dear Anna Smith,<br>")
-                .containsPattern("<a href=\"https://qtracker\\.example\\.test/view-control/7\"[^>]*>Go to Control</a>")
-                .contains("Kind regards,<br>\nSoQM Team</div>");
-        // The address only in the href, never as text
-        assertThat(rendered.html().replace("href=\"" + LINK + "\"", "")).doesNotContain("http");
-        assertThat(LogMailTransport.text(rendered.html())).contains("\nGo to Control: " + LINK + "\n");
+        String firstLine = inApp(template).split("\n")[2];
+        assertThat(rendered.html()).startsWith("<!DOCTYPE html")
+                .contains("<title>" + template.defaultSubject() + "</title>")
+                .contains("mso-hide:all;\">" + HtmlUtils.htmlEscape(firstLine) + "&#8199;")
+                .contains(";color:#ffffff;\">QTracker</td>")
+                .containsPattern("<h1 [^>]*>" + Pattern.quote(template.defaultSubject()) + "</h1>")
+                .contains("Dear Anna Smith,<br>")
+                .contains("<v:roundrect xmlns:v=\"urn:schemas-microsoft-com:vml\"")
+                .containsPattern("<!--\\[if mso]><v:roundrect [^>]*href=\"" + Pattern.quote(LINK) + "\"")
+                .containsPattern("<!--\\[if !mso]><!-- --><a href=\"" + Pattern.quote(LINK) + "\"[^>]*>Go to Control</a>")
+                .contains(EmailLayout.LINK_HINT + "<br>\n<a href=\"" + LINK + "\"")
+                .contains(">" + LINK + "</a>")
+                .contains("Kind regards,<br>\nSoQM Team</td>")
+                .contains(EmailLayout.FOOTER);
+        // The address: in the hrefs and as the text of the link under the button, nowhere else
+        assertThat(rendered.html().replace("href=\"" + LINK + "\"", "").replace(">" + LINK + "</a>", ""))
+                .doesNotContain("qtracker.example.test");
+        assertThat(rendered.mailText()).isEqualTo(template.defaultSubject() + "\n\n"
+                + inApp(template).replace("\n\nKind regards,", "\nGo to Control: " + LINK + "\n\nKind regards,")
+                + "\n\n--\n" + EmailLayout.FOOTER);
+    }
+
+    /** One layout for all: only the title, the preheader and the text differ. */
+    @Test
+    void everyTemplate_theSameLayout_onlyTheTitleAndTheTextDiffer() {
+        String layout = layout(renderer.render(Template.T1, values()).rendered().html());
+        for (Template template : Template.values()) {
+            assertThat(layout(renderer.render(template, values()).rendered().html())).as(template.name())
+                    .isEqualTo(layout);
+        }
+        assertThat(layout).contains("<title></title>", "<h1", "</h1>", "#00338D", EmailLayout.FOOTER)
+                .doesNotContain("Dear", "Go to Control");
+    }
+
+    private static String layout(String html) {
+        return html.replaceAll("<title>.*?</title>", "<title></title>")
+                .replaceAll("(<h1 [^>]*>).*?(</h1>)", "$1$2")
+                .replaceAll("(mso-hide:all;\">).*?(&#8199;)", "$1$2")
+                .replaceAll("(?s)(color:#222222;\">).*?(</td></tr>\n</table>\n</td></tr>\n<tr><td align=\"center\")", "$1$2");
+    }
+
+    @Test
+    void theTitle_andThePreheader_areEscaped() {
+        stored.get("T8").setSubject("SoQM review: {CONTROL_ID} <b>&");
+        Map<String, String> values = values();
+        values.put("CONTROL_ID", "HR-1 \"x\"");
+
+        String html = renderer.render(Template.T8, values).rendered().html();
+
+        assertThat(html).contains("<title>SoQM review: HR-1 &quot;x&quot; &lt;b&gt;&amp;</title>")
+                .containsPattern("<h1 [^>]*>SoQM review: HR-1 &quot;x&quot; &lt;b&gt;&amp;</h1>")
+                .contains("mso-hide:all;\">Control HR-1 &quot;x&quot; Payroll &lt;check&gt; &amp; review has been sent")
+                .doesNotContain("<b>");
     }
 
     @Test
@@ -117,10 +166,23 @@ class TemplateRendererTest {
 
         TemplateRenderer.Rendered rendered = renderer.render(Template.T3, values()).rendered();
 
+        // The button's table keeps its own space: the empty line after it is left out
         assertThat(rendered.html()).contains("Open <a href=\"" + LINK + "\" "
                 + "style=\"color:#00338D;font-weight:bold\">Go to Control</a> now.<br>\n<table role=\"presentation\"")
-                .contains("</table>\n<br>\nKind regards,<br>\nSoQM Team");
+                .contains("</table>\nKind regards,<br>\nSoQM Team");
         assertThat(rendered.text()).isEqualTo("Dear Anna Smith,\nOpen  now.\n\nKind regards,\nSoQM Team");
+        assertThat(rendered.mailText()).isEqualTo("Control Reminder\n\nDear Anna Smith,\nOpen Go to Control (" + LINK
+                + ") now.\nGo to Control: " + LINK + "\n\nKind regards,\nSoQM Team\n\n--\n" + EmailLayout.FOOTER);
+    }
+
+    @Test
+    void aLongFirstLine_isCutInThePreheader() {
+        Map<String, String> values = values();
+        values.put("CONTROL_NAME", "x".repeat(300));
+
+        String html = renderer.render(Template.T12, values).rendered().html();
+
+        assertThat(html).containsPattern("mso-hide:all;\">Control HR-1/FY27 x{121}…&#8199;");
     }
 
     @Test

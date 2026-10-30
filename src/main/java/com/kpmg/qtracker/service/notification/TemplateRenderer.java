@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.util.HtmlUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -17,8 +18,11 @@ import java.util.regex.Pattern;
  * Puts the values into a notification's text, read from notification_template at every call (a text changed there is
  * used at once). Every placeholder must get a value: otherwise nothing is made (TP-2, FAILED_RENDER).
  * <p>The link (the rule of 2026-10-20): {LINK} stands on a line of its own. In the e-mail (HTML: the text escaped, its
- * line breaks kept) it is a "Go to Control" button, a link to the control whose address is not shown. In the in-app
- * notification its line is left out: no address and no word of a link (the page has its own "Go to Control" button).
+ * line breaks kept) it is the "Go to Control" button with the link as text under it (2026-10-30); in its plain-text
+ * part the line "Go to Control: address". In the in-app notification its line is left out: no address and no word of
+ * a link (the page has its own "Go to Control" button).
+ * <p>The e-mail is {@link EmailLayout}: the subject as the card's title, the text in the card, the first line after the
+ * greeting as the preheader.
  */
 @Component
 public class TemplateRenderer {
@@ -35,8 +39,11 @@ public class TemplateRenderer {
         this.templates = templates;
     }
 
-    /** The texts of one notification: the subject, the plain text (in-app) and the HTML (e-mail). */
-    public record Rendered(String subject, String text, String html) {
+    /**
+     * The texts of one notification: the subject, the in-app text, the HTML of the e-mail and its plain-text part
+     * (multipart/alternative).
+     */
+    public record Rendered(String subject, String text, String html, String mailText) {
     }
 
     /** Rendered, or why not (the error of FAILED_RENDER). */
@@ -60,10 +67,10 @@ public class TemplateRenderer {
         if (!missing.isEmpty()) {
             return new Result(null, "no value for " + String.join(", ", missing) + " in " + template.name(), subject);
         }
-        return new Result(new Rendered(substitute(subject, values, false).replaceAll("\\s+", " ").trim(),
-                text(body, values),
-                "<div style=\"font-family:Arial,sans-serif;font-size:14px;color:#222222\">" + html(body, values) + "</div>"),
-                null, subject);
+        String title = substitute(subject, values, false).replaceAll("\\s+", " ").trim();
+        String inApp = text(body, values);
+        return new Result(new Rendered(title, inApp, EmailLayout.page(title, preheader(inApp, title), html(body, values)),
+                EmailLayout.plainText(title, mailText(body, values))), null, subject);
     }
 
     private static Set<String> missing(String text, Map<String, String> values) {
@@ -92,14 +99,42 @@ public class TemplateRenderer {
         return THREE_OR_MORE_BREAKS.matcher(out).replaceAll("\n\n").strip();
     }
 
-    /** The e-mail: each line escaped, a line of {LINK} the button, {LINK} within a line a bold link. */
+    /** The first line after the greeting ("Dear ..."), or the title when there is none. */
+    private static String preheader(String inApp, String title) {
+        for (String line : inApp.split("\n")) {
+            if (!line.isBlank() && !line.startsWith("Dear ")) {
+                return line.strip();
+            }
+        }
+        return title;
+    }
+
+    /** The e-mail's plain-text part: a line of {LINK} "Go to Control: address", within a line "Go to Control (address)". */
+    private static String mailText(String body, Map<String, String> values) {
+        Map<String, String> inline = new HashMap<>(values);
+        inline.put(LINK, BUTTON_LABEL + " (" + values.get(LINK) + ")");
+        StringBuilder out = new StringBuilder();
+        for (String line : body.split("\n", -1)) {
+            if (!out.isEmpty()) {
+                out.append('\n');
+            }
+            out.append(isLinkLine(line) ? BUTTON_LABEL + ": " + values.get(LINK)
+                    : substitute(line, inline, false).stripTrailing());
+        }
+        return THREE_OR_MORE_BREAKS.matcher(out).replaceAll("\n\n").strip();
+    }
+
+    /** The card's text: each line escaped, a line of {LINK} the button, {LINK} within a line a bold link. */
     private static String html(String body, Map<String, String> values) {
         String[] lines = body.split("\n", -1);
         StringBuilder out = new StringBuilder();
         for (int i = 0; i < lines.length; i++) {
             if (isLinkLine(lines[i])) {
-                // A table is a block of its own: no line break after it
-                out.append(button(values.get(LINK)));
+                // A table is a block with its own space around it: no line break and no empty line after it
+                out.append(EmailLayout.button(values.get(LINK)));
+                if (i + 1 < lines.length && lines[i + 1].isBlank()) {
+                    i++;
+                }
                 continue;
             }
             out.append(substitute(lines[i], values, true));
@@ -142,16 +177,6 @@ public class TemplateRenderer {
     /** {LINK} within a line: "Go to Control" in bold, the address not shown. */
     private static String anchor(String link) {
         return "<a href=\"" + HtmlUtils.htmlEscape(link, StandardCharsets.UTF_8.name())
-                + "\" style=\"color:#00338D;font-weight:bold\">" + BUTTON_LABEL + "</a>";
-    }
-
-    /** The "Go to Control" button: a table cell, as Outlook draws it, holding the link; the address not shown. */
-    static String button(String link) {
-        String href = HtmlUtils.htmlEscape(link, StandardCharsets.UTF_8.name());
-        return "<table role=\"presentation\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\" style=\"margin:12px 0\">"
-                + "<tr><td style=\"background:#00338D;border-radius:4px\">"
-                + "<a href=\"" + href + "\" style=\"display:inline-block;padding:10px 22px;font-family:Arial,sans-serif;"
-                + "font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none\">" + BUTTON_LABEL + "</a>"
-                + "</td></tr></table>\n";
+                + "\" style=\"color:" + EmailLayout.BRAND + ";font-weight:bold\">" + BUTTON_LABEL + "</a>";
     }
 }

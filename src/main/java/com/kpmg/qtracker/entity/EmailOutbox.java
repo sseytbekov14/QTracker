@@ -57,6 +57,10 @@ public class EmailOutbox {
     @Column(name = "body_html", nullable = false, columnDefinition = "TEXT")
     private String bodyHtml;
 
+    /** The plain-text part of the e-mail (V24); null for an e-mail queued before it. */
+    @Column(name = "body_text", columnDefinition = "TEXT")
+    private String bodyText;
+
     @Column(name = "importance", nullable = false, length = 10)
     private String importance;
 

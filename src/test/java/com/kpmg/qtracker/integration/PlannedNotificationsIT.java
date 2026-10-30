@@ -71,7 +71,7 @@ class PlannedNotificationsIT extends NotificationScenarioSupport {
             assertThat(mail.getCreatedAt().toLocalTime()).isEqualTo(java.time.LocalTime.of(9, 30));
         });
         assertThat(mails(control)).filteredOn(m -> m.getTemplateKey().equals("T3")).allSatisfy(mail ->
-                assertThat(mail.getBodyHtml()).startsWith("<div").contains("Dear " + cast.fac.getDisplayName() + ",<br>"));
+                assertThat(mail.getBodyHtml()).startsWith("<!DOCTYPE html").contains("Dear " + cast.fac.getDisplayName() + ",<br>"));
     }
 
     @Test

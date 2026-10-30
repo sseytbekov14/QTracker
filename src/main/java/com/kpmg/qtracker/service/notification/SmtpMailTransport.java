@@ -1,6 +1,8 @@
 package com.kpmg.qtracker.service.notification;
 
+import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -11,7 +13,8 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * notifications.email.provider=smtp (the default): the SMTP relay of spring.mail.*. High importance (T4, T5) is sent as
- * the headers Importance: high and X-Priority: 1, as Outlook reads them.
+ * the headers Importance: high and X-Priority: 1, as Outlook reads them. The e-mail is multipart/alternative: the
+ * plain-text part first, the HTML last (the one a client shows when it can).
  */
 @Component
 @ConditionalOnProperty(prefix = "notifications.email", name = "provider", havingValue = "smtp", matchIfMissing = true)
@@ -41,7 +44,14 @@ public class SmtpMailTransport implements MailTransport {
         }
         helper.setTo(mail.to());
         helper.setSubject(mail.subject());
-        helper.setText(mail.html(), true);
+        MimeBodyPart text = new MimeBodyPart();
+        text.setText(mail.plainText(), StandardCharsets.UTF_8.name());
+        MimeBodyPart html = new MimeBodyPart();
+        html.setText(mail.html(), StandardCharsets.UTF_8.name(), "html");
+        MimeMultipart alternative = new MimeMultipart("alternative");
+        alternative.addBodyPart(text);
+        alternative.addBodyPart(html);
+        message.setContent(alternative);
         if (mail.highImportance()) {
             message.setHeader("Importance", "high");
             message.setHeader("X-Priority", "1");

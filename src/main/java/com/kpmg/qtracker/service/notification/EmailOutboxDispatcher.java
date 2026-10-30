@@ -120,7 +120,7 @@ public class EmailOutboxDispatcher {
 
     private void send(Long id) {
         Map<String, Object> row = jdbc.queryForMap("SELECT o.recipient_user_id, o.recipient_email, o.subject,"
-                + " o.body_html, o.importance, o.attempts, o.control_id, o.template_key, c.control_id AS control_code"
+                + " o.body_html, o.body_text, o.importance, o.attempts, o.control_id, o.template_key, c.control_id AS control_code"
                 + " FROM email_outbox o LEFT JOIN controls c ON c.id = o.control_id WHERE o.id = ?", id);
         String to = (String) row.get("recipient_email");
         Number userId = (Number) row.get("recipient_user_id");
@@ -140,7 +140,7 @@ public class EmailOutboxDispatcher {
                 throw new IllegalStateException("no e-mail provider for notifications.email.provider");
             }
             mail.send(new MailTransport.OutgoingMail(from, to, (String) row.get("subject"), (String) row.get("body_html"),
-                    Template.Importance.HIGH.name().equals(row.get("importance"))));
+                    (String) row.get("body_text"), Template.Importance.HIGH.name().equals(row.get("importance"))));
             jdbc.update("UPDATE email_outbox SET status = 'SENT', sent_at = ?, provider = ?, last_error = NULL,"
                     + " next_attempt_at = NULL, claimed_at = NULL WHERE id = ?",
                     Timestamp.valueOf(LocalDateTime.now(clock)), mail.name(), id);

@@ -165,6 +165,8 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
             assertThat(row.getSubject()).isEqualTo("Control Reminder");
             assertThat(row.getBodyHtml()).contains("Dear " + fac.getDisplayName() + ",", control.getControlId(),
                     "/view-control/" + control.getId() + "\" style=");
+            assertThat(row.getBodyText()).startsWith("Control Reminder\n\nDear " + fac.getDisplayName() + ",\n")
+                    .contains("Go to Control: ").doesNotContain("<");
         });
         List<Notification> notices = notificationRepository.findByControlIdOrderByCreatedAtDesc(control.getId());
         assertThat(notices).extracting(Notification::getUserId).containsExactlyInAnyOrder(fac.getId(), twin.getId());
@@ -294,6 +296,11 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
         MailTransport.OutgoingMail mail = transport.sent.stream().filter(m -> m.to().equals(fac.getMail())).findFirst().orElseThrow();
         assertThat(mail.subject()).isEqualTo("Control Deadline Today");
         assertThat(mail.highImportance()).isTrue();
+        // Both parts of the e-mail: the HTML of the layout and its plain text
+        assertThat(mail.html()).startsWith("<!DOCTYPE html").contains("Dear " + fac.getDisplayName() + ",<br>");
+        assertThat(mail.text()).startsWith("Control Deadline Today\n\nDear " + fac.getDisplayName() + ",\n")
+                .contains("\nGo to Control: ", "/view-control/" + control.getId() + "\n")
+                .endsWith("Please do not reply to this e-mail.");
         assertThat(mail.from()).isEqualTo("qtracker@example.test");
         assertThat(rows(control)).singleElement().satisfies(row -> {
             assertThat(row.getStatus()).isEqualTo(EmailOutbox.SENT);

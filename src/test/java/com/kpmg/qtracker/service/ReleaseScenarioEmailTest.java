@@ -8,6 +8,7 @@ import com.kpmg.qtracker.service.notification.Template;
 import com.kpmg.qtracker.service.notification.TemplateRenderer;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
@@ -59,36 +60,46 @@ class ReleaseScenarioEmailTest {
 
     @Test
     void typedTextInTheBody_isEscapedInTheHtmlEmail_lineBreaksStay() throws Exception {
-        String html = renderer.render(Template.T1,
+        TemplateRenderer.Rendered rendered = renderer.render(Template.T1,
                 values("<a href=\"http://evil.test\">Open</a> <script>alert(1)</script> & more Контроль ✅",
-                        "https://qtracker.kz/view-control/6")).rendered().html();
+                        "https://qtracker.kz/view-control/6")).rendered();
+        String html = rendered.html();
 
         assertThat(html).doesNotContain("<a href=\"http://evil.test\"").doesNotContain("<script>");
         assertThat(html).contains("&lt;a href=&quot;http://evil.test&quot;&gt;Open&lt;/a&gt;")
                 .contains("&lt;script&gt;").contains("&amp; more").contains("<br>").contains("Контроль ✅");
+        // The plain-text part is text: the typed text as it is
+        assertThat(rendered.mailText()).contains("<a href=\"http://evil.test\">Open</a> <script>alert(1)</script> & more");
 
-        // Sent as UTF-8
+        // Sent as UTF-8, both parts
         JavaMailSender sender = mock(JavaMailSender.class);
         when(sender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
         new SmtpMailTransport(new StaticListableBeanFactory(Map.of("sender", sender)).getBeanProvider(JavaMailSender.class))
-                .send(new MailTransport.OutgoingMail("qtracker@release.test", "person@release.test", "Subject", html, false));
+                .send(new MailTransport.OutgoingMail("qtracker@release.test", "person@release.test", "Subject", html,
+                        rendered.mailText(), false));
         ArgumentCaptor<MimeMessage> sent = ArgumentCaptor.forClass(MimeMessage.class);
         verify(sender).send(sent.capture());
         ByteArrayOutputStream raw = new ByteArrayOutputStream();
         sent.getValue().writeTo(raw);
         assertThat(raw.toString(StandardCharsets.UTF_8)).contains("charset=UTF-8");
-        assertThat(String.valueOf(sent.getValue().getContent())).contains("Контроль ✅");
+        MimeMultipart parts = (MimeMultipart) sent.getValue().getContent();
+        assertThat(String.valueOf(parts.getBodyPart(0).getContent())).contains("Контроль ✅");
+        assertThat(String.valueOf(parts.getBodyPart(1).getContent())).contains("Контроль ✅");
     }
 
-    /** The link: a "Go to Control" button, the address only in the href, before the closing words. */
+    /** The link: a "Go to Control" button before the closing words, the address as a text link under it. */
     @Test
-    void theLink_isAGoToControlButton_theAddressNotShown() {
-        String html = renderer.render(Template.T12, values("Payroll", "https://qtracker.kz:8081/view-control/6"))
-                .rendered().html();
+    void theLink_isAGoToControlButton_theAddressUnderIt() {
+        String link = "https://qtracker.kz:8081/view-control/6";
+        TemplateRenderer.Rendered rendered = renderer.render(Template.T12, values("Payroll", link)).rendered();
+        String html = rendered.html();
 
         assertThat(html).containsPattern("<a href=\"https://qtracker\\.kz:8081/view-control/6\"[^>]*>Go to Control</a>")
-                .doesNotContain(">https://qtracker.kz:8081/view-control/6<").doesNotContain("copy this address");
-        assertThat(html.indexOf(">Go to Control</a>")).isLessThan(html.indexOf("Kind regards,"));
+                .contains("If the button does not work, open this link:<br>\n<a href=\"" + link + "\"")
+                .contains(">" + link + "</a>");
+        assertThat(html.indexOf(">Go to Control</a>")).isLessThan(html.indexOf(">" + link + "</a>"));
+        assertThat(html.indexOf(">" + link + "</a>")).isLessThan(html.indexOf("Kind regards,"));
+        assertThat(rendered.mailText()).contains("\nGo to Control: " + link + "\n\nKind regards,");
     }
 
     @Test

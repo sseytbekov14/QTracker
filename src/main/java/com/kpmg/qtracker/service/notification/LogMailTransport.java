@@ -19,12 +19,12 @@ public class LogMailTransport implements MailTransport {
     @Override
     public void send(OutgoingMail mail) {
         log.info("E-mail (provider log)\nFrom: {}\nTo: {}\nSubject: {}\nImportance: {}\n\n{}", mail.from(), mail.to(),
-                mail.subject(), mail.highImportance() ? "High" : "Normal", text(mail.html()));
+                mail.subject(), mail.highImportance() ? "High" : "Normal", mail.plainText());
     }
 
     /**
-     * The text of the HTML of an e-mail: line breaks kept, the link "Go to Control: address", another link as its
-     * text, the button on a line of its own.
+     * The text of the HTML of an e-mail queued before its plain-text part was stored (V24): line breaks kept, the link
+     * "Go to Control: address", another link as its text, the button on a line of its own.
      */
     public static String text(String html) {
         if (html == null) {
