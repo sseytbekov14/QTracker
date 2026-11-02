@@ -2,6 +2,7 @@ package com.kpmg.qtracker.migration;
 
 import com.kpmg.qtracker.service.notification.Template;
 import db.migration.V20__Notification_templates;
+import db.migration.V21__Notification_texts;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,9 +21,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * V21 replaces the texts of v5 (V20) with the texts of 2026-10-20 ({@link Template}), but only where the text is still
- * that of V20: a text changed by hand stays. The hand-run undo script brings the texts of V20 back where V21's are
- * still there.
+ * V21 replaces the texts of v5 (V20) with the texts of 2026-10-20 ({@link V21__Notification_texts#TEXTS}), but only
+ * where the text is still that of V20: a text changed by hand stays. The hand-run undo script brings the texts of V20
+ * back where V21's are still there.
  */
 class V21NotificationTextsMigrationTest {
 
@@ -63,9 +64,10 @@ class V21NotificationTextsMigrationTest {
                 assertThat(body("T7")).isEqualTo("Dear Facilitator,\nEdited by SoQM.\n{LINK}");
                 continue;
             }
+            String[] text = V21__Notification_texts.TEXTS.get(template.name());
             assertThat(single("SELECT subject FROM notification_template WHERE template_key = '" + template.name() + "'"))
-                    .as(template.name()).isEqualTo(template.defaultSubject());
-            assertThat(body(template.name())).as(template.name()).isEqualTo(template.defaultBody());
+                    .as(template.name()).isEqualTo(text[0]);
+            assertThat(body(template.name())).as(template.name()).isEqualTo(text[1]);
         }
         assertThat(single("SELECT COUNT(*) FROM notification_template")).isEqualTo("12");
     }

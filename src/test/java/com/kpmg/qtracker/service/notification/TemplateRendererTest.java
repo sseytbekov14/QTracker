@@ -58,7 +58,7 @@ class TemplateRendererTest {
 
     /** The in-app text of each template, word for word. */
     static String inApp(Template template) {
-        String control = "Control HR-1/FY27 Payroll <check> & review";
+        String control = "Control HR-1/FY27";
         String body = switch (template) {
             case T1 -> control + " has been created.\nYour role: Facilitator and Control Operator\n"
                     + "Occurrence date: 05-11-2026\nDeadline: 19-11-2026\n"
@@ -66,9 +66,9 @@ class TemplateRendererTest {
             case T2 -> control + " occurs today (05-11-2026).\nYour role: Facilitator and Control Operator\n"
                     + "Deadline: 19-11-2026\nPlease complete and submit the control before the deadline.";
             case T3 -> control + " is awaiting your action.\nDeadline: 19-11-2026";
-            case T4 -> "The deadline for control HR-1/FY27 Payroll <check> & review is today (19-11-2026).\n"
+            case T4 -> "The deadline for control HR-1/FY27 is today (19-11-2026).\n"
                     + "Please complete it by the end of the day.";
-            case T5 -> "The deadline for control HR-1/FY27 Payroll <check> & review has passed (19-11-2026). "
+            case T5 -> "The deadline for control HR-1/FY27 has passed (19-11-2026). "
                     + "The control is not completed.\nPlease complete it as soon as possible.";
             case T6 -> control + " has been sent for your review.\nPlease review it and submit it to the SoQM Admin Team.\n"
                     + "Deadline: 19-11-2026";
@@ -114,6 +114,28 @@ class TemplateRendererTest {
                 + "\n\n--\n" + EmailLayout.FOOTER);
     }
 
+    /** The control is named by its ID alone: the description is free text and can name another control. */
+    @ParameterizedTest
+    @EnumSource(Template.class)
+    void noText_showsTheDescription(Template template) {
+        assertThat(template.defaultSubject() + template.defaultBody()).doesNotContain("{CONTROL_NAME}");
+
+        TemplateRenderer.Rendered rendered = renderer.render(template, values()).rendered();
+
+        assertThat(rendered.html()).contains("HR-1/FY27").doesNotContain("Payroll");
+        assertThat(rendered.text()).contains("HR-1/FY27").doesNotContain("Payroll");
+        assertThat(rendered.mailText()).contains("HR-1/FY27").doesNotContain("Payroll");
+    }
+
+    /** A text written by hand in the table may still use the description, and must not fail for it. */
+    @Test
+    void aTextChangedByHand_mayStillUseTheDescription() {
+        stored.get("T8").setBody("Dear {NAME},\n{CONTROL_NAME}\n{LINK}");
+
+        assertThat(renderer.render(Template.T8, values()).rendered().text())
+                .isEqualTo("Dear Anna Smith,\nPayroll <check> & review");
+    }
+
     /** One layout for all: only the title, the preheader and the text differ. */
     @Test
     void everyTemplate_theSameLayout_onlyTheTitleAndTheTextDiffer() {
@@ -143,7 +165,7 @@ class TemplateRendererTest {
 
         assertThat(html).contains("<title>SoQM review: HR-1 &quot;x&quot; &lt;b&gt;&amp;</title>")
                 .containsPattern("<h1 [^>]*>SoQM review: HR-1 &quot;x&quot; &lt;b&gt;&amp;</h1>")
-                .contains("mso-hide:all;\">Control HR-1 &quot;x&quot; Payroll &lt;check&gt; &amp; review has been sent")
+                .contains("mso-hide:all;\">Control HR-1 &quot;x&quot; has been sent")
                 .doesNotContain("<b>");
     }
 
@@ -176,22 +198,23 @@ class TemplateRendererTest {
     @Test
     void aLongFirstLine_isCutInThePreheader() {
         Map<String, String> values = values();
-        values.put("CONTROL_NAME", "x".repeat(300));
+        values.put("CONTROL_ID", "x".repeat(300));
 
         String html = renderer.render(Template.T12, values).rendered().html();
 
-        assertThat(html).containsPattern("mso-hide:all;\">Control HR-1/FY27 x{121}…&#8199;");
+        assertThat(html).containsPattern("mso-hide:all;\">Control x{131}…&#8199;");
     }
 
     @Test
     void typedText_andTheName_areEscapedInTheEmail_asTheyAreInApp() {
         Map<String, String> values = values();
         values.put("NAME", "O'Neil <Anna> & co");
+        values.put("CONTROL_ID", "HR-1 <check> & review");
 
         TemplateRenderer.Rendered t1 = renderer.render(Template.T1, values).rendered();
 
-        assertThat(t1.html()).contains("Dear O&#39;Neil &lt;Anna&gt; &amp; co,", "HR-1/FY27 Payroll &lt;check&gt; &amp; review");
-        assertThat(t1.text()).startsWith("Dear O'Neil <Anna> & co,").contains("HR-1/FY27 Payroll <check> & review");
+        assertThat(t1.html()).contains("Dear O&#39;Neil &lt;Anna&gt; &amp; co,", "HR-1 &lt;check&gt; &amp; review");
+        assertThat(t1.text()).startsWith("Dear O'Neil <Anna> & co,").contains("HR-1 <check> & review");
     }
 
     @Test

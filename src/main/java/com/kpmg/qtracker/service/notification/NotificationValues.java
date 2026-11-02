@@ -14,7 +14,8 @@ import java.util.Map;
  * The values of the placeholders of a control: {CONTROL_ID}, {CONTROL_NAME} (its description), {OCCURRENCE_DATE} (Control
  * Operation Date), {DEADLINE} (Control Operation Deadline, as stored) as DD-MM-YYYY, {LINK} = app.base-url +
  * /view-control/{id}. A value the control does not have is null, so a text that needs it is not made (TP-2);
- * {CONTROL_NAME} is empty then instead.
+ * {CONTROL_NAME} is empty then instead. No text of {@link Template} uses {CONTROL_NAME} since V25; it stays so that a
+ * text written by hand in notification_template with it is still made.
  */
 @Component
 public class NotificationValues {

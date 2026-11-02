@@ -28,8 +28,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Release test pass, stage D: an e-mail carries texts people typed (Control IDs, descriptions); in the HTML they must
- * stay text, not markup, and the link must stay inside its attribute.
+ * Release test pass, stage D: an e-mail carries texts people typed (Control IDs); in the HTML they must stay text, not
+ * markup, and the link must stay inside its attribute.
  */
 class ReleaseScenarioEmailTest {
 
@@ -46,10 +46,9 @@ class ReleaseScenarioEmailTest {
         });
     }
 
-    private static Map<String, String> values(String name, String link) {
+    private static Map<String, String> values(String controlId, String link) {
         Map<String, String> values = new HashMap<>();
-        values.put("CONTROL_ID", "HR-1");
-        values.put("CONTROL_NAME", name);
+        values.put("CONTROL_ID", controlId);
         values.put("OCCURRENCE_DATE", "05-11-2026");
         values.put("DEADLINE", "19-11-2026");
         values.put("LINK", link);

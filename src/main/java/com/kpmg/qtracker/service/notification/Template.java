@@ -3,11 +3,13 @@ package com.kpmg.qtracker.service.notification;
 /**
  * The notifications of QTracker (business requirements NOTIFICATIONS_v5, with the shorter texts of 2026-10-20): their
  * key, the importance of the e-mail, the type of the in-app notification, and their texts. The texts are only the
- * first content of table notification_template (V20 wrote the texts of v5, V21 these; NotificationTemplateSeeder where
- * Flyway is off); every notification reads the table, so a text changed there is used without a release.
+ * first content of table notification_template (V20 wrote the texts of v5, V21 the shorter ones, V25 took the control's
+ * description out of them; NotificationTemplateSeeder where Flyway is off); every notification reads the table, so a
+ * text changed there is used without a release.
  * <p>Placeholders: {NAME} (the person's name, NotificationRecipients.Person#name), {ROLES} (T1, T2), {CONTROL_ID},
- * {CONTROL_NAME}, {OCCURRENCE_DATE}, {DEADLINE}, {RETURNED_BY}, {LINK} (on a line of its own: "Go to Control" in the
- * e-mail, left out in-app).
+ * {OCCURRENCE_DATE}, {DEADLINE}, {RETURNED_BY}, {LINK} (on a line of its own: "Go to Control" in the e-mail, left out
+ * in-app). The texts name a control by its ID alone: the description is free text and goes on to the next cycle as it
+ * is, so it can name another control (2026-11-02).
  */
 public enum Template {
 
@@ -15,7 +17,7 @@ public enum Template {
     T1(Importance.NORMAL, "INITIATE", "The creation of the SoQM control", """
             Dear {NAME},
 
-            Control {CONTROL_ID} {CONTROL_NAME} has been created.
+            Control {CONTROL_ID} has been created.
             Your role: {ROLES}
             Occurrence date: {OCCURRENCE_DATE}
             Deadline: {DEADLINE}
@@ -29,7 +31,7 @@ public enum Template {
     T2(Importance.NORMAL, "OCCURRENCE_DAY0", "The activation of the SoQM control", """
             Dear {NAME},
 
-            Control {CONTROL_ID} {CONTROL_NAME} occurs today ({OCCURRENCE_DATE}).
+            Control {CONTROL_ID} occurs today ({OCCURRENCE_DATE}).
             Your role: {ROLES}
             Deadline: {DEADLINE}
             Please complete and submit the control before the deadline.
@@ -42,7 +44,7 @@ public enum Template {
     T3(Importance.NORMAL, "REMINDER", "Control Reminder", """
             Dear {NAME},
 
-            Control {CONTROL_ID} {CONTROL_NAME} is awaiting your action.
+            Control {CONTROL_ID} is awaiting your action.
             Deadline: {DEADLINE}
             {LINK}
 
@@ -53,7 +55,7 @@ public enum Template {
     T4(Importance.HIGH, "DEADLINE_TODAY", "Control Deadline Today", """
             Dear {NAME},
 
-            The deadline for control {CONTROL_ID} {CONTROL_NAME} is today ({DEADLINE}).
+            The deadline for control {CONTROL_ID} is today ({DEADLINE}).
             Please complete it by the end of the day.
             {LINK}
 
@@ -64,7 +66,7 @@ public enum Template {
     T5(Importance.HIGH, "OVERDUE", "Control Deadline Notification", """
             Dear {NAME},
 
-            The deadline for control {CONTROL_ID} {CONTROL_NAME} has passed ({DEADLINE}). The control is not completed.
+            The deadline for control {CONTROL_ID} has passed ({DEADLINE}). The control is not completed.
             Please complete it as soon as possible.
             {LINK}
 
@@ -75,7 +77,7 @@ public enum Template {
     T6(Importance.NORMAL, "WORKFLOW_STEP", "Control Operator Review", """
             Dear {NAME},
 
-            Control {CONTROL_ID} {CONTROL_NAME} has been sent for your review.
+            Control {CONTROL_ID} has been sent for your review.
             Please review it and submit it to the SoQM Admin Team.
             Deadline: {DEADLINE}
             {LINK}
@@ -87,7 +89,7 @@ public enum Template {
     T7(Importance.NORMAL, "RETURN_TO_FACILITATOR", "Control sent back to Facilitator", """
             Dear {NAME},
 
-            Control {CONTROL_ID} {CONTROL_NAME} has been returned to you by the {RETURNED_BY} for rework.
+            Control {CONTROL_ID} has been returned to you by the {RETURNED_BY} for rework.
             Please review the comments and resubmit the control.
             Deadline: {DEADLINE}
             {LINK}
@@ -99,7 +101,7 @@ public enum Template {
     T8(Importance.NORMAL, "WORKFLOW_STEP", "SoQM Admin Team Review", """
             Dear {NAME},
 
-            Control {CONTROL_ID} {CONTROL_NAME} has been sent for your review.
+            Control {CONTROL_ID} has been sent for your review.
             Please review it and submit it to the Process Owner.
             {LINK}
 
@@ -110,7 +112,7 @@ public enum Template {
     T9(Importance.NORMAL, "RETURN_TO_OPERATOR", "Control sent back to Control Operator", """
             Dear {NAME},
 
-            Control {CONTROL_ID} {CONTROL_NAME} has been returned to you by the SoQM Admin Team for rework.
+            Control {CONTROL_ID} has been returned to you by the SoQM Admin Team for rework.
             Please review the comments and resubmit the control.
             Deadline: {DEADLINE}
             {LINK}
@@ -122,7 +124,7 @@ public enum Template {
     T10(Importance.NORMAL, "WORKFLOW_STEP", "Process Owner Review", """
             Dear {NAME},
 
-            Control {CONTROL_ID} {CONTROL_NAME} has been reviewed by the SoQM Admin Team and is ready for your review.
+            Control {CONTROL_ID} has been reviewed by the SoQM Admin Team and is ready for your review.
             Please review and complete the control.
             Deadline: {DEADLINE}
             {LINK}
@@ -134,7 +136,7 @@ public enum Template {
     T11(Importance.NORMAL, "RETURN_TO_OPERATOR", "Control sent back to Control Operator", """
             Dear {NAME},
 
-            Control {CONTROL_ID} {CONTROL_NAME} has been returned to you by the Process Owner for rework.
+            Control {CONTROL_ID} has been returned to you by the Process Owner for rework.
             Please review the comments and resubmit the control.
             Deadline: {DEADLINE}
             {LINK}
@@ -146,7 +148,7 @@ public enum Template {
     T12(Importance.NORMAL, "COMPLETED", "SoQM control completed", """
             Dear {NAME},
 
-            Control {CONTROL_ID} {CONTROL_NAME} has been completed.
+            Control {CONTROL_ID} has been completed.
             {LINK}
 
             Kind regards,
