@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -28,9 +29,10 @@ class MailTransportTest {
             + "</table></body></html>";
     private static final String TEXT = "Control Deadline Today\n\nDear Anna,\nКонтроль ✅\nGo to Control: https://q/1";
 
+    private final JavaMailSender sender = mock(JavaMailSender.class);
+
     /** The e-mail as the SMTP server gets it, read back from its bytes. */
     private MimeMessage sendBySmtp(String html, String text, boolean high) throws Exception {
-        JavaMailSender sender = mock(JavaMailSender.class);
         Session session = Session.getInstance(new Properties());
         when(sender.createMimeMessage()).thenAnswer(call -> new MimeMessage(session));
         SmtpMailTransport smtp = new SmtpMailTransport(
@@ -61,6 +63,17 @@ class MailTransportTest {
 
         assertThat(message.getHeader("Importance")).isNull();
         assertThat(message.getHeader("X-Priority")).isNull();
+    }
+
+    @Test
+    void smtp_everyEmail_isAutoSubmitted_withNoReplyTo() throws Exception {
+        for (boolean high : new boolean[]{false, true}) {
+            MimeMessage message = sendBySmtp(HTML, TEXT, high);
+
+            assertThat(message.getHeader("Auto-Submitted")).containsExactly("auto-generated");
+            assertThat(message.getHeader("Reply-To")).isNull();
+            clearInvocations(sender);
+        }
     }
 
     @Test

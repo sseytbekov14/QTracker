@@ -13,7 +13,8 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * notifications.email.provider=smtp (the default): the SMTP relay of spring.mail.*. High importance (T4, T5) is sent as
- * the headers Importance: high and X-Priority: 1, as Outlook reads them. The e-mail is multipart/alternative: the
+ * the headers Importance: high and X-Priority: 1, as Outlook reads them. Every e-mail is automatic, so each says
+ * Auto-Submitted: auto-generated (RFC 3834: no out-of-office replies to it). The e-mail is multipart/alternative: the
  * plain-text part first, the HTML last (the one a client shows when it can).
  */
 @Component
@@ -52,6 +53,7 @@ public class SmtpMailTransport implements MailTransport {
         alternative.addBodyPart(text);
         alternative.addBodyPart(html);
         message.setContent(alternative);
+        message.setHeader("Auto-Submitted", "auto-generated");
         if (mail.highImportance()) {
             message.setHeader("Importance", "high");
             message.setHeader("X-Priority", "1");
