@@ -33,6 +33,7 @@ public class NotificationRecipients {
     public static final String CONTROL_OPERATOR = "Control Operator";
     public static final String SOQM_ADMIN_TEAM = "SoQM Admin Team";
     public static final String PROCESS_OWNER = "Process Owner";
+    static final String NO_NAME = "colleague";
 
     private final UserRepository userRepository;
 
@@ -48,17 +49,17 @@ public class NotificationRecipients {
 
         /**
          * The name in "Dear {NAME},": the fields of a control hold e-mail addresses, and the control's page shows the
-         * user's name for them (users.displayname), so the name is that of the user of the address - of the oldest
-         * one when two users share it (they all get notifications, so all are active). No name: the person's role on
-         * the control.
+         * user's name for them (users.displayname), so it is the first name ({@link #firstName}) of the user of the
+         * address - of the oldest one when two users share it (they all get notifications, so all are active). No
+         * name: the person's role on the control, as the business texts greet; no role either: "colleague".
          */
         public String name() {
             return users.stream()
                     .min(Comparator.comparing(User::getId, Comparator.nullsLast(Comparator.naturalOrder())))
                     .map(User::getDisplayName)
-                    .filter(name -> name != null && !name.isBlank())
-                    .map(String::trim)
-                    .orElse(roles.isEmpty() ? "" : roles.get(0));
+                    .map(NotificationRecipients::firstName)
+                    .filter(name -> !name.isEmpty())
+                    .orElse(roles.isEmpty() ? NO_NAME : roles.get(0));
         }
 
         /**
@@ -73,6 +74,26 @@ public class NotificationRecipients {
             }
             return String.join(", ", named.subList(0, named.size() - 1)) + " and " + named.get(named.size() - 1);
         }
+    }
+
+    /**
+     * The first name from users.displayname, the only name a user has: "Seytbekov, Sultan" gives what stands after the
+     * comma, "Sultan Seytbekov" the first word, "Sultan" itself; "" when there is none. Spaces around and between the
+     * words do not count.
+     */
+    public static String firstName(String displayName) {
+        String name = displayName == null ? "" : displayName.strip().replaceAll("\\s+", " ");
+        int comma = name.indexOf(',');
+        if (comma >= 0) {
+            // A further comma ends the name: "Smith, John, Jr"
+            String afterComma = name.substring(comma + 1).split(",", 2)[0].strip();
+            if (!afterComma.isEmpty()) {
+                return afterComma;
+            }
+            name = name.substring(0, comma).strip();
+        }
+        int space = name.indexOf(' ');
+        return space < 0 ? name : name.substring(0, space);
     }
 
     /** Whether a user gets notifications at all: active, not KDN, not Read Only. */

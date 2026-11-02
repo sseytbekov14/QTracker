@@ -163,9 +163,10 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
             assertThat(row.getTemplateKey()).isEqualTo("T3");
             assertThat(row.getImportance()).isEqualTo("NORMAL");
             assertThat(row.getSubject()).isEqualTo("[QTracker] Reminder: " + control.getControlId() + ": Awaiting your action");
-            assertThat(row.getBodyHtml()).contains("Dear " + fac.getDisplayName() + ",", control.getControlId(),
+            assertThat(row.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(fac.getDisplayName()) + ",", control.getControlId(),
                     "/view-control/" + control.getId() + "\" style=");
-            assertThat(row.getBodyText()).startsWith("Awaiting your action\n\nDear " + fac.getDisplayName() + ",\n")
+            assertThat(row.getBodyText()).startsWith("Awaiting your action\n\nDear "
+                    + NotificationRecipients.firstName(fac.getDisplayName()) + ",\n")
                     .contains("Go to Control: ").doesNotContain("<");
         });
         List<Notification> notices = notificationRepository.findByControlIdOrderByCreatedAtDesc(control.getId());
@@ -173,7 +174,7 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
         assertThat(notices).allSatisfy(notice -> {
             assertThat(notice.getTitle()).isEqualTo("Awaiting your action");
             assertThat(notice.getType()).isEqualTo("REMINDER");
-            assertThat(notice.getMessage()).startsWith("Dear " + fac.getDisplayName() + ",").contains("Kind regards,\nSoQM Team");
+            assertThat(notice.getMessage()).startsWith("Dear " + NotificationRecipients.firstName(fac.getDisplayName()) + ",").contains("Kind regards,\nSoQM Team");
         });
 
         // The same key again (another run, another instance): nothing new, no second in-app notification
@@ -195,7 +196,7 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
         templates.save(t3);
         try {
             User anna = myEdit("ob-name");
-            anna.setDisplayName("Anna <O'Neil> & co");
+            anna.setDisplayName("O'Neil <x>, Anna & co");
             anna = userRepository.save(anna);
             User nameless = myEdit("ob-noname");
             nameless.setDisplayName(" ");
@@ -218,15 +219,15 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
                     email -> control.getId() + ":T3:NAMES:" + email, null));
 
             assertThat(rows(control)).hasSize(4).allSatisfy(row -> assertThat(row.getStatus()).isEqualTo(EmailOutbox.PENDING));
-            assertThat(row(control, anna).getBodyHtml()).contains("Dear Anna &lt;O&#39;Neil&gt; &amp; co,<br>",
+            assertThat(row(control, anna).getBodyHtml()).contains("Dear Anna &amp; co,<br>",
                     "Your role: Facilitator<br>");
-            assertThat(inApp(control, anna)).startsWith("Dear Anna <O'Neil> & co,\nYour role: Facilitator\n");
-            assertThat(row(control, both).getBodyHtml()).contains("Dear " + both.getDisplayName() + ",",
+            assertThat(inApp(control, anna)).startsWith("Dear Anna & co,\nYour role: Facilitator\n");
+            assertThat(row(control, both).getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(both.getDisplayName()) + ",",
                     "Your role: Facilitator and Control Operator<br>");
             assertThat(row(control, nameless).getBodyHtml()).contains("Dear Control Operator,<br>");
             assertThat(rows(control).stream().filter(r -> r.getRecipientEmail().equalsIgnoreCase(oldTwin.getMail())))
                     .singleElement().satisfies(row -> {
-                        assertThat(row.getBodyHtml()).contains("Dear Active Twin,", "Your role: Process Owner");
+                        assertThat(row.getBodyHtml()).contains("Dear Active,", "Your role: Process Owner");
                         assertThat(row.getRecipientUserId()).isEqualTo(userRepository.findByMail(oldTwin.getMail())
                                 .orElseThrow().getId());
                     });
@@ -297,8 +298,9 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
         assertThat(mail.subject()).isEqualTo("[QTracker] Due today: " + control.getControlId() + ": Complete by the end of the day");
         assertThat(mail.highImportance()).isTrue();
         // Both parts of the e-mail: the HTML of the layout and its plain text
-        assertThat(mail.html()).startsWith("<!DOCTYPE html").contains("Dear " + fac.getDisplayName() + ",<br>");
-        assertThat(mail.text()).startsWith("Complete by the end of the day\n\nDear " + fac.getDisplayName() + ",\n")
+        assertThat(mail.html()).startsWith("<!DOCTYPE html").contains("Dear " + NotificationRecipients.firstName(fac.getDisplayName()) + ",<br>");
+        assertThat(mail.text()).startsWith("Complete by the end of the day\n\nDear "
+                + NotificationRecipients.firstName(fac.getDisplayName()) + ",\n")
                 .contains("\nGo to Control: ", "/view-control/" + control.getId() + "\n")
                 .endsWith("Please do not reply to this e-mail.");
         assertThat(mail.from()).isEqualTo("qtracker@example.test");

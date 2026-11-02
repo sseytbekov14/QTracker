@@ -2,6 +2,8 @@ package com.kpmg.qtracker.service.notification;
 
 import com.kpmg.qtracker.entity.User;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
 
@@ -23,17 +25,47 @@ class RecipientNameTest {
         return new NotificationRecipients.Person("anna@example.test", users, List.of(roles));
     }
 
-    @Test
-    void theName_isTheUsersName_asItIs_ofTheOldestUserOfTheAddress() {
-        assertThat(person(List.of(user(7, "  Anna O'Neil <QA>  ")), "Facilitator").name()).isEqualTo("Anna O'Neil <QA>");
-        assertThat(person(List.of(user(9, "Second Anna"), user(4, "first ANNA")), "Facilitator").name())
-                .isEqualTo("first ANNA");
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', ignoreLeadingAndTrailingWhitespace = false, value = {
+            "Seytbekov, Sultan|Sultan",
+            "Seytbekov,Sultan|Sultan",
+            "  Seytbekov ,   Sultan  |Sultan",
+            "Seytbekov, Sultan Erlanovich|Sultan Erlanovich",
+            "Smith, John, Jr|John",
+            "Seytbekov,|Seytbekov",
+            "Sultan Seytbekov|Sultan",
+            "  Sultan    Seytbekov  |Sultan",
+            "Sultan|Sultan",
+            "  Sultan  |Sultan"})
+    void theFirstName_fromUsersDisplayName(String displayName, String firstName) {
+        assertThat(NotificationRecipients.firstName(displayName)).isEqualTo(firstName);
     }
 
     @Test
-    void withoutAName_theRoleOnTheControl() {
+    void noFirstName_inAnEmptyName() {
+        assertThat(NotificationRecipients.firstName(null)).isEmpty();
+        assertThat(NotificationRecipients.firstName("")).isEmpty();
+        assertThat(NotificationRecipients.firstName("   ")).isEmpty();
+        assertThat(NotificationRecipients.firstName(" , ")).isEmpty();
+    }
+
+    @Test
+    void theName_isTheFirstName_ofTheOldestUserOfTheAddress() {
+        assertThat(person(List.of(user(7, "  Smith, Anna <QA>  ")), "Facilitator").name()).isEqualTo("Anna <QA>");
+        assertThat(person(List.of(user(9, "Second Anna"), user(4, "first ANNA")), "Facilitator").name())
+                .isEqualTo("first");
+    }
+
+    @Test
+    void withoutAName_theRoleOnTheControl_asTheBusinessTextsGreet() {
         assertThat(person(List.of(user(7, " ")), "Control Operator", "Process Owner").name()).isEqualTo("Control Operator");
         assertThat(person(List.of(user(7, null)), "SoQM Admin Team").name()).isEqualTo("SoQM Admin Team");
+    }
+
+    @Test
+    void withoutANameAndARole_colleague() {
+        assertThat(person(List.of(user(7, " "))).name()).isEqualTo("colleague");
+        assertThat(person(List.of()).name()).isEqualTo("colleague");
     }
 
     @Test

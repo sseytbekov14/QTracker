@@ -6,6 +6,7 @@ import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.entity.WorkflowHistory;
 import com.kpmg.qtracker.service.ControlAssignmentService;
+import com.kpmg.qtracker.service.notification.NotificationRecipients;
 import com.kpmg.qtracker.service.notification.NotificationValues;
 import com.kpmg.qtracker.service.notification.Template;
 import com.kpmg.qtracker.service.notification.TemplateRenderer;
@@ -78,7 +79,7 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
         if (returnedBy != null) {
             placeholders.put(NotificationValues.RETURNED_BY, returnedBy);
         }
-        placeholders.put(NotificationValues.NAME, person.getDisplayName());
+        placeholders.put(NotificationValues.NAME, NotificationRecipients.firstName(person.getDisplayName()));
         placeholders.put(NotificationValues.ROLES, "-");
         return renderer.render(template, placeholders).rendered().html();
     }
@@ -135,7 +136,7 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
             String html = expectedHtml(control, Template.valueOf(template), returnedBy, person);
             assertThat(mail.getTemplateKey()).isEqualTo(template);
             assertThat(mail.getSubject()).isEqualTo(expectedSubject(control, Template.valueOf(template)));
-            assertThat(mail.getBodyHtml()).isEqualTo(html).contains("Dear " + person.getDisplayName() + ",<br>")
+            assertThat(mail.getBodyHtml()).isEqualTo(html).contains("Dear " + NotificationRecipients.firstName(person.getDisplayName()) + ",<br>")
                     .doesNotContainIgnoringCase("behalf").doesNotContain("Comment of the move");
             assertThat(mail.getImportance()).isEqualTo("NORMAL");
             if (returnedBy != null) {
@@ -143,7 +144,7 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
             }
             assertThat(notificationRepository.findByControlIdOrderByCreatedAtDesc(control.getId()))
                     .filteredOn(notice -> notice.getUserId().equals(person.getId())).singleElement()
-                    .satisfies(notice -> assertThat(notice.getMessage()).startsWith("Dear " + person.getDisplayName() + ",\n")
+                    .satisfies(notice -> assertThat(notice.getMessage()).startsWith("Dear " + NotificationRecipients.firstName(person.getDisplayName()) + ",\n")
                             .doesNotContain("http").doesNotContainIgnoringCase("link"));
         }
         // In-app: the same subject and text, the comment of a return under it; nothing ON_BEHALF to anyone
@@ -189,7 +190,7 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
         for (User person : List.of(cast.fac, cast.op, cast.po)) {
             String role = person == cast.fac ? "Facilitator" : person == cast.op ? "Control Operator" : "Process Owner";
             assertThat(mails(control)).filteredOn(m -> m.getRecipientEmail().equals(person.getMail())).singleElement()
-                    .satisfies(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + person.getDisplayName() + ",<br>",
+                    .satisfies(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(person.getDisplayName()) + ",<br>",
                             "Your role: " + role + "<br>", "Occurrence date: 05-11-2026<br>", "Deadline: 19-11-2026<br>",
                             "href=\"https://qtracker.example.test/view-control/" + control.getId() + "\""));
         }
