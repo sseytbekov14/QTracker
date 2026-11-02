@@ -87,18 +87,16 @@ class ReleaseScenarioEmailTest {
         assertThat(String.valueOf(parts.getBodyPart(1).getContent())).contains("Контроль ✅");
     }
 
-    /** The link: a "Go to Control" button before the closing words, the address as a text link under it. */
+    /** The link: a "Go to Control" button before the closing words, the address not shown. */
     @Test
-    void theLink_isAGoToControlButton_theAddressUnderIt() {
+    void theLink_isAGoToControlButton_theAddressNotShown() {
         String link = "https://qtracker.kz:8081/view-control/6";
         TemplateRenderer.Rendered rendered = renderer.render(Template.T12, values("Payroll", link)).rendered();
         String html = rendered.html();
 
         assertThat(html).containsPattern("<a href=\"https://qtracker\\.kz:8081/view-control/6\"[^>]*>Go to Control</a>")
-                .contains("If the button does not work, open this link:<br>\n<a href=\"" + link + "\"")
-                .contains(">" + link + "</a>");
-        assertThat(html.indexOf(">Go to Control</a>")).isLessThan(html.indexOf(">" + link + "</a>"));
-        assertThat(html.indexOf(">" + link + "</a>")).isLessThan(html.indexOf("Kind regards,"));
+                .doesNotContain(">" + link, "If the button does not work");
+        assertThat(html.indexOf(">Go to Control</a>")).isLessThan(html.indexOf("Kind regards,"));
         assertThat(rendered.mailText()).contains("\nGo to Control: " + link + "\n\nKind regards,");
     }
 

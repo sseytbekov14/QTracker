@@ -104,12 +104,10 @@ class TemplateRendererTest {
                 .contains("<v:roundrect xmlns:v=\"urn:schemas-microsoft-com:vml\"")
                 .containsPattern("<!--\\[if mso]><v:roundrect [^>]*href=\"" + Pattern.quote(LINK) + "\"")
                 .containsPattern("<!--\\[if !mso]><!-- --><a href=\"" + Pattern.quote(LINK) + "\"[^>]*>Go to Control</a>")
-                .contains(EmailLayout.LINK_HINT + "<br>\n<a href=\"" + LINK + "\"")
-                .contains(">" + LINK + "</a>")
                 .contains("Kind regards,<br>\nSoQM Team</td>")
                 .contains(EmailLayout.FOOTER);
-        // The address: in the hrefs and as the text of the link under the button, nowhere else
-        assertThat(rendered.html().replace("href=\"" + LINK + "\"", "").replace(">" + LINK + "</a>", ""))
+        // The address: only in the hrefs of the button, never as text
+        assertThat(rendered.html().replace("href=\"" + LINK + "\"", ""))
                 .doesNotContain("qtracker.example.test");
         assertThat(rendered.mailText()).isEqualTo(template.defaultSubject() + "\n\n"
                 + inApp(template).replace("\n\nKind regards,", "\nGo to Control: " + LINK + "\n\nKind regards,")

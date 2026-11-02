@@ -18,8 +18,8 @@ import java.util.regex.Pattern;
  * Puts the values into a notification's text, read from notification_template at every call (a text changed there is
  * used at once). Every placeholder must get a value: otherwise nothing is made (TP-2, FAILED_RENDER).
  * <p>The link (the rule of 2026-10-20): {LINK} stands on a line of its own. In the e-mail (HTML: the text escaped, its
- * line breaks kept) it is the "Go to Control" button with the link as text under it (2026-10-30); in its plain-text
- * part the line "Go to Control: address". In the in-app notification its line is left out: no address and no word of
+ * line breaks kept) it is the "Go to Control" button, the address not shown; in its plain-text part the line
+ * "Go to Control: address". In the in-app notification its line is left out: no address and no word of
  * a link (the page has its own "Go to Control" button).
  * <p>The e-mail is {@link EmailLayout}: the subject as the card's title, the text in the card, the first line after the
  * greeting as the preheader.

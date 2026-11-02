@@ -15,7 +15,6 @@ final class EmailLayout {
 
     static final String BRAND = "#00338D";
     static final String FOOTER = "This is an automated message from QTracker. Please do not reply to this e-mail.";
-    static final String LINK_HINT = "If the button does not work, open this link:";
     private static final String BACKGROUND = "#F2F4F7";
     private static final String FONT = "font-family:Arial,Helvetica,sans-serif;";
     private static final int PREHEADER_MAX = 140;
@@ -76,13 +75,13 @@ final class EmailLayout {
     }
 
     /**
-     * The "Go to Control" button and, under it, the same link as text (for a client that blocks the button). In
-     * Outlook a VML rounded rectangle, elsewhere a link styled as a button.
+     * The "Go to Control" button, the address not shown: in Outlook a VML rounded rectangle, elsewhere a link styled
+     * as a button.
      */
     static String button(String link) {
         String href = escape(link);
         return "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\">\n"
-                + "<tr><td style=\"padding:16px 0 8px 0;\">"
+                + "<tr><td style=\"padding:16px 0 16px 0;\">"
                 + "<!--[if mso]><v:roundrect xmlns:v=\"urn:schemas-microsoft-com:vml\""
                 + " xmlns:w=\"urn:schemas-microsoft-com:office:word\" href=\"" + href + "\""
                 + " style=\"height:42px;v-text-anchor:middle;width:200px;\" arcsize=\"10%\" stroke=\"f\" fillcolor=\""
@@ -94,9 +93,6 @@ final class EmailLayout {
                 + "line-height:42px;text-align:center;text-decoration:none;width:200px;-webkit-text-size-adjust:none;\">"
                 + TemplateRenderer.BUTTON_LABEL + "</a><!--<![endif]-->"
                 + "</td></tr>\n"
-                + "<tr><td style=\"padding:0 0 16px 0;" + FONT + "font-size:12px;line-height:18px;color:#6B7280;\">"
-                + LINK_HINT + "<br>\n<a href=\"" + href + "\" style=\"color:" + BRAND
-                + ";text-decoration:underline;word-break:break-all;\">" + href + "</a></td></tr>\n"
                 + "</table>\n";
     }
 
