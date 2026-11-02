@@ -101,7 +101,7 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
         assertThat(reminder.getCreatedAt()).isEqualTo(LocalDate.of(2026, 11, 10).atTime(LocalTime.of(9, 30)));
         assertThat(reminder.getSubject()).isEqualTo("[QTracker] Reminder: " + control.getControlId() + ": Awaiting your action");
         assertThat(reminder.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(cast.fac.getDisplayName()) + ",<br>", "is awaiting your action",
-                "Deadline: 19-11-2026<br>", ">Go to Control</a>");
+                "Deadline: 19 Nov 2026<br>", ">Go to Control</a>");
     }
 
     @Test
@@ -231,7 +231,7 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
             assertThat(mail.getRecipientEmail()).isEqualTo(cast.fac.getMail());
             assertThat(mail.getImportance()).isEqualTo("HIGH");
             assertThat(mail.getSubject()).isEqualTo("[QTracker] Due today: " + control.getControlId() + ": Complete by the end of the day");
-            assertThat(mail.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(cast.fac.getDisplayName()) + ",<br>", " is today (19-11-2026).",
+            assertThat(mail.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(cast.fac.getDisplayName()) + ",<br>", " is today (19 Nov 2026).",
                     "Please complete it by the end of the day.");
         });
     }

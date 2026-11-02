@@ -49,8 +49,8 @@ class ReleaseScenarioEmailTest {
     private static Map<String, String> values(String controlId, String link) {
         Map<String, String> values = new HashMap<>();
         values.put("CONTROL_ID", controlId);
-        values.put("OCCURRENCE_DATE", "05-11-2026");
-        values.put("DEADLINE", "19-11-2026");
+        values.put("OCCURRENCE_DATE", "5 Nov 2026");
+        values.put("DEADLINE", "19 Nov 2026");
         values.put("LINK", link);
         values.put("NAME", "Anna");
         values.put("ROLES", "Facilitator");

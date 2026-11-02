@@ -191,7 +191,7 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
             String role = person == cast.fac ? "Facilitator" : person == cast.op ? "Control Operator" : "Process Owner";
             assertThat(mails(control)).filteredOn(m -> m.getRecipientEmail().equals(person.getMail())).singleElement()
                     .satisfies(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(person.getDisplayName()) + ",<br>",
-                            "Your role: " + role + "<br>", "Occurrence date: 05-11-2026<br>", "Deadline: 19-11-2026<br>",
+                            "Your role: " + role + "<br>", "Occurrence date: 5 Nov 2026<br>", "Deadline: 19 Nov 2026<br>",
                             "href=\"https://qtracker.example.test/view-control/" + control.getId() + "\""));
         }
     }

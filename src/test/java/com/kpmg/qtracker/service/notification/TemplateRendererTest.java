@@ -50,8 +50,8 @@ class TemplateRendererTest {
         values.put("ROLES", "Facilitator and Control Operator");
         values.put("CONTROL_ID", "HR-1/FY27");
         values.put("CONTROL_NAME", "Payroll <check> & review");
-        values.put("OCCURRENCE_DATE", "05-11-2026");
-        values.put("DEADLINE", "19-11-2026");
+        values.put("OCCURRENCE_DATE", "5 Nov 2026");
+        values.put("DEADLINE", "19 Nov 2026");
         values.put("LINK", LINK);
         values.put("RETURNED_BY", "Control Operator");
         return values;
@@ -62,26 +62,26 @@ class TemplateRendererTest {
         String control = "Control HR-1/FY27";
         String body = switch (template) {
             case T1 -> control + " has been created.\nYour role: Facilitator and Control Operator\n"
-                    + "Occurrence date: 05-11-2026\nDeadline: 19-11-2026\n"
+                    + "Occurrence date: 5 Nov 2026\nDeadline: 19 Nov 2026\n"
                     + "Please complete and submit the control before the deadline.";
-            case T2 -> control + " occurs today (05-11-2026).\nYour role: Facilitator and Control Operator\n"
-                    + "Deadline: 19-11-2026\nPlease complete and submit the control before the deadline.";
-            case T3 -> control + " is awaiting your action.\nDeadline: 19-11-2026";
-            case T4 -> "The deadline for control HR-1/FY27 is today (19-11-2026).\n"
+            case T2 -> control + " occurs today (5 Nov 2026).\nYour role: Facilitator and Control Operator\n"
+                    + "Deadline: 19 Nov 2026\nPlease complete and submit the control before the deadline.";
+            case T3 -> control + " is awaiting your action.\nDeadline: 19 Nov 2026";
+            case T4 -> "The deadline for control HR-1/FY27 is today (19 Nov 2026).\n"
                     + "Please complete it by the end of the day.";
-            case T5 -> "The deadline for control HR-1/FY27 has passed (19-11-2026). "
+            case T5 -> "The deadline for control HR-1/FY27 has passed (19 Nov 2026). "
                     + "The control is not completed.\nPlease complete it as soon as possible.";
             case T6 -> control + " has been sent for your review.\nPlease review it and submit it to the SoQM Admin Team.\n"
-                    + "Deadline: 19-11-2026";
+                    + "Deadline: 19 Nov 2026";
             case T7 -> control + " has been returned to you by the Control Operator for rework.\n"
-                    + "Please review the comments and resubmit the control.\nDeadline: 19-11-2026";
+                    + "Please review the comments and resubmit the control.\nDeadline: 19 Nov 2026";
             case T8 -> control + " has been sent for your review.\nPlease review it and submit it to the Process Owner.";
             case T9 -> control + " has been returned to you by the SoQM Admin Team for rework.\n"
-                    + "Please review the comments and resubmit the control.\nDeadline: 19-11-2026";
+                    + "Please review the comments and resubmit the control.\nDeadline: 19 Nov 2026";
             case T10 -> control + " has been reviewed by the SoQM Admin Team and is ready for your review.\n"
-                    + "Please review and complete the control.\nDeadline: 19-11-2026";
+                    + "Please review and complete the control.\nDeadline: 19 Nov 2026";
             case T11 -> control + " has been returned to you by the Process Owner for rework.\n"
-                    + "Please review the comments and resubmit the control.\nDeadline: 19-11-2026";
+                    + "Please review the comments and resubmit the control.\nDeadline: 19 Nov 2026";
             case T12 -> control + " has been completed.";
         };
         return "Dear Anna Smith,\n\n" + body + "\n\nKind regards,\nSoQM Team";
