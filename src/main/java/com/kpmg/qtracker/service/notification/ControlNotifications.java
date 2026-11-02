@@ -28,9 +28,12 @@ public class ControlNotifications {
         this.producer = producer;
     }
 
-    /** What to send: the template, to the people of which roles, {RETURNED_BY}, the key of each e-mail. */
+    /**
+     * What to send: the template, to the people of which roles, {RETURNED_BY}, the key of each e-mail, what goes under
+     * the in-app text, and the values of this notification on top of the control's (NotificationValues).
+     */
     public record Notice(Template template, List<WorkflowTransition.Actor> roles, String returnedBy,
-                         Function<String, String> dedupeKey, String inAppNote) {
+                         Function<String, String> dedupeKey, String inAppNote, Map<String, String> values) {
     }
 
     /**
@@ -52,6 +55,7 @@ public class ControlNotifications {
         if (notice.returnedBy() != null) {
             placeholders.put(NotificationValues.RETURNED_BY, notice.returnedBy());
         }
+        placeholders.putAll(notice.values());
         return producer.produce(control, notice.template(), placeholders, people.people(), notice.dedupeKey(),
                 notice.inAppNote());
     }

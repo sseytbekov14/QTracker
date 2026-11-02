@@ -101,7 +101,7 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
         assertThat(reminder.getCreatedAt()).isEqualTo(LocalDate.of(2026, 11, 10).atTime(LocalTime.of(9, 30)));
         assertThat(reminder.getSubject()).isEqualTo("[QTracker] Reminder: " + control.getControlId() + ": Awaiting your action");
         assertThat(reminder.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(cast.fac.getDisplayName()) + ",<br>", "is awaiting your action",
-                "Deadline: 19 Nov 2026<br>", ">Go to Control</a>");
+                ">19 Nov 2026</td>", ">Go to Control</a>");
     }
 
     @Test
@@ -195,7 +195,7 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
         // One name, both roles
         assertThat(mails(control)).filteredOn(m -> m.getRecipientEmail().equals(both.getMail())).singleElement()
                 .satisfies(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(both.getDisplayName()) + ",<br>",
-                        "Your role: Facilitator and Control Operator<br>"));
+                        ">Facilitator and Control Operator</td>"));
         assertThat(inApp(control, both).get(0).getMessage()).contains("Your role: Facilitator and Control Operator\n");
     }
 

@@ -10,6 +10,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.web.util.HtmlUtils;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -27,6 +28,8 @@ import static org.mockito.Mockito.when;
 class TemplateRendererTest {
 
     private static final String LINK = "https://qtracker.example.test/view-control/7";
+    private static final String DETAILS = "Control: HR-1/FY27\nDescription: Payroll <check> & review\n"
+            + "Your role: Facilitator and Control Operator\nDeadline: 19 Nov 2026";
 
     private final NotificationTemplateTextRepository repository = mock(NotificationTemplateTextRepository.class);
     private final TemplateRenderer renderer = new TemplateRenderer(repository);
@@ -110,8 +113,10 @@ class TemplateRendererTest {
         // The address: only in the hrefs of the button, never as text
         assertThat(rendered.html().replace("href=\"" + LINK + "\"", ""))
                 .doesNotContain("qtracker.example.test");
+        // In the e-mail the role and the deadline stand in the details, once
         assertThat(rendered.mailText()).isEqualTo(template.defaultSubject() + "\n\n"
-                + inApp(template).replace("\n\nKind regards,", "\nGo to Control: " + LINK + "\n\nKind regards,")
+                + inApp(template).replaceAll("(?m)^(Your role|Deadline): .*\n", "")
+                .replaceAll("\n+Kind regards,", "\n\n" + DETAILS + "\n\nGo to Control: " + LINK + "\n\nKind regards,")
                 + "\n\n--\n" + EmailLayout.FOOTER);
     }
 
@@ -148,17 +153,126 @@ class TemplateRendererTest {
                 .isEqualTo("[QTracker] Action required: HR-1/FY27: Our own name");
     }
 
-    /** The control is named by its ID alone: the description is free text and can name another control. */
+    /**
+     * The sentence names the control by its ID alone, the description being free text that can name another control;
+     * it stands only in its own line of the e-mail's details, under its own label.
+     */
     @ParameterizedTest
     @EnumSource(Template.class)
-    void noText_showsTheDescription(Template template) {
+    void noSentence_namesTheDescription(Template template) {
         assertThat(template.defaultSubject() + template.defaultBody()).doesNotContain("{CONTROL_NAME}");
 
         TemplateRenderer.Rendered rendered = renderer.render(template, values()).rendered();
 
-        assertThat(rendered.html()).contains("HR-1/FY27").doesNotContain("Payroll");
         assertThat(rendered.text()).contains("HR-1/FY27").doesNotContain("Payroll");
-        assertThat(rendered.mailText()).contains("HR-1/FY27").doesNotContain("Payroll");
+        assertThat(rendered.mailText()).contains("HR-1/FY27").containsOnlyOnce("Payroll")
+                .contains("\nDescription: Payroll <check> & review\n");
+        assertThat(rendered.html()).containsOnlyOnce("Payroll")
+                .contains(">Payroll &lt;check&gt; &amp; review</td>");
+    }
+
+    private static String row(String label, String value) {
+        return ">" + label + "</td><td class=\"dtl-v\" valign=\"top\" style=\"padding:6px 12px 6px 0;"
+                + "font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:19px;color:#222222;"
+                + "word-break:break-word;\">" + value + "</td></tr>";
+    }
+
+    @Test
+    void theDetails_everyLine_betweenTheTextAndTheButton() {
+        Map<String, String> values = values();
+        values.put(NotificationValues.FROM, "Control Operator");
+
+        TemplateRenderer.Rendered rendered = renderer.render(Template.T8, values).rendered();
+
+        String html = rendered.html();
+        assertThat(html).contains(row("Control", "HR-1/FY27"), row("Description", "Payroll &lt;check&gt; &amp; review"),
+                row("Your role", "Facilitator and Control Operator"), row("Deadline", "19 Nov 2026"),
+                row("From", "Control Operator"));
+        assertThat(html).containsSubsequence("Please review it and submit it to the Process Owner.", ">Control</td>",
+                ">Description</td>", ">Your role</td>", ">Deadline</td>", ">From</td>", "v:roundrect", "Kind regards,");
+        assertThat(rendered.mailText()).contains("Process Owner.\n\nControl: HR-1/FY27\nDescription: Payroll <check> & review\n"
+                + "Your role: Facilitator and Control Operator\nDeadline: 19 Nov 2026\nFrom: Control Operator\n\n"
+                + "Go to Control: " + LINK + "\n\nKind regards,");
+    }
+
+    @Test
+    void theDetails_aLineWithoutAValue_isLeftOut() {
+        Map<String, String> values = values();
+        values.put("CONTROL_NAME", "  ");
+        values.remove("ROLES");
+        values.remove("DEADLINE");
+
+        TemplateRenderer.Rendered rendered = renderer.render(Template.T8, values).rendered();
+
+        assertThat(rendered.html()).contains(row("Control", "HR-1/FY27"))
+                .doesNotContain(">Description</td>", ">Your role</td>", ">Deadline</td>", ">From</td>");
+        assertThat(rendered.mailText()).contains("\n\nControl: HR-1/FY27\n\nGo to Control: ")
+                .doesNotContain("Description:", "Your role:", "Deadline:", "From:");
+    }
+
+    @Test
+    void theDetails_nothingWithoutAnyValue() {
+        assertThat(EmailLayout.details(List.of(new EmailLayout.Row("Control", null), new EmailLayout.Row("From", " "))))
+                .isEmpty();
+        assertThat(EmailLayout.plainDetails(List.of(new EmailLayout.Row("Control", null)))).isEmpty();
+    }
+
+    @Test
+    void theDetails_areEscaped_theLineBreaksOfADescriptionStay() {
+        Map<String, String> values = values();
+        values.put("CONTROL_ID", "HR-1 <i>");
+        values.put("CONTROL_NAME", " <script>alert(1)</script> & co\r\nline \"two\" ");
+        values.put(NotificationValues.FROM, "<b>Someone</b>");
+        values.put("ROLES", "<u>Role</u>");
+
+        String html = renderer.render(Template.T8, values).rendered().html();
+
+        assertThat(html).contains(row("Control", "HR-1 &lt;i&gt;"),
+                row("Description", "&lt;script&gt;alert(1)&lt;/script&gt; &amp; co<br>\nline &quot;two&quot;"),
+                row("From", "&lt;b&gt;Someone&lt;/b&gt;"), row("Your role", "&lt;u&gt;Role&lt;/u&gt;"))
+                .doesNotContain("<script>", "<i>", "<b>Someone", "<u>");
+    }
+
+    @Test
+    void theRoleAndTheDeadline_standOnceInTheEmail_andStayInApp() {
+        TemplateRenderer.Rendered rendered = renderer.render(Template.T1, values()).rendered();
+
+        assertThat(rendered.html()).doesNotContain("Your role:", "Deadline:").contains("Occurrence date: 5 Nov 2026<br>");
+        assertThat(rendered.mailText()).containsOnlyOnce("Your role: ").containsOnlyOnce("Deadline: ");
+        assertThat(rendered.text()).contains("Your role: Facilitator and Control Operator\n", "Deadline: 19 Nov 2026\n")
+                .doesNotContain("Control: HR-1/FY27");
+    }
+
+    @Test
+    void aTextWithoutALink_hasItsDetailsAtTheEnd_once() {
+        stored.get("T8").setBody("Dear {NAME},\nSee the control.");
+
+        TemplateRenderer.Rendered rendered = renderer.render(Template.T8, values()).rendered();
+
+        assertThat(rendered.html()).containsSubsequence("See the control.", ">Control</td>").containsOnlyOnce(">Control</td>");
+        assertThat(rendered.mailText()).contains("See the control.\n\nControl: HR-1/FY27\n");
+    }
+
+    @Test
+    void twoLinesOfLink_oneDetailsBlock() {
+        stored.get("T8").setBody("Dear {NAME},\n{LINK}\nThen again:\n{LINK}");
+
+        TemplateRenderer.Rendered rendered = renderer.render(Template.T8, values()).rendered();
+
+        assertThat(rendered.html()).containsOnlyOnce(">Control</td>");
+        assertThat(rendered.mailText()).containsOnlyOnce("Control: HR-1/FY27");
+    }
+
+    @Test
+    void aDarkTheme_forEveryPartWithAColour_theInlineStylesStayTheLightOne() {
+        String html = renderer.render(Template.T8, values()).rendered().html();
+
+        for (String part : List.of("bg", "hdr", "card", "btn", "ttl", "txt", "dtl", "dtl-k", "dtl-v", "ftr")) {
+            assertThat(html).as(part).contains("class=\"" + part + "\"").containsPattern("\\." + part + "\\{");
+        }
+        assertThat(html).contains("<meta name=\"color-scheme\" content=\"light dark\">",
+                "@media (prefers-color-scheme: dark)", "[data-ogsc] .dtl-k{", "[data-ogsb] .card{")
+                .contains("background-color:#ffffff;").contains("color:#222222;");
     }
 
     /** A text written by hand in the table may still use the description, and must not fail for it. */
@@ -186,7 +300,7 @@ class TemplateRendererTest {
         return html.replaceAll("<title>.*?</title>", "<title></title>")
                 .replaceAll("(<h1 [^>]*>).*?(</h1>)", "$1$2")
                 .replaceAll("(mso-hide:all;\">).*?(&#8199;)", "$1$2")
-                .replaceAll("(?s)(color:#222222;\">).*?(</td></tr>\n</table>\n</td></tr>\n<tr><td align=\"center\")", "$1$2");
+                .replaceAll("(?s)(color:#222222;\">).*?(</td></tr>\n</table>\n</td></tr>\n<tr><td class=\"ftr\")", "$1$2");
     }
 
     @Test
@@ -226,7 +340,8 @@ class TemplateRendererTest {
                 .contains("</table>\nKind regards,<br>\nSoQM Team");
         assertThat(rendered.text()).isEqualTo("Dear Anna Smith,\nOpen  now.\n\nKind regards,\nSoQM Team");
         assertThat(rendered.mailText()).isEqualTo("Awaiting your action\n\nDear Anna Smith,\nOpen Go to Control (" + LINK
-                + ") now.\nGo to Control: " + LINK + "\n\nKind regards,\nSoQM Team\n\n--\n" + EmailLayout.FOOTER);
+                + ") now.\n\n" + DETAILS + "\n\nGo to Control: " + LINK + "\n\nKind regards,\nSoQM Team\n\n--\n"
+                + EmailLayout.FOOTER);
     }
 
     @Test

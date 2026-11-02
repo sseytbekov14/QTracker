@@ -72,16 +72,37 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
                 .param("targetStatus", target).param("comments", comment));
     }
 
-    /** The text the template gives for this control, as the role itself would get it. */
-    /** The text the template gives for this control and this person, as the role itself would get it. */
-    String expectedHtml(Control control, Template template, String returnedBy, User person) {
+    /** The text the template gives for this control and this person, in their role, with its line From. */
+    String expectedHtml(Control control, Template template, String returnedBy, User person, String role, String movedBy) {
         Map<String, String> placeholders = values.of(reload(control), assignments.getAssignmentByControlId(control.getId()));
         if (returnedBy != null) {
             placeholders.put(NotificationValues.RETURNED_BY, returnedBy);
         }
         placeholders.put(NotificationValues.NAME, NotificationRecipients.firstName(person.getDisplayName()));
-        placeholders.put(NotificationValues.ROLES, "-");
+        placeholders.put(NotificationValues.ROLES, role);
+        placeholders.put(NotificationValues.FROM, movedBy);
         return renderer.render(template, placeholders).rendered().html();
+    }
+
+    private static String roleName(String actor) {
+        return switch (actor) {
+            case "F" -> "Facilitator";
+            case "CO" -> "Control Operator";
+            case "PO" -> "Process Owner";
+            default -> "SoQM Admin Team";
+        };
+    }
+
+    /** The line From: the role of the step, or SoQM Admin Team on behalf of it (a SoQM user makes the SoQM step as their own). */
+    private static String expectedFrom(String actor, String from) {
+        if (!"OTHER".equals(actor) || "SOQM_HEAD_REVIEW".equals(from)) {
+            return roleName(actor);
+        }
+        return "SoQM Admin Team (on behalf of " + switch (from) {
+            case "IN_PROGRESS" -> "Facilitator";
+            case "REVIEW" -> "Control Operator";
+            default -> "Process Owner";
+        } + ")";
     }
 
     /** "[QTracker] Prefix: Control ID: step or event"; no prefix for the e-mail that only informs. */
@@ -130,14 +151,16 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
         List<EmailOutbox> mails = mails(control);
         assertThat(mails).extracting(EmailOutbox::getRecipientEmail)
                 .containsExactlyInAnyOrderElementsOf(expected.stream().map(User::getMail).toList());
-        // Each person's own e-mail: "Dear <their name>,", the rest as the role itself gets it
-        for (User person : expected) {
+        // Each person's own e-mail: "Dear <their name>,", the rest as the role itself gets it; only From says who moved it
+        String movedBy = expectedFrom(actor, from);
+        for (String role : people.split(" ")) {
+            User person = cast.of(role);
             EmailOutbox mail = mails.stream().filter(m -> m.getRecipientEmail().equals(person.getMail())).findFirst().orElseThrow();
-            String html = expectedHtml(control, Template.valueOf(template), returnedBy, person);
+            String html = expectedHtml(control, Template.valueOf(template), returnedBy, person, roleName(role), movedBy);
             assertThat(mail.getTemplateKey()).isEqualTo(template);
             assertThat(mail.getSubject()).isEqualTo(expectedSubject(control, Template.valueOf(template)));
             assertThat(mail.getBodyHtml()).isEqualTo(html).contains("Dear " + NotificationRecipients.firstName(person.getDisplayName()) + ",<br>")
-                    .doesNotContainIgnoringCase("behalf").doesNotContain("Comment of the move");
+                    .contains(">" + movedBy + "</td>").doesNotContain("Comment of the move");
             assertThat(mail.getImportance()).isEqualTo("NORMAL");
             if (returnedBy != null) {
                 assertThat(html).contains("has been returned to you by the " + returnedBy + " for rework.");
@@ -191,7 +214,7 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
             String role = person == cast.fac ? "Facilitator" : person == cast.op ? "Control Operator" : "Process Owner";
             assertThat(mails(control)).filteredOn(m -> m.getRecipientEmail().equals(person.getMail())).singleElement()
                     .satisfies(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(person.getDisplayName()) + ",<br>",
-                            "Your role: " + role + "<br>", "Occurrence date: 5 Nov 2026<br>", "Deadline: 19 Nov 2026<br>",
+                            ">" + role + "</td>", "Occurrence date: 5 Nov 2026<br>", ">19 Nov 2026</td>",
                             "href=\"https://qtracker.example.test/view-control/" + control.getId() + "\""));
         }
     }

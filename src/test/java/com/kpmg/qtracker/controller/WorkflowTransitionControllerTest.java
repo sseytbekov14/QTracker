@@ -119,7 +119,7 @@ class WorkflowTransitionControllerTest {
 
         // T7 to the Facilitator, returned by the Control Operator; the comment for the in-app notification
         verify(workflowNotifications).moved(eq(control), eq(assignmentDto), eq("REVIEW"), eq("IN_PROGRESS"), any(),
-                eq("Need fixes in control steps"));
+                eq("Need fixes in control steps"), any());
     }
 
     @Test

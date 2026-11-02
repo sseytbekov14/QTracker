@@ -8,6 +8,7 @@ import org.springframework.web.util.HtmlUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -22,7 +23,8 @@ import java.util.regex.Pattern;
  * "Go to Control: address". In the in-app notification its line is left out: no address and no word of
  * a link (the page has its own "Go to Control" button).
  * <p>The e-mail is {@link EmailLayout}: the name of the step or event as the card's title, the text in the card, the
- * first line after the greeting as the preheader. Its subject is built from that name, {@link #subject}.
+ * first line after the greeting as the preheader. Its subject is built from that name, {@link #subject}. Above the
+ * button stand the details of the control ({@link EmailLayout#details}), from the values given.
  */
 @Component
 public class TemplateRenderer {
@@ -33,6 +35,7 @@ public class TemplateRenderer {
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([A-Z_]+)}");
     private static final Pattern PLACEHOLDER_LINK = Pattern.compile("\\{" + LINK + "}");
     private static final Pattern THREE_OR_MORE_BREAKS = Pattern.compile("\\n(?:[ \\t]*\\n){2,}");
+    private static final Set<String> LINES_OF_THE_DETAILS = Set.of("Your role: {ROLES}", "Deadline: {DEADLINE}");
 
     private final NotificationTemplateTextRepository templates;
 
@@ -123,27 +126,56 @@ public class TemplateRenderer {
         return title;
     }
 
-    /** The e-mail's plain-text part: a line of {LINK} "Go to Control: address", within a line "Go to Control (address)". */
+    /**
+     * The e-mail's plain-text part: the details above a line of {LINK}, which is "Go to Control: address"; within a line
+     * "Go to Control (address)".
+     */
     private static String mailText(String body, Map<String, String> values) {
         Map<String, String> inline = new HashMap<>(values);
         inline.put(LINK, BUTTON_LABEL + " (" + values.get(LINK) + ")");
+        String details = EmailLayout.plainDetails(details(values));
+        boolean placed = false;
         StringBuilder out = new StringBuilder();
         for (String line : body.split("\n", -1)) {
+            if (isDetailsLine(line)) {
+                continue;
+            }
             if (!out.isEmpty()) {
                 out.append('\n');
             }
-            out.append(isLinkLine(line) ? BUTTON_LABEL + ": " + values.get(LINK)
-                    : substitute(line, inline, false).stripTrailing());
+            if (isLinkLine(line)) {
+                if (!placed && !details.isEmpty()) {
+                    out.append('\n').append(details).append("\n\n");
+                }
+                placed = true;
+                out.append(BUTTON_LABEL).append(": ").append(values.get(LINK));
+            } else {
+                out.append(substitute(line, inline, false).stripTrailing());
+            }
+        }
+        if (!placed && !details.isEmpty()) {
+            out.append("\n\n").append(details);
         }
         return THREE_OR_MORE_BREAKS.matcher(out).replaceAll("\n\n").strip();
     }
 
-    /** The card's text: each line escaped, a line of {LINK} the button, {LINK} within a line a bold link. */
+    /**
+     * The card's text: each line escaped, the details and the button at the line of {LINK} (the details at the end of a
+     * text without one), {LINK} within a line a bold link.
+     */
     private static String html(String body, Map<String, String> values) {
         String[] lines = body.split("\n", -1);
         StringBuilder out = new StringBuilder();
+        boolean placed = false;
         for (int i = 0; i < lines.length; i++) {
+            if (isDetailsLine(lines[i])) {
+                continue;
+            }
             if (isLinkLine(lines[i])) {
+                if (!placed) {
+                    out.append(EmailLayout.details(details(values)));
+                    placed = true;
+                }
                 // A table is a block with its own space around it: no line break and no empty line after it
                 out.append(EmailLayout.button(values.get(LINK)));
                 if (i + 1 < lines.length && lines[i + 1].isBlank()) {
@@ -156,11 +188,28 @@ public class TemplateRenderer {
                 out.append("<br>\n");
             }
         }
+        if (!placed) {
+            out.append(EmailLayout.details(details(values)));
+        }
         return out.toString();
+    }
+
+    /** The details block of every e-mail; each template gets the lines it has values for. */
+    private static List<EmailLayout.Row> details(Map<String, String> values) {
+        return List.of(new EmailLayout.Row("Control", values.get(NotificationValues.CONTROL_ID)),
+                new EmailLayout.Row("Description", values.get(NotificationValues.CONTROL_NAME)),
+                new EmailLayout.Row("Your role", values.get(NotificationValues.ROLES)),
+                new EmailLayout.Row("Deadline", values.get(NotificationValues.DEADLINE)),
+                new EmailLayout.Row("From", values.get(NotificationValues.FROM)));
     }
 
     private static boolean isLinkLine(String line) {
         return line.strip().equals("{" + LINK + "}");
+    }
+
+    /** A line of a text that the e-mail shows in its details block; the in-app notification, which has none, keeps it. */
+    private static boolean isDetailsLine(String line) {
+        return LINES_OF_THE_DETAILS.contains(line.strip());
     }
 
     private static String substitute(String text, Map<String, String> values, boolean html) {

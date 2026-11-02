@@ -220,14 +220,14 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
 
             assertThat(rows(control)).hasSize(4).allSatisfy(row -> assertThat(row.getStatus()).isEqualTo(EmailOutbox.PENDING));
             assertThat(row(control, anna).getBodyHtml()).contains("Dear Anna &amp; co,<br>",
-                    "Your role: Facilitator<br>");
+                    ">Facilitator</td>");
             assertThat(inApp(control, anna)).startsWith("Dear Anna & co,\nYour role: Facilitator\n");
             assertThat(row(control, both).getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(both.getDisplayName()) + ",",
-                    "Your role: Facilitator and Control Operator<br>");
+                    ">Facilitator and Control Operator</td>");
             assertThat(row(control, nameless).getBodyHtml()).contains("Dear Control Operator,<br>");
             assertThat(rows(control).stream().filter(r -> r.getRecipientEmail().equalsIgnoreCase(oldTwin.getMail())))
                     .singleElement().satisfies(row -> {
-                        assertThat(row.getBodyHtml()).contains("Dear Active,", "Your role: Process Owner");
+                        assertThat(row.getBodyHtml()).contains("Dear Active,", ">Process Owner</td>");
                         assertThat(row.getRecipientUserId()).isEqualTo(userRepository.findByMail(oldTwin.getMail())
                                 .orElseThrow().getId());
                     });

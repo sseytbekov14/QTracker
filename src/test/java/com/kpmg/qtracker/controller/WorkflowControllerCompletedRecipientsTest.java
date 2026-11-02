@@ -94,7 +94,7 @@ class WorkflowControllerCompletedRecipientsTest {
 
         // The notification follows the change of status (T12 to all four roles, WorkflowNotifications)
         verify(workflowNotifications).moved(eq(control), any(ControlAssignmentDTO.class), eq("PROCESS_OWNER_REVIEW"),
-                eq("COMPLETED"), any(), eq(null));
+                eq("COMPLETED"), any(), eq(null), any());
     }
 
     @Test
@@ -161,7 +161,7 @@ class WorkflowControllerCompletedRecipientsTest {
 
         // T9 to the Control Operator; the comment goes to the in-app notification only
         verify(workflowNotifications).moved(eq(control), eq(assignment), eq("SOQM_HEAD_REVIEW"), eq("REVIEW"), any(),
-                eq(comment));
+                eq(comment), any());
     }
 
     @Test
@@ -207,7 +207,7 @@ class WorkflowControllerCompletedRecipientsTest {
 
         // T11 to every Control Operator, the Process Owner too when they are one (their own step)
         verify(workflowNotifications).moved(eq(control), eq(assignment), eq("PROCESS_OWNER_REVIEW"), eq("REVIEW"), any(),
-                eq(comment));
+                eq(comment), any());
     }
 
     private ControlAssignmentDTO completedAssignment() {
