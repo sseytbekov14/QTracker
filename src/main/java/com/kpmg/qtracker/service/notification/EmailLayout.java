@@ -25,13 +25,16 @@ final class EmailLayout {
     private static final int PREHEADER_MAX = 140;
     /** Class and dark background. */
     private static final String[][] DARK_BACKGROUNDS = {{"bg", "#111827"}, {"hdr", BRAND}, {"card", "#1F2937"},
-            {"btn", "#2F6FDE"}};
+            {"btn", "#2F6FDE"}, {"qt", "#111827"}};
     /** Class and dark text colour. */
     private static final String[][] DARK_COLORS = {{"hdr", "#FFFFFF"}, {"btn", "#FFFFFF"}, {"ttl", "#A9C4F5"},
-            {"txt", "#E5E7EB"}, {"dtl-k", "#9CA3AF"}, {"dtl-v", "#E5E7EB"}, {"ftr", "#9CA3AF"}};
-    /** The classes with a border. */
-    private static final String[] DARK_BORDERS = {"card", "dtl"};
-    private static final String DARK_BORDER = "#374151";
+            {"txt", "#E5E7EB"}, {"dtl-k", "#9CA3AF"}, {"dtl-v", "#E5E7EB"}, {"ftr", "#9CA3AF"}, {"qt-k", "#9CA3AF"},
+            {"qt-v", "#E5E7EB"}};
+    /** Class and dark border colour. */
+    private static final String[][] DARK_BORDERS = {{"card", "#374151"}, {"dtl", "#374151"}, {"qt", "#5B8DEF"}};
+    /** The longest comment an e-mail carries; the application has the whole of it. */
+    static final int COMMENT_MAX = 1000;
+    static final String COMMENT_SHORTENED = "Shortened: the full comment is in QTracker.";
 
     private EmailLayout() {
     }
@@ -129,6 +132,56 @@ final class EmailLayout {
     }
 
     /**
+     * The comment of a return as a quote: a blue bar on the left, the line "Comment from ..." over the text, escaped,
+     * its line breaks kept; a comment over {@link #COMMENT_MAX} characters cut with a note. Nothing without a comment.
+     */
+    static String quote(String from, String comment) {
+        if (comment == null || comment.isBlank()) {
+            return "";
+        }
+        String text = shortened(comment);
+        String note = text.length() == normalized(comment).length() ? "" : "<br>\n<span style=\"font-size:12px;\">"
+                + COMMENT_SHORTENED + "</span>";
+        return "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\">\n"
+                + "<tr><td style=\"padding:12px 0 4px 0;\">\n"
+                + "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\">\n"
+                + "<tr><td class=\"qt\" bgcolor=\"#F5F7FB\" style=\"background-color:#F5F7FB;border-left:4px solid " + BRAND
+                + ";padding:8px 12px;\">\n"
+                + "<div class=\"qt-k\" style=\"" + FONT + "font-size:12px;line-height:18px;font-weight:bold;color:#6B7280;\">"
+                + escape(commentLabel(from)) + "</div>\n"
+                + "<div class=\"qt-v\" style=\"" + FONT + "font-size:14px;line-height:21px;color:#222222;word-break:break-word;\">"
+                + escapeLines(text) + note + "</div>\n"
+                + "</td></tr>\n</table>\n</td></tr>\n</table>\n";
+    }
+
+    /** The comment in the plain-text part. */
+    static String plainQuote(String from, String comment) {
+        if (comment == null || comment.isBlank()) {
+            return "";
+        }
+        String text = shortened(comment);
+        return commentLabel(from) + ":\n" + text
+                + (text.length() == normalized(comment).length() ? "" : "\n" + COMMENT_SHORTENED);
+    }
+
+    private static String commentLabel(String from) {
+        return from == null || from.isBlank() ? "Comment" : "Comment from " + from.strip();
+    }
+
+    private static String normalized(String comment) {
+        return comment.strip().replace("\r\n", "\n");
+    }
+
+    /** At most {@link #COMMENT_MAX} characters, "…" the last one of a cut text; a character is never split in two. */
+    private static String shortened(String comment) {
+        String text = normalized(comment);
+        if (text.codePointCount(0, text.length()) <= COMMENT_MAX) {
+            return text;
+        }
+        return text.substring(0, text.offsetByCodePoints(0, COMMENT_MAX - 1)).stripTrailing() + "…";
+    }
+
+    /**
      * The "Go to Control" button, the address not shown: in Outlook a VML rounded rectangle, elsewhere a link styled
      * as a button.
      */
@@ -194,8 +247,8 @@ final class EmailLayout {
 
     private static String borders(String prefix) {
         StringBuilder out = new StringBuilder();
-        for (String name : DARK_BORDERS) {
-            out.append(prefix).append('.').append(name).append("{border-color:").append(DARK_BORDER).append("!important;}\n");
+        for (String[] rule : DARK_BORDERS) {
+            out.append(prefix).append('.').append(rule[0]).append("{border-color:").append(rule[1]).append("!important;}\n");
         }
         return out.toString();
     }

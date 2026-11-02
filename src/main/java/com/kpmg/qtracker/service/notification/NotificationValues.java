@@ -29,6 +29,8 @@ public class NotificationValues {
     public static final String RETURNED_BY = "RETURNED_BY";
     /** Who passed the step on (the line From of the e-mail's details), set for a move of the workflow. */
     public static final String FROM = "FROM";
+    /** The comment of a return (the quote in the e-mail, "Comment from ..."), set for a return of the workflow. */
+    public static final String COMMENT = "COMMENT";
     /** The person's name in "Dear {NAME},", set for each person by NotificationProducer. */
     public static final String NAME = "NAME";
     /** The person's roles on the control (T1, T2), set for each person by NotificationProducer. */

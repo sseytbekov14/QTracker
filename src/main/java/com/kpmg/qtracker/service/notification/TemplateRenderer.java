@@ -24,7 +24,8 @@ import java.util.regex.Pattern;
  * a link (the page has its own "Go to Control" button).
  * <p>The e-mail is {@link EmailLayout}: the name of the step or event as the card's title, the text in the card, the
  * first line after the greeting as the preheader. Its subject is built from that name, {@link #subject}. Above the
- * button stand the details of the control ({@link EmailLayout#details}), from the values given.
+ * button stand the details of the control ({@link EmailLayout#details}) and the comment of a return
+ * ({@link EmailLayout#quote}), from the values given.
  */
 @Component
 public class TemplateRenderer {
@@ -133,7 +134,7 @@ public class TemplateRenderer {
     private static String mailText(String body, Map<String, String> values) {
         Map<String, String> inline = new HashMap<>(values);
         inline.put(LINK, BUTTON_LABEL + " (" + values.get(LINK) + ")");
-        String details = EmailLayout.plainDetails(details(values));
+        String details = plainBlocks(values);
         boolean placed = false;
         StringBuilder out = new StringBuilder();
         for (String line : body.split("\n", -1)) {
@@ -173,7 +174,7 @@ public class TemplateRenderer {
             }
             if (isLinkLine(lines[i])) {
                 if (!placed) {
-                    out.append(EmailLayout.details(details(values)));
+                    out.append(blocks(values));
                     placed = true;
                 }
                 // A table is a block with its own space around it: no line break and no empty line after it
@@ -189,9 +190,21 @@ public class TemplateRenderer {
             }
         }
         if (!placed) {
-            out.append(EmailLayout.details(details(values)));
+            out.append(blocks(values));
         }
         return out.toString();
+    }
+
+    /** What stands above the button: the details, then the comment of a return. */
+    private static String blocks(Map<String, String> values) {
+        return EmailLayout.details(details(values))
+                + EmailLayout.quote(values.get(NotificationValues.FROM), values.get(NotificationValues.COMMENT));
+    }
+
+    private static String plainBlocks(Map<String, String> values) {
+        String details = EmailLayout.plainDetails(details(values));
+        String quote = EmailLayout.plainQuote(values.get(NotificationValues.FROM), values.get(NotificationValues.COMMENT));
+        return details.isEmpty() || quote.isEmpty() ? details + quote : details + "\n\n" + quote;
     }
 
     /** The details block of every e-mail; each template gets the lines it has values for. */

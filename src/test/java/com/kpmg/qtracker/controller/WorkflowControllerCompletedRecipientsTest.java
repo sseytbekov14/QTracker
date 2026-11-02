@@ -159,7 +159,7 @@ class WorkflowControllerCompletedRecipientsTest {
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(control.getReturnToOperatorComment()).isEqualTo(comment);
 
-        // T9 to the Control Operator; the comment goes to the in-app notification only
+        // T9 to the Control Operator; the comment goes to the e-mail and the in-app notification
         verify(workflowNotifications).moved(eq(control), eq(assignment), eq("SOQM_HEAD_REVIEW"), eq("REVIEW"), any(),
                 eq(comment), any());
     }

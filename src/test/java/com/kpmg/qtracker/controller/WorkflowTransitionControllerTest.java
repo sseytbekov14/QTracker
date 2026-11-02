@@ -117,7 +117,7 @@ class WorkflowTransitionControllerTest {
                         .sessionAttr("currentUser", currentUser))
                 .andExpect(status().isOk());
 
-        // T7 to the Facilitator, returned by the Control Operator; the comment for the in-app notification
+        // T7 to the Facilitator, returned by the Control Operator; the comment for the e-mail and the in-app notification
         verify(workflowNotifications).moved(eq(control), eq(assignmentDto), eq("REVIEW"), eq("IN_PROGRESS"), any(),
                 eq("Need fixes in control steps"), any());
     }

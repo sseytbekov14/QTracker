@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.web.util.HtmlUtils;
 
 import java.util.HashMap;
@@ -263,11 +265,93 @@ class TemplateRendererTest {
         assertThat(rendered.mailText()).containsOnlyOnce("Control: HR-1/FY27");
     }
 
+    private static Map<String, String> returned(String comment) {
+        Map<String, String> values = values();
+        values.put(NotificationValues.RETURNED_BY, "Process Owner");
+        values.put(NotificationValues.FROM, "SoQM Admin Team (on behalf of Process Owner)");
+        values.put(NotificationValues.COMMENT, comment);
+        return values;
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Template.class, names = {"T7", "T9", "T11"})
+    void theCommentOfAReturn_aQuoteBetweenTheDetailsAndTheButton(Template template) {
+        TemplateRenderer.Rendered rendered = renderer.render(template, returned("Fix the steps.")).rendered();
+
+        assertThat(rendered.html()).containsSubsequence(">From</td>", "border-left:4px solid #00338D",
+                ">Comment from SoQM Admin Team (on behalf of Process Owner)</div>", ">Fix the steps.</div>", "v:roundrect");
+        assertThat(rendered.mailText()).contains("\n\nComment from SoQM Admin Team (on behalf of Process Owner):\n"
+                + "Fix the steps.\n\nGo to Control: ");
+    }
+
+    @Test
+    void theComment_isEscaped_itsLineBreaksStay_andIsNoTemplate() {
+        String comment = " <script>alert(1)</script> & co\r\n\r\n<b>line</b> {LINK} {UNKNOWN} ";
+
+        TemplateRenderer.Result result = renderer.render(Template.T7, returned(comment));
+
+        assertThat(result.ok()).isTrue();
+        assertThat(result.rendered().html())
+                .contains(">&lt;script&gt;alert(1)&lt;/script&gt; &amp; co<br>\n<br>\n&lt;b&gt;line&lt;/b&gt; {LINK} {UNKNOWN}</div>")
+                .doesNotContain("<script>", "<b>line");
+        assertThat(result.rendered().mailText()).contains(":\n<script>alert(1)</script> & co\n\n<b>line</b> {LINK} {UNKNOWN}\n\nGo to");
+        assertThat(result.rendered().text()).doesNotContain("script");
+    }
+
+    @Test
+    void theWhoInTheCommentLabel_isEscaped() {
+        Map<String, String> values = returned("Fix.");
+        values.put(NotificationValues.FROM, "<b>Who</b>");
+
+        assertThat(renderer.render(Template.T7, values).rendered().html()).contains(">Comment from &lt;b&gt;Who&lt;/b&gt;</div>");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "   ", "\n"})
+    void noComment_noQuote(String comment) {
+        TemplateRenderer.Rendered rendered = renderer.render(Template.T7, returned(comment)).rendered();
+
+        assertThat(rendered.html()).doesNotContain("Comment from", "border-left");
+        assertThat(rendered.mailText()).doesNotContain("Comment from");
+    }
+
+    @Test
+    void aComment_ofTheLongestLength_staysWhole() {
+        String comment = "x".repeat(EmailLayout.COMMENT_MAX);
+
+        TemplateRenderer.Rendered rendered = renderer.render(Template.T7, returned(comment)).rendered();
+
+        assertThat(rendered.html()).contains(">" + comment + "</div>").doesNotContain(EmailLayout.COMMENT_SHORTENED);
+        assertThat(rendered.mailText()).contains(comment).doesNotContain(EmailLayout.COMMENT_SHORTENED);
+    }
+
+    @Test
+    void aLongComment_isCut_saysSo_andTheInAppTextIsNotConcerned() {
+        String comment = "x".repeat(EmailLayout.COMMENT_MAX) + "y";
+
+        TemplateRenderer.Rendered rendered = renderer.render(Template.T7, returned(comment)).rendered();
+
+        String cut = "x".repeat(EmailLayout.COMMENT_MAX - 1) + "…";
+        assertThat(rendered.html()).contains(">" + cut + "<br>\n", EmailLayout.COMMENT_SHORTENED).doesNotContain("y</div>");
+        assertThat(rendered.mailText()).contains(":\n" + cut + "\n" + EmailLayout.COMMENT_SHORTENED + "\n\nGo to Control: ");
+    }
+
+    @Test
+    void aLongComment_isCutBetweenCharacters_neverWithinOne() {
+        // Each of these is two chars of Java: 1000 characters, not 500
+        String comment = "😀".repeat(EmailLayout.COMMENT_MAX + 1);
+
+        String text = renderer.render(Template.T7, returned(comment)).rendered().mailText();
+
+        assertThat(text).contains(":\n" + "😀".repeat(EmailLayout.COMMENT_MAX - 1) + "…\n");
+    }
+
     @Test
     void aDarkTheme_forEveryPartWithAColour_theInlineStylesStayTheLightOne() {
-        String html = renderer.render(Template.T8, values()).rendered().html();
+        String html = renderer.render(Template.T7, returned("Fix.")).rendered().html();
 
-        for (String part : List.of("bg", "hdr", "card", "btn", "ttl", "txt", "dtl", "dtl-k", "dtl-v", "ftr")) {
+        for (String part : List.of("bg", "hdr", "card", "btn", "ttl", "txt", "dtl", "dtl-k", "dtl-v", "ftr", "qt", "qt-k", "qt-v")) {
             assertThat(html).as(part).contains("class=\"" + part + "\"").containsPattern("\\." + part + "\\{");
         }
         assertThat(html).contains("<meta name=\"color-scheme\" content=\"light dark\">",

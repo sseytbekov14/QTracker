@@ -7,6 +7,7 @@ import com.kpmg.qtracker.service.WorkflowTransition;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -29,7 +30,7 @@ import static com.kpmg.qtracker.service.WorkflowTransition.Actor.SOQM_TEAM;
  * <li>to Process Owner Review: T10 to the Process Owner;</li>
  * <li>to Completed: T12 to Facilitator, Control Operator, SoQM Admin Team and Process Owner.</li>
  * </ul>
- * A return's comment is not in the e-mail (the texts send the reader to the control); the in-app notification has it.
+ * A return's comment stands in the e-mail as a quote, cut when long (2026-11-02), and under the in-app text in full.
  * Each e-mail once per history entry and person.
  */
 @Service
@@ -56,7 +57,7 @@ public class WorkflowNotifications {
     /**
      * A move of the workflow, recorded as the history entry given.
      *
-     * @param returnComment the comment of a return, for the in-app notification; null otherwise
+     * @param returnComment the comment of a return, for the e-mail and the in-app notification; null otherwise
      * @param movedBy       who made it ({@link #movedBy}), for the line From of the e-mail's details
      */
     public int moved(Control control, ControlAssignmentDTO assignment, String from, String to, Long historyId,
@@ -65,10 +66,16 @@ public class WorkflowNotifications {
         if (event == null) {
             return 0;
         }
-        String note = returnComment == null || returnComment.isBlank() ? null : "Return Comment:\n" + returnComment.trim();
+        String note = null;
+        Map<String, String> values = new HashMap<>();
+        values.put(NotificationValues.FROM, movedBy);
+        if (returnComment != null && !returnComment.isBlank()) {
+            note = "Return Comment:\n" + returnComment.trim();
+            values.put(NotificationValues.COMMENT, returnComment);
+        }
         return notifications.send(control, assignment, new ControlNotifications.Notice(event.template(), event.roles(),
                 event.returnedBy(), email -> control.getId() + ":" + event.template() + ":" + email + ":" + historyId,
-                note, Map.of(NotificationValues.FROM, movedBy)), WorkflowNotifications::warn);
+                note, values), WorkflowNotifications::warn);
     }
 
     /**

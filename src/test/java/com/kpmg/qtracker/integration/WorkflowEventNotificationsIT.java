@@ -29,9 +29,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 /**
  * The notifications of the workflow (NOTIFICATIONS_v5 4.2, decisions 4 and 5): every change of status, made by the
- * role itself or by SoQM Admin Team on behalf of it, gives the same template, the same people and the same text; the
- * text never says "on behalf"; {RETURNED_BY} is the role of the step; nothing of type ON_BEHALF; the history keeps who
- * made the move and for whom. One e-mail per person and move, the comment of a return in-app only.
+ * role itself or by SoQM Admin Team on behalf of it, gives the same template, the same people and the same text; only
+ * the line From of the e-mail says who made it; {RETURNED_BY} is the role of the step; nothing of type ON_BEHALF; the
+ * history keeps who made the move and for whom. One e-mail per person and move, the comment of a return in both the
+ * e-mail and the in-app notification.
  */
 class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
 
@@ -72,8 +73,9 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
                 .param("targetStatus", target).param("comments", comment));
     }
 
-    /** The text the template gives for this control and this person, in their role, with its line From. */
-    String expectedHtml(Control control, Template template, String returnedBy, User person, String role, String movedBy) {
+    /** The text the template gives for this control and this person, in their role, with its line From and comment. */
+    String expectedHtml(Control control, Template template, String returnedBy, User person, String role, String movedBy,
+                        String comment) {
         Map<String, String> placeholders = values.of(reload(control), assignments.getAssignmentByControlId(control.getId()));
         if (returnedBy != null) {
             placeholders.put(NotificationValues.RETURNED_BY, returnedBy);
@@ -81,6 +83,7 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
         placeholders.put(NotificationValues.NAME, NotificationRecipients.firstName(person.getDisplayName()));
         placeholders.put(NotificationValues.ROLES, role);
         placeholders.put(NotificationValues.FROM, movedBy);
+        placeholders.put(NotificationValues.COMMENT, comment);
         return renderer.render(template, placeholders).rendered().html();
     }
 
@@ -153,14 +156,23 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
                 .containsExactlyInAnyOrderElementsOf(expected.stream().map(User::getMail).toList());
         // Each person's own e-mail: "Dear <their name>,", the rest as the role itself gets it; only From says who moved it
         String movedBy = expectedFrom(actor, from);
+        boolean isReturn = order(to) < order(from);
+        String comment = "Comment of the move " + from + " to " + to;
         for (String role : people.split(" ")) {
             User person = cast.of(role);
             EmailOutbox mail = mails.stream().filter(m -> m.getRecipientEmail().equals(person.getMail())).findFirst().orElseThrow();
-            String html = expectedHtml(control, Template.valueOf(template), returnedBy, person, roleName(role), movedBy);
+            String html = expectedHtml(control, Template.valueOf(template), returnedBy, person, roleName(role), movedBy,
+                    isReturn ? comment : null);
             assertThat(mail.getTemplateKey()).isEqualTo(template);
             assertThat(mail.getSubject()).isEqualTo(expectedSubject(control, Template.valueOf(template)));
             assertThat(mail.getBodyHtml()).isEqualTo(html).contains("Dear " + NotificationRecipients.firstName(person.getDisplayName()) + ",<br>")
-                    .contains(">" + movedBy + "</td>").doesNotContain("Comment of the move");
+                    .contains(">" + movedBy + "</td>");
+            if (isReturn) {
+                assertThat(mail.getBodyHtml()).contains(">Comment from " + movedBy + "</div>", ">" + comment + "</div>");
+                assertThat(mail.getBodyText()).contains("Comment from " + movedBy + ":\n" + comment + "\n\nGo to Control: ");
+            } else {
+                assertThat(mail.getBodyHtml()).doesNotContain("Comment from", comment);
+            }
             assertThat(mail.getImportance()).isEqualTo("NORMAL");
             if (returnedBy != null) {
                 assertThat(html).contains("has been returned to you by the " + returnedBy + " for rework.");
@@ -175,7 +187,6 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
         assertThat(notices).extracting(Notification::getUserId)
                 .containsExactlyInAnyOrderElementsOf(expected.stream().map(User::getId).toList());
         assertThat(notices).noneMatch(notice -> "ON_BEHALF".equals(notice.getType()));
-        boolean isReturn = order(to) < order(from);
         assertThat(notices).allSatisfy(notice -> {
             assertThat(notice.getTitle()).isEqualTo(Template.valueOf(template).defaultSubject());
             assertThat(notice.getMessage()).doesNotContainIgnoringCase("behalf");
