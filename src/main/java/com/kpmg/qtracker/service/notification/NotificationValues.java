@@ -2,6 +2,7 @@ package com.kpmg.qtracker.service.notification;
 
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.service.WorkingDaysService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -31,6 +32,8 @@ public class NotificationValues {
     public static final String FROM = "FROM";
     /** The comment of a return (the quote in the e-mail, "Comment from ..."), set for a return of the workflow. */
     public static final String COMMENT = "COMMENT";
+    /** The deadline with how far it is ({@link #due}), set for the reminders: the line Due of the e-mail's details. */
+    public static final String DUE = "DUE";
     /** The person's name in "Dear {NAME},", set for each person by NotificationProducer. */
     public static final String NAME = "NAME";
     /** The person's roles on the control (T1, T2), set for each person by NotificationProducer. */
@@ -51,6 +54,27 @@ public class NotificationValues {
         values.put(DEADLINE, format(assignment == null ? null : assignment.getControlOperationDeadline()));
         values.put(TemplateRenderer.LINK, link(control));
         return values;
+    }
+
+    /**
+     * The deadline and how far it is from today, in working days (Monday to Friday, no holidays, as the deadline itself
+     * is counted): "14 Nov 2026 (in 4 working days)", "14 Nov 2026 (today)", "14 Nov 2026 (overdue by 2 working days)".
+     * A deadline at the weekend after today's Friday has no working day to count: the date alone.
+     */
+    public static String due(WorkingDaysService workingDays, LocalDate deadline, LocalDate today) {
+        String date = format(deadline);
+        if (today.equals(deadline)) {
+            return date + " (today)";
+        }
+        if (today.isAfter(deadline)) {
+            return date + " (overdue by " + workingDays(workingDays.workingDaysBetween(deadline, today)) + ")";
+        }
+        int left = workingDays.workingDaysBetween(today, deadline);
+        return left == 0 ? date : date + " (in " + workingDays(left) + ")";
+    }
+
+    private static String workingDays(int count) {
+        return count + (count == 1 ? " working day" : " working days");
     }
 
     /** The address of the control's page; a path only when app.base-url is not set. */

@@ -25,11 +25,11 @@ final class EmailLayout {
     private static final int PREHEADER_MAX = 140;
     /** Class and dark background. */
     private static final String[][] DARK_BACKGROUNDS = {{"bg", "#111827"}, {"hdr", BRAND}, {"card", "#1F2937"},
-            {"btn", "#2F6FDE"}, {"qt", "#111827"}};
+            {"btn", "#2F6FDE"}, {"qt", "#111827"}, {"bdg-n", "#374151"}, {"bdg-o", "#B45309"}, {"bdg-r", "#B91C1C"}};
     /** Class and dark text colour. */
     private static final String[][] DARK_COLORS = {{"hdr", "#FFFFFF"}, {"btn", "#FFFFFF"}, {"ttl", "#A9C4F5"},
             {"txt", "#E5E7EB"}, {"dtl-k", "#9CA3AF"}, {"dtl-v", "#E5E7EB"}, {"ftr", "#9CA3AF"}, {"qt-k", "#9CA3AF"},
-            {"qt-v", "#E5E7EB"}};
+            {"qt-v", "#E5E7EB"}, {"bdg-n", "#E5E7EB"}, {"bdg-o", "#FFFFFF"}, {"bdg-r", "#FFFFFF"}};
     /** Class and dark border colour. */
     private static final String[][] DARK_BORDERS = {{"card", "#374151"}, {"dtl", "#374151"}, {"qt", "#5B8DEF"}};
     /** The longest comment an e-mail carries; the application has the whole of it. */
@@ -52,9 +52,10 @@ final class EmailLayout {
      *
      * @param title     the card's heading, plain text (escaped here)
      * @param preheader the hidden preview line, plain text (escaped here)
+     * @param label     the kind of e-mail; a reminder has its coloured label over the heading ({@link #badge})
      * @param content   the card's text, HTML already
      */
-    static String page(String title, String preheader, String content) {
+    static String page(String title, String preheader, Template.Label label, String content) {
         String safeTitle = escape(title);
         return "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\""
                 + " \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n"
@@ -86,6 +87,7 @@ final class EmailLayout {
                 + "<tr><td class=\"card\" bgcolor=\"#ffffff\" style=\"background-color:#ffffff;padding:28px 32px 32px 32px;"
                 + "border:1px solid #E1E4EA;border-top:0;\">\n"
                 + "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\">\n"
+                + badge(label)
                 + "<tr><td style=\"padding:0 0 20px 0;\"><h1 class=\"ttl\" style=\"margin:0;" + FONT
                 + "font-size:20px;line-height:26px;font-weight:bold;color:" + BRAND + ";\">" + safeTitle + "</h1></td></tr>\n"
                 + "<tr><td class=\"txt\" style=\"" + FONT + "font-size:14px;line-height:21px;color:#222222;\">" + content
@@ -100,6 +102,27 @@ final class EmailLayout {
                 + "</table>\n"
                 + "</body>\n"
                 + "</html>\n";
+    }
+
+    /**
+     * The label over the heading of a reminder: neutral on working days 3 and 6, orange on the deadline day, red after
+     * it. Its word says the same as its colour, so the colour is never the only sign. Nothing on other e-mails.
+     */
+    private static String badge(Template.Label label) {
+        String[] style = switch (label) {
+            case REMINDER -> new String[]{"bdg-n", "#E5E7EB", "#374151"};
+            case DUE_TODAY -> new String[]{"bdg-o", "#B45309", "#ffffff"};
+            case OVERDUE -> new String[]{"bdg-r", "#B91C1C", "#ffffff"};
+            default -> null;
+        };
+        if (style == null) {
+            return "";
+        }
+        return "<tr><td style=\"padding:0 0 8px 0;\">"
+                + "<table role=\"presentation\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\"><tr>"
+                + "<td class=\"" + style[0] + "\" bgcolor=\"" + style[1] + "\" style=\"background-color:" + style[1]
+                + ";padding:3px 10px;" + FONT + "font-size:12px;line-height:18px;font-weight:bold;color:" + style[2] + ";\">"
+                + label.text() + "</td></tr></table></td></tr>\n";
     }
 
     /**

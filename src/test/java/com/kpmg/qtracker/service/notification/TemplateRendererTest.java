@@ -265,6 +265,35 @@ class TemplateRendererTest {
         assertThat(rendered.mailText()).containsOnlyOnce("Control: HR-1/FY27");
     }
 
+    /** The colour of a label is never its only sign: each has its word. */
+    @ParameterizedTest
+    @CsvSource({"T3, Reminder, bdg-n, #E5E7EB", "T4, Due today, bdg-o, #B45309", "T5, Overdue, bdg-r, #B91C1C"})
+    void aReminder_hasItsLabelOverTheHeading(Template template, String word, String colourClass, String colour) {
+        String html = renderer.render(template, values()).rendered().html();
+
+        assertThat(html).containsPattern("<td class=\"" + colourClass + "\" bgcolor=\"" + colour + "\"[^>]*>" + word + "</td>");
+        assertThat(html).containsSubsequence(">" + word + "</td>", "<h1 ");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Template.class, mode = EnumSource.Mode.EXCLUDE, names = {"T3", "T4", "T5"})
+    void noOtherEmail_hasALabel(Template template) {
+        assertThat(renderer.render(template, values()).rendered().html())
+                .doesNotContain("class=\"bdg-n\"", "class=\"bdg-o\"", "class=\"bdg-r\"");
+    }
+
+    @Test
+    void theDue_takesThePlaceOfTheDeadline() {
+        Map<String, String> values = values();
+        values.put(NotificationValues.DUE, "19 Nov 2026 (in 4 working days)");
+
+        TemplateRenderer.Rendered rendered = renderer.render(Template.T3, values).rendered();
+
+        assertThat(rendered.html()).contains(row("Due", "19 Nov 2026 (in 4 working days)")).doesNotContain(">Deadline</td>");
+        assertThat(rendered.mailText()).contains("\nDue: 19 Nov 2026 (in 4 working days)\n").doesNotContain("Deadline:");
+        assertThat(rendered.text()).contains("Deadline: 19 Nov 2026").doesNotContain("Due:");
+    }
+
     private static Map<String, String> returned(String comment) {
         Map<String, String> values = values();
         values.put(NotificationValues.RETURNED_BY, "Process Owner");
@@ -354,6 +383,7 @@ class TemplateRendererTest {
         for (String part : List.of("bg", "hdr", "card", "btn", "ttl", "txt", "dtl", "dtl-k", "dtl-v", "ftr", "qt", "qt-k", "qt-v")) {
             assertThat(html).as(part).contains("class=\"" + part + "\"").containsPattern("\\." + part + "\\{");
         }
+        assertThat(html).contains(".bdg-n{", ".bdg-o{", ".bdg-r{");
         assertThat(html).contains("<meta name=\"color-scheme\" content=\"light dark\">",
                 "@media (prefers-color-scheme: dark)", "[data-ogsc] .dtl-k{", "[data-ogsb] .card{")
                 .contains("background-color:#ffffff;").contains("color:#222222;");
@@ -384,6 +414,7 @@ class TemplateRendererTest {
         return html.replaceAll("<title>.*?</title>", "<title></title>")
                 .replaceAll("(<h1 [^>]*>).*?(</h1>)", "$1$2")
                 .replaceAll("(mso-hide:all;\">).*?(&#8199;)", "$1$2")
+                .replaceAll("<tr><td style=\"padding:0 0 8px 0;\">.*</tr>\n", "")
                 .replaceAll("(?s)(color:#222222;\">).*?(</td></tr>\n</table>\n</td></tr>\n<tr><td class=\"ftr\")", "$1$2");
     }
 

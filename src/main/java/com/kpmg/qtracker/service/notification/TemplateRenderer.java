@@ -75,7 +75,7 @@ public class TemplateRenderer {
         String title = substitute(subject, values, false).replaceAll("\\s+", " ").trim();
         String inApp = text(body, values);
         return new Result(new Rendered(subject(template, values.get(NotificationValues.CONTROL_ID), title), title, inApp,
-                EmailLayout.page(title, preheader(inApp, title), html(body, values)),
+                EmailLayout.page(title, preheader(inApp, title), template.label(), html(body, values)),
                 EmailLayout.plainText(title, mailText(body, values))), null, subject);
     }
 
@@ -212,7 +212,9 @@ public class TemplateRenderer {
         return List.of(new EmailLayout.Row("Control", values.get(NotificationValues.CONTROL_ID)),
                 new EmailLayout.Row("Description", values.get(NotificationValues.CONTROL_NAME)),
                 new EmailLayout.Row("Your role", values.get(NotificationValues.ROLES)),
-                new EmailLayout.Row("Deadline", values.get(NotificationValues.DEADLINE)),
+                values.get(NotificationValues.DUE) != null
+                        ? new EmailLayout.Row("Due", values.get(NotificationValues.DUE))
+                        : new EmailLayout.Row("Deadline", values.get(NotificationValues.DEADLINE)),
                 new EmailLayout.Row("From", values.get(NotificationValues.FROM)));
     }
 

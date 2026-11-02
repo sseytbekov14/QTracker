@@ -2,7 +2,10 @@ package com.kpmg.qtracker.service.notification;
 
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.service.WorkingDaysService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.LocalDate;
 import java.util.Locale;
@@ -58,6 +61,23 @@ class NotificationValuesTest {
 
         assertThat(of.get(NotificationValues.OCCURRENCE_DATE)).isNull();
         assertThat(of.get(NotificationValues.DEADLINE)).isNull();
+    }
+
+    /** 2026-11-02 is a Monday; 14 Nov 2026 a Saturday; the working days are Monday to Friday, no holidays. */
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', textBlock = """
+            2026-11-16 | 2026-11-16 | 16 Nov 2026 (today)
+            2026-11-16 | 2026-11-13 | 16 Nov 2026 (in 1 working day)
+            2026-11-16 | 2026-11-12 | 16 Nov 2026 (in 2 working days)
+            2026-11-20 | 2026-11-16 | 20 Nov 2026 (in 4 working days)
+            2026-11-16 | 2026-11-17 | 16 Nov 2026 (overdue by 1 working day)
+            2026-11-13 | 2026-11-16 | 13 Nov 2026 (overdue by 1 working day)
+            2026-11-13 | 2026-11-17 | 13 Nov 2026 (overdue by 2 working days)
+            2026-11-14 | 2026-11-16 | 14 Nov 2026 (overdue by 1 working day)
+            2026-11-14 | 2026-11-13 | 14 Nov 2026
+            """)
+    void theDue_inWorkingDays(LocalDate deadline, LocalDate today, String due) {
+        assertThat(NotificationValues.due(new WorkingDaysService(), deadline, today)).isEqualTo(due);
     }
 
     @Test
