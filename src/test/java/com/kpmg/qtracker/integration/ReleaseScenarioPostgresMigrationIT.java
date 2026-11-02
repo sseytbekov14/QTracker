@@ -60,7 +60,7 @@ class ReleaseScenarioPostgresMigrationIT {
         }
     }
 
-    private static final String LATEST = "25";
+    private static final String LATEST = "26";
 
     @Test
     void anEmptyDatabase_migratesToTheLatestVersion_withTheSeedPeopleOfV2() throws Exception {

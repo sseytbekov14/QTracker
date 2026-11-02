@@ -5,6 +5,7 @@ import com.kpmg.qtracker.repository.NotificationTemplateTextRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.web.util.HtmlUtils;
 
@@ -91,7 +92,7 @@ class TemplateRendererTest {
     void eachTemplate_dearName_theText_goToControlInTheEmail_noLinkInApp(Template template) {
         TemplateRenderer.Rendered rendered = renderer.render(template, values()).rendered();
 
-        assertThat(rendered.subject()).isEqualTo(template.defaultSubject());
+        assertThat(rendered.title()).isEqualTo(template.defaultSubject());
         assertThat(rendered.text()).isEqualTo(inApp(template))
                 .doesNotContain("http").doesNotContainIgnoringCase("link").doesNotEndWith("\n");
         String firstLine = inApp(template).split("\n")[2];
@@ -112,6 +113,39 @@ class TemplateRendererTest {
         assertThat(rendered.mailText()).isEqualTo(template.defaultSubject() + "\n\n"
                 + inApp(template).replace("\n\nKind regards,", "\nGo to Control: " + LINK + "\n\nKind regards,")
                 + "\n\n--\n" + EmailLayout.FOOTER);
+    }
+
+    /** "[QTracker] Prefix: Control ID: step or event" for each kind of e-mail, and no word like URGENT. */
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', textBlock = """
+            T1  | [QTracker] Action required: HR-1/FY27: The creation of the SoQM control
+            T2  | [QTracker] Action required: HR-1/FY27: The activation of the SoQM control
+            T3  | [QTracker] Reminder: HR-1/FY27: Awaiting your action
+            T4  | [QTracker] Due today: HR-1/FY27: Complete by the end of the day
+            T5  | [QTracker] Overdue: HR-1/FY27: Control not completed
+            T6  | [QTracker] Action required: HR-1/FY27: Control Operator Review
+            T7  | [QTracker] Action required: HR-1/FY27: Control sent back to Facilitator
+            T8  | [QTracker] Action required: HR-1/FY27: SoQM Admin Team Review
+            T9  | [QTracker] Action required: HR-1/FY27: Control sent back to Control Operator
+            T10 | [QTracker] Action required: HR-1/FY27: Process Owner Review
+            T11 | [QTracker] Action required: HR-1/FY27: Control sent back to Control Operator
+            T12 | [QTracker] HR-1/FY27: SoQM control completed
+            """)
+    void theSubject_ofEachKindOfEmail(Template template, String subject) {
+        TemplateRenderer.Rendered rendered = renderer.render(template, values()).rendered();
+
+        assertThat(rendered.subject()).isEqualTo(subject).doesNotContainIgnoringCase("urgent");
+        // The title of the e-mail and of the in-app notification is the name alone
+        assertThat(rendered.title()).isEqualTo(template.defaultSubject()).doesNotContain("[QTracker]");
+        assertThat(rendered.html()).contains("<title>" + template.defaultSubject() + "</title>");
+    }
+
+    @Test
+    void theSubject_takesANameChangedInTheTable() {
+        stored.get("T8").setSubject("Our own name");
+
+        assertThat(renderer.render(Template.T8, values()).rendered().subject())
+                .isEqualTo("[QTracker] Action required: HR-1/FY27: Our own name");
     }
 
     /** The control is named by its ID alone: the description is free text and can name another control. */
@@ -191,7 +225,7 @@ class TemplateRendererTest {
                 + "style=\"color:#00338D;font-weight:bold\">Go to Control</a> now.<br>\n<table role=\"presentation\"")
                 .contains("</table>\nKind regards,<br>\nSoQM Team");
         assertThat(rendered.text()).isEqualTo("Dear Anna Smith,\nOpen  now.\n\nKind regards,\nSoQM Team");
-        assertThat(rendered.mailText()).isEqualTo("Control Reminder\n\nDear Anna Smith,\nOpen Go to Control (" + LINK
+        assertThat(rendered.mailText()).isEqualTo("Awaiting your action\n\nDear Anna Smith,\nOpen Go to Control (" + LINK
                 + ") now.\nGo to Control: " + LINK + "\n\nKind regards,\nSoQM Team\n\n--\n" + EmailLayout.FOOTER);
     }
 
@@ -235,7 +269,7 @@ class TemplateRendererTest {
     @Test
     void aTextChangedInTheTable_isUsedAtOnce_andAnUnknownPlaceholderFails() {
         stored.get("T8").setSubject("SoQM review: {CONTROL_ID}");
-        assertThat(renderer.render(Template.T8, values()).rendered().subject()).isEqualTo("SoQM review: HR-1/FY27");
+        assertThat(renderer.render(Template.T8, values()).rendered().title()).isEqualTo("SoQM review: HR-1/FY27");
 
         stored.get("T8").setBody("Dear team, {UNKNOWN}");
         assertThat(renderer.render(Template.T8, values()).error()).contains("{UNKNOWN}");

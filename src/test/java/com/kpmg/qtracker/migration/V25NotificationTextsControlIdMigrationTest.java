@@ -72,7 +72,7 @@ class V25NotificationTextsControlIdMigrationTest {
             };
             assertThat(body(template.name())).as(template.name()).isEqualTo(expected);
             assertThat(single("SELECT subject FROM notification_template WHERE template_key = '" + template.name() + "'"))
-                    .as(template.name()).isEqualTo(template.defaultSubject());
+                    .as(template.name()).isEqualTo(V21__Notification_texts.TEXTS.get(template.name())[0]);
         }
     }
 

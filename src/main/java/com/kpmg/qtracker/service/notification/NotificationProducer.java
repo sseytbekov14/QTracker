@@ -93,7 +93,7 @@ public class NotificationProducer {
                 notification.setUserId(user.getId());
                 notification.setControlId(control.getId());
                 notification.setType(template.inAppType());
-                notification.setTitle(rendered.subject());
+                notification.setTitle(rendered.title());
                 notification.setMessage(message);
                 notification.setLink(values.get(TemplateRenderer.LINK));
                 notification.setIsRead(false);

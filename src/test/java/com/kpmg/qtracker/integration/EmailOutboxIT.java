@@ -162,16 +162,16 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
             assertThat(row.getStatus()).isEqualTo(EmailOutbox.PENDING);
             assertThat(row.getTemplateKey()).isEqualTo("T3");
             assertThat(row.getImportance()).isEqualTo("NORMAL");
-            assertThat(row.getSubject()).isEqualTo("Control Reminder");
+            assertThat(row.getSubject()).isEqualTo("[QTracker] Reminder: " + control.getControlId() + ": Awaiting your action");
             assertThat(row.getBodyHtml()).contains("Dear " + fac.getDisplayName() + ",", control.getControlId(),
                     "/view-control/" + control.getId() + "\" style=");
-            assertThat(row.getBodyText()).startsWith("Control Reminder\n\nDear " + fac.getDisplayName() + ",\n")
+            assertThat(row.getBodyText()).startsWith("Awaiting your action\n\nDear " + fac.getDisplayName() + ",\n")
                     .contains("Go to Control: ").doesNotContain("<");
         });
         List<Notification> notices = notificationRepository.findByControlIdOrderByCreatedAtDesc(control.getId());
         assertThat(notices).extracting(Notification::getUserId).containsExactlyInAnyOrder(fac.getId(), twin.getId());
         assertThat(notices).allSatisfy(notice -> {
-            assertThat(notice.getTitle()).isEqualTo("Control Reminder");
+            assertThat(notice.getTitle()).isEqualTo("Awaiting your action");
             assertThat(notice.getType()).isEqualTo("REMINDER");
             assertThat(notice.getMessage()).startsWith("Dear " + fac.getDisplayName() + ",").contains("Kind regards,\nSoQM Team");
         });
@@ -294,11 +294,11 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
 
         assertThat(transport.count(fac.getMail())).isEqualTo(1);
         MailTransport.OutgoingMail mail = transport.sent.stream().filter(m -> m.to().equals(fac.getMail())).findFirst().orElseThrow();
-        assertThat(mail.subject()).isEqualTo("Control Deadline Today");
+        assertThat(mail.subject()).isEqualTo("[QTracker] Due today: " + control.getControlId() + ": Complete by the end of the day");
         assertThat(mail.highImportance()).isTrue();
         // Both parts of the e-mail: the HTML of the layout and its plain text
         assertThat(mail.html()).startsWith("<!DOCTYPE html").contains("Dear " + fac.getDisplayName() + ",<br>");
-        assertThat(mail.text()).startsWith("Control Deadline Today\n\nDear " + fac.getDisplayName() + ",\n")
+        assertThat(mail.text()).startsWith("Complete by the end of the day\n\nDear " + fac.getDisplayName() + ",\n")
                 .contains("\nGo to Control: ", "/view-control/" + control.getId() + "\n")
                 .endsWith("Please do not reply to this e-mail.");
         assertThat(mail.from()).isEqualTo("qtracker@example.test");

@@ -83,6 +83,12 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
         return renderer.render(template, placeholders).rendered().html();
     }
 
+    /** "[QTracker] Prefix: Control ID: step or event"; no prefix for the e-mail that only informs. */
+    static String expectedSubject(Control control, Template template) {
+        String prefix = template.label() == Template.Label.NONE ? "" : template.label().text() + ": ";
+        return "[QTracker] " + prefix + control.getControlId() + ": " + template.defaultSubject();
+    }
+
     /**
      * actor: F, CO, PO, SOQM (in the field SoQM Team / Delegate) or OTHER (a SoQM user not in it, acting for the role
      * of the step); people: who gets it.
@@ -128,7 +134,7 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
             EmailOutbox mail = mails.stream().filter(m -> m.getRecipientEmail().equals(person.getMail())).findFirst().orElseThrow();
             String html = expectedHtml(control, Template.valueOf(template), returnedBy, person);
             assertThat(mail.getTemplateKey()).isEqualTo(template);
-            assertThat(mail.getSubject()).isEqualTo(Template.valueOf(template).defaultSubject());
+            assertThat(mail.getSubject()).isEqualTo(expectedSubject(control, Template.valueOf(template)));
             assertThat(mail.getBodyHtml()).isEqualTo(html).contains("Dear " + person.getDisplayName() + ",<br>")
                     .doesNotContainIgnoringCase("behalf").doesNotContain("Comment of the move");
             assertThat(mail.getImportance()).isEqualTo("NORMAL");
