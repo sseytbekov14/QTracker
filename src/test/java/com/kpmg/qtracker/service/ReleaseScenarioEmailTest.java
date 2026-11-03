@@ -81,7 +81,9 @@ class ReleaseScenarioEmailTest {
         ByteArrayOutputStream raw = new ByteArrayOutputStream();
         sent.getValue().writeTo(raw);
         assertThat(raw.toString(StandardCharsets.UTF_8)).contains("charset=UTF-8");
-        MimeMultipart parts = (MimeMultipart) sent.getValue().getContent();
+        // multipart/related: the alternative (text, HTML), then the logo
+        MimeMultipart related = (MimeMultipart) sent.getValue().getContent();
+        MimeMultipart parts = (MimeMultipart) related.getBodyPart(0).getContent();
         assertThat(String.valueOf(parts.getBodyPart(0).getContent())).contains("Контроль ✅");
         assertThat(String.valueOf(parts.getBodyPart(1).getContent())).contains("Контроль ✅");
     }

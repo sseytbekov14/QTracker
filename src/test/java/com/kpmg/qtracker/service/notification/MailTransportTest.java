@@ -1,11 +1,14 @@
 package com.kpmg.qtracker.service.notification;
 
+import jakarta.mail.Part;
 import jakarta.mail.Session;
+import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.io.ByteArrayInputStream;
@@ -88,6 +91,35 @@ class MailTransportTest {
         assertThat(lf(parts.getBodyPart(0).getContent())).isEqualTo(TEXT);
         assertThat(parts.getBodyPart(1).getContentType()).startsWith("text/html").containsIgnoringCase("charset=UTF-8");
         assertThat(lf(parts.getBodyPart(1).getContent())).isEqualTo(HTML);
+    }
+
+    /** The HTML of the layout shows the logo by cid: it goes with the e-mail as an inline image. */
+    @Test
+    void smtp_theLogo_isAnInlineImage_nextToTheAlternative() throws Exception {
+        String html = "<html><body><img src=\"cid:qtracker-logo\" alt=\"KPMG QTracker\"><p>Dear Anna,</p></body></html>";
+
+        MimeMessage message = sendBySmtp(html, TEXT, false);
+
+        assertThat(message.getContentType()).startsWith("multipart/related");
+        MimeMultipart related = (MimeMultipart) message.getContent();
+        assertThat(related.getCount()).isEqualTo(2);
+        MimeMultipart alternative = (MimeMultipart) related.getBodyPart(0).getContent();
+        assertThat(alternative.getContentType()).startsWith("multipart/alternative");
+        assertThat(lf(alternative.getBodyPart(0).getContent())).isEqualTo(TEXT);
+        assertThat(lf(alternative.getBodyPart(1).getContent())).isEqualTo(html);
+        MimeBodyPart logo = (MimeBodyPart) related.getBodyPart(1);
+        assertThat(logo.getContentType()).startsWith("image/png");
+        assertThat(logo.getContentID()).isEqualTo("<qtracker-logo>");
+        assertThat(logo.getDisposition()).isEqualTo(Part.INLINE);
+        try (var in = new ClassPathResource(EmailLayout.LOGO_RESOURCE).getInputStream()) {
+            assertThat(logo.getInputStream().readAllBytes()).isEqualTo(in.readAllBytes());
+        }
+        assertThat(message.getHeader("Auto-Submitted")).containsExactly("auto-generated");
+    }
+
+    @Test
+    void smtp_anHtmlWithoutTheLogo_staysMultipartAlternative() throws Exception {
+        assertThat(sendBySmtp(HTML, TEXT, false).getContentType()).startsWith("multipart/alternative");
     }
 
     @Test

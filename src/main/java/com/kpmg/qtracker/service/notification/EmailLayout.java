@@ -9,7 +9,7 @@ import java.util.List;
  * The one layout of every QTracker e-mail (2026-10-30); a template gives only its title and its text, and the data of
  * the details block. Built for Outlook (its Word engine): tables only, every style inline, a fixed 600 px column inside
  * an Outlook-only table, the button drawn by VML in Outlook and by a styled link elsewhere. Parts: a hidden preheader
- * (the line the inbox shows after the subject), the #00338D header "QTracker", the white card with the title, the text
+ * (the line the inbox shows after the subject), the #00338D header with the logo, the white card with the title, the text
  * and the details of the control, the footer "automated message". The plain-text part of the e-mail has the same title,
  * text, details and footer.
  * <p>The inline styles are the light theme. A client with a dark theme of its own reads the classes (hdr, card, btn and
@@ -19,6 +19,17 @@ import java.util.List;
 final class EmailLayout {
 
     static final String BRAND = "#00338D";
+    /**
+     * The logo of the header, "KPMG | QTracker" white on #00338D (2026-11-03), sent inside the e-mail as an inline image
+     * (SmtpMailTransport), which Outlook shows without asking, unlike an image on a server. Its blue is part of the
+     * picture: Outlook's dark theme repaints the header cell but not an image.
+     */
+    static final String LOGO_CID = "qtracker-logo";
+    static final String LOGO_RESOURCE = "mail/qtracker-logo.png";
+    static final String LOGO_ALT = "KPMG QTracker";
+    // The picture is twice this size, for sharp screens
+    private static final int LOGO_WIDTH = 164;
+    private static final int LOGO_HEIGHT = 36;
     static final String FOOTER = "This is an automated message from QTracker. Please do not reply to this e-mail.";
     private static final String BACKGROUND = "#F2F4F7";
     private static final String FONT = "font-family:Arial,Helvetica,sans-serif;";
@@ -82,8 +93,11 @@ final class EmailLayout {
                 + " cellpadding=\"0\" border=\"0\"><tr><td><![endif]-->\n"
                 + "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\""
                 + " style=\"width:100%;max-width:600px;\">\n"
-                + "<tr><td class=\"hdr\" bgcolor=\"" + BRAND + "\" style=\"background-color:" + BRAND + ";padding:18px 32px;"
-                + FONT + "font-size:20px;line-height:24px;font-weight:bold;color:#ffffff;\">QTracker</td></tr>\n"
+                + "<tr><td class=\"hdr\" bgcolor=\"" + BRAND + "\" style=\"background-color:" + BRAND + ";padding:14px 32px;"
+                + FONT + "font-size:20px;line-height:24px;font-weight:bold;color:#ffffff;\">"
+                + "<img src=\"cid:" + LOGO_CID + "\" width=\"" + LOGO_WIDTH + "\" height=\"" + LOGO_HEIGHT + "\" alt=\""
+                + LOGO_ALT + "\" style=\"display:block;border:0;outline:none;text-decoration:none;width:" + LOGO_WIDTH
+                + "px;height:" + LOGO_HEIGHT + "px;color:#ffffff;" + FONT + "font-size:20px;font-weight:bold;\"></td></tr>\n"
                 + "<tr><td class=\"card\" bgcolor=\"#ffffff\" style=\"background-color:#ffffff;padding:28px 32px 32px 32px;"
                 + "border:1px solid #E1E4EA;border-top:0;\">\n"
                 + "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\">\n"

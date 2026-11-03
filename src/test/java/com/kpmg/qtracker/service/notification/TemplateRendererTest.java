@@ -104,7 +104,8 @@ class TemplateRendererTest {
         assertThat(rendered.html()).startsWith("<!DOCTYPE html")
                 .contains("<title>" + template.defaultSubject() + "</title>")
                 .contains("mso-hide:all;\">" + HtmlUtils.htmlEscape(firstLine) + "&#8199;")
-                .contains(";color:#ffffff;\">QTracker</td>")
+                .containsPattern("<td class=\"hdr\" [^>]*><img src=\"cid:qtracker-logo\" width=\"164\" height=\"36\""
+                        + " alt=\"KPMG QTracker\" [^>]*></td>")
                 .containsPattern("<h1 [^>]*>" + Pattern.quote(template.defaultSubject()) + "</h1>")
                 .contains("Dear Anna Smith,<br>")
                 .contains("<v:roundrect xmlns:v=\"urn:schemas-microsoft-com:vml\"")
