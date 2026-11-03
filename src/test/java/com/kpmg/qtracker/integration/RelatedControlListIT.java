@@ -12,6 +12,7 @@ import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.repository.AdminAuditLogRepository;
 import com.kpmg.qtracker.repository.RelatedControlRefRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.service.RelatedControlList;
 import com.kpmg.qtracker.service.RelatedControlsImport;
 import com.kpmg.qtracker.service.RelatedControlsImport.Outcome;
 import org.apache.poi.ss.usermodel.Row;
@@ -323,6 +324,21 @@ class RelatedControlListIT {
         assertThat(list(soqm, "?q= F1 ")).containsExactly("SYN-F1");
         assertThat(list(soqm, "?q=_")).isEmpty();
         assertThat(list(soqm, "?limit=500")).hasSize(ADDED - 1);
+    }
+
+    /** The field asks for 1000 (multi-value.js): a list as long as the real one (360 Control IDs) comes whole. */
+    @Test
+    void theWholeList_ofTheRealLength_comesAtOnce() throws Exception {
+        List<String> ids = new ArrayList<>();
+        for (int i = 1; i <= 360; i++) {
+            ids.add(String.format("SYN-ALL-%03d", i));
+        }
+        relatedControlsImport.run(workbook(ids), true, false, "tester");
+        MockHttpSession soqm = login(saveUser("rl-soqm-all", AccessLevel.SOQM, AccessScope.ALL));
+
+        assertThat(list(soqm, "?q=&limit=1000")).containsExactlyElementsOf(ids);
+        assertThat(list(soqm, "?limit=5000")).hasSize(360);
+        assertThat(RelatedControlList.MAX_LIMIT).isEqualTo(1000);
     }
 
     @Test

@@ -9,8 +9,8 @@ const MultiValueFields = (function () {
 
     const SEPARATOR = ';';
     const JOINER = '; ';
-    // How many matches the open list shows at most; typing narrows it
-    const SHOWN_AT_MOST = 50;
+    // How many matches the open list shows at most: every one of today's lists (360 Control IDs); typing narrows it
+    const SHOWN_AT_MOST = 1000;
     const SEARCH_DELAY_MS = 150;
 
     const fields = [];
