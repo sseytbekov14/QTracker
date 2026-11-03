@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
  * "Go to Control: address". In the in-app notification its line is left out: no address and no word of
  * a link (the page has its own "Go to Control" button).
  * <p>The e-mail is {@link EmailLayout}: the name of the step or event as the card's title, the text in the card, the
- * first line after the greeting as the preheader. Its subject is built from that name, {@link #subject}. Above the
+ * first line after the greeting as the preheader. Its subject is that name alone (2026-11-03). Above the
  * button stand the details of the control ({@link EmailLayout#details}) and the comment of a return
  * ({@link EmailLayout#quote}), from the values given.
  */
@@ -32,7 +32,6 @@ public class TemplateRenderer {
 
     public static final String LINK = "LINK";
     public static final String BUTTON_LABEL = "Go to Control";
-    private static final String SUBJECT_TAG = "[QTracker]";
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([A-Z_]+)}");
     private static final Pattern PLACEHOLDER_LINK = Pattern.compile("\\{" + LINK + "}");
     private static final Pattern THREE_OR_MORE_BREAKS = Pattern.compile("\\n(?:[ \\t]*\\n){2,}");
@@ -74,21 +73,9 @@ public class TemplateRenderer {
         }
         String title = substitute(subject, values, false).replaceAll("\\s+", " ").trim();
         String inApp = text(body, values);
-        return new Result(new Rendered(subject(template, values.get(NotificationValues.CONTROL_ID), title), title, inApp,
+        return new Result(new Rendered(title, title, inApp,
                 EmailLayout.page(title, preheader(inApp, title), template.label(), html(body, values)),
                 EmailLayout.plainText(title, mailText(body, values))), null, subject);
-    }
-
-    /** The e-mail's subject: "[QTracker] Prefix: Control ID: step or event"; no prefix for one that only informs. */
-    static String subject(Template template, String controlId, String title) {
-        StringBuilder out = new StringBuilder(SUBJECT_TAG).append(' ');
-        if (template.label() != Template.Label.NONE) {
-            out.append(template.label().text()).append(": ");
-        }
-        if (controlId != null && !controlId.isBlank()) {
-            out.append(controlId.strip()).append(": ");
-        }
-        return out.append(title).toString();
     }
 
     private static Set<String> missing(String text, Map<String, String> values) {

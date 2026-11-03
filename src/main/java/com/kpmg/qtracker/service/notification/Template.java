@@ -159,7 +159,7 @@ public enum Template {
         NORMAL, HIGH
     }
 
-    /** What the e-mail asks of its reader, the prefix of its subject; none for an e-mail that only informs. */
+    /** What the e-mail asks of its reader; a reminder shows it as a label over the heading (EmailLayout). */
     public enum Label {
         ACTION_REQUIRED("Action required"), REMINDER("Reminder"), DUE_TODAY("Due today"), OVERDUE("Overdue"), NONE(null);
 
@@ -203,7 +203,7 @@ public enum Template {
 
     /**
      * The name of the step or event, the first content of notification_template.subject: the title of the e-mail and
-     * of the in-app notification, and the last part of the e-mail's subject ({@link TemplateRenderer#subject}).
+     * of the in-app notification, and the e-mail's subject.
      */
     public String defaultSubject() {
         return defaultSubject;

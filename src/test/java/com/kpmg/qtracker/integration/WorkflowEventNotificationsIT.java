@@ -108,10 +108,9 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
         } + ")";
     }
 
-    /** "[QTracker] Prefix: Control ID: step or event"; no prefix for the e-mail that only informs. */
+    /** The subject: the name of the step or event alone. */
     static String expectedSubject(Control control, Template template) {
-        String prefix = template.label() == Template.Label.NONE ? "" : template.label().text() + ": ";
-        return "[QTracker] " + prefix + control.getControlId() + ": " + template.defaultSubject();
+        return template.defaultSubject();
     }
 
     /**

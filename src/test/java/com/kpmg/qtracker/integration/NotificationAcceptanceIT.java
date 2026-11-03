@@ -99,7 +99,7 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
         EmailOutbox reminder = mails(control).stream().filter(m -> m.getTemplateKey().equals("T3")).findFirst().orElseThrow();
         assertThat(reminder.getRecipientEmail()).isEqualTo(cast.fac.getMail());
         assertThat(reminder.getCreatedAt()).isEqualTo(LocalDate.of(2026, 11, 10).atTime(LocalTime.of(9, 30)));
-        assertThat(reminder.getSubject()).isEqualTo("[QTracker] Reminder: " + control.getControlId() + ": Awaiting your action");
+        assertThat(reminder.getSubject()).isEqualTo("Awaiting your action");
         assertThat(reminder.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(cast.fac.getDisplayName()) + ",<br>", "is awaiting your action",
                 ">19 Nov 2026 (in 7 working days)</td>", ">Reminder</td>", ">Go to Control</a>");
     }
@@ -230,7 +230,7 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
             assertThat(mail.getTemplateKey()).isEqualTo("T4");
             assertThat(mail.getRecipientEmail()).isEqualTo(cast.fac.getMail());
             assertThat(mail.getImportance()).isEqualTo("HIGH");
-            assertThat(mail.getSubject()).isEqualTo("[QTracker] Due today: " + control.getControlId() + ": Complete by the end of the day");
+            assertThat(mail.getSubject()).isEqualTo("Complete by the end of the day");
             assertThat(mail.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(cast.fac.getDisplayName()) + ",<br>", " is today (19 Nov 2026).", ">19 Nov 2026 (today)</td>", ">Due today</td>",
                     "Please complete it by the end of the day.");
         });

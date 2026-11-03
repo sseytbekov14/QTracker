@@ -122,28 +122,14 @@ class TemplateRendererTest {
                 + "\n\n--\n" + EmailLayout.FOOTER);
     }
 
-    /** "[QTracker] Prefix: Control ID: step or event" for each kind of e-mail, and no word like URGENT. */
+    /** The subject is the name of the step or event alone: no "[QTracker]", no prefix, no Control ID (2026-11-03). */
     @ParameterizedTest
-    @CsvSource(delimiter = '|', textBlock = """
-            T1  | [QTracker] Action required: HR-1/FY27: The creation of the SoQM control
-            T2  | [QTracker] Action required: HR-1/FY27: The activation of the SoQM control
-            T3  | [QTracker] Reminder: HR-1/FY27: Awaiting your action
-            T4  | [QTracker] Due today: HR-1/FY27: Complete by the end of the day
-            T5  | [QTracker] Overdue: HR-1/FY27: Control not completed
-            T6  | [QTracker] Action required: HR-1/FY27: Control Operator Review
-            T7  | [QTracker] Action required: HR-1/FY27: Control sent back to Facilitator
-            T8  | [QTracker] Action required: HR-1/FY27: SoQM Admin Team Review
-            T9  | [QTracker] Action required: HR-1/FY27: Control sent back to Control Operator
-            T10 | [QTracker] Action required: HR-1/FY27: Process Owner Review
-            T11 | [QTracker] Action required: HR-1/FY27: Control sent back to Control Operator
-            T12 | [QTracker] HR-1/FY27: SoQM control completed
-            """)
-    void theSubject_ofEachKindOfEmail(Template template, String subject) {
+    @EnumSource(Template.class)
+    void theSubject_isTheNameAlone(Template template) {
         TemplateRenderer.Rendered rendered = renderer.render(template, values()).rendered();
 
-        assertThat(rendered.subject()).isEqualTo(subject).doesNotContainIgnoringCase("urgent");
-        // The title of the e-mail and of the in-app notification is the name alone
-        assertThat(rendered.title()).isEqualTo(template.defaultSubject()).doesNotContain("[QTracker]");
+        assertThat(rendered.subject()).isEqualTo(template.defaultSubject()).isEqualTo(rendered.title())
+                .doesNotContain("[QTracker]", "HR-1/FY27", "Action required").doesNotContainIgnoringCase("urgent");
         assertThat(rendered.html()).contains("<title>" + template.defaultSubject() + "</title>");
     }
 
@@ -151,8 +137,7 @@ class TemplateRendererTest {
     void theSubject_takesANameChangedInTheTable() {
         stored.get("T8").setSubject("Our own name");
 
-        assertThat(renderer.render(Template.T8, values()).rendered().subject())
-                .isEqualTo("[QTracker] Action required: HR-1/FY27: Our own name");
+        assertThat(renderer.render(Template.T8, values()).rendered().subject()).isEqualTo("Our own name");
     }
 
     /**

@@ -162,7 +162,7 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
             assertThat(row.getStatus()).isEqualTo(EmailOutbox.PENDING);
             assertThat(row.getTemplateKey()).isEqualTo("T3");
             assertThat(row.getImportance()).isEqualTo("NORMAL");
-            assertThat(row.getSubject()).isEqualTo("[QTracker] Reminder: " + control.getControlId() + ": Awaiting your action");
+            assertThat(row.getSubject()).isEqualTo("Awaiting your action");
             assertThat(row.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(fac.getDisplayName()) + ",", control.getControlId(),
                     "/view-control/" + control.getId() + "\" style=");
             assertThat(row.getBodyText()).startsWith("Awaiting your action\n\nDear "
@@ -295,7 +295,7 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
 
         assertThat(transport.count(fac.getMail())).isEqualTo(1);
         MailTransport.OutgoingMail mail = transport.sent.stream().filter(m -> m.to().equals(fac.getMail())).findFirst().orElseThrow();
-        assertThat(mail.subject()).isEqualTo("[QTracker] Due today: " + control.getControlId() + ": Complete by the end of the day");
+        assertThat(mail.subject()).isEqualTo("Complete by the end of the day");
         assertThat(mail.highImportance()).isTrue();
         // Both parts of the e-mail: the HTML of the layout and its plain text
         assertThat(mail.html()).startsWith("<!DOCTYPE html").contains("Dear " + NotificationRecipients.firstName(fac.getDisplayName()) + ",<br>");
