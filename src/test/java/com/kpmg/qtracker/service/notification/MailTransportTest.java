@@ -117,6 +117,29 @@ class MailTransportTest {
         assertThat(message.getHeader("Auto-Submitted")).containsExactly("auto-generated");
     }
 
+    /** The e-mail of the layout names three pictures (logo, and for classic Outlook header and button): all go with it. */
+    @Test
+    void smtp_everyPictureTheHtmlNames_goesWithIt_once() throws Exception {
+        String html = "<html><body><!--[if mso]><img src=\"cid:qtracker-header\"><img src=\"cid:qtracker-button\">"
+                + "<![endif]--><img src=\"cid:qtracker-logo\"><img src=\"cid:qtracker-logo\"></body></html>";
+
+        MimeMultipart related = (MimeMultipart) sendBySmtp(html, TEXT, false).getContent();
+
+        assertThat(related.getCount()).isEqualTo(4);
+        java.util.List<String> ids = new java.util.ArrayList<>();
+        for (int i = 1; i < related.getCount(); i++) {
+            MimeBodyPart image = (MimeBodyPart) related.getBodyPart(i);
+            assertThat(image.getContentType()).startsWith("image/png");
+            assertThat(image.getDisposition()).isEqualTo(Part.INLINE);
+            ids.add(image.getContentID());
+            try (var in = new ClassPathResource(EmailLayout.INLINE_IMAGES.get(image.getContentID().replaceAll("[<>]", "")))
+                    .getInputStream()) {
+                assertThat(image.getInputStream().readAllBytes()).isEqualTo(in.readAllBytes());
+            }
+        }
+        assertThat(ids).containsExactly("<qtracker-button>", "<qtracker-header>", "<qtracker-logo>");
+    }
+
     @Test
     void smtp_anHtmlWithoutTheLogo_staysMultipartAlternative() throws Exception {
         assertThat(sendBySmtp(HTML, TEXT, false).getContentType()).startsWith("multipart/alternative");

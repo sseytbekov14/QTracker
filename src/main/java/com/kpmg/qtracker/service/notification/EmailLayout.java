@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Year;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The one layout of every QTracker e-mail (2026-10-30); a template gives only its title and its text, and the data of
@@ -33,6 +34,16 @@ final class EmailLayout {
     // The picture is twice this size, for sharp screens
     private static final int LOGO_WIDTH = 164;
     private static final int LOGO_HEIGHT = 36;
+    /**
+     * Classic Outlook for Windows (the part of the e-mail only it reads, [if mso]): its dark theme repaints the colours
+     * of cells and text, not pictures (2026-11-03: the header turned light blue, the button text dark). So it gets the
+     * header as one 600 x 64 picture and the button as a 200 x 42 picture in the link; the other clients get the HTML.
+     */
+    static final String HEADER_CID = "qtracker-header";
+    static final String BUTTON_CID = "qtracker-button";
+    /** Every inline image of the layout: its Content-ID and its file; an e-mail carries those its HTML names. */
+    static final Map<String, String> INLINE_IMAGES = Map.of(LOGO_CID, LOGO_RESOURCE,
+            HEADER_CID, "mail/qtracker-header.png", BUTTON_CID, "mail/qtracker-button.png");
     static final String FOOTER = "This is an automated message from QTracker. Please do not reply to this e-mail.";
     static final String COPYRIGHT_HOLDERS = "KPMG Audit LLC, KPMG Tax and Advisory LLC and KPMG Valuation LLC, companies"
             + " incorporated under the Laws of the Republic of Kazakhstan and a member firm of the KPMG global organization"
@@ -100,11 +111,17 @@ final class EmailLayout {
                 + " cellpadding=\"0\" border=\"0\"><tr><td><![endif]-->\n"
                 + "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\""
                 + " style=\"width:100%;max-width:600px;\">\n"
+                // Classic Outlook: the whole header as one picture (its dark theme repaints the cell, not an image)
+                + "<!--[if mso]><tr><td style=\"padding:0;font-size:0;line-height:0;\"><img src=\"cid:" + HEADER_CID
+                + "\" width=\"600\" height=\"64\" alt=\"" + LOGO_ALT + "\" border=\"0\" style=\"display:block;border:0;"
+                + "width:600px;height:64px;\"></td></tr><![endif]-->\n"
+                + "<!--[if !mso]><!-- -->"
                 + "<tr><td class=\"hdr\" bgcolor=\"" + BRAND + "\" style=\"background-color:" + BRAND + ";padding:14px 32px;"
                 + FONT + "font-size:20px;line-height:24px;font-weight:bold;color:#ffffff;\">"
                 + "<img src=\"cid:" + LOGO_CID + "\" width=\"" + LOGO_WIDTH + "\" height=\"" + LOGO_HEIGHT + "\" alt=\""
                 + LOGO_ALT + "\" style=\"display:block;border:0;outline:none;text-decoration:none;width:" + LOGO_WIDTH
-                + "px;height:" + LOGO_HEIGHT + "px;color:#ffffff;" + FONT + "font-size:20px;font-weight:bold;\"></td></tr>\n"
+                + "px;height:" + LOGO_HEIGHT + "px;color:#ffffff;" + FONT + "font-size:20px;font-weight:bold;\"></td></tr>"
+                + "<!--<![endif]-->\n"
                 + "<tr><td class=\"card\" bgcolor=\"#ffffff\" style=\"background-color:#ffffff;padding:28px 32px 32px 32px;"
                 + "border:1px solid #E1E4EA;border-top:0;\">\n"
                 + "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\">\n"
@@ -228,28 +245,18 @@ final class EmailLayout {
     }
 
     /**
-     * The text of the button in Outlook for Windows. Its dark theme repaints a white text dark but leaves the dark fill
-     * of the button, so the text could not be read; a text filled with a gradient (here white to white) it leaves as it
-     * is. Only Outlook reads these mso- properties.
-     */
-    static final String OUTLOOK_WHITE_TEXT = "color:#ffffff;mso-style-textfill-type:gradient;"
-            + "mso-style-textfill-fill-gradientfill-stoplist:'0 \\#FFFFFF 0 100000\\,100000 \\#FFFFFF 0 100000';";
-
-    /**
-     * The "Go to Control" button, the address not shown: in Outlook a VML rounded rectangle with its text kept white in
-     * the dark theme ({@link #OUTLOOK_WHITE_TEXT}), elsewhere a link styled as a button.
+     * The "Go to Control" button, the address not shown: in classic Outlook a picture of the button inside the link
+     * ({@link #BUTTON_CID}; its dark theme repainted the text of a drawn button dark on the dark fill), elsewhere a link
+     * styled as a button.
      */
     static String button(String link) {
         String href = escape(link);
         return "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\">\n"
                 + "<tr><td style=\"padding:16px 0 16px 0;\">"
-                + "<!--[if mso]><v:roundrect xmlns:v=\"urn:schemas-microsoft-com:vml\""
-                + " xmlns:w=\"urn:schemas-microsoft-com:office:word\" href=\"" + href + "\""
-                + " style=\"height:42px;v-text-anchor:middle;width:200px;\" arcsize=\"10%\" stroke=\"f\" fillcolor=\""
-                + BRAND + "\"><w:anchorlock/><center style=\"color:#ffffff;" + FONT
-                + "font-size:15px;font-weight:bold;\"><span style=\"" + OUTLOOK_WHITE_TEXT + "\">"
-                + TemplateRenderer.BUTTON_LABEL + "</span></center></v:roundrect>"
-                + "<![endif]-->"
+                + "<!--[if mso]><a href=\"" + href + "\" target=\"_blank\"><img src=\"cid:" + BUTTON_CID
+                + "\" width=\"200\" height=\"42\" alt=\"" + TemplateRenderer.BUTTON_LABEL + "\" border=\"0\""
+                + " style=\"display:block;border:0;width:200px;height:42px;color:#ffffff;" + FONT
+                + "font-size:15px;font-weight:bold;\"></a><![endif]-->"
                 + "<!--[if !mso]><!-- --><a href=\"" + href + "\" class=\"btn\" style=\"background-color:" + BRAND
                 + ";border-radius:4px;color:#ffffff;display:inline-block;" + FONT + "font-size:15px;font-weight:bold;"
                 + "line-height:42px;text-align:center;text-decoration:none;width:200px;-webkit-text-size-adjust:none;\">"

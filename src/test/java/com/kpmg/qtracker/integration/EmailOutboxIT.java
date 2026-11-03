@@ -164,7 +164,7 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
             assertThat(row.getImportance()).isEqualTo("NORMAL");
             assertThat(row.getSubject()).isEqualTo("Awaiting your action");
             assertThat(row.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(fac.getDisplayName()) + ",", control.getControlId(),
-                    "/view-control/" + control.getId() + "\" style=");
+                    "/view-control/" + control.getId() + "\" class=\"btn\"");
             assertThat(row.getBodyText()).startsWith("Awaiting your action\n\nDear "
                     + NotificationRecipients.firstName(fac.getDisplayName()) + ",\n")
                     .contains("Go to Control: ").doesNotContain("<");

@@ -108,8 +108,8 @@ class TemplateRendererTest {
                         + " alt=\"KPMG QTracker\" [^>]*></td>")
                 .containsPattern("<h1 [^>]*>" + Pattern.quote(template.defaultSubject()) + "</h1>")
                 .contains("Dear Anna Smith,<br>")
-                .contains("<v:roundrect xmlns:v=\"urn:schemas-microsoft-com:vml\"")
-                .containsPattern("<!--\\[if mso]><v:roundrect [^>]*href=\"" + Pattern.quote(LINK) + "\"")
+                .containsPattern("<!--\\[if mso]><a href=\"" + Pattern.quote(LINK) + "\" target=\"_blank\">"
+                        + "<img src=\"cid:qtracker-button\"")
                 .containsPattern("<!--\\[if !mso]><!-- --><a href=\"" + Pattern.quote(LINK) + "\"[^>]*>Go to Control</a>")
                 .contains("Kind regards,<br>\nSoQM Team</td>")
                 .contains(EmailLayout.FOOTER);
@@ -124,21 +124,27 @@ class TemplateRendererTest {
     }
 
     /**
-     * The text of the button stays white in the dark theme of Outlook for Windows: a white-to-white gradient fill, which
-     * Outlook does not repaint; the other clients get the link styled as a button, unchanged.
+     * Classic Outlook (the [if mso] part) gets the header and the button as pictures, which its dark theme does not
+     * repaint; every other client gets the coloured header cell and the link styled as a button.
      */
     @Test
-    void theButtonText_inOutlook_isFilledWhite_soItsDarkThemeLeavesIt() {
+    void classicOutlook_getsTheHeaderAndTheButtonAsPictures_theOthersTheHtml() {
         String html = renderer.render(Template.T8, values()).rendered().html();
 
-        assertThat(html).contains("<center style=\"color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:15px;"
-                        + "font-weight:bold;\"><span style=\"color:#ffffff;mso-style-textfill-type:gradient;"
-                        + "mso-style-textfill-fill-gradientfill-stoplist:'0 \\#FFFFFF 0 100000\\,100000 \\#FFFFFF 0 100000';\">"
-                        + "Go to Control</span></center></v:roundrect><![endif]-->")
-                .containsPattern("<!--\\[if !mso]><!-- --><a href=\"[^\"]+\" class=\"btn\" style=\"[^\"]*color:#ffffff;[^\"]*\">"
-                        + "Go to Control</a><!--<!\\[endif]-->");
-        // The mso- properties are only in the part Outlook reads
-        assertThat(html.replaceAll("(?s)<!--\\[if mso]>.*?<!\\[endif]-->", "")).doesNotContain("mso-style-textfill");
+        assertThat(html).contains("<!--[if mso]><tr><td style=\"padding:0;font-size:0;line-height:0;\">"
+                        + "<img src=\"cid:qtracker-header\" width=\"600\" height=\"64\" alt=\"KPMG QTracker\"")
+                .contains("<!--[if mso]><a href=\"" + LINK + "\" target=\"_blank\"><img src=\"cid:qtracker-button\""
+                        + " width=\"200\" height=\"42\" alt=\"Go to Control\"")
+                .doesNotContain("v:roundrect");
+        String others = html.replaceAll("(?s)<!--\\[if mso]>.*?<!\\[endif]-->", "");
+        assertThat(others).doesNotContain("qtracker-header", "qtracker-button")
+                .contains("<td class=\"hdr\"", "cid:qtracker-logo")
+                .containsPattern("<a href=\"" + Pattern.quote(LINK) + "\" class=\"btn\" style=\"[^\"]*color:#ffffff;[^\"]*\">"
+                        + "Go to Control</a>");
+        // Outlook does not read the [if !mso] part: the coloured header is not shown to it twice
+        assertThat(html).containsPattern("<!--\\[if !mso]><!-- --><tr><td class=\"hdr\"[^<]*<img[^>]*></td></tr><!--<!\\[endif]-->");
+        // Every picture the HTML names is one of the layout's
+        assertThat(EmailLayout.INLINE_IMAGES).containsOnlyKeys("qtracker-logo", "qtracker-header", "qtracker-button");
     }
 
     /** Under every e-mail: the automated-message line, Privacy | Legal, INTERNAL USE ONLY and the copyright of this year. */
@@ -208,7 +214,7 @@ class TemplateRendererTest {
                 row("Your role", "Facilitator and Control Operator"), row("Deadline", "19 Nov 2026"),
                 row("From", "Control Operator"));
         assertThat(html).containsSubsequence("Please review it and submit it to the Process Owner.", ">Control</td>",
-                ">Description</td>", ">Your role</td>", ">Deadline</td>", ">From</td>", "v:roundrect", "Kind regards,");
+                ">Description</td>", ">Your role</td>", ">Deadline</td>", ">From</td>", "cid:qtracker-button", "Kind regards,");
         assertThat(rendered.mailText()).contains("Process Owner.\n\nControl: HR-1/FY27\nDescription: Payroll <check> & review\n"
                 + "Your role: Facilitator and Control Operator\nDeadline: 19 Nov 2026\nFrom: Control Operator\n\n"
                 + "Go to Control: " + LINK + "\n\nKind regards,");
@@ -325,7 +331,7 @@ class TemplateRendererTest {
         TemplateRenderer.Rendered rendered = renderer.render(template, returned("Fix the steps.")).rendered();
 
         assertThat(rendered.html()).containsSubsequence(">From</td>", "border-left:4px solid #00338D",
-                ">Comment from SoQM Admin Team (on behalf of Process Owner)</div>", ">Fix the steps.</div>", "v:roundrect");
+                ">Comment from SoQM Admin Team (on behalf of Process Owner)</div>", ">Fix the steps.</div>", "cid:qtracker-button");
         assertThat(rendered.mailText()).contains("\n\nComment from SoQM Admin Team (on behalf of Process Owner):\n"
                 + "Fix the steps.\n\nGo to Control: ");
     }
