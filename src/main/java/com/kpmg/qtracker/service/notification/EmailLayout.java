@@ -205,8 +205,16 @@ final class EmailLayout {
     }
 
     /**
-     * The "Go to Control" button, the address not shown: in Outlook a VML rounded rectangle, elsewhere a link styled
-     * as a button.
+     * The text of the button in Outlook for Windows. Its dark theme repaints a white text dark but leaves the dark fill
+     * of the button, so the text could not be read; a text filled with a gradient (here white to white) it leaves as it
+     * is. Only Outlook reads these mso- properties.
+     */
+    static final String OUTLOOK_WHITE_TEXT = "color:#ffffff;mso-style-textfill-type:gradient;"
+            + "mso-style-textfill-fill-gradientfill-stoplist:'0 \\#FFFFFF 0 100000\\,100000 \\#FFFFFF 0 100000';";
+
+    /**
+     * The "Go to Control" button, the address not shown: in Outlook a VML rounded rectangle with its text kept white in
+     * the dark theme ({@link #OUTLOOK_WHITE_TEXT}), elsewhere a link styled as a button.
      */
     static String button(String link) {
         String href = escape(link);
@@ -216,7 +224,8 @@ final class EmailLayout {
                 + " xmlns:w=\"urn:schemas-microsoft-com:office:word\" href=\"" + href + "\""
                 + " style=\"height:42px;v-text-anchor:middle;width:200px;\" arcsize=\"10%\" stroke=\"f\" fillcolor=\""
                 + BRAND + "\"><w:anchorlock/><center style=\"color:#ffffff;" + FONT
-                + "font-size:15px;font-weight:bold;\">" + TemplateRenderer.BUTTON_LABEL + "</center></v:roundrect>"
+                + "font-size:15px;font-weight:bold;\"><span style=\"" + OUTLOOK_WHITE_TEXT + "\">"
+                + TemplateRenderer.BUTTON_LABEL + "</span></center></v:roundrect>"
                 + "<![endif]-->"
                 + "<!--[if !mso]><!-- --><a href=\"" + href + "\" class=\"btn\" style=\"background-color:" + BRAND
                 + ";border-radius:4px;color:#ffffff;display:inline-block;" + FONT + "font-size:15px;font-weight:bold;"

@@ -122,6 +122,24 @@ class TemplateRendererTest {
                 + "\n\n--\n" + EmailLayout.FOOTER);
     }
 
+    /**
+     * The text of the button stays white in the dark theme of Outlook for Windows: a white-to-white gradient fill, which
+     * Outlook does not repaint; the other clients get the link styled as a button, unchanged.
+     */
+    @Test
+    void theButtonText_inOutlook_isFilledWhite_soItsDarkThemeLeavesIt() {
+        String html = renderer.render(Template.T8, values()).rendered().html();
+
+        assertThat(html).contains("<center style=\"color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:15px;"
+                        + "font-weight:bold;\"><span style=\"color:#ffffff;mso-style-textfill-type:gradient;"
+                        + "mso-style-textfill-fill-gradientfill-stoplist:'0 \\#FFFFFF 0 100000\\,100000 \\#FFFFFF 0 100000';\">"
+                        + "Go to Control</span></center></v:roundrect><![endif]-->")
+                .containsPattern("<!--\\[if !mso]><!-- --><a href=\"[^\"]+\" class=\"btn\" style=\"[^\"]*color:#ffffff;[^\"]*\">"
+                        + "Go to Control</a><!--<!\\[endif]-->");
+        // The mso- properties are only in the part Outlook reads
+        assertThat(html.replaceAll("(?s)<!--\\[if mso]>.*?<!\\[endif]-->", "")).doesNotContain("mso-style-textfill");
+    }
+
     /** The subject is the name of the step or event alone: no "[QTracker]", no prefix, no Control ID (2026-11-03). */
     @ParameterizedTest
     @EnumSource(Template.class)
