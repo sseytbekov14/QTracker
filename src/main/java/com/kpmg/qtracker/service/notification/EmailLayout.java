@@ -3,6 +3,8 @@ package com.kpmg.qtracker.service.notification;
 import org.springframework.web.util.HtmlUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Year;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -10,7 +12,8 @@ import java.util.List;
  * the details block. Built for Outlook (its Word engine): tables only, every style inline, a fixed 600 px column inside
  * an Outlook-only table, the button drawn by VML in Outlook and by a styled link elsewhere. Parts: a hidden preheader
  * (the line the inbox shows after the subject), the #00338D header with the logo, the white card with the title, the text
- * and the details of the control, the footer "automated message". The plain-text part of the e-mail has the same title,
+ * and the details of the control, the footer "automated message" with the legal lines ({@link #legal}). The plain-text
+ * part of the e-mail has the same title,
  * text, details and footer.
  * <p>The inline styles are the light theme. A client with a dark theme of its own reads the classes (hdr, card, btn and
  * the others of {@link #DARK_COLORS}) in the head of the e-mail: Apple Mail by prefers-color-scheme, Outlook on the web
@@ -31,6 +34,10 @@ final class EmailLayout {
     private static final int LOGO_WIDTH = 164;
     private static final int LOGO_HEIGHT = 36;
     static final String FOOTER = "This is an automated message from QTracker. Please do not reply to this e-mail.";
+    static final String COPYRIGHT_HOLDERS = "KPMG Audit LLC, KPMG Tax and Advisory LLC and KPMG Valuation LLC, companies"
+            + " incorporated under the Laws of the Republic of Kazakhstan and a member firm of the KPMG global organization"
+            + " of independent member firms affiliated with KPMG International Limited, a private English company limited"
+            + " by guarantee. All rights reserved.";
     private static final String BACKGROUND = "#F2F4F7";
     private static final String FONT = "font-family:Arial,Helvetica,sans-serif;";
     private static final int PREHEADER_MAX = 140;
@@ -108,8 +115,10 @@ final class EmailLayout {
                 + "</td></tr>\n"
                 + "</table>\n"
                 + "</td></tr>\n"
-                + "<tr><td class=\"ftr\" align=\"center\" style=\"padding:16px 32px;" + FONT
-                + "font-size:12px;line-height:18px;color:#6B7280;\">" + FOOTER + "</td></tr>\n"
+                + "<tr><td class=\"ftr\" align=\"left\" style=\"padding:16px 32px;" + FONT
+                + "font-size:12px;line-height:18px;color:#6B7280;\">" + FOOTER + "<br>\n<br>\n"
+                + "<span style=\"font-size:11px;line-height:16px;\">" + String.join("<br>\n", legal()) + "</span>"
+                + "</td></tr>\n"
                 + "</table>\n"
                 + "<!--[if mso]></td></tr></table><![endif]-->\n"
                 + "</td></tr>\n"
@@ -251,7 +260,21 @@ final class EmailLayout {
 
     /** The plain-text part: the title, the text, the footer. */
     static String plainText(String title, String text) {
-        return title + "\n\n" + text + "\n\n--\n" + FOOTER;
+        return title + "\n\n" + text + "\n\n--\n" + footerText();
+    }
+
+    /** The footer as plain text: the automated-message line and the legal lines. */
+    static String footerText() {
+        return FOOTER + "\n\n" + String.join("\n", legal());
+    }
+
+    /**
+     * The legal lines of KPMG Kazakhstan under every e-mail (2026-11-03), the year that of today in Almaty. Privacy and
+     * Legal are text only: their addresses are not known yet.
+     */
+    static List<String> legal() {
+        return List.of("Privacy | Legal", "INTERNAL USE ONLY",
+                "© " + Year.now(ZoneId.of("Asia/Almaty")) + " " + COPYRIGHT_HOLDERS);
     }
 
     /** The preview line: hidden in the e-mail, shown by the inbox after the subject; at most 140 characters. */

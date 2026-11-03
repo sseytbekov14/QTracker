@@ -120,7 +120,7 @@ class TemplateRendererTest {
         assertThat(rendered.mailText()).isEqualTo(template.defaultSubject() + "\n\n"
                 + inApp(template).replaceAll("(?m)^(Your role|Deadline): .*\n", "")
                 .replaceAll("\n+Kind regards,", "\n\n" + DETAILS + "\n\nGo to Control: " + LINK + "\n\nKind regards,")
-                + "\n\n--\n" + EmailLayout.FOOTER);
+                + "\n\n--\n" + EmailLayout.footerText());
     }
 
     /**
@@ -139,6 +139,19 @@ class TemplateRendererTest {
                         + "Go to Control</a><!--<!\\[endif]-->");
         // The mso- properties are only in the part Outlook reads
         assertThat(html.replaceAll("(?s)<!--\\[if mso]>.*?<!\\[endif]-->", "")).doesNotContain("mso-style-textfill");
+    }
+
+    /** Under every e-mail: the automated-message line, Privacy | Legal, INTERNAL USE ONLY and the copyright of this year. */
+    @Test
+    void theFooter_hasTheLegalLines_ofThisYear_inBothParts() {
+        TemplateRenderer.Rendered rendered = renderer.render(Template.T12, values()).rendered();
+        String year = String.valueOf(java.time.Year.now(java.time.ZoneId.of("Asia/Almaty")));
+
+        assertThat(rendered.html()).containsSubsequence(EmailLayout.FOOTER, "Privacy | Legal<br>\n",
+                "INTERNAL USE ONLY<br>\n", "© " + year + " KPMG Audit LLC, KPMG Tax and Advisory LLC and KPMG Valuation LLC",
+                "a private English company limited by guarantee. All rights reserved.</span></td></tr>");
+        assertThat(rendered.mailText()).endsWith("--\n" + EmailLayout.FOOTER + "\n\nPrivacy | Legal\nINTERNAL USE ONLY\n© "
+                + year + " " + EmailLayout.COPYRIGHT_HOLDERS);
     }
 
     /** The subject is the name of the step or event alone: no "[QTracker]", no prefix, no Control ID (2026-11-03). */
@@ -460,7 +473,7 @@ class TemplateRendererTest {
         assertThat(rendered.text()).isEqualTo("Dear Anna Smith,\nOpen  now.\n\nKind regards,\nSoQM Team");
         assertThat(rendered.mailText()).isEqualTo("Awaiting your action\n\nDear Anna Smith,\nOpen Go to Control (" + LINK
                 + ") now.\n\n" + DETAILS + "\n\nGo to Control: " + LINK + "\n\nKind regards,\nSoQM Team\n\n--\n"
-                + EmailLayout.FOOTER);
+                + EmailLayout.footerText());
     }
 
     @Test

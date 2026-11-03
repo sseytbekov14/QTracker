@@ -302,7 +302,7 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
         assertThat(mail.text()).startsWith("Complete by the end of the day\n\nDear "
                 + NotificationRecipients.firstName(fac.getDisplayName()) + ",\n")
                 .contains("\nGo to Control: ", "/view-control/" + control.getId() + "\n")
-                .endsWith("Please do not reply to this e-mail.");
+                .endsWith("All rights reserved.");
         assertThat(mail.from()).isEqualTo("qtracker@example.test");
         assertThat(rows(control)).singleElement().satisfies(row -> {
             assertThat(row.getStatus()).isEqualTo(EmailOutbox.SENT);
