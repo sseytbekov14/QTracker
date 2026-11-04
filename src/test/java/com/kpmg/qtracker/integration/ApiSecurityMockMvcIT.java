@@ -1604,9 +1604,12 @@ class ApiSecurityMockMvcIT {
         Control kdnControl = createControl("KDN-PK-" + s, soqm, "DRAFT");
         MockHttpSession session = login(soqm.getMail());
 
+        // A SoQM Admin Team member may hold every role of a control (2026-11-04)
         String facilitators = picker(session, "FACILITATOR", hr);
-        assertThat(facilitators).contains(participant.getMail())
-                .doesNotContain(soqm.getMail(), kdn.getMail(), readOnly.getMail(), disabled.getMail());
+        assertThat(facilitators).contains(participant.getMail(), soqm.getMail())
+                .doesNotContain(kdn.getMail(), readOnly.getMail(), disabled.getMail());
+        assertThat(picker(session, "CONTROL_OPERATOR", hr)).contains(participant.getMail(), soqm.getMail());
+        assertThat(picker(session, "PROCESS_OWNER", hr)).contains(participant.getMail(), soqm.getMail());
         // A KDN user (read-only) goes in the step fields of a KDN control only, to see it and get its notices
         assertThat(picker(session, "FACILITATOR", kdnControl)).contains(participant.getMail(), kdn.getMail())
                 .doesNotContain(readOnly.getMail());

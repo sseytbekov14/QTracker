@@ -466,10 +466,15 @@ public final class AccessPolicy {
 
     /**
      * A participant (User with Edit) acts in a field they are listed in, on a control within their scope:
-     * seeing every control (All controls) gives no step and no edit where they are not assigned.
+     * seeing every control (All controls) gives no step and no edit where they are not assigned. A SoQM Admin Team
+     * member listed in the Facilitator, Control Operator or Process Owner field acts there as that participant too
+     * (business decision of 2026-11-04): their own step is theirs, not one made on behalf of someone, so it needs no
+     * comment and the history names them in that role; everything else they do as SoQM Admin Team, as before.
      */
     private static boolean actsAsParticipant(Subject subject, ControlFacts control, boolean listed) {
-        return listed && active(subject) && subject.level() == AccessLevel.PARTICIPANT && inScope(subject, control);
+        return listed && active(subject)
+                && (subject.level() == AccessLevel.PARTICIPANT || subject.level() == AccessLevel.SOQM)
+                && inScope(subject, control);
     }
 
     /**
@@ -821,8 +826,9 @@ public final class AccessPolicy {
 
     /**
      * Why a person cannot be put in an assignment field, or empty when they can. Facilitator, Control
-     * Operator and Process Owner take participants, SoQM Team / Delegate takes SoQM users, Shared With takes
-     * anyone, and a KDN-scope user goes only on KDN controls. Read-only users are not assigned, except a KDN
+     * Operator and Process Owner take participants and SoQM Admin Team members (business decision of 2026-11-04;
+     * such a member does that step as the participant, {@link #actsAsParticipant}), SoQM Team / Delegate takes SoQM
+     * users, Shared With takes anyone, and a KDN-scope user goes only on KDN controls. Read-only users are not assigned, except a KDN
      * user in the Facilitator, Control Operator or Process Owner field of a KDN control: there they see the
      * control and get its notifications, but perform no step (only participants act, {@link #resolve}), so
      * SoQM moves such a control on for them (TODO: BUSINESS CONFIRMATION: who performs the steps of KDN
@@ -843,8 +849,7 @@ public final class AccessPolicy {
                     ? Optional.empty()
                     : Optional.of("is not SoQM Admin Team");
             case FACILITATOR, CONTROL_OPERATOR, PROCESS_OWNER -> switch (candidate.level()) {
-                case PARTICIPANT -> Optional.empty();
-                case SOQM -> Optional.of("is SoQM Admin Team; " + slot.getLabel() + " takes a User with Edit access");
+                case PARTICIPANT, SOQM -> Optional.empty();
                 case READ_ONLY -> candidate.scope() == AccessScope.KDN && kdnControl
                         ? Optional.empty()
                         : Optional.of("has Read Only access and cannot be assigned");
