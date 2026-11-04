@@ -40,6 +40,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -1028,6 +1029,48 @@ class ViewControllerStatusFilterTest {
         assertThat(none).contains("id=\"ccFilters\"", "id=\"ccResults\"", "id=\"ccKdn\" name=\"kdn\" value=\"1\" checked",
                         "No controls match your search or filter.")
                 .doesNotContain("There are no controls you can see.");
+    }
+
+    @Test
+    void kdnBoxAlone_noClear_searchOrStatusWithIt_clearKeepsTheBox() throws Exception {
+        User soqm = new User();
+        soqm.setId(80L);
+        TestUsers.withRole(soqm, "SOQM_TEAM");
+        soqm.setMail("soqm-kdn-clear@kpmg.kz");
+        List<ControlResponseDTO> controls = new ArrayList<>();
+        for (long n = 1; n <= 30; n++) {
+            controls.add(dto(800L + n, "KDN-8" + (100 + n), n % 2 == 0 ? "IN_PROGRESS" : "REVIEW", null));
+        }
+        controls.add(dto(840L, "HR-840", "IN_PROGRESS", null));
+        mockVisibleControls(soqm, controls);
+
+        // The box on, a later page and another sorting: the box stays ticked, no Clear
+        for (String url : List.of("/component/ALL?kdn=1", "/component/ALL?kdn=1&sort=date&dir=desc&page=2",
+                "/component/HR?kdn=1")) {
+            String html = mockMvc.perform(get(url).sessionAttr("currentUser", soqm))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            assertThat(html).as(url).contains("id=\"ccKdn\" name=\"kdn\" value=\"1\" checked", "id=\"ccActions\"")
+                    .doesNotContain("class=\"cc-clear\"", ">Clear<");
+        }
+        ComponentControlsList.Result paged = listOf(soqm, "/component/ALL?kdn=1&sort=date&dir=desc&page=2");
+        assertThat(paged.matching()).isEqualTo(30);
+        assertThat(paged.page()).isEqualTo(2);
+        assertThat(paged.pageHref(1)).isEqualTo("/component/ALL?sort=date&dir=desc&kdn=1");
+        assertThat(paged.sortHref("id")).isEqualTo("/component/ALL?kdn=1");
+
+        // A search or a status with the box: Clear resets them and keeps the box and the sorting
+        for (String url : List.of("/component/ALL?q=KDN-8101&kdn=1&sort=date&dir=desc",
+                "/component/ALL?status=IN_PROGRESS&kdn=1&sort=date&dir=desc")) {
+            String html = mockMvc.perform(get(url).sessionAttr("currentUser", soqm))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            assertThat(html).as(url)
+                    .contains("class=\"cc-clear\" href=\"/component/ALL?sort=date&amp;dir=desc&amp;kdn=1\">Clear</a>");
+        }
+
+        // Without the box: Clear as before
+        String searched = mockMvc.perform(get("/component/ALL").param("q", "HR").sessionAttr("currentUser", soqm))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(searched).contains("class=\"cc-clear\" href=\"/component/ALL\">Clear</a>");
     }
 
     @Test

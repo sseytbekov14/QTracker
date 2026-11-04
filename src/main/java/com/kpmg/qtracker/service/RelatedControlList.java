@@ -22,9 +22,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class RelatedControlList {
 
-    /** How many Control IDs a search gives when it does not say, and at most. */
+    /** How many Control IDs a search gives when it does not say, and at most (the field shows the whole list). */
     public static final int DEFAULT_LIMIT = 20;
-    public static final int MAX_LIMIT = 100;
+    public static final int MAX_LIMIT = 1000;
 
     private final RelatedControlRefRepository repository;
 

@@ -12,6 +12,7 @@ import com.kpmg.qtracker.enums.AccessScope;
 import com.kpmg.qtracker.repository.AdminAuditLogRepository;
 import com.kpmg.qtracker.repository.RelatedControlRefRepository;
 import com.kpmg.qtracker.repository.UserRepository;
+import com.kpmg.qtracker.service.RelatedControlList;
 import com.kpmg.qtracker.service.RelatedControlsImport;
 import com.kpmg.qtracker.service.RelatedControlsImport.Outcome;
 import org.apache.poi.ss.usermodel.Row;
@@ -48,6 +49,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -117,7 +119,7 @@ class RelatedControlListIT {
         RelatedControlsImport.Report report = relatedControlsImport.run(synthetic(), false, false, "tester");
 
         assertThat(report.refused()).isFalse();
-        assertThat(report.sheet()).isEqualTo("Controls");
+        assertThat(report.sheets()).containsExactly("Controls");
         assertThat(report.lines()).hasSize(33); // rows 2 to 34; the header is not read
         assertThat(report.count(Outcome.ADDED)).isEqualTo(ADDED);
         Map<Integer, String> skipped = report.lines(Outcome.SKIPPED).stream()
@@ -130,14 +132,56 @@ class RelatedControlListIT {
         assertThat(skipped.get(32)).isEqualTo("the formula gives an error");
         assertThat(skipped.get(33)).isEqualTo("empty");
         assertThat(added(report)).contains("SYN-CTRL-01/FY27/Central", "12345", "SYN-F1", "SYN-LAST")
-                .doesNotContain("OTHER-SHEET-1", "column B");
+                .doesNotContain("column B");
 
         assertThat(report.render()).contains("DRY RUN, nothing written")
+                .contains("File: controls.xlsx, 1 sheet (Controls), column A from row 2 (row 1 is the header): 33 rows")
                 .contains("would be added: 27, would be updated: 0, unchanged: 0, skipped: 6")
-                .contains("row   27  skipped: the same Control ID as row 2")
+                .contains("Controls row   27  skipped: the same Control ID as row 2")
                 .contains("Run again with --apply");
         assertThat(refRepository.count()).isZero();
         assertThat(auditLogRepository.count()).isZero();
+    }
+
+    /**
+     * The file of SoQM Admin Team has a sheet per component, each with its Control IDs in column A under a header
+     * (CONTROL ID or ID): every sheet is read, in order; a Control ID already on an earlier sheet is skipped, naming it.
+     */
+    @Test
+    void everySheet_isRead_aControlIdOfAnEarlierSheet_isSkipped() throws IOException {
+        Path file = folder.resolve("list_of_controls.xlsx");
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); OutputStream out = Files.newOutputStream(file)) {
+            Sheet ac = workbook.createSheet("AC");
+            ac.createRow(0).createCell(0).setCellValue("CONTROL ID");
+            ac.createRow(1).createCell(0).setCellValue("A&C-CTRL-MF-03");
+            ac.createRow(2).createCell(0).setCellValue("A&C-CTRL-MF-04");
+            workbook.createSheet("EMPTY");
+            Sheet hr = workbook.createSheet("HR");
+            hr.createRow(0).createCell(0).setCellValue("ID");
+            Row first = hr.createRow(1);
+            first.createCell(0).setCellValue("HR-CTRL-MF-806a");
+            first.createCell(1).setCellValue("New ");
+            hr.createRow(2).createCell(0).setCellValue("a&c-ctrl-mf-04");
+            hr.createRow(3).createCell(0).setCellValue("TECHR-CTRL-MF-200.a");
+            workbook.write(out);
+        }
+
+        RelatedControlsImport.Report report = relatedControlsImport.run(file, true, false, "tester");
+
+        assertThat(report.sheets()).containsExactly("AC", "EMPTY", "HR");
+        assertThat(report.lines()).extracting(RelatedControlsImport.Line::sheet, RelatedControlsImport.Line::row,
+                        RelatedControlsImport.Line::outcome)
+                .containsExactly(tuple("AC", 2, Outcome.ADDED), tuple("AC", 3, Outcome.ADDED),
+                        tuple("HR", 2, Outcome.ADDED), tuple("HR", 3, Outcome.SKIPPED), tuple("HR", 4, Outcome.ADDED));
+        assertThat(report.lines(Outcome.SKIPPED)).singleElement().extracting(RelatedControlsImport.Line::reason)
+                .isEqualTo("the same Control ID as sheet AC row 3 (case and spaces do not count)");
+        assertThat(report.render()).contains("File: list_of_controls.xlsx, 3 sheets (AC, EMPTY, HR), column A from row 2")
+                .contains("HR row    3  skipped: the same Control ID as sheet AC row 3");
+        assertThat(stored().keySet()).containsExactlyInAnyOrder("A&C-CTRL-MF-03", "A&C-CTRL-MF-04", "HR-CTRL-MF-806a",
+                "TECHR-CTRL-MF-200.a");
+        assertThat(auditLogRepository.findAll()).singleElement().extracting(AdminAuditLog::getActionDescription)
+                .isEqualTo("Other Related Controls list from list_of_controls.xlsx: added 4, updated 0, unchanged 0, "
+                        + "skipped 1, made inactive 0");
     }
 
     @Test
@@ -282,6 +326,21 @@ class RelatedControlListIT {
         assertThat(list(soqm, "?limit=500")).hasSize(ADDED - 1);
     }
 
+    /** The field asks for 1000 (multi-value.js): a list as long as the real one (360 Control IDs) comes whole. */
+    @Test
+    void theWholeList_ofTheRealLength_comesAtOnce() throws Exception {
+        List<String> ids = new ArrayList<>();
+        for (int i = 1; i <= 360; i++) {
+            ids.add(String.format("SYN-ALL-%03d", i));
+        }
+        relatedControlsImport.run(workbook(ids), true, false, "tester");
+        MockHttpSession soqm = login(saveUser("rl-soqm-all", AccessLevel.SOQM, AccessScope.ALL));
+
+        assertThat(list(soqm, "?q=&limit=1000")).containsExactlyElementsOf(ids);
+        assertThat(list(soqm, "?limit=5000")).hasSize(360);
+        assertThat(RelatedControlList.MAX_LIMIT).isEqualTo(1000);
+    }
+
     @Test
     void theList_isRefused_toEveryoneWhoDoesNotFillTheField_KdnIncluded() throws Exception {
         relatedControlsImport.run(synthetic(), true, false, "tester");
@@ -323,7 +382,7 @@ class RelatedControlListIT {
     /**
      * controls.xlsx, sheet Controls: header CONTROL ID; rows 2-25 the 24 IDs (row 4 with spaces around); row 26 empty,
      * 27 row 2 in lower case, 28 too long, 29 with ";", 30 the number 12345, 31 a formula giving SYN-F1, 32 a formula
-     * giving an error, 33 missing, 34 SYN-LAST. Column B and a second sheet hold values that are not read.
+     * giving an error, 33 missing, 34 SYN-LAST. Column B holds values that are not read.
      */
     private Path synthetic() throws IOException {
         Path file = folder.resolve("controls.xlsx");
@@ -345,7 +404,6 @@ class RelatedControlListIT {
             sheet.createRow(30).createCell(0).setCellFormula("\"SYN-\"&\"F1\"");
             sheet.createRow(31).createCell(0).setCellFormula("1/0");
             sheet.createRow(33).createCell(0).setCellValue("SYN-LAST");
-            workbook.createSheet("Other").createRow(1).createCell(0).setCellValue("OTHER-SHEET-1");
             workbook.write(out);
         }
         return file;

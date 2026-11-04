@@ -28,8 +28,9 @@ import java.util.Map;
 
 /**
  * The list Other Related Controls is chosen from (related_control_ref), from an Excel file of SoQM Admin Team: the
- * first column of the first sheet holds one Control ID per row under a header row (CONTROL ID); other columns and
- * sheets are not read, a formula or a number counts as the value it shows. A dry run by default; with apply the new
+ * first column of every sheet (one sheet per component) holds one Control ID per row under a header row (CONTROL ID
+ * or ID); other columns are not read, a formula or a number counts as the value it shows, a Control ID already on an
+ * earlier row or sheet is skipped. A dry run by default; with apply the new
  * Control IDs are added and one entry goes to the audit trail. The same file again changes nothing. Nothing is ever
  * deleted: a Control ID that is no longer in the file stays active, unless deactivateMissing makes it inactive (no
  * longer offered; the controls that have it keep it).
@@ -61,14 +62,18 @@ public class RelatedControlsImport {
         }
     }
 
-    /** A row of the file (its number in Excel) and what the import does with it; reason for SKIPPED and UPDATED. */
-    public record Line(int row, Outcome outcome, String controlId, String reason) {
+    /**
+     * A row of the file (its sheet and its number in Excel) and what the import does with it; reason for SKIPPED and
+     * UPDATED.
+     */
+    public record Line(String sheet, int row, Outcome outcome, String controlId, String reason) {
     }
 
     /**
+     * @param sheets      the sheets read, in the order of the workbook
      * @param deactivated the active Control IDs not in the file that become inactive (deactivateMissing only)
      */
-    public record Report(boolean applied, boolean deactivateMissing, String refusal, String file, String sheet,
+    public record Report(boolean applied, boolean deactivateMissing, String refusal, String file, List<String> sheets,
                          List<Line> lines, List<String> deactivated) {
 
         public boolean refused() {
@@ -90,8 +95,9 @@ public class RelatedControlsImport {
                 return out.append("REFUSED, nothing written: ").append(refusal).append(nl).toString();
             }
             out.append(applied ? "APPLIED" : "DRY RUN, nothing written").append(nl);
-            out.append("File: ").append(file).append(", sheet \"").append(sheet)
-                    .append("\", column A from row 2 (row 1 is the header): ").append(lines.size()).append(" rows")
+            out.append("File: ").append(file).append(", ").append(sheets.size())
+                    .append(sheets.size() == 1 ? " sheet (" : " sheets (").append(String.join(", ", sheets))
+                    .append("), column A from row 2 (row 1 is the header): ").append(lines.size()).append(" rows")
                     .append(nl);
             String verb = applied ? "" : "would be ";
             out.append(verb).append("added: ").append(count(Outcome.ADDED))
@@ -103,8 +109,8 @@ public class RelatedControlsImport {
                     .append(nl);
             for (Line line : lines) {
                 if (line.outcome() == Outcome.SKIPPED || line.outcome() == Outcome.UPDATED) {
-                    out.append(String.format("  row %4d  %s: %s%s", line.row(), line.outcome().label(), line.reason(),
-                            line.controlId() == null ? "" : " (" + line.controlId() + ")")).append(nl);
+                    out.append(String.format("  %s row %4d  %s: %s%s", line.sheet(), line.row(), line.outcome().label(),
+                            line.reason(), line.controlId() == null ? "" : " (" + line.controlId() + ")")).append(nl);
                 }
             }
             for (String controlId : deactivated) {
@@ -117,8 +123,8 @@ public class RelatedControlsImport {
         }
     }
 
-    /** A value of the first column, or why there is none (a formula that gives an error). */
-    record CellText(int row, String value, String problem) {
+    /** A value of the first column of a sheet, or why there is none (a formula that gives an error). */
+    record CellText(String sheet, int row, String value, String problem) {
     }
 
     /**
@@ -130,15 +136,17 @@ public class RelatedControlsImport {
         if (file == null || !Files.isRegularFile(file) || !Files.isReadable(file)) {
             return refused(apply, deactivateMissing, "the file cannot be read: " + file, name);
         }
-        String sheetName;
-        List<CellText> cells;
+        List<String> sheetNames = new ArrayList<>();
+        List<CellText> cells = new ArrayList<>();
         try (Workbook workbook = WorkbookFactory.create(file.toFile(), null, true)) {
             if (workbook.getNumberOfSheets() == 0) {
                 return refused(apply, deactivateMissing, "the workbook has no sheet", name);
             }
-            Sheet sheet = workbook.getSheetAt(0);
-            sheetName = sheet.getSheetName();
-            cells = firstColumn(sheet, workbook.getCreationHelper().createFormulaEvaluator());
+            FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
+            for (Sheet sheet : workbook) {
+                sheetNames.add(sheet.getSheetName());
+                cells.addAll(firstColumn(sheet, evaluator));
+            }
         } catch (IOException | RuntimeException e) {
             return refused(apply, deactivateMissing, "the file is not an Excel workbook (.xlsx or .xls): " + file, name);
         }
@@ -149,7 +157,7 @@ public class RelatedControlsImport {
         }
         long activeBefore = stored.values().stream().filter(RelatedControlRef::isActive).count();
         List<Line> lines = new ArrayList<>();
-        Map<String, Integer> rowOfKey = new HashMap<>();
+        Map<String, CellText> rowOfKey = new HashMap<>();
         for (CellText cell : cells) {
             lines.add(line(cell, stored, rowOfKey));
         }
@@ -165,7 +173,7 @@ public class RelatedControlsImport {
                     .sorted((a, b) -> a.getControlId().compareToIgnoreCase(b.getControlId()))
                     .forEach(missing::add);
         }
-        Report report = new Report(apply, deactivateMissing, null, name, sheetName, List.copyOf(lines),
+        Report report = new Report(apply, deactivateMissing, null, name, List.copyOf(sheetNames), List.copyOf(lines),
                 missing.stream().map(RelatedControlRef::getControlId).toList());
         if (apply) {
             write(report, stored, missing);
@@ -184,29 +192,32 @@ public class RelatedControlsImport {
     }
 
     /** What the import does with a row; rowOfKey gets the first row of each Control ID. Nothing is changed here. */
-    private static Line line(CellText cell, Map<String, RelatedControlRef> stored, Map<String, Integer> rowOfKey) {
+    private static Line line(CellText cell, Map<String, RelatedControlRef> stored, Map<String, CellText> rowOfKey) {
         if (cell.problem() != null) {
-            return new Line(cell.row(), Outcome.SKIPPED, null, cell.problem());
+            return new Line(cell.sheet(), cell.row(), Outcome.SKIPPED, null, cell.problem());
         }
         String value = cell.value() == null ? "" : cell.value().trim();
         if (value.isEmpty()) {
-            return new Line(cell.row(), Outcome.SKIPPED, null, "empty");
+            return new Line(cell.sheet(), cell.row(), Outcome.SKIPPED, null, "empty");
         }
         if (value.length() > ValueList.MAX_VALUE_LENGTH) {
-            return new Line(cell.row(), Outcome.SKIPPED, null, "longer than " + ValueList.MAX_VALUE_LENGTH + " characters");
+            return new Line(cell.sheet(), cell.row(), Outcome.SKIPPED, null,
+                    "longer than " + ValueList.MAX_VALUE_LENGTH + " characters");
         }
         if (value.contains(ValueList.SEPARATOR)) {
-            return new Line(cell.row(), Outcome.SKIPPED, value, "holds \";\", which separates the values");
+            return new Line(cell.sheet(), cell.row(), Outcome.SKIPPED, value, "holds \";\", which separates the values");
         }
         String key = ValueList.key(value);
-        Integer first = rowOfKey.putIfAbsent(key, cell.row());
+        CellText first = rowOfKey.putIfAbsent(key, cell);
         if (first != null) {
-            return new Line(cell.row(), Outcome.SKIPPED, value,
-                    "the same Control ID as row " + first + " (case and spaces do not count)");
+            String where = first.sheet().equals(cell.sheet()) ? "row " + first.row()
+                    : "sheet " + first.sheet() + " row " + first.row();
+            return new Line(cell.sheet(), cell.row(), Outcome.SKIPPED, value,
+                    "the same Control ID as " + where + " (case and spaces do not count)");
         }
         RelatedControlRef ref = stored.get(key);
         if (ref == null) {
-            return new Line(cell.row(), Outcome.ADDED, value, null);
+            return new Line(cell.sheet(), cell.row(), Outcome.ADDED, value, null);
         }
         List<String> changes = new ArrayList<>();
         if (!ref.isActive()) {
@@ -215,8 +226,8 @@ public class RelatedControlsImport {
         if (!ref.getControlId().equals(value)) {
             changes.add("written \"" + ref.getControlId() + "\" before");
         }
-        return changes.isEmpty() ? new Line(cell.row(), Outcome.UNCHANGED, value, null)
-                : new Line(cell.row(), Outcome.UPDATED, value, String.join(", ", changes));
+        return changes.isEmpty() ? new Line(cell.sheet(), cell.row(), Outcome.UNCHANGED, value, null)
+                : new Line(cell.sheet(), cell.row(), Outcome.UPDATED, value, String.join(", ", changes));
     }
 
     private void write(Report report, Map<String, RelatedControlRef> stored, List<RelatedControlRef> missing) {
@@ -243,7 +254,7 @@ public class RelatedControlsImport {
         return new Report(apply, deactivateMissing, refusal, file, null, List.of(), List.of());
     }
 
-    /** Column A from the second row to the last one, a missing row or cell being empty. */
+    /** Column A of a sheet from the second row to the last one, a missing row or cell being empty. */
     static List<CellText> firstColumn(Sheet sheet, FormulaEvaluator evaluator) {
         DataFormatter formatter = new DataFormatter();
         List<CellText> cells = new ArrayList<>();
@@ -252,9 +263,9 @@ public class RelatedControlsImport {
             Cell cell = row == null ? null : row.getCell(0);
             int number = index + 1;
             try {
-                cells.add(new CellText(number, text(cell, evaluator, formatter), null));
+                cells.add(new CellText(sheet.getSheetName(), number, text(cell, evaluator, formatter), null));
             } catch (FormulaError e) {
-                cells.add(new CellText(number, null, "the formula gives an error"));
+                cells.add(new CellText(sheet.getSheetName(), number, null, "the formula gives an error"));
             }
         }
         return cells;

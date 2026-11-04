@@ -6,8 +6,16 @@ package com.kpmg.qtracker.service.notification;
  */
 public interface MailTransport {
 
-    /** One e-mail to one person. */
-    record OutgoingMail(String from, String to, String subject, String html, boolean highImportance) {
+    /**
+     * One e-mail to one person: its HTML and its plain-text part (null for an e-mail queued before email_outbox.body_text,
+     * V24).
+     */
+    record OutgoingMail(String from, String to, String subject, String html, String text, boolean highImportance) {
+
+        /** The plain-text part, or the text of the HTML for an older e-mail without one. */
+        public String plainText() {
+            return text != null && !text.isBlank() ? text : LogMailTransport.text(html);
+        }
     }
 
     /** The provider's name, stored in email_outbox.provider. */

@@ -466,10 +466,15 @@ public final class AccessPolicy {
 
     /**
      * A participant (User with Edit) acts in a field they are listed in, on a control within their scope:
-     * seeing every control (All controls) gives no step and no edit where they are not assigned.
+     * seeing every control (All controls) gives no step and no edit where they are not assigned. A SoQM Admin Team
+     * member listed in the Facilitator, Control Operator or Process Owner field acts there as that participant too
+     * (business decision of 2026-11-04): their own step is theirs, not one made on behalf of someone, so it needs no
+     * comment and the history names them in that role; everything else they do as SoQM Admin Team, as before.
      */
     private static boolean actsAsParticipant(Subject subject, ControlFacts control, boolean listed) {
-        return listed && active(subject) && subject.level() == AccessLevel.PARTICIPANT && inScope(subject, control);
+        return listed && active(subject)
+                && (subject.level() == AccessLevel.PARTICIPANT || subject.level() == AccessLevel.SOQM)
+                && inScope(subject, control);
     }
 
     /**
@@ -821,8 +826,9 @@ public final class AccessPolicy {
 
     /**
      * Why a person cannot be put in an assignment field, or empty when they can. Facilitator, Control
-     * Operator and Process Owner take participants, SoQM Team / Delegate takes SoQM users, Shared With takes
-     * anyone, and a KDN-scope user goes only on KDN controls. Read-only users are not assigned, except a KDN
+     * Operator and Process Owner take participants and SoQM Admin Team members (business decision of 2026-11-04;
+     * such a member does that step as the participant, {@link #actsAsParticipant}), SoQM Team / Delegate takes SoQM
+     * users, Shared With takes anyone, and a KDN-scope user goes only on KDN controls. Read-only users are not assigned, except a KDN
      * user in the Facilitator, Control Operator or Process Owner field of a KDN control: there they see the
      * control and get its notifications, but perform no step (only participants act, {@link #resolve}), so
      * SoQM moves such a control on for them (TODO: BUSINESS CONFIRMATION: who performs the steps of KDN
@@ -843,8 +849,7 @@ public final class AccessPolicy {
                     ? Optional.empty()
                     : Optional.of("is not SoQM Admin Team");
             case FACILITATOR, CONTROL_OPERATOR, PROCESS_OWNER -> switch (candidate.level()) {
-                case PARTICIPANT -> Optional.empty();
-                case SOQM -> Optional.of("is SoQM Admin Team; " + slot.getLabel() + " takes a User with Edit access");
+                case PARTICIPANT, SOQM -> Optional.empty();
                 case READ_ONLY -> candidate.scope() == AccessScope.KDN && kdnControl
                         ? Optional.empty()
                         : Optional.of("has Read Only access and cannot be assigned");
@@ -885,6 +890,34 @@ public final class AccessPolicy {
         }
         return Optional.empty();
     }
+
+    /**
+     * Setting a user's Status in the Admin Panel, the one way to disable an account (2026-10-23: the separate
+     * "Disable user" button is gone): nobody deactivates themselves ({@link #DEACTIVATE_SELF}), and the last active
+     * SoQM Admin Team member stays active ({@link #DEACTIVATE_LAST_SOQM}), as for deleting. Making someone active is
+     * never refused. An inactive user cannot sign in, and their session ends on the next request
+     * (UserEnabledGuardFilter).
+     *
+     * @param activeSoqmLeft active SoQM Admin Team members, the target included
+     */
+    public static Optional<String> statusChangeRefusal(Long actorId, Subject target, Long targetId, boolean nextEnabled,
+                                                       long activeSoqmLeft) {
+        if (nextEnabled) {
+            return Optional.empty();
+        }
+        if (actorId != null && actorId.equals(targetId)) {
+            return Optional.of(DEACTIVATE_SELF);
+        }
+        if (target != null && target.enabled() && target.level() == AccessLevel.SOQM && activeSoqmLeft <= 1) {
+            return Optional.of(DEACTIVATE_LAST_SOQM);
+        }
+        return Optional.empty();
+    }
+
+    public static final String DEACTIVATE_SELF = "You cannot deactivate your own account";
+    public static final String DEACTIVATE_LAST_SOQM = "This is the last active "
+            + com.kpmg.qtracker.enums.UserRole.SOQM_TEAM_NAME + " member: they cannot be deactivated until someone else is "
+            + com.kpmg.qtracker.enums.UserRole.SOQM_TEAM_NAME;
 
     public static final String DELETE_NOT_ALLOWED =
             "Only " + com.kpmg.qtracker.enums.UserRole.SOQM_TEAM_NAME + " can delete users";

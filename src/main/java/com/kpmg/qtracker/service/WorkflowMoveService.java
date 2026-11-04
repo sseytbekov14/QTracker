@@ -135,7 +135,7 @@ public class WorkflowMoveService {
         WorkflowHistory history = recordHistory(control, user, move, trimmedComment, assigned);
         recordAudit(control, user, move, trimmedComment, assigned);
         workflowNotifications.moved(control, assignment, move.from(), move.to(), history.getId(),
-                move.isReturn() ? trimmedComment : null);
+                move.isReturn() ? trimmedComment : null, WorkflowNotifications.movedBy(move));
         log.info("Workflow move {} -> {} on control {} by {}{}", move.from(), move.to(), control.getId(),
                 user.getMail(), move.onBehalf() ? " on behalf of the " + move.actingFor().getDisplayName() : "");
         return new Outcome(200, null, move.to(), move);

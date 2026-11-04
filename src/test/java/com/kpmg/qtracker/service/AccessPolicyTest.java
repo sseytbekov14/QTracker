@@ -226,8 +226,17 @@ class AccessPolicyTest {
             "SOQM,         DRAFT,                false, -,        INITIATE,                      true",
             "SOQM,         SOQM_HEAD_REVIEW,     false, -,        SUBMIT_TO_PROCESS_OWNER,       true",
             "SOQM,         SOQM_HEAD_REVIEW,     false, SOQM,     RETURN_TO_OPERATOR,            true",
-            "SOQM,         IN_PROGRESS,          false, F,        SUBMIT_TO_CONTROL_OPERATOR,    false",
+            // SoQM Admin Team in a participant's field does that step as the participant (2026-11-04)
+            "SOQM,         IN_PROGRESS,          false, F,        SUBMIT_TO_CONTROL_OPERATOR,    true",
+            "SOQM,         IN_PROGRESS,          false, CO,       SUBMIT_TO_CONTROL_OPERATOR,    false",
+            "SOQM,         REVIEW,               false, CO,       SUBMIT_TO_SOQM_TEAM,           true",
+            "SOQM,         REVIEW,               false, CO,       RETURN_TO_FACILITATOR,         true",
+            "SOQM,         REVIEW,               false, F,        SUBMIT_TO_SOQM_TEAM,           false",
+            "SOQM,         PROCESS_OWNER_REVIEW, false, PO,       COMPLETE,                      true",
+            "SOQM,         PROCESS_OWNER_REVIEW, false, PO,       OWNER_RETURN_TO_OPERATOR,      true",
+            "SOQM,         PROCESS_OWNER_REVIEW, false, F+CO,     COMPLETE,                      false",
             "SOQM,         PROCESS_OWNER_REVIEW, false, -,        COMPLETE,                      false",
+            "DISABLED_SOQM, IN_PROGRESS,         false, F,        SUBMIT_TO_CONTROL_OPERATOR,    false",
             "PART,         DRAFT,                false, F,        INITIATE,                      false",
             "PART,         IN_PROGRESS,          false, F,        SUBMIT_TO_CONTROL_OPERATOR,    true",
             "PART,         IN_PROGRESS,          false, CO,       SUBMIT_TO_CONTROL_OPERATOR,    false",
@@ -269,6 +278,19 @@ class AccessPolicyTest {
             "SOQM,       PROCESS_OWNER_REVIEW, COMPLETED,            -,      true,    true,     true",
             "SOQM,       PROCESS_OWNER_REVIEW, SOQM_HEAD_REVIEW,     -,      true,    true,     true",
             "SOQM,       PROCESS_OWNER_REVIEW, IN_PROGRESS,          -,      true,    true,     true",
+            // In a participant's field SoQM Admin Team makes that step as the participant: not on behalf, no comment
+            // but for a return; a step of another role stays one made on behalf, with its comment (2026-11-04)
+            "SOQM,       IN_PROGRESS,          REVIEW,               F,      true,    false,    false",
+            "SOQM,       IN_PROGRESS,          REVIEW,               CO,     true,    true,     true",
+            "SOQM,       REVIEW,               SOQM_HEAD_REVIEW,     CO,     true,    false,    false",
+            "SOQM,       REVIEW,               IN_PROGRESS,          CO,     true,    false,    true",
+            "SOQM,       REVIEW,               SOQM_HEAD_REVIEW,     F+PO,   true,    true,     true",
+            "SOQM,       PROCESS_OWNER_REVIEW, COMPLETED,            PO,     true,    false,    false",
+            "SOQM,       PROCESS_OWNER_REVIEW, REVIEW,               PO,     true,    false,    true",
+            "SOQM,       PROCESS_OWNER_REVIEW, IN_PROGRESS,          PO,     true,    true,     true",
+            "SOQM,       PROCESS_OWNER_REVIEW, SOQM_HEAD_REVIEW,     PO,     true,    true,     true",
+            "SOQM,       SOQM_HEAD_REVIEW,     PROCESS_OWNER_REVIEW, SOQM+PO, true,   false,    false",
+            "DISABLED_SOQM, IN_PROGRESS,       REVIEW,               F,      false,   false,    false",
             "SOQM,       IN_PROGRESS,          SOQM_HEAD_REVIEW,     -,      false,   false,    false",
             "SOQM,       IN_PROGRESS,          DRAFT,                -,      false,   false,    false",
             "SOQM,       DRAFT,                IN_PROGRESS,          -,      false,   false,    false",
@@ -366,6 +388,13 @@ class AccessPolicyTest {
     @CsvSource({
             "SOQM,       SOQM_HEAD_REVIEW,     SOQM,  true",
             "SOQM,       SOQM_HEAD_REVIEW,     -,     false",
+            // SoQM Admin Team in a participant's field: that step is their turn
+            "SOQM,       IN_PROGRESS,          F,     true",
+            "SOQM,       REVIEW,               CO,    true",
+            "SOQM,       PROCESS_OWNER_REVIEW, PO,    true",
+            "SOQM,       REVIEW,               F,     false",
+            "SOQM,       IN_PROGRESS,          -,     false",
+            "DISABLED_SOQM, IN_PROGRESS,       F,     false",
             "PART,       IN_PROGRESS,          F,     true",
             "PART,       REVIEW,               F,     false",
             "PART,       REVIEW,               CO,    true",
@@ -402,9 +431,12 @@ class AccessPolicyTest {
             // candidate, slot,             kdnControl, allowed
             "SOQM,        SOQM_LEAD,        false,      true",
             "SOQM,        SOQM_LEAD,        true,       true",
-            "SOQM,        FACILITATOR,      false,      false",
-            "SOQM,        CONTROL_OPERATOR, false,      false",
-            "SOQM,        PROCESS_OWNER,    false,      false",
+            // SoQM Admin Team may hold every role of a control (2026-11-04)
+            "SOQM,        FACILITATOR,      false,      true",
+            "SOQM,        CONTROL_OPERATOR, false,      true",
+            "SOQM,        PROCESS_OWNER,    false,      true",
+            "SOQM,        FACILITATOR,      true,       true",
+            "SOQM,        PROCESS_OWNER,    true,       true",
             "SOQM,        SHARED_WITH,      false,      true",
             "PART,        FACILITATOR,      false,      true",
             "PART,        CONTROL_OPERATOR, true,       true",
@@ -443,8 +475,9 @@ class AccessPolicyTest {
                 .hasValue("has Read Only access and cannot be assigned");
         assertThat(AccessPolicy.levelScopeRefusal(AccessLevel.PARTICIPANT, AccessScope.KDN))
                 .hasValue("KDN access is always Read Only");
-        assertThat(AccessPolicy.assignmentRefusal(who("SOQM"), Slot.PROCESS_OWNER, false))
-                .hasValue("is SoQM Admin Team; Process Owner takes a User with Edit access");
+        assertThat(AccessPolicy.assignmentRefusal(who("SOQM"), Slot.PROCESS_OWNER, false)).isEmpty();
+        assertThat(AccessPolicy.isOfferedFor(who("SOQM"), Slot.FACILITATOR, false)).isTrue();
+        assertThat(AccessPolicy.isOfferedFor(who("DISABLED_SOQM"), Slot.FACILITATOR, false)).isFalse();
         assertThat(AccessPolicy.assignmentRefusal(who("PART"), Slot.SOQM_LEAD, false))
                 .hasValue("is not SoQM Admin Team");
         assertThat(AccessPolicy.assignmentRefusal(null, Slot.FACILITATOR, false))

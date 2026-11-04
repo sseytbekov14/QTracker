@@ -39,8 +39,9 @@ public class AdminViewController {
     private final AdminAuditTrail adminAuditTrail;
     private final AuthMode authMode;
 
-    /** One row of the users table: the user, their access as people see it, and whether it is the viewer. */
-    public record UserRow(User user, AccessPolicy.Profile profile, String summary, String lastLogin, boolean self) {
+    /** One row of the users table: the user, their Access lines, and whether it is the viewer. */
+    public record UserRow(User user, AccessPolicy.Profile profile, List<String> accessLines, String lastLogin,
+                          boolean self) {
 
         public String role() {
             return profile.role().name();
@@ -52,6 +53,15 @@ public class AdminViewController {
 
         public String access() {
             return profile.access() != null ? profile.access().name() : "";
+        }
+
+        /** What the Visibility and Access filters match: the Access lines, for every role. */
+        public String visibilityKey() {
+            return RoleDisplayMapper.visibilityKey(profile);
+        }
+
+        public String accessKey() {
+            return RoleDisplayMapper.accessKey(profile);
         }
     }
 
@@ -85,17 +95,16 @@ public class AdminViewController {
         model.addAttribute("roles", UserRole.values());
         model.addAttribute("visibilities", Visibility.values());
         model.addAttribute("accessRights", AccessRight.values());
-        // What each role can do and the values it fixes, for the user dialog
-        Map<String, List<String>> roleCanDo = new LinkedHashMap<>();
+        model.addAttribute("visibilityFilter", RoleDisplayMapper.visibilityFilter());
+        model.addAttribute("accessFilter", RoleDisplayMapper.accessFilter());
+        // The Permissions text of each role and the values a role fixes, for the user dialog
         Map<String, List<RoleDisplayMapper.FixedValue>> roleFixedValues = new LinkedHashMap<>();
         for (UserRole role : UserRole.values()) {
-            roleCanDo.put(role.name(), RoleDisplayMapper.canDo(role));
             roleFixedValues.put(role.name(), RoleDisplayMapper.fixedValues(role));
         }
-        model.addAttribute("roleCanDo", roleCanDo);
         model.addAttribute("roleFixedValues", roleFixedValues);
-        model.addAttribute("accessHints", RoleDisplayMapper.hints());
-        model.addAttribute("roleSummaries", RoleDisplayMapper.roleSummaries());
+        model.addAttribute("permissions", RoleDisplayMapper.permissionsByKey());
+        model.addAttribute("roleAccessLines", RoleDisplayMapper.roleAccessLines());
         model.addAttribute("canManageUsers", AccessPolicy.canManageUsers(subject));
         // With SSO people sign in with their corporate e-mail at Microsoft and get no password
         model.addAttribute("sso", authMode.sso());
@@ -119,7 +128,7 @@ public class AdminViewController {
 
     private static UserRow row(User user, User viewer) {
         AccessPolicy.Profile profile = AccessPolicy.Profile.of(user);
-        return new UserRow(user, profile, RoleDisplayMapper.summary(profile),
+        return new UserRow(user, profile, RoleDisplayMapper.accessLines(profile),
                 user.getLastLoginAt() != null ? user.getLastLoginAt().format(DATE_TIME) : "",
                 Objects.equals(user.getId(), viewer.getId()));
     }

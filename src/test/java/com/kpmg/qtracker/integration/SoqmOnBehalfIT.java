@@ -19,6 +19,7 @@ import com.kpmg.qtracker.repository.UserRepository;
 import com.kpmg.qtracker.repository.WorkflowHistoryRepository;
 import com.kpmg.qtracker.service.WorkflowMoveService;
 import com.kpmg.qtracker.support.TestUsers;
+import com.kpmg.qtracker.service.notification.NotificationRecipients;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -137,7 +138,7 @@ class SoqmOnBehalfIT {
         // no copy to the Facilitator (NOTIFICATIONS_v5, rule 11)
         assertThat(notices(control, operator)).singleElement().satisfies(notice -> {
             assertThat(notice.getTitle()).isEqualTo("Control Operator Review");
-            assertThat(notice.getMessage()).startsWith("Dear " + operator.getDisplayName() + ",").doesNotContainIgnoringCase("behalf");
+            assertThat(notice.getMessage()).startsWith("Dear " + NotificationRecipients.firstName(operator.getDisplayName()) + ",").doesNotContainIgnoringCase("behalf");
         });
         assertThat(notices(control, facilitator)).isEmpty();
         assertThat(noticesOfType(control, operator, "ON_BEHALF")).isEmpty();

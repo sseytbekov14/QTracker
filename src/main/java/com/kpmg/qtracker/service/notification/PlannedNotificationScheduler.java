@@ -22,6 +22,7 @@ import java.time.ZonedDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -117,20 +118,21 @@ public class PlannedNotificationScheduler {
             queued += notifications.send(control, assignment, new ControlNotifications.Notice(Template.T2,
                     List.of(WorkflowTransition.Actor.FACILITATOR, WorkflowTransition.Actor.CONTROL_OPERATOR,
                             WorkflowTransition.Actor.PROCESS_OWNER),
-                    null, email -> key + "T2:D0:" + email, null), message -> warn(today, message));
+                    null, email -> key + "T2:D0:" + email, null, Map.of()), message -> warn(today, message));
         }
         WorkflowTransition.Actor holder = holder(control.getPerformanceStatus());
         if (holder == null) {
             return queued;
         }
         int workingDay = workingDays.workingDaysBetween(occurrence, today);
+        Map<String, String> due = Map.of(NotificationValues.DUE, NotificationValues.due(workingDays, deadline, today));
         ControlNotifications.Notice notice;
         if (workingDay == 3 || workingDay == 6) {
-            notice = toHolder(Template.T3, holder, email -> key + "T3:D" + workingDay + ":" + email);
+            notice = toHolder(Template.T3, holder, email -> key + "T3:D" + workingDay + ":" + email, due);
         } else if (today.equals(deadline)) {
-            notice = toHolder(Template.T4, holder, email -> key + "T4:DL:" + email);
+            notice = toHolder(Template.T4, holder, email -> key + "T4:DL:" + email, due);
         } else if (today.isAfter(deadline)) {
-            notice = toHolder(Template.T5, holder, email -> key + "T5:" + email + ":" + today);
+            notice = toHolder(Template.T5, holder, email -> key + "T5:" + email + ":" + today, due);
         } else {
             return queued;
         }
@@ -138,9 +140,10 @@ public class PlannedNotificationScheduler {
     }
 
     private static ControlNotifications.Notice toHolder(Template template, WorkflowTransition.Actor holder,
-                                                        java.util.function.Function<String, String> key) {
+                                                        java.util.function.Function<String, String> key,
+                                                        Map<String, String> values) {
         return new ControlNotifications.Notice(template, List.of(holder), null,
-                key, null);
+                key, null, values);
     }
 
     /** The holder of the step whose reminders go out; none in SoQM review (SoQM Admin Team gets no reminders). */

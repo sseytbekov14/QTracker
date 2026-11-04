@@ -4,6 +4,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.EmailOutbox;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.service.notification.NotificationRecipients;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -71,7 +72,7 @@ class PlannedNotificationsIT extends NotificationScenarioSupport {
             assertThat(mail.getCreatedAt().toLocalTime()).isEqualTo(java.time.LocalTime.of(9, 30));
         });
         assertThat(mails(control)).filteredOn(m -> m.getTemplateKey().equals("T3")).allSatisfy(mail ->
-                assertThat(mail.getBodyHtml()).startsWith("<div").contains("Dear " + cast.fac.getDisplayName() + ",<br>"));
+                assertThat(mail.getBodyHtml()).startsWith("<!DOCTYPE html").contains("Dear " + NotificationRecipients.firstName(cast.fac.getDisplayName()) + ",<br>"));
     }
 
     @Test
@@ -90,9 +91,9 @@ class PlannedNotificationsIT extends NotificationScenarioSupport {
         // SoQM review: the occurrence day goes to everyone, no reminder to anybody (AC-5)
         assertThat(sent(atSoqm)).containsExactlyElementsOf(calendar(soqmReview, soqmReview.soqm).subList(0, 3));
         assertThat(mails(atOperator)).filteredOn(m -> m.getTemplateKey().equals("T5"))
-                .allSatisfy(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + review.op.getDisplayName() + ",<br>"));
+                .allSatisfy(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(review.op.getDisplayName()) + ",<br>"));
         assertThat(mails(atOwner)).filteredOn(m -> m.getTemplateKey().equals("T4"))
-                .allSatisfy(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + ownerReview.po.getDisplayName() + ",<br>"));
+                .allSatisfy(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(ownerReview.po.getDisplayName()) + ",<br>"));
     }
 
     @Test

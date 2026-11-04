@@ -262,6 +262,16 @@ class ComponentControlsListTest {
     }
 
     @Test
+    void clearable_searchOrStatus_notTheKdnBox() {
+        assertThat(ComponentControlsList.Query.of(null, null, null, null, null, null, "1").clearable()).isFalse();
+        assertThat(ComponentControlsList.Query.of(null, null, "date", "desc", 3, 50, "1").clearable()).isFalse();
+        assertThat(ComponentControlsList.Query.of(null, null, null, null, null, null, null).clearable()).isFalse();
+        assertThat(ComponentControlsList.Query.of("hr", null, null, null, null, null, "1").clearable()).isTrue();
+        assertThat(ComponentControlsList.Query.of(null, "REVIEW", null, null, null, null, "1").clearable()).isTrue();
+        assertThat(ComponentControlsList.Query.of("hr", null, null, null, null, null, null).clearable()).isTrue();
+    }
+
+    @Test
     void sortHref_ascendingFirst_thenTheOtherWay() {
         List<ControlResponseDTO> controls = List.of(control(1, "HR-1", "HR", "REVIEW", null));
         assertThat(result(controls, null, null, null, null, null, null).sortHref("id")).isEqualTo("/component/HR?sort=id&dir=desc");

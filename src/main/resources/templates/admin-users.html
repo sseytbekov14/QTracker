@@ -72,6 +72,22 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 }
 .toolbar-select { width: auto; min-width: 160px; }
 .toolbar-control:focus { border-color: var(--kpmg-blue); box-shadow: 0 0 0 3px rgba(0, 51, 141, 0.12); }
+/* Shown while a search or a filter is set */
+.toolbar-clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: none;
+    padding: 4px 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--kpmg-blue);
+    white-space: nowrap;
+}
+.toolbar-clear:hover { text-decoration: underline; }
+.toolbar-clear:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; border-radius: 3px; }
+.toolbar-clear[hidden] { display: none; }
 
 /* Table: read only; the Edit button of a row opens the user dialog */
 .table-wrapper {
@@ -364,6 +380,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .role-badge.is-user { background: #eef1f4; color: #3d4652; border-color: #d5dae1; }
 .role-badge.is-kdn { background: #f3ecfa; color: #5b2a86; border-color: #dccbee; }
 .access-cell { color: var(--kpmg-gray-800); }
+/* Access: one line per access, "area · level" (RoleDisplayMapper.accessLines) */
+.access-line { display: block; white-space: nowrap; }
 
 /* Empty table: no users, nothing matches, or the list could not be loaded */
 .empty-state { display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -398,7 +416,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .field-reason { font-size: 0.74rem; color: var(--kpmg-amber-text); margin-top: 3px; }
 .field-reason:empty { display: none; }
 
-/* SoQM Team and KDN: what the role can do (read only) */
+/* Permissions of the chosen role (and Access), with the values SoQM Team and KDN fix (read only) */
 .role-info {
     margin: 0 0 14px;
     padding: 10px 14px;
@@ -408,8 +426,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 }
 .role-info[hidden] { display: none; }
 .role-info-title { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; color: var(--kpmg-gray-800); }
-.role-info-list { margin: 0 0 8px; padding-left: 18px; font-size: 0.78rem; color: var(--kpmg-gray-800); }
-.role-info-list li + li { margin-top: 2px; }
+.role-info-text { margin: 0; font-size: 0.78rem; color: var(--kpmg-gray-800); }
+.role-info-text + .role-fixed { margin-top: 8px; }
 .role-fixed { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; align-items: baseline; margin: 0; font-size: 0.78rem; }
 .role-fixed:empty { display: none; }
 .role-fixed dt { font-weight: 600; color: var(--kpmg-gray-600); }
@@ -428,7 +446,6 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .fixed-value .bi { font-size: 0.72rem; }
 .fixed-reason { color: var(--kpmg-gray-600); }
 .summary-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--kpmg-gray-600); }
-.summary-hint { color: var(--kpmg-gray-800); }
 
 @media (max-width: 767.98px) {
     .page-header { flex-wrap: wrap; padding: 14px 16px; }
@@ -476,6 +493,9 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
     .row-edit-btn { padding: 5px 12px; }
     .admin-user-row.row-saved { animation: row-saved 2.4s ease-out; }
     .users-table tbody tr.empty-row td { display: block; text-align: center; }
+    /* Access: the label on top, one line per access under it */
+    .users-table tbody td.access-cell { flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
+    .access-line { white-space: normal; }
 
     .table-footer { flex-direction: column; align-items: stretch; }
     .pagination-controls { justify-content: space-between; }
@@ -563,25 +583,27 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     <div class="search-box">
                         <i class="bi bi-search" aria-hidden="true"></i>
                         <input id="searchUsers" type="search" class="form-control form-control-sm toolbar-control"
-                               placeholder="Search name or e-mail…" aria-label="Search users by name or e-mail" autocomplete="off">
+                               placeholder="Search name or email" aria-label="Search by name or email" autocomplete="off">
                     </div>
-                    <select id="filterRole" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by role">
+                    <select id="filterRole" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Role">
                         <option value="">All roles</option>
                         <option th:each="role : ${roles}" th:value="${role.name()}" th:text="${role.displayName}">SoQM Admin Team</option>
                     </select>
-                    <select id="filterVisibility" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by visibility">
-                        <option value="">Any visibility</option>
-                        <option th:each="visibility : ${visibilities}" th:value="${visibility.name()}" th:text="${visibility.displayName}">My controls</option>
+                    <select id="filterVisibility" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Visibility">
+                        <option value="">All visibility</option>
+                        <option th:each="option : ${visibilityFilter}" th:value="${option.key}" th:text="${option.value}">My controls</option>
                     </select>
-                    <select id="filterAccess" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by access">
-                        <option value="">Any access</option>
-                        <option th:each="right : ${accessRights}" th:value="${right.name()}" th:text="${right.displayName}">Edit</option>
+                    <select id="filterAccess" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Access">
+                        <option value="">All access</option>
+                        <option th:each="option : ${accessFilter}" th:value="${option.key}" th:text="${option.value}">Edit</option>
                     </select>
-                    <select id="filterStatus" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Filter by status">
+                    <select id="filterStatus" class="form-select form-select-sm toolbar-control toolbar-select" aria-label="Status">
                         <option value="">All statuses</option>
                         <option value="ACTIVE">Active</option>
                         <option value="INACTIVE">Inactive</option>
                     </select>
+                    <button type="button" class="toolbar-clear" id="clearToolbarFiltersBtn" hidden>
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>Clear filters</button>
                 </div>
 
                 <!-- Table: read only; only the Edit button of a row opens the user dialog -->
@@ -609,6 +631,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                      data-role=${row.role()},
                                      data-visibility=${row.visibility()},
                                      data-access=${row.access()},
+                                     data-visibility-key=${row.visibilityKey()},
+                                     data-access-key=${row.accessKey()},
                                      data-enabled=${user.enabled == true},
                                      data-last-login=${row.lastLogin()},
                                      data-self=${row.self()}">
@@ -626,7 +650,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                 <span class="role-badge" th:classappend="'is-' + ${#strings.toLowerCase(row.role())}"
                                       th:text="${row.profile().role().displayName}">User</span>
                             </td>
-                            <td class="access-cell js-access" data-label="Access" th:text="${row.summary()}">User · My controls · Read Only</td>
+                            <td class="access-cell js-access" data-label="Access"><span class="access-line" th:each="line : ${row.accessLines()}" th:text="${line}">My controls · Read Only</span></td>
                             <td class="js-status" data-label="Status">
                                 <span class="status-pill"
                                       th:classappend="${user.enabled == true} ? 'is-active' : 'is-inactive'"
@@ -662,9 +686,9 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                         <tr id="noUsersClientRow" class="d-none empty-row">
                             <td colspan="7">
                                 <div class="empty-state" role="status">
-                                    <p class="empty-title" id="noUsersClientTitle">No users match the filters.</p>
-                                    <p class="empty-text">Check the spelling or clear the search and filters.</p>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="clearFiltersBtn">Clear search and filters</button>
+                                    <p class="empty-title">No users found</p>
+                                    <p class="empty-text">Check the spelling or clear the filters.</p>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="clearFiltersBtn">Clear filters</button>
                                 </div>
                             </td>
                         </tr>
@@ -844,10 +868,10 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     </fieldset>
                 </div>
 
-                <!-- SoQM Team and KDN: what the role can do, and the values it fixes (read only) -->
-                <section id="userRoleInfo" class="role-info" aria-labelledby="userRoleInfo-title" hidden>
-                    <h3 class="role-info-title" id="userRoleInfo-title">What this role can do</h3>
-                    <ul class="role-info-list" id="userRoleInfo-list"></ul>
+                <!-- Permissions of the chosen role (RoleDisplayMapper), and the values SoQM Team and KDN fix (read only) -->
+                <section id="userRoleInfo" class="role-info" aria-labelledby="userRoleInfo-title" aria-live="polite" hidden>
+                    <h3 class="role-info-title" id="userRoleInfo-title">Permissions</h3>
+                    <p class="role-info-text" id="userRoleInfo-text"></p>
                     <dl class="role-fixed" id="userRoleInfo-fixed"></dl>
                 </section>
 
@@ -873,7 +897,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     <p>Kept as they are, with this person's name and e-mail: the Audit Trail, the controls' history and
                         Changelog, the e-mail log and who uploaded each file. Their e-mail stays in the controls' people
                         and Shared With, shown as &ldquo;(deleted user)&rdquo;: change those people yourself where needed.</p>
-                    <p>To keep the account and only stop the sign-in, use <strong>Disable user</strong> instead.</p>
+                    <p>To keep the account and only stop the sign-in, set <strong>Status</strong> to Inactive instead.</p>
                 </div>
                 <div id="userDeleteStep1">
                     <div class="mb-3">
@@ -908,7 +932,6 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-danger js-delete-start me-auto" id="userDeleteBtn" hidden>
                     <i class="bi bi-trash3" aria-hidden="true"></i> Delete user</button>
-                <button type="button" class="btn btn-outline-secondary" id="userDisableBtn" hidden>Disable user</button>
                 <span class="dirty-note" id="userDirtyNote" hidden><i class="bi bi-circle-fill" aria-hidden="true"></i>Unsaved changes</span>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="userCancelBtn">Cancel</button>
                 <button type="button" class="btn btn-outline-secondary" id="userDeleteBackBtn" hidden>Back</button>
@@ -924,10 +947,9 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 <script th:inline="javascript">
 document.addEventListener('DOMContentLoaded', function() {
     // The words of the roles come from the server (RoleDisplayMapper), so the page and the server agree
-    const ACCESS_HINTS = /*[[${accessHints}]]*/ {};
-    const ROLE_CAN_DO = /*[[${roleCanDo}]]*/ {};
+    const PERMISSIONS = /*[[${permissions}]]*/ {};
     const ROLE_FIXED = /*[[${roleFixedValues}]]*/ {};
-    const ROLE_SUMMARIES = /*[[${roleSummaries}]]*/ {};
+    const ROLE_ACCESS_LINES = /*[[${roleAccessLines}]]*/ {};
     // Sign-in with Microsoft: a new user needs the corporate e-mail and gets no password
     const SSO = /*[[${sso}]]*/ false;
     const MAX_NAME_LENGTH = 255;
@@ -951,8 +973,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const pageIndicator = document.getElementById('pageIndicator');
     const paginationInfo = document.getElementById('paginationInfo');
     const noUsersClientRow = document.getElementById('noUsersClientRow');
-    const noUsersClientTitle = document.getElementById('noUsersClientTitle');
-    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+    const clearToolbarFiltersBtn = document.getElementById('clearToolbarFiltersBtn');
     const auditFilter = document.getElementById('auditFilter');
     const auditTableBody = document.getElementById('auditTableBody');
 
@@ -975,7 +996,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const accessRadios = Array.from(form.querySelectorAll('input[name="userAccess"]'));
     const choicesEl = document.getElementById('userChoices');
     const roleInfoEl = document.getElementById('userRoleInfo');
-    const roleInfoList = document.getElementById('userRoleInfo-list');
+    const roleInfoText = document.getElementById('userRoleInfo-text');
     const roleInfoFixed = document.getElementById('userRoleInfo-fixed');
     const roleReason = document.getElementById('userRole-reason');
     const statusReason = document.getElementById('userStatus-reason');
@@ -1012,17 +1033,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ---------------------------------------------------------------- access words
 
-    // "SoQM Team", "User · My controls · Edit", "KDN · All KDN controls · Read Only", as RoleDisplayMapper.summary
-    function summaryOf(user) {
+    // "Full access", "My controls · Edit", "All KDN controls · Read Only", as RoleDisplayMapper.accessLines
+    function accessLinesOf(user) {
         if (user.role !== 'USER') {
-            return ROLE_SUMMARIES[user.role] || ROLE_LABELS[user.role] || user.role || '-';
+            return ROLE_ACCESS_LINES[user.role] || ['-'];
         }
-        return ROLE_LABELS.USER + SEPARATOR + (VISIBILITY_LABELS[user.visibility] || '-')
-            + SEPARATOR + (ACCESS_LABELS[user.access] || '-');
+        // Built first: "[(" would be a Thymeleaf inline expression in this script
+        const line = (VISIBILITY_LABELS[user.visibility] || '-') + SEPARATOR + (ACCESS_LABELS[user.access] || '-');
+        return [line];
     }
 
-    function hintOf(user) {
-        return ACCESS_HINTS[user.role === 'USER' ? 'USER/' + user.visibility + '/' + user.access : user.role] || '';
+    function accessLineElements(lines) {
+        return lines.map(function(line) {
+            return element('span', 'access-line', line);
+        });
+    }
+
+    // Permissions: by role, and for a User by Access (RoleDisplayMapper.permissionsByKey)
+    function permissionsOf(user) {
+        return PERMISSIONS[user.role === 'USER' ? 'USER/' + user.access : user.role] || '';
     }
 
     // ---------------------------------------------------------------- table
@@ -1060,6 +1089,8 @@ document.addEventListener('DOMContentLoaded', function() {
         row.dataset.role = user.role || '';
         row.dataset.visibility = user.visibility || '';
         row.dataset.access = user.access || '';
+        row.dataset.visibilityKey = user.visibilityKey || '';
+        row.dataset.accessKey = user.accessKey || '';
         row.dataset.enabled = String(Boolean(user.enabled));
         row.dataset.lastLogin = user.lastLoginAt || '';
         if (!row.dataset.self) {
@@ -1075,7 +1106,8 @@ document.addEventListener('DOMContentLoaded', function() {
         ]));
         row.querySelector('.js-email').textContent = user.mail || '';
         row.querySelector('.js-role').replaceChildren(roleBadge(user.role));
-        row.querySelector('.js-access').textContent = user.summary || summaryOf(rowUser(row));
+        row.querySelector('.js-access').replaceChildren.apply(row.querySelector('.js-access'),
+            accessLineElements(user.accessLines || accessLinesOf(rowUser(row))));
         row.querySelector('.js-status').replaceChildren(element('span',
             'status-pill ' + (user.enabled ? 'is-active' : 'is-inactive'), user.enabled ? 'Active' : 'Inactive'));
         row.querySelector('.js-last-login').textContent = user.lastLoginAt || '-';
@@ -1107,15 +1139,16 @@ document.addEventListener('DOMContentLoaded', function() {
         row.classList.add('row-saved');
     }
 
-    // Visibility and Access belong to Users: filtering by them shows Users only
+    // Visibility and Access match the Access lines of every role (RoleDisplayMapper.visibilityKey/accessKey):
+    // SoQM Admin Team is All controls and Full access, KDN All KDN controls and Read Only
     function matchesFilters(row) {
         const q = searchInput.value.trim().toLowerCase();
         const searchOk = !q
             || (row.dataset.name || '').toLowerCase().includes(q)
             || (row.dataset.email || '').toLowerCase().includes(q);
         const roleOk = !roleFilter.value || roleFilter.value === row.dataset.role;
-        const visibilityOk = !visibilityFilter.value || visibilityFilter.value === row.dataset.visibility;
-        const accessOk = !accessFilter.value || accessFilter.value === row.dataset.access;
+        const visibilityOk = !visibilityFilter.value || visibilityFilter.value === row.dataset.visibilityKey;
+        const accessOk = !accessFilter.value || accessFilter.value === row.dataset.accessKey;
         const statusOk = !statusFilter.value
             || (statusFilter.value === 'ACTIVE') === (row.dataset.enabled === 'true');
         return searchOk && roleOk && visibilityOk && accessOk && statusOk;
@@ -1147,13 +1180,14 @@ document.addEventListener('DOMContentLoaded', function() {
         pageRows.forEach(function(row) {
             row.style.display = '';
         });
-        const q = searchInput.value.trim();
-        noUsersClientTitle.textContent = q ? 'No users match “' + q + '”.' : 'No users match the filters.';
         noUsersClientRow.classList.toggle('d-none', totalItems > 0 || rows.length === 0);
+        clearToolbarFiltersBtn.hidden = !filterControls.some(function(control) {
+            return control.value.trim() !== '';
+        });
 
         const from = totalItems === 0 ? 0 : startIndex + 1;
         const to = totalItems === 0 ? 0 : Math.min(endIndex, totalItems);
-        paginationInfo.textContent = 'Showing ' + from + '-' + to + ' of ' + totalItems + ' users';
+        paginationInfo.textContent = 'Showing ' + from + '-' + to + ' of ' + totalItems + (totalItems === 1 ? ' user' : ' users');
         pageIndicator.textContent = currentPage + ' / ' + totalPages;
         prevPageBtn.disabled = currentPage <= 1;
         nextPageBtn.disabled = currentPage >= totalPages;
@@ -1175,12 +1209,15 @@ document.addEventListener('DOMContentLoaded', function() {
     [roleFilter, visibilityFilter, accessFilter, statusFilter].forEach(function(select) {
         select.addEventListener('change', applyFilters);
     });
-    clearFiltersBtn.addEventListener('click', function() {
-        filterControls.forEach(function(control) {
-            control.value = '';
+    // In the toolbar while a search or a filter is set, and in the empty table
+    document.querySelectorAll('#clearFiltersBtn, #clearToolbarFiltersBtn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            filterControls.forEach(function(control) {
+                control.value = '';
+            });
+            applyFilters();
+            searchInput.focus();
         });
-        applyFilters();
-        searchInput.focus();
     });
     pageSizeSelect.addEventListener('change', function() {
         pageSize = Number(pageSizeSelect.value || 10);
@@ -1369,8 +1406,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Visibility and Access show only for a User; someone who becomes User starts at My controls and Read
-    // Only (a User who was one when the dialog opened gets their values back). SoQM Team and KDN show what
-    // the role can do and the values it fixes instead.
+    // Only (a User who was one when the dialog opened gets their values back). Every role shows its
+    // Permissions; SoQM Team and KDN also the values the role fixes.
     function syncRoleFields(roleChanged) {
         const role = fields.role.value;
         const user = role === 'USER';
@@ -1381,12 +1418,8 @@ document.addEventListener('DOMContentLoaded', function() {
             setRadio(accessRadios, wasUser ? dialog.user.access : 'READ_ONLY');
         }
 
-        const canDo = ROLE_CAN_DO[role] || [];
         const fixed = ROLE_FIXED[role] || [];
-        roleInfoEl.hidden = !role || user;
-        roleInfoList.replaceChildren.apply(roleInfoList, canDo.map(function(line) {
-            return element('li', null, line);
-        }));
+        roleInfoEl.hidden = !role;
         const fixedItems = [];
         fixed.forEach(function(value) {
             fixedItems.push(element('dt', null, value.label));
@@ -1399,17 +1432,18 @@ document.addEventListener('DOMContentLoaded', function() {
         updateAccessSummary();
     }
 
+    // The Access lines and the Permissions text of the chosen values
     function updateAccessSummary() {
         const values = currentValues();
+        roleInfoText.textContent = values.role ? permissionsOf(values) : '';
         accessSummaryEl.replaceChildren();
         if (!values.role) {
             return;
         }
         accessSummaryEl.appendChild(element('p', 'summary-line', null, [
             element('span', 'summary-label', 'Access'), ' ',
-            element('strong', null, summaryOf(values))
+            element('strong', null, accessLinesOf(values).join(', '))
         ]));
-        accessSummaryEl.appendChild(element('p', 'summary-hint', hintOf(values)));
     }
 
     Object.keys(fields).forEach(function(key) {
@@ -1460,7 +1494,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const deletePanel = document.getElementById('userDeletePanel');
     const deleteBtn = document.getElementById('userDeleteBtn');
-    const disableBtn = document.getElementById('userDisableBtn');
     const deleteBackBtn = document.getElementById('userDeleteBackBtn');
     const deleteConfirmBtn = document.getElementById('userDeleteConfirmBtn');
     const deleteEmail = document.getElementById('userDeleteEmail');
@@ -1470,13 +1503,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteAck = document.getElementById('userDeleteAck');
     const deleteMessage = document.getElementById('userDeleteMessage');
 
-    // Delete and Disable for an existing user who is not oneself; the last active SoQM Admin Team member neither
+    // Delete for an existing user who is not oneself; not for the last active SoQM Admin Team member. Disabling an
+    // account is the Status field (the former "Disable user" button saved Status Inactive the same way)
     function showDeleteButtons() {
         const existing = dialog && dialog.mode !== 'create' && !dialog.self;
         deleteBtn.hidden = !existing;
         deleteBtn.disabled = Boolean(existing && dialog.lastSoqm);
         deleteBtn.title = existing && dialog.lastSoqm ? 'The last active SoQM Admin Team member cannot be deleted' : '';
-        disableBtn.hidden = !existing || !dialog.user.enabled || dialog.lastSoqm;
     }
 
     // step: 0 = the form, 1 = e-mail and reason, 2 = the controls that keep the person
@@ -1494,7 +1527,6 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteConfirmBtn.disabled = step === 2 && !deleteAck.checked;
         if (step > 0) {
             deleteBtn.hidden = true;
-            disableBtn.hidden = true;
         } else {
             showDeleteButtons();
         }
@@ -1537,16 +1569,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     deleteAck.addEventListener('change', function() {
         deleteConfirmBtn.disabled = !deleteAck.checked;
-    });
-
-    // Disable user: the safe alternative, the usual save with the status Inactive (and its confirmation)
-    disableBtn.addEventListener('click', function() {
-        if (!dialog || dialog.saving) {
-            return;
-        }
-        fields.status.value = 'INACTIVE';
-        updateDirtyState();
-        form.requestSubmit();
     });
 
     deleteConfirmBtn.addEventListener('click', async function() {
@@ -1640,7 +1662,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const who = dialog.user.name || dialog.user.email;
             row.remove();
             rows = Array.from(tableBody.querySelectorAll('.admin-user-row'));
-            applyFilters();
+            // The same page and filters; an emptied last page steps back one
+            renderTablePage();
             if (result.audit) {
                 addAuditRow(result.audit);
             }
@@ -1845,8 +1868,7 @@ document.addEventListener('DOMContentLoaded', function() {
             changes.push({
                 field: fields.role,
                 title: create ? 'Create ' + who + ' as SoQM Admin Team?' : 'Make ' + who + ' SoQM Admin Team?',
-                text: who + ' will see every control, drafts included, edit any control, assign people, move'
-                    + ' controls on or back for any Control role, and manage users and the audit trail in the Admin Panel.',
+                text: who + ' gets the permissions of SoQM Admin Team: ' + PERMISSIONS.SOQM_TEAM,
                 ok: create ? 'Create SoQM Admin Team user' : 'Make SoQM Admin Team'
             });
         }

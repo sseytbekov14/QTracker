@@ -3,6 +3,7 @@ package com.kpmg.qtracker.integration;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.EmailOutbox;
 import com.kpmg.qtracker.entity.User;
+import com.kpmg.qtracker.service.notification.NotificationRecipients;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
@@ -98,9 +99,9 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
         EmailOutbox reminder = mails(control).stream().filter(m -> m.getTemplateKey().equals("T3")).findFirst().orElseThrow();
         assertThat(reminder.getRecipientEmail()).isEqualTo(cast.fac.getMail());
         assertThat(reminder.getCreatedAt()).isEqualTo(LocalDate.of(2026, 11, 10).atTime(LocalTime.of(9, 30)));
-        assertThat(reminder.getSubject()).isEqualTo("Control Reminder");
-        assertThat(reminder.getBodyHtml()).contains("Dear " + cast.fac.getDisplayName() + ",<br>", "is awaiting your action",
-                "Deadline: 19-11-2026<br>", ">Go to Control</a>");
+        assertThat(reminder.getSubject()).isEqualTo("Awaiting your action");
+        assertThat(reminder.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(cast.fac.getDisplayName()) + ",<br>", "is awaiting your action",
+                ">19 Nov 2026 (in 7 working days)</td>", ">Reminder</td>", ">Go to Control</a>");
     }
 
     @Test
@@ -193,8 +194,8 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
         assertThat(inApp(control, both)).hasSize(1);
         // One name, both roles
         assertThat(mails(control)).filteredOn(m -> m.getRecipientEmail().equals(both.getMail())).singleElement()
-                .satisfies(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + both.getDisplayName() + ",<br>",
-                        "Your role: Facilitator and Control Operator<br>"));
+                .satisfies(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(both.getDisplayName()) + ",<br>",
+                        ">Facilitator and Control Operator</td>"));
         assertThat(inApp(control, both).get(0).getMessage()).contains("Your role: Facilitator and Control Operator\n");
     }
 
@@ -212,7 +213,7 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
                 line("T12", cast.soqm, LocalDate.of(2026, 11, 12)), line("T12", cast.po, LocalDate.of(2026, 11, 12)));
         for (User person : List.of(cast.fac, cast.op, cast.soqm, cast.po)) {
             assertThat(mails(control)).filteredOn(m -> m.getRecipientEmail().equals(person.getMail())).singleElement()
-                    .satisfies(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + person.getDisplayName() + ",<br>",
+                    .satisfies(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(person.getDisplayName()) + ",<br>",
                             "has been completed.", ">Go to Control</a>"));
         }
     }
@@ -229,8 +230,8 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
             assertThat(mail.getTemplateKey()).isEqualTo("T4");
             assertThat(mail.getRecipientEmail()).isEqualTo(cast.fac.getMail());
             assertThat(mail.getImportance()).isEqualTo("HIGH");
-            assertThat(mail.getSubject()).isEqualTo("Control Deadline Today");
-            assertThat(mail.getBodyHtml()).contains("Dear " + cast.fac.getDisplayName() + ",<br>", " is today (19-11-2026).",
+            assertThat(mail.getSubject()).isEqualTo("Complete by the end of the day");
+            assertThat(mail.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(cast.fac.getDisplayName()) + ",<br>", " is today (19 Nov 2026).", ">19 Nov 2026 (today)</td>", ">Due today</td>",
                     "Please complete it by the end of the day.");
         });
     }

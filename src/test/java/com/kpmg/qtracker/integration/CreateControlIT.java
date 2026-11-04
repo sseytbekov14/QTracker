@@ -215,7 +215,7 @@ class CreateControlIT extends ReleaseScenarioSupport {
         assertThat(notices).allSatisfy(notice -> {
             assertThat(notice.getType()).isEqualTo("INITIATE");
             assertThat(notice.getTitle()).isEqualTo("The creation of the SoQM control");
-            assertThat(notice.getMessage()).contains("Occurrence date: 10-11-2026\n", "Deadline: 24-11-2026\n")
+            assertThat(notice.getMessage()).contains("Occurrence date: 10 Nov 2026\n", "Deadline: 24 Nov 2026\n")
                     .doesNotContain("http");
         });
         assertThat(outbox.findByControlIdOrderByIdAsc(created.id())).extracting(EmailOutbox::getRecipientEmail)

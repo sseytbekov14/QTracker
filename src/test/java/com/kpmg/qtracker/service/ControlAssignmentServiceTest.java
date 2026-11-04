@@ -232,14 +232,35 @@ class ControlAssignmentServiceTest {
                 TestUsers.user("ro@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.OWN, false)));
         when(userRepository.findByMail("kdn@kpmg.kz")).thenReturn(Optional.of(
                 TestUsers.user("kdn@kpmg.kz", AccessLevel.READ_ONLY, AccessScope.KDN, false)));
-        when(userRepository.findByMail("soqm@kpmg.kz")).thenReturn(Optional.of(
-                TestUsers.user("soqm@kpmg.kz", AccessLevel.SOQM, AccessScope.ALL, false)));
 
         assertRefused(dto(90L, List.of("ro@kpmg.kz"), null, null), "Facilitator: ro@kpmg.kz has Read Only access");
         assertRefused(dto(90L, List.of("kdn@kpmg.kz"), null, null), "Facilitator: kdn@kpmg.kz sees only KDN controls");
-        assertRefused(dto(90L, List.of("soqm@kpmg.kz"), null, null), "Facilitator: soqm@kpmg.kz is SoQM Admin Team");
         assertRefused(dto(90L, null, List.of("nobody@kpmg.kz"), null), "SoQM Team / Delegate: nobody@kpmg.kz is not a QTracker user");
         verify(assignmentRepository, never()).save(any(ControlAssignment.class));
+    }
+
+    /** Business decision of 2026-11-04: a SoQM Admin Team member may hold every field of a control. */
+    @Test
+    void saveAssignment_acceptsASoqmUserInEveryField() {
+        Control control = new Control();
+        control.setId(93L);
+        control.setControlId("HR-93");
+        when(controlRepository.findById(93L)).thenReturn(Optional.of(control));
+        when(userRepository.findByMail("soqm@kpmg.kz")).thenReturn(Optional.of(
+                TestUsers.user("soqm@kpmg.kz", AccessLevel.SOQM, AccessScope.ALL, false)));
+        when(assignmentRepository.findByControlId(93L)).thenReturn(Optional.empty());
+        when(assignmentRepository.save(any(ControlAssignment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ControlAssignmentDTO dto = dto(93L, List.of("soqm@kpmg.kz"), List.of("soqm@kpmg.kz"), null);
+        dto.setControlOperator(List.of("soqm@kpmg.kz"));
+        dto.setProcessOwner(List.of("soqm@kpmg.kz"));
+
+        ControlAssignment saved = service.saveAssignment(dto);
+
+        assertThat(saved.getFacilitator()).isEqualTo("soqm@kpmg.kz");
+        assertThat(saved.getControlOperator()).isEqualTo("soqm@kpmg.kz");
+        assertThat(saved.getSoqmLead()).isEqualTo("soqm@kpmg.kz");
+        assertThat(saved.getProcessOwner()).isEqualTo("soqm@kpmg.kz");
     }
 
     @Test

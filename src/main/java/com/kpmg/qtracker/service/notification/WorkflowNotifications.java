@@ -2,12 +2,15 @@ package com.kpmg.qtracker.service.notification;
 
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
+import com.kpmg.qtracker.service.WorkflowMove;
 import com.kpmg.qtracker.service.WorkflowTransition;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import static com.kpmg.qtracker.service.WorkflowTransition.Actor.CONTROL_OPERATOR;
 import static com.kpmg.qtracker.service.WorkflowTransition.Actor.FACILITATOR;
@@ -17,8 +20,8 @@ import static com.kpmg.qtracker.service.WorkflowTransition.Actor.SOQM_TEAM;
 /**
  * The notifications of the workflow, made in the transaction of the step (NOTIFICATIONS_v5 4.2, 6.2; decisions 1 and 4).
  * The template and the people follow the change of status, never who made it: SoQM Admin Team acting on behalf of a
- * role gives what the role itself gives, and no text names it (the actor and "on behalf" are in the history and the
- * audit trail only).
+ * role gives what the role itself gives. The line From of the e-mail's details names the role whose step it was, never
+ * "on behalf" (2026-11-04); who really made the move is in the history and the audit trail only.
  * <ul>
  * <li>T1 when the control becomes In Progress (Initiate, Create Control): Facilitator, Control Operator, Process Owner;</li>
  * <li>to Review: from In Progress T6, from Process Owner Review T11, from SoQM review or Completed T9 - Control Operator;</li>
@@ -27,7 +30,7 @@ import static com.kpmg.qtracker.service.WorkflowTransition.Actor.SOQM_TEAM;
  * <li>to Process Owner Review: T10 to the Process Owner;</li>
  * <li>to Completed: T12 to Facilitator, Control Operator, SoQM Admin Team and Process Owner.</li>
  * </ul>
- * A return's comment is not in the e-mail (the texts send the reader to the control); the in-app notification has it.
+ * A return's comment stands in the e-mail as a quote, cut when long (2026-11-02), and under the in-app text in full.
  * Each e-mail once per history entry and person.
  */
 @Service
@@ -48,24 +51,39 @@ public class WorkflowNotifications {
     public int initiated(Control control, ControlAssignmentDTO assignment) {
         return notifications.send(control, assignment, new ControlNotifications.Notice(Template.T1,
                 List.of(FACILITATOR, CONTROL_OPERATOR, PROCESS_OWNER), null,
-                email -> control.getId() + ":T1:" + email, null), WorkflowNotifications::warn);
+                email -> control.getId() + ":T1:" + email, null, Map.of()), WorkflowNotifications::warn);
     }
 
     /**
      * A move of the workflow, recorded as the history entry given.
      *
-     * @param returnComment the comment of a return, for the in-app notification; null otherwise
+     * @param returnComment the comment of a return, for the e-mail and the in-app notification; null otherwise
+     * @param movedBy       who made it ({@link #movedBy}), for the line From of the e-mail's details
      */
     public int moved(Control control, ControlAssignmentDTO assignment, String from, String to, Long historyId,
-                     String returnComment) {
+                     String returnComment, String movedBy) {
         Event event = event(from, to);
         if (event == null) {
             return 0;
         }
-        String note = returnComment == null || returnComment.isBlank() ? null : "Return Comment:\n" + returnComment.trim();
+        String note = null;
+        Map<String, String> values = new HashMap<>();
+        values.put(NotificationValues.FROM, movedBy);
+        if (returnComment != null && !returnComment.isBlank()) {
+            note = "Return Comment:\n" + returnComment.trim();
+            values.put(NotificationValues.COMMENT, returnComment);
+        }
         return notifications.send(control, assignment, new ControlNotifications.Notice(event.template(), event.roles(),
                 event.returnedBy(), email -> control.getId() + ":" + event.template() + ":" + email + ":" + historyId,
-                note), WorkflowNotifications::warn);
+                note, values), WorkflowNotifications::warn);
+    }
+
+    /**
+     * Who passed the control on, as the line From says it: the role whose step it is, also when SoQM Admin Team made the
+     * move for that role (2026-11-04: no "on behalf of" in the e-mail).
+     */
+    public static String movedBy(WorkflowMove move) {
+        return ControlNotifications.roleName(move.actingFor());
     }
 
     /** The notification of a change of status, by the statuses alone (decision 4). */

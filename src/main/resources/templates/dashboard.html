@@ -755,6 +755,74 @@ html.tab-init-pending #mainTabContent {
     font-size: 0.7rem;
     color: var(--link-color);
 }
+/* "+N more": the day's controls in DeadlineDayPopover, on <body> and placed in the viewport by js/deadline-day-popover.js */
+.deadline-day-popover {
+    position: fixed;
+    z-index: 1070;
+    display: flex;
+    flex-direction: column;
+    min-width: 220px;
+    max-width: min(320px, calc(100vw - 16px));
+    background: var(--dashboard-card-bg);
+    border: 1px solid var(--dashboard-border);
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    color: var(--dashboard-text);
+    font-size: 0.8rem;
+}
+.deadline-day-popover-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 6px 8px 6px 10px;
+    border-bottom: 1px solid var(--dashboard-border);
+}
+.deadline-day-popover-title {
+    font-weight: 600;
+    color: var(--card-title);
+}
+.deadline-day-popover-count {
+    margin-right: auto;
+    color: var(--muted-text);
+    font-size: 0.72rem;
+}
+.deadline-day-popover-close {
+    flex-shrink: 0;
+    font-size: 0.6rem;
+}
+.deadline-day-popover-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    margin: 0;
+    padding: 6px 8px 8px;
+    list-style: none;
+}
+.deadline-day-popover-list li + li {
+    margin-top: 3px;
+}
+.deadline-day-popover-event {
+    display: block;
+    padding: 2px 6px;
+    border: 1px solid var(--link-color);
+    border-radius: 2px;
+    background: var(--link-color);
+    color: #ffffff;
+    font-size: 0.72rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-decoration: none;
+}
+.deadline-day-popover-event:hover {
+    filter: brightness(0.92);
+}
+.deadline-day-popover-event:focus-visible {
+    outline: 2px solid var(--link-color);
+    outline-offset: 1px;
+}
 .deadlines-block #deadlineCalendarWrapper .fc-button-primary {
     background: rgba(0, 94, 184, 0.12);
     border-color: var(--dashboard-border);
@@ -1310,6 +1378,7 @@ a.stat-block:focus-visible,
 <script src="/js/vendor/chart.umd.min.js"></script>
 <script src="/js/vendor/chartjs-plugin-datalabels.min.js"></script>
 <script src="/js/vendor/fullcalendar.global.min.js"></script>
+<script src="/js/deadline-day-popover.js?v=1"></script>
 <script>
 let statusBreakdownChartInstance;
 let frequencyChartInstance;
@@ -1900,6 +1969,7 @@ function initializeDeadlineCalendar() {
     }
 
     if (deadlineCalendarInstance) {
+        DeadlineDayPopover.close();
         deadlineCalendarInstance.destroy();
     }
 
@@ -1941,10 +2011,44 @@ function initializeDeadlineCalendar() {
             return {
                 html: '<span>' + escapeHtml(arg.event.title || 'Control') + '</span>'
             };
+        },
+        // "+N more" opens DeadlineDayPopover, not FullCalendar's popover (cut off by the calendar box). Anything but
+        // a view name or 'popover' keeps FullCalendar from acting on the click.
+        moreLinkClick: function(info) {
+            const link = info.jsEvent && info.jsEvent.target && info.jsEvent.target.closest('.fc-more-link');
+            if (link) {
+                DeadlineDayPopover.toggle(link, deadlineDayPopoverContent(info));
+            }
+            return true;
+        },
+        moreLinkDidMount: function(info) {
+            info.el.setAttribute('role', 'button');
+            info.el.setAttribute('aria-haspopup', 'dialog');
+            info.el.setAttribute('aria-expanded', 'false');
+        },
+        datesSet: function() {
+            DeadlineDayPopover.close();
         }
     });
 
     deadlineCalendarInstance.render();
+}
+
+// The day of a "+N more" link: its date and all its controls as the calendar shows them
+function deadlineDayPopoverContent(info) {
+    return {
+        title: info.date.toLocaleDateString('en-GB', { weekday: 'short' }) + ', ' + formatDate(info.date),
+        controls: info.allSegs.map(function(seg) {
+            const event = seg.event;
+            return {
+                title: event.title || 'Control',
+                url: event.url,
+                color: event.backgroundColor,
+                textColor: event.textColor,
+                tooltip: formatCalendarTooltip(event)
+            };
+        })
+    };
 }
 
 function normalizeDeadlineCalendarEvent(event) {
