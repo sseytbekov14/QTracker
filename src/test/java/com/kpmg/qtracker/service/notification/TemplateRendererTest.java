@@ -320,7 +320,7 @@ class TemplateRendererTest {
     private static Map<String, String> returned(String comment) {
         Map<String, String> values = values();
         values.put(NotificationValues.RETURNED_BY, "Process Owner");
-        values.put(NotificationValues.FROM, "SoQM Admin Team (on behalf of Process Owner)");
+        values.put(NotificationValues.FROM, "Process Owner");
         values.put(NotificationValues.COMMENT, comment);
         return values;
     }
@@ -331,8 +331,8 @@ class TemplateRendererTest {
         TemplateRenderer.Rendered rendered = renderer.render(template, returned("Fix the steps.")).rendered();
 
         assertThat(rendered.html()).containsSubsequence(">From</td>", "border-left:4px solid #00338D",
-                ">Comment from SoQM Admin Team (on behalf of Process Owner)</div>", ">Fix the steps.</div>", "cid:qtracker-button");
-        assertThat(rendered.mailText()).contains("\n\nComment from SoQM Admin Team (on behalf of Process Owner):\n"
+                ">Comment from Process Owner</div>", ">Fix the steps.</div>", "cid:qtracker-button");
+        assertThat(rendered.mailText()).contains("\n\nComment from Process Owner:\n"
                 + "Fix the steps.\n\nGo to Control: ");
     }
 

@@ -29,8 +29,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 /**
  * The notifications of the workflow (NOTIFICATIONS_v5 4.2, decisions 4 and 5): every change of status, made by the
- * role itself or by SoQM Admin Team on behalf of it, gives the same template, the same people and the same text; only
- * the line From of the e-mail says who made it; {RETURNED_BY} is the role of the step; nothing of type ON_BEHALF; the
+ * role itself or by SoQM Admin Team on behalf of it, gives the same template, the same people and the same text; the
+ * line From of the e-mail names the role of the step, never "on behalf"; {RETURNED_BY} is the role of the step; nothing
+ * of type ON_BEHALF; the
  * history keeps who made the move and for whom. One e-mail per person and move, the comment of a return in both the
  * e-mail and the in-app notification.
  */
@@ -96,16 +97,19 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
         };
     }
 
-    /** The line From: the role of the step, or SoQM Admin Team on behalf of it (a SoQM user makes the SoQM step as their own). */
+    /**
+     * The line From: the role of the step, also when SoQM Admin Team made the move for it (a SoQM user makes the SoQM
+     * step as their own); never "on behalf".
+     */
     private static String expectedFrom(String actor, String from) {
         if (!"OTHER".equals(actor) || "SOQM_HEAD_REVIEW".equals(from)) {
             return roleName(actor);
         }
-        return "SoQM Admin Team (on behalf of " + switch (from) {
+        return switch (from) {
             case "IN_PROGRESS" -> "Facilitator";
             case "REVIEW" -> "Control Operator";
             default -> "Process Owner";
-        } + ")";
+        };
     }
 
     /** The subject: the name of the step or event alone. */
@@ -165,7 +169,7 @@ class WorkflowEventNotificationsIT extends NotificationScenarioSupport {
             assertThat(mail.getTemplateKey()).isEqualTo(template);
             assertThat(mail.getSubject()).isEqualTo(expectedSubject(control, Template.valueOf(template)));
             assertThat(mail.getBodyHtml()).isEqualTo(html).contains("Dear " + NotificationRecipients.firstName(person.getDisplayName()) + ",<br>")
-                    .contains(">" + movedBy + "</td>");
+                    .contains(">" + movedBy + "</td>").doesNotContainIgnoringCase("behalf");
             if (isReturn) {
                 assertThat(mail.getBodyHtml()).contains(">Comment from " + movedBy + "</div>", ">" + comment + "</div>");
                 assertThat(mail.getBodyText()).contains("Comment from " + movedBy + ":\n" + comment + "\n\nGo to Control: ");

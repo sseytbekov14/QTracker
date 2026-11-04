@@ -20,8 +20,8 @@ import static com.kpmg.qtracker.service.WorkflowTransition.Actor.SOQM_TEAM;
 /**
  * The notifications of the workflow, made in the transaction of the step (NOTIFICATIONS_v5 4.2, 6.2; decisions 1 and 4).
  * The template and the people follow the change of status, never who made it: SoQM Admin Team acting on behalf of a
- * role gives what the role itself gives. Only the line From of the e-mail's details says who made the move, "on
- * behalf" included (2026-11-02); the in-app notification does not name it.
+ * role gives what the role itself gives. The line From of the e-mail's details names the role whose step it was, never
+ * "on behalf" (2026-11-04); who really made the move is in the history and the audit trail only.
  * <ul>
  * <li>T1 when the control becomes In Progress (Initiate, Create Control): Facilitator, Control Operator, Process Owner;</li>
  * <li>to Review: from In Progress T6, from Process Owner Review T11, from SoQM review or Completed T9 - Control Operator;</li>
@@ -79,12 +79,11 @@ public class WorkflowNotifications {
     }
 
     /**
-     * Who made a move, as the line From says it: the role whose step it is, or "SoQM Admin Team (on behalf of Process
-     * Owner)" when SoQM Admin Team acted for that role.
+     * Who passed the control on, as the line From says it: the role whose step it is, also when SoQM Admin Team made the
+     * move for that role (2026-11-04: no "on behalf of" in the e-mail).
      */
     public static String movedBy(WorkflowMove move) {
-        String role = ControlNotifications.roleName(move.actingFor());
-        return move.onBehalf() ? NotificationRecipients.SOQM_ADMIN_TEAM + " (on behalf of " + role + ")" : role;
+        return ControlNotifications.roleName(move.actingFor());
     }
 
     /** The notification of a change of status, by the statuses alone (decision 4). */
