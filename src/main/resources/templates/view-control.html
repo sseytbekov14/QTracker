@@ -1867,12 +1867,13 @@
 </div>
 <div th:replace="fragments/app-modal :: appModal"></div>
 <script src="/js/vendor/bootstrap.bundle.min.js"></script>
+<script src="/js/html-escape.js?v=1"></script>
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=4"></script>
 <script src="/js/multi-value.js?v=3"></script>
-<script src="/js/view-control.js?v=8.10"></script>
+<script src="/js/view-control.js?v=8.11"></script>
 <script src="/js/create-control.js?v=5"></script>
 <script src="/js/workflow-move.js?v=2"></script>
 <script>
@@ -2286,6 +2287,7 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function() {
 
     // ── Toast helper ──────────────────────────────────────────────────
+    // message is HTML: callers put any text from the server, the user or a file name through escapeHtml
     function showToast(message, type = 'error', durationMs = 4000) {
         const container = document.getElementById('kpmgToastContainer');
         if (!container) return;
@@ -2337,10 +2339,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (dot > 0 && dot < safe.length - 1) { base = safe.substring(0, dot); ext = safe.substring(dot + 1); }
         if (!base.trim()) base = 'file';
         return ext ? base + '.' + ext : base;
-    }
-
-    function escapeHtml(value) {
-        return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
     function validateFiles(files) {
@@ -2578,7 +2576,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             hideProgress(detailsZone, detailsBar);
             hideProgress(documentsZone, documentsBar);
-            showToast('Upload error: ' + error.message, 'error');
+            showToast('Upload error: ' + escapeHtml(error.message), 'error');
             filesAlreadyUploaded = false;
             return { success: false, error: error.message };
         }
@@ -2626,9 +2624,9 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const resp = await fetch(`/api/attachments/delete/${controlId}?filename=${file}&type=${type}${reasonParam}`, { method: 'DELETE' });
             const data = await resp.json();
-            if (data.success) { loadExistingAttachments(); showToast((data.message || 'File deleted') + '.', 'success', 2500); }
-            else { showToast(data.message || 'Failed to delete file', 'error'); }
-        } catch (err) { showToast('Failed to delete file: ' + err.message, 'error'); }
+            if (data.success) { loadExistingAttachments(); showToast(escapeHtml(data.message || 'File deleted') + '.', 'success', 2500); }
+            else { showToast(escapeHtml(data.message || 'Failed to delete file'), 'error'); }
+        } catch (err) { showToast('Failed to delete file: ' + escapeHtml(err.message), 'error'); }
     });
 
     // Download through fetch: an error comes back as JSON, which the browser would otherwise save as the file

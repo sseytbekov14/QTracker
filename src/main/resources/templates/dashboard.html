@@ -1379,6 +1379,7 @@ a.stat-block:focus-visible,
 <script src="/js/vendor/chartjs-plugin-datalabels.min.js"></script>
 <script src="/js/vendor/fullcalendar.global.min.js"></script>
 <script src="/js/deadline-day-popover.js?v=1"></script>
+<script src="/js/html-escape.js?v=1"></script>
 <script>
 let statusBreakdownChartInstance;
 let frequencyChartInstance;
@@ -2188,15 +2189,7 @@ function formatCalendarTooltip(event) {
     return deadline ? title + ' | Deadline: ' + deadline : title;
 }
 
-function escapeHtml(value) {
-    return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
+// escapeHtml comes from /js/html-escape.js
 function escapeAttribute(value) {
     return escapeHtml(value);
 }

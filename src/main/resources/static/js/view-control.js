@@ -478,15 +478,20 @@ function confirmWorkflowAction() {
             .toUpperCase()
             .substring(0, 2);
 
-        listItem.innerHTML = `
-            <div class="user-initials">${initials}</div>
-            <div class="user-details">
-                <div class="user-name">${user.displayName}</div>
-                <div class="user-email">${user.mail}</div>
-            </div>
-        `;
+        // The same markup as before, but the name and the e-mail go in as text, never as HTML
+        const details = document.createElement('div');
+        details.className = 'user-details';
+        details.append(textDiv('user-name', `${user.displayName}`), textDiv('user-email', `${user.mail}`));
+        listItem.append(textDiv('user-initials', initials), details);
 
         return listItem;
+    }
+
+    function textDiv(className, text) {
+        const div = document.createElement('div');
+        div.className = className;
+        div.textContent = text;
+        return div;
     }
 
     // ========== FACILITATOR FUNCTIONS ==========
