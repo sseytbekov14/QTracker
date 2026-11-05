@@ -99,7 +99,7 @@ public class ControlTabsController {
                     existingDetails.getControlStepsPerformed(), mergedDetails.getControlStepsPerformed());
             collectChange(changedFields, previousValues, newValues, ControlStepsFields.OPERATOR_PROGRAM_LABEL,
                     existingDetails.getControlOperatorReview(), mergedDetails.getControlOperatorReview());
-            collectChange(changedFields, previousValues, newValues, "SoQM Head/Team Comments",
+            collectChange(changedFields, previousValues, newValues, "SoQM Admin Team Comments",
                     existingDetails.getSoqmHeadComments(), mergedDetails.getSoqmHeadComments());
             collectChange(changedFields, previousValues, newValues, "Process Owner Comments",
                     existingDetails.getProcessOwnerComments(), mergedDetails.getProcessOwnerComments());

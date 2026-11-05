@@ -89,4 +89,23 @@ class ControlHistoryServiceCompletedEditTest {
         assertThat(history).flatExtracting(ControlHistoryEntryDTO::getFieldChanges).extracting(FieldChangeDTO::getField)
                 .containsExactly("SoQM Team / Delegate", "SoQM Team / Delegate");
     }
+
+    /** The field renamed on 2026-11-05: changes saved under "SoQM Head/Team Comments" show the new name too. */
+    @Test
+    void theSoqmAdminTeamCommentsField_isShownUnderItsNewName_alsoInOldEntries() {
+        when(controlRepository.findById(3L)).thenReturn(Optional.empty());
+        when(adminAuditLogRepository.findByControlIdOrderByCreatedAtDesc(3L)).thenReturn(List.of(
+                entry("Edit Control", "[\"SoQM Admin Team Comments\"]",
+                        "{\"SoQM Admin Team Comments\":\"a\"}", "{\"SoQM Admin Team Comments\":\"b\"}"),
+                entry("Edit Control", "[\"SoQM Head/Team Comments\"]",
+                        "{\"SoQM Head/Team Comments\":\"c\"}", "{\"SoQM Head/Team Comments\":\"a\"}"),
+                entry("Edit Control", "[\"soqm_head_comments\"]",
+                        "{\"soqm_head_comments\":\"d\"}", "{\"soqm_head_comments\":\"c\"}")));
+        when(workflowHistoryRepository.findByControlIdOrderByCreatedAtDesc(3L)).thenReturn(List.of());
+
+        List<ControlHistoryEntryDTO> history = service.getControlHistory(3L);
+
+        assertThat(history).flatExtracting(ControlHistoryEntryDTO::getFieldChanges).extracting(FieldChangeDTO::getField)
+                .containsExactly("SoQM Admin Team Comments", "SoQM Admin Team Comments", "SoQM Admin Team Comments");
+    }
 }

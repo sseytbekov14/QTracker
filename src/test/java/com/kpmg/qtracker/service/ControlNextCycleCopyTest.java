@@ -123,7 +123,7 @@ class ControlNextCycleCopyTest {
                 "Other Related Controls",
                 "IT Applications",
                 "Control Steps Performed and Results",
-                "SoQM Head/Team Comments",
+                "SoQM Admin Team Comments",
                 "Process Owner Comments",
                 "Attachments (Details and Documents)",
                 "History and Changelog",

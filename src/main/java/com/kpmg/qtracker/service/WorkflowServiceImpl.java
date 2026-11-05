@@ -132,7 +132,7 @@ public class WorkflowServiceImpl implements WorkflowService {
 
                 buttons.add(new WorkflowButtonDTO(
                         "SOQM_COMMENT",
-                        "SoQM Head/Team Comments",
+                        "SoQM Admin Team Comments",
                         "btn-info",
                         true,
                         "Add SOQM comments"

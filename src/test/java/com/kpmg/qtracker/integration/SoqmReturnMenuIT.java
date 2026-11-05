@@ -41,7 +41,7 @@ class SoqmReturnMenuIT extends ReleaseScenarioSupport {
         assertThat(page).contains("id=\"submitToProcessOwnerBtn\"", "id=\"soqmReturnGroup\"",
                 "id=\"soqmReturnMenuBtn\"", "id=\"returnToOperatorBtn\"", "id=\"soqmReturnToInProgressBtn\"",
                 "data-soqm-move-target=\"IN_PROGRESS\"", "data-bs-target=\"#soqmMoveModal\"",
-                "Add SoQM Head/Team Comments first");
+                "Add SoQM Admin Team Comments first");
         assertThat(page).doesNotContain("id=\"soqmMoveBtn\"");
         // The dialog the In Progress item opens is still on the page, with that move among its options
         assertThat(page).contains("id=\"soqmMoveModal\"", "value=\"IN_PROGRESS\"");

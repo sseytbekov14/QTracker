@@ -75,7 +75,7 @@ class ReleaseScenarioFieldsIT extends ReleaseScenarioSupport {
         details.setSoqmHeadComments("");
         detailsRepository.save(details);
         assertThat(body(call(session, post("/api/workflow/submit-to-process-owner")
-                .param("controlId", String.valueOf(soqmReview.getId()))))).contains("SoQM Head/Team Comments");
+                .param("controlId", String.valueOf(soqmReview.getId()))))).contains("SoQM Admin Team Comments");
         Control ownerReview = control("RS-RQ", "PROCESS_OWNER_REVIEW", everyone);
         details = detailsRepository.findByControlId(ownerReview.getId()).orElseThrow();
         details.setProcessOwnerComments(null);

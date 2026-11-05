@@ -41,7 +41,7 @@ public final class ControlNextCycle {
             RelatedControls.LABEL,
             ItApplications.LABEL,
             ControlStepsFields.STEPS_LABEL,
-            "SoQM Head/Team Comments",
+            "SoQM Admin Team Comments",
             "Process Owner Comments",
             "Attachments (Details and Documents)",
             "History and Changelog",

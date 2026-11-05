@@ -336,7 +336,7 @@ function getConfirmationText(action, label) {
         'SEND_TO_PROCESS_OWNER': 'Send this control to the Process Owner for review?',
         'SEND_BACK_TO_OPERATOR': 'Return this control to the Control Operator for rework?',
         'COMPLETE': 'Complete this control? Its status becomes Completed.',
-        'SOQM_COMMENT': 'Add SoQM Head/Team Comments'
+        'SOQM_COMMENT': 'Add SoQM Admin Team Comments'
     };
 
     return messages[action] || `${label}?`;
@@ -3115,7 +3115,7 @@ function getWorkflowRoleRequirement() {
         if (soqmComments && isBlankValueForWorkflow(soqmComments.value)) {
             return {
                 field: soqmComments,
-                message: 'To continue, please fill: SoQM Head/Team Comments'
+                message: 'To continue, please fill: SoQM Admin Team Comments'
             };
         }
         return {

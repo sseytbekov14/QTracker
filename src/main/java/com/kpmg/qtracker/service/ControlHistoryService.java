@@ -268,8 +268,11 @@ public class ControlHistoryService {
                 return RelatedControls.EARLIER_TEXT_LABEL;
             case "prp":
                 return "PRP";
+            // Saved under its earlier name "SoQM Head/Team Comments" before 2026-11-05
+            case "SoQM Head/Team Comments":
+            case "SoQM Admin Team Comments":
             case "soqm_head_comments":
-                return "SoQM Head/Team Comments";
+                return "SoQM Admin Team Comments";
             case "process_owner_comments":
                 return "Process Owner Comments";
             case ControlStepsFields.STEPS_LABEL:

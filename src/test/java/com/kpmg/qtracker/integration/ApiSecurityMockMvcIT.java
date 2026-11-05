@@ -1741,7 +1741,7 @@ class ApiSecurityMockMvcIT {
                 "SOQM_HEAD_REVIEW", "soqmHeadComments", "PROCESS_OWNER_REVIEW", "processOwnerComments");
         Map<String, String> labelOf = Map.of(
                 "controlStepsPerformed", "Control Steps Performed and Results",
-                "soqmHeadComments", "SoQM Head/Team Comments",
+                "soqmHeadComments", "SoQM Admin Team Comments",
                 "processOwnerComments", "Process Owner Comments");
 
         for (String status : actorOf.keySet()) {

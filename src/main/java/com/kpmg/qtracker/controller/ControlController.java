@@ -680,7 +680,7 @@ public class ControlController {
                 existing.getControlStatus()});
         fields.put("Control Description", new String[]{dto.getControlDescription(), existing.getControlDescription()});
         fields.put("PRP", new String[]{dto.getPrp(), existing.getPrp()});
-        fields.put("SoQM Head/Team Comments", new String[]{dto.getSoqmHeadComments(), existing.getSoqmHeadComments()});
+        fields.put("SoQM Admin Team Comments", new String[]{dto.getSoqmHeadComments(), existing.getSoqmHeadComments()});
         if (!permission.canEditProcessOwnerComments()) {
             fields.put("Process Owner Comments",
                     new String[]{dto.getProcessOwnerComments(), existing.getProcessOwnerComments()});
