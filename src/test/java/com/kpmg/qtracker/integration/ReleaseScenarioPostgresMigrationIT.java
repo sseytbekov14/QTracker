@@ -159,7 +159,12 @@ class ReleaseScenarioPostgresMigrationIT {
         assertThat(rows("SELECT u.mail, b.role FROM users_role_backup b JOIN users u ON u.id = b.user_id "
                 + "WHERE u.mail LIKE 'old-%' AND b.secondary_role IS NULL")).isEqualTo(oldRoles);
 
-        // Rollback of V22, V21, V19, V18, V17, V16, V15, V14, V13, V12, V11, then of V8 (the order the scripts are meant for)
+        // Rollback of V26 to V23, then V22, V21, V19, V18, V17, V16, V15, V14, V13, V12, V11, then of V8 (the order the
+        // scripts are meant for: V26 and V25 bring the texts back to those V21's undo looks for)
+        script("db/rollback/V26__undo_notification_titles.sql");
+        script("db/rollback/V25__undo_notification_texts_control_id.sql");
+        script("db/rollback/V24__undo_email_outbox_body_text.sql");
+        script("db/rollback/V23__undo_control_history_indexes.sql");
         script("db/rollback/V22__undo_drop_user_role_columns.sql");
         assertThat(roleColumns()).isEqualTo("2");
         assertThat(rows("SELECT column_name, is_nullable || '|' || data_type || '|' || character_maximum_length "
