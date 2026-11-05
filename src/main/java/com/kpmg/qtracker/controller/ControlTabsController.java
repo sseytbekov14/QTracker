@@ -10,6 +10,7 @@ import com.kpmg.qtracker.service.*;
 import com.kpmg.qtracker.util.RoleDisplayMapper;
 import com.kpmg.qtracker.util.ValueList;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -20,6 +21,7 @@ import java.util.*;
 
 @Controller
 @RequiredArgsConstructor
+@Slf4j
 public class ControlTabsController {
 
     private final ControlDetailsService controlDetailsService;
@@ -33,13 +35,7 @@ public class ControlTabsController {
 
     @PostMapping("/api/control-details")
     public ResponseEntity<?> saveControlDetails(@Valid @RequestBody ControlDetailsDTO detailsDTO, HttpSession session) {
-        System.out.println("🎯 CONTROL DETAILS SAVE REQUEST:");
-        System.out.println("Control ID: " + detailsDTO.getControlId());
-        System.out.println("Process Name: " + detailsDTO.getProcessName());
-        System.out.println("Homogeneity: " + detailsDTO.getHomogeneity());
-        System.out.println("References: " + detailsDTO.getReferencesToControl());
-        System.out.println("Department: " + detailsDTO.getDepartment());
-        System.out.println("================================");
+        log.debug("Details save for control {}", detailsDTO.getControlId());
 
         try {
             User currentUser = (User) session.getAttribute("currentUser");
@@ -123,15 +119,8 @@ public class ControlTabsController {
 
     @PostMapping("/api/control-assignment")
     public ResponseEntity<?> saveControlAssignment(@RequestBody ControlAssignmentDTO assignmentDTO, HttpSession session) {
-        System.out.println("🎯 CONTROL ASSIGNMENT SAVE REQUEST:");
-        System.out.println("Control ID: " + assignmentDTO.getControlId());
-        System.out.println("Facilitator: " + assignmentDTO.getFacilitator());
-        System.out.println("Control Operator: " + assignmentDTO.getControlOperator());
-        System.out.println("SOQM Team: " + assignmentDTO.getSoqmLead());
-        System.out.println("Process Owner: " + assignmentDTO.getProcessOwner());
-        System.out.println("Control Shared With: " + assignmentDTO.getControlSharedWith());
-        System.out.println("Operation Date: " + assignmentDTO.getControlOperationDate());
-        System.out.println("================================");
+        // Which control only: the people of the fields are e-mail addresses, not for the log
+        log.debug("Assignment save for control {}", assignmentDTO.getControlId());
 
         try {
             User currentUser = (User) session.getAttribute("currentUser");
@@ -369,7 +358,7 @@ public class ControlTabsController {
                     mapper.writeValueAsString(newValues)
             );
         } catch (Exception e) {
-            System.out.println("⚠️ Failed to log control changes: " + e.getMessage());
+            log.error("The audit entry of a change of control {} was not saved", control == null ? null : control.getId(), e);
         }
     }
 
