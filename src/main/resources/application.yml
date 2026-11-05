@@ -105,7 +105,8 @@ file:
 retention:
   # Data retention (DataRetention): a control is deleted this many years after it was created, with its files, history,
   # notifications, e-mails and audit entries; so are older audit entries, notifications, e-mails and deleted-user
-  # records. Never fewer than 7 (refused). The purge runs on the 1st of every month at 03:00 Asia/Almaty;
+  # records. Never fewer than 7 (refused). The text of an e-mail is cleared 30 days after it was sent (the rest of
+  # the e-mail stays). Runs every day at 03:00 Asia/Almaty;
   # by hand: java -jar app.jar --purge-expired [--apply]
   years: ${RETENTION_YEARS:7}
   purge:

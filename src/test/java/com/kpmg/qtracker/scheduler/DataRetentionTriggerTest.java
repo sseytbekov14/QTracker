@@ -12,16 +12,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** The monthly run deletes (apply) as "scheduler", and a refusal or a failure does not stop the application. */
+/** The daily run deletes (apply) as "scheduler", and a refusal or a failure does not stop the application. */
 class DataRetentionTriggerTest {
 
     private final DataRetention retention = mock(DataRetention.class);
     private final DataRetentionTrigger trigger = new DataRetentionTrigger(retention);
 
     @Test
-    void theMonthlyRun_deletes_asTheScheduler() {
+    void theDailyRun_deletes_asTheScheduler() {
         when(retention.run(true, "scheduler")).thenReturn(new DataRetention.Report(true, null, 7, LocalDateTime.now(),
-                List.of(), Map.of("controls", 0), 0, List.of(), 0));
+                List.of(), Map.of("controls", 0), 0, List.of(), 0, 0));
 
         trigger.run();
 
@@ -31,7 +31,7 @@ class DataRetentionTriggerTest {
     @Test
     void aRefusalOrAFailure_isLogged_notThrown() {
         when(retention.run(true, "scheduler")).thenReturn(new DataRetention.Report(true, "too few years", 6,
-                LocalDateTime.now(), List.of(), Map.of(), 0, List.of(), 0));
+                LocalDateTime.now(), List.of(), Map.of(), 0, List.of(), 0, 0));
         assertThatCode(trigger::run).doesNotThrowAnyException();
 
         when(retention.run(true, "scheduler")).thenThrow(new IllegalStateException("database down"));

@@ -13,7 +13,8 @@ import java.util.Arrays;
  * {@code java -jar qtracker.jar --purge-expired} prints what the data retention (DataRetention: seven years from
  * creation) would delete, deleting nothing; add {@code --apply} to delete it. Refused (exit code 1) for a retention of
  * fewer than seven years. Runs as a one-off command (QtrackerApplication.runCommand): no web server, stops after the
- * report. The same runs by itself every month (DataRetentionTrigger).
+ * report. The same runs by itself every day (DataRetentionTrigger), which also clears the text of e-mails done more
+ * than 30 days ago.
  */
 @Component
 @RequiredArgsConstructor

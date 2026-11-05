@@ -239,6 +239,63 @@ class DataRetentionIT {
         assertThat(DataRetentionCommand.requested("--import-users=x.csv")).isFalse();
     }
 
+    // ------------------------------------------------------------------ e-mail texts, 30 days
+
+    /**
+     * The text of an e-mail that will not be sent any more goes 30 days after it was made; the row stays with who, what,
+     * when and how. An e-mail still waiting or to be tried again keeps its text whatever its age.
+     */
+    @Test
+    void theTextOfAnEmailDoneMoreThan30DaysAgo_isCleared_theRestOfItStays() {
+        Long control = control("MAIL", now.minusMonths(3));
+        Long sentOld = outbox(control, "SENT", null, now.minusDays(31));
+        Long sentRecent = outbox(control, "SENT", null, now.minusDays(29));
+        Long skipped = outbox(control, "SKIPPED_DISABLED", null, now.minusDays(40));
+        Long inactive = outbox(control, "SKIPPED_INACTIVE", null, now.minusDays(40));
+        Long failedForGood = outbox(control, "FAILED", null, now.minusDays(40));
+        Long failedRetrying = outbox(control, "FAILED", now.plusMinutes(5), now.minusDays(40));
+        Long pending = outbox(control, "PENDING", now.minusDays(40), now.minusDays(40));
+
+        DataRetention.Report dry = dataRetention.run(false, "tester");
+        assertThat(dry.emailTexts()).isGreaterThanOrEqualTo(4);
+        assertThat(text(sentOld)).isEqualTo("<p>Dear Anna</p>");
+
+        DataRetention.Report report = dataRetention.run(true, "tester");
+
+        assertThat(report.emailTexts()).isGreaterThanOrEqualTo(4);
+        assertThat(report.render()).contains("E-mail texts cleared (done more than 30 days ago");
+        for (Long cleared : List.of(sentOld, skipped, inactive, failedForGood)) {
+            assertThat(text(cleared)).as("e-mail " + cleared).isEmpty();
+            assertThat(jdbc.queryForObject("SELECT body_text FROM email_outbox WHERE id = ?", String.class, cleared)).isNull();
+        }
+        for (Long kept : List.of(sentRecent, failedRetrying, pending)) {
+            assertThat(text(kept)).as("e-mail " + kept).isEqualTo("<p>Dear Anna</p>");
+            assertThat(jdbc.queryForObject("SELECT body_text FROM email_outbox WHERE id = ?", String.class, kept))
+                    .isEqualTo("Dear Anna");
+        }
+        // The row itself stays: recipient, template, subject, status, dates
+        assertThat(jdbc.queryForMap("SELECT recipient_email, template_key, subject, status FROM email_outbox WHERE id = ?",
+                sentOld)).containsEntry("RECIPIENT_EMAIL", user.getMail()).containsEntry("TEMPLATE_KEY", "T8")
+                .containsEntry("SUBJECT", "SoQM Admin Team Review").containsEntry("STATUS", "SENT");
+        // Clearing texts alone is no deletion of data: no audit entry for it
+        assertThat(report.deletes()).isFalse();
+        assertThat(auditRepository.findAll()).noneMatch(entry -> DataRetention.AUDIT_ACTION.equals(entry.getActionType()));
+    }
+
+    private Long outbox(Long control, String status, LocalDateTime nextAttempt, LocalDateTime createdAt) {
+        String key = "dr-mail-" + s + "-" + UUID.randomUUID();
+        jdbc.update("INSERT INTO email_outbox (control_id, template_key, recipient_user_id, recipient_email, subject,"
+                        + " body_html, body_text, importance, dedupe_key, status, attempts, next_attempt_at, created_at)"
+                        + " VALUES (?, 'T8', ?, ?, 'SoQM Admin Team Review', '<p>Dear Anna</p>', 'Dear Anna', 'NORMAL', ?, ?, 1, ?, ?)",
+                control, user.getId(), user.getMail(), key, status,
+                nextAttempt == null ? null : Timestamp.valueOf(nextAttempt), Timestamp.valueOf(createdAt));
+        return jdbc.queryForObject("SELECT id FROM email_outbox WHERE dedupe_key = ?", Long.class, key);
+    }
+
+    private String text(Long outboxId) {
+        return jdbc.queryForObject("SELECT body_html FROM email_outbox WHERE id = ?", String.class, outboxId);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private Long control(String name, LocalDateTime createdAt) {

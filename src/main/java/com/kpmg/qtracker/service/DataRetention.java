@@ -27,9 +27,12 @@ import java.util.stream.Collectors;
  * only loses the link to it. Besides, every audit entry, in-app notification and e-mail older than seven years goes,
  * and so does the record of a user deleted more than seven years ago. A control without a creation date is never
  * deleted (it is reported). Active users are never deleted here.
- * <p>A dry run by default ({@link #run}); with apply the database part is one transaction and one audit entry names
- * the deleted Control IDs; the files go after it commits (a file that cannot be deleted is reported, not fatal).
- * Fewer than {@link #MIN_YEARS} years is refused, so a wrong setting cannot delete young data.
+ * <p>A dry run by default ({@link #run}); with apply the database part is one transaction and, when it deleted
+ * something, one audit entry names the deleted Control IDs; the files go after it commits (a file that cannot be
+ * deleted is reported, not fatal). Fewer than {@link #MIN_YEARS} years is refused, so a wrong setting cannot delete
+ * young data.
+ * <p>The same run also clears the text of every e-mail done more than {@link #EMAIL_TEXT_DAYS} days ago: the row stays
+ * (recipient, template, control, dates, status, error), only the HTML and plain-text part go.
  */
 @Service
 @Slf4j
@@ -37,6 +40,15 @@ public class DataRetention {
 
     /** The retention of the business; retention.years may be more, never less. */
     public static final int MIN_YEARS = 7;
+    /**
+     * How long the text of an e-mail (its HTML and plain-text part) is kept once it will not be sent any more (business
+     * decision of 2026-11-05: minimise what is stored). Who got which e-mail of which control, when, and how it went
+     * stay the seven years.
+     */
+    public static final int EMAIL_TEXT_DAYS = 30;
+    /** The e-mails that will not be sent any more (EmailOutboxDispatcher: a failure with no next try is final). */
+    private static final String EMAIL_DONE = "(status IN ('SENT', 'SKIPPED_DISABLED', 'SKIPPED_INACTIVE', 'FAILED_RENDER')"
+            + " OR (status = 'FAILED' AND next_attempt_at IS NULL))";
     public static final String AUDIT_ACTION = "DATA_RETENTION_PURGE";
     static final String ACTOR_MAIL = "system";
 
@@ -73,12 +85,19 @@ public class DataRetention {
      * @param files        how many attachment files go (or would go)
      * @param fileProblems files that could not be deleted (apply only)
      * @param undated      controls without a creation date, never deleted
+     * @param emailTexts   e-mails whose text is (or would be) cleared, {@link #EMAIL_TEXT_DAYS} days after
      */
     public record Report(boolean applied, String refusal, int years, LocalDateTime cutoff, List<Expired> controls,
-                         Map<String, Integer> rows, int files, List<String> fileProblems, int undated) {
+                         Map<String, Integer> rows, int files, List<String> fileProblems, int undated,
+                         int emailTexts) {
 
         public boolean refused() {
             return refusal != null;
+        }
+
+        /** Whether the seven-year part deletes (or would delete) anything. */
+        public boolean deletes() {
+            return !controls.isEmpty() || files > 0 || rows.values().stream().anyMatch(count -> count > 0);
         }
 
         public String render() {
@@ -104,6 +123,9 @@ public class DataRetention {
             if (undated > 0) {
                 out.append("Controls without a creation date, kept: ").append(undated).append(nl);
             }
+            out.append("E-mail texts ").append(applied ? "cleared" : "would be cleared").append(" (done more than ")
+                    .append(EMAIL_TEXT_DAYS).append(" days ago, the rest of the e-mail kept): ").append(emailTexts)
+                    .append(nl);
             if (!applied) {
                 out.append("Run again with --apply to delete it.").append(nl);
             }
@@ -122,7 +144,7 @@ public class DataRetention {
         LocalDateTime cutoff = LocalDateTime.now(clock).minusYears(Math.max(years, 0));
         if (years < MIN_YEARS) {
             return new Report(apply, "retention.years is " + years + ", the business keeps data " + MIN_YEARS
-                    + " years: fewer is refused", years, cutoff, List.of(), Map.of(), 0, List.of(), 0);
+                    + " years: fewer is refused", years, cutoff, List.of(), Map.of(), 0, List.of(), 0, 0);
         }
         // Read, and for a run that deletes, delete, in one transaction; the files only after it commits
         List<FileToDelete> files = new ArrayList<>();
@@ -142,7 +164,7 @@ public class DataRetention {
             log.warn("Data retention: {} attachment file(s) could not be deleted: {}", problems.size(), problems);
         }
         return new Report(true, null, years, cutoff, report.controls(), report.rows(), files.size(), problems,
-                report.undated());
+                report.undated(), report.emailTexts());
     }
 
     private record FileToDelete(String name, List<String> folders) {
@@ -180,11 +202,21 @@ public class DataRetention {
         count(rows, "deleted_users", jdbc.queryForObject("SELECT COUNT(*) FROM deleted_users WHERE deleted_at < ?",
                 Integer.class, before));
 
+        // The text of the e-mails done more than 30 days ago (of the controls that stay)
+        Timestamp textsBefore = Timestamp.valueOf(LocalDateTime.now(clock).minusDays(EMAIL_TEXT_DAYS));
+        String texts = " FROM email_outbox WHERE " + EMAIL_DONE + " AND created_at < ?"
+                + " AND (body_html <> '' OR body_text IS NOT NULL)"
+                + (in == null ? "" : " AND (control_id IS NULL OR control_id NOT IN (" + in + "))");
+        Integer emailTexts = jdbc.queryForObject("SELECT COUNT(*)" + texts, Integer.class, textsBefore);
+        int textCount = emailTexts == null ? 0 : emailTexts;
+
         List<Expired> listed = expired.stream()
                 .map(control -> new Expired(control.getId(), control.getControlId(), control.getCreatedAt())).toList();
         if (!apply) {
-            return new Report(false, null, years, cutoff, listed, rows, files.size(), List.of(), undated);
+            return new Report(false, null, years, cutoff, listed, rows, files.size(), List.of(), undated, textCount);
         }
+        jdbc.update("UPDATE email_outbox SET body_html = '', body_text = NULL WHERE id IN (SELECT id" + texts + ")",
+                textsBefore);
 
         if (in != null) {
             for (String table : List.of("control_attachments", "workflow_steps", "workflow_history", "notifications",
@@ -201,7 +233,11 @@ public class DataRetention {
         jdbc.update("DELETE FROM admin_audit_log WHERE created_at < ?", before);
         jdbc.update("DELETE FROM deleted_users WHERE deleted_at < ?", before);
 
-        Report report = new Report(true, null, years, cutoff, listed, rows, files.size(), List.of(), undated);
+        Report report = new Report(true, null, years, cutoff, listed, rows, files.size(), List.of(), undated, textCount);
+        if (!report.deletes()) {
+            // Only e-mail texts cleared, which happens every day: no audit entry for that
+            return report;
+        }
         auditService.logActionWithChanges(ACTOR_MAIL, "Data retention (" + actor + ")", AUDIT_ACTION, null,
                 "Data older than " + years + " years deleted: " + listed.size() + " control(s), "
                         + rows.entrySet().stream().map(e -> e.getKey() + " " + e.getValue())
