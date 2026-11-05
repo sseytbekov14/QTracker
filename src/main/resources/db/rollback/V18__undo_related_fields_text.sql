@@ -1,3 +1,5 @@
+-- Since V27 the table this script reads is gone: run db/rollback/V27__undo_drop_unused_tables.sql first; it brings
+-- the table back EMPTY, so this script then restores nothing (the values are only in a backup taken before V27).
 -- Undo of V18__Related_fields_text.sql, run by hand (Flyway does not undo). Other Related Controls go back to the links
 -- of control_related_controls, which V18 left as they were: the Control IDs chosen after V18 are NOT written back to
 -- links (only a backup taken before the undo has them). IT Applications go back to VARCHAR(255): a list longer than

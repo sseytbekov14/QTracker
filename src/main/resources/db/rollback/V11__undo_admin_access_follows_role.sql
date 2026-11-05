@@ -1,3 +1,5 @@
+-- Since V27 the table this script reads is gone: run db/rollback/V27__undo_drop_unused_tables.sql first; it brings
+-- the table back EMPTY, so this script then restores nothing (the values are only in a backup taken before V27).
 -- Undoes V11__Admin_access_follows_role.sql. Not a Flyway migration (Flyway reads only db/migration): run it
 -- by hand, then delete the V11 row from flyway_schema_history, and deploy a build without V11, whose code
 -- reads the admin_access flag again.

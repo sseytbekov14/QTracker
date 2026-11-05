@@ -60,7 +60,9 @@ class ReleaseScenarioPostgresMigrationIT {
         }
     }
 
-    private static final String LATEST = "26";
+    private static final String LATEST = "27";
+    /** The last version before V27 dropped the backup and links tables the old undo scripts read. */
+    private static final String BEFORE_V27 = "26";
 
     @Test
     void anEmptyDatabase_migratesToTheLatestVersion_withTheSeedPeopleOfV2() throws Exception {
@@ -83,9 +85,36 @@ class ReleaseScenarioPostgresMigrationIT {
                 .hasSize(9);
         assertThat(single("SELECT COUNT(*) FROM users WHERE password IS NOT NULL AND mail LIKE '%@qtracker.local'"))
                 .isEqualTo("9");
-        // V22: the old role columns are gone, the seed people's role words are in the backup
+        // V22: the old role columns are gone; V27: so are the backup tables and the tables nothing reads
         assertThat(roleColumns()).isEqualTo("0");
-        assertThat(single("SELECT COUNT(*) FROM users_role_backup")).isEqualTo("9");
+        assertThat(single("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '" + schema
+                + "' AND table_name IN ('user_access_v8_backup', 'user_admin_access_v11_backup', 'users_role_backup',"
+                + " 'control_notification_log', 'control_related_controls')")).isEqualTo("0");
+    }
+
+    /** V27 drops the five tables with their rows; its undo script brings them back empty (data minimisation). */
+    @Test
+    void v27_dropsTheUnusedTables_withTheirRows_andItsRollbackBringsThemBackEmpty() throws Exception {
+        flyway(BEFORE_V27).migrate();
+        execute("INSERT INTO users (mail, displayname, enabled) VALUES ('v26@release.test', 'V26', TRUE)");
+        String id = single("SELECT id FROM users WHERE mail = 'v26@release.test'");
+        execute("INSERT INTO users_role_backup (user_id, role) VALUES (" + id + ", 'FACILITATOR')");
+        execute("INSERT INTO control_notification_log (control_id, created_at, notification_code, scheduled_date)"
+                + " VALUES (1, CURRENT_TIMESTAMP, 'REMINDER', CURRENT_DATE)");
+
+        Flyway latest = flyway(null);
+        latest.migrate();
+        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo(LATEST);
+        String fiveTables = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '" + schema
+                + "' AND table_name IN ('user_access_v8_backup', 'user_admin_access_v11_backup', 'users_role_backup',"
+                + " 'control_notification_log', 'control_related_controls')";
+        assertThat(single(fiveTables)).isEqualTo("0");
+        assertThat(single("SELECT mail FROM users WHERE id = " + id)).isEqualTo("v26@release.test");
+
+        script("db/rollback/V27__undo_drop_unused_tables.sql");
+        assertThat(single(fiveTables)).isEqualTo("5");
+        assertThat(single("SELECT COUNT(*) FROM users_role_backup")).isEqualTo("0");
+        assertThat(single("SELECT COUNT(*) FROM control_notification_log")).isEqualTo("0");
     }
 
     @Test
@@ -108,9 +137,10 @@ class ReleaseScenarioPostgresMigrationIT {
                 + "('KDN-OLD-2', 'Quarterly', 'REVIEW', 'ACTIVE', NULL, NULL, DATE '2026-01-05', DATE '2026-01-19', NULL, NULL), "
                 + "('EP-OLD-3', 'Annual', 'DRAFT', NULL, '', NULL, NULL, NULL, NULL, NULL)");
 
-        Flyway latest = flyway(null);
+        // Up to V26: the undo scripts of V22 to V8 read the backup tables V27 drops
+        Flyway latest = flyway(BEFORE_V27);
         latest.migrate();
-        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo(LATEST);
+        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo(BEFORE_V27);
 
         Map<String, String> access = rows("SELECT mail, access_level || '/' || access_scope || '/' || admin_access "
                 + "FROM users WHERE mail LIKE 'old-%' ORDER BY mail");
@@ -411,9 +441,10 @@ class ReleaseScenarioPostgresMigrationIT {
         execute("INSERT INTO control_related_controls (control_id, related_control_id, sort_order) VALUES "
                 + "(" + first + ", " + second + ", 1), (" + first + ", " + third + ", 0)");
 
-        Flyway latest = flyway(null);
+        // Up to V26: the undo of V18 goes back to the links table V27 drops
+        Flyway latest = flyway(BEFORE_V27);
         latest.migrate();
-        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo(LATEST);
+        assertThat(latest.info().current().getVersion().getVersion()).isEqualTo(BEFORE_V27);
 
         assertThat(single("SELECT other_related_controls FROM controls WHERE id = " + first))
                 .isEqualTo("KDN-V17-3; EP-V17-2/FY27/Central");
