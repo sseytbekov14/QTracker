@@ -102,6 +102,15 @@ file:
     dir: ${FILE_UPLOAD_DIR:}
     max-file-size-mb: ${FILE_UPLOAD_MAX_FILE_SIZE_MB:10}
 
+retention:
+  # Data retention (DataRetention): a control is deleted this many years after it was created, with its files, history,
+  # notifications, e-mails and audit entries; so are older audit entries, notifications, e-mails and deleted-user
+  # records. Never fewer than 7 (refused). The purge runs on the 1st of every month at 03:00 Asia/Almaty;
+  # by hand: java -jar app.jar --purge-expired [--apply]
+  years: ${RETENTION_YEARS:7}
+  purge:
+    enabled: ${RETENTION_PURGE_ENABLED:true}
+
 notifications:
   # The planned notifications (occurrence day, reminders, deadline, overdue): every 5 minutes on working days from
   # 09:30 Asia/Almaty; off: none of them (the notifications of the workflow steps still go)

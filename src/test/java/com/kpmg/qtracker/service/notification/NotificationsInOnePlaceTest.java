@@ -45,9 +45,10 @@ class NotificationsInOnePlaceTest {
         assertThat(filesContaining("JavaMailSender")).containsExactly("SmtpMailTransport.java");
     }
 
+    /** The data retention purge (2026-11-05) is the one other schedule: it deletes, it sends nothing. */
     @Test
-    void theOnlySchedules_areThePlannedNotificationsAndTheDispatcher() throws IOException {
+    void theOnlySchedules_areThePlannedNotificationsAndTheDispatcher_andTheRetentionPurge() throws IOException {
         assertThat(filesContaining("@Scheduled(")).containsExactlyInAnyOrder("PlannedNotificationTrigger.java",
-                "EmailOutboxDispatchTrigger.java");
+                "EmailOutboxDispatchTrigger.java", "DataRetentionTrigger.java");
     }
 }
