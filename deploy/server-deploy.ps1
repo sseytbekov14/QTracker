@@ -10,6 +10,7 @@
 #   4. docker-compose up -d
 #   5. waits up to 3 minutes for the application; on failure prints the logs and how to roll back
 #   6. PortProxy 443 -> WSL
+#   7. removes the images left without a tag (each update leaves one)
 # =============================================================================
 param(
     [string]$Config = 'C:\MyApps\QTracker\secrets\deploy.psd1',
@@ -101,6 +102,13 @@ if (-not $ok) {
 netsh interface portproxy delete v4tov4 listenport=443 listenaddress=0.0.0.0 | Out-Null
 netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=443 connectaddress=$WSL_IP connectport=$AppPort
 Restart-Service iphlpsvc
+
+# 7. The image that was :previous before this update has no tag now: remove such images, they only take space
+#    (:offline and :previous, the way back, stay). A failure here does not undo the update.
+wsl -d $Distro -u root -e bash -c "docker image prune -f 2>&1"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "WARNING: docker image prune failed (exit $LASTEXITCODE); the update itself is done." -ForegroundColor Yellow
+}
 
 Write-Host "DEPLOY OK: QTracker is up." -ForegroundColor Green
 exit 0

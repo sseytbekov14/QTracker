@@ -27,6 +27,9 @@ if (-not (Test-Path $Config)) { throw "No settings file $Config (see deploy\depl
 $c = Import-PowerShellDataFile $Config
 $logDir = Join-Path $c.Dir 'logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+# The logs of the scripts are kept 90 days
+Get-ChildItem $logDir -Filter '*.log' | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-90) } |
+    Remove-Item -Force -ErrorAction SilentlyContinue
 Start-Transcript -Path (Join-Path $logDir "update-$(Get-Date -Format yyyyMMdd-HHmmss).log") | Out-Null
 
 $exitCode = 0

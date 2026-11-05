@@ -1,3 +1,4 @@
+-- Since V27 the table is already gone (DROP ... IF EXISTS below then does nothing).
 -- Undo of V15__Control_related_controls.sql, run by hand (Flyway does not undo). The links SoQM Admin Team chose
 -- go; the earlier free text in controls.other_related_controls stays, and the Changelog entries still name the
 -- linked Control IDs.

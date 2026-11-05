@@ -81,7 +81,7 @@ public class FileStorageService {
         Path uploadPath = folderPath(controlFolder);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
-            System.out.println("📁 Created upload directory: " + uploadPath);
+            log.debug("Attachment folder created: {}", uploadPath);
         }
 
         String uniqueFilename = toStoredFilename(file.getOriginalFilename());
@@ -103,7 +103,7 @@ public class FileStorageService {
 
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-        System.out.println("✅ File saved: " + filePath);
+        log.debug("Attachment saved in {}", uploadPath);
         return uniqueFilename;
     }
 
@@ -221,7 +221,7 @@ public class FileStorageService {
         }
         Path filePath = filePath(filename, controlFolder);
         Files.deleteIfExists(filePath);
-        System.out.println("🗑️ File deleted: " + filePath);
+        log.debug("Attachment deleted from {}", filePath.getParent());
     }
 
     /** Deletes the file from the first of the control's folders (its own, then its earlier IDs') that has it. */

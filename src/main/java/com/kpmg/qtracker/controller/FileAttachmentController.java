@@ -80,7 +80,7 @@ public class FileAttachmentController {
         Map<String, Object> response = new HashMap<>();
         
         try {
-            System.out.println("📤 Upload request for control ID: " + controlId);
+            log.debug("Upload to control {}", controlId);
             
             Control control = controlService.getControlById(controlId)
                     .orElseThrow(() -> new RuntimeException("Control not found: " + controlId));
@@ -147,8 +147,7 @@ public class FileAttachmentController {
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            System.err.println("❌ Upload error: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Upload to control {} failed", controlId, e);
             response.put("success", false);
             response.put("message", "Upload failed: " + e.getMessage());
             response.put("error", e.getMessage());
@@ -379,7 +378,8 @@ public class FileAttachmentController {
                 try {
                     fileStorageService.deleteFile(decodedFilename, controlRenameService.attachmentFolders(control));
                 } catch (Exception e) {
-                    System.out.println("⚠️ Could not delete physical file: " + e.getMessage());
+                    log.warn("An attachment file of control {} could not be deleted from the disk ({})", control.getId(),
+                            e.getClass().getSimpleName());
                 }
             }
 
@@ -508,7 +508,8 @@ public class FileAttachmentController {
                     newJson
             );
         } catch (Exception e) {
-            System.out.println("⚠️ Failed to log attachment change: " + e.getMessage());
+            log.error("The audit entry of an attachment change of control {} was not saved",
+                    control == null ? null : control.getId(), e);
         }
     }
 }

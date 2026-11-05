@@ -1,3 +1,5 @@
+-- Since V27 the table this script reads is gone: run db/rollback/V27__undo_drop_unused_tables.sql first; it brings
+-- the table back EMPTY, so this script then restores nothing (the values are only in a backup taken before V27).
 -- Undoes V22__Drop_user_role_columns.sql. Not a Flyway migration (Flyway reads only db/migration): run it by hand,
 -- then delete the V22 row from flyway_schema_history, and deploy a build without V22.
 --

@@ -26,6 +26,27 @@
 Откат — как и раньше: `docker tag qtracker-app:previous qtracker-app:offline`, `docker-compose up -d`
 и, если новая версия применила миграции, восстановление базы из последнего `.dump` в `C:\MyApps\QTracker\backups`.
 
+## Что чистится само
+
+| Что | Сколько хранится |
+|---|---|
+| Бэкапы базы (`backups\*.dump`) | последние 10 |
+| Скачанные версии (`downloads`) | последние 3 |
+| Логи скриптов (`logs\*.log`) | 90 дней (`server-update.ps1`) |
+| Docker-образы | `:offline` и `:previous`; образ без метки, который остаётся после каждого обновления, удаляется (`server-deploy.ps1`) |
+| Лог контейнера | только если в `docker-compose.server.yml` у сервиса `app` есть ограничение (ниже) |
+| Данные в базе | 7 лет от создания, тексты писем — 30 дней после отправки (само приложение каждый день в 03:00, `DataRetention`) |
+
+Ограничение лога контейнера (около 100 МБ), в `docker-compose.server.yml` у сервиса `app`:
+
+```yaml
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+```
+
 ## Настройка один раз
 
 ### GitLab
