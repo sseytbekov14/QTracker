@@ -46,7 +46,7 @@ class WorkflowRequiredFieldServiceTest {
         when(repository.findByControlId(1L)).thenReturn(Optional.of(new ControlDetails()));
 
         assertThat(service.getMissingReviewCommentMessage(control))
-                .contains("Required field is missing: SoQM Head/Team Comments");
+                .contains("Required field is missing: SoQM Admin Team Comments");
     }
 
     @Test
@@ -80,7 +80,7 @@ class WorkflowRequiredFieldServiceTest {
             "IN_PROGRESS,          controlStepsPerformed, Control Steps Performed and Results, false",
             // The Control Operator checks and completes the Facilitator's text, the field Submit to SoQM Team needs
             "REVIEW,               controlStepsPerformed, Control Steps Performed and Results, true",
-            "SOQM_HEAD_REVIEW,     soqmHeadComments,      SoQM Head/Team Comments,             false",
+            "SOQM_HEAD_REVIEW,     soqmHeadComments,      SoQM Admin Team Comments,             false",
             "PROCESS_OWNER_REVIEW, processOwnerComments,  Process Owner Comments,              false"
     })
     void stepField_isTheFieldTheServerChecksAtThatStep(String status, String field, String label, boolean check) {

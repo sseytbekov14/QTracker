@@ -34,7 +34,7 @@ class CompletedControlExcelTest {
             "# Details",
             "Process Name", "Homogeneity", "References to this Control", "Department", "Process Activities",
             ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Other Related Controls", "IT Applications",
-            ControlStepsFields.STEPS_LABEL, "SoQM Head/Team Comments", "Process Owner Comments", "Attachment (Details)",
+            ControlStepsFields.STEPS_LABEL, "SoQM Admin Team Comments", "Process Owner Comments", "Attachment (Details)",
             "# Assignment",
             "Facilitator", "Control Operator", "SoQM Team / Delegate", "Process Owner", "Control Shared With",
             "Control Operation Date", "Control Operation Deadline", "Next Control Operation Date",
@@ -91,7 +91,7 @@ class CompletedControlExcelTest {
                 .containsEntry("Control Description", "Description")
                 .containsEntry("Homogeneity", "Homogeneous")
                 .containsEntry("References to this Control", "REF-7")
-                .containsEntry("SoQM Head/Team Comments", "Checked")
+                .containsEntry("SoQM Admin Team Comments", "Checked")
                 .containsEntry(ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Program")
                 .containsEntry("Other Related Controls", "EP-2/FY27; HR-3/FY27/Central/OCT")
                 .containsEntry("IT Applications", "KICS; CQS")

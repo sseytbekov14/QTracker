@@ -38,7 +38,7 @@ public class WorkflowRequiredFieldService {
                     ControlStepsFields.STEPS_LABEL, true, true,
                     "Submit for SoQM Team Review or Return to Facilitator"));
             case "SOQM_HEAD_REVIEW" -> Optional.of(new StepField("soqmHeadComments",
-                    "SoQM Head/Team Comments", false, true, "Send to Process Owner or Return to Operator"));
+                    "SoQM Admin Team Comments", false, true, "Send to Process Owner or Return to Operator"));
             case "PROCESS_OWNER_REVIEW" -> Optional.of(new StepField(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS,
                     "Process Owner Comments", false, true, "Complete or Return to Control Operator"));
             default -> Optional.empty();
@@ -69,7 +69,7 @@ public class WorkflowRequiredFieldService {
     }
 
     /**
-     * Every SoQM action (Send to Process Owner / Return to Operator) requires SoQM Head/Team Comments,
+     * Every SoQM action (Send to Process Owner / Return to Operator) requires SoQM Admin Team Comments,
      * every Process Owner action (Complete / Return to SoQM Team) requires Process Owner Comments.
      * Checked against the stored value, based on the control's current status.
      */
@@ -85,7 +85,7 @@ public class WorkflowRequiredFieldService {
         if ("SOQM_HEAD_REVIEW".equals(status)) {
             String value = details != null ? details.getSoqmHeadComments() : null;
             if (value == null || value.isBlank()) {
-                return Optional.of("Required field is missing: SoQM Head/Team Comments");
+                return Optional.of("Required field is missing: SoQM Admin Team Comments");
             }
         } else {
             String value = details != null ? details.getProcessOwnerComments() : null;
