@@ -282,7 +282,7 @@ class ActionCentreKdnIT {
             headers.add(header.group(1));
         }
         assertThat(headers).containsExactly("Control ID", "Control Type", "Control Frequency",
-                "Facilitator / Preparer(s)", "Control Operator", "Process Owner", "SoQM Team / Delegate",
+                "Facilitator / Preparer(s)", "Control Operator", "Process Owner", "SoQM Admin Team",
                 "Control Category", "Control Operation Date", "Performance Status");
         assertThat(html).contains("<h1>Performance: Human Resources (HR)</h1>", "of <span>27</span>");
 

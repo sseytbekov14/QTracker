@@ -1,5 +1,6 @@
 package com.kpmg.qtracker.service;
 
+import com.kpmg.qtracker.enums.UserRole;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.dto.ControlHistoryEntryDTO;
@@ -113,7 +114,7 @@ public class ControlHistoryService {
             }
             workflowEntry.setFromStep(history.getFromStep());
             workflowEntry.setToStep(history.getToStep());
-            workflowEntry.setActedAs(history.getActedAs());
+            workflowEntry.setActedAs(shownRole(history.getActedAs()));
             workflowEntry.setOnBehalf(history.isOnBehalf());
             workflowEntry.setAssignedPerformer(describePeople(history.getAssignedPerformer()));
             entries.add(workflowEntry);
@@ -139,7 +140,7 @@ public class ControlHistoryService {
             case SUBMIT_TO_OPERATOR:
                 return "Control Performance - Submitted for Review";
             case SUBMIT_TO_SOQM_TEAM:
-                return "Control Performance - Submitted for SoQM Team / Delegate's Review";
+                return "Control Performance - Submitted for " + UserRole.SOQM_TEAM_NAME + " Review";
             case SUBMIT_TO_PROCESS_OWNER:
                 return "Control Performance - Submitted to Process Owner";
             case APPROVE:
@@ -241,6 +242,18 @@ public class ControlHistoryService {
         }
     }
 
+    /**
+     * The role whose step a workflow move was, as stored in workflow_history.acted_as; rows written before the role was
+     * renamed SoQM Admin Team (2026-11-06) keep "SoQM Team" there and are shown under the new name. The stored text
+     * itself is not changed.
+     */
+    static String shownRole(String actedAs) {
+        if ("SoQM Team".equals(actedAs) || "SoQM Team / Delegate".equals(actedAs)) {
+            return UserRole.SOQM_TEAM_NAME;
+        }
+        return actedAs;
+    }
+
     private String normalizeFieldLabel(String field) {
         if (field == null) return "";
         switch (field) {
@@ -250,8 +263,10 @@ public class ControlHistoryService {
             case "Non-Audit Services Applicability":
             case "non_audit_services_applicability":
                 return "Non-Audit Services Control Applicability";
-            // The field SoQM Team / Delegate, stored under its earlier names
+            // The field SoQM Admin Team (earlier SoQM Team / Delegate), stored under its earlier names
             case "SoQM Team":
+            case "SoQM Team / Delegate":
+            case UserRole.SOQM_TEAM_NAME:
             case "soqm_lead":
             case "soqm_team":
                 return AccessPolicy.Slot.SOQM_LEAD.getLabel();

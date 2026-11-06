@@ -16,7 +16,7 @@ class InitiationReadinessTest {
         List<InitiationReadiness.Item> items = InitiationReadiness.items(control("Monthly"), assignment());
 
         assertThat(items).extracting(InitiationReadiness.Item::label).containsExactly(
-                "Facilitator", "Control Operator", "SoQM Team / Delegate", "Process Owner",
+                "Facilitator", "Control Operator", "SoQM Admin Team", "Process Owner",
                 "Control Operation Date", "Control Frequency");
         assertThat(items).allMatch(InitiationReadiness.Item::done);
         assertThat(InitiationReadiness.isReady(items)).isTrue();

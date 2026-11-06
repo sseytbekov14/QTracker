@@ -75,7 +75,7 @@ class ControlHistoryServiceCompletedEditTest {
         assertThat(plain.isEditedAfterCompletion()).isFalse();
         assertThat(plain.getReason()).isNull();
     }
-    /** The field SoQM Team / Delegate (stored as "SoQM Team" or soqm_lead) is shown under that name (2026-10-14). */
+    /** The field SoQM Admin Team (stored as "SoQM Team" or soqm_lead) is shown under that name (2026-11-06). */
     @Test
     void theSoqmTeamDelegateField_isShownUnderItsName_whateverItIsStoredAs() {
         when(controlRepository.findById(2L)).thenReturn(Optional.empty());
@@ -87,7 +87,7 @@ class ControlHistoryServiceCompletedEditTest {
         List<ControlHistoryEntryDTO> history = service.getControlHistory(2L);
 
         assertThat(history).flatExtracting(ControlHistoryEntryDTO::getFieldChanges).extracting(FieldChangeDTO::getField)
-                .containsExactly("SoQM Team / Delegate", "SoQM Team / Delegate");
+                .containsExactly("SoQM Admin Team", "SoQM Admin Team");
     }
 
     /** The field renamed on 2026-11-05: changes saved under "SoQM Head/Team Comments" show the new name too. */
@@ -107,5 +107,15 @@ class ControlHistoryServiceCompletedEditTest {
 
         assertThat(history).flatExtracting(ControlHistoryEntryDTO::getFieldChanges).extracting(FieldChangeDTO::getField)
                 .containsExactly("SoQM Admin Team Comments", "SoQM Admin Team Comments", "SoQM Admin Team Comments");
+    }
+
+    /** The role of a workflow move stored as "SoQM Team" before the rename is shown as SoQM Admin Team (2026-11-06). */
+    @Test
+    void anOldStoredRoleName_isShownAsSoqmAdminTeam_otherRolesAsStored() {
+        assertThat(ControlHistoryService.shownRole("SoQM Team")).isEqualTo("SoQM Admin Team");
+        assertThat(ControlHistoryService.shownRole("SoQM Team / Delegate")).isEqualTo("SoQM Admin Team");
+        assertThat(ControlHistoryService.shownRole("SoQM Admin Team")).isEqualTo("SoQM Admin Team");
+        assertThat(ControlHistoryService.shownRole("Control Operator")).isEqualTo("Control Operator");
+        assertThat(ControlHistoryService.shownRole(null)).isNull();
     }
 }

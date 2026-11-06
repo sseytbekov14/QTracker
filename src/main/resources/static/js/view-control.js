@@ -1812,7 +1812,7 @@ function renameControlId(newControlId, comment) {
                 valueField: assignmentForm?.querySelector('#controlOperatorHidden')
             },
             {
-                label: 'SoQM Team / Delegate',
+                label: 'SoQM Admin Team',
                 field: document.getElementById('soqmLeadInput'),
                 valueField: assignmentForm?.querySelector('#soqmLeadHidden')
             },
@@ -3745,7 +3745,7 @@ function buildWorkflowSummary(eventName, transition) {
         return 'Control submitted for review';
     }
     if (name.includes('submitted for soqm')) {
-        return 'Control submitted for SoQM review';
+        return 'Control submitted to SoQM Admin Team';
     }
     if (name.includes('submitted to process owner')) {
         return 'Control submitted to Process Owner';

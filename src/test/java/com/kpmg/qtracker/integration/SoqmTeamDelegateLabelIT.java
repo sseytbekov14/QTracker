@@ -20,13 +20,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 /**
- * Business decision of 2026-10-14: the assignment field stored as soqm_lead is called "SoQM Team / Delegate" wherever
- * a person sees it - the Assignment tab, the Changelog, the Excel of a list and of one control, the column of the
- * component lists and the KDN page, the Performance Cycle page, the messages. The role keeps its name, SoQM Admin Team.
+ * The assignment field stored as soqm_lead is called "SoQM Admin Team" (2026-11-06; "SoQM Team / Delegate" from
+ * 2026-10-14) wherever a person sees it - the Assignment tab, the Changelog, the Excel of a list and of one control,
+ * the column of the component lists and the KDN page, the Performance Cycle page, the messages - like the role.
  */
 class SoqmTeamDelegateLabelIT extends ReleaseScenarioSupport {
 
-    private static final String LABEL = "SoQM Team / Delegate";
+    private static final String LABEL = "SoQM Admin Team";
 
     @Test
     void theField_isCalledSoqmTeamDelegate_everywhereAPersonSeesIt() throws Exception {
@@ -41,6 +41,10 @@ class SoqmTeamDelegateLabelIT extends ReleaseScenarioSupport {
         String viewControl = body(call(session, get("/view-control/" + completed.getId())));
         assertThat(viewControl).contains(">" + LABEL + "</label>", "placeholder=\"Select " + LABEL + "...\"")
                 .doesNotContain("SoQM Lead", "Select SoQM Team...");
+        // The rest of View Control: the step of the stepper, the Control Operator's button, no earlier name left
+        assertThat(viewControl).contains("Submit for SoQM Admin Team Review")
+                .doesNotContain("SoQM Review", "SoQM review", "SoQM Team / Delegate", "Submit for SoQM Team Review");
+        assertThat(viewControl.replaceAll("\\s+", " ")).contains("<span class=\"wf-step-dot\">", " SoQM Admin Team <span class=\"wf-step-who\"");
         // The Performance Cycle page
         assertThat(body(call(session, get("/performance-cycle/" + completed.getId()))))
                 .contains("<dt>" + LABEL + "</dt>").doesNotContain("<dt>SoQM Team</dt>");

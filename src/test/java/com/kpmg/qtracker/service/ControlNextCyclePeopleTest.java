@@ -73,7 +73,7 @@ class ControlNextCyclePeopleTest {
                 "Facilitator: f2@example.test has Read Only access and cannot be assigned",
                 "Control Operator: gone@example.test was deleted from QTracker",
                 "Process Owner: nobody@example.test is not a QTracker user",
-                "SoQM Team / Delegate: s@example.test is not SoQM Admin Team");
+                "SoQM Admin Team: s@example.test is not SoQM Admin Team");
     }
 
     @Test
@@ -82,7 +82,7 @@ class ControlNextCyclePeopleTest {
                 "Facilitator: nobody is assigned",
                 "Control Operator: nobody is assigned",
                 "Process Owner: nobody is assigned",
-                "SoQM Team / Delegate: nobody is assigned");
+                "SoQM Admin Team: nobody is assigned");
     }
 
     @Test

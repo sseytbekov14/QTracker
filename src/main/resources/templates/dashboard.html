@@ -1145,7 +1145,7 @@ a.stat-block:focus-visible,
                                         <span class="action-item-step" th:switch="${item.performanceStatus}">
                                             <span th:case="'IN_PROGRESS'">Complete &amp; submit for review</span>
                                             <span th:case="'REVIEW'">Review as Control Operator</span>
-                                            <span th:case="'SOQM_HEAD_REVIEW'">SoQM review</span>
+                                            <span th:case="'SOQM_HEAD_REVIEW'">SoQM Admin Team</span>
                                             <span th:case="'PROCESS_OWNER_REVIEW'">Process Owner approval</span>
                                             <span th:case="*" th:text="${item.performanceStatusDisplay}">Status</span>
                                         </span>

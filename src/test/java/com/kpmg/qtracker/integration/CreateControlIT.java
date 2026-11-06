@@ -277,7 +277,7 @@ class CreateControlIT extends ReleaseScenarioSupport {
         assertThat(refused.problems()).containsExactly(
                 "Control Operator: " + operator.getMail() + " was deleted from QTracker",
                 "Process Owner: " + owner.getMail() + " is disabled",
-                "SoQM Team / Delegate: nobody is assigned");
+                "SoQM Admin Team: nobody is assigned");
     }
 
     @Test
@@ -293,7 +293,7 @@ class CreateControlIT extends ReleaseScenarioSupport {
         NextCycleRefused refused = refused(source);
 
         assertThat(refused.problems()).containsExactly(
-                "SoQM Team / Delegate: " + former.getMail() + " is not SoQM Admin Team");
+                "SoQM Admin Team: " + former.getMail() + " is not SoQM Admin Team");
     }
 
     @Test
@@ -376,7 +376,7 @@ class CreateControlIT extends ReleaseScenarioSupport {
         assertThat(plan.get("people").get(0).get("label").asText()).isEqualTo("Facilitator");
         assertThat(plan.get("people").get(0).get("people").get(0).asText())
                 .isEqualTo(facilitator.getDisplayName() + " (" + facilitator.getMail() + ")");
-        assertThat(plan.get("people").get(3).get("label").asText()).isEqualTo("SoQM Team / Delegate");
+        assertThat(plan.get("people").get(3).get("label").asText()).isEqualTo("SoQM Admin Team");
         assertThat(plan.get("people").get(4).get("label").asText()).isEqualTo("Control Shared With");
         assertThat(plan.get("people").get(0).get("required").asBoolean()).isTrue();
         assertThat(plan.get("people").get(3).get("required").asBoolean()).isTrue();

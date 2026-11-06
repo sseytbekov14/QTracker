@@ -31,7 +31,7 @@ public final class InitiationReadiness {
         return List.of(
                 new Item("facilitator", "Facilitator", TAB_ASSIGNMENT, hasAny(a.getFacilitator())),
                 new Item("controlOperator", "Control Operator", TAB_ASSIGNMENT, hasAny(a.getControlOperator())),
-                new Item("soqmLead", "SoQM Team / Delegate", TAB_ASSIGNMENT, hasAny(a.getSoqmLead())),
+                new Item("soqmLead", AccessPolicy.Slot.SOQM_LEAD.getLabel(), TAB_ASSIGNMENT, hasAny(a.getSoqmLead())),
                 new Item("processOwner", "Process Owner", TAB_ASSIGNMENT, hasAny(a.getProcessOwner())),
                 new Item("controlOperationDate", "Control Operation Date", TAB_ASSIGNMENT,
                         a.getControlOperationDate() != null),

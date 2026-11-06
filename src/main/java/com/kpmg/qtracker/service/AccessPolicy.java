@@ -204,7 +204,7 @@ public final class AccessPolicy {
     public enum Slot {
         FACILITATOR("Facilitator"),
         CONTROL_OPERATOR("Control Operator"),
-        SOQM_LEAD("SoQM Team / Delegate"),
+        SOQM_LEAD(UserRole.SOQM_TEAM_NAME),
         PROCESS_OWNER("Process Owner"),
         SHARED_WITH("Control Shared With");
 

@@ -52,7 +52,7 @@ class ReleaseScenarioFieldsIT extends ReleaseScenarioSupport {
         assignmentRepository.save(assignment);
         MvcResult refused = call(session, post("/api/performance/initiate").param("controlId", String.valueOf(empty.getId())));
         assertThat(refused.getResponse().getStatus()).isEqualTo(400);
-        assertThat(body(refused)).contains("Facilitator", "Control Operator", "SoQM Team / Delegate", "Process Owner",
+        assertThat(body(refused)).contains("Facilitator", "Control Operator", "SoQM Admin Team", "Process Owner",
                 "Control Operation Date", "SoQM Year");
         assertThat(reload(empty).getPerformanceStatus()).isEqualTo("DRAFT");
 

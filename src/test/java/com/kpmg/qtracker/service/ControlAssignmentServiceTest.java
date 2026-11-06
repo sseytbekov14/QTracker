@@ -235,7 +235,7 @@ class ControlAssignmentServiceTest {
 
         assertRefused(dto(90L, List.of("ro@kpmg.kz"), null, null), "Facilitator: ro@kpmg.kz has Read Only access");
         assertRefused(dto(90L, List.of("kdn@kpmg.kz"), null, null), "Facilitator: kdn@kpmg.kz sees only KDN controls");
-        assertRefused(dto(90L, null, List.of("nobody@kpmg.kz"), null), "SoQM Team / Delegate: nobody@kpmg.kz is not a QTracker user");
+        assertRefused(dto(90L, null, List.of("nobody@kpmg.kz"), null), "SoQM Admin Team: nobody@kpmg.kz is not a QTracker user");
         verify(assignmentRepository, never()).save(any(ControlAssignment.class));
     }
 

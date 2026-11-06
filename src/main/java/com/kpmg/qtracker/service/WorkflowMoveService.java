@@ -1,5 +1,6 @@
 package com.kpmg.qtracker.service;
 
+import com.kpmg.qtracker.enums.UserRole;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpmg.qtracker.dto.ControlAssignmentDTO;
@@ -231,7 +232,7 @@ public class WorkflowMoveService {
     private static String defaultComment(WorkflowMove move) {
         return switch (move.to()) {
             case "REVIEW" -> "Control submitted to Control Operator for review";
-            case "SOQM_HEAD_REVIEW" -> "Control submitted to SoQM Team for review";
+            case "SOQM_HEAD_REVIEW" -> "Control submitted to " + UserRole.SOQM_TEAM_NAME + " for review";
             case "PROCESS_OWNER_REVIEW" -> "Control submitted to Process Owner for review";
             case "COMPLETED" -> "Control completed by Process Owner";
             default -> null;

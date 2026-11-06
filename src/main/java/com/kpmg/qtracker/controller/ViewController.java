@@ -1,5 +1,6 @@
 package com.kpmg.qtracker.controller;
 
+import com.kpmg.qtracker.enums.UserRole;
 import com.kpmg.qtracker.dto.*;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
@@ -1243,7 +1244,7 @@ public class ViewController {
             switch (type) {
                 case INITIATE -> { action = "Initiated"; kind = "start"; }
                 case SUBMIT_TO_OPERATOR -> { action = "Submitted to Control Operator"; kind = "forward"; }
-                case SUBMIT_TO_SOQM_TEAM -> { action = "Submitted to SoQM Team"; kind = "forward"; }
+                case SUBMIT_TO_SOQM_TEAM -> { action = "Submitted to " + UserRole.SOQM_TEAM_NAME; kind = "forward"; }
                 case SUBMIT_TO_PROCESS_OWNER -> { action = "Sent to Process Owner"; kind = "forward"; }
                 case RETURN_TO_FACILITATOR -> { action = "Returned to Facilitator"; kind = "return"; }
                 case RETURN_TO_OPERATOR -> { action = "Returned to Control Operator"; kind = "return"; }

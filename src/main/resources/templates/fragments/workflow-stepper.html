@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 <!--
-  Workflow progress: Facilitator -> Control Operator -> SoQM Review -> Process Owner -> Completed.
+  Workflow progress: Facilitator -> Control Operator -> SoQM Admin Team -> Process Owner -> Completed.
   step: 0..4 = current stage (4 = completed), -1 = not initiated. People are display-name strings (nullable).
   Styles: .wf-stepper in static/css/style.css
 -->
@@ -23,7 +23,7 @@
         <li class="wf-step" th:classappend="${step > 2} ? 'is-done' : (${step == 2} ? 'is-current')"
             th:attr="aria-current=${step == 2} ? 'step' : null">
             <span class="wf-step-dot"><i th:if="${step > 2}" class="bi bi-check-lg" aria-hidden="true"></i><span th:unless="${step > 2}">3</span></span>
-            SoQM Review
+            SoQM Admin Team
             <span class="wf-step-who" th:text="${soqmTeam ?: '—'}" th:title="${soqmTeam}">Name</span>
         </li>
         <li class="wf-step" th:classappend="${step > 3} ? 'is-done' : (${step == 3} ? 'is-current')"

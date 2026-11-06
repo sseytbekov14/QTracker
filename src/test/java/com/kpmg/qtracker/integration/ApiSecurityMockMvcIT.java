@@ -1678,7 +1678,7 @@ class ApiSecurityMockMvcIT {
         assertAssignmentRefused(session, control, p.facilitator.getMail(), kdn.getMail(), p.soqm.getMail(),
                 "Control Operator: " + kdn.getMail() + " sees only KDN controls");
         assertAssignmentRefused(session, control, p.facilitator.getMail(), p.operator.getMail(), p.facilitator.getMail(),
-                "SoQM Team / Delegate: " + p.facilitator.getMail() + " is not SoQM Admin Team");
+                "SoQM Admin Team: " + p.facilitator.getMail() + " is not SoQM Admin Team");
 
         // One person may hold several fields; a read-only user may be shared with
         mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader()).with(ownAddress()).session(session)
@@ -1697,7 +1697,7 @@ class ApiSecurityMockMvcIT {
         assertAssignmentRefused(session, kdnControl, readOnly.getMail(), p.operator.getMail(), p.soqm.getMail(),
                 "Facilitator: " + readOnly.getMail() + " has Read Only access and cannot be assigned");
         assertAssignmentRefused(session, kdnControl, kdn.getMail(), kdn.getMail(), kdn.getMail(),
-                "SoQM Team / Delegate: " + kdn.getMail() + " is not SoQM Admin Team");
+                "SoQM Admin Team: " + kdn.getMail() + " is not SoQM Admin Team");
         mockMvc.perform(post("/api/control-assignment").with(csrf().asHeader()).with(ownAddress()).session(session)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(assignmentJson(kdnControl, kdn.getMail(), kdn.getMail(), p.soqm.getMail(), null)))

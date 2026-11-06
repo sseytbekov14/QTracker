@@ -36,7 +36,7 @@ class CompletedControlExcelTest {
             ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Other Related Controls", "IT Applications",
             ControlStepsFields.STEPS_LABEL, "SoQM Admin Team Comments", "Process Owner Comments", "Attachment (Details)",
             "# Assignment",
-            "Facilitator", "Control Operator", "SoQM Team / Delegate", "Process Owner", "Control Shared With",
+            "Facilitator", "Control Operator", "SoQM Admin Team", "Process Owner", "Control Shared With",
             "Control Operation Date", "Control Operation Deadline", "Next Control Operation Date",
             "# Control record",
             "Performance Status", "Created By", "Created", "Updated At", "Attachment (Documents)");

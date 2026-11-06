@@ -99,7 +99,7 @@ public class WorkflowServiceImpl implements WorkflowService {
                         "Submit for SoQM",
                         "btn-success",
                         false,
-                        "Submit this control to SOQM Team?"
+                        "Submit this control to SoQM Admin Team?"
                 ));
 
                 buttons.add(new WorkflowButtonDTO(

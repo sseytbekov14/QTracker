@@ -93,7 +93,7 @@ public final class CompletedControlExcel {
         section(lines, ASSIGNMENT);
         add(lines, ASSIGNMENT, "Facilitator", people(a.getFacilitator(), names));
         add(lines, ASSIGNMENT, "Control Operator", people(a.getControlOperator(), names));
-        add(lines, ASSIGNMENT, "SoQM Team / Delegate", people(a.getSoqmLead(), names));
+        add(lines, ASSIGNMENT, AccessPolicy.Slot.SOQM_LEAD.getLabel(), people(a.getSoqmLead(), names));
         add(lines, ASSIGNMENT, "Process Owner", people(a.getProcessOwner(), names));
         add(lines, ASSIGNMENT, "Control Shared With", people(a.getControlSharedWith(), names));
         add(lines, ASSIGNMENT, "Control Operation Date", date(a.getControlOperationDate()));

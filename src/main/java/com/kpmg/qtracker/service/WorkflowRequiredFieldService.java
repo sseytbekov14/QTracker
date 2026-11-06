@@ -1,5 +1,6 @@
 package com.kpmg.qtracker.service;
 
+import com.kpmg.qtracker.enums.UserRole;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlDetails;
 import com.kpmg.qtracker.repository.ControlDetailsRepository;
@@ -36,7 +37,7 @@ public class WorkflowRequiredFieldService {
                     ControlStepsFields.STEPS_LABEL, false, true, "Submit for Review"));
             case "REVIEW" -> Optional.of(new StepField(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED,
                     ControlStepsFields.STEPS_LABEL, true, true,
-                    "Submit for SoQM Team Review or Return to Facilitator"));
+                    "Submit for " + UserRole.SOQM_TEAM_NAME + " Review or Return to Facilitator"));
             case "SOQM_HEAD_REVIEW" -> Optional.of(new StepField("soqmHeadComments",
                     "SoQM Admin Team Comments", false, true, "Send to Process Owner or Return to Operator"));
             case "PROCESS_OWNER_REVIEW" -> Optional.of(new StepField(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS,

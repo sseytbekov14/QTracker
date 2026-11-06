@@ -1,5 +1,6 @@
 package com.kpmg.qtracker.controller;
 
+import com.kpmg.qtracker.enums.UserRole;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.IControlService;
@@ -40,7 +41,7 @@ public class WorkflowTransitionController {
             @RequestParam(required = false) String comments,
             HttpSession session) {
         return perform(controlId, session, List.of(WorkflowTransition.SUBMIT_TO_SOQM_TEAM), comments,
-                "Control submitted to SoQM Team", "Error submitting control: ");
+                "Control submitted to " + UserRole.SOQM_TEAM_NAME, "Error submitting control: ");
     }
 
     /**
