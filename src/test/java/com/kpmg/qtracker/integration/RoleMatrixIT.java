@@ -280,6 +280,164 @@ class RoleMatrixIT {
         assertThat(mismatches).as("cells that differ from the decided rules (full matrix in %s)", out).isEmpty();
     }
 
+    // ------------------------------------------------------------------ one person in several Control roles
+
+    /**
+     * One person in every Control role field of a control (2026-11-06): what they may do is decided by all the roles
+     * they hold there, not by the first one found. A SoQM Admin Team member in Facilitator, Control Operator, SoQM Team
+     * / Delegate and Process Owner takes the control from Draft to Completed alone: at every step Edit, the step's
+     * field, the Documentation upload and the step itself, each step their own (no comment needed).
+     */
+    @Test
+    void onePersonInEveryRole_walksTheWholeCycleToCompleted() throws Exception {
+        User person = saveUser("rm-every-role", AccessLevel.SOQM, AccessScope.ALL);
+        MockHttpSession session = login(person.getMail());
+        String mail = person.getMail();
+        Control control = cycleControl("HR-EVERY-ROLE", "DRAFT", person, mail, mail, mail, mail);
+
+        assertThat(answer(step("DRAFT", control), session)).as("Initiate").isEqualTo("ok");
+        for (String status : List.of("IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW")) {
+            assertThat(statusOf(control)).isEqualTo(status);
+            actsAtTheStep(control, status, session);
+            assertThat(answer(step(status, control), session)).as("own step at %s, without a comment", status)
+                    .isEqualTo("ok");
+        }
+        assertThat(statusOf(control)).isEqualTo("COMPLETED");
+    }
+
+    /**
+     * The reported case: a User with Edit who is Facilitator, Control Operator and Process Owner of one control keeps
+     * Edit, the steps field, the upload and the step at each of their steps, the Control Operator's included, and has
+     * none of them at SoQM review, which is not theirs; SoQM Admin Team does that step.
+     */
+    @Test
+    void oneUserAsFacilitatorOperatorAndOwner_actsAtEachOfTheirSteps() throws Exception {
+        User person = saveUser("rm-three-roles", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        User soqm = saveUser("rm-three-roles-soqm", AccessLevel.SOQM, AccessScope.ALL);
+        MockHttpSession session = login(person.getMail());
+        MockHttpSession soqmSession = login(soqm.getMail());
+        String mail = person.getMail();
+        Control control = cycleControl("HR-THREE-ROLES", "DRAFT", soqm, mail, mail, soqm.getMail(), mail);
+
+        assertThat(answer(step("DRAFT", control), soqmSession)).as("Initiate").isEqualTo("ok");
+        for (String status : List.of("IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW")) {
+            assertThat(statusOf(control)).isEqualTo(status);
+            if ("SOQM_HEAD_REVIEW".equals(status)) {
+                ModelAndView page = perform(get("/view-control/{id}", control.getId()), session).getModelAndView();
+                assertThat(page.getModel().get("readOnly")).as("no Edit at SoQM review").isEqualTo(true);
+                assertThat(answer(step(status, control), session)).as("SoQM review is not theirs").isEqualTo("403");
+                actsAtTheStep(control, status, soqmSession);
+                assertThat(answer(step(status, control), soqmSession)).isEqualTo("ok");
+                continue;
+            }
+            actsAtTheStep(control, status, session);
+            assertThat(answer(step(status, control), session)).as("own step at %s", status).isEqualTo("ok");
+        }
+        assertThat(statusOf(control)).isEqualTo("COMPLETED");
+    }
+
+    /** Returns by one person in several roles need a comment, as everyone's: refused without one, done with one. */
+    @Test
+    void onePersonInSeveralRoles_returnsOnlyWithAComment() throws Exception {
+        User person = saveUser("rm-returns", AccessLevel.PARTICIPANT, AccessScope.OWN);
+        User soqm = saveUser("rm-returns-soqm", AccessLevel.SOQM, AccessScope.ALL);
+        MockHttpSession session = login(person.getMail());
+        MockHttpSession soqmSession = login(soqm.getMail());
+        String mail = person.getMail();
+        String soqmMail = soqm.getMail();
+
+        // Facilitator and Control Operator: the Control Operator's return to the Facilitator
+        Control review = cycleControl("HR-RET-REVIEW", "REVIEW", soqm, mail, mail, soqmMail, mail);
+        returnsOnlyWithAComment(review, "/api/workflow/return-to-facilitator", session, "REVIEW", "IN_PROGRESS");
+        // Control Operator and Process Owner: the Process Owner's return to the Control Operator
+        Control owner = cycleControl("HR-RET-PO", "PROCESS_OWNER_REVIEW", soqm, mail, mail, soqmMail, mail);
+        returnsOnlyWithAComment(owner, "/api/workflow/return-to-operator", session, "PROCESS_OWNER_REVIEW", "REVIEW");
+        // SoQM Admin Team in SoQM Team / Delegate and Process Owner: SoQM's return to the Control Operator
+        Control soqmReview = cycleControl("HR-RET-SOQM", "SOQM_HEAD_REVIEW", soqm, mail, mail, soqmMail, soqmMail);
+        returnsOnlyWithAComment(soqmReview, "/api/workflow/return-to-operator", soqmSession, "SOQM_HEAD_REVIEW", "REVIEW");
+    }
+
+    /**
+     * The holder of the step at it: the page offers Edit (readOnly false, "your turn"), /api/permissions says canEdit,
+     * the step's field and the Documentation upload pass.
+     */
+    private void actsAtTheStep(Control control, String status, MockHttpSession session) throws Exception {
+        MvcResult page = perform(get("/view-control/{id}", control.getId()), session);
+        assertThat(page.getModelAndView().getModel().get("readOnly")).as("Edit at %s", status).isEqualTo(false);
+        assertThat(page.getModelAndView().getModel().get("yourTurn")).as("your turn at %s", status).isEqualTo(true);
+        // The Edit button is there, and no script of the page hides it again for one of the person's roles
+        assertThat(page.getResponse().getContentAsString()).as("Edit button at %s", status)
+                .contains("id=\"editBtn\"").doesNotContain("editBtn.style.display = 'none'");
+        String permissions = perform(get("/api/permissions/{id}", control.getId()), session).getResponse()
+                .getContentAsString();
+        assertThat(permissions).as("permissions at %s", status).contains("\"canEdit\":true");
+
+        String field = switch (status) {
+            case "SOQM_HEAD_REVIEW" -> "soqmHeadComments";
+            case "PROCESS_OWNER_REVIEW" -> "processOwnerComments";
+            default -> "controlStepsPerformed";
+        };
+        assertThat(answer(post("/api/control-details").with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"controlId\":" + control.getId() + ",\"" + field + "\":\"Written at " + status + "\"}"),
+                session)).as("%s at %s", field, status).isEqualTo("ok");
+        assertThat(answer(multipart("/api/attachments/upload/{id}", control.getId())
+                .file(new MockMultipartFile("attachmentDocuments", "doc-" + status.toLowerCase() + ".pdf",
+                        "application/pdf", "%PDF-1.4 roles".getBytes(StandardCharsets.UTF_8)))
+                .with(csrf().asHeader()), session)).as("Documentation upload at %s", status).isEqualTo("ok");
+    }
+
+    private void returnsOnlyWithAComment(Control control, String url, MockHttpSession session, String from, String to)
+            throws Exception {
+        assertThat(answer(post(url).with(csrf().asHeader()).param("controlId", String.valueOf(control.getId())),
+                session)).as("return from %s without a comment", from).isNotEqualTo("ok");
+        assertThat(statusOf(control)).isEqualTo(from);
+        assertThat(answer(post(url).with(csrf().asHeader()).param("controlId", String.valueOf(control.getId()))
+                .param("comments", "Please redo"), session)).as("return from %s with a comment", from).isEqualTo("ok");
+        assertThat(statusOf(control)).isEqualTo(to);
+    }
+
+    private String statusOf(Control control) {
+        return controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus();
+    }
+
+    /** A control in the status with these people in the four Control role fields and every step field filled. */
+    private Control cycleControl(String controlId, String status, User creator, String facilitatorMail,
+                                 String operatorMail, String soqmMail, String ownerMail) {
+        Control control = new Control();
+        control.setControlId(controlId);
+        control.setControlFrequency("Monthly");
+        control.setControlCategory("Manual");
+        control.setControlType("Preventive");
+        control.setComponent("HR");
+        control.setOperatedBy("Finance");
+        control.setPriority("High");
+        control.setNonAuditServicesApplicability("No");
+        control.setControlStatus("ACTIVE");
+        control.setPerformanceStatus(status);
+        control.setSoqmYear(SoqmYear.current(today()));
+        control.setCreatedBy(creator);
+        control.setCreatedAt(LocalDateTime.now());
+        control = controlRepository.save(control);
+
+        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
+        assignment.setFacilitator(facilitatorMail);
+        assignment.setControlOperator(operatorMail);
+        assignment.setSoqmLead(soqmMail);
+        assignment.setProcessOwner(ownerMail);
+        assignment.setControlOperationDate(today().plusDays(10));
+        assignment.setControlOperationDeadline(today().plusDays(24));
+        assignment.setNextControlOperationDate(today().plusDays(10).plusMonths(1));
+        assignmentRepository.save(assignment);
+
+        ControlDetails details = detailsRepository.findByControlId(control.getId()).orElseThrow();
+        details.setControlStepsPerformed("Steps performed");
+        details.setSoqmHeadComments("SoQM comments");
+        details.setProcessOwnerComments("Process Owner comments");
+        detailsRepository.save(details);
+        return control;
+    }
+
     // ------------------------------------------------------------------ the decided rules
 
     /** "ok", "not yet" (opens the Not available yet page) or "refused". Written from the decisions, not from AccessPolicy. */

@@ -1993,19 +1993,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Hide Edit/Rename for Facilitator after submission
-    if (isFacilitator && performanceStatus === 'REVIEW') {
-        console.log('   ?? Facilitator after submission - hiding edit buttons');
-        if (editBtn) editBtn.style.display = 'none';
-        if (renameIdBtn) renameIdBtn.style.display = 'none';
-    }
-
-    // Hide Edit/Rename for Control Operator after submission to SoQM Team
-    if (isControlOperator && performanceStatus === 'SOQM_HEAD_REVIEW') {
-        console.log('   ?? Control Operator after submission - hiding edit buttons');
-        if (editBtn) editBtn.style.display = 'none';
-        if (renameIdBtn) renameIdBtn.style.display = 'none';
-    }
+    // Edit and Rename ID are on the page only when the server allows them (readOnly / canRenameId from
+    // AccessPolicy, which takes every role the person holds on the control): no role flag hides them here, so a
+    // Facilitator who is also the Control Operator keeps Edit at the Control Operator's step
 
     // ============================================
     // YOUR STEP: THE FIELD IT NEEDS
