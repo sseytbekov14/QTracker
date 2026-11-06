@@ -4,8 +4,8 @@ package com.kpmg.qtracker.service.notification;
  * The notifications of QTracker (business requirements NOTIFICATIONS_v5, with the shorter texts of 2026-10-20): their
  * key, the importance of the e-mail, the type of the in-app notification, and their texts. The texts are only the
  * first content of table notification_template (V20 wrote the texts of v5, V21 the shorter ones, V25 took the control's
- * description out of them, V26 renamed T3, T4 and T5; NotificationTemplateSeeder where Flyway is off); every notification
- * reads the table, so a text changed there is used without a release.
+ * description out of them, V26 renamed T3, T4 and T5, V28 says T12 "successfully"; NotificationTemplateSeeder where
+ * Flyway is off); every notification reads the table, so a text changed there is used without a release.
  * <p>Placeholders: {NAME} (the person's name, NotificationRecipients.Person#name), {ROLES} (T1, T2), {CONTROL_ID},
  * {OCCURRENCE_DATE}, {DEADLINE}, {RETURNED_BY}, {LINK} (on a line of its own: "Go to Control" in the e-mail, left out
  * in-app). The texts name a control by its ID alone: the description is free text and goes on to the next cycle as it
@@ -148,7 +148,7 @@ public enum Template {
     T12(Importance.NORMAL, Label.NONE, "COMPLETED", "SoQM control completed", """
             Dear {NAME},
 
-            Control {CONTROL_ID} has been completed.
+            Control {CONTROL_ID} has been successfully completed.
             {LINK}
 
             Kind regards,

@@ -87,7 +87,7 @@ class TemplateRendererTest {
                     + "Please review and complete the control.\nDeadline: 19 Nov 2026";
             case T11 -> control + " has been returned to you by the Process Owner for rework.\n"
                     + "Please review the comments and resubmit the control.\nDeadline: 19 Nov 2026";
-            case T12 -> control + " has been completed.";
+            case T12 -> control + " has been successfully completed.";
         };
         return "Dear Anna Smith,\n\n" + body + "\n\nKind regards,\nSoQM Team";
     }

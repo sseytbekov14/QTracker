@@ -68,6 +68,8 @@ class V25NotificationTextsControlIdMigrationTest {
             String expected = switch (template) {
                 case T7 -> "Dear {NAME},\nOurs: {CONTROL_ID} is back.\n{LINK}";
                 case T3 -> "Dear {NAME},\nAbout {CONTROL_NAME} only.\n{LINK}";
+                // "successfully" comes with V28
+                case T12 -> V28NotificationCompletedSuccessfullyMigrationTest.BEFORE_V28;
                 default -> template.defaultBody();
             };
             assertThat(body(template.name())).as(template.name()).isEqualTo(expected);

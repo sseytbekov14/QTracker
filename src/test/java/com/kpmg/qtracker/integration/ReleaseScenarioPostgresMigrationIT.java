@@ -60,7 +60,7 @@ class ReleaseScenarioPostgresMigrationIT {
         }
     }
 
-    private static final String LATEST = "27";
+    private static final String LATEST = "28";
     /** The last version before V27 dropped the backup and links tables the old undo scripts read. */
     private static final String BEFORE_V27 = "26";
 
@@ -90,6 +90,12 @@ class ReleaseScenarioPostgresMigrationIT {
         assertThat(single("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '" + schema
                 + "' AND table_name IN ('user_access_v8_backup', 'user_admin_access_v11_backup', 'users_role_backup',"
                 + " 'control_notification_log', 'control_related_controls')")).isEqualTo("0");
+        // V28: the Completed text says "successfully"; its undo takes the word out again
+        assertThat(single("SELECT body FROM notification_template WHERE template_key = 'T12'"))
+                .isEqualTo(com.kpmg.qtracker.service.notification.Template.T12.defaultBody());
+        script("db/rollback/V28__undo_notification_completed_successfully.sql");
+        assertThat(single("SELECT body FROM notification_template WHERE template_key = 'T12'"))
+                .isEqualTo(com.kpmg.qtracker.migration.V28NotificationCompletedSuccessfullyMigrationTest.BEFORE_V28);
     }
 
     /** V27 drops the five tables with their rows; its undo script brings them back empty (data minimisation). */
@@ -177,8 +183,11 @@ class ReleaseScenarioPostgresMigrationIT {
         assertThat(single("SELECT COUNT(*) FROM notification_template")).isEqualTo("12");
         for (com.kpmg.qtracker.service.notification.Template template
                 : com.kpmg.qtracker.service.notification.Template.values()) {
+            // Up to V26 here: T12 says "successfully" from V28 on
             assertThat(single("SELECT body FROM notification_template WHERE template_key = '" + template.name() + "'"))
-                    .as(template.name()).isEqualTo(template.defaultBody());
+                    .as(template.name()).isEqualTo(template == com.kpmg.qtracker.service.notification.Template.T12
+                            ? com.kpmg.qtracker.migration.V28NotificationCompletedSuccessfullyMigrationTest.BEFORE_V28
+                            : template.defaultBody());
         }
 
         // V22: role and secondary_role gone, every role word of the old people kept

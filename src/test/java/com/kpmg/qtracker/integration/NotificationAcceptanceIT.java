@@ -214,7 +214,7 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
         for (User person : List.of(cast.fac, cast.op, cast.soqm, cast.po)) {
             assertThat(mails(control)).filteredOn(m -> m.getRecipientEmail().equals(person.getMail())).singleElement()
                     .satisfies(mail -> assertThat(mail.getBodyHtml()).contains("Dear " + NotificationRecipients.firstName(person.getDisplayName()) + ",<br>",
-                            "has been completed.", ">Go to Control</a>"));
+                            "has been successfully completed.", ">Go to Control</a>"));
         }
     }
 
