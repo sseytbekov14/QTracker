@@ -62,6 +62,7 @@ public class ControlController {
     private final StatusDisplayMapper statusDisplayMapper;
     private final com.kpmg.qtracker.service.ControlIdGeneratorService controlIdGeneratorService;
     private final ControlRenameService controlRenameService;
+    private final com.kpmg.qtracker.service.ControlDeactivation controlDeactivation;
     private static final Logger logger = LoggerFactory.getLogger(ControlController.class);
 
     /**
@@ -110,6 +111,36 @@ public class ControlController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not authorized to rename controls");
         }
         return ResponseEntity.ok(controlRenameService.preview(control.get(), newControlId));
+    }
+
+    /**
+     * Deactivate control (2026-11-06): removes the control for good with everything of it, its files included
+     * (ControlDeactivation). SoQM Admin Team only, any status (403 for everyone else); the body carries the Control ID
+     * the user typed in the dialog, which must match (400 otherwise, nothing deleted).
+     */
+    @PostMapping("/{id}/deactivate")
+    public ResponseEntity<Map<String, Object>> deactivateControl(@PathVariable Long id,
+                                                                 @RequestBody(required = false) Map<String, String> request,
+                                                                 HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String typed = request == null ? null : request.get("confirmControlId");
+        com.kpmg.qtracker.service.ControlDeactivation.Result result = controlDeactivation.deactivate(id, typed, currentUser);
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", result.deactivated());
+        body.put("message", result.message());
+        return switch (result.outcome()) {
+            case DEACTIVATED -> {
+                body.put("controlId", result.controlId());
+                body.put("redirect", "/component/ALL");
+                yield ResponseEntity.ok(body);
+            }
+            case NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+            case FORBIDDEN -> ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+            case ID_MISMATCH -> ResponseEntity.badRequest().body(body);
+        };
     }
 
     @PostMapping("/{id}/rename-id")

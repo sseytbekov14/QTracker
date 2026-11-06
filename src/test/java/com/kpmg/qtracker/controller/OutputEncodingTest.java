@@ -50,6 +50,21 @@ class OutputEncodingTest {
         assertThat(output).contains("\"failures\":[]");
     }
 
+    /** Deactivate control's dialog: the button follows AccessPolicy.deactivationIdMatches, its texts go in as text. */
+    @Test
+    void deactivateControlDialog_matchesLikeTheServer_andInsertsNoHtml() throws Exception {
+        String node = findOnPath("node");
+        assumeTrue(node != null, "Node.js is not installed; the browser code cannot run");
+
+        Process process = new ProcessBuilder(node, "src/test/resources/js/deactivate-control.mjs",
+                JS.resolve("deactivate-control.js").toString()).redirectErrorStream(true).start();
+        assertThat(process.waitFor(60, TimeUnit.SECONDS)).isTrue();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+        assertThat(process.exitValue()).as(output).isZero();
+        assertThat(output).contains("\"failures\":[]");
+    }
+
     @Test
     void thereIsOneEscapeHtml_andEveryPageUsingItLoadsIt() throws IOException {
         for (Path file : pageCode()) {

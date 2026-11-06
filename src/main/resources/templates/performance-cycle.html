@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <th:block th:replace="~{fragments/csrf :: csrf}"></th:block>
+    <script th:if="${canDeactivateControl}" src="/js/deactivate-control.js?v=1"></script>
     <title th:text="${controlId} + ' - Performance Cycle - QTracker'">Performance Cycle - QTracker</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=20" rel="stylesheet">
+    <link href="/css/style.css?v=21" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         :root {
@@ -55,6 +56,8 @@
         .btn-pc-secondary { border: 1px solid rgba(255,255,255,0.5); color: #fff; }
         .btn-pc-secondary:hover { background: rgba(255,255,255,0.12); color: #fff; }
         .btn-pc-primary:focus-visible, .btn-pc-secondary:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+        button.btn-pc-secondary { background: transparent; cursor: pointer; }
+        .btn-pc-danger:hover { background: rgba(164, 38, 44, 0.85); border-color: rgba(255,255,255,0.7); }
 
         /* Status badges (same palette as the Controls list) */
         .status-badge { display: inline-block; padding: 3px 9px; border-radius: 3px; font-size: 0.72rem; font-weight: 600; }
@@ -184,6 +187,13 @@
                            id="exportCompletedBtn" class="btn-pc-secondary" title="Download this completed control as Excel">
                             <i class="bi bi-download" aria-hidden="true"></i>Download
                         </a>
+                        <!-- Deactivate control: SoQM Admin Team, any status (AccessPolicy.canDeactivateControl) -->
+                        <button type="button" th:if="${canDeactivateControl}" id="deactivateControlBtn"
+                                class="btn-pc-secondary btn-pc-danger" data-deactivate-control
+                                th:attr="data-id=${control.id},data-control-id=${control.controlId}"
+                                title="Delete this control for good">
+                            <i class="bi bi-trash3" aria-hidden="true"></i>Deactivate control
+                        </button>
                         <a th:href="@{/view-control/{id}(id=${control.id})}" class="btn-pc-primary">
                             Open control<i class="bi bi-arrow-right" aria-hidden="true"></i>
                         </a>

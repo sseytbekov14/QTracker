@@ -981,6 +981,8 @@ public class ViewController {
 
         // Rename ID: SoQM, also on a completed control (not an edit of it, AccessPolicy.canRenameId)
         model.addAttribute("canRenameId", AccessPolicy.canRenameId(permission));
+        // Deactivate control, in More actions: SoQM Admin Team, any status
+        model.addAttribute("canDeactivateControl", AccessPolicy.canDeactivateControl(AccessPolicy.Subject.of(currentUser)));
         // Create Control, on every tab: SoQM Admin Team, a Monthly or Quarterly control past Draft, not retired
         model.addAttribute("canCreateControl", AccessPolicy.offersCreateControl(permission,
                 control.getControlFrequency(), control.getPerformanceStatus(), control.getControlStatus()));
@@ -1219,6 +1221,9 @@ public class ViewController {
 
             // The Excel of a completed control: SoQM Admin Team only
             model.addAttribute("canExportCompleted", permissionService.canExportCompletedControl(control, currentUser));
+            // Deactivate control, next to Download: SoQM Admin Team, any status
+            model.addAttribute("canDeactivateControl",
+                    AccessPolicy.canDeactivateControl(AccessPolicy.Subject.of(currentUser)));
 
             return "performance-cycle";
 

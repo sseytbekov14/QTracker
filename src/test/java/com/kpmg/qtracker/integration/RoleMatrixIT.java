@@ -149,12 +149,12 @@ class RoleMatrixIT {
             "In component list", "View page", "Program on page", "Notice", "KDN mark", "Related / IT fields", "Read API", "History", "Download", "Save details", "Steps field", "Operator's Program", "Edit control",
             "Edit, no reason", "Frequency", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Development Materials (removed)", "Rename ID", "Rename ±KDN, no comment", "Rename ±KDN", "Step", "Return",
             "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Excel (completed)", "Excel button",
-            "Performance Cycle", "Create Control", "Create Control button");
+            "Performance Cycle", "Create Control", "Create Control button", "Deactivate, wrong ID", "Deactivate");
 
     /** The operations that change a control: none may pass where the page shows a notice. */
     private static final List<String> WRITES = List.of("Save details", "Steps field", "Operator's Program", "Edit control",
             "Edit, no reason", "Frequency", "Status / Year", "Operation Date", "Assign", "Upload", "Upload Documents", "Rename ID", "Rename ±KDN", "Step", "Return",
-            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Create Control");
+            "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review", "Create Control", "Deactivate");
 
     /** The working statuses in order; "Move to X" is POST /api/workflow/move, a return when X is earlier. */
     private static final List<String> WORKING = List.of(
@@ -555,6 +555,10 @@ class RoleMatrixIT {
             // everyone else); a draft is initiated first (400). The button on the Assignment tab: the same, past Draft
             case "Create Control" -> !(soqm && sees) ? "refused" : "DRAFT".equals(status) ? "400" : "ok";
             case "Create Control button" -> soqm && sees && !"DRAFT".equals(status) ? "ok" : "refused";
+            // Deactivate control (decision of 2026-11-06): SoQM Admin Team only, in every status (403 for everyone else);
+            // the typed Control ID must match, in any case, spaces at the ends ignored (400, nothing deleted)
+            case "Deactivate, wrong ID" -> soqm ? "400" : "refused";
+            case "Deactivate" -> soqm ? "ok" : "refused";
             default -> throw new IllegalArgumentException(op);
         };
     }
@@ -612,6 +616,14 @@ class RoleMatrixIT {
         row.put("Excel (completed)", "COMPLETED".equals(status)
                 ? answer(get("/api/controls/{id}/export/completed", control.getId()), session) : "n/a");
         row.put("Excel button", excelButton(control, session));
+        // On a control of its own, which a passing Deactivate removes
+        Control doomed = control(who, status);
+        row.put("Deactivate, wrong ID", answer(post("/api/controls/{id}/deactivate", doomed.getId()).with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"confirmControlId\":\"" + doomed.getControlId() + "-X\"}"), session));
+        row.put("Deactivate", answer(post("/api/controls/{id}/deactivate", doomed.getId()).with(csrf().asHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"confirmControlId\":\"  " + doomed.getControlId().toLowerCase() + " \"}"), session));
         row.put("Save details", answer(post("/api/control-details").with(csrf().asHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"controlId\":" + control.getId() + ",\"" + stepFieldOf(who, status) + "\":\"Saved by " + who.key() + "\"" + REASON + "}"), session));

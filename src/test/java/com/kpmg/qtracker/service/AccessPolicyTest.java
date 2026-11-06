@@ -923,4 +923,48 @@ class AccessPolicyTest {
         ControlPermission user = AccessPolicy.resolve(who("PART"), control(status == null ? "DRAFT" : status, false, "F"));
         assertThat(AccessPolicy.offersCreateControl(user, frequency, status, controlStatus)).isFalse();
     }
+
+    // ------------------------------------------------------------------ Deactivate control (2026-11-06)
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource({
+            "SOQM,          true",
+            "PART,          false",
+            "PART_ALL,      false",
+            "KDN,           false",
+            "RO,            false",
+            "RO_ALL,        false",
+            "DISABLED_SOQM, false",
+            "DISABLED_PART, false",
+            "NONE,          false",
+    })
+    void deactivateControl_soqmAdminTeamOnly(String user, boolean allowed) {
+        assertThat(AccessPolicy.canDeactivateControl(who(user))).isEqualTo(allowed);
+        assertThat(AccessPolicy.deactivationRefusal(who(user), "HR-1", "HR-1"))
+                .isEqualTo(allowed ? java.util.Optional.empty()
+                        : java.util.Optional.of(AccessPolicy.DEACTIVATE_CONTROL_NOT_ALLOWED));
+    }
+
+    @ParameterizedTest(name = "\"{1}\" for {0}: {2}")
+    @CsvSource(delimiter = '|', value = {
+            "HR-FY27/1     | HR-FY27/1          | true",
+            "HR-FY27/1     | hr-fy27/1          | true",
+            "HR-FY27/1     | '   Hr-Fy27/1  '   | true",
+            "'  KDN-5 '    | kdn-5              | true",
+            "HR-FY27/1     | HR-FY27/1-X        | false",
+            "HR-FY27/1     | HR-FY27            | false",
+            "HR-FY27/1     | HR FY27/1          | false",
+            "HR-FY27/1     | ''                 | false",
+            "HR-FY27/1     | '   '              | false",
+            "HR-FY27/1     |                    | false",
+            "              | ''                 | false",
+            "''            | ''                 | false",
+    })
+    void deactivateControl_theTypedIdMustMatch_anyCase_spacesAtTheEndsIgnored(String controlId, String typed,
+                                                                              boolean matches) {
+        assertThat(AccessPolicy.deactivationIdMatches(controlId, typed)).isEqualTo(matches);
+        assertThat(AccessPolicy.deactivationRefusal(who("SOQM"), controlId, typed))
+                .isEqualTo(matches ? java.util.Optional.empty()
+                        : java.util.Optional.of(AccessPolicy.DEACTIVATE_CONTROL_ID_MISMATCH));
+    }
 }

@@ -38,6 +38,8 @@ public class AdminAuditTrail {
         USER_ACCESS("User access", "Target user"),
         CONTROL_EDIT("Control edits", "Control"),
         ATTACHMENT("Attachments", "Control"),
+        /** Deactivate control (2026-11-06): the control as it was, shown line by line ({@link Entry#details}). */
+        CONTROL_DEACTIVATED("Deactivated controls", "Control"),
         OTHER("Other events", "Target");
 
         private final String label;
@@ -68,16 +70,26 @@ public class AdminAuditTrail {
             if (type.startsWith("ATTACHMENT_")) {
                 return ATTACHMENT;
             }
+            if (ControlDeactivation.AUDIT_ACTION.equals(type)) {
+                return CONTROL_DEACTIVATED;
+            }
             return OTHER;
         }
     }
 
     /**
      * One line of the trail. For user events the target is the user's e-mail (also after a later e-mail
-     * change it is the address the entry names), for the others the business ID of the control.
+     * change it is the address the entry names), for the others the business ID of the control. Details: the snapshot of
+     * a deactivated control as lines to read ("Status: In Progress", "Facilitator: Anna Smith (a@kpmg.kz)"), empty for
+     * every other entry.
      */
     public record Entry(Group group, LocalDateTime createdAt, String changedBy, String action,
-                        String target, boolean targetIsUser) {
+                        String target, boolean targetIsUser, List<String> details) {
+
+        public Entry(Group group, LocalDateTime createdAt, String changedBy, String action, String target,
+                     boolean targetIsUser) {
+            this(group, createdAt, changedBy, action, target, targetIsUser, List.of());
+        }
     }
 
     public record Trail(List<Entry> entries, Map<Group, Integer> counts) {
@@ -88,6 +100,7 @@ public class AdminAuditTrail {
         logs.addAll(auditLogRepository.findTop100ByActionTypeStartingWithOrderByCreatedAtDesc("USER_"));
         logs.addAll(auditLogRepository.findTop100ByActionTypeOrderByCreatedAtDesc("EDIT"));
         logs.addAll(auditLogRepository.findTop100ByActionTypeStartingWithOrderByCreatedAtDesc("ATTACHMENT_"));
+        logs.addAll(auditLogRepository.findTop100ByActionTypeOrderByCreatedAtDesc(ControlDeactivation.AUDIT_ACTION));
         logs.addAll(auditLogRepository.findOtherActionTypes(PageRequest.of(0, LIMIT)));
 
         List<Entry> entries = logs.stream()
@@ -109,6 +122,10 @@ public class AdminAuditTrail {
         String action = log.getActionDescription() != null && !log.getActionDescription().isBlank()
                 ? log.getActionDescription().trim() : log.getActionType();
 
+        if (group == Group.CONTROL_DEACTIVATED) {
+            return new Entry(group, log.getCreatedAt(), changedBy, action, log.getControlControlId(), false,
+                    DeactivationSnapshot.lines(log.getNewValues()));
+        }
         if (group != Group.USER_ACCESS) {
             return new Entry(group, log.getCreatedAt(), changedBy, action, log.getControlControlId(), false);
         }

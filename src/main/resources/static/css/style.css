@@ -1865,3 +1865,21 @@
     .status-card { padding: 24px 20px 26px; }
     .status-btn { width: 100%; justify-content: center; }
 }
+
+/* Deactivate control (deactivate-control.js): the confirmation dialog, View Control and Performance Cycle */
+.qt-deactivate-dialog {
+    width: min(460px, calc(100vw - 32px));
+    padding: 0;
+    border: 1px solid var(--kpmg-gray-200, #dee2e6);
+    border-radius: 6px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+.qt-deactivate-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+.qt-deactivate-form { padding: 20px 22px; margin: 0; }
+.qt-deactivate-title { font-size: 1.05rem; font-weight: 700; color: #a4262c; margin: 0 0 10px; }
+.qt-deactivate-id { margin: 0 0 8px; font-size: 0.86rem; }
+.qt-deactivate-code { font-family: Consolas, "Courier New", monospace; overflow-wrap: anywhere; }
+.qt-deactivate-text { margin: 0 0 14px; font-size: 0.82rem; color: var(--kpmg-gray-800, #343a40); }
+.qt-deactivate-label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; }
+.qt-deactivate-error { margin: 8px 0 0; font-size: 0.8rem; color: #a4262c; }
+.qt-deactivate-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }

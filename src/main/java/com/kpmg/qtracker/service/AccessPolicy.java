@@ -659,6 +659,45 @@ public final class AccessPolicy {
         return assigned ? Notice.NONE : Notice.NOT_ASSIGNED;
     }
 
+    /**
+     * Deactivate control (business decision of 2026-11-06): SoQM Admin Team only, on any control, in any status - Draft
+     * and Completed included. It removes the control for good (ControlDeactivation): the button is shown to them alone
+     * and the server refuses everyone else (403).
+     */
+    public static boolean canDeactivateControl(Subject subject) {
+        return isSoqm(subject);
+    }
+
+    public static final String DEACTIVATE_CONTROL_NOT_ALLOWED =
+            "Only " + UserRole.SOQM_TEAM_NAME + " can deactivate a control";
+    public static final String DEACTIVATE_CONTROL_ID_MISMATCH =
+            "The Control ID you typed does not match this control: nothing was deleted";
+
+    /**
+     * Why a control is not deactivated, or empty when it is: the user may not ({@link #canDeactivateControl}), or what
+     * they typed to confirm is not the control's Control ID ({@link #deactivationIdMatches}).
+     */
+    public static Optional<String> deactivationRefusal(Subject subject, String controlId, String typedControlId) {
+        if (!canDeactivateControl(subject)) {
+            return Optional.of(DEACTIVATE_CONTROL_NOT_ALLOWED);
+        }
+        if (!deactivationIdMatches(controlId, typedControlId)) {
+            return Optional.of(DEACTIVATE_CONTROL_ID_MISMATCH);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * The confirmation of Deactivate control: the typed text is the Control ID, in any case, spaces at either end
+     * ignored. The dialog checks the same before it enables its button; the server checks again.
+     */
+    public static boolean deactivationIdMatches(String controlId, String typedControlId) {
+        if (controlId == null || controlId.isBlank() || typedControlId == null) {
+            return false;
+        }
+        return controlId.trim().toUpperCase(Locale.ROOT).equals(typedControlId.trim().toUpperCase(Locale.ROOT));
+    }
+
     /** Renaming the Control ID: SoQM, on any control it sees, a completed one included (not an edit of it). */
     public static boolean canRenameId(ControlPermission permission) {
         return permission != null && permission.canView() && permission.canUseWorkflowActions()

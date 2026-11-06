@@ -218,16 +218,8 @@ public class DataRetention {
         jdbc.update("UPDATE email_outbox SET body_html = '', body_text = NULL WHERE id IN (SELECT id" + texts + ")",
                 textsBefore);
 
-        if (in != null) {
-            for (String table : List.of("control_attachments", "workflow_steps", "workflow_history", "notifications",
-                    "email_outbox", "admin_audit_log")) {
-                jdbc.update("DELETE FROM " + table + " WHERE control_id IN (" + in + ")");
-            }
-            // A next cycle keeps its row and loses only the link to its source (V14 says ON DELETE SET NULL; done
-            // here too, so it holds whatever the schema); Other Related Controls links go with the control (CASCADE)
-            jdbc.update("UPDATE controls SET created_from_control_id = NULL WHERE created_from_control_id IN (" + in + ")");
-            jdbc.update("DELETE FROM controls WHERE id IN (" + in + ")");
-        }
+        // The expired controls with their rows; a next cycle keeps its row and loses only the link to its source
+        ControlDependents.delete(jdbc, ids);
         jdbc.update("DELETE FROM notifications WHERE created_at < ?", before);
         jdbc.update("DELETE FROM email_outbox WHERE created_at < ?", before);
         jdbc.update("DELETE FROM admin_audit_log WHERE created_at < ?", before);

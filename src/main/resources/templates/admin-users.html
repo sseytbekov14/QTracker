@@ -266,6 +266,10 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .audit-hint { font-size: 0.72rem; color: var(--kpmg-gray-400); }
 .audit-target-name { display: block; font-weight: 600; }
 .audit-target-mail { font-size: 0.72rem; color: var(--kpmg-gray-600); overflow-wrap: anywhere; }
+.audit-details { margin-top: 4px; }
+.audit-details summary { cursor: pointer; color: var(--kpmg-blue); font-size: 0.72rem; }
+.audit-details ul { margin: 4px 0 0; padding-left: 16px; font-size: 0.72rem; color: var(--kpmg-gray-800); }
+.audit-details li { overflow-wrap: anywhere; text-align: left; }
 
 /* Page message: a toast in the top right corner, visible wherever the page is scrolled */
 .client-alert {
@@ -775,7 +779,18 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                     th:classappend="${entry.group().name() != 'USER_ACCESS'} ? 'd-none'">
                                     <td class="audit-date" data-label="Date/Time" th:text="${entry.createdAt() != null ? #temporals.format(entry.createdAt(), 'dd.MM.yyyy HH:mm') : '-'}">09.04.2026 11:41</td>
                                     <td data-label="Changed by" th:text="${entry.changedBy()}">Admin User</td>
-                                    <td data-label="Action" th:text="${entry.action()}">Changed status from ACTIVE to INACTIVE</td>
+                                    <td data-label="Action" th:if="${#lists.isEmpty(entry.details())}"
+                                        th:text="${entry.action()}">Changed status from ACTIVE to INACTIVE</td>
+                                    <!-- A deactivated control: the action and the control as it was (AdminAuditTrail.Entry#details) -->
+                                    <td data-label="Action" th:unless="${#lists.isEmpty(entry.details())}">
+                                        <span th:text="${entry.action()}">Deactivated control HR-1 (Draft)</span>
+                                        <details class="audit-details">
+                                            <summary>Snapshot</summary>
+                                            <ul>
+                                                <li th:each="line : ${entry.details()}" th:text="${line}">Status: In Progress</li>
+                                            </ul>
+                                        </details>
+                                    </td>
                                     <td th:if="${entry.targetIsUser()}" data-label="Target user"
                                         th:with="targetName=${entry.target() != null ? userNames.get(#strings.toLowerCase(entry.target())) : null}">
                                         <span class="audit-target-name" th:if="${targetName != null}" th:text="${targetName}">User Name</span>

@@ -26,6 +26,7 @@ public interface AdminAuditLogRepository extends JpaRepository<AdminAuditLog, Lo
     List<AdminAuditLog> findTop100ByActionTypeOrderByCreatedAtDesc(String actionType);
 
     @Query("select l from AdminAuditLog l where l.actionType not like 'USER%' and l.actionType <> 'EDIT'"
-            + " and l.actionType not like 'ATTACHMENT%' order by l.createdAt desc")
+            + " and l.actionType not like 'ATTACHMENT%' and l.actionType <> 'CONTROL_DEACTIVATED'"
+            + " order by l.createdAt desc")
     List<AdminAuditLog> findOtherActionTypes(Pageable pageable);
 }

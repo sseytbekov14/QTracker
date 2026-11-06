@@ -99,6 +99,9 @@ class ControlControllerSecurityTest {
     @MockBean
     private com.kpmg.qtracker.service.RelatedControls relatedControls;
 
+    @MockBean
+    private com.kpmg.qtracker.service.ControlDeactivation controlDeactivation;
+
     private ControlDTO requestBody;
 
     @BeforeEach

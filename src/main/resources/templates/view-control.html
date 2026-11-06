@@ -7,8 +7,8 @@
     <title th:text="'Control - ' + ${control.controlId}">Control - Sultan</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=20" rel="stylesheet">
-    <link href="/css/view-control.css?v=37" rel="stylesheet">
+    <link href="/css/style.css?v=21" rel="stylesheet">
+    <link href="/css/view-control.css?v=38" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -1247,8 +1247,9 @@
                                     title="Previous page"><i class="bi bi-arrow-left" aria-hidden="true"></i>Back</button>
                             <button type="button" class="btn btn-outline-secondary" id="changelogBtn"
                                     title="History of status and field changes"><i class="bi bi-clock-history" aria-hidden="true"></i>Changelog</button>
-                            <!-- Rename ID as dropdown (SoQM only, also on a completed control, as the server checks) -->
-                            <div class="kpmg-more-menu" id="kpmgMoreMenuWrapper" th:if="${canRenameId}">
+                            <!-- More actions (SoQM only, as the server checks): Rename ID, also on a completed control;
+                                 Deactivate control, in any status -->
+                            <div class="kpmg-more-menu" id="kpmgMoreMenuWrapper" th:if="${canRenameId or canDeactivateControl}">
                                 <button class="kpmg-more-menu-btn" id="kpmgMoreMenuBtn" type="button" title="More actions"
                                         aria-label="More actions">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -1258,12 +1259,17 @@
                                     </svg>
                                 </button>
                                 <div class="kpmg-more-dropdown" id="kpmgMoreDropdown">
-                                    <button class="kpmg-more-dropdown-item" id="renameIdBtn" type="button">
+                                    <button class="kpmg-more-dropdown-item" id="renameIdBtn" type="button" th:if="${canRenameId}">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:-1px">
                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                                         </svg>
                                         Rename ID
+                                    </button>
+                                    <button class="kpmg-more-dropdown-item kpmg-more-danger" id="deactivateControlBtn" type="button"
+                                            th:if="${canDeactivateControl}" data-deactivate-control
+                                            th:attr="data-id=${control.id},data-control-id=${control.controlId}">
+                                        <i class="bi bi-trash3" aria-hidden="true" style="margin-right:6px"></i>Deactivate control
                                     </button>
                                 </div>
                             </div>
@@ -1876,6 +1882,7 @@
 <script src="/js/view-control.js?v=8.12"></script>
 <script src="/js/create-control.js?v=5"></script>
 <script src="/js/workflow-move.js?v=2"></script>
+<script th:if="${canDeactivateControl}" src="/js/deactivate-control.js?v=1"></script>
 <script>
 // Initialize button visibility for Facilitator and Control Operator workflows
 document.addEventListener('DOMContentLoaded', function() {

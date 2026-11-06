@@ -1534,3 +1534,7 @@ input[data-date-picker] {
         margin: -8px -6px -8px auto;
     }
 }
+
+/* Deactivate control in More actions: the one destructive item */
+.kpmg-more-dropdown-item.kpmg-more-danger { color: #a4262c; }
+.kpmg-more-dropdown-item.kpmg-more-danger:hover { background: #fdecec; }

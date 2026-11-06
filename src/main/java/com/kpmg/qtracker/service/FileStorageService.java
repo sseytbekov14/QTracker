@@ -237,6 +237,29 @@ public class FileStorageService {
         }
     }
 
+    /**
+     * Removes a control's folder once nothing is left in it (after its files were deleted); a folder with any file in it
+     * stays - another control may share it (folder names are sanitised Control IDs). Never the upload root itself.
+     *
+     * @return whether the folder was removed
+     */
+    public boolean deleteFolderIfEmpty(String controlFolder) throws IOException {
+        if (!hasFolder(controlFolder)) {
+            return false;
+        }
+        Path folder = folderPath(controlFolder);
+        if (!Files.isDirectory(folder)) {
+            return false;
+        }
+        try (Stream<Path> rest = Files.list(folder)) {
+            if (rest.findAny().isPresent()) {
+                return false;
+            }
+        }
+        Files.delete(folder);
+        return true;
+    }
+
     /** The folder of a control's files: its Control ID, or its database id while it has no Control ID. */
     public static String controlFolder(String controlId, Long id) {
         if (controlId == null || controlId.isBlank()) {
