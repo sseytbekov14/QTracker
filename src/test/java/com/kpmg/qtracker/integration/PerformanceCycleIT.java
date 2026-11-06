@@ -55,7 +55,9 @@ class PerformanceCycleIT extends ReleaseScenarioSupport {
             assertThat(opened.getResponse().getStatus()).as(control.getControlId()).isEqualTo(200);
             assertThat(opened.getModelAndView().getViewName()).isEqualTo("performance-cycle");
             assertThat(body(opened)).contains(control.getControlId())
-                    .contains("href=\"/view-control/" + control.getId() + "\"");
+                    .contains("href=\"/view-control/" + control.getId() + "\"")
+                    // The card of the four Control roles is called "Users" (2026-11-06), no longer "People"
+                    .contains("aria-hidden=\"true\"></i>Users</h2>").doesNotContain("</i>People</h2>");
         }
         assertThat(call(session, get("/view-control/" + draft.getId())).getModelAndView().getViewName())
                 .isEqualTo("view-control");
