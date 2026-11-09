@@ -24,19 +24,22 @@
 --   psql -h <host> -U <owner> -d qtracker_prod -v ON_ERROR_STOP=1 -v apply=true -f 2026-11-06_cleanup_controls_and_seed_users.sql
 --
 -- Or in pgAdmin: right-click the database qtracker_prod -> PSQL Tool (NOT the Query Tool, which does not know the
--- \if / \set / \echo commands used here), then:
---   \encoding UTF8
+-- \if / \set / \echo commands used here), then ONE LINE AT A TIME (pasted together they run as one wrong command):
 --   \i 'C:/MyApps/QTracker/scripts/2026-11-06_cleanup_controls_and_seed_users.sql'      (dry run)
---   \set apply true
+--   \set apply true                                                                      (then, on its own line:)
 --   \i 'C:/MyApps/QTracker/scripts/2026-11-06_cleanup_controls_and_seed_users.sql'      (apply)
--- The path is the file on the computer pgAdmin runs on, with forward slashes. After an ERROR the prompt may read
--- "qtracker_prod=!#": type ROLLBACK; and nothing has changed.
+-- The path is the file on the computer pgAdmin runs on, with forward slashes. The last line says what happened:
+-- DRY RUN, APPLIED, or FAILED (an ERROR above: everything rolled back, nothing changed). apply is unset at the end, so
+-- the next run is a dry run again.
 --
 -- Before applying: a pg_dump backup, and the application stopped (no one changes data while it runs). The script stops
 -- with an error, changing nothing, if no active SoQM Admin Team user would be left.
 -- =====================================================================================================================
 
 \set QUIET on
+-- File names and people may hold Cyrillic: a console in WIN1252 (pgAdmin's PSQL Tool, Windows psql) cannot show them
+-- and the transaction would stop at the first such row
+\encoding UTF8
 \pset pager off
 \pset null '-'
 \if :{?apply}
@@ -222,10 +225,18 @@ UNION ALL SELECT 'users @qtracker.local left', COUNT(*) FROM users WHERE LOWER(T
 UNION ALL SELECT 'related_control_ref (kept)', COUNT(*) FROM related_control_ref
 UNION ALL SELECT 'notification_template (kept)', COUNT(*) FROM notification_template;
 
-\if :apply
+-- Any ERROR above stops the transaction, and then this probe fails too: everything is rolled back and said so
+SELECT 1 AS cleanup_transaction_ok \gset
+\if :ERROR
+ROLLBACK;
+\echo
+\echo 'FAILED: there is an ERROR above. Everything was rolled back, NOTHING changed. Send the first ERROR line.'
+\elif :apply
 COMMIT;
 \echo 'APPLIED: committed. Now delete the files listed in 1a / 1b (or empty the upload folder).'
 \else
 ROLLBACK;
-\echo 'DRY RUN: rolled back, nothing changed. Run again with -v apply=true to delete.'
+\echo 'DRY RUN: rolled back, nothing changed. Run again with apply=true to delete.'
 \endif
+-- The next run in the same window is a dry run again unless apply is set again
+\unset apply
