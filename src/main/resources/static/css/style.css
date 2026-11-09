@@ -1866,7 +1866,7 @@
     .status-btn { width: 100%; justify-content: center; }
 }
 
-/* Deactivate control (deactivate-control.js): the confirmation dialog, View Control and Performance Cycle */
+/* Deactivate control (deactivate-control.js): the confirmation dialog on View Control */
 .qt-deactivate-dialog {
     width: min(460px, calc(100vw - 32px));
     padding: 0;

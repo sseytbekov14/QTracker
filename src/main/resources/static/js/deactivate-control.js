@@ -1,5 +1,5 @@
 // Deactivate control (2026-11-06): the confirmation dialog of every button marked data-deactivate-control (View
-// Control's More actions, the Performance Cycle page). It names the control, and its Deactivate button stays disabled
+// Control's More actions; 2026-11-09: no longer on Performance Cycle). It names the control, and its Deactivate button stays disabled
 // until the user types the Control ID - any case, spaces at either end ignored, as AccessPolicy.deactivationIdMatches,
 // which the server checks again. Only SoQM Admin Team get the buttons; the server refuses everyone else.
 // Texts go in with textContent only.

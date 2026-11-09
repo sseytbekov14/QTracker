@@ -1221,9 +1221,6 @@ public class ViewController {
 
             // The Excel of a completed control: SoQM Admin Team only
             model.addAttribute("canExportCompleted", permissionService.canExportCompletedControl(control, currentUser));
-            // Deactivate control, next to Download: SoQM Admin Team, any status
-            model.addAttribute("canDeactivateControl",
-                    AccessPolicy.canDeactivateControl(AccessPolicy.Subject.of(currentUser)));
 
             return "performance-cycle";
 

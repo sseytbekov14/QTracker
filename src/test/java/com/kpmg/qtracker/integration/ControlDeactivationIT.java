@@ -169,19 +169,27 @@ class ControlDeactivationIT extends ReleaseScenarioSupport {
                 .contentType("application/json").content("{\"confirmControlId\":\"X\"}"))).isEqualTo(404);
     }
 
+    /**
+     * The button is in View Control's More actions only (2026-11-09: no longer next to Download on Performance Cycle),
+     * for SoQM Admin Team, in every status.
+     */
     @Test
-    void theButton_isOfferedToSoqmOnly_onViewControlAndPerformanceCycle_inEveryStatus() throws Exception {
+    void theButton_isOfferedToSoqmOnly_inViewControl_inEveryStatus_notOnPerformanceCycle() throws Exception {
         User soqm = soqm("dz4-soqm");
         User fac = myEdit("dz4-fac");
         MockHttpSession soqmSession = login(soqm);
         MockHttpSession facSession = login(fac);
         for (String status : STATUSES) {
             Control control = control("HR-DZ4", status, people().facilitator(fac).soqm(soqm));
-            for (String page : List.of("/view-control/" + control.getId(), "/performance-cycle/" + control.getId())) {
-                assertThat(body(call(soqmSession, get(page)))).as(status + " " + page)
-                        .contains("id=\"deactivateControlBtn\"", "data-deactivate-control",
-                                "data-control-id=\"" + control.getControlId() + "\"", "/js/deactivate-control.js");
-                assertThat(body(call(facSession, get(page)))).as(status + " " + page + " Facilitator")
+            String viewControl = "/view-control/" + control.getId();
+            assertThat(body(call(soqmSession, get(viewControl)))).as(status + " View Control")
+                    .contains("id=\"deactivateControlBtn\"", "data-deactivate-control",
+                            "data-control-id=\"" + control.getControlId() + "\"", "/js/deactivate-control.js");
+            assertThat(body(call(facSession, get(viewControl)))).as(status + " View Control, Facilitator")
+                    .doesNotContain("deactivateControlBtn").doesNotContain("deactivate-control.js");
+            for (MockHttpSession session : List.of(soqmSession, facSession)) {
+                assertThat(body(call(session, get("/performance-cycle/" + control.getId()))))
+                        .as(status + " Performance Cycle")
                         .doesNotContain("deactivateControlBtn").doesNotContain("deactivate-control.js");
             }
         }
