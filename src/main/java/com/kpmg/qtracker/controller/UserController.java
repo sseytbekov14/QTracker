@@ -74,6 +74,12 @@ public class UserController {
         if (!AccessPolicy.canManageUsers(AccessPolicy.Subject.of(currentUser))) {
             return ResponseEntity.status(403).body("Forbidden");
         }
+        // System Admin Team is set on the server only: nothing of the account changes here
+        java.util.Optional<String> protectedAccount = userService.getUserById(id)
+                .flatMap(target -> AccessPolicy.userChangeRefusal(AccessPolicy.Subject.of(target)));
+        if (protectedAccount.isPresent()) {
+            return ResponseEntity.status(403).body(protectedAccount.get());
+        }
 
         // A service address kept as it is (an imported person not moved yet) does not stop other changes
         if (email != null && serviceAddressWithSso(email) && userService.getUserById(id)

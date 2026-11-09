@@ -383,6 +383,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .role-badge.is-soqm_team { background: #e6ecf6; color: var(--kpmg-blue); border-color: #c5d3ea; }
 .role-badge.is-user { background: #eef1f4; color: #3d4652; border-color: #d5dae1; }
 .role-badge.is-kdn { background: #f3ecfa; color: #5b2a86; border-color: #dccbee; }
+.role-badge.is-system_admin { background: #fff4e5; color: #7a4b00; border-color: #f0d6a8; }
+.row-locked { display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; color: var(--kpmg-gray-600); }
 .access-cell { color: var(--kpmg-gray-800); }
 /* Access: one line per access, "area · level" (RoleDisplayMapper.accessLines) */
 .access-line { display: block; white-space: nowrap; }
@@ -572,8 +574,10 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                         <h1>Admin Panel</h1>
                         <p class="subtitle">Users and access</p>
                     </div>
-                    <div class="header-actions" th:if="${canManageUsers}">
-                        <button type="button" id="openAddUserBtn" class="btn-header">
+                    <!-- Add User for whoever changes users (SoQM Admin Team); Export to Excel, a read, for everyone here
+                         (System Admin Team too) -->
+                    <div class="header-actions">
+                        <button type="button" id="openAddUserBtn" class="btn-header" th:if="${canManageUsers}">
                             <i class="bi bi-person-plus" aria-hidden="true"></i>Add User
                         </button>
                         <button type="button" id="exportUsersBtn" class="btn-header is-outline">
@@ -652,7 +656,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                             <td class="email-cell js-email" data-label="Email" th:text="${user.mail}">user@mail.com</td>
                             <td class="js-role" data-label="Role">
                                 <span class="role-badge" th:classappend="'is-' + ${#strings.toLowerCase(row.role())}"
-                                      th:text="${row.profile().role().displayName}">User</span>
+                                      th:title="${row.systemAdmin()} ? 'Set on the server (SYSTEM_ADMIN_EMAILS): read only, changed only there' : null"
+                                      th:text="${row.roleName()}">User</span>
                             </td>
                             <td class="access-cell js-access" data-label="Access"><span class="access-line" th:each="line : ${row.accessLines()}" th:text="${line}">My controls · Read Only</span></td>
                             <td class="js-status" data-label="Status">
@@ -663,10 +668,14 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                             <td class="last-login js-last-login" data-label="Last login"
                                 th:text="${row.lastLogin() != '' ? row.lastLogin() : '-'}">15.05.2024 14:30</td>
                             <td class="row-action">
-                                <button type="button" class="row-edit-btn js-open-user"
+                                <!-- Edit: whoever may change users (SoQM Admin Team), and not for a System Admin Team
+                                     account, which is changed on the server only (AccessPolicy.userChangeRefusal) -->
+                                <button type="button" class="row-edit-btn js-open-user" th:if="${canManageUsers and !row.systemAdmin()}"
                                         th:attr="aria-label=${'Edit ' + (user.displayName != null ? user.displayName : user.mail)}">
                                     <i class="bi bi-pencil" aria-hidden="true"></i><span>Edit</span>
                                 </button>
+                                <span class="row-locked" th:if="${canManageUsers and row.systemAdmin()}"
+                                      title="Set on the server: changed only there"><i class="bi bi-lock" aria-hidden="true"></i>Server</span>
                             </td>
                         </tr>
                         <tr th:if="${usersLoadError}" id="usersLoadErrorRow" class="empty-row is-error">
@@ -1073,9 +1082,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Only the row's Edit button opens the dialog: a click elsewhere on a row or card does nothing
     function bindRow(row) {
-        row.querySelector('.js-open-user').addEventListener('click', function(event) {
-            openDialog('edit', row, event.currentTarget);
-        });
+        // No Edit for whoever only looks (System Admin Team) and on a System Admin Team account
+        const edit = row.querySelector('.js-open-user');
+        if (edit) {
+            edit.addEventListener('click', function(event) {
+                openDialog('edit', row, event.currentTarget);
+            });
+        }
     }
 
     function rowUser(row) {

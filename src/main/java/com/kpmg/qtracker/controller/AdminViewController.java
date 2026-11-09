@@ -34,17 +34,27 @@ public class AdminViewController {
 
     private static final Logger logger = LoggerFactory.getLogger(AdminViewController.class);
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+    /** data-role of a System Admin Team row: none of the roles set in the Admin Panel. */
+    static final String SYSTEM_ADMIN_ROLE = "SYSTEM_ADMIN";
 
     private final UserService userService;
     private final AdminAuditTrail adminAuditTrail;
     private final AuthMode authMode;
 
-    /** One row of the users table: the user, their Access lines, and whether it is the viewer. */
+    /**
+     * One row of the users table: the user, their Access lines, whether it is the viewer, and whether the account is
+     * System Admin Team (set on the server: shown as such, with no Edit, AccessPolicy.userChangeRefusal).
+     */
     public record UserRow(User user, AccessPolicy.Profile profile, List<String> accessLines, String lastLogin,
-                          boolean self) {
+                          boolean self, boolean systemAdmin) {
 
         public String role() {
-            return profile.role().name();
+            return systemAdmin ? SYSTEM_ADMIN_ROLE : profile.role().name();
+        }
+
+        /** The role as the badge shows it. */
+        public String roleName() {
+            return systemAdmin ? AccessPolicy.SYSTEM_ADMIN_NAME : profile.role().getDisplayName();
         }
 
         public String visibility() {
@@ -128,8 +138,10 @@ public class AdminViewController {
 
     private static UserRow row(User user, User viewer) {
         AccessPolicy.Profile profile = AccessPolicy.Profile.of(user);
-        return new UserRow(user, profile, RoleDisplayMapper.accessLines(profile),
+        boolean systemAdmin = AccessPolicy.Subject.of(user).systemAdmin();
+        return new UserRow(user, profile,
+                systemAdmin ? RoleDisplayMapper.SYSTEM_ADMIN_ACCESS_LINES : RoleDisplayMapper.accessLines(profile),
                 user.getLastLoginAt() != null ? user.getLastLoginAt().format(DATE_TIME) : "",
-                Objects.equals(user.getId(), viewer.getId()));
+                Objects.equals(user.getId(), viewer.getId()), systemAdmin);
     }
 }

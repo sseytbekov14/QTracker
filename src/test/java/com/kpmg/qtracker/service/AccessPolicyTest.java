@@ -967,4 +967,73 @@ class AccessPolicyTest {
                 .isEqualTo(matches ? java.util.Optional.empty()
                         : java.util.Optional.of(AccessPolicy.DEACTIVATE_CONTROL_ID_MISMATCH));
     }
+
+    // ------------------------------------------------------------------ System Admin Team (2026-11-09)
+
+    /** Whatever the account says (here SoQM Admin Team), a System Admin Team member sees as SoQM and changes nothing. */
+    @Test
+    void systemAdmin_seesWhatSoqmSees_changesNothing_isNeverAssigned_andTheirAccountIsProtected() {
+        Subject admin = new Subject(AccessLevel.SOQM, AccessScope.ALL, true, true);
+
+        assertThat(admin.level()).isEqualTo(AccessLevel.READ_ONLY);
+        assertThat(admin.scope()).isEqualTo(AccessScope.ALL);
+        assertThat(AccessPolicy.isSystemAdmin(admin)).isTrue();
+        assertThat(AccessPolicy.isSoqm(admin)).isFalse();
+        // Sees what SoQM Admin Team sees
+        assertThat(AccessPolicy.seesAsSoqm(admin)).isTrue();
+        assertThat(AccessPolicy.canOpenAdminPanel(admin)).isTrue();
+        assertThat(AccessPolicy.seesKdnMark(admin)).isTrue();
+        assertThat(AccessPolicy.seesOrganisationCharts(admin)).isTrue();
+        assertThat(AccessPolicy.canExportControlLists(admin)).isTrue();
+        assertThat(AccessPolicy.seesSharedWithNotes(admin)).isTrue();
+        assertThat(AccessPolicy.seesAllControls(admin)).isTrue();
+        // Changes nothing
+        assertThat(AccessPolicy.mayWrite(admin)).isFalse();
+        assertThat(AccessPolicy.hasAdminAccess(admin)).isFalse();
+        assertThat(AccessPolicy.canManageUsers(admin)).isFalse();
+        assertThat(AccessPolicy.canCreateControls(admin)).isFalse();
+        assertThat(AccessPolicy.canListAllUsers(admin)).isFalse();
+        assertThat(AccessPolicy.canDeactivateControl(admin)).isFalse();
+        assertThat(AccessPolicy.userDeletionRefusal(admin, 1L, who("PART"), 2L, 5))
+                .contains(AccessPolicy.DELETE_NOT_ALLOWED);
+        for (String status : List.of("DRAFT", "IN_PROGRESS", "REVIEW", "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW",
+                "COMPLETED")) {
+            for (boolean kdn : List.of(false, true)) {
+                ControlFacts control = control(status, kdn, "-");
+                ControlPermission permission = AccessPolicy.resolve(admin, control);
+                assertThat(permission.canView()).as(status).isTrue();
+                assertThat(AccessPolicy.readAccess(admin, control)).as(status).isEqualTo(AccessPolicy.ReadAccess.ALLOWED);
+                assertThat(permission.canEdit()).as(status).isFalse();
+                assertThat(permission.canEditAll()).as(status).isFalse();
+                assertThat(permission.canUseWorkflowActions()).as(status).isFalse();
+                assertThat(AccessPolicy.canRenameId(permission)).as(status).isFalse();
+                assertThat(AccessPolicy.canExportCompletedControl(admin, control)).as(status).isTrue();
+                assertThat(AccessPolicy.notice(admin, permission)).as(status)
+                        .isEqualTo("COMPLETED".equals(status) ? AccessPolicy.Notice.COMPLETED : AccessPolicy.Notice.READ_ONLY);
+            }
+        }
+        // Never assigned, in no field and not in Shared With
+        for (AccessPolicy.Slot slot : AccessPolicy.Slot.values()) {
+            assertThat(AccessPolicy.assignmentRefusal(admin, slot, false)).as(slot.name())
+                    .contains(AccessPolicy.SYSTEM_ADMIN_NOT_ASSIGNED);
+            assertThat(AccessPolicy.isOfferedFor(admin, slot, true)).as(slot.name()).isFalse();
+        }
+        // Their account: not changed, deactivated or deleted in the application, also by SoQM Admin Team
+        assertThat(AccessPolicy.userChangeRefusal(admin)).contains(AccessPolicy.SYSTEM_ADMIN_PROTECTED);
+        assertThat(AccessPolicy.userDeletionRefusal(who("SOQM"), 1L, admin, 2L, 5))
+                .contains(AccessPolicy.SYSTEM_ADMIN_PROTECTED);
+        assertThat(AccessPolicy.statusChangeRefusal(1L, admin, 2L, false, 5)).contains(AccessPolicy.SYSTEM_ADMIN_PROTECTED);
+        assertThat(AccessPolicy.statusChangeRefusal(1L, admin, 2L, true, 5)).contains(AccessPolicy.SYSTEM_ADMIN_PROTECTED);
+        // An ordinary account is not protected
+        assertThat(AccessPolicy.userChangeRefusal(who("SOQM"))).isEmpty();
+        assertThat(AccessPolicy.userChangeRefusal(null)).isEmpty();
+    }
+
+    @Test
+    void aDisabledSystemAdmin_seesNothing() {
+        Subject disabled = new Subject(AccessLevel.SOQM, AccessScope.ALL, false, true);
+        assertThat(AccessPolicy.isSystemAdmin(disabled)).isFalse();
+        assertThat(AccessPolicy.canOpenAdminPanel(disabled)).isFalse();
+        assertThat(AccessPolicy.canView(disabled, control("IN_PROGRESS", false, "-"))).isFalse();
+    }
 }

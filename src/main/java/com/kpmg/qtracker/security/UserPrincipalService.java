@@ -1,7 +1,6 @@
 package com.kpmg.qtracker.security;
 
 import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.service.AccessPolicy;
 import com.kpmg.qtracker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -42,7 +41,8 @@ public class UserPrincipalService {
     /** Authorities: the access level (SOQM, PARTICIPANT, READ_ONLY) and ADMIN for the Admin Panel (SoQM Team). */
     private UserRecord toUserRecord(User user) {
         Set<String> roles = new LinkedHashSet<>();
-        roles.add(String.valueOf(user.getAccessLevel() != null ? user.getAccessLevel() : AccessLevel.READ_ONLY));
+        // The level as AccessPolicy sees it (System Admin Team: READ_ONLY whatever the account says)
+        roles.add(String.valueOf(AccessPolicy.Subject.of(user).level()));
         if (AccessPolicy.hasAdminAccess(AccessPolicy.Subject.of(user))) {
             roles.add("ADMIN");
         }

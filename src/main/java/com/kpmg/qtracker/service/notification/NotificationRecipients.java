@@ -101,7 +101,8 @@ public class NotificationRecipients {
         return user != null
                 && Boolean.TRUE.equals(user.getEnabled())
                 && AccessPolicy.hasNotifications(AccessPolicy.Subject.of(user))
-                && user.getAccessLevel() != AccessLevel.READ_ONLY;
+                // Read Only, as AccessPolicy sees it: a System Admin Team member gets none either
+                && AccessPolicy.mayWrite(AccessPolicy.Subject.of(user));
     }
 
     /** The people of a notification; add the fields of each role, then {@link #people()}. */

@@ -108,10 +108,18 @@ public final class RoleDisplayMapper {
         };
     }
 
-    /** The role alone ("SoQM Team", "User", "KDN"), as the sidebar shows it. */
+    /** The role alone ("SoQM Team", "User", "KDN", "System Admin Team"), as the sidebar shows it. */
     public static String role(User user) {
-        return user == null ? "" : AccessPolicy.Profile.of(user).role().getDisplayName();
+        if (user == null) {
+            return "";
+        }
+        return AccessPolicy.Subject.of(user).systemAdmin() ? AccessPolicy.SYSTEM_ADMIN_NAME
+                : AccessPolicy.Profile.of(user).role().getDisplayName();
     }
+
+    /** The Access lines of a System Admin Team account in the Admin Panel (AccessPolicy.isSystemAdmin). */
+    public static final List<String> SYSTEM_ADMIN_ACCESS_LINES = List.of(
+            "All controls · Read Only", "Admin Panel · View only", "Set on the server (SYSTEM_ADMIN_EMAILS)");
 
     /** The hint at a Control ID field (new control, Rename ID). */
     public static final String KDN_ID_HINT = "IDs starting with KDN are visible to KDN users";

@@ -7,7 +7,6 @@ import com.kpmg.qtracker.entity.ControlAssignment;
 import com.kpmg.qtracker.entity.DeletedUser;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
-import com.kpmg.qtracker.enums.AccessLevel;
 import com.kpmg.qtracker.repository.AdminAuditLogRepository;
 import com.kpmg.qtracker.repository.ControlAssignmentRepository;
 import com.kpmg.qtracker.repository.ControlRepository;
@@ -193,8 +192,13 @@ public class UserDeletion {
         if (target == null) {
             throw new Refused(404, NOT_FOUND);
         }
+        // System Admin Team is set on the server only: 403, as for any change of the account
+        Optional<String> protectedAccount = AccessPolicy.userChangeRefusal(AccessPolicy.Subject.of(target));
+        if (protectedAccount.isPresent()) {
+            throw new Refused(403, protectedAccount.get());
+        }
         Optional<String> refusal = AccessPolicy.userDeletionRefusal(subject, actor.getId(),
-                AccessPolicy.Subject.of(target), target.getId(), userRepository.countActiveByAccessLevel(AccessLevel.SOQM));
+                AccessPolicy.Subject.of(target), target.getId(), userRepository.countActiveSoqmAdminTeam());
         if (refusal.isPresent()) {
             throw new Refused(409, refusal.get());
         }

@@ -45,12 +45,25 @@ public final class AccessPolicy {
     private AccessPolicy() {
     }
 
-    /** The user as the rules see them; a missing level or scope counts as the least access. */
-    public record Subject(AccessLevel level, AccessScope scope, boolean enabled) {
+    /**
+     * The user as the rules see them; a missing level or scope counts as the least access. A System Admin Team member
+     * ({@link SystemAdmins}, set on the server) is Read Only on every control whatever their account says, and sees
+     * what SoQM Admin Team sees ({@link #seesAsSoqm}).
+     */
+    public record Subject(AccessLevel level, AccessScope scope, boolean enabled, boolean systemAdmin) {
 
         public Subject {
             level = level != null ? level : AccessLevel.READ_ONLY;
             scope = scope != null ? scope : AccessScope.OWN;
+            if (systemAdmin) {
+                level = AccessLevel.READ_ONLY;
+                scope = AccessScope.ALL;
+            }
+        }
+
+        /** Not a System Admin Team member. */
+        public Subject(AccessLevel level, AccessScope scope, boolean enabled) {
+            this(level, scope, enabled, false);
         }
 
         /** Null for no user. */
@@ -58,7 +71,8 @@ public final class AccessPolicy {
             if (user == null) {
                 return null;
             }
-            return new Subject(user.getAccessLevel(), user.getAccessScope(), Boolean.TRUE.equals(user.getEnabled()));
+            return new Subject(user.getAccessLevel(), user.getAccessScope(), Boolean.TRUE.equals(user.getEnabled()),
+                    SystemAdmins.contains(user.getMail()));
         }
     }
 
@@ -251,7 +265,7 @@ public final class AccessPolicy {
      * control): SoQM Team, who give the IDs. KDN users see only KDN controls, the others need not know.
      */
     public static boolean seesKdnMark(Subject subject) {
-        return isSoqm(subject);
+        return seesAsSoqm(subject);
     }
 
     /**
@@ -281,6 +295,24 @@ public final class AccessPolicy {
 
     public static boolean isSoqm(Subject subject) {
         return active(subject) && subject.level() == AccessLevel.SOQM;
+    }
+
+    /**
+     * System Admin Team (business decision of 2026-11-09, {@link SystemAdmins}): set on the server only; sees everything
+     * SoQM Admin Team sees ({@link #seesAsSoqm}) and changes nothing - Read Only on every control and in the Admin Panel,
+     * never assigned to a control ({@link #assignmentRefusal}), their account not changed in the application while they
+     * are listed ({@link #userChangeRefusal}).
+     */
+    public static boolean isSystemAdmin(Subject subject) {
+        return active(subject) && subject.systemAdmin();
+    }
+
+    /**
+     * What SoQM Admin Team sees and System Admin Team sees too, without changing anything: the Admin Panel and its Audit
+     * Trail, the KDN mark, the organisation-wide charts, the Excel exports, the Shared With marks.
+     */
+    public static boolean seesAsSoqm(Subject subject) {
+        return isSoqm(subject) || isSystemAdmin(subject);
     }
 
     /** Every control, drafts included: SoQM Team and All controls. */
@@ -355,15 +387,16 @@ public final class AccessPolicy {
     }
 
     /**
-     * The Admin Panel, its users and the audit trail: every SoQM Team member and only them (the stored
-     * admin_access flag decides nothing). The one place this rule lives.
+     * Changing the Admin Panel - adding, changing, deactivating and deleting users: every SoQM Team member and only them
+     * (the stored admin_access flag decides nothing). The one place this rule lives.
      */
     public static boolean hasAdminAccess(Subject subject) {
         return isSoqm(subject);
     }
 
+    /** Opening the Admin Panel, its users and its Audit Trail: SoQM Admin Team, and System Admin Team to look only. */
     public static boolean canOpenAdminPanel(Subject subject) {
-        return hasAdminAccess(subject);
+        return seesAsSoqm(subject);
     }
 
     /** Changing users in the Admin Panel: whoever opens it. */
@@ -381,12 +414,12 @@ public final class AccessPolicy {
      * {@link #canExportCompletedControl}.
      */
     public static boolean canExportControlLists(Subject subject) {
-        return isSoqm(subject);
+        return seesAsSoqm(subject);
     }
 
     /** The organisation-wide dashboard charts; everyone else gets charts of their own controls. */
     public static boolean seesOrganisationCharts(Subject subject) {
-        return isSoqm(subject);
+        return seesAsSoqm(subject);
     }
 
     /** The full user list (assignment pickers, Admin Panel). */
@@ -858,7 +891,7 @@ public final class AccessPolicy {
      * export is made.
      */
     public static boolean canExportCompletedControl(Subject subject, ControlFacts control) {
-        return isSoqm(subject) && canView(subject, control);
+        return seesAsSoqm(subject) && canView(subject, control);
     }
 
     // ---------------------------------------------------------------- assignment
@@ -878,6 +911,9 @@ public final class AccessPolicy {
     public static Optional<String> assignmentRefusal(Subject candidate, Slot slot, boolean kdnControl) {
         if (candidate == null) {
             return Optional.of("is not a QTracker user");
+        }
+        if (candidate.systemAdmin()) {
+            return Optional.of(SYSTEM_ADMIN_NOT_ASSIGNED);
         }
         if (candidate.scope() == AccessScope.KDN && !kdnControl) {
             return Optional.of("sees only KDN controls and cannot be added to this control");
@@ -924,6 +960,10 @@ public final class AccessPolicy {
         if (actorId != null && actorId.equals(targetId)) {
             return Optional.of(DELETE_SELF);
         }
+        Optional<String> protectedAccount = userChangeRefusal(target);
+        if (protectedAccount.isPresent()) {
+            return protectedAccount;
+        }
         if (target != null && target.enabled() && target.level() == AccessLevel.SOQM && activeSoqmLeft <= 1) {
             return Optional.of(DELETE_LAST_SOQM);
         }
@@ -941,6 +981,10 @@ public final class AccessPolicy {
      */
     public static Optional<String> statusChangeRefusal(Long actorId, Subject target, Long targetId, boolean nextEnabled,
                                                        long activeSoqmLeft) {
+        Optional<String> protectedAccount = userChangeRefusal(target);
+        if (protectedAccount.isPresent()) {
+            return protectedAccount;
+        }
         if (nextEnabled) {
             return Optional.empty();
         }
@@ -952,6 +996,22 @@ public final class AccessPolicy {
         }
         return Optional.empty();
     }
+
+    /**
+     * Why a user's account is not changed in the Admin Panel at all - role, Visibility, Access, status, name, e-mail,
+     * deletion -, or empty when it may be (the other rules still apply): a System Admin Team member is set on the server
+     * only and changed there ({@link SystemAdmins}); once their e-mail is taken off the list (and the application
+     * restarted) the account is an ordinary one again.
+     */
+    public static Optional<String> userChangeRefusal(Subject target) {
+        return target != null && target.systemAdmin() ? Optional.of(SYSTEM_ADMIN_PROTECTED) : Optional.empty();
+    }
+
+    public static final String SYSTEM_ADMIN_NAME = "System Admin Team";
+    public static final String SYSTEM_ADMIN_PROTECTED = "This account is " + SYSTEM_ADMIN_NAME
+            + ", set on the server: it is changed only there";
+    public static final String SYSTEM_ADMIN_NOT_ASSIGNED = "is " + SYSTEM_ADMIN_NAME
+            + " (read only) and cannot be added to a control";
 
     public static final String DEACTIVATE_SELF = "You cannot deactivate your own account";
     public static final String DEACTIVATE_LAST_SOQM = "This is the last active "
@@ -1003,6 +1063,6 @@ public final class AccessPolicy {
      * Team, who change the list. Everyone else sees the names.
      */
     public static boolean seesSharedWithNotes(Subject subject) {
-        return isSoqm(subject);
+        return seesAsSoqm(subject);
     }
 }

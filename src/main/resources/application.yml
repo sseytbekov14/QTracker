@@ -60,6 +60,11 @@ app:
   # server gets 301 to https://<this host> with the same path and query before SAML starts
   # (CanonicalHostRedirectFilter); empty: off. localhost and 127.0.0.1 are never redirected
   canonical-host: ${APP_CANONICAL_HOST:}
+  # System Admin Team (SystemAdmins): e-mails, comma separated, of people who see everything SoQM Admin Team sees -
+  # every control, the Admin Panel and its Audit Trail - and change nothing. Only here: nobody gives or takes the role
+  # in the application, and their accounts (which must exist in the Admin Panel) cannot be changed there while
+  # listed. Read when the application starts: restart after a change. Empty: nobody.
+  system-admins: ${SYSTEM_ADMIN_EMAILS:}
 
 auth:
   # How people sign in (AuthMode): exactly one of SSO (Microsoft Entra ID, SAML) and the password form.

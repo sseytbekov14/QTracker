@@ -168,6 +168,11 @@ public class UserService {
                            Long actingUserId) {
         User targetUser = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        // System Admin Team is set on the server only: nothing of the account changes here
+        Optional<String> protectedAccount = AccessPolicy.userChangeRefusal(AccessPolicy.Subject.of(targetUser));
+        if (protectedAccount.isPresent()) {
+            throw new IllegalArgumentException(protectedAccount.get());
+        }
 
         String nextMail = targetUser.getMail();
         if (email != null) {
@@ -205,7 +210,7 @@ public class UserService {
             throw new IllegalArgumentException("You cannot change your own role");
         }
         long activeSoqm = current.role() == UserRole.SOQM_TEAM && enabledNow
-                ? userRepository.countActiveByAccessLevel(AccessLevel.SOQM) : 0;
+                ? userRepository.countActiveSoqmAdminTeam() : 0;
         boolean lastActiveSoqm = current.role() == UserRole.SOQM_TEAM && enabledNow && activeSoqm <= 1;
         if (lastActiveSoqm && next.role() != UserRole.SOQM_TEAM) {
             throw new IllegalArgumentException(LAST_SOQM_ROLE);

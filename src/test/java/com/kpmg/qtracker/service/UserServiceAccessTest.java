@@ -57,7 +57,7 @@ class UserServiceAccessTest {
         when(userRepository.findById(TARGET_ID)).thenReturn(Optional.of(user));
         lenient().when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
         // Two active SoQM Team members unless a test says otherwise
-        lenient().when(userRepository.countActiveByAccessLevel(AccessLevel.SOQM)).thenReturn(2L);
+        lenient().when(userRepository.countActiveSoqmAdminTeam()).thenReturn(2L);
         return user;
     }
 
@@ -141,7 +141,7 @@ class UserServiceAccessTest {
     @Test
     void theLastActiveSoqmTeamMember_keepsTheRoleAndTheAccount() {
         User last = stored(AccessLevel.SOQM, AccessScope.ALL);
-        when(userRepository.countActiveByAccessLevel(AccessLevel.SOQM)).thenReturn(1L);
+        when(userRepository.countActiveSoqmAdminTeam()).thenReturn(1L);
 
         assertThatThrownBy(() -> update("USER", "ALL", "EDIT", true, ADMIN_ID))
                 .hasMessage(UserService.LAST_SOQM_ROLE);
@@ -152,7 +152,7 @@ class UserServiceAccessTest {
         verify(userRepository, never()).save(any(User.class));
 
         // With a second active member both are allowed
-        when(userRepository.countActiveByAccessLevel(AccessLevel.SOQM)).thenReturn(2L);
+        when(userRepository.countActiveSoqmAdminTeam()).thenReturn(2L);
         assertThat(stored(update("USER", "ALL", "EDIT", true, ADMIN_ID))).isEqualTo("PARTICIPANT/ALL/false");
     }
 
@@ -160,7 +160,7 @@ class UserServiceAccessTest {
     void anInactiveSoqmTeamMember_isNotTheLastActiveOne() {
         User inactive = stored(AccessLevel.SOQM, AccessScope.ALL);
         inactive.setEnabled(false);
-        lenient().when(userRepository.countActiveByAccessLevel(AccessLevel.SOQM)).thenReturn(1L);
+        lenient().when(userRepository.countActiveSoqmAdminTeam()).thenReturn(1L);
 
         assertThat(stored(update("KDN", "", "", false, ADMIN_ID))).isEqualTo("READ_ONLY/KDN/false");
     }

@@ -143,6 +143,10 @@ class RoleMatrixIT {
             new Who("ro-both", "User · My controls · Read Only, Facilitator and Control Operator (one person, old data)", READ, MY, Place.BOTH, false, false, false),
             new Who("all-both", "User · All controls · Edit, Facilitator and Control Operator (one person)", EDIT, ALL, Place.BOTH, false, false, false),
             new Who("kdn-op", "KDN, Control Operator (F and CO differ), KDN control", READ, AccessScope.KDN, Place.OPERATOR, true, false, false),
+            // System Admin Team (SYSTEM_ADMIN_EMAILS, decision of 2026-11-09): the account says SoQM Admin Team, the server
+            // list makes it Read Only on All controls with SoQM Admin Team's view (Admin Panel, Excel, KDN mark)
+            new Who("sysadmin", "System Admin Team (set on the server; the account says SoQM Admin Team)", READ, ALL, Place.NONE, false, false, false),
+            new Who("sysadmin-kdn", "System Admin Team, KDN control", READ, ALL, Place.NONE, true, false, false),
             new Who("anonymous", "not signed in", null, null, Place.NONE, false, false, true));
 
     private static final List<String> CONTROL_OPS = List.of(
@@ -444,6 +448,8 @@ class RoleMatrixIT {
     private static String expectedControlOp(Who who, String status, String op) {
         boolean active = !who.anonymous() && !who.disabled();
         boolean soqm = active && who.level() == AccessLevel.SOQM;
+        // System Admin Team sees what SoQM Admin Team sees and changes nothing (decision of 2026-11-09)
+        boolean viewsAsSoqm = soqm || (active && isSystemAdmin(who));
         // SoQM Team and All controls see every control, drafts included (Read Only as well)
         boolean seesAll = active && (soqm || who.scope() == AccessScope.ALL);
         boolean inF = inFacilitator(who, status);
@@ -487,7 +493,7 @@ class RoleMatrixIT {
                     : !writer ? "READ_ONLY"
                     : soqm || listed ? "NONE" : "NOT_ASSIGNED";
             // The "KDN control" mark on the control's page: SoQM Team only, on a KDN control
-            case "KDN mark" -> soqm && who.kdnControl() ? "ok" : "refused";
+            case "KDN mark" -> viewsAsSoqm && who.kdnControl() ? "ok" : "refused";
             // Other Related Controls and IT Applications on the Details tab (decision of 2026-10-16): everyone who sees
             // the page; only SoQM Admin Team change them ("Save details" with canEditAll)
             case "Related / IT fields" -> !sees ? "refused" : notYet ? "not yet" : "ok";
@@ -545,9 +551,9 @@ class RoleMatrixIT {
                 yield from >= 0 && to == from + 1 ? expectedControlOp(who, status, "Step") : "refused";
             }
             // The Excel of a completed control (Export on the Performance Cycle page): SoQM Admin Team only (2026-10-14)
-            case "Excel (completed)" -> "COMPLETED".equals(status) && sees && soqm ? "ok" : "refused";
+            case "Excel (completed)" -> "COMPLETED".equals(status) && sees && viewsAsSoqm ? "ok" : "refused";
             // Its Download button on the Performance Cycle page: shown to the same people only
-            case "Excel button" -> "COMPLETED".equals(status) && sees && soqm ? "ok" : "refused";
+            case "Excel button" -> "COMPLETED".equals(status) && sees && viewsAsSoqm ? "ok" : "refused";
             // The page a list row opens once the control is initiated; the same people as View Control, a shared-only
             // draft not yet (sent back to the list)
             case "Performance Cycle" -> sees && !notYet ? "ok" : "refused";
@@ -566,14 +572,18 @@ class RoleMatrixIT {
     private static boolean expectedUserOp(Who who, String op) {
         boolean active = !who.anonymous() && !who.disabled();
         boolean soqm = active && who.level() == AccessLevel.SOQM;
+        boolean viewsAsSoqm = soqm || (active && isSystemAdmin(who));
         return switch (op) {
-            case "Create control", "Export button", "Assignment picker" -> soqm;
-            // The Excel of a list (All components, a component, KDN): SoQM Admin Team only, 403 for everyone else
-            case "Export list" -> soqm;
+            case "Create control", "Assignment picker" -> soqm;
+            // The Excel of a list (All components, a component, KDN): SoQM Admin Team and System Admin Team, 403 for
+            // everyone else
+            case "Export button", "Export list" -> viewsAsSoqm;
             // The Controls page is gone: its address leads to the All components list for everyone signed in
             case "Old /controls link" -> active;
             // Admin Panel, users and audit: SoQM Team and only SoQM Team
-            case "Admin Panel", "Admin Panel change" -> soqm;
+            // System Admin Team opens it and changes nothing (decision of 2026-11-09)
+            case "Admin Panel" -> viewsAsSoqm;
+            case "Admin Panel change" -> soqm;
             // Deleting a user (step 1, the check; nobody is deleted here): SoQM Admin Team only (decision of 2026-10-13)
             case "Delete user" -> soqm;
             // Action Centre "KDN" card: SoQM Team, All controls and KDN always; My controls only with a KDN
@@ -963,7 +973,8 @@ class RoleMatrixIT {
             if (who.anonymous()) {
                 continue;
             }
-            User user = saveUser("rm-" + who.key(), who.level(), who.scope());
+            User user = isSystemAdmin(who) ? saveUser("rm-" + who.key(), AccessLevel.SOQM, AccessScope.ALL)
+                    : saveUser("rm-" + who.key(), who.level(), who.scope());
             users.put(who.key(), user);
             sessions.put(who.key(), login(user.getMail()));
             if (who.disabled()) {
@@ -972,6 +983,7 @@ class RoleMatrixIT {
                 userRepository.save(user);
             }
         }
+        listSystemAdmins();
     }
 
     /** A fresh control in the status, with the four standard people and the row's user in their place. */
@@ -1032,6 +1044,22 @@ class RoleMatrixIT {
             case "PROCESS_OWNER_REVIEW", "COMPLETED" -> "PO";
             default -> "F";
         };
+    }
+
+    /** The rows of System Admin Team (SystemAdmins, set on the server). */
+    private static boolean isSystemAdmin(Who who) {
+        return who.key().startsWith("sysadmin");
+    }
+
+    /** The server list names the System Admin Team rows' accounts; emptied after every test. */
+    private void listSystemAdmins() {
+        com.kpmg.qtracker.service.SystemAdmins.replace(PEOPLE.stream().filter(RoleMatrixIT::isSystemAdmin)
+                .map(who -> users.get(who.key()).getMail()).toList());
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearSystemAdmins() {
+        com.kpmg.qtracker.service.SystemAdmins.replace(List.of());
     }
 
     private static boolean inFacilitator(Who who, String status) {

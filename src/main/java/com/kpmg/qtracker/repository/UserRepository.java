@@ -43,6 +43,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT COUNT(u) FROM User u WHERE u.accessLevel = :level AND u.enabled = true")
     long countActiveByAccessLevel(@Param("level") AccessLevel level);
 
+    /**
+     * Active SoQM Admin Team members for the rule "the last one stays": an account set as System Admin Team on the
+     * server (com.kpmg.qtracker.service.SystemAdmins) is Read Only whatever it says here and does not count.
+     */
+    default long countActiveSoqmAdminTeam() {
+        return findByAccessLevelAndEnabledTrueOrderByIdAsc(AccessLevel.SOQM).stream()
+                .filter(user -> !com.kpmg.qtracker.service.SystemAdmins.contains(user.getMail()))
+                .count();
+    }
+
     /** The users whose address has this part before "@" (lower case), on any domain. */
     default List<User> findByMailLocalPart(String localPart) {
         String escaped = localPart.toLowerCase(java.util.Locale.ROOT)
