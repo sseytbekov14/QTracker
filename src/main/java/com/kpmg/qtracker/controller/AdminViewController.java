@@ -105,6 +105,9 @@ public class AdminViewController {
         model.addAttribute("roles", UserRole.values());
         model.addAttribute("visibilities", Visibility.values());
         model.addAttribute("accessRights", AccessRight.values());
+        // What Add user preselects for the role User (AccessPolicy.Profile.NEW_USER_*)
+        model.addAttribute("newUserVisibility", AccessPolicy.Profile.NEW_USER_VISIBILITY.name());
+        model.addAttribute("newUserAccess", AccessPolicy.Profile.NEW_USER_ACCESS.name());
         model.addAttribute("visibilityFilter", RoleDisplayMapper.visibilityFilter());
         model.addAttribute("accessFilter", RoleDisplayMapper.accessFilter());
         // The Permissions text of each role and the values a role fixes, for the user dialog

@@ -832,7 +832,8 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="userForm" class="modal-body" novalidate>
+            <form id="userForm" class="modal-body" novalidate
+                  th:attr="data-new-user-visibility=${newUserVisibility},data-new-user-access=${newUserAccess}">
                 <div id="userFormMessage" class="alert alert-danger form-message d-none" role="alert" tabindex="-1">
                     <span id="userFormMessageText"></span>
                     <button type="button" class="btn btn-outline-danger d-none" id="userFormReload">Reload page</button>
@@ -1433,17 +1434,18 @@ document.addEventListener('DOMContentLoaded', function() {
         dirtyNote.hidden = !dirty;
     }
 
-    // Visibility and Access show only for a User; someone who becomes User starts at My controls and Read
-    // Only (a User who was one when the dialog opened gets their values back). Every role shows its
-    // Permissions; SoQM Team and KDN also the values the role fixes.
+    // Visibility and Access show only for a User. Choosing the role User preselects My controls and Edit (the
+    // server's AccessPolicy.Profile.NEW_USER_*, 2026-11-09), in Add user and for an existing user who becomes User;
+    // a User who was one when the dialog opened gets their values back. Every role shows its Permissions; SoQM Team
+    // and KDN also the values the role fixes.
     function syncRoleFields(roleChanged) {
         const role = fields.role.value;
         const user = role === 'USER';
         choicesEl.hidden = !user;
         if (user && (roleChanged || !radioValue(visibilityRadios) || !radioValue(accessRadios))) {
             const wasUser = dialog && dialog.user.role === 'USER';
-            setRadio(visibilityRadios, wasUser ? dialog.user.visibility : 'MY');
-            setRadio(accessRadios, wasUser ? dialog.user.access : 'READ_ONLY');
+            setRadio(visibilityRadios, wasUser ? dialog.user.visibility : (form.dataset.newUserVisibility || 'MY'));
+            setRadio(accessRadios, wasUser ? dialog.user.access : (form.dataset.newUserAccess || 'EDIT'));
         }
 
         const fixed = ROLE_FIXED[role] || [];

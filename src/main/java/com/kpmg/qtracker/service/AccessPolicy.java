@@ -104,6 +104,15 @@ public final class AccessPolicy {
             return new Profile(UserRole.KDN, null, null);
         }
 
+        /**
+         * What the Admin Panel's user dialog preselects when the role User is chosen (business decision of 2026-11-09),
+         * in Add user and for an existing user who becomes User: My controls with Edit (a User keeps their values). The
+         * person may change both before saving; a request that sends no Visibility or Access still starts at the least
+         * access (see the constructor).
+         */
+        public static final Visibility NEW_USER_VISIBILITY = Visibility.MY;
+        public static final AccessRight NEW_USER_ACCESS = AccessRight.EDIT;
+
         public static Profile user(Visibility visibility, AccessRight access) {
             return new Profile(UserRole.USER, visibility, access);
         }

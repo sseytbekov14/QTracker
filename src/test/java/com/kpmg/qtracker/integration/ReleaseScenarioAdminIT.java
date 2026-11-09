@@ -130,6 +130,22 @@ class ReleaseScenarioAdminIT extends ReleaseScenarioSupport {
         assertThat(auditCount(person.getMail())).isEqualTo(entries);
     }
 
+    /**
+     * The role User preselects My controls and Edit, in Add user and on Edit (decision of 2026-11-09): the page carries the
+     * server's values for its dialog; a request sending none still starts at the least access.
+     */
+    @Test
+    void theRoleUser_preselectsMyControlsAndEdit() throws Exception {
+        MockHttpSession session = login(soqm("add-default"));
+        String page = body(call(session, get("/admin/users")));
+        assertThat(page).contains("data-new-user-visibility=\"MY\"", "data-new-user-access=\"EDIT\"")
+                .contains("form.dataset.newUserAccess");
+        assertThat(com.kpmg.qtracker.service.AccessPolicy.Profile.NEW_USER_ACCESS)
+                .isEqualTo(com.kpmg.qtracker.enums.AccessRight.EDIT);
+        assertThat(com.kpmg.qtracker.service.AccessPolicy.Profile.NEW_USER_VISIBILITY)
+                .isEqualTo(com.kpmg.qtracker.enums.Visibility.MY);
+    }
+
     @Test
     void soqmTeam_cannotChangeTheirOwnRole_norDisableThemselves_andThePageShowsTheAuditTrail() throws Exception {
         User admin = soqm("self-soqm");
