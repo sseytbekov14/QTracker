@@ -60,7 +60,7 @@ class ReleaseScenarioPostgresMigrationIT {
         }
     }
 
-    private static final String LATEST = "28";
+    private static final String LATEST = "29";
     /** The last version before V27 dropped the backup and links tables the old undo scripts read. */
     private static final String BEFORE_V27 = "26";
 
@@ -96,6 +96,12 @@ class ReleaseScenarioPostgresMigrationIT {
         script("db/rollback/V28__undo_notification_completed_successfully.sql");
         assertThat(single("SELECT body FROM notification_template WHERE template_key = 'T12'"))
                 .isEqualTo(com.kpmg.qtracker.migration.V28NotificationCompletedSuccessfullyMigrationTest.BEFORE_V28);
+        // V29: Audit trail and E-mails read their tables by date; its undo drops the two indexes
+        String dateIndexes = "SELECT COUNT(*) FROM pg_indexes WHERE schemaname = '" + schema
+                + "' AND indexname IN ('idx_admin_audit_log_created', 'idx_email_outbox_created')";
+        assertThat(single(dateIndexes)).isEqualTo("2");
+        script("db/rollback/V29__undo_log_date_indexes.sql");
+        assertThat(single(dateIndexes)).isEqualTo("0");
     }
 
     /** V27 drops the five tables with their rows; its undo script brings them back empty (data minimisation). */
