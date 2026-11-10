@@ -17,6 +17,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -40,6 +42,7 @@ public class AdminViewController {
     private final UserService userService;
     private final AdminAuditTrail adminAuditTrail;
     private final AuthMode authMode;
+    private final com.kpmg.qtracker.service.notification.EmailLog emailLog;
 
     /**
      * One row of the users table: the user, their Access lines, whether it is the viewer, and whether the account is
@@ -137,6 +140,36 @@ public class AdminViewController {
         model.addAttribute("userNames", userNames);
 
         return "admin-users";
+    }
+
+    /**
+     * The E-mails page of the Admin Panel (2026-11-10): every e-mail QTracker made, newest first, with its state in plain
+     * words (EmailLog). SoQM Admin Team and System Admin Team (AccessPolicy.seesEmailLog); it only reads.
+     */
+    @GetMapping("/emails")
+    public String emails(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate to,
+                         @RequestParam(required = false) String status,
+                         @RequestParam(required = false) String event,
+                         @RequestParam(required = false) String q,
+                         @RequestParam(defaultValue = "1") int page,
+                         Model model, HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) {
+            return "redirect:/login";
+        }
+        if (!AccessPolicy.seesEmailLog(AccessPolicy.Subject.of(currentUser))) {
+            return "redirect:/";
+        }
+        com.kpmg.qtracker.service.notification.EmailLog.Page result = emailLog.find(
+                new com.kpmg.qtracker.service.notification.EmailLog.Filter(from, to, status, event, q, page));
+        model.addAttribute("log", result);
+        model.addAttribute("statuses", com.kpmg.qtracker.service.notification.EmailLog.Status.values());
+        model.addAttribute("events", com.kpmg.qtracker.service.notification.EmailLog.EVENTS);
+        model.addAttribute("status", status == null ? "" : status);
+        model.addAttribute("event", event == null ? "" : event);
+        model.addAttribute("q", q == null ? "" : q);
+        return "admin-emails";
     }
 
     private static UserRow row(User user, User viewer) {

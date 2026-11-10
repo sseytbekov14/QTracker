@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  The sections of the Admin Panel: Users (people and access, the Audit Trail) and E-mails (which e-mail went to whom).
+  Usage: <div th:replace="~{fragments/admin-tabs :: tabs('users')}"></div>
+-->
+<nav th:fragment="tabs(active)" class="admin-tabs" aria-label="Admin Panel sections">
+    <a href="/admin/users" class="admin-tab" th:classappend="${active == 'users'} ? 'is-active'"
+       th:attr="aria-current=${active == 'users'} ? 'page' : null">
+        <i class="bi bi-people" aria-hidden="true"></i>Users
+    </a>
+    <a href="/admin/emails" class="admin-tab" th:classappend="${active == 'emails'} ? 'is-active'"
+       th:attr="aria-current=${active == 'emails'} ? 'page' : null">
+        <i class="bi bi-envelope" aria-hidden="true"></i>E-mails
+    </a>
+</nav>
+</body>
+</html>

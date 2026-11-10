@@ -181,7 +181,7 @@ class RoleMatrixIT {
 
     private static final List<String> USER_OPS = List.of(
             "Create control", "Export button", "Export list", "Old /controls link", "Assignment picker", "Admin Panel",
-            "Admin Panel change", "Delete user", "KDN page", "Dashboard", "Notifications");
+            "Admin Panel change", "Delete user", "E-mails page", "KDN page", "Dashboard", "Notifications");
 
     @Autowired
     private MockMvc mockMvc;
@@ -584,6 +584,8 @@ class RoleMatrixIT {
             // System Admin Team opens it and changes nothing (decision of 2026-11-09)
             case "Admin Panel" -> viewsAsSoqm;
             case "Admin Panel change" -> soqm;
+            // The Admin Panel's E-mails page (decision of 2026-11-10): SoQM Admin Team and System Admin Team, only reading
+            case "E-mails page" -> viewsAsSoqm;
             // Deleting a user (step 1, the check; nobody is deleted here): SoQM Admin Team only (decision of 2026-10-13)
             case "Delete user" -> soqm;
             // Action Centre "KDN" card: SoQM Team, All controls and KDN always; My controls only with a KDN
@@ -753,6 +755,9 @@ class RoleMatrixIT {
                 .param("enabled", "true"), session));
         row.put("Delete user", answer(post("/api/users/{id}/delete-check", adminTarget.getId()).with(csrf().asHeader()),
                 session));
+        MvcResult emailsPage = perform(get("/admin/emails"), session);
+        row.put("E-mails page", emailsPage.getResponse().getStatus() == 200 && emailsPage.getModelAndView() != null
+                && "admin-emails".equals(emailsPage.getModelAndView().getViewName()) ? "ok" : outcome(emailsPage));
         MvcResult dashboard = perform(get("/"), session);
         ModelAndView dashboardView = dashboard.getModelAndView();
         row.put("Dashboard", dashboard.getResponse().getStatus() == 200 && dashboardView != null ? "ok"

@@ -1883,3 +1883,12 @@
 .qt-deactivate-label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; }
 .qt-deactivate-error { margin: 8px 0 0; font-size: 0.8rem; color: #a4262c; }
 .qt-deactivate-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+/* Admin Panel sections (fragments/admin-tabs.html): Users, E-mails */
+.admin-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--kpmg-gray-200, #dee2e6); margin: 12px 0 0; }
+.admin-tab {
+    display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 0.82rem; font-weight: 600;
+    color: var(--kpmg-gray-600, #6c757d); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.admin-tab:hover { color: var(--kpmg-blue, #00338D); }
+.admin-tab.is-active { color: var(--kpmg-blue, #00338D); border-bottom-color: var(--kpmg-blue, #00338D); }

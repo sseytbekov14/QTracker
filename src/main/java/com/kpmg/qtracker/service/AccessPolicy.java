@@ -408,6 +408,14 @@ public final class AccessPolicy {
         return seesAsSoqm(subject);
     }
 
+    /**
+     * The E-mails page of the Admin Panel (business decision of 2026-11-10): which e-mail went to whom, which is waiting,
+     * which was not sent and why. SoQM Admin Team (the business owners) and System Admin Team; it only reads.
+     */
+    public static boolean seesEmailLog(Subject subject) {
+        return canOpenAdminPanel(subject);
+    }
+
     /** Changing users in the Admin Panel: whoever opens it. */
     public static boolean canManageUsers(Subject subject) {
         return hasAdminAccess(subject);

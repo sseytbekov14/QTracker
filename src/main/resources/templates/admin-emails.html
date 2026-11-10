@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <th:block th:replace="~{fragments/csrf :: csrf}"></th:block>
+    <title>E-mails - Admin Panel - QTracker</title>
+    <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css?v=22" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <style>
+body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
+.page-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    background: var(--kpmg-blue); color: var(--kpmg-white); padding: 14px 24px;
+    border-bottom: 3px solid var(--kpmg-blue-light);
+}
+.page-header h1 { font-size: 1.15rem; font-weight: 600; margin: 0; }
+.page-header .subtitle { font-size: 0.8rem; color: rgba(255, 255, 255, 0.75); margin: 2px 0 0; }
+
+.email-counters { display: flex; gap: 10px; flex-wrap: wrap; padding: 14px 0 4px; }
+.email-counter {
+    display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 6px; text-decoration: none;
+    background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); color: var(--kpmg-gray-800); font-size: 0.82rem;
+}
+.email-counter:hover { border-color: var(--kpmg-blue); color: var(--kpmg-gray-800); }
+.email-counter.is-active { border-color: var(--kpmg-blue); box-shadow: inset 0 0 0 1px var(--kpmg-blue); }
+.email-counter strong { font-size: 1.05rem; }
+
+.email-filter {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; background: var(--kpmg-white);
+    border: 1px solid var(--kpmg-gray-200); border-radius: 6px; padding: 10px 12px; margin: 10px 0;
+}
+.email-filter label { display: block; font-size: 0.72rem; color: var(--kpmg-gray-600); margin-bottom: 2px; }
+.email-filter .form-control, .email-filter .form-select { font-size: 0.8rem; min-width: 140px; }
+.email-filter .search { min-width: 240px; }
+
+.email-table-wrap { background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); border-radius: 6px; overflow-x: auto; }
+.email-table { margin: 0; font-size: 0.8rem; }
+.email-table thead th {
+    background: var(--kpmg-gray-50); color: var(--kpmg-gray-600); font-weight: 600; font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap;
+}
+.email-table td { vertical-align: top; }
+.email-date { white-space: nowrap; color: var(--kpmg-gray-600); }
+.email-person-name { display: block; font-weight: 600; }
+.email-person-mail { font-size: 0.74rem; color: var(--kpmg-gray-600); overflow-wrap: anywhere; }
+.email-detail { display: block; font-size: 0.74rem; color: var(--kpmg-gray-600); margin-top: 2px; }
+.email-error { display: block; font-size: 0.7rem; color: var(--kpmg-gray-400); overflow-wrap: anywhere; }
+.email-text summary { cursor: pointer; color: var(--kpmg-blue); font-size: 0.74rem; }
+.email-text pre { white-space: pre-wrap; font-size: 0.74rem; margin: 6px 0 0; max-width: 520px; }
+.email-gone { font-size: 0.72rem; color: var(--kpmg-gray-400); }
+
+.email-status { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+.email-status.is-sent { background: #e3f4ea; color: #1e6b3a; }
+.email-status.is-waiting { background: #fff3cd; color: #6b5104; }
+.email-status.is-failed { background: #fde2e1; color: #a4262c; }
+.email-status.is-not_sent { background: var(--kpmg-gray-200); color: var(--kpmg-gray-800); }
+
+.email-pager { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; font-size: 0.78rem; color: var(--kpmg-gray-600); }
+.email-note { font-size: 0.74rem; color: var(--kpmg-gray-600); margin: 8px 2px 0; }
+.empty-state { text-align: center; padding: 28px 12px; color: var(--kpmg-gray-600); }
+    </style>
+</head>
+<body>
+<script>
+(function() {
+    document.body.classList.add('theme-light');
+    try { localStorage.removeItem('qtrackerTheme'); } catch (error) { /* storage may be blocked */ }
+})();
+</script>
+<div class="container-fluid">
+    <div class="row">
+        <div th:replace="~{fragments/sidebar :: sidebar('admin')}"></div>
+
+        <div class="col-md-10">
+            <div class="p-3">
+                <nav class="app-breadcrumb" aria-label="breadcrumb">
+                    <a href="/" class="app-breadcrumb-link">
+                        <i class="bi bi-house app-breadcrumb-home-icon" aria-hidden="true"></i><span>Home</span>
+                    </a>
+                    <span class="app-breadcrumb-separator">/</span>
+                    <a href="/admin/users" class="app-breadcrumb-link">Admin Panel</a>
+                    <span class="app-breadcrumb-separator">/</span>
+                    <span class="app-breadcrumb-current">E-mails</span>
+                </nav>
+
+                <div class="page-header">
+                    <div>
+                        <h1>Admin Panel</h1>
+                        <p class="subtitle">E-mails: which e-mail went to whom, which is waiting, which was not sent and why</p>
+                    </div>
+                </div>
+                <div th:replace="~{fragments/admin-tabs :: tabs('emails')}"></div>
+
+                <!-- The period's e-mails by state; a counter shows only those -->
+                <div class="email-counters" aria-label="E-mails in the period">
+                    <a class="email-counter" th:classappend="${status == ''} ? 'is-active'"
+                       th:href="@{/admin/emails(from=${log.from()},to=${log.to()},event=${event},q=${q})}">
+                        All <strong th:text="${log.allCount()}">0</strong>
+                    </a>
+                    <a th:each="s : ${statuses}" class="email-counter" th:classappend="${status == s.name()} ? 'is-active'"
+                       th:href="@{/admin/emails(from=${log.from()},to=${log.to()},status=${s.name()},event=${event},q=${q})}">
+                        <span class="email-status" th:classappend="'is-' + ${#strings.toLowerCase(s.name())}" th:text="${s.label}">Sent</span>
+                        <strong th:text="${log.counts().get(s)}">0</strong>
+                    </a>
+                </div>
+
+                <form class="email-filter" method="get" action="/admin/emails" role="search" aria-label="Find e-mails">
+                    <div>
+                        <label for="emailFrom">From</label>
+                        <input id="emailFrom" name="from" type="date" class="form-control form-control-sm" th:value="${log.from()}">
+                    </div>
+                    <div>
+                        <label for="emailTo">To</label>
+                        <input id="emailTo" name="to" type="date" class="form-control form-control-sm" th:value="${log.to()}">
+                    </div>
+                    <div>
+                        <label for="emailStatus">Status</label>
+                        <select id="emailStatus" name="status" class="form-select form-select-sm">
+                            <option value="">All statuses</option>
+                            <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.label}"
+                                    th:selected="${status == s.name()}">Sent</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="emailEvent">Event</label>
+                        <select id="emailEvent" name="event" class="form-select form-select-sm">
+                            <option value="">All events</option>
+                            <option th:each="e : ${events}" th:value="${e.key}" th:text="${e.value}"
+                                    th:selected="${event == e.key}">Control completed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="emailSearch">Control ID, name or e-mail</label>
+                        <input id="emailSearch" name="q" type="search" class="form-control form-control-sm search"
+                               th:value="${q}" placeholder="e.g. HR-CTRL or anna" autocomplete="off">
+                    </div>
+                    <div>
+                        <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search" aria-hidden="true"></i> Show</button>
+                        <a href="/admin/emails" class="btn btn-sm btn-outline-secondary">Clear</a>
+                    </div>
+                </form>
+
+                <div class="email-table-wrap">
+                    <table class="table table-sm email-table">
+                        <thead>
+                        <tr>
+                            <th scope="col">Date / time</th>
+                            <th scope="col">Control</th>
+                            <th scope="col">Event</th>
+                            <th scope="col">Recipient</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">E-mail</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="row : ${log.rows()}" class="email-row" th:attr="data-status=${row.statusKey()}">
+                            <td class="email-date">
+                                <span th:text="${#temporals.format(row.createdAt(), 'dd.MM.yyyy HH:mm')}">10.11.2026 14:05</span>
+                                <span class="email-detail" th:if="${row.sentAt() != null}"
+                                      th:text="'sent ' + ${#temporals.format(row.sentAt(), 'HH:mm')}">sent 14:05</span>
+                            </td>
+                            <td>
+                                <a th:if="${row.controlCode() != null}" th:href="@{/view-control/{id}(id=${row.controlId()})}"
+                                   th:text="${row.controlCode()}">HR-CTRL-MF-1</a>
+                                <span th:if="${row.controlCode() == null}" class="email-gone">—</span>
+                            </td>
+                            <td th:text="${row.event()}">Control completed</td>
+                            <td>
+                                <span class="email-person-name" th:if="${row.recipientName() != null}" th:text="${row.recipientName()}">Anna Smith</span>
+                                <span class="email-person-mail" th:text="${row.recipientEmail()}">anna@kpmg.kz</span>
+                            </td>
+                            <td>
+                                <span class="email-status" th:classappend="'is-' + ${#strings.toLowerCase(row.statusKey())}"
+                                      th:text="${row.status().label}">Sent</span>
+                                <span class="email-detail" th:text="${row.detail()}">Accepted by the mail server</span>
+                                <span class="email-error" th:if="${row.error() != null and row.statusKey() != 'NOT_SENT'}"
+                                      th:text="${row.error()}">SMTP 550</span>
+                            </td>
+                            <td>
+                                <details class="email-text" th:if="${row.text() != null}">
+                                    <summary>Show text</summary>
+                                    <pre th:text="${row.text()}">Dear Anna, ...</pre>
+                                </details>
+                                <span class="email-gone" th:if="${row.text() == null}">Text removed after 30 days</span>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(log.rows())}">
+                            <td colspan="6"><div class="empty-state">No e-mails in this period with these filters.</div></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                    <div class="email-pager" th:if="${log.total() > 0}">
+                        <span th:text="'Showing ' + ${(log.page() - 1) * 50 + 1} + '-' + ${(log.page() - 1) * 50 + #lists.size(log.rows())} + ' of ' + ${log.total()}">Showing 1-50 of 120</span>
+                        <span>
+                            <a class="btn btn-sm btn-outline-secondary" th:if="${log.page() > 1}"
+                               th:href="@{/admin/emails(from=${log.from()},to=${log.to()},status=${status},event=${event},q=${q},page=${log.page() - 1})}">Prev</a>
+                            <span th:text="${log.page()} + ' / ' + ${log.pages()}">1 / 3</span>
+                            <a class="btn btn-sm btn-outline-secondary" th:if="${log.page() < log.pages()}"
+                               th:href="@{/admin/emails(from=${log.from()},to=${log.to()},status=${status},event=${event},q=${q},page=${log.page() + 1})}">Next</a>
+                        </span>
+                    </div>
+                </div>
+                <p class="email-note">
+                    <strong>Sent</strong> means the mail server accepted the e-mail; whether it reached the mailbox or was read
+                    is not known to QTracker. <strong>Waiting</strong> e-mails are tried again by themselves (after 1, 5 and
+                    15 minutes); after the third failure they are <strong>Failed</strong>. The text of an e-mail is kept 30 days.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="/js/vendor/bootstrap.bundle.min.js"></script>
+</body>
+</html>
