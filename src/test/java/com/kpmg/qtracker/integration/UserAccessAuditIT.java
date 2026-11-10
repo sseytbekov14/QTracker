@@ -149,11 +149,12 @@ class UserAccessAuditIT {
         assertThat(entries.get(0).getNewValues()).isEqualTo("mail=" + newMail
                 + ", displayName=Renamed User, visibility=All controls");
 
-        // The entry is on the Audit Trail of the next page load as well
-        String html = mockMvc.perform(get("/admin/users").session(session))
+        // The entry is on the Admin Panel's Audit trail: the person by the new address, each field before and after
+        String html = mockMvc.perform(get("/admin/audit").param("q", newMail).session(session))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        assertThat(html).contains("Changed visibility from My controls to All controls", newMail);
+                .andReturn().getResponse().getContentAsString().replaceAll("\\s+", " ");
+        assertThat(html).contains("Access changed", "Changed visibility from My controls to All controls", newMail)
+                .contains("is-field\">Name</td>", "Renamed User", "is-field\">Visibility</td>", "All controls");
     }
 
     @Test

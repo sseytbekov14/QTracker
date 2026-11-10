@@ -111,11 +111,13 @@ class ControlDeactivationIT extends ReleaseScenarioSupport {
             assertThat(snapshot.path("files").toString()).contains("evidence").contains("documentation");
         }
 
-        // The Admin Panel: its own event type in the filter, the snapshot readable
-        String admin = body(call(session, get("/admin/users")));
-        assertThat(admin).contains("value=\"CONTROL_DEACTIVATED\"", "Deactivated controls (")
-                .contains("<summary>Snapshot</summary>", "Facilitator: " + fac.getDisplayName() + " (" + fac.getMail() + ")",
-                        "Status: Completed", "Status: Draft", "Description: Release test control");
+        // The Admin Panel's Audit trail: its own action in the filter, the snapshot readable field by field
+        String admin = body(call(session, get("/admin/audit").param("action", "CONTROL_DEACTIVATED").param("q", "HR-DZ-")))
+                .replaceAll("\\s+", " ");
+        assertThat(admin).contains("value=\"CONTROL_DEACTIVATED\"", "Control deactivated")
+                .contains("is-field\">Facilitator</td>", fac.getDisplayName() + " (" + fac.getMail() + ")",
+                        "is-field\">Status</td>", ">Completed</td>", ">Draft</td>",
+                        "is-field\">Description</td>", "Release test control");
     }
 
     @Test
