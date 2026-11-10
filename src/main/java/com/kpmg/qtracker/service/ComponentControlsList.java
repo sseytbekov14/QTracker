@@ -165,7 +165,7 @@ public final class ComponentControlsList {
         IN_PROGRESS("IN_PROGRESS", "In Progress"),
         IN_REVIEW("IN_REVIEW", "In review (all review steps)"),
         REVIEW("REVIEW", "Review"),
-        SOQM_HEAD_REVIEW("SOQM_HEAD_REVIEW", "SoQM Head Review"),
+        SOQM_HEAD_REVIEW("SOQM_HEAD_REVIEW", "SoQM Admin Team Review"),
         PROCESS_OWNER_REVIEW("PROCESS_OWNER_REVIEW", "Process Owner Review"),
         COMPLETED("COMPLETED", "Completed"),
         ACTIVE("ACTIVE", "Active (open, not overdue)"),

@@ -12,7 +12,7 @@ public class StatusDisplayMapper {
             "DRAFT", "Draft",
             "IN_PROGRESS", "In Progress",
             "REVIEW", "Review",
-            "SOQM_HEAD_REVIEW", "SoQM Head Review",
+            "SOQM_HEAD_REVIEW", "SoQM Admin Team Review",
             "PROCESS_OWNER_REVIEW", "Process Owner Review",
             "COMPLETED", "Completed"
     );

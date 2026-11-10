@@ -13,7 +13,7 @@ class StatusDisplayMapperTest {
         assertThat(mapper.display("DRAFT")).isEqualTo("Draft");
         assertThat(mapper.display("IN_PROGRESS")).isEqualTo("In Progress");
         assertThat(mapper.display("REVIEW")).isEqualTo("Review");
-        assertThat(mapper.display("SOQM_HEAD_REVIEW")).isEqualTo("SoQM Head Review");
+        assertThat(mapper.display("SOQM_HEAD_REVIEW")).isEqualTo("SoQM Admin Team Review");
         assertThat(mapper.display("PROCESS_OWNER_REVIEW")).isEqualTo("Process Owner Review");
         assertThat(mapper.display("COMPLETED")).isEqualTo("Completed");
     }

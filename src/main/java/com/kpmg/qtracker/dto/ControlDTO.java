@@ -33,7 +33,7 @@ public class ControlDTO {
     private String controlDescription;
     @Size(max = 1000, message = "PRP must be at most 1000 characters")
     private String prp;
-    @Size(max = 2000, message = "SoQM Head Comments must be at most 2000 characters")
+    @Size(max = 2000, message = "SoQM Admin Team Comments must be at most 2000 characters")
     private String soqmHeadComments;
     @Size(max = 2000, message = "Process Owner Comments must be at most 2000 characters")
     private String processOwnerComments;

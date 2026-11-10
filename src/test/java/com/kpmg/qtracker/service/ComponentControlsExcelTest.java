@@ -40,7 +40,7 @@ class ComponentControlsExcelTest {
                 values.add(cell.getStringCellValue());
             });
             assertThat(values).containsExactly("A&C-1", "=HYPERLINK(\"x\")", "Monthly", "Ерлан Тестов", "+7 701",
-                    "-owner", "@lead", "Key", "03.10.2026", "SoQM Head Review");
+                    "-owner", "@lead", "Key", "03.10.2026", "SoQM Admin Team Review");
             for (int i : new int[]{1, 4, 5, 6}) {
                 assertThat(sheet.getRow(1).getCell(i).getCellStyle().getQuotePrefixed()).as("column %d", i).isTrue();
             }

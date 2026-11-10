@@ -470,7 +470,7 @@ select.form-select.editable-select {
     box-shadow: none;
 }
 
-/* SoQM's Return menu (SoQM Head Review): the amber outlined button opens a list of where to return */
+/* SoQM's Return menu (SoQM Admin Team Review): the amber outlined button opens a list of where to return */
 #workflow-buttons-container .vc-return-menu > .btn {
     border-radius: 6px;
 }

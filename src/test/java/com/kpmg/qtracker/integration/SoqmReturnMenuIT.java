@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 /**
- * View Control at SoQM's own step (SoQM Head Review, 2026-10-21): Send to Process Owner and one Return menu - to the
+ * View Control at SoQM's own step (SoQM Admin Team Review, 2026-10-21): Send to Process Owner and one Return menu - to the
  * Control Operator and to the Facilitator (In Progress) - instead of Return to Operator next to Move / Return, whose
  * dialog offered the same moves again. Elsewhere SoQM keeps Move / Return.
  */

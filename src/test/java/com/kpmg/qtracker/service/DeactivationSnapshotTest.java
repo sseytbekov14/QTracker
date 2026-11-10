@@ -23,7 +23,7 @@ class DeactivationSnapshotTest {
                 "Description: Test the Tuesday report",
                 "Component: HR",
                 "Frequency: Monthly",
-                "Status: SoQM Head Review",
+                "Status: SoQM Admin Team Review",
                 "Control Status: ACTIVE",
                 "SoQM Year: 2026-2027",
                 "Control Operation Date: 2026-11-02",

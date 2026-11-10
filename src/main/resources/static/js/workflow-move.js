@@ -1,6 +1,6 @@
 // View Control, SoQM only: the Move dialog (#soqmMoveModal) moves the control on or back for any role through
 // POST /api/workflow/move. The server decides what is allowed (AccessPolicy.move) and checks the comment and
-// the required fields again; the page only offers the moves it was given. At SoQM's own step (SoQM Head Review) the
+// the required fields again; the page only offers the moves it was given. At SoQM's own step (SoQM Admin Team Review) the
 // dialog opens from the Return menu with its one move chosen.
 (function () {
     'use strict';
