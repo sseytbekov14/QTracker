@@ -206,7 +206,9 @@ public class AuditLog {
                     .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
             where.append(" AND (LOWER(COALESCE(l.admin_email, '')) LIKE ? ESCAPE '\\'"
                     + " OR LOWER(COALESCE(l.admin_name, '')) LIKE ? ESCAPE '\\'"
-                    + " OR LOWER(COALESCE(l.action_description, '')) LIKE ? ESCAPE '\\'"
+                    // a text saved under an earlier status name is found by today's (StatusDisplayMapper.withCurrentNames)
+                    + " OR LOWER(REPLACE(COALESCE(l.action_description, ''), 'SoQM Head Review', 'SoQM Admin Team Review'))"
+                    + " LIKE ? ESCAPE '\\'"
                     + " OR LOWER(COALESCE(l.control_control_id, '')) LIKE ? ESCAPE '\\'"
                     + " OR LOWER(COALESCE(c.control_id, '')) LIKE ? ESCAPE '\\')");
             for (int i = 0; i < 5; i++) {
@@ -303,7 +305,8 @@ public class AuditLog {
         boolean system = email == null || email.isBlank() || SYSTEM_MAIL.equalsIgnoreCase(email.trim());
         String byName = system ? "System" : (log.getAdminName() != null && !log.getAdminName().isBlank()
                 ? log.getAdminName().trim() : email);
-        String description = log.getActionDescription() == null ? "" : log.getActionDescription().trim();
+        String description = log.getActionDescription() == null ? ""
+                : com.kpmg.qtracker.util.StatusDisplayMapper.withCurrentNames(log.getActionDescription().trim());
         String targetEmail = null;
         if (group == Group.USERS) {
             // The person an entry is about is named in its text (AdminAuditTrail reads it out)

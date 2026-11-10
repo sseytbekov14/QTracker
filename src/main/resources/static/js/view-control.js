@@ -3710,25 +3710,27 @@ function buildFieldChanges(entry) {
     return { isSingle: isSingle, changes: changes };
 }
 
+// Old entries without recorded statuses: read from the event name, the statuses by name as the server sends them
+// (ControlHistoryService.statusName), not as codes
 function inferWorkflowTransition(actionName) {
     const label = (actionName || '').toLowerCase();
     if (label.includes('initiated')) {
-        return { from: 'DRAFT', to: 'IN_PROGRESS' };
+        return { from: 'Draft', to: 'In Progress' };
     }
     if (label.includes('submitted for review')) {
-        return { from: 'IN_PROGRESS', to: 'REVIEW' };
+        return { from: 'In Progress', to: 'Review' };
     }
     if (label.includes('submitted for soqm')) {
-        return { from: 'REVIEW', to: 'SOQM_HEAD_REVIEW' };
+        return { from: 'Review', to: 'SoQM Admin Team Review' };
     }
     if (label.includes('submitted to process owner')) {
-        return { from: 'SOQM_HEAD_REVIEW', to: 'PROCESS_OWNER_REVIEW' };
+        return { from: 'SoQM Admin Team Review', to: 'Process Owner Review' };
     }
     if (label.includes('completed')) {
-        return { from: 'PROCESS_OWNER_REVIEW', to: 'COMPLETED' };
+        return { from: 'Process Owner Review', to: 'Completed' };
     }
     if (label.includes('returned')) {
-        return { from: 'REVIEW', to: 'IN_PROGRESS' };
+        return { from: 'Review', to: 'In Progress' };
     }
     return { from: '', to: '' };
 }

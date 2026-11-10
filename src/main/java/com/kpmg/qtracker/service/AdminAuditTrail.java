@@ -120,7 +120,8 @@ public class AdminAuditTrail {
         String changedBy = log.getAdminName() != null && !log.getAdminName().isBlank()
                 ? log.getAdminName() : log.getAdminEmail();
         String action = log.getActionDescription() != null && !log.getActionDescription().isBlank()
-                ? log.getActionDescription().trim() : log.getActionType();
+                ? com.kpmg.qtracker.util.StatusDisplayMapper.withCurrentNames(log.getActionDescription().trim())
+                : log.getActionType();
 
         if (group == Group.CONTROL_DEACTIVATED) {
             return new Entry(group, log.getCreatedAt(), changedBy, action, log.getControlControlId(), false,

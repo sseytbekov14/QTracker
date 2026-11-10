@@ -112,8 +112,9 @@ public class ControlHistoryService {
             if (history.getComments() != null && !history.getComments().isBlank()) {
                 workflowEntry.setEventDetails(history.getComments());
             }
-            workflowEntry.setFromStep(history.getFromStep());
-            workflowEntry.setToStep(history.getToStep());
+            // By name, as the status badge writes it ("SoQM Admin Team Review"), not the stored code
+            workflowEntry.setFromStep(statusName(history.getFromStep()));
+            workflowEntry.setToStep(statusName(history.getToStep()));
             workflowEntry.setActedAs(shownRole(history.getActedAs()));
             workflowEntry.setOnBehalf(history.isOnBehalf());
             workflowEntry.setAssignedPerformer(describePeople(history.getAssignedPerformer()));
@@ -200,6 +201,10 @@ public class ControlHistoryService {
                 newValue = Objects.toString(describePeople(newValue), "");
             }
             String label = normalizeFieldLabel(field);
+            if (STATUS_FIELDS.contains(field)) {
+                oldValue = Objects.toString(statusName(oldValue), "");
+                newValue = Objects.toString(statusName(newValue), "");
+            }
             changes.add(new FieldChangeDTO(label, oldValue, newValue));
         }
         return changes;
@@ -248,6 +253,21 @@ public class ControlHistoryService {
         if (!normalized.isEmpty()) {
             rows.add(new FieldChangeDTO(label, "", normalized));
         }
+    }
+
+    /** The audit fields holding a workflow status code (a workflow move writes "Performance Status"). */
+    private static final Set<String> STATUS_FIELDS = Set.of("Performance Status", "performanceStatus");
+    private static final com.kpmg.qtracker.util.StatusDisplayMapper STATUSES = new com.kpmg.qtracker.util.StatusDisplayMapper();
+
+    /**
+     * A workflow status by name (SOQM_HEAD_REVIEW: "SoQM Admin Team Review"); a name saved under an earlier wording is
+     * shown under today's (2026-11-10). Empty stays empty.
+     */
+    static String statusName(String status) {
+        if (status == null || status.isBlank()) {
+            return status;
+        }
+        return com.kpmg.qtracker.util.StatusDisplayMapper.withCurrentNames(STATUSES.display(status));
     }
 
     /**
