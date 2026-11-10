@@ -202,7 +202,8 @@ public class TemplateRenderer {
                 values.get(NotificationValues.DUE) != null
                         ? new EmailLayout.Row("Due", values.get(NotificationValues.DUE))
                         : new EmailLayout.Row("Deadline", values.get(NotificationValues.DEADLINE)),
-                new EmailLayout.Row("From", values.get(NotificationValues.FROM)));
+                // The role of the step the e-mail is about (2026-11-10: "Approver", earlier "From")
+                new EmailLayout.Row("Approver", values.get(NotificationValues.FROM)));
     }
 
     private static boolean isLinkLine(String line) {

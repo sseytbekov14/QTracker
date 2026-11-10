@@ -28,7 +28,7 @@ public class NotificationValues {
     public static final String OCCURRENCE_DATE = "OCCURRENCE_DATE";
     public static final String DEADLINE = "DEADLINE";
     public static final String RETURNED_BY = "RETURNED_BY";
-    /** Who passed the step on (the line From of the e-mail's details), set for a move of the workflow. */
+    /** Who passed the step on (the line Approver (earlier From) of the e-mail's details), set for a move of the workflow. */
     public static final String FROM = "FROM";
     /** The comment of a return (the quote in the e-mail, "Comment from ..."), set for a return of the workflow. */
     public static final String COMMENT = "COMMENT";

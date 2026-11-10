@@ -212,11 +212,11 @@ class TemplateRendererTest {
         String html = rendered.html();
         assertThat(html).contains(row("Control", "HR-1/FY27"), row("Description", "Payroll &lt;check&gt; &amp; review"),
                 row("Your role", "Facilitator and Control Operator"), row("Deadline", "19 Nov 2026"),
-                row("From", "Control Operator"));
+                row("Approver", "Control Operator"));
         assertThat(html).containsSubsequence("Please review it and submit it to the Process Owner.", ">Control</td>",
-                ">Description</td>", ">Your role</td>", ">Deadline</td>", ">From</td>", "cid:qtracker-button", "Kind regards,");
+                ">Description</td>", ">Your role</td>", ">Deadline</td>", ">Approver</td>", "cid:qtracker-button", "Kind regards,");
         assertThat(rendered.mailText()).contains("Process Owner.\n\nControl: HR-1/FY27\nDescription: Payroll <check> & review\n"
-                + "Your role: Facilitator and Control Operator\nDeadline: 19 Nov 2026\nFrom: Control Operator\n\n"
+                + "Your role: Facilitator and Control Operator\nDeadline: 19 Nov 2026\nApprover: Control Operator\n\n"
                 + "Go to Control: " + LINK + "\n\nKind regards,");
     }
 
@@ -230,9 +230,9 @@ class TemplateRendererTest {
         TemplateRenderer.Rendered rendered = renderer.render(Template.T8, values).rendered();
 
         assertThat(rendered.html()).contains(row("Control", "HR-1/FY27"))
-                .doesNotContain(">Description</td>", ">Your role</td>", ">Deadline</td>", ">From</td>");
+                .doesNotContain(">Description</td>", ">Your role</td>", ">Deadline</td>", ">Approver</td>");
         assertThat(rendered.mailText()).contains("\n\nControl: HR-1/FY27\n\nGo to Control: ")
-                .doesNotContain("Description:", "Your role:", "Deadline:", "From:");
+                .doesNotContain("Description:", "Your role:", "Deadline:", "Approver:");
     }
 
     @Test
@@ -254,7 +254,7 @@ class TemplateRendererTest {
 
         assertThat(html).contains(row("Control", "HR-1 &lt;i&gt;"),
                 row("Description", "&lt;script&gt;alert(1)&lt;/script&gt; &amp; co<br>\nline &quot;two&quot;"),
-                row("From", "&lt;b&gt;Someone&lt;/b&gt;"), row("Your role", "&lt;u&gt;Role&lt;/u&gt;"))
+                row("Approver", "&lt;b&gt;Someone&lt;/b&gt;"), row("Your role", "&lt;u&gt;Role&lt;/u&gt;"))
                 .doesNotContain("<script>", "<i>", "<b>Someone", "<u>");
     }
 
@@ -330,7 +330,7 @@ class TemplateRendererTest {
     void theCommentOfAReturn_aQuoteBetweenTheDetailsAndTheButton(Template template) {
         TemplateRenderer.Rendered rendered = renderer.render(template, returned("Fix the steps.")).rendered();
 
-        assertThat(rendered.html()).containsSubsequence(">From</td>", "border-left:4px solid #00338D",
+        assertThat(rendered.html()).containsSubsequence(">Approver</td>", "border-left:4px solid #00338D",
                 ">Comment from Process Owner</div>", ">Fix the steps.</div>", "cid:qtracker-button");
         assertThat(rendered.mailText()).contains("\n\nComment from Process Owner:\n"
                 + "Fix the steps.\n\nGo to Control: ");

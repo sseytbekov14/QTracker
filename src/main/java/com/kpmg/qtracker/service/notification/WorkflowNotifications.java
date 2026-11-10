@@ -20,7 +20,7 @@ import static com.kpmg.qtracker.service.WorkflowTransition.Actor.SOQM_TEAM;
 /**
  * The notifications of the workflow, made in the transaction of the step (NOTIFICATIONS_v5 4.2, 6.2; decisions 1 and 4).
  * The template and the people follow the change of status, never who made it: SoQM Admin Team acting on behalf of a
- * role gives what the role itself gives. The line From of the e-mail's details names the role whose step it was, never
+ * role gives what the role itself gives. The line Approver (earlier From) of the e-mail's details names the role whose step it was, never
  * "on behalf" (2026-11-04); who really made the move is in the history and the audit trail only.
  * <ul>
  * <li>T1 when the control becomes In Progress (Initiate, Create Control): Facilitator, Control Operator, Process Owner;</li>
@@ -58,7 +58,7 @@ public class WorkflowNotifications {
      * A move of the workflow, recorded as the history entry given.
      *
      * @param returnComment the comment of a return, for the e-mail and the in-app notification; null otherwise
-     * @param movedBy       who made it ({@link #movedBy}), for the line From of the e-mail's details
+     * @param movedBy       who made it ({@link #movedBy}), for the line Approver (earlier From) of the e-mail's details
      */
     public int moved(Control control, ControlAssignmentDTO assignment, String from, String to, Long historyId,
                      String returnComment, String movedBy) {
@@ -79,7 +79,7 @@ public class WorkflowNotifications {
     }
 
     /**
-     * Who passed the control on, as the line From says it: the role whose step it is, also when SoQM Admin Team made the
+     * Who passed the control on, as the line Approver says it: the role whose step it is, also when SoQM Admin Team made the
      * move for that role (2026-11-04: no "on behalf of" in the e-mail).
      */
     public static String movedBy(WorkflowMove move) {
