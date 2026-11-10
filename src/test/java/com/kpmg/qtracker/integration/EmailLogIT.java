@@ -72,14 +72,16 @@ class EmailLogIT extends ReleaseScenarioSupport {
                         "the mail server did not accept the address; tried 3 times, no more tries",
                         "Try 3 failed (the mail server could not be reached), next try at",
                         "The person is inactive or deleted")
-                .contains("Dear Anna, Control done.", "Text removed after 30 days")
-                .contains("href=\"/view-control/" + control.getId() + "\"");
+                // The text behind View while it is kept, a dash after the 30 days
+                .contains("Dear Anna, Control done.", "js-mail-view", "title=\"The text is kept 30 days\"")
+                .contains("href=\"/view-control/" + control.getId() + "\"")
+                // The English calendar of the app, not the browser's date field; no note under the table
+                .contains("data-date-picker", "/js/date-picker.js").doesNotContain("type=\"date\"", "means the mail server");
         assertThat(countOf(html, "class=\"email-row\"")).isEqualTo(4);
         // The counters of the period: one of each
-        assertThat(html).containsPattern("is-sent\">Sent</span>\\s*<strong>1</strong>")
-                .containsPattern("is-waiting\">Waiting</span>\\s*<strong>1</strong>")
-                .containsPattern("is-failed\">Failed</span>\\s*<strong>1</strong>")
-                .containsPattern("is-not_sent\">Not sent</span>\\s*<strong>1</strong>");
+        for (String label : List.of("Sent", "Waiting", "Failed", "Not sent")) {
+            assertThat(html).as(label).containsPattern(">" + label + "</span>\\s*</span>\\s*<span class=\"mail-card-count\">1</span>");
+        }
 
         // Filters: a status, an event, a person
         assertThat(countOf(body(call(session, get("/admin/emails").param("q", code).param("status", "FAILED"))),
