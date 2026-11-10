@@ -165,7 +165,9 @@ class ReleaseScenarioAdminIT extends ReleaseScenarioSupport {
 
         Map<String, Object> page = call(session, get("/admin/users")).getModelAndView().getModel();
         assertThat(page.get("rows").toString()).contains(other.getMail());
-        assertThat(page.get("auditTrail").toString()).contains(other.getMail());
+        // The change is in the Audit trail section (2026-11-10: no longer on the Users page)
+        assertThat(page).doesNotContainKey("auditTrail");
+        assertThat(body(call(session, get("/admin/audit").param("q", other.getMail())))).contains(other.getMail(), "Access changed");
     }
 
     // ---- the user import ----

@@ -80,7 +80,7 @@ class EmailLogIT extends ReleaseScenarioSupport {
         assertThat(countOf(html, "class=\"email-row\"")).isEqualTo(4);
         // The counters of the period: one of each
         for (String label : List.of("Sent", "Waiting", "Failed", "Not sent")) {
-            assertThat(html).as(label).containsPattern(">" + label + "</span>\\s*<span class=\"mail-card-count\">1</span>");
+            assertThat(html).as(label).containsPattern(">" + label + "</span>\\s*<span class=\"ap-card-count\">1</span>");
         }
 
         // Filters: a status, an event, a person

@@ -2014,7 +2014,7 @@ class ApiSecurityMockMvcIT {
     }
 
     @Test
-    void adminPage_auditTrail_showsUserAccessFirst_otherTypesBehindTheFilter() throws Exception {
+    void auditTrailSection_showsAUserChangeUnderUsers_anOtherTypeUnderSystem_andTheUsersPageHasNoTrail() throws Exception {
         User admin = adminUser();
         MockHttpSession adminSession = login(admin.getMail());
         User target = saveUser("Trail Target", "trail-target-" + suffix() + "@example.test", "FACILITATOR");
@@ -2028,21 +2028,22 @@ class ApiSecurityMockMvcIT {
         other.setActionDescription("Viewed " + otherType);
         auditLogRepository.save(other);
 
-        String html = mockMvc.perform(get("/admin/users").session(adminSession))
+        String users = mockMvc.perform(get("/admin/users").session(adminSession))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
+        assertThat(users).contains("href=\"/admin/audit\"").doesNotContain("auditTableBody", "auditFilter");
 
-        assertThat(html).contains("<th scope=\"col\">Changed by</th>", "id=\"auditTargetHeader\">Target user</th>",
-                "value=\"OTHER\"");
-        assertThat(html).containsPattern("value=\"USER_ACCESS\"[^>]*selected=\"selected\"");
-        int row = html.indexOf(target.getMail() + "</span>", html.indexOf("auditTargetHeader"));
+        String html = mockMvc.perform(get("/admin/audit").session(adminSession))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        int row = html.indexOf(target.getMail() + "</span>");
         assertThat(row).as("audit row naming the target user").isPositive();
         String userRow = html.substring(html.lastIndexOf("<tr", row), html.indexOf("</tr>", row));
-        assertThat(userRow).contains("data-group=\"USER_ACCESS\"", "Changed status from Active to Inactive</td>",
-                "Trail Target").doesNotContain("d-none");
+        assertThat(userRow).contains("data-group=\"USERS\"", "Access changed", "Changed status from Active to Inactive",
+                "Trail Target");
         int otherRow = html.indexOf("Viewed " + otherType);
-        assertThat(html.substring(html.lastIndexOf("<tr", otherRow), otherRow))
-                .contains("data-group=\"OTHER\"", "d-none");
+        assertThat(otherRow).isPositive();
+        assertThat(html.substring(html.lastIndexOf("<tr", otherRow), otherRow)).contains("data-group=\"SYSTEM\"");
     }
 
     @Test

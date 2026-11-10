@@ -50,7 +50,8 @@ class SystemAdminTeamIT extends ReleaseScenarioSupport {
         MvcResult panel = call(session, get("/admin/users"));
         assertThat(panel.getResponse().getStatus()).isEqualTo(200);
         assertThat(panel.getModelAndView().getViewName()).isEqualTo("admin-users");
-        assertThat(body(panel)).contains("Audit Trail", "data-email=\"" + fac.getMail() + "\"", "System Admin Team")
+        assertThat(body(call(session, get("/admin/audit"))).replaceAll("\\s+", " ")).contains("Audit trail", "All entries");
+        assertThat(body(panel)).contains("href=\"/admin/audit\"", "data-email=\"" + fac.getMail() + "\"", "System Admin Team")
                 // No Edit on any row, no Add user
                 .contains("id=\"exportUsersBtn\"")
                 .doesNotContain("aria-label=\"Edit ").doesNotContain("id=\"openAddUserBtn\"");

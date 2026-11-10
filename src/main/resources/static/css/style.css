@@ -1938,3 +1938,154 @@ input[data-date-picker] {
 .qt-datepicker-link { padding: 2px 4px; border: none; background: none; color: var(--kpmg-blue); font-size: 0.78rem; font-weight: 600; }
 .qt-datepicker-link:hover { text-decoration: underline; }
 .qt-datepicker button:focus-visible { outline: 2px solid var(--kpmg-blue-light); outline-offset: 1px; }
+
+/* ============ Admin Panel sections (E-mails, Audit trail): status/group cards, toolbar, table, pills, phone cards ============ */
+/* Status cards: one per status, each a link to those e-mails */
+.ap-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 16px 0 14px; }
+.ap-card {
+    position: relative; display: flex; flex-direction: column; gap: 6px; padding: 12px 16px 12px 19px;
+    background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); border-radius: 4px;
+    color: var(--kpmg-gray-800); text-decoration: none; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.ap-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 4px 0 0 4px; background: var(--kpmg-gray-200); }
+.ap-card.is-all::before { background: var(--kpmg-blue); }
+.ap-card.is-sent::before { background: var(--kpmg-green); }
+.ap-card.is-waiting::before { background: #eaaa00; }
+.ap-card.is-failed::before { background: var(--kpmg-red); }
+.ap-card.is-not_sent::before { background: var(--kpmg-gray-400); }
+.ap-card.is-users::before { background: var(--kpmg-blue-light); }
+.ap-card.is-controls::before { background: #483698; }
+.ap-card.is-system::before { background: var(--kpmg-gray-400); }
+.ap-card:hover { border-color: var(--kpmg-blue-light); color: var(--kpmg-gray-800); }
+.ap-card.is-active { border-color: var(--kpmg-blue); box-shadow: 0 0 0 1px var(--kpmg-blue); }
+.ap-card:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
+.ap-card-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--kpmg-gray-600); }
+.ap-card-count { font-size: 1.4rem; font-weight: 700; line-height: 1; color: var(--kpmg-blue); }
+.ap-card.is-failed .ap-card-count { color: var(--kpmg-red); }
+
+/* Filters: the toolbar of the Users section, glued to the table under it */
+.ap-toolbar {
+    display: grid; grid-template-columns: 150px 150px 230px minmax(200px, 1fr) auto; gap: 10px; align-items: end;
+    padding: 10px 16px; background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); border-radius: 4px 4px 0 0;
+}
+.ap-toolbar label {
+    display: block; margin-bottom: 4px; font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--kpmg-gray-600);
+}
+.ap-toolbar .form-control, .ap-toolbar .form-select { height: 32px; font-size: 0.8rem; border-color: var(--kpmg-gray-200); }
+.ap-toolbar .form-control:focus, .ap-toolbar .form-select:focus { border-color: var(--kpmg-blue-light); box-shadow: 0 0 0 2px rgba(0, 94, 184, 0.15); }
+.ap-toolbar-actions { display: flex; gap: 6px; }
+.ap-btn {
+    display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 4px;
+    font-size: 0.8rem; font-weight: 600; border: 1px solid var(--kpmg-blue); text-decoration: none; cursor: pointer;
+}
+.ap-btn.is-primary { background: var(--kpmg-blue); color: var(--kpmg-white); }
+.ap-btn.is-primary:hover { background: var(--kpmg-blue-dark); border-color: var(--kpmg-blue-dark); }
+.ap-btn.is-outline { background: var(--kpmg-white); color: var(--kpmg-blue); }
+.ap-btn.is-outline:hover { background: #eef3fb; }
+.ap-btn:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
+
+/* The table: as the users table */
+.ap-table-wrap { background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); border-top: none; border-radius: 0 0 4px 4px; overflow-x: auto; }
+.ap-table { width: 100%; margin: 0; font-size: 0.8rem; table-layout: fixed; }
+.ap-table > :not(:first-child) { border-top: 0; }
+.ap-table thead th {
+    padding: 9px 10px; background: var(--kpmg-gray-50); color: var(--kpmg-gray-600); font-size: 0.7rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; border-bottom: 2px solid var(--kpmg-gray-200);
+}
+.ap-table tbody td { padding: 9px 10px; vertical-align: middle; color: var(--kpmg-gray-800); border-bottom: 1px solid var(--kpmg-gray-100); }
+.ap-table tbody tr:last-child td { border-bottom: none; }
+.ap-table tbody tr:hover td { background: #f9fafc; }
+.col-date { width: 140px; }
+.col-control { width: 21%; }
+.col-event { width: 17%; }
+.col-recipient { width: 23%; }
+.col-status { width: 26%; }
+.col-text { width: 80px; text-align: right; }
+
+.ap-when { display: block; font-weight: 600; white-space: nowrap; }
+.ap-when-exact { display: block; font-size: 0.72rem; color: var(--kpmg-gray-600); white-space: nowrap; }
+.ap-control { font-weight: 600; color: var(--kpmg-blue); text-decoration: none; overflow-wrap: anywhere; }
+.ap-control:hover { text-decoration: underline; }
+.ap-person { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ap-avatar {
+    width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    background: #e6ecf6; color: var(--kpmg-blue); font-size: 0.66rem; font-weight: 700;
+}
+.ap-person-text { min-width: 0; }
+.ap-name { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.ap-address { display: block; font-size: 0.74rem; color: var(--kpmg-gray-600); overflow-wrap: anywhere; }
+
+/* Status pills: as Active / Inactive in the users table */
+.ap-pill {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; border: 1px solid transparent;
+    font-size: 0.7rem; font-weight: 700; line-height: 1.4; white-space: nowrap;
+}
+.ap-pill.is-sent { background: #e8f6ee; color: #146c3a; border-color: #b9e2c9; }
+.ap-pill.is-waiting { background: #fff6dc; color: var(--kpmg-amber-text); border-color: #f2dc9b; }
+.ap-pill.is-failed { background: #fbecee; color: #a01025; border-color: #f1c3cb; }
+.ap-pill.is-not_sent { background: var(--kpmg-gray-100); color: var(--kpmg-gray-600); border-color: var(--kpmg-gray-200); }
+.ap-server { margin-left: 4px; color: var(--kpmg-gray-400); font-size: 0.78rem; cursor: help; }
+.ap-reason { display: block; margin-top: 3px; font-size: 0.74rem; color: var(--kpmg-gray-600); line-height: 1.35; }
+.ap-none { color: var(--kpmg-gray-400); }
+.ap-view-btn {
+    padding: 4px 12px; border-radius: 4px; border: 1px solid var(--kpmg-blue); background: var(--kpmg-white);
+    color: var(--kpmg-blue); font-size: 0.74rem; font-weight: 600;
+}
+.ap-view-btn:hover { background: var(--kpmg-blue); color: var(--kpmg-white); }
+.ap-view-btn:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
+
+.ap-pager {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 16px; border-top: 1px solid var(--kpmg-gray-100); font-size: 0.78rem; color: var(--kpmg-gray-600);
+}
+.ap-pager-nav { display: flex; align-items: center; gap: 8px; }
+.ap-pager-nav .ap-btn { height: 28px; padding: 0 12px; font-size: 0.76rem; }
+.ap-pager-nav .ap-btn.is-disabled { opacity: 0.45; pointer-events: none; }
+.ap-empty { text-align: center; padding: 36px 12px; color: var(--kpmg-gray-600); }
+.ap-empty i { display: block; font-size: 1.6rem; color: var(--kpmg-gray-400); margin-bottom: 6px; }
+
+/* The details dialog */
+.ap-dialog .modal-header { background: var(--kpmg-blue); color: var(--kpmg-white); border-bottom: 3px solid var(--kpmg-blue-light); }
+.ap-dialog .modal-header .btn-close { filter: invert(1) grayscale(1) brightness(2); }
+.ap-dialog dl { display: grid; grid-template-columns: 90px 1fr; gap: 4px 12px; font-size: 0.8rem; margin: 0 0 12px; }
+.ap-dialog dt { color: var(--kpmg-gray-600); font-weight: 600; }
+.ap-dialog dd { margin: 0; overflow-wrap: anywhere; }
+.ap-dialog pre {
+    white-space: pre-wrap; font-family: inherit; font-size: 0.82rem; margin: 0; padding: 12px 14px; max-height: 50vh; overflow: auto;
+    background: var(--kpmg-gray-50); border: 1px solid var(--kpmg-gray-200); border-radius: 4px;
+}
+
+@media (max-width: 1199.98px) {
+    .ap-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .ap-toolbar { grid-template-columns: 1fr 1fr; }
+    .ap-toolbar-actions { grid-column: 1 / -1; }
+}
+/* Phones: each e-mail is a card, one labelled line per field (as the users table) */
+@media (max-width: 767.98px) {
+    .page-header { flex-wrap: wrap; padding: 14px 16px; }
+    .ap-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .ap-toolbar { grid-template-columns: 1fr; }
+    .ap-table-wrap { overflow-x: visible; }
+    .ap-table { table-layout: auto; }
+    .ap-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .ap-table, .ap-table tbody { display: block; }
+    .ap-table tbody tr { display: block; position: relative; padding: 10px 16px; border-bottom: 1px solid var(--kpmg-gray-200); }
+    .ap-table tbody tr:last-child { border-bottom: none; }
+    .ap-table tbody td {
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 4px 0; border: none;
+        text-align: right; background: transparent !important;
+    }
+    .ap-table tbody td[data-label]::before {
+        content: attr(data-label); flex-shrink: 0; font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.04em; color: var(--kpmg-gray-600); text-align: left; padding-top: 2px;
+    }
+    .ap-table tbody td > * { text-align: right; }
+    .ap-person { justify-content: flex-end; }
+    .ap-table tbody td.col-text { position: absolute; top: 10px; right: 16px; padding: 0; width: auto; }
+    .ap-table tbody td.col-text::before { display: none; }
+    .ap-table tbody td:first-child { padding-right: 76px; }
+    .ap-table tbody td:first-child::before { display: none; }
+    .ap-table tbody td:first-child > * { text-align: left; }
+    .ap-table tbody tr.ap-empty-row td { display: block; }
+}

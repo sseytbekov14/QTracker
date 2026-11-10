@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <th:block th:replace="~{fragments/csrf :: csrf}"></th:block>
+    <title>Audit trail - Admin Panel - QTracker</title>
+    <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css?v=24" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <style>
+/* The Admin Panel's look (the shared ap- styles are in style.css, as on the E-mails page) */
+.ap-control.is-gone { color: var(--kpmg-gray-600); }
+body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
+.page-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    background: var(--kpmg-blue); color: var(--kpmg-white); padding: 14px 24px;
+    border-bottom: 3px solid var(--kpmg-blue-light);
+}
+.page-header h1 { font-size: 1.15rem; font-weight: 600; margin: 0; }
+.page-header .subtitle { font-size: 0.8rem; color: rgba(255, 255, 255, 0.75); margin: 2px 0 0; }
+.ap-summary.is-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.audit-action { display: block; font-weight: 600; }
+.audit-avatar-system { background: var(--kpmg-gray-100); color: var(--kpmg-gray-600); }
+.audit-changes { width: 100%; margin: 0; font-size: 0.8rem; border-collapse: collapse; }
+.audit-changes th {
+    padding: 7px 10px; background: var(--kpmg-gray-50); color: var(--kpmg-gray-600); font-size: 0.68rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid var(--kpmg-gray-200); text-align: left;
+}
+.audit-changes td { padding: 7px 10px; vertical-align: top; border-bottom: 1px solid var(--kpmg-gray-100); overflow-wrap: anywhere; }
+.audit-changes td.is-field { width: 28%; font-weight: 600; color: var(--kpmg-gray-600); }
+.audit-changes td.is-before { color: #a01025; text-decoration: line-through; text-decoration-color: rgba(160, 16, 37, 0.35); }
+.audit-changes td.is-after { color: #146c3a; }
+.audit-changes .is-empty { color: var(--kpmg-gray-400); text-decoration: none; }
+.audit-description { margin: 0 0 12px; font-size: 0.82rem; }
+@media (max-width: 1199.98px) {
+    .ap-summary.is-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+    </style>
+</head>
+<body>
+<script>
+(function() {
+    document.body.classList.add('theme-light');
+    try { localStorage.removeItem('qtrackerTheme'); } catch (error) { /* storage may be blocked */ }
+})();
+</script>
+<div class="container-fluid">
+    <div class="row">
+        <div th:replace="~{fragments/sidebar :: sidebar('admin')}"></div>
+
+        <div class="col-md-10">
+            <div class="p-3">
+                <nav class="app-breadcrumb" aria-label="breadcrumb">
+                    <a href="/" class="app-breadcrumb-link">
+                        <i class="bi bi-house app-breadcrumb-home-icon" aria-hidden="true"></i><span>Home</span>
+                    </a>
+                    <span class="app-breadcrumb-separator">/</span>
+                    <a href="/admin/users" class="app-breadcrumb-link">Admin Panel</a>
+                    <span class="app-breadcrumb-separator">/</span>
+                    <span class="app-breadcrumb-current">Audit trail</span>
+                </nav>
+
+                <div class="page-header">
+                    <div>
+                        <h1>Admin Panel</h1>
+                        <p class="subtitle">Audit trail: who changed what, and when</p>
+                    </div>
+                </div>
+                <div th:replace="~{fragments/admin-tabs :: tabs('audit')}"></div>
+
+                <!-- The period's entries by group; a card shows only those -->
+                <nav class="ap-summary is-four" aria-label="Audit entries by group">
+                    <a class="ap-card is-all" th:classappend="${group == ''} ? 'is-active'"
+                       th:attr="aria-current=${group == ''} ? 'true' : null"
+                       th:href="@{/admin/audit(from=${log.from()},to=${log.to()},action=${action},q=${q})}"
+                       title="Every entry of the period">
+                        <span class="ap-card-label">All entries</span>
+                        <span class="ap-card-count" th:text="${log.allCount()}">0</span>
+                    </a>
+                    <a th:each="g : ${groups}" class="ap-card"
+                       th:classappend="'is-' + ${#strings.toLowerCase(g.name())} + (${group == g.name()} ? ' is-active' : '')"
+                       th:attr="aria-current=${group == g.name()} ? 'true' : null"
+                       th:title="${g.hint}"
+                       th:href="@{/admin/audit(from=${log.from()},to=${log.to()},group=${g.name()},action=${action},q=${q})}">
+                        <span class="ap-card-label" th:text="${g.label}">Users</span>
+                        <span class="ap-card-count" th:text="${log.counts().get(g)}">0</span>
+                    </a>
+                </nav>
+
+                <!-- The dates are typed or picked as dd.mm.yyyy (English calendar); the form sends them as yyyy-mm-dd -->
+                <form id="auditFilter" class="ap-toolbar" method="get" action="/admin/audit" role="search" aria-label="Find audit entries" novalidate>
+                    <input type="hidden" name="group" th:value="${group}">
+                    <input type="hidden" name="from" id="auditFromIso" th:value="${log.from()}">
+                    <input type="hidden" name="to" id="auditToIso" th:value="${log.to()}">
+                    <div>
+                        <label for="auditFrom">From</label>
+                        <input id="auditFrom" type="text" class="form-control" data-date-picker
+                               placeholder="dd.mm.yyyy" inputmode="numeric"
+                               th:value="${#temporals.format(log.from(), 'dd.MM.yyyy')}">
+                    </div>
+                    <div>
+                        <label for="auditTo">To</label>
+                        <input id="auditTo" type="text" class="form-control" data-date-picker
+                               placeholder="dd.mm.yyyy" inputmode="numeric"
+                               th:value="${#temporals.format(log.to(), 'dd.MM.yyyy')}">
+                    </div>
+                    <div>
+                        <label for="auditAction">Action</label>
+                        <select id="auditAction" name="action" class="form-select">
+                            <option value="">All actions</option>
+                            <optgroup th:each="g : ${groups}" th:label="${g.label}">
+                                <option th:each="a : ${actions}" th:if="${a.group() == g}" th:value="${a.key()}"
+                                        th:text="${a.label()}" th:selected="${action == a.key()}">User created</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="auditSearch">Search</label>
+                        <input id="auditSearch" name="q" type="search" class="form-control"
+                               th:value="${q}" placeholder="Control ID, name, e-mail or text" autocomplete="off">
+                    </div>
+                    <div class="ap-toolbar-actions">
+                        <button type="submit" class="ap-btn is-primary"><i class="bi bi-search" aria-hidden="true"></i>Show</button>
+                        <a href="/admin/audit" class="ap-btn is-outline">Reset</a>
+                    </div>
+                </form>
+
+                <div class="ap-table-wrap" th:attr="data-now=${log.now()}">
+                    <table class="table ap-table">
+                        <thead>
+                        <tr>
+                            <th scope="col" class="col-date">When</th>
+                            <th scope="col" style="width: 22%">By</th>
+                            <th scope="col" style="width: 32%">Action</th>
+                            <th scope="col" style="width: 24%">Target</th>
+                            <th scope="col" class="col-text">Details</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="row : ${log.rows()}" class="audit-row" th:attr="data-group=${row.groupKey()}">
+                            <!-- How long ago (time-ago.js), and the exact date and time under it -->
+                            <td data-label="When">
+                                <div>
+                                    <span class="ap-when" th:attr="data-time=${row.createdAt()}"
+                                          th:text="${#temporals.format(row.createdAt(), 'dd.MM.yyyy')}">2 hours ago</span>
+                                    <span class="ap-when-exact" th:text="${#temporals.format(row.createdAt(), 'dd.MM.yyyy HH:mm')}">10.11.2026 14:05</span>
+                                </div>
+                            </td>
+                            <td data-label="By">
+                                <div class="ap-person">
+                                    <span class="ap-avatar" th:classappend="${row.system()} ? 'audit-avatar-system'" aria-hidden="true">
+                                        <i class="bi bi-gear" th:if="${row.system()}"></i>
+                                        <th:block th:unless="${row.system()}"
+                                                  th:text="${#strings.toUpperCase(#strings.substring(#strings.trim(row.byName()), 0, 1))}">A</th:block>
+                                    </span>
+                                    <span class="ap-person-text">
+                                        <span class="ap-name" th:text="${row.byName()}">Aigerim S.</span>
+                                        <span class="ap-address" th:if="${row.byEmail() != null}" th:text="${row.byEmail()}">a@kpmg.kz</span>
+                                    </span>
+                                </div>
+                            </td>
+                            <td data-label="Action">
+                                <div>
+                                    <span class="audit-action" th:text="${row.action()}">Access changed</span>
+                                    <span class="ap-reason" th:if="${!#strings.isEmpty(row.description())}"
+                                          th:text="${row.description()}">Changed role from User to SoQM Admin Team</span>
+                                </div>
+                            </td>
+                            <td data-label="Target">
+                                <div th:if="${row.targetEmail() != null}" class="ap-person-text">
+                                    <span class="ap-name" th:if="${row.targetName() != null}" th:text="${row.targetName()}">Madina K.</span>
+                                    <span class="ap-address" th:text="${row.targetEmail()}">m@kpmg.kz</span>
+                                </div>
+                                <th:block th:if="${row.targetEmail() == null}">
+                                    <a class="ap-control" th:if="${row.controlId() != null}"
+                                       th:href="@{/view-control/{id}(id=${row.controlId()})}" th:text="${row.controlCode()}">HR-CTRL-MF-1</a>
+                                    <span class="ap-control is-gone" th:if="${row.controlId() == null and row.controlCode() != null}"
+                                          th:text="${row.controlCode()}" title="The control no longer exists">HR-OLD</span>
+                                    <span class="ap-none" th:if="${row.controlId() == null and row.controlCode() == null}">—</span>
+                                </th:block>
+                            </td>
+                            <td class="col-text">
+                                <th:block th:if="${row.hasDetails()}">
+                                    <button type="button" class="ap-view-btn js-audit-view"
+                                            th:attr="data-action=${row.action()},
+                                                     data-by=${row.byEmail() != null ? row.byName() + ' (' + row.byEmail() + ')' : row.byName()},
+                                                     data-date=${#temporals.format(row.createdAt(), 'dd.MM.yyyy HH:mm')},
+                                                     data-target=${row.targetEmail() != null ? (row.targetName() != null ? row.targetName() + ' (' + row.targetEmail() + ')' : row.targetEmail()) : (row.controlCode() != null ? row.controlCode() : '—')},
+                                                     data-description=${row.description()}">Details</button>
+                                    <!-- The changes, made on the server (escaped), copied into the dialog -->
+                                    <div class="d-none js-audit-changes">
+                                        <table class="audit-changes">
+                                            <thead><tr><th scope="col">Field</th><th scope="col">Before</th><th scope="col">After</th></tr></thead>
+                                            <tbody>
+                                            <tr th:each="c : ${row.changes()}">
+                                                <td class="is-field" th:text="${c.field()}">Priority</td>
+                                                <td class="is-before" th:classappend="${#strings.isEmpty(c.before())} ? 'is-empty'"
+                                                    th:text="${#strings.isEmpty(c.before()) ? '—' : c.before()}">Medium</td>
+                                                <td class="is-after" th:classappend="${#strings.isEmpty(c.after())} ? 'is-empty'"
+                                                    th:text="${#strings.isEmpty(c.after()) ? '—' : c.after()}">High</td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </th:block>
+                                <span class="ap-none" th:unless="${row.hasDetails()}">—</span>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(log.rows())}" class="ap-empty-row">
+                            <td colspan="5">
+                                <div class="ap-empty">
+                                    <i class="bi bi-clock-history" aria-hidden="true"></i>
+                                    No entries in this period with these filters.
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                    <div class="ap-pager" th:if="${log.total() > 0}">
+                        <span th:text="'Showing ' + ${(log.page() - 1) * 50 + 1} + '-' + ${(log.page() - 1) * 50 + #lists.size(log.rows())} + ' of ' + ${log.total()}">Showing 1-50 of 120</span>
+                        <span class="ap-pager-nav" th:if="${log.pages() > 1}">
+                            <a class="ap-btn is-outline" th:classappend="${log.page() <= 1} ? 'is-disabled'"
+                               th:attr="aria-disabled=${log.page() <= 1} ? 'true' : null"
+                               th:href="@{/admin/audit(from=${log.from()},to=${log.to()},group=${group},action=${action},q=${q},page=${log.page() - 1})}">Prev</a>
+                            <span th:text="${log.page()} + ' / ' + ${log.pages()}">1 / 3</span>
+                            <a class="ap-btn is-outline" th:classappend="${log.page() >= log.pages()} ? 'is-disabled'"
+                               th:attr="aria-disabled=${log.page() >= log.pages()} ? 'true' : null"
+                               th:href="@{/admin/audit(from=${log.from()},to=${log.to()},group=${group},action=${action},q=${q},page=${log.page() + 1})}">Next</a>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- The details of one entry -->
+<div class="modal fade" id="auditDialog" tabindex="-1" aria-labelledby="auditDialogTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content ap-dialog">
+            <div class="modal-header">
+                <h2 class="modal-title fs-6" id="auditDialogTitle">Details</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <dl>
+                    <dt>By</dt><dd id="auditDialogBy"></dd>
+                    <dt>When</dt><dd id="auditDialogDate"></dd>
+                    <dt>Target</dt><dd id="auditDialogTarget"></dd>
+                </dl>
+                <p class="audit-description" id="auditDialogDescription"></p>
+                <div id="auditDialogChanges"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/vendor/bootstrap.bundle.min.js"></script>
+<script src="/js/date-format.js?v=2"></script>
+<script src="/js/date-picker.js?v=2"></script>
+<script src="/js/time-ago.js?v=1"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // The dates: dd.mm.yyyy on the page (English calendar), yyyy-mm-dd in the request
+    const form = document.getElementById('auditFilter');
+    const pairs = [{ shown: 'auditFrom', iso: 'auditFromIso' }, { shown: 'auditTo', iso: 'auditToIso' }];
+    form.addEventListener('submit', function(event) {
+        let valid = true;
+        pairs.forEach(function(pair) {
+            const shown = document.getElementById(pair.shown);
+            const iso = document.getElementById(pair.iso);
+            const typed = shown.value.trim();
+            const date = typed ? window.QTrackerDate.parseDisplayDate(typed) : null;
+            shown.classList.toggle('is-invalid', Boolean(typed) && !date);
+            if (typed && !date) {
+                valid = false;
+            }
+            iso.value = date ? window.QTrackerDate.toIsoDate(date) : '';
+        });
+        if (!valid) {
+            event.preventDefault();
+        }
+    });
+
+    // Details: the entry's changes in the dialog (the table the server made, copied; texts as text)
+    const dialog = new bootstrap.Modal(document.getElementById('auditDialog'));
+    document.querySelectorAll('.js-audit-view').forEach(function(button) {
+        button.addEventListener('click', function() {
+            document.getElementById('auditDialogTitle').textContent = button.dataset.action || 'Details';
+            document.getElementById('auditDialogBy').textContent = button.dataset.by || '';
+            document.getElementById('auditDialogDate').textContent = button.dataset.date || '';
+            document.getElementById('auditDialogTarget').textContent = button.dataset.target || '';
+            const description = document.getElementById('auditDialogDescription');
+            description.textContent = button.dataset.description || '';
+            description.hidden = !button.dataset.description;
+            const changes = button.parentElement.querySelector('.js-audit-changes table');
+            const holder = document.getElementById('auditDialogChanges');
+            holder.replaceChildren(changes ? changes.cloneNode(true) : document.createTextNode(''));
+            dialog.show();
+        });
+    });
+});
+</script>
+</body>
+</html>

@@ -416,6 +416,14 @@ public final class AccessPolicy {
         return canOpenAdminPanel(subject);
     }
 
+    /**
+     * The Audit trail section of the Admin Panel (business decision of 2026-11-10): who changed what - users, controls,
+     * files, the system - with before and after. SoQM Admin Team and System Admin Team; it only reads.
+     */
+    public static boolean seesAuditLog(Subject subject) {
+        return canOpenAdminPanel(subject);
+    }
+
     /** Changing users in the Admin Panel: whoever opens it. */
     public static boolean canManageUsers(Subject subject) {
         return hasAdminAccess(subject);

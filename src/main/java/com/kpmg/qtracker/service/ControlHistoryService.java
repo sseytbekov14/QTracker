@@ -172,6 +172,14 @@ public class ControlHistoryService {
         return String.join(", ", people);
     }
 
+    /**
+     * The changes one audit entry of a control records, field by field, as the Changelog shows them (people by name, the
+     * fields under their labels); the Admin Panel's Audit trail shows the same (AuditLog).
+     */
+    public List<FieldChangeDTO> fieldChanges(AdminAuditLog log) {
+        return parseFieldChanges(log);
+    }
+
     private List<FieldChangeDTO> parseFieldChanges(AdminAuditLog log) {
         List<String> fields = parseFieldList(log.getChangedFields());
         Map<String, Object> previous = parseJsonMap(log.getPreviousValues());

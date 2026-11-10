@@ -6,7 +6,6 @@ import com.kpmg.qtracker.enums.AccessRight;
 import com.kpmg.qtracker.enums.UserRole;
 import com.kpmg.qtracker.enums.Visibility;
 import com.kpmg.qtracker.service.AccessPolicy;
-import com.kpmg.qtracker.service.AdminAuditTrail;
 import com.kpmg.qtracker.service.UserService;
 import com.kpmg.qtracker.util.RoleDisplayMapper;
 import jakarta.servlet.http.HttpSession;
@@ -22,10 +21,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -40,9 +37,9 @@ public class AdminViewController {
     static final String SYSTEM_ADMIN_ROLE = "SYSTEM_ADMIN";
 
     private final UserService userService;
-    private final AdminAuditTrail adminAuditTrail;
     private final AuthMode authMode;
     private final com.kpmg.qtracker.service.notification.EmailLog emailLog;
+    private final com.kpmg.qtracker.service.AuditLog auditLog;
 
     /**
      * One row of the users table: the user, their Access lines, whether it is the viewer, and whether the account is
@@ -124,20 +121,7 @@ public class AdminViewController {
         model.addAttribute("canManageUsers", AccessPolicy.canManageUsers(subject));
         // With SSO people sign in with their corporate e-mail at Microsoft and get no password
         model.addAttribute("sso", authMode.sso());
-        AdminAuditTrail.Trail trail = adminAuditTrail.latest();
-        model.addAttribute("auditTrail", trail.entries());
-        model.addAttribute("auditCounts", trail.counts());
-        model.addAttribute("auditGroups", AdminAuditTrail.Group.values());
-        model.addAttribute("auditLimit", AdminAuditTrail.LIMIT);
-        model.addAttribute("auditUserAccessCount", trail.counts().get(AdminAuditTrail.Group.USER_ACCESS));
-        // Names for the "Target user" column, by e-mail
-        Map<String, String> userNames = new HashMap<>();
-        rows.forEach(row -> {
-            if (row.user().getMail() != null) {
-                userNames.put(row.user().getMail().toLowerCase(Locale.ROOT), row.user().getDisplayName());
-            }
-        });
-        model.addAttribute("userNames", userNames);
+        // The Audit Trail is a section of its own (/admin/audit, 2026-11-10)
 
         return "admin-users";
     }
@@ -170,6 +154,34 @@ public class AdminViewController {
         model.addAttribute("event", event == null ? "" : event);
         model.addAttribute("q", q == null ? "" : q);
         return "admin-emails";
+    }
+
+    /**
+     * The Audit trail section of the Admin Panel (2026-11-10): every audit entry, newest first, in three groups (Users,
+     * Controls, System) with before and after (AuditLog). SoQM Admin Team and System Admin Team (AccessPolicy.seesAuditLog).
+     */
+    @GetMapping("/audit")
+    public String audit(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate to,
+                        @RequestParam(required = false) String group,
+                        @RequestParam(required = false) String action,
+                        @RequestParam(required = false) String q,
+                        @RequestParam(defaultValue = "1") int page,
+                        Model model, HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) {
+            return "redirect:/login";
+        }
+        if (!AccessPolicy.seesAuditLog(AccessPolicy.Subject.of(currentUser))) {
+            return "redirect:/";
+        }
+        model.addAttribute("log", auditLog.find(new com.kpmg.qtracker.service.AuditLog.Filter(from, to, group, action, q, page)));
+        model.addAttribute("groups", com.kpmg.qtracker.service.AuditLog.Group.values());
+        model.addAttribute("actions", com.kpmg.qtracker.service.AuditLog.ACTIONS);
+        model.addAttribute("group", group == null ? "" : group);
+        model.addAttribute("action", action == null ? "" : action);
+        model.addAttribute("q", q == null ? "" : q);
+        return "admin-audit";
     }
 
     private static UserRow row(User user, User viewer) {
