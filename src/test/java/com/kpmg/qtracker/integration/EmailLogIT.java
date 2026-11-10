@@ -76,11 +76,11 @@ class EmailLogIT extends ReleaseScenarioSupport {
                 .contains("Dear Anna, Control done.", "js-mail-view", "title=\"The text is kept 30 days\"")
                 .contains("href=\"/view-control/" + control.getId() + "\"")
                 // The English calendar of the app, not the browser's date field; no note under the table
-                .contains("data-date-picker", "/js/date-picker.js").doesNotContain("type=\"date\"", "means the mail server");
+                .contains("data-date-picker", "/js/date-picker.js", "/js/time-ago.js", "data-now=\"", "data-time=\"").doesNotContain("type=\"date\"", "means the mail server");
         assertThat(countOf(html, "class=\"email-row\"")).isEqualTo(4);
         // The counters of the period: one of each
         for (String label : List.of("Sent", "Waiting", "Failed", "Not sent")) {
-            assertThat(html).as(label).containsPattern(">" + label + "</span>\\s*</span>\\s*<span class=\"mail-card-count\">1</span>");
+            assertThat(html).as(label).containsPattern(">" + label + "</span>\\s*<span class=\"mail-card-count\">1</span>");
         }
 
         // Filters: a status, an event, a person

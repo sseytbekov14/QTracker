@@ -116,8 +116,9 @@ public class EmailLog {
         }
     }
 
+    /** @param now the time of the page (Almaty), for "2 hours ago" (static/js/time-ago.js) */
     public record Page(Filter filter, LocalDate from, LocalDate to, List<Row> rows, long total, int page, int pages,
-                       Map<Status, Long> counts) {
+                       Map<Status, Long> counts, LocalDateTime now) {
 
         /** Every e-mail of the period with the other filters, whatever its status. */
         public long allCount() {
@@ -208,7 +209,7 @@ public class EmailLog {
                             error == null || error.isBlank() ? null : error, rs.getInt("attempts"),
                             text == null || text.isBlank() ? null : text);
                 }, rowArgs.toArray());
-        return new Page(filter, from, to, rows, total, page, pages, counts);
+        return new Page(filter, from, to, rows, total, page, pages, counts, LocalDateTime.now(clock).withNano(0));
     }
 
     /** The state or the reason in plain words, as the line under the status says it. */

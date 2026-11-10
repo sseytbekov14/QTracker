@@ -10,6 +10,8 @@
     <link href="/css/style.css?v=23" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
+/* The look of the Admin Panel's Users section (admin-users.html): KPMG blue header, white cards on grey, the same
+   table, pills and avatars, so both sections read as one */
 body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .page-header {
     display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -19,85 +21,151 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 .page-header h1 { font-size: 1.15rem; font-weight: 600; margin: 0; }
 .page-header .subtitle { font-size: 0.8rem; color: rgba(255, 255, 255, 0.75); margin: 2px 0 0; }
 
-/* Counters: one per status, each a link to those e-mails */
-.mail-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 16px 0 12px; }
+/* Status cards: one per status, each a link to those e-mails */
+.mail-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 16px 0 14px; }
 .mail-card {
-    display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 6px; text-decoration: none;
-    background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); color: var(--kpmg-gray-800);
+    position: relative; display: flex; flex-direction: column; gap: 6px; padding: 12px 16px 12px 19px;
+    background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); border-radius: 4px;
+    color: var(--kpmg-gray-800); text-decoration: none; transition: border-color 0.15s, box-shadow 0.15s;
 }
-.mail-card:hover { border-color: var(--kpmg-blue); color: var(--kpmg-gray-800); }
-.mail-card.is-active { border-color: var(--kpmg-blue); box-shadow: inset 0 0 0 1px var(--kpmg-blue); background: #f5f8fd; }
-.mail-card-label { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; font-weight: 600; color: var(--kpmg-gray-600); }
-.mail-card-count { font-size: 1.35rem; font-weight: 700; line-height: 1.1; }
-.mail-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--kpmg-gray-400); flex: none; }
-.mail-dot.is-sent { background: #2e8b57; }
-.mail-dot.is-waiting { background: #d39e00; }
-.mail-dot.is-failed { background: #c4314b; }
-.mail-dot.is-not_sent { background: #8a94a6; }
-.mail-dot.is-all { background: var(--kpmg-blue); }
+.mail-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 4px 0 0 4px; background: var(--kpmg-gray-200); }
+.mail-card.is-all::before { background: var(--kpmg-blue); }
+.mail-card.is-sent::before { background: var(--kpmg-green); }
+.mail-card.is-waiting::before { background: #eaaa00; }
+.mail-card.is-failed::before { background: var(--kpmg-red); }
+.mail-card.is-not_sent::before { background: var(--kpmg-gray-400); }
+.mail-card:hover { border-color: var(--kpmg-blue-light); color: var(--kpmg-gray-800); }
+.mail-card.is-active { border-color: var(--kpmg-blue); box-shadow: 0 0 0 1px var(--kpmg-blue); }
+.mail-card:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
+.mail-card-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--kpmg-gray-600); }
+.mail-card-count { font-size: 1.4rem; font-weight: 700; line-height: 1; color: var(--kpmg-blue); }
+.mail-card.is-failed .mail-card-count { color: var(--kpmg-red); }
 
-/* Filters: one row, every control the same height */
-.mail-filter {
-    display: grid; grid-template-columns: 150px 150px 220px minmax(200px, 1fr) auto; gap: 10px; align-items: end;
-    background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); border-radius: 6px; padding: 12px 14px;
+/* Filters: the toolbar of the Users section, glued to the table under it */
+.mail-toolbar {
+    display: grid; grid-template-columns: 150px 150px 230px minmax(200px, 1fr) auto; gap: 10px; align-items: end;
+    padding: 10px 16px; background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); border-radius: 4px 4px 0 0;
 }
-.mail-filter label { display: block; font-size: 0.72rem; font-weight: 600; color: var(--kpmg-gray-600); margin-bottom: 4px; }
-.mail-filter .form-control, .mail-filter .form-select { font-size: 0.8rem; height: 32px; }
-.mail-filter-actions { display: flex; gap: 6px; }
-.mail-filter-actions .btn { height: 32px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; }
-.mail-filter-actions .btn-primary { background: var(--kpmg-blue); border-color: var(--kpmg-blue); }
-.mail-filter-actions .btn-primary:hover { background: #002a75; border-color: #002a75; }
-.mail-view-btn { color: var(--kpmg-blue); border-color: var(--kpmg-blue); }
-.mail-view-btn:hover { background: var(--kpmg-blue); border-color: var(--kpmg-blue); color: var(--kpmg-white); }
+.mail-toolbar label {
+    display: block; margin-bottom: 4px; font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--kpmg-gray-600);
+}
+.mail-toolbar .form-control, .mail-toolbar .form-select { height: 32px; font-size: 0.8rem; border-color: var(--kpmg-gray-200); }
+.mail-toolbar .form-control:focus, .mail-toolbar .form-select:focus { border-color: var(--kpmg-blue-light); box-shadow: 0 0 0 2px rgba(0, 94, 184, 0.15); }
+.mail-toolbar-actions { display: flex; gap: 6px; }
+.mail-btn {
+    display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 4px;
+    font-size: 0.8rem; font-weight: 600; border: 1px solid var(--kpmg-blue); text-decoration: none; cursor: pointer;
+}
+.mail-btn.is-primary { background: var(--kpmg-blue); color: var(--kpmg-white); }
+.mail-btn.is-primary:hover { background: var(--kpmg-blue-dark); border-color: var(--kpmg-blue-dark); }
+.mail-btn.is-outline { background: var(--kpmg-white); color: var(--kpmg-blue); }
+.mail-btn.is-outline:hover { background: #eef3fb; }
+.mail-btn:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
 
-/* The table */
-.mail-table-card { margin-top: 12px; background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); border-radius: 6px; overflow: hidden; }
-.mail-table-scroll { overflow-x: auto; }
-.mail-table { margin: 0; font-size: 0.8rem; table-layout: fixed; min-width: 900px; }
+/* The table: as the users table */
+.mail-table-wrap { background: var(--kpmg-white); border: 1px solid var(--kpmg-gray-200); border-top: none; border-radius: 0 0 4px 4px; overflow-x: auto; }
+.mail-table { width: 100%; margin: 0; font-size: 0.8rem; table-layout: fixed; }
+.mail-table > :not(:first-child) { border-top: 0; }
 .mail-table thead th {
-    background: var(--kpmg-gray-50); color: var(--kpmg-gray-600); font-weight: 600; font-size: 0.7rem;
-    text-transform: uppercase; letter-spacing: 0.03em; padding: 9px 12px; border-bottom: 1px solid var(--kpmg-gray-200);
+    padding: 9px 10px; background: var(--kpmg-gray-50); color: var(--kpmg-gray-600); font-size: 0.7rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; border-bottom: 2px solid var(--kpmg-gray-200);
 }
-.mail-table td { padding: 10px 12px; vertical-align: middle; border-color: var(--kpmg-gray-100); }
-.mail-table tbody tr:hover { background: #fafbfd; }
-.col-date { width: 130px; }
-.col-control { width: 22%; }
+.mail-table tbody td { padding: 9px 10px; vertical-align: middle; color: var(--kpmg-gray-800); border-bottom: 1px solid var(--kpmg-gray-100); }
+.mail-table tbody tr:last-child td { border-bottom: none; }
+.mail-table tbody tr:hover td { background: #f9fafc; }
+.col-date { width: 140px; }
+.col-control { width: 21%; }
 .col-event { width: 17%; }
-.col-recipient { width: 22%; }
-.col-status { width: 27%; }
-.col-text { width: 84px; text-align: right; }
-.mail-date { color: var(--kpmg-gray-800); white-space: nowrap; }
-.mail-sub { display: block; font-size: 0.72rem; color: var(--kpmg-gray-600); margin-top: 2px; }
-.mail-control { font-weight: 600; overflow-wrap: anywhere; }
+.col-recipient { width: 23%; }
+.col-status { width: 26%; }
+.col-text { width: 80px; text-align: right; }
+
+.mail-when { display: block; font-weight: 600; white-space: nowrap; }
+.mail-when-exact { display: block; font-size: 0.72rem; color: var(--kpmg-gray-600); white-space: nowrap; }
+.mail-control { font-weight: 600; color: var(--kpmg-blue); text-decoration: none; overflow-wrap: anywhere; }
+.mail-control:hover { text-decoration: underline; }
+.mail-person { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mail-avatar {
+    width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    background: #e6ecf6; color: var(--kpmg-blue); font-size: 0.66rem; font-weight: 700;
+}
+.mail-person-text { min-width: 0; }
 .mail-name { display: block; font-weight: 600; overflow-wrap: anywhere; }
 .mail-address { display: block; font-size: 0.74rem; color: var(--kpmg-gray-600); overflow-wrap: anywhere; }
-.mail-status { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
-.mail-status .bi-info-circle { color: var(--kpmg-gray-400); font-size: 0.78rem; cursor: help; }
-.mail-reason { display: block; font-size: 0.74rem; color: var(--kpmg-gray-600); margin-top: 2px; line-height: 1.35; }
+
+/* Status pills: as Active / Inactive in the users table */
+.mail-pill {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; border: 1px solid transparent;
+    font-size: 0.7rem; font-weight: 700; line-height: 1.4; white-space: nowrap;
+}
+.mail-pill.is-sent { background: #e8f6ee; color: #146c3a; border-color: #b9e2c9; }
+.mail-pill.is-waiting { background: #fff6dc; color: var(--kpmg-amber-text); border-color: #f2dc9b; }
+.mail-pill.is-failed { background: #fbecee; color: #a01025; border-color: #f1c3cb; }
+.mail-pill.is-not_sent { background: var(--kpmg-gray-100); color: var(--kpmg-gray-600); border-color: var(--kpmg-gray-200); }
+.mail-server { margin-left: 4px; color: var(--kpmg-gray-400); font-size: 0.78rem; cursor: help; }
+.mail-reason { display: block; margin-top: 3px; font-size: 0.74rem; color: var(--kpmg-gray-600); line-height: 1.35; }
 .mail-none { color: var(--kpmg-gray-400); }
-.mail-view-btn { font-size: 0.74rem; padding: 2px 10px; }
+.mail-view-btn {
+    padding: 4px 12px; border-radius: 4px; border: 1px solid var(--kpmg-blue); background: var(--kpmg-white);
+    color: var(--kpmg-blue); font-size: 0.74rem; font-weight: 600;
+}
+.mail-view-btn:hover { background: var(--kpmg-blue); color: var(--kpmg-white); }
+.mail-view-btn:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 2px; }
 
 .mail-pager {
-    display: flex; justify-content: space-between; align-items: center; gap: 12px;
-    padding: 10px 14px; border-top: 1px solid var(--kpmg-gray-100); font-size: 0.78rem; color: var(--kpmg-gray-600);
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 16px; border-top: 1px solid var(--kpmg-gray-100); font-size: 0.78rem; color: var(--kpmg-gray-600);
 }
 .mail-pager-nav { display: flex; align-items: center; gap: 8px; }
+.mail-pager-nav .mail-btn { height: 28px; padding: 0 12px; font-size: 0.76rem; }
+.mail-pager-nav .mail-btn.is-disabled { opacity: 0.45; pointer-events: none; }
 .mail-empty { text-align: center; padding: 36px 12px; color: var(--kpmg-gray-600); }
 .mail-empty i { display: block; font-size: 1.6rem; color: var(--kpmg-gray-400); margin-bottom: 6px; }
 
 /* The e-mail's text in the dialog */
+.mail-dialog .modal-header { background: var(--kpmg-blue); color: var(--kpmg-white); border-bottom: 3px solid var(--kpmg-blue-light); }
+.mail-dialog .modal-header .btn-close { filter: invert(1) grayscale(1) brightness(2); }
 .mail-dialog dl { display: grid; grid-template-columns: 90px 1fr; gap: 4px 12px; font-size: 0.8rem; margin: 0 0 12px; }
 .mail-dialog dt { color: var(--kpmg-gray-600); font-weight: 600; }
 .mail-dialog dd { margin: 0; overflow-wrap: anywhere; }
 .mail-dialog pre {
-    white-space: pre-wrap; font-family: inherit; font-size: 0.82rem; margin: 0; padding: 12px 14px;
-    background: var(--kpmg-gray-50); border: 1px solid var(--kpmg-gray-200); border-radius: 6px; max-height: 50vh; overflow: auto;
+    white-space: pre-wrap; font-family: inherit; font-size: 0.82rem; margin: 0; padding: 12px 14px; max-height: 50vh; overflow: auto;
+    background: var(--kpmg-gray-50); border: 1px solid var(--kpmg-gray-200); border-radius: 4px;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1199.98px) {
     .mail-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .mail-filter { grid-template-columns: 1fr 1fr; }
-    .mail-filter-actions { grid-column: 1 / -1; }
+    .mail-toolbar { grid-template-columns: 1fr 1fr; }
+    .mail-toolbar-actions { grid-column: 1 / -1; }
+}
+/* Phones: each e-mail is a card, one labelled line per field (as the users table) */
+@media (max-width: 767.98px) {
+    .page-header { flex-wrap: wrap; padding: 14px 16px; }
+    .mail-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .mail-toolbar { grid-template-columns: 1fr; }
+    .mail-table-wrap { overflow-x: visible; }
+    .mail-table { table-layout: auto; }
+    .mail-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .mail-table, .mail-table tbody { display: block; }
+    .mail-table tbody tr { display: block; position: relative; padding: 10px 16px; border-bottom: 1px solid var(--kpmg-gray-200); }
+    .mail-table tbody tr:last-child { border-bottom: none; }
+    .mail-table tbody td {
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 4px 0; border: none;
+        text-align: right; background: transparent !important;
+    }
+    .mail-table tbody td[data-label]::before {
+        content: attr(data-label); flex-shrink: 0; font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.04em; color: var(--kpmg-gray-600); text-align: left; padding-top: 2px;
+    }
+    .mail-table tbody td > * { text-align: right; }
+    .mail-person { justify-content: flex-end; }
+    .mail-table tbody td.col-text { position: absolute; top: 10px; right: 16px; padding: 0; width: auto; }
+    .mail-table tbody td.col-text::before { display: none; }
+    .mail-table tbody td:first-child { padding-right: 76px; }
+    .mail-table tbody td:first-child::before { display: none; }
+    .mail-table tbody td:first-child > * { text-align: left; }
+    .mail-table tbody tr.mail-empty-row td { display: block; }
 }
     </style>
 </head>
@@ -134,43 +202,41 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 
                 <!-- The period's e-mails by status; a card shows only those -->
                 <nav class="mail-summary" aria-label="E-mails by status">
-                    <a class="mail-card" th:classappend="${status == ''} ? 'is-active'"
+                    <a class="mail-card is-all" th:classappend="${status == ''} ? 'is-active'"
                        th:attr="aria-current=${status == ''} ? 'true' : null"
                        th:href="@{/admin/emails(from=${log.from()},to=${log.to()},event=${event},q=${q})}">
-                        <span class="mail-card-label"><span class="mail-dot is-all" aria-hidden="true"></span>All e-mails</span>
+                        <span class="mail-card-label">All e-mails</span>
                         <span class="mail-card-count" th:text="${log.allCount()}">0</span>
                     </a>
-                    <a th:each="s : ${statuses}" class="mail-card" th:classappend="${status == s.name()} ? 'is-active'"
+                    <a th:each="s : ${statuses}" class="mail-card"
+                       th:classappend="'is-' + ${#strings.toLowerCase(s.name())} + (${status == s.name()} ? ' is-active' : '')"
                        th:attr="aria-current=${status == s.name()} ? 'true' : null"
                        th:href="@{/admin/emails(from=${log.from()},to=${log.to()},status=${s.name()},event=${event},q=${q})}">
-                        <span class="mail-card-label">
-                            <span class="mail-dot" th:classappend="'is-' + ${#strings.toLowerCase(s.name())}" aria-hidden="true"></span>
-                            <span th:text="${s.label}">Sent</span>
-                        </span>
+                        <span class="mail-card-label" th:text="${s.label}">Sent</span>
                         <span class="mail-card-count" th:text="${log.counts().get(s)}">0</span>
                     </a>
                 </nav>
 
                 <!-- The dates are typed or picked as dd.mm.yyyy (English calendar); the form sends them as yyyy-mm-dd -->
-                <form id="mailFilter" class="mail-filter" method="get" action="/admin/emails" role="search" aria-label="Find e-mails" novalidate>
+                <form id="mailFilter" class="mail-toolbar" method="get" action="/admin/emails" role="search" aria-label="Find e-mails" novalidate>
                     <input type="hidden" name="status" th:value="${status}">
                     <input type="hidden" name="from" id="mailFromIso" th:value="${log.from()}">
                     <input type="hidden" name="to" id="mailToIso" th:value="${log.to()}">
                     <div>
                         <label for="mailFrom">From</label>
-                        <input id="mailFrom" type="text" class="form-control form-control-sm" data-date-picker
+                        <input id="mailFrom" type="text" class="form-control" data-date-picker
                                placeholder="dd.mm.yyyy" inputmode="numeric"
                                th:value="${#temporals.format(log.from(), 'dd.MM.yyyy')}">
                     </div>
                     <div>
                         <label for="mailTo">To</label>
-                        <input id="mailTo" type="text" class="form-control form-control-sm" data-date-picker
+                        <input id="mailTo" type="text" class="form-control" data-date-picker
                                placeholder="dd.mm.yyyy" inputmode="numeric"
                                th:value="${#temporals.format(log.to(), 'dd.MM.yyyy')}">
                     </div>
                     <div>
                         <label for="mailEvent">Event</label>
-                        <select id="mailEvent" name="event" class="form-select form-select-sm">
+                        <select id="mailEvent" name="event" class="form-select">
                             <option value="">All events</option>
                             <option th:each="e : ${events}" th:value="${e.key}" th:text="${e.value}"
                                     th:selected="${event == e.key}">Control completed</option>
@@ -178,86 +244,94 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                     </div>
                     <div>
                         <label for="mailSearch">Search</label>
-                        <input id="mailSearch" name="q" type="search" class="form-control form-control-sm"
+                        <input id="mailSearch" name="q" type="search" class="form-control"
                                th:value="${q}" placeholder="Control ID, name or e-mail" autocomplete="off">
                     </div>
-                    <div class="mail-filter-actions">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i>Show</button>
-                        <a href="/admin/emails" class="btn btn-outline-secondary">Reset</a>
+                    <div class="mail-toolbar-actions">
+                        <button type="submit" class="mail-btn is-primary"><i class="bi bi-search" aria-hidden="true"></i>Show</button>
+                        <a href="/admin/emails" class="mail-btn is-outline">Reset</a>
                     </div>
                 </form>
 
-                <div class="mail-table-card">
-                    <div class="mail-table-scroll">
-                        <table class="table mail-table">
-                            <thead>
-                            <tr>
-                                <th scope="col" class="col-date">Date</th>
-                                <th scope="col" class="col-control">Control</th>
-                                <th scope="col" class="col-event">Event</th>
-                                <th scope="col" class="col-recipient">Recipient</th>
-                                <th scope="col" class="col-status">Status</th>
-                                <th scope="col" class="col-text">Text</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <tr th:each="row : ${log.rows()}" class="email-row" th:attr="data-status=${row.statusKey()}">
-                                <td>
-                                    <span class="mail-date" th:text="${#temporals.format(row.createdAt(), 'dd.MM.yyyy HH:mm')}">10.11.2026 14:05</span>
-                                    <span class="mail-sub" th:if="${row.sentAt() != null}"
-                                          th:text="'Sent at ' + ${#temporals.format(row.sentAt(), 'HH:mm')}">Sent at 14:05</span>
-                                </td>
-                                <td>
-                                    <a class="mail-control" th:if="${row.controlCode() != null}"
-                                       th:href="@{/view-control/{id}(id=${row.controlId()})}" th:text="${row.controlCode()}">HR-CTRL-MF-1</a>
-                                    <span class="mail-none" th:if="${row.controlCode() == null}">—</span>
-                                </td>
-                                <td th:text="${row.event()}">Control completed</td>
-                                <td>
-                                    <span class="mail-name" th:if="${row.recipientName() != null}" th:text="${row.recipientName()}">Anna Smith</span>
-                                    <span class="mail-address" th:text="${row.recipientEmail()}">anna@kpmg.kz</span>
-                                </td>
-                                <td>
-                                    <span class="mail-status">
-                                        <span class="mail-dot" th:classappend="'is-' + ${#strings.toLowerCase(row.statusKey())}" aria-hidden="true"></span>
-                                        <span th:text="${row.status().label}">Sent</span>
-                                        <i class="bi bi-info-circle" th:if="${row.error() != null and row.statusKey() != 'NOT_SENT'}"
-                                           th:title="'Mail server: ' + ${row.error()}" tabindex="0"
-                                           th:attr="aria-label='Mail server: ' + ${row.error()}"></i>
+                <div class="mail-table-wrap" th:attr="data-now=${log.now()}">
+                    <table class="table mail-table">
+                        <thead>
+                        <tr>
+                            <th scope="col" class="col-date">Date</th>
+                            <th scope="col" class="col-control">Control</th>
+                            <th scope="col" class="col-event">Event</th>
+                            <th scope="col" class="col-recipient">Recipient</th>
+                            <th scope="col" class="col-status">Status</th>
+                            <th scope="col" class="col-text">Text</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="row : ${log.rows()}" class="email-row" th:attr="data-status=${row.statusKey()}">
+                            <!-- How long ago (time-ago.js), and the exact date and time under it -->
+                            <td data-label="Date">
+                                <div>
+                                    <span class="mail-when" th:attr="data-time=${row.createdAt()}"
+                                          th:text="${#temporals.format(row.createdAt(), 'dd.MM.yyyy')}">2 hours ago</span>
+                                    <span class="mail-when-exact" th:text="${#temporals.format(row.createdAt(), 'dd.MM.yyyy HH:mm')}"
+                                          th:title="${row.sentAt() != null} ? 'Sent at ' + ${#temporals.format(row.sentAt(), 'dd.MM.yyyy HH:mm')} : null">10.11.2026 14:05</span>
+                                </div>
+                            </td>
+                            <td data-label="Control">
+                                <a class="mail-control" th:if="${row.controlCode() != null}"
+                                   th:href="@{/view-control/{id}(id=${row.controlId()})}" th:text="${row.controlCode()}">HR-CTRL-MF-1</a>
+                                <span class="mail-none" th:if="${row.controlCode() == null}">—</span>
+                            </td>
+                            <td data-label="Event"><span th:text="${row.event()}">Control completed</span></td>
+                            <td data-label="Recipient">
+                                <div class="mail-person" th:with="who=${row.recipientName() != null ? row.recipientName() : row.recipientEmail()}">
+                                    <span class="mail-avatar" aria-hidden="true"
+                                          th:text="${#strings.toUpperCase(#strings.substring(#strings.trim(who), 0, 1))}">A</span>
+                                    <span class="mail-person-text">
+                                        <span class="mail-name" th:if="${row.recipientName() != null}" th:text="${row.recipientName()}">Anna Smith</span>
+                                        <span class="mail-address" th:text="${row.recipientEmail()}">anna@kpmg.kz</span>
                                     </span>
+                                </div>
+                            </td>
+                            <td data-label="Status">
+                                <div>
+                                    <span class="mail-pill" th:classappend="'is-' + ${#strings.toLowerCase(row.statusKey())}"
+                                          th:text="${row.status().label}">Sent</span>
+                                    <i class="bi bi-info-circle mail-server" th:if="${row.error() != null and row.statusKey() != 'NOT_SENT'}"
+                                       th:title="'Mail server: ' + ${row.error()}" tabindex="0"
+                                       th:attr="aria-label='Mail server: ' + ${row.error()}"></i>
                                     <span class="mail-reason" th:text="${row.detail()}">Accepted by the mail server</span>
-                                </td>
-                                <td class="col-text">
-                                    <th:block th:if="${row.text() != null}">
-                                        <button type="button" class="btn btn-outline-primary btn-sm mail-view-btn js-mail-view"
-                                                th:attr="data-to=${row.recipientName() != null ? row.recipientName() + ' (' + row.recipientEmail() + ')' : row.recipientEmail()},
-                                                         data-event=${row.event()},
-                                                         data-control=${row.controlCode() != null ? row.controlCode() : '—'},
-                                                         data-date=${#temporals.format(row.createdAt(), 'dd.MM.yyyy HH:mm')}">View</button>
-                                        <pre class="d-none js-mail-text" th:text="${row.text()}">Dear Anna, ...</pre>
-                                    </th:block>
-                                    <span class="mail-none" th:if="${row.text() == null}" title="The text is kept 30 days">—</span>
-                                </td>
-                            </tr>
-                            <tr th:if="${#lists.isEmpty(log.rows())}">
-                                <td colspan="6">
-                                    <div class="mail-empty">
-                                        <i class="bi bi-envelope" aria-hidden="true"></i>
-                                        No e-mails in this period with these filters.
-                                    </div>
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                                </div>
+                            </td>
+                            <td class="col-text">
+                                <th:block th:if="${row.text() != null}">
+                                    <button type="button" class="mail-view-btn js-mail-view"
+                                            th:attr="data-to=${row.recipientName() != null ? row.recipientName() + ' (' + row.recipientEmail() + ')' : row.recipientEmail()},
+                                                     data-event=${row.event()},
+                                                     data-control=${row.controlCode() != null ? row.controlCode() : '—'},
+                                                     data-date=${#temporals.format(row.createdAt(), 'dd.MM.yyyy HH:mm')}">View</button>
+                                    <pre class="d-none js-mail-text" th:text="${row.text()}">Dear Anna, ...</pre>
+                                </th:block>
+                                <span class="mail-none" th:if="${row.text() == null}" title="The text is kept 30 days">—</span>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(log.rows())}" class="mail-empty-row">
+                            <td colspan="6">
+                                <div class="mail-empty">
+                                    <i class="bi bi-envelope" aria-hidden="true"></i>
+                                    No e-mails in this period with these filters.
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
                     <div class="mail-pager" th:if="${log.total() > 0}">
                         <span th:text="'Showing ' + ${(log.page() - 1) * 50 + 1} + '-' + ${(log.page() - 1) * 50 + #lists.size(log.rows())} + ' of ' + ${log.total()}">Showing 1-50 of 120</span>
                         <span class="mail-pager-nav" th:if="${log.pages() > 1}">
-                            <a class="btn btn-sm btn-outline-secondary" th:classappend="${log.page() <= 1} ? 'disabled'"
+                            <a class="mail-btn is-outline" th:classappend="${log.page() <= 1} ? 'is-disabled'"
                                th:attr="aria-disabled=${log.page() <= 1} ? 'true' : null"
                                th:href="@{/admin/emails(from=${log.from()},to=${log.to()},status=${status},event=${event},q=${q},page=${log.page() - 1})}">Prev</a>
                             <span th:text="${log.page()} + ' / ' + ${log.pages()}">1 / 3</span>
-                            <a class="btn btn-sm btn-outline-secondary" th:classappend="${log.page() >= log.pages()} ? 'disabled'"
+                            <a class="mail-btn is-outline" th:classappend="${log.page() >= log.pages()} ? 'is-disabled'"
                                th:attr="aria-disabled=${log.page() >= log.pages()} ? 'true' : null"
                                th:href="@{/admin/emails(from=${log.from()},to=${log.to()},status=${status},event=${event},q=${q},page=${log.page() + 1})}">Next</a>
                         </span>
@@ -291,6 +365,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 <script src="/js/vendor/bootstrap.bundle.min.js"></script>
 <script src="/js/date-format.js?v=2"></script>
 <script src="/js/date-picker.js?v=2"></script>
+<script src="/js/time-ago.js?v=1"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // The dates: dd.mm.yyyy on the page (English calendar), yyyy-mm-dd in the request
@@ -315,8 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // View: the e-mail's text in the dialog (as text, never as HTML)
-    const dialogEl = document.getElementById('mailDialog');
-    const dialog = new bootstrap.Modal(dialogEl);
+    const dialog = new bootstrap.Modal(document.getElementById('mailDialog'));
     document.querySelectorAll('.js-mail-view').forEach(function(button) {
         button.addEventListener('click', function() {
             document.getElementById('mailDialogTitle').textContent = button.dataset.event || 'E-mail';
