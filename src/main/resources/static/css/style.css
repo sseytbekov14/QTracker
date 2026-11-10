@@ -2089,3 +2089,34 @@ input[data-date-picker] {
     .ap-table tbody td:first-child > * { text-align: left; }
     .ap-table tbody tr.ap-empty-row td { display: block; }
 }
+
+/* ===== Control Description in the header of View Control and Performance cycle (control-description.js) =====
+   Line breaks of the text kept; a long text folded to two lines with "Show more", opened in place. */
+.ctl-desc { max-width: 760px; margin-top: 6px; }
+.ctl-desc .ctl-desc-text { margin: 0; white-space: pre-line; overflow-wrap: anywhere; line-height: 1.45; }
+.ctl-desc.is-collapsible:not(.is-open) .ctl-desc-text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+.ctl-desc.is-open .ctl-desc-text { max-height: 40vh; overflow-y: auto; padding-right: 6px; }
+.ctl-desc-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+.ctl-desc-toggle:hover { color: #cfe0ff; }
+.ctl-desc-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 2px; }
+.ctl-desc-toggle[hidden] { display: none; }

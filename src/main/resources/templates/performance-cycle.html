@@ -7,7 +7,7 @@
     <title th:text="${controlId} + ' - Performance Cycle - QTracker'">Performance Cycle - QTracker</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=24" rel="stylesheet">
+    <link href="/css/style.css?v=25" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         :root {
@@ -174,8 +174,14 @@
                                   th:text="${statusLabel}">In Progress</span>
                             <span th:if="${overdue}" class="status-badge status-overdue">Overdue</span>
                         </h1>
-                        <p class="pc-desc" th:if="${control.controlDescription != null and !#strings.isEmpty(control.controlDescription)}"
-                           th:text="${control.controlDescription}">Description</p>
+                        <!-- Control Description: two lines and "Show more" when longer (control-description.js) -->
+                        <div class="ctl-desc pc-desc" data-control-description
+                             th:if="${!#strings.isEmpty(#strings.trim(control.controlDescription))}">
+                            <p class="ctl-desc-text" id="controlDescriptionText"
+                               th:text="${#strings.trim(control.controlDescription)}">Description</p>
+                            <button type="button" class="ctl-desc-toggle" aria-controls="controlDescriptionText"
+                                    aria-expanded="false" hidden>Show more</button>
+                        </div>
                     </div>
                     <div class="pc-actions">
                         <!-- Download: the Excel of a completed control, SoQM Admin Team only (AccessPolicy.canExportCompletedControl) -->
@@ -301,5 +307,6 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() { alert.remove(); }, 3000);
 });
 </script>
+<script src="/js/control-description.js?v=1"></script>
 </body>
 </html>

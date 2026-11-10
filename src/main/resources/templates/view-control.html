@@ -7,7 +7,7 @@
     <title th:text="'Control - ' + ${control.controlId}">Control - Sultan</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=24" rel="stylesheet">
+    <link href="/css/style.css?v=25" rel="stylesheet">
     <link href="/css/view-control.css?v=39" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
@@ -473,8 +473,14 @@
                             <i class="bi bi-play-circle" aria-hidden="true"></i>Initiate…
                         </a>
                     </div>
-                    <p class="vc-desc" th:if="${control.controlDescription != null and !#strings.isEmpty(control.controlDescription)}"
-                       th:text="${control.controlDescription}">Description</p>
+                    <!-- Control Description: two lines and "Show more" when longer (control-description.js) -->
+                    <div class="ctl-desc vc-desc" data-control-description
+                         th:if="${!#strings.isEmpty(#strings.trim(control.controlDescription))}">
+                        <p class="ctl-desc-text" id="controlDescriptionText"
+                           th:text="${#strings.trim(control.controlDescription)}">Description</p>
+                        <button type="button" class="ctl-desc-toggle" aria-controls="controlDescriptionText"
+                                aria-expanded="false" hidden>Show more</button>
+                    </div>
                     <ul class="vc-facts">
                         <li th:if="${control.component != null}"><span>Component</span><strong th:text="${control.component}">HR</strong></li>
                         <li th:if="${control.controlFrequency != null}"><span>Frequency</span><strong th:text="${control.controlFrequency}">Monthly</strong></li>
@@ -1880,6 +1886,7 @@
 <script src="/js/shared-with.js?v=4"></script>
 <script src="/js/multi-value.js?v=3"></script>
 <script src="/js/view-control.js?v=8.12"></script>
+<script src="/js/control-description.js?v=1"></script>
 <script src="/js/create-control.js?v=5"></script>
 <script src="/js/workflow-move.js?v=2"></script>
 <script th:if="${canDeactivateControl}" src="/js/deactivate-control.js?v=2"></script>
