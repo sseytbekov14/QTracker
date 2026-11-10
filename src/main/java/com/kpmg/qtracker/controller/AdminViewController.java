@@ -157,6 +157,61 @@ public class AdminViewController {
     }
 
     /**
+     * An e-mail exactly as the person got it, for View on the E-mails page (2026-11-10): its HTML with the pictures,
+     * shown in a frame of the dialog. The page of the frame may load nothing, run nothing and send nothing (its own
+     * Content-Security-Policy), so whatever the e-mail holds stays a picture of it. Only the plain text kept: that text.
+     */
+    @GetMapping("/emails/{id}/html")
+    public org.springframework.http.ResponseEntity<String> emailHtml(@org.springframework.web.bind.annotation.PathVariable long id,
+                                                                     HttpSession session) {
+        org.springframework.http.ResponseEntity<String> refused = refusedEmailLog(session);
+        if (refused != null) {
+            return refused;
+        }
+        return emailLog.body(id)
+                .map(body -> org.springframework.http.ResponseEntity.ok()
+                        .contentType(new org.springframework.http.MediaType("text", "html", java.nio.charset.StandardCharsets.UTF_8))
+                        .header("Content-Security-Policy", EMAIL_FRAME_POLICY)
+                        .header("Cache-Control", "no-store")
+                        .body(body.html() != null ? body.html()
+                                : "<!DOCTYPE html><html><body><pre style=\"white-space:pre-wrap;font:14px/1.5 Arial,sans-serif;margin:16px\">"
+                                + org.springframework.web.util.HtmlUtils.htmlEscape(body.text()) + "</pre></body></html>"))
+                .orElseGet(() -> org.springframework.http.ResponseEntity.notFound().build());
+    }
+
+    /** The plain-text part of the same e-mail (what a mail program without HTML shows), for View's "Plain text". */
+    @GetMapping("/emails/{id}/text")
+    public org.springframework.http.ResponseEntity<String> emailText(@org.springframework.web.bind.annotation.PathVariable long id,
+                                                                     HttpSession session) {
+        org.springframework.http.ResponseEntity<String> refused = refusedEmailLog(session);
+        if (refused != null) {
+            return refused;
+        }
+        return emailLog.body(id).filter(body -> body.text() != null)
+                .map(body -> org.springframework.http.ResponseEntity.ok()
+                        .contentType(new org.springframework.http.MediaType("text", "plain", java.nio.charset.StandardCharsets.UTF_8))
+                        .header("Cache-Control", "no-store")
+                        .body(body.text()))
+                .orElseGet(() -> org.springframework.http.ResponseEntity.notFound().build());
+    }
+
+    /** The e-mail in the frame: its own styles and pictures (data:) only; no scripts, requests, forms or other frames. */
+    static final String EMAIL_FRAME_POLICY = "default-src 'none'; img-src data:; style-src 'unsafe-inline';"
+            + " frame-ancestors 'self'; base-uri 'none'; form-action 'none'";
+
+    /** 401 without a session, 403 for those who do not see the E-mails page (AccessPolicy.seesEmailLog); null: go on. */
+    private static org.springframework.http.ResponseEntity<String> refusedEmailLog(HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) {
+            return org.springframework.http.ResponseEntity.status(401).build();
+        }
+        if (!AccessPolicy.seesEmailLog(AccessPolicy.Subject.of(currentUser))) {
+            return org.springframework.http.ResponseEntity.status(403).build();
+        }
+        return null;
+    }
+
+    /**
      * The Audit trail section of the Admin Panel (2026-11-10): every audit entry, newest first, in three groups (Users,
      * Controls, System) with before and after (AuditLog). SoQM Admin Team and System Admin Team (AccessPolicy.seesAuditLog).
      */

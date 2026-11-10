@@ -4,16 +4,20 @@ import com.kpmg.qtracker.entity.EmailOutbox;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * The E-mails page of the Admin Panel (business decision of 2026-11-10): every e-mail QTracker made (email_outbox), newest
@@ -105,11 +109,12 @@ public class EmailLog {
      * @param controlCode the Control ID; null when the e-mail has no control or the control is gone
      * @param detail      the plain-words reason or state under the status ("Next try at 14:35", "The person is inactive")
      * @param error       the mail server's own answer, for the curious (null when none)
-     * @param text        the e-mail as plain text, while it is kept (30 days after it is done); null after that
+     * @param subject     the subject line as the person got it
+     * @param hasBody     the text of the e-mail is still kept (30 days after it is done): View opens it ({@link #body})
      */
     public record Row(long id, LocalDateTime createdAt, LocalDateTime sentAt, Long controlId, String controlCode,
                       String event, String recipientName, String recipientEmail, Status status, String detail,
-                      String error, int attempts, String text) {
+                      String error, int attempts, String subject, boolean hasBody) {
 
         public String statusKey() {
             return status.name();
@@ -193,13 +198,14 @@ public class EmailLog {
         rowArgs.add((page - 1) * PAGE_SIZE);
         List<Row> rows = jdbc.query("SELECT o.id, o.created_at, o.sent_at, o.control_id, c.control_id AS control_code,"
                         + " o.template_key, u.displayname, o.recipient_email, o.status, o.next_attempt_at, o.attempts,"
-                        + " o.last_error, o.provider, o.body_text" + tables + rowsWhere
+                        + " o.last_error, o.provider, o.subject,"
+                        + " CASE WHEN COALESCE(o.body_html, '') <> '' OR o.body_text IS NOT NULL THEN 1 ELSE 0 END AS has_body"
+                        + tables + rowsWhere
                         + " ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?",
                 (rs, n) -> {
                     LocalDateTime next = toDateTime(rs.getTimestamp("next_attempt_at"));
                     Status status = Status.of(rs.getString("status"), next);
                     String error = rs.getString("last_error");
-                    String text = rs.getString("body_text");
                     String key = rs.getString("template_key");
                     return new Row(rs.getLong("id"), toDateTime(rs.getTimestamp("created_at")),
                             toDateTime(rs.getTimestamp("sent_at")), (Long) rs.getObject("control_id", Long.class),
@@ -207,9 +213,59 @@ public class EmailLog {
                             rs.getString("recipient_email"), status,
                             detail(rs.getString("status"), next, error, rs.getString("provider"), rs.getInt("attempts")),
                             error == null || error.isBlank() ? null : error, rs.getInt("attempts"),
-                            text == null || text.isBlank() ? null : text);
+                            rs.getString("subject"), rs.getInt("has_body") == 1);
                 }, rowArgs.toArray());
         return new Page(filter, from, to, rows, total, page, pages, counts, LocalDateTime.now(clock).withNano(0));
+    }
+
+    /**
+     * The e-mail as it was sent, for View (2026-11-10): the subject, the HTML with its pictures (the cid: images of
+     * EmailLayout put in as data: addresses, as the mail program shows them from the e-mail itself) and the plain text.
+     * Empty when there is no such e-mail or its text is no longer kept (30 days after it is done).
+     */
+    public Optional<Body> body(long id) {
+        List<Body> found = jdbc.query("SELECT subject, body_html, body_text FROM email_outbox WHERE id = ?",
+                (rs, n) -> {
+                    String html = rs.getString("body_html");
+                    String text = rs.getString("body_text");
+                    return new Body(rs.getString("subject"), html == null || html.isBlank() ? null : withImages(html),
+                            text == null || text.isBlank() ? null : text);
+                }, id);
+        return found.stream().filter(body -> body.html() != null || body.text() != null).findFirst();
+    }
+
+    /** @param html the HTML part with its pictures; null when only the plain text was kept */
+    public record Body(String subject, String html, String text) {
+    }
+
+    /** The pictures the e-mail carries (cid:...) as data: addresses, so a browser shows them as the mail program does. */
+    static String withImages(String html) {
+        String result = html;
+        for (Map.Entry<String, String> image : images().entrySet()) {
+            result = result.replace("cid:" + image.getKey(), image.getValue());
+        }
+        return result;
+    }
+
+    private static volatile Map<String, String> images;
+
+    private static Map<String, String> images() {
+        Map<String, String> loaded = images;
+        if (loaded == null) {
+            Map<String, String> read = new LinkedHashMap<>();
+            EmailLayout.INLINE_IMAGES.forEach((cid, resource) -> {
+                try (InputStream in = EmailLog.class.getClassLoader().getResourceAsStream(resource)) {
+                    if (in != null) {
+                        read.put(cid, "data:image/png;base64," + Base64.getEncoder().encodeToString(in.readAllBytes()));
+                    }
+                } catch (IOException e) {
+                    // left as cid: - the browser shows the alt text instead of the picture
+                }
+            });
+            loaded = Map.copyOf(read);
+            images = loaded;
+        }
+        return loaded;
     }
 
     /** The state or the reason in plain words, as the line under the status says it. */

@@ -20,6 +20,21 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 }
 .page-header h1 { font-size: 1.15rem; font-weight: 600; margin: 0; }
 .page-header .subtitle { font-size: 0.8rem; color: rgba(255, 255, 255, 0.75); margin: 2px 0 0; }
+/* View: the e-mail as sent, in a frame on the grey of a mail program; "Plain text" beside it */
+.ap-dialog .mail-subject { font-weight: 600; color: var(--kpmg-gray-800); }
+.mail-view-tabs { display: inline-flex; gap: 2px; padding: 2px; margin-bottom: 10px; background: var(--kpmg-gray-100); border-radius: 6px; }
+.mail-view-tab {
+    border: 0; background: none; padding: 5px 14px; border-radius: 4px; font-size: 0.78rem; font-weight: 600;
+    color: var(--kpmg-gray-600); cursor: pointer;
+}
+.mail-view-tab.is-active { background: var(--kpmg-white); color: var(--kpmg-blue); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+.mail-view-tab:focus-visible { outline: 2px solid var(--kpmg-blue); outline-offset: 1px; }
+.mail-frame-wrap { background: #f3f4f6; border: 1px solid var(--kpmg-gray-200); border-radius: 4px; padding: 0; }
+.mail-frame-wrap[hidden] { display: none; }
+/* Light, as the e-mail opens in a mail program with the usual (light) look, whatever the computer's own theme */
+.mail-frame-wrap iframe { display: block; width: 100%; height: 200px; border: 0; background: #f3f4f6; color-scheme: light; }
+.mail-frame-wrap iframe[hidden] { display: none; }
+.mail-loading { margin: 0; padding: 24px; text-align: center; color: var(--kpmg-gray-600); font-size: 0.82rem; }
     </style>
 </head>
 <body>
@@ -156,15 +171,15 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                 </div>
                             </td>
                             <td class="col-text">
-                                <th:block th:if="${row.text() != null}">
-                                    <button type="button" class="ap-view-btn js-mail-view"
-                                            th:attr="data-to=${row.recipientName() != null ? row.recipientName() + ' (' + row.recipientEmail() + ')' : row.recipientEmail()},
-                                                     data-event=${row.event()},
-                                                     data-control=${row.controlCode() != null ? row.controlCode() : '—'},
-                                                     data-date=${#temporals.format(row.createdAt(), 'dd.MM.yyyy HH:mm')}">View</button>
-                                    <pre class="d-none js-mail-text" th:text="${row.text()}">Dear Anna, ...</pre>
-                                </th:block>
-                                <span class="ap-none" th:if="${row.text() == null}" title="The text is kept 30 days">—</span>
+                                <!--/* View: the e-mail as it was sent, loaded when opened (/admin/emails/{id}/html, /text) */-->
+                                <button type="button" class="ap-view-btn js-mail-view" th:if="${row.hasBody()}"
+                                        th:attr="data-id=${row.id()},
+                                                 data-subject=${row.subject()},
+                                                 data-to=${row.recipientName() != null ? row.recipientName() + ' <' + row.recipientEmail() + '>' : row.recipientEmail()},
+                                                 data-event=${row.event()},
+                                                 data-control=${row.controlCode() != null ? row.controlCode() : '—'},
+                                                 data-date=${#temporals.format(row.createdAt(), 'dd.MM.yyyy HH:mm')}">View</button>
+                                <span class="ap-none" th:unless="${row.hasBody()}" title="The text is kept 30 days">—</span>
                             </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(log.rows())}" class="ap-empty-row">
@@ -197,7 +212,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
 
 <!-- The text of one e-mail -->
 <div class="modal fade" id="mailDialog" tabindex="-1" aria-labelledby="mailDialogTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content ap-dialog">
             <div class="modal-header">
                 <h2 class="modal-title fs-6" id="mailDialogTitle">E-mail</h2>
@@ -205,11 +220,25 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
             </div>
             <div class="modal-body">
                 <dl>
+                    <dt>Subject</dt><dd id="mailDialogSubject" class="mail-subject"></dd>
                     <dt>To</dt><dd id="mailDialogTo"></dd>
                     <dt>Control</dt><dd id="mailDialogControl"></dd>
                     <dt>Date</dt><dd id="mailDialogDate"></dd>
                 </dl>
-                <pre id="mailDialogText"></pre>
+                <div class="mail-view-tabs" role="tablist" aria-label="How to show the e-mail">
+                    <button type="button" role="tab" class="mail-view-tab is-active" id="mailTabHtml" aria-selected="true"
+                            aria-controls="mailDialogFrameWrap">E-mail</button>
+                    <button type="button" role="tab" class="mail-view-tab" id="mailTabText" aria-selected="false"
+                            aria-controls="mailDialogText">Plain text</button>
+                </div>
+                <div id="mailDialogFrameWrap" class="mail-frame-wrap" role="tabpanel" aria-labelledby="mailTabHtml">
+                    <p class="mail-loading" id="mailDialogLoading">Loading…</p>
+                    <!--/* The e-mail's own page: no scripts (no allow-scripts), its links open in a new tab */-->
+                    <iframe id="mailDialogFrame" title="The e-mail as it was sent"
+                            sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                            referrerpolicy="no-referrer"></iframe>
+                </div>
+                <pre id="mailDialogText" role="tabpanel" aria-labelledby="mailTabText" hidden></pre>
             </div>
         </div>
     </div>
@@ -242,18 +271,88 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // View: the e-mail's text in the dialog (as text, never as HTML)
-    const dialog = new bootstrap.Modal(document.getElementById('mailDialog'));
+    // View: the e-mail exactly as it was sent - its HTML with the pictures in a frame (the frame's page runs nothing,
+    // /admin/emails/{id}/html), and its plain-text part under "Plain text" (as text, never as HTML)
+    const dialogElement = document.getElementById('mailDialog');
+    const dialog = new bootstrap.Modal(dialogElement);
+    const frame = document.getElementById('mailDialogFrame');
+    const loading = document.getElementById('mailDialogLoading');
+    const textBox = document.getElementById('mailDialogText');
+    const tabHtml = document.getElementById('mailTabHtml');
+    const tabText = document.getElementById('mailTabText');
+    const frameWrap = document.getElementById('mailDialogFrameWrap');
+    let currentId = null;
+    let textLoaded = false;
+
+    function showTab(html) {
+        tabHtml.classList.toggle('is-active', html);
+        tabText.classList.toggle('is-active', !html);
+        tabHtml.setAttribute('aria-selected', String(html));
+        tabText.setAttribute('aria-selected', String(!html));
+        frameWrap.hidden = !html;
+        textBox.hidden = html;
+        if (html) fitFrame();
+        if (!html && !textLoaded && currentId) {
+            textLoaded = true;
+            textBox.textContent = 'Loading…';
+            const id = currentId;
+            fetch('/admin/emails/' + encodeURIComponent(id) + '/text', { credentials: 'same-origin' })
+                .then(function(response) { return response.ok ? response.text() : null; })
+                .then(function(text) {
+                    if (currentId === id) {
+                        textBox.textContent = text !== null ? text : 'This e-mail has no plain-text part.';
+                    }
+                })
+                .catch(function() { if (currentId === id) textBox.textContent = 'The text could not be loaded.'; });
+        }
+    }
+    tabHtml.addEventListener('click', function() { showTab(true); });
+    tabText.addEventListener('click', function() { showTab(false); });
+
+    // The frame as tall as the e-mail, so the dialog scrolls as one page. Measured when the e-mail is in and again
+    // when the dialog is open (a hidden dialog has no height yet) or the window changes
+    function fitFrame() {
+        if (!currentId || frameWrap.hidden) return;
+        try {
+            const doc = frame.contentDocument;
+            if (doc && doc.documentElement && doc.readyState === 'complete') {
+                const height = doc.documentElement.scrollHeight;
+                if (height > 0) frame.style.height = Math.max(200, height + 4) + 'px';
+            }
+        } catch (ignored) {
+            frame.style.height = '70vh';
+        }
+    }
+    frame.addEventListener('load', function() {
+        if (!currentId) return;
+        loading.hidden = true;
+        frame.hidden = false;
+        fitFrame();
+    });
+    dialogElement.addEventListener('shown.bs.modal', fitFrame);
+    window.addEventListener('resize', fitFrame);
+
     document.querySelectorAll('.js-mail-view').forEach(function(button) {
         button.addEventListener('click', function() {
             document.getElementById('mailDialogTitle').textContent = button.dataset.event || 'E-mail';
+            document.getElementById('mailDialogSubject').textContent = button.dataset.subject || '';
             document.getElementById('mailDialogTo').textContent = button.dataset.to || '';
             document.getElementById('mailDialogControl').textContent = button.dataset.control || '';
             document.getElementById('mailDialogDate').textContent = button.dataset.date || '';
-            const text = button.parentElement.querySelector('.js-mail-text');
-            document.getElementById('mailDialogText').textContent = text ? text.textContent : '';
+            currentId = button.dataset.id;
+            textLoaded = false;
+            textBox.textContent = '';
+            loading.hidden = false;
+            frame.hidden = true;
+            frame.style.height = '200px';
+            frame.src = '/admin/emails/' + encodeURIComponent(currentId) + '/html';
+            showTab(true);
             dialog.show();
         });
+    });
+    dialogElement.addEventListener('hidden.bs.modal', function() {
+        currentId = null;
+        frame.src = 'about:blank';
     });
 });
 </script>

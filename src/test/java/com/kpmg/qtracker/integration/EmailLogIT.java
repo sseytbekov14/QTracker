@@ -37,8 +37,10 @@ class EmailLogIT extends ReleaseScenarioSupport {
                        LocalDateTime at, String text) {
         jdbc.update("INSERT INTO email_outbox (control_id, template_key, recipient_user_id, recipient_email, subject,"
                         + " body_html, body_text, importance, dedupe_key, status, attempts, last_error, provider, created_at,"
-                        + " sent_at, next_attempt_at) VALUES (?, ?, ?, ?, 's', '<p>b</p>', ?, 'NORMAL', ?, ?, ?, ?, 'smtp', ?, ?, ?)",
-                controlId, template, to.getId(), to.getMail(), text, "el-" + RUN + "-" + next() , status,
+                        + " sent_at, next_attempt_at) VALUES (?, ?, ?, ?, 'Control completed', ?, ?, 'NORMAL', ?, ?, ?, ?, 'smtp', ?, ?, ?)",
+                // the text kept: an HTML and a plain part; null: both cleared after the 30 days (DataRetention)
+                controlId, template, to.getId(), to.getMail(), text == null ? "" : "<p>" + text + "</p>", text,
+                "el-" + RUN + "-" + next() , status,
                 "FAILED".equals(status) ? 3 : 1, error, Timestamp.valueOf(at),
                 "SENT".equals(status) ? Timestamp.valueOf(at.plusMinutes(1)) : null,
                 next == null ? null : Timestamp.valueOf(next));
@@ -72,8 +74,9 @@ class EmailLogIT extends ReleaseScenarioSupport {
                         "the mail server did not accept the address; tried 3 times, no more tries",
                         "Try 3 failed (the mail server could not be reached), next try at",
                         "The person is inactive or deleted")
-                // The text behind View while it is kept, a dash after the 30 days
-                .contains("Dear Anna, Control done.", "js-mail-view", "title=\"The text is kept 30 days\"")
+                // View while the text is kept (loaded when opened, not in the page), a dash after the 30 days
+                .contains("js-mail-view", "data-subject=\"Control completed\"", "title=\"The text is kept 30 days\"")
+                .doesNotContain("Dear Anna, Control done.")
                 .contains("href=\"/view-control/" + control.getId() + "\"")
                 // The English calendar of the app, not the browser's date field; no note under the table
                 .contains("data-date-picker", "/js/date-picker.js", "/js/time-ago.js", "data-now=\"", "data-time=\"").doesNotContain("type=\"date\"", "means the mail server");
@@ -121,6 +124,66 @@ class EmailLogIT extends ReleaseScenarioSupport {
         String second = body(call(session, get("/admin/emails").param("q", control.getControlId()).param("page", "2")));
         assertThat(countOf(second, "class=\"email-row\"")).isEqualTo(5);
         assertThat(second).contains("Showing 51-55 of 55");
+    }
+
+    @Test
+    void view_showsTheEmailAsSent_itsHtmlWithThePictures_andItsPlainText_toThoseWhoSeeThePage() throws Exception {
+        User soqm = soqm("el3-soqm");
+        User anna = myEdit("el3-anna");
+        Control control = control("HR-EL3", "COMPLETED", people().facilitator(anna).soqm(soqm));
+        LocalDateTime at = LocalDateTime.now().withNano(0);
+        String html = "<!DOCTYPE html><html><body><img src=\"cid:qtracker-logo\" alt=\"KPMG QTracker\">"
+                + "<!--[if mso]><img src=\"cid:qtracker-button\"><![endif]--><p>Dear Anna, &lt;b&gt;done&lt;/b&gt;.</p></body></html>";
+        jdbc.update("INSERT INTO email_outbox (control_id, template_key, recipient_user_id, recipient_email, subject, body_html,"
+                        + " body_text, importance, dedupe_key, status, attempts, provider, created_at, sent_at)"
+                        + " VALUES (?, 'T12', ?, ?, 'Control completed', ?, 'Dear Anna, <b>done</b>.', 'NORMAL', ?, 'SENT', 1,"
+                        + " 'smtp', ?, ?)",
+                control.getId(), anna.getId(), anna.getMail(), html, "el3-" + RUN, Timestamp.valueOf(at),
+                Timestamp.valueOf(at.plusMinutes(1)));
+        long id = jdbc.queryForObject("SELECT id FROM email_outbox WHERE dedupe_key = ?", Long.class, "el3-" + RUN);
+        MockHttpSession session = login(soqm);
+
+        assertThat(body(call(session, get("/admin/emails").param("q", control.getControlId()))))
+                .contains("data-id=\"" + id + "\"", "/admin/emails/' + encodeURIComponent(currentId) + '/html'");
+
+        // The HTML as sent, the pictures it carries put in, on a page that runs and loads nothing
+        MvcResult shown = call(session, get("/admin/emails/{id}/html", id));
+        assertThat(shown.getResponse().getStatus()).isEqualTo(200);
+        assertThat(shown.getResponse().getContentType()).startsWith("text/html");
+        assertThat(shown.getResponse().getHeader("Content-Security-Policy"))
+                .isEqualTo("default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-ancestors 'self';"
+                        + " base-uri 'none'; form-action 'none'");
+        assertThat(shown.getResponse().getHeader("Cache-Control")).isEqualTo("no-store");
+        String page = shown.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(page).contains("<p>Dear Anna, &lt;b&gt;done&lt;/b&gt;.</p>", "<!--[if mso]>")
+                .contains("src=\"data:image/png;base64,iVBOR").doesNotContain("cid:");
+        // The plain-text part, as text
+        MvcResult text = call(session, get("/admin/emails/{id}/text", id));
+        assertThat(text.getResponse().getContentType()).startsWith("text/plain");
+        assertThat(text.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8))
+                .isEqualTo("Dear Anna, <b>done</b>.");
+
+        // Only the plain text kept: shown as text in the frame
+        jdbc.update("UPDATE email_outbox SET body_html = '' WHERE id = ?", id);
+        assertThat(call(session, get("/admin/emails/{id}/html", id)).getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8))
+                .contains("<pre", "Dear Anna, &lt;b&gt;done&lt;/b&gt;.");
+        // Cleared after the 30 days, or no such e-mail: not found
+        jdbc.update("UPDATE email_outbox SET body_text = NULL WHERE id = ?", id);
+        assertThat(call(session, get("/admin/emails/{id}/html", id)).getResponse().getStatus()).isEqualTo(404);
+        assertThat(call(session, get("/admin/emails/{id}/text", id)).getResponse().getStatus()).isEqualTo(404);
+        assertThat(call(session, get("/admin/emails/{id}/html", 99_999_999L)).getResponse().getStatus()).isEqualTo(404);
+
+        // Nobody else: a User is refused, without a session it asks to sign in
+        jdbc.update("UPDATE email_outbox SET body_html = ?, body_text = 'x' WHERE id = ?", html, id);
+        for (User user : List.of(anna, myRead("el3-ro"), kdn("el3-kdn"))) {
+            assertThat(call(login(user), get("/admin/emails/{id}/html", id)).getResponse().getStatus()).as(user.getMail()).isEqualTo(403);
+            assertThat(call(login(user), get("/admin/emails/{id}/text", id)).getResponse().getStatus()).as(user.getMail()).isEqualTo(403);
+        }
+        assertThat(call(null, get("/admin/emails/{id}/html", id)).getResponse().getStatus()).isNotEqualTo(200);
+        // System Admin Team sees it
+        User admin = person("el3-sysadmin", AccessLevel.SOQM, AccessScope.ALL);
+        SystemAdmins.replace(List.of(admin.getMail()));
+        assertThat(call(login(admin), get("/admin/emails/{id}/html", id)).getResponse().getStatus()).isEqualTo(200);
     }
 
     private static int countOf(String text, String part) {
