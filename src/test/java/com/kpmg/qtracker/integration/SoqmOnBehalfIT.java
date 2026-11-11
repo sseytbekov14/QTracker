@@ -226,12 +226,13 @@ class SoqmOnBehalfIT {
         for (JsonNode entry : entries) {
             assertThat(entry.path("eventName").asText()).as("the audit entry of a move is not shown twice")
                     .isNotEqualTo("Edit Control");
-            if ("REVIEW".equals(entry.path("fromStep").asText())) {
+            // The steps by name, as the status badge writes them (2026-11-10), not the stored codes
+            if ("Review".equals(entry.path("fromStep").asText())) {
                 move = entry;
             }
         }
         assertThat(move).isNotNull();
-        assertThat(move.path("toStep").asText()).isEqualTo("IN_PROGRESS");
+        assertThat(move.path("toStep").asText()).isEqualTo("In Progress");
         assertThat(move.path("actorEmail").asText()).isEqualTo(soqmLead.getMail());
         assertThat(move.path("onBehalf").asBoolean()).isTrue();
         assertThat(move.path("actedAs").asText()).isEqualTo("Control Operator");
