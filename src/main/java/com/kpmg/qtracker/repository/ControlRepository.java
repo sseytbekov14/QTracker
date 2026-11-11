@@ -31,7 +31,20 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
     List<String> findControlIdsByPrefix(@Param("prefix") String prefix);
 
     default boolean isControlIdUnique(String controlId) {
-        return findByControlId(controlId).isEmpty();
+        return !controlIdTaken(controlId, null);
+    }
+
+    /**
+     * Another control already has this Control ID, in any case and without the spaces around it (2026-11-11: New
+     * Control and Rename ID took "hr-1" beside "HR-1", Create Control did not). exceptId: the control itself, which
+     * may change only the case of its own ID; null: any control.
+     */
+    default boolean controlIdTaken(String controlId, Long exceptId) {
+        if (controlId == null || controlId.isBlank()) {
+            return false;
+        }
+        return findByControlIdIgnoringCase(controlId).stream()
+                .anyMatch(control -> exceptId == null || !exceptId.equals(control.getId()));
     }
 
     List<Control> findByCreatedByMailOrderByCreatedAtDesc(String userEmail);

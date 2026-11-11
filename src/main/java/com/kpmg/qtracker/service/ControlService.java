@@ -143,8 +143,8 @@ public class ControlService implements IControlService {
 
     @Override
     public boolean isControlIdUnique(String controlId) {
-        Optional<Control> existingControl = controlRepository.findByControlId(controlId);
-        return existingControl.isEmpty();
+        // In any case, as New Control, Rename ID and Create Control check it (ControlRepository.controlIdTaken)
+        return !controlRepository.controlIdTaken(controlId, null);
     }
 
     @Override
@@ -444,7 +444,7 @@ public class ControlService implements IControlService {
             logger.info("Creating control with ID: {}", control.getControlId());
 
             // ★ ПРОВЕРКА НА ДУБЛИКАТ
-            if (controlRepository.existsByControlId(control.getControlId())) {
+            if (controlRepository.controlIdTaken(control.getControlId(), null)) {
                 throw duplicateControlId(control.getControlId());
             }
 
@@ -462,7 +462,7 @@ public class ControlService implements IControlService {
             } catch (DataIntegrityViolationException e) {
                 // Another request saved the same Control ID between the check above and this insert (the unique
                 // key of control_id): the same refusal as the check, 409 DUPLICATE_ID, not a database error
-                if (control.getControlId() != null && controlRepository.existsByControlId(control.getControlId())) {
+                if (control.getControlId() != null && controlRepository.controlIdTaken(control.getControlId(), null)) {
                     logger.warn("Control ID {} was taken by another request at the same moment", control.getControlId());
                     throw duplicateControlId(control.getControlId());
                 }

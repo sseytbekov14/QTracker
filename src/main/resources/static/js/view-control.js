@@ -1576,7 +1576,8 @@ function saveControlData(controlId) {
     }
 
     function checkControlIdUnique(newControlId, currentControlId) {
-        if (newControlId === currentControlId) {
+        // Its own ID, also only in another case (the server takes an ID in any case as taken, not by itself)
+        if (String(newControlId || '').trim().toLowerCase() === String(currentControlId || '').trim().toLowerCase()) {
             return Promise.resolve(true);
         }
 

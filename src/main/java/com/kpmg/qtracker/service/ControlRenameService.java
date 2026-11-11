@@ -109,7 +109,7 @@ public class ControlRenameService {
         if (newId.equals(oldId)) {
             return control;
         }
-        if (controlRepository.existsByControlId(newId)) {
+        if (controlRepository.controlIdTaken(newId, control.getId())) {
             throw new IllegalArgumentException("Control ID '" + newId + "' already exists. Please choose a different ID.");
         }
         String note = comment == null ? "" : comment.trim();

@@ -51,7 +51,7 @@ class ControlServiceDuplicateIdTest {
 
     @Test
     void theIdTakenAtTheSameMoment_isTheDuplicateRefusal() {
-        when(controlRepository.existsByControlId(ID)).thenReturn(false, true);
+        when(controlRepository.controlIdTaken(ID, null)).thenReturn(false, true);
         when(controlRepository.save(any(Control.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate key value violates unique constraint"));
 
@@ -62,7 +62,7 @@ class ControlServiceDuplicateIdTest {
 
     @Test
     void anotherIntegrityFailure_isNotCalledADuplicate() {
-        when(controlRepository.existsByControlId(ID)).thenReturn(false, false);
+        when(controlRepository.controlIdTaken(ID, null)).thenReturn(false, false);
         when(controlRepository.save(any(Control.class)))
                 .thenThrow(new DataIntegrityViolationException("value too long for type character varying(255)"));
 

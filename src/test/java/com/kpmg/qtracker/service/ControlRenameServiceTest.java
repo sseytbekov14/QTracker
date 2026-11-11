@@ -207,7 +207,7 @@ class ControlRenameServiceTest {
     @Test
     void sameIdOrIdInUse() {
         assertThat(service.rename(5L, " KDN-5 ", null, soqm)).isSameAs(control);
-        when(controlRepository.existsByControlId("KDN-6")).thenReturn(true);
+        when(controlRepository.controlIdTaken("KDN-6", 5L)).thenReturn(true);
         assertThatThrownBy(() -> service.rename(5L, "KDN-6", null, soqm))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("already exists");
         assertThatThrownBy(() -> service.rename(5L, " ", null, soqm))
