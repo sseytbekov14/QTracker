@@ -566,9 +566,6 @@
                     <li class="nav-item">
                         <a class="nav-link" data-bs-toggle="tab" href="#assignment-tab">Assignment</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="tab" href="#documents-tab">Documents</a>
-                    </li>
                 </ul>
 
                 <div class="tab-content" id="controlTabsContent">
@@ -1125,50 +1122,19 @@
                         </form>
                     </div>
 
-                    <div class="tab-pane fade" id="documents-tab">
-                        <form id="documentsForm">
-                            <input type="hidden" name="controlId" th:value="${control.id}">
-
-                            <div class="form-section">
-                                <h5 class="mb-3">Documents</h5>
-
-                                <div class="row">
-                                    <div class="col-12 mb-3">
-                                        <label class="form-label">Attachment (Documents)</label>
-                                        <div class="kpmg-upload-zone" id="documentsUploadZone">
-                                            <div class="kpmg-upload-inner">
-                                                <div class="kpmg-upload-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00338D" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                                                        <polyline points="16 16 12 12 8 16"></polyline>
-                                                        <line x1="12" y1="12" x2="12" y2="21"></line>
-                                                        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
-                                                    </svg>
-                                                </div>
-                                                <span class="kpmg-upload-text">Drop files here or click to browse</span>
-                                                <span class="kpmg-upload-hint">Up to 50 files at once</span>
-                                                <span class="kpmg-upload-types">PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG</span>
-                                                <input type="file" class="kpmg-upload-input" name="attachment" id="attachmentDocumentsInput" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg">
-                                            </div>
-                                            <div class="kpmg-upload-progress"><div class="kpmg-upload-progress-bar" id="documentsProgressBar"></div></div>
-                                        </div>
-                                        <div id="documentsFileInfo"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
                 </div>
 
                 <script>
                     // One tab at a time; the active tab is kept in the URL hash (#control, #details,
-                    // #assignment, #documents). replaceState, so Back leaves the page instead of cycling tabs.
+                    // #assignment; an old #documents link opens Details, where its files are since V30). replaceState, so Back leaves the page instead of cycling tabs.
                     (function () {
-                        var TABS = ['control', 'details', 'assignment', 'documents'];
+                        var TABS = ['control', 'details', 'assignment'];
                         var nav = document.getElementById('controlTabs');
                         if (!nav) return;
 
                         function tabName(value) {
                             var name = String(value || '').replace(/^#/, '').replace(/-tab$/, '');
+                            if (name === 'documents') name = 'details';
                             return TABS.indexOf(name) >= 0 ? name : null;
                         }
 
@@ -1885,7 +1851,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=4"></script>
 <script src="/js/multi-value.js?v=3"></script>
-<script src="/js/view-control.js?v=8.14"></script>
+<script src="/js/view-control.js?v=8.15"></script>
 <script src="/js/control-description.js?v=1"></script>
 <script src="/js/create-control.js?v=5"></script>
 <script src="/js/workflow-move.js?v=2"></script>
@@ -2270,13 +2236,9 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => {
                 console.log('?? Enabling file upload zones in edit mode');
                 const dz = document.getElementById('detailsUploadZone');
-                const docz = document.getElementById('documentsUploadZone');
                 const di = document.getElementById('attachmentDetailsInput');
-                const doi = document.getElementById('attachmentDocumentsInput');
                 if (dz) dz.removeAttribute('data-disabled');
-                if (docz) docz.removeAttribute('data-disabled');
                 if (di) { di.disabled = false; di.removeAttribute('disabled'); }
-                if (doi) { doi.disabled = false; doi.removeAttribute('disabled'); }
             }, 200);
         });
     }
@@ -2333,7 +2295,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const MAX_REQUEST_SIZE_MB = 100;
 
     // Names already uploaded per tab (lower-cased stored names), filled by loadExistingAttachments()
-    const existingNames = { details: new Set(), documents: new Set() };
+    const existingNames = { details: new Set() };
 
     // Same rule as FileStorageService.toStoredFilename(): the name the server will store the file under
     function toStoredFilename(name) {
@@ -2446,22 +2408,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const detailsInput    = document.getElementById('attachmentDetailsInput');
-    const documentsInput  = document.getElementById('attachmentDocumentsInput');
     const detailsFileInfo = document.getElementById('detailsFileInfo');
-    const documentsFileInfo = document.getElementById('documentsFileInfo');
     const detailsZone     = document.getElementById('detailsUploadZone');
-    const documentsZone   = document.getElementById('documentsUploadZone');
     const detailsBar      = document.getElementById('detailsProgressBar');
-    const documentsBar    = document.getElementById('documentsProgressBar');
 
     // Start disabled
     if (detailsZone)   detailsZone.setAttribute('data-disabled', 'true');
     if (detailsInput)  detailsInput.disabled = true;
-    if (documentsZone) documentsZone.setAttribute('data-disabled', 'true');
-    if (documentsInput) documentsInput.disabled = true;
 
     // Drag & drop visual feedback
-    [detailsZone, documentsZone].forEach(zone => {
+    [detailsZone].forEach(zone => {
         if (!zone) return;
         zone.addEventListener('dragover', e => { e.preventDefault(); if (zone.getAttribute('data-disabled') !== 'true') zone.classList.add('drag-over'); });
         zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
@@ -2473,7 +2429,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Accumulate files
     const detailsDT   = new DataTransfer();
-    const documentsDT = new DataTransfer();
 
     function handleFileChange(input, dt, zone, barEl, fileInfoEl, label) {
         if (!input) return;
@@ -2516,7 +2471,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     handleFileChange(detailsInput,   detailsDT,   detailsZone,   detailsBar,   detailsFileInfo,   'details');
-    handleFileChange(documentsInput, documentsDT, documentsZone, documentsBar, documentsFileInfo, 'documents');
 
     // Flag to prevent multiple uploads
     let filesAlreadyUploaded = false;
@@ -2529,17 +2483,13 @@ document.addEventListener('DOMContentLoaded', function() {
             Array.from(detailsInput.files).forEach(f => formData.append('attachmentDetails', f));
             hasFiles = true;
         }
-        if (documentsInput && documentsInput.files.length > 0) {
-            Array.from(documentsInput.files).forEach(f => formData.append('attachmentDocuments', f));
-            hasFiles = true;
-        }
         if (!hasFiles) return Promise.resolve();
         // A completed control changed in place: the reason given at Save (CompletedEdit)
         if (window.qtrackerCompletedEditReason) {
             formData.append('editReason', window.qtrackerCompletedEditReason);
         }
 
-        const totalBytes = [...(detailsInput?.files || []), ...(documentsInput?.files || [])]
+        const totalBytes = [...(detailsInput?.files || [])]
             .reduce((sum, f) => sum + f.size, 0);
         if (totalBytes > MAX_REQUEST_SIZE_MB * 1024 * 1024) {
             showToast(`Total size of selected files is ${formatSize(totalBytes)}. Maximum per upload is ${MAX_REQUEST_SIZE_MB} MB.`, 'error', 6000);
@@ -2548,9 +2498,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         filesAlreadyUploaded = true;
         showProgress(detailsZone, detailsBar);
-        showProgress(documentsZone, documentsBar);
         animateProgress(detailsBar,   80, 1500);
-        animateProgress(documentsBar, 80, 1500);
 
         try {
             const response = await fetch('/api/attachments/upload/' + controlId, { method: 'POST', body: formData });
@@ -2562,13 +2510,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 data = { success: false, message: response.status === 413 ? 'File is too large.' : 'Unexpected server response (' + response.status + ').' };
             }
             hideProgress(detailsZone, detailsBar);
-            hideProgress(documentsZone, documentsBar);
             if (response.ok && data.success) {
                 showToast('Files uploaded successfully!', 'success');
                 detailsDT.items.clear();
-                documentsDT.items.clear();
                 if (detailsInput) detailsInput.value = '';
-                if (documentsInput) documentsInput.value = '';
                 filesAlreadyUploaded = false;
                 loadExistingAttachments();
             } else {
@@ -2579,7 +2524,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return data;
         } catch (error) {
             hideProgress(detailsZone, detailsBar);
-            hideProgress(documentsZone, documentsBar);
             showToast('Upload error: ' + escapeHtml(error.message), 'error');
             filesAlreadyUploaded = false;
             return { success: false, error: error.message };
@@ -2592,17 +2536,12 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 const toNameSet = list => new Set((list || '').split(';').map(f => f.trim().toLowerCase()).filter(Boolean));
                 existingNames.details = toNameSet(data.attachmentDetailsPath);
-                existingNames.documents = toNameSet(data.attachmentDocumentsPath);
 
                 if (data.attachmentDetailsPath && detailsFileInfo) {
                     const files = data.attachmentDetailsPath.split(';').filter(f => f.trim());
                     renderFileCards(detailsFileInfo, files, controlId, 'details', new Set(data.deletableDetails || []));
                 } else if (detailsFileInfo) { detailsFileInfo.innerHTML = ''; }
 
-                if (data.attachmentDocumentsPath && documentsFileInfo) {
-                    const files = data.attachmentDocumentsPath.split(';').filter(f => f.trim());
-                    renderFileCards(documentsFileInfo, files, controlId, 'documents', new Set(data.deletableDocuments || []));
-                } else if (documentsFileInfo) { documentsFileInfo.innerHTML = ''; }
             })
             .catch(err => console.warn('Could not load attachments:', err));
     }

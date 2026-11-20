@@ -68,6 +68,15 @@ class DocumentsIntoDetailsIT extends ReleaseScenarioSupport {
                 String.valueOf(control.getId())));
         assertThat(download.getResponse().getStatus()).isEqualTo(200);
         assertThat(download.getResponse().getContentAsString(StandardCharsets.UTF_8)).isEqualTo("%PDF-1.4 operator");
+
+        // Deleted from Attachment: gone, though the old Documents list (kept by V30) still names it
+        assertThat(status(session, org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .delete("/api/attachments/delete/{id}", control.getId()).param("filename", stored))).isEqualTo(200);
+        assertThat(jdbc.queryForObject("SELECT attachment_documents_path FROM controls WHERE id = ?", String.class,
+                control.getId())).isEqualTo(stored);
+        assertThat(call(session, get("/api/attachments/download/{name}", stored).param("controlId",
+                String.valueOf(control.getId()))).getResponse().getStatus()).isEqualTo(404);
+        assertThat(java.nio.file.Files.exists(java.nio.file.Path.of("target", "it-uploads", folder, stored))).isFalse();
     }
 
     private static String[] names(String list) {

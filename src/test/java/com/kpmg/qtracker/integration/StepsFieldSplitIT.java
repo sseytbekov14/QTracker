@@ -373,7 +373,7 @@ class StepsFieldSplitIT {
     // ------------------------------------------------------------------ attachments
 
     @Test
-    void controlOperatorInReview_attachesDocuments_onBothTabs_andDeletesTheirOwn_onlyOnTheirStep() throws Exception {
+    void controlOperatorInReview_attachesFiles_alsoThroughTheOldDocumentsField_andDeletesTheirOwn_onlyOnTheirStep() throws Exception {
         Control control = control("IN_PROGRESS", fac.getMail(), op.getMail() + ";" + readOnly.getMail(), "Steps", null);
         MockHttpSession opSession = login(op);
 
@@ -386,10 +386,12 @@ class StepsFieldSplitIT {
         String detailsFile = objectMapper.readTree(details.getResponse().getContentAsString()).path("detailsFiles").asText();
         MvcResult documents = upload(control, opSession, "attachmentDocuments", "operator-sample.pdf");
         assertThat(documents.getResponse().getStatus()).isEqualTo(200);
-        String documentsFile = objectMapper.readTree(documents.getResponse().getContentAsString()).path("documentsFiles").asText();
+        String documentsFile = objectMapper.readTree(documents.getResponse().getContentAsString()).path("detailsFiles").asText();
         Control stored = controlRepository.findById(control.getId()).orElseThrow();
         assertThat(stored.getAttachmentDetailsPath()).contains(detailsFile);
-        assertThat(stored.getAttachmentDocumentsPath()).contains(documentsFile);
+        // The Documents tab is gone (V30): the old field lands in Attachment
+        assertThat(stored.getAttachmentDetailsPath()).contains(documentsFile);
+        assertThat(stored.getAttachmentDocumentsPath()).isNull();
 
         // Their own files are theirs to delete while the step is theirs; everyone who sees the control downloads them
         JsonNode info = json(get("/api/attachments/info/{id}", control.getId()), opSession);

@@ -39,7 +39,7 @@ class CompletedControlExcelTest {
             "Facilitator", "Control Operator", "SoQM Admin Team", "Process Owner", "Control Shared With",
             "Control Operation Date", "Control Operation Deadline", "Next Control Operation Date",
             "# Control record",
-            "Performance Status", "Created By", "Created", "Updated At", "Attachment (Documents)");
+            "Performance Status", "Created By", "Created", "Updated At");
 
     @Test
     void everyFieldOfTheThreeTabs_inThePagesOrder_anEmptyOneToo() {
@@ -105,7 +105,7 @@ class CompletedControlExcelTest {
                 .containsEntry("Next Control Operation Date", "")
                 .containsEntry("Performance Status", "Completed")
                 .containsEntry("Created", "01.10.2026 09:05")
-                .containsEntry("Attachment (Documents)", "doc.xlsx");
+                .doesNotContainKey("Attachment (Documents)");
     }
 
     @Test

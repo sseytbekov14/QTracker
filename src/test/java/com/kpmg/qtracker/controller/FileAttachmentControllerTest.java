@@ -94,11 +94,11 @@ class FileAttachmentControllerTest {
     }
 
     @Test
-    void uploadDocuments_overLimit_returnsBadRequest() throws Exception {
+    void uploadThroughTheOldDocumentsField_countsAgainstTheAttachmentLimit() throws Exception {
         Control control = new Control();
         control.setId(2L);
         control.setControlId("HR12");
-        control.setAttachmentDocumentsPath(buildList(50));
+        control.setAttachmentDetailsPath(buildList(50));
         when(controlService.getControlById(2L)).thenReturn(Optional.of(control));
 
         User user = new User();
@@ -119,7 +119,7 @@ class FileAttachmentControllerTest {
         mockMvc.perform(multipart("/api/attachments/upload/2").file(file)
                         .sessionAttr("currentUser", user))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Maximum 50 files allowed for Documents attachments."));
+                .andExpect(jsonPath("$.message").value("Maximum 50 files allowed for Details attachments."));
     }
 
     @Test
@@ -180,9 +180,9 @@ class FileAttachmentControllerTest {
         user.setDisplayName("Test User");
         when(controlPermissionService.resolve(any(Control.class), any(User.class)))
                 .thenReturn(new ControlPermission(true, true, java.util.Set.of(), true, true, false, false, false, false, false));
-        when(controlAttachmentService.canDelete(any(Control.class), eq("DETAILS"), eq("old.txt"), any(User.class), any()))
+        when(controlAttachmentService.canDelete(any(Control.class), eq("old.txt"), any(User.class), any()))
                 .thenReturn(true);
-        when(controlAttachmentService.removeFromControl(any(Control.class), eq("DETAILS"), eq("old.txt"))).thenReturn(true);
+        when(controlAttachmentService.removeFromControl(any(Control.class), eq("old.txt"))).thenReturn(true);
 
         mockMvc.perform(delete("/api/attachments/delete/4")
                         .param("filename", "old.txt")
@@ -274,8 +274,8 @@ class FileAttachmentControllerTest {
         ControlPermission completedEdit = new ControlPermission(true, true, java.util.Set.of(), true, true,
                 false, false, false, true, false, false, true);
         when(controlPermissionService.resolve(any(Control.class), any(User.class))).thenReturn(completedEdit);
-        when(controlAttachmentService.canDelete(any(), anyString(), anyString(), any(), eq(completedEdit))).thenReturn(true);
-        when(controlAttachmentService.removeFromControl(any(), anyString(), anyString())).thenReturn(true);
+        when(controlAttachmentService.canDelete(any(), anyString(), any(), eq(completedEdit))).thenReturn(true);
+        when(controlAttachmentService.removeFromControl(any(), anyString())).thenReturn(true);
         User user = new User();
         user.setAccessLevel(AccessLevel.SOQM);
         user.setMail("soqm@test.com");
@@ -291,7 +291,7 @@ class FileAttachmentControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Give a reason for changing a completed control"));
         verify(fileStorageService, never()).saveFile(any(), any());
-        verify(controlAttachmentService, never()).removeFromControl(any(), anyString(), anyString());
+        verify(controlAttachmentService, never()).removeFromControl(any(), anyString());
 
         mockMvc.perform(multipart("/api/attachments/upload/20").file(file).param("editReason", "Evidence was missing")
                         .sessionAttr("currentUser", user))

@@ -66,8 +66,10 @@ public class FileAttachmentController {
     private long maxFileSizeMb;
 
     /**
-     * Upload files for a control
+     * Upload files to a control's Attachment (Details)
      * POST /api/attachments/upload/{controlId}
+     * The Documents tab is gone (V30, 2026-11-20): files a page opened before still sends as attachmentDocuments are
+     * added to Attachment too, not dropped.
      */
     @PostMapping("/upload/{controlId}")
     public ResponseEntity<Map<String, Object>> uploadFiles(
@@ -97,8 +99,8 @@ public class FileAttachmentController {
                 response.put("message", permission.editRefusal("You do not have permission to attach files to this control"));
                 return ResponseEntity.status(403).body(response);
             }
-            Optional<String> reasonRefusal = CompletedEdit.refusal(permission,
-                    countIncomingFiles(detailsFiles) + countIncomingFiles(documentsFiles) > 0, editReason);
+            MultipartFile[] files = join(detailsFiles, documentsFiles);
+            Optional<String> reasonRefusal = CompletedEdit.refusal(permission, countIncomingFiles(files) > 0, editReason);
             if (reasonRefusal.isPresent()) {
                 response.put("success", false);
                 response.put("message", reasonRefusal.get());
@@ -110,8 +112,7 @@ public class FileAttachmentController {
 
             // Validate everything before writing any file to disk
             List<String> errors = new ArrayList<>();
-            errors.addAll(validateIncomingFiles(detailsFiles, control.getAttachmentDetailsPath(), "Details"));
-            errors.addAll(validateIncomingFiles(documentsFiles, control.getAttachmentDocumentsPath(), "Documents"));
+            errors.addAll(validateIncomingFiles(files, control.getAttachmentDetailsPath(), "Details"));
             if (!errors.isEmpty()) {
                 response.put("success", false);
                 response.put("message", String.join(" ", errors));
@@ -119,28 +120,21 @@ public class FileAttachmentController {
                 return ResponseEntity.badRequest().body(response);
             }
 
-            List<String> addedDetails = new ArrayList<>();
-            List<String> addedDocuments = new ArrayList<>();
+            List<String> added = new ArrayList<>();
             try {
-                if (detailsFiles != null && detailsFiles.length > 0) {
-                    saveFiles(detailsFiles, controlFolder, addedDetails);
-                    response.put("detailsFiles", String.join(";", addedDetails));
-                }
-                if (documentsFiles != null && documentsFiles.length > 0) {
-                    saveFiles(documentsFiles, controlFolder, addedDocuments);
-                    response.put("documentsFiles", String.join(";", addedDocuments));
+                if (files.length > 0) {
+                    saveFiles(files, controlFolder, added);
+                    response.put("detailsFiles", String.join(";", added));
                 }
 
-                // File lists and upload records (author, stage) in one transaction
-                controlAttachmentService.recordUpload(control, addedDetails, addedDocuments, currentUser);
+                // File list and upload records (author, stage) in one transaction
+                controlAttachmentService.recordUpload(control, added, currentUser);
             } catch (Exception e) {
                 // Don't leave orphaned files on disk when the upload fails midway
-                deleteQuietly(addedDetails, controlFolder);
-                deleteQuietly(addedDocuments, controlFolder);
+                deleteQuietly(added, controlFolder);
                 throw e;
             }
-            logAttachmentAdds(currentUser, control, "DETAILS", addedDetails, completedEditReason);
-            logAttachmentAdds(currentUser, control, "DOCUMENTS", addedDocuments, completedEditReason);
+            logAttachmentAdds(currentUser, control, "DETAILS", added, completedEditReason);
             
             response.put("success", true);
             response.put("message", "Files uploaded successfully");
@@ -153,6 +147,17 @@ public class FileAttachmentController {
             response.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
+    }
+
+    /** The files of both form fields, the old Documents one after Attachment's. */
+    private static MultipartFile[] join(MultipartFile[] first, MultipartFile[] second) {
+        List<MultipartFile> all = new ArrayList<>();
+        for (MultipartFile[] part : new MultipartFile[][] {first, second}) {
+            if (part != null) {
+                all.addAll(java.util.Arrays.asList(part));
+            }
+        }
+        return all.toArray(new MultipartFile[0]);
     }
 
     /**
@@ -300,14 +305,11 @@ public class FileAttachmentController {
             Map<String, Object> info = new HashMap<>();
             info.put("controlId", controlId);
             info.put("attachmentDetailsPath", control.getAttachmentDetailsPath());
-            info.put("attachmentDocumentsPath", control.getAttachmentDocumentsPath());
 
             // Lets the page show the delete button only where the delete endpoint would allow it
             ControlPermission permission = controlPermissionService.resolve(control, currentUser);
-            info.put("deletableDetails", deletableFiles(control, ControlAttachment.TAB_DETAILS,
-                    control.getAttachmentDetailsPath(), currentUser, permission));
-            info.put("deletableDocuments", deletableFiles(control, ControlAttachment.TAB_DOCUMENTS,
-                    control.getAttachmentDocumentsPath(), currentUser, permission));
+            info.put("deletableDetails", deletableFiles(control, control.getAttachmentDetailsPath(), currentUser,
+                    permission));
             
             return ResponseEntity.ok(info);
             
@@ -317,14 +319,15 @@ public class FileAttachmentController {
     }
 
     /**
-     * Delete a single file from a control's attachment list
+     * Delete a single file from a control's Attachment list
      * DELETE /api/attachments/delete/{controlId}
+     * type: no longer read (only Attachment in Details since V30), kept for pages opened before.
      */
     @DeleteMapping("/delete/{controlId}")
     public ResponseEntity<Map<String, Object>> deleteFile(
             @PathVariable Long controlId,
             @RequestParam("filename") String filename,
-            @RequestParam("type") String type,
+            @RequestParam(value = "type", required = false) String type,
             @RequestParam(value = "editReason", required = false) String editReason,
             HttpSession session) {
 
@@ -340,9 +343,9 @@ public class FileAttachmentController {
                 return ResponseEntity.status(401).body(response);
             }
             
-            String tabLabel = "details".equalsIgnoreCase(type) ? ControlAttachment.TAB_DETAILS : ControlAttachment.TAB_DOCUMENTS;
+            String tabLabel = ControlAttachment.TAB_DETAILS;
             ControlPermission permission = controlPermissionService.resolve(control, currentUser);
-            if (!controlAttachmentService.canDelete(control, tabLabel, decodedFilename.trim(), currentUser, permission)) {
+            if (!controlAttachmentService.canDelete(control, decodedFilename.trim(), currentUser, permission)) {
                 response.put("success", false);
                 response.put("message", permission.editRefusal(
                         "Only the user who uploaded this file (in the same workflow stage) or SoQM Admin Team can delete it"));
@@ -355,26 +358,20 @@ public class FileAttachmentController {
                 return ResponseEntity.badRequest().body(response);
             }
 
-            String currentPath = ControlAttachment.TAB_DETAILS.equals(tabLabel)
-                    ? control.getAttachmentDetailsPath()
-                    : control.getAttachmentDocumentsPath();
+            String currentPath = control.getAttachmentDetailsPath();
             if (currentPath == null || currentPath.isBlank()) {
                 response.put("success", false);
                 response.put("message", "No files to delete");
                 return ResponseEntity.badRequest().body(response);
             }
 
-            boolean removed = controlAttachmentService.removeFromControl(control, tabLabel, decodedFilename);
+            boolean removed = controlAttachmentService.removeFromControl(control, decodedFilename);
 
             // A completed control changed in place only hides the file (AccessPolicy.editsAfterCompletion): off the
             // list and its upload record, so nobody sees or downloads it, but kept on disk (a later upload of the
             // same name gets another name, FileStorageService.saveFile)
             boolean hideOnly = permission.isCompletedEdit();
-            // Both tabs share the control folder; keep the file on disk while the other tab still lists it
-            String otherPath = ControlAttachment.TAB_DETAILS.equals(tabLabel)
-                    ? control.getAttachmentDocumentsPath()
-                    : control.getAttachmentDetailsPath();
-            if (removed && !hideOnly && !ControlAttachmentService.isListed(otherPath, decodedFilename.trim())) {
+            if (removed && !hideOnly) {
                 try {
                     fileStorageService.deleteFile(decodedFilename, controlRenameService.attachmentFolders(control));
                 } catch (Exception e) {
@@ -397,8 +394,7 @@ public class FileAttachmentController {
         }
     }
 
-    private List<String> deletableFiles(Control control, String tab, String storedList,
-                                        User user, ControlPermission permission) {
+    private List<String> deletableFiles(Control control, String storedList, User user, ControlPermission permission) {
         List<String> deletable = new ArrayList<>();
         if (user == null || storedList == null || storedList.isBlank()) {
             return deletable;
@@ -406,7 +402,7 @@ public class FileAttachmentController {
         for (String part : storedList.split(";")) {
             String name = part.trim();
             if (!name.isEmpty() && !deletable.contains(name)
-                    && controlAttachmentService.canDelete(control, tab, name, user, permission)) {
+                    && controlAttachmentService.canDelete(control, name, user, permission)) {
                 deletable.add(name);
             }
         }

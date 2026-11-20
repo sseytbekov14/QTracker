@@ -106,7 +106,6 @@ public final class CompletedControlExcel {
         add(lines, RECORD, "Created By", control.creatorName());
         add(lines, RECORD, "Created", dateTime(control.getCreatedAt()));
         add(lines, RECORD, "Updated At", dateTime(control.getUpdatedAt()));
-        add(lines, RECORD, "Attachment (Documents)", fileNames(control.getAttachmentDocumentsPath()));
         return lines;
     }
 

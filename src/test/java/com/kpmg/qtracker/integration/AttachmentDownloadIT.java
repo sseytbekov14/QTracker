@@ -256,7 +256,8 @@ class AttachmentDownloadIT {
         control.setPerformanceStatus("IN_PROGRESS");
         control.setCreatedBy(soqm);
         control.setCreatedAt(LocalDateTime.now());
-        control.setAttachmentDetailsPath(details);
+        // As after V30: the files of the old Documents tab are on the Attachment (Details) list too
+        control.setAttachmentDetailsPath(documents == null ? details : (details == null ? documents : details + ";" + documents));
         control.setAttachmentDocumentsPath(documents);
         control = controlRepository.save(control);
         controls.add(control);

@@ -820,7 +820,9 @@ class ApiSecurityMockMvcIT {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         assertThat(page).doesNotContain("Development Materials").doesNotContain("soqmDevelopmentMaterials")
-                .contains("id=\"documentsUploadZone\"").contains("id=\"attachmentDocumentsInput\"");
+                .contains("id=\"detailsUploadZone\"").contains("id=\"attachmentDetailsInput\"")
+                // The Documents tab is gone (V30); its old upload field still lands in Attachment
+                .doesNotContain("id=\"documentsUploadZone\"").doesNotContain("href=\"#documents-tab\"");
 
         mockMvc.perform(multipart("/api/attachments/upload/{id}", control.getId())
                         .file(new MockMultipartFile("attachmentDocuments", "plan.pdf", "application/pdf",
@@ -828,7 +830,7 @@ class ApiSecurityMockMvcIT {
                         .with(csrf().asHeader())
                         .session(session))
                 .andExpect(status().isOk());
-        assertThat(controlRepository.findById(control.getId()).orElseThrow().getAttachmentDocumentsPath()).contains("plan");
+        assertThat(controlRepository.findById(control.getId()).orElseThrow().getAttachmentDetailsPath()).contains("plan");
     }
 
     @Test
@@ -1150,7 +1152,7 @@ class ApiSecurityMockMvcIT {
         mockMvc.perform(get("/api/attachments/info/{id}", control.getId()).session(facilitator))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deletableDetails[0]").value(stored))
-                .andExpect(jsonPath("$.deletableDocuments").isEmpty());
+                .andExpect(jsonPath("$.deletableDocuments").doesNotExist());
 
         moveTo(control, "REVIEW");
 
@@ -1476,7 +1478,7 @@ class ApiSecurityMockMvcIT {
         java.nio.file.Path root = java.nio.file.Files.createDirectories(java.nio.file.Path.of("target", "it-uploads"));
         java.nio.file.Files.writeString(root.resolve(oldFile), "old file");
         Control stored = controlRepository.findById(mine.getId()).orElseThrow();
-        stored.setAttachmentDocumentsPath(oldFile);
+        stored.setAttachmentDetailsPath(oldFile);
         controlRepository.save(stored);
 
         download(mine.getId(), oldFile, facilitator)

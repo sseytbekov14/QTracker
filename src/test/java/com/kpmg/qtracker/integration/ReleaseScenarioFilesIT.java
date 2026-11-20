@@ -62,10 +62,10 @@ class ReleaseScenarioFilesIT extends ReleaseScenarioSupport {
         MvcResult fiftyFirst = upload(s.facSession, s.control, file("part-51.pdf", 10));
         assertThat(fiftyFirst.getResponse().getStatus()).isEqualTo(400);
         assertThat(body(fiftyFirst)).contains("Maximum 50 files");
-        // The Documents tab counts on its own
+        // The old Documents field is the same list since V30: refused too
         assertThat(call(s.facSession, multipart("/api/attachments/upload/{id}", s.control.getId())
                 .file(new MockMultipartFile("attachmentDocuments", "doc-tab.pdf", "application/pdf", bytes(10))))
-                .getResponse().getStatus()).isEqualTo(200);
+                .getResponse().getStatus()).isEqualTo(400);
     }
 
     @Test

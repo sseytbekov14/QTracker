@@ -15,8 +15,10 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Keeps the attachment lists on the control and their upload records (author, stage) in step,
- * and decides who may delete a file.
+ * Keeps the attachment list on the control and its upload records (author, stage) in step, and decides who may delete
+ * a file. Since V30 (2026-11-20) a control has one list, Attachment in Details: the Documents tab is gone, its files
+ * were copied into Details; attachment_documents_path and the DOCUMENTS records are kept as they were and no longer
+ * read for showing, downloading or deleting.
  */
 @Service
 @RequiredArgsConstructor
@@ -27,22 +29,18 @@ public class ControlAttachmentService {
     /** The file lists live on the control row: one change of them at a time (two uploads at once kept one) */
     private final ControlRowLock controlRowLock;
 
-    /** Appends uploaded file names to the control and records who uploaded them in which stage. */
+    /** Appends uploaded file names to the control's Attachment list and records who uploaded them in which stage. */
     @Transactional
-    public Control recordUpload(Control control, List<String> detailsFiles, List<String> documentsFiles, User uploader) {
+    public Control recordUpload(Control control, List<String> files, User uploader) {
         control = controlRowLock.lockedFresh(control);
-        if (!detailsFiles.isEmpty()) {
-            control.setAttachmentDetailsPath(appendToList(control.getAttachmentDetailsPath(), detailsFiles));
-        }
-        if (!documentsFiles.isEmpty()) {
-            control.setAttachmentDocumentsPath(appendToList(control.getAttachmentDocumentsPath(), documentsFiles));
+        if (!files.isEmpty()) {
+            control.setAttachmentDetailsPath(appendToList(control.getAttachmentDetailsPath(), files));
         }
         Control saved = controlService.updateControl(control);
 
         String stage = normalizeStatus(control.getPerformanceStatus());
         LocalDateTime now = LocalDateTime.now(Notification.ZONE);
-        saveRecords(control.getId(), ControlAttachment.TAB_DETAILS, detailsFiles, uploader, stage, now);
-        saveRecords(control.getId(), ControlAttachment.TAB_DOCUMENTS, documentsFiles, uploader, stage, now);
+        saveRecords(control.getId(), ControlAttachment.TAB_DETAILS, files, uploader, stage, now);
         return saved;
     }
 
@@ -51,7 +49,7 @@ public class ControlAttachmentService {
      * control is still in the stage it was uploaded in and they can edit it; files without an upload
      * record, author or stage (attached before V5) are left to SoQM Team.
      */
-    public boolean canDelete(Control control, String tab, String fileName, User user, ControlPermission permission) {
+    public boolean canDelete(Control control, String fileName, User user, ControlPermission permission) {
         if (permission == null || !permission.canView()) {
             return false;
         }
@@ -61,7 +59,8 @@ public class ControlAttachmentService {
         if (!permission.canEdit() || user == null || user.getMail() == null) {
             return false;
         }
-        Optional<ControlAttachment> record = attachmentRepository.findByControlIdAndTabAndFileName(control.getId(), tab, fileName);
+        Optional<ControlAttachment> record = attachmentRepository.findByControlIdAndTabAndFileName(control.getId(),
+                ControlAttachment.TAB_DETAILS, fileName);
         return record
                 .filter(r -> r.getUploadedByEmail() != null
                         && r.getUploadedByEmail().trim().equalsIgnoreCase(user.getMail().trim()))
@@ -70,15 +69,19 @@ public class ControlAttachmentService {
                 .isPresent();
     }
 
-    /** Whether the file belongs to the control: on one of its two attachment lists or in its upload records. */
+    /**
+     * Whether the file belongs to the control: on its Attachment list or in its Attachment upload records. A name only
+     * on the old Documents list (kept since V30, all copied into Details) is not: a file deleted from Details stays
+     * deleted.
+     */
     public boolean isAttached(Control control, String fileName) {
         if (control == null || fileName == null || fileName.isBlank()) {
             return false;
         }
         String name = fileName.trim();
         return isListed(control.getAttachmentDetailsPath(), name)
-                || isListed(control.getAttachmentDocumentsPath(), name)
-                || (control.getId() != null && attachmentRepository.existsByControlIdAndFileName(control.getId(), name));
+                || (control.getId() != null && attachmentRepository.existsByControlIdAndTabAndFileName(control.getId(),
+                ControlAttachment.TAB_DETAILS, name));
     }
 
     /** Whether a ';'-separated attachment list holds exactly this file name. */
@@ -94,12 +97,12 @@ public class ControlAttachmentService {
         return false;
     }
 
-    /** Removes the file name from the control's list and its upload record; returns whether it was listed. */
+    /** Removes the file name from the control's Attachment list and its upload record; returns whether it was listed. */
     @Transactional
-    public boolean removeFromControl(Control control, String tab, String fileName) {
+    public boolean removeFromControl(Control control, String fileName) {
         control = controlRowLock.lockedFresh(control);
-        boolean details = ControlAttachment.TAB_DETAILS.equals(tab);
-        String currentPath = details ? control.getAttachmentDetailsPath() : control.getAttachmentDocumentsPath();
+        String tab = ControlAttachment.TAB_DETAILS;
+        String currentPath = control.getAttachmentDetailsPath();
         boolean removed = false;
         StringBuilder updated = new StringBuilder();
         for (String f : currentPath == null ? new String[0] : currentPath.split(";")) {
@@ -112,11 +115,7 @@ public class ControlAttachmentService {
             updated.append(f.trim());
         }
         String newPath = updated.length() > 0 ? updated.toString() : null;
-        if (details) {
-            control.setAttachmentDetailsPath(newPath);
-        } else {
-            control.setAttachmentDocumentsPath(newPath);
-        }
+        control.setAttachmentDetailsPath(newPath);
         controlService.updateControl(control);
         attachmentRepository.deleteByControlIdAndTabAndFileName(control.getId(), tab, fileName.trim());
         return removed;

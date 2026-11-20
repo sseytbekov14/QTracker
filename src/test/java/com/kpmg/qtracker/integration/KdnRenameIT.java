@@ -256,7 +256,7 @@ class KdnRenameIT {
         Control control = control("HR-ATT-" + s + "/FY26/Central/2H");
         Path oldFolder = Files.createDirectories(UPLOADS.resolve("HR-ATT-" + s + "_FY26_Central_2H"));
         Files.writeString(oldFolder.resolve("Резюме_кандидата.pdf"), "%PDF cv");
-        control.setAttachmentDocumentsPath("Резюме_кандидата.pdf");
+        control.setAttachmentDetailsPath(control.getAttachmentDetailsPath() == null ? "Резюме_кандидата.pdf" : control.getAttachmentDetailsPath() + ";Резюме_кандидата.pdf");
         controlRepository.save(control);
 
         String newId = "KDN-ATT-" + s;
@@ -300,7 +300,7 @@ class KdnRenameIT {
         Path oldFolder = Files.createDirectories(UPLOADS.resolve("HR-OLD-" + s + "_FY26_Central_2H"));
         Files.writeString(oldFolder.resolve("Seytbekov_CV_.pdf"), "%PDF cv");
         Files.writeString(oldFolder.resolve("Отчёт soqm.xlsx"), "xlsx");
-        control.setAttachmentDocumentsPath("Seytbekov_CV_.pdf;Отчёт soqm.xlsx");
+        control.setAttachmentDetailsPath(control.getAttachmentDetailsPath() == null ? "Seytbekov_CV_.pdf;Отчёт soqm.xlsx" : control.getAttachmentDetailsPath() + ";Seytbekov_CV_.pdf;Отчёт soqm.xlsx");
         controlRepository.save(control);
         for (String name : List.of("Seytbekov_CV_.pdf", "Отчёт soqm.xlsx")) {
             AdminAuditLog upload = new AdminAuditLog();

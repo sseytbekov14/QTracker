@@ -156,7 +156,7 @@ const viewControl = (function() {
     }
 
     function captureEditModeSnapshot() {
-        const fields = document.querySelectorAll('#controlForm input, #controlForm textarea, #controlForm select, #detailsForm input, #detailsForm textarea, #detailsForm select, #assignmentForm input, #assignmentForm textarea, #assignmentForm select, #documentsForm input, #documentsForm textarea, #documentsForm select');
+        const fields = document.querySelectorAll('#controlForm input, #controlForm textarea, #controlForm select, #detailsForm input, #detailsForm textarea, #detailsForm select, #assignmentForm input, #assignmentForm textarea, #assignmentForm select');
         const fieldValues = {};
 
         fields.forEach((field, index) => {
@@ -188,7 +188,7 @@ const viewControl = (function() {
             return;
         }
 
-        const fields = document.querySelectorAll('#controlForm input, #controlForm textarea, #controlForm select, #detailsForm input, #detailsForm textarea, #detailsForm select, #assignmentForm input, #assignmentForm textarea, #assignmentForm select, #documentsForm input, #documentsForm textarea, #documentsForm select');
+        const fields = document.querySelectorAll('#controlForm input, #controlForm textarea, #controlForm select, #detailsForm input, #detailsForm textarea, #detailsForm select, #assignmentForm input, #assignmentForm textarea, #assignmentForm select');
 
         fields.forEach((field, index) => {
             const key = getFieldSnapshotKey(field, index);
@@ -239,7 +239,7 @@ const viewControl = (function() {
         normalizeAssignmentDateFieldsForDisplay();
 
         // Marks left by a refused Save belong to the edit that is being cancelled
-        document.querySelectorAll('#controlForm .is-invalid, #detailsForm .is-invalid, #assignmentForm .is-invalid, #documentsForm .is-invalid')
+        document.querySelectorAll('#controlForm .is-invalid, #detailsForm .is-invalid, #assignmentForm .is-invalid')
             .forEach(field => field.classList.remove('is-invalid'));
         document.getElementById('controlOperationDate')?.removeAttribute('aria-invalid');
     }
@@ -1025,9 +1025,9 @@ function confirmWorkflowAction() {
 
     // ========== FORM MODE FUNCTIONS ==========
     function initializeReadOnlyMode() {
-        const allInputs = document.querySelectorAll('#detailsForm input, #assignmentForm input, #documentsForm input');
+        const allInputs = document.querySelectorAll('#detailsForm input, #assignmentForm input');
         const allTextareas = document.querySelectorAll('#detailsForm textarea, #assignmentForm textarea');
-        const allSelects = document.querySelectorAll('#detailsForm select, #assignmentForm select, #documentsForm select');
+        const allSelects = document.querySelectorAll('#detailsForm select, #assignmentForm select');
 
         allInputs.forEach(input => {
             if (!input.classList.contains('readonly-field')) {
@@ -1099,12 +1099,9 @@ function confirmWorkflowAction() {
 
 function enableFileInputs() {
     const detailsZone = document.getElementById('detailsUploadZone');
-    const documentsZone = document.getElementById('documentsUploadZone');
     const detailsInput = document.getElementById('attachmentDetailsInput');
-    const documentsInput = document.getElementById('attachmentDocumentsInput');
     
     if (detailsZone) detailsZone.removeAttribute('data-disabled');
-    if (documentsZone) documentsZone.removeAttribute('data-disabled');
     if (detailsInput) {
         detailsInput.disabled = false;
         detailsInput.removeAttribute('disabled');
@@ -1113,15 +1110,6 @@ function enableFileInputs() {
         detailsInput.classList.remove('readonly-field');
         detailsInput.style.pointerEvents = '';
         detailsInput.style.cursor = '';
-    }
-    if (documentsInput) {
-        documentsInput.disabled = false;
-        documentsInput.removeAttribute('disabled');
-        documentsInput.readOnly = false;
-        documentsInput.removeAttribute('readonly');
-        documentsInput.classList.remove('readonly-field');
-        documentsInput.style.pointerEvents = '';
-        documentsInput.style.cursor = '';
     }
     console.log('✅ File inputs enabled');
 }
@@ -1225,24 +1213,6 @@ function makeAllFormsEditable() {
         field.disabled = false;
         field.style.pointerEvents = 'auto';
         field.style.backgroundColor = '';
-    });
-
-    // 4. DOCUMENTS TAB
-    console.log('рџ”„ Processing Documents tab fields...');
-    const documentsFields = document.querySelectorAll('#documentsForm input, #documentsForm select');
-    documentsFields.forEach(field => {
-        field.classList.remove('readonly-field', 'readonly-select');
-        field.classList.add('editable-field', 'editable-select');
-        field.readOnly = false;
-        field.disabled = false;
-        field.style.pointerEvents = 'auto';
-        field.style.backgroundColor = '';
-        
-        // Enable file inputs
-        if (field.type === 'file') {
-            const zone = field.closest('.kpmg-upload-zone');
-            if (zone) zone.removeAttribute('data-disabled');
-        }
     });
 
     console.log('рџ”„ Processing dropdown inputs...');
@@ -1436,9 +1406,9 @@ function saveControlData(controlId) {
 }
 
     function makeAllFormsReadOnly() {
-        const allInputs = document.querySelectorAll('#controlForm input, #detailsForm input, #assignmentForm input, #documentsForm input');
+        const allInputs = document.querySelectorAll('#controlForm input, #detailsForm input, #assignmentForm input');
         const allTextareas = document.querySelectorAll('#controlForm textarea, #detailsForm textarea, #assignmentForm textarea');
-        const allSelects = document.querySelectorAll('#controlForm select, #detailsForm select, #assignmentForm select, #documentsForm select');
+        const allSelects = document.querySelectorAll('#controlForm select, #detailsForm select, #assignmentForm select');
 
         allInputs.forEach(field => {
             if (field.id !== 'controlId') {
