@@ -168,7 +168,8 @@ public final class CompletedControlExcel {
 
     private static void cell(Row row, int column, String value, CellStyle style) {
         Cell cell = row.createCell(column);
-        cell.setCellValue(value);
+        // An Excel cell holds 32 767 characters at most (a field holds 20 000; a file list may be longer)
+        cell.setCellValue(ControlTextLimits.shorten(value, ControlTextLimits.EXCEL_CELL));
         cell.setCellStyle(style);
     }
 

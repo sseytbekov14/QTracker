@@ -31,6 +31,7 @@ public class Control {
     private String controlType;
     private String component;
     private String operatedBy;
+    @Column(columnDefinition = "TEXT")
     private String referencesToControl;
     private String priority;
     private String nonAuditServicesApplicability;
@@ -39,17 +40,18 @@ public class Control {
     @Column(name = "performance_status")
     private String performanceStatus;
 
-    @Column(length = 1000)
+    // Free text up to ControlTextLimits.MAX (V31: TEXT)
+    @Column(columnDefinition = "TEXT")
     private String controlDescription;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     private String prp;
     
     
-    @Column(name = "soqm_head_comments", length = 2000)
+    @Column(name = "soqm_head_comments", columnDefinition = "TEXT")
     private String soqmHeadComments;
     
-    @Column(name = "process_owner_comments", length = 2000)
+    @Column(name = "process_owner_comments", columnDefinition = "TEXT")
     private String processOwnerComments;
     
     @ManyToOne

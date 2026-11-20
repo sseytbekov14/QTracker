@@ -58,7 +58,8 @@ public class ComponentControlsExcel {
                         row.owners(), row.soqmLeads(), row.category(), row.operationDateText(),
                         status == null ? "Draft" : status};
                 for (int i = 0; i < values.length; i++) {
-                    String value = values[i] == null ? "" : values[i];
+                    // An Excel cell holds 32 767 characters at most
+                    String value = values[i] == null ? "" : ControlTextLimits.shorten(values[i], ControlTextLimits.EXCEL_CELL);
                     Cell cell = line.createCell(i);
                     cell.setCellValue(value);
                     if (looksLikeAFormula(value)) {

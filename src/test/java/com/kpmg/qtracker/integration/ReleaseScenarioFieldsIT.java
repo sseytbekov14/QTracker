@@ -99,25 +99,26 @@ class ReleaseScenarioFieldsIT extends ReleaseScenarioSupport {
         Control control = control("RS-LN", "IN_PROGRESS", people().soqm(soqm));
         String id = String.valueOf(control.getId());
 
-        // Control tab: description and PRP 1000
-        assertThat(saveControl(session, control, "controlDescription", "d".repeat(1000))).isEqualTo(200);
-        assertThat(reload(control).getControlDescription()).hasSize(1000);
+        // Control tab: description and PRP up to ControlTextLimits.MAX (20 000 since 2026-11-20)
+        int max = com.kpmg.qtracker.service.ControlTextLimits.MAX;
+        assertThat(saveControl(session, control, "controlDescription", "d".repeat(max))).isEqualTo(200);
+        assertThat(reload(control).getControlDescription()).hasSize(max);
         MvcResult tooLong = callJson(session, put("/api/controls/{id}", id),
-                json("controlDescription", "d".repeat(1001)));
+                json("controlDescription", "d".repeat(max + 1)));
         assertThat(tooLong.getResponse().getStatus()).isEqualTo(400);
-        assertThat(body(tooLong)).contains("Control Description must be at most 1000 characters");
-        assertThat(reload(control).getControlDescription()).hasSize(1000);
+        assertThat(body(tooLong)).contains("Control Description must be at most 20000 characters");
+        assertThat(reload(control).getControlDescription()).hasSize(max);
 
-        // Details: 255 fields and 2000 text areas, with line breaks counted as they are sent
-        String lines = ("line\n").repeat(400);
-        assertThat(lines).hasSize(2000);
-        assertThat(saveDetails(session, control, "processName", "p".repeat(255))).isEqualTo(200);
-        assertThat(saveDetails(session, control, "processName", "p".repeat(256))).isEqualTo(400);
+        // Details: every free-text field the same, with line breaks counted as they are sent
+        String lines = ("line\n").repeat(max / 5);
+        assertThat(lines).hasSize(max);
+        assertThat(saveDetails(session, control, "processName", "p".repeat(max))).isEqualTo(200);
+        assertThat(saveDetails(session, control, "processName", "p".repeat(max + 1))).isEqualTo(400);
         assertThat(saveDetails(session, control, "controlStepsPerformed", lines)).isEqualTo(200);
         assertThat(detailsRepository.findByControlId(control.getId()).orElseThrow().getControlStepsPerformed())
                 .isEqualTo(lines);
         assertThat(saveDetails(session, control, "controlStepsPerformed", lines + "x")).isEqualTo(400);
-        assertThat(saveDetails(session, control, "processActivities", "a".repeat(2001))).isEqualTo(400);
+        assertThat(saveDetails(session, control, "processActivities", "a".repeat(max + 1))).isEqualTo(400);
 
         // A new Control ID: 255 kept, 256 refused
         String longId = "HR-" + RUN + "-" + "9".repeat(255 - 4 - RUN.length());

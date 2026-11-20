@@ -197,7 +197,9 @@ public class TemplateRenderer {
     /** The details block of every e-mail; each template gets the lines it has values for. */
     private static List<EmailLayout.Row> details(Map<String, String> values) {
         return List.of(new EmailLayout.Row("Control", values.get(NotificationValues.CONTROL_ID)),
-                new EmailLayout.Row("Description", values.get(NotificationValues.CONTROL_NAME)),
+                // Up to 500 characters: a description of up to 20 000 would stretch the e-mail; the whole text is on the control
+                new EmailLayout.Row("Description", com.kpmg.qtracker.service.ControlTextLimits.shorten(
+                        values.get(NotificationValues.CONTROL_NAME), com.kpmg.qtracker.service.ControlTextLimits.EMAIL_DESCRIPTION)),
                 new EmailLayout.Row("Your role", values.get(NotificationValues.ROLES)),
                 values.get(NotificationValues.DUE) != null
                         ? new EmailLayout.Row("Due", values.get(NotificationValues.DUE))

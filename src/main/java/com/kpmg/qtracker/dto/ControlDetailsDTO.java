@@ -8,25 +8,25 @@ import lombok.Data;
 @Data
 public class ControlDetailsDTO {
     private Long controlId;
-    @Size(max = 255, message = "Process Name must be at most 255 characters")
+    @Size(max = com.kpmg.qtracker.service.ControlTextLimits.MAX, message = "Process Name must be at most " + com.kpmg.qtracker.service.ControlTextLimits.MAX + " characters")
     private String processName;
     @Size(max = 255, message = "Homogeneity must be at most 255 characters")
     private String homogeneity;
-    @Size(max = 255, message = "References to Control must be at most 255 characters")
+    @Size(max = com.kpmg.qtracker.service.ControlTextLimits.MAX, message = "References to Control must be at most " + com.kpmg.qtracker.service.ControlTextLimits.MAX + " characters")
     private String referencesToControl;
-    @Size(max = 255, message = "Department must be at most 255 characters")
+    @Size(max = com.kpmg.qtracker.service.ControlTextLimits.MAX, message = "Department must be at most " + com.kpmg.qtracker.service.ControlTextLimits.MAX + " characters")
     private String department;
-    @Size(max = 2000, message = "Process Activities must be at most 2000 characters")
+    @Size(max = com.kpmg.qtracker.service.ControlTextLimits.MAX, message = "Process Activities must be at most " + com.kpmg.qtracker.service.ControlTextLimits.MAX + " characters")
     private String processActivities;
     @Size(max = 255, message = "IT Applications must be at most 255 characters")
     private String itApplications;
-    @Size(max = 2000, message = ControlStepsFields.STEPS_LABEL + " must be at most 2000 characters")
+    @Size(max = com.kpmg.qtracker.service.ControlTextLimits.MAX, message = ControlStepsFields.STEPS_LABEL + "must be at most " + com.kpmg.qtracker.service.ControlTextLimits.MAX + " characters")
     private String controlStepsPerformed;
-    @Size(max = 2000, message = ControlStepsFields.OPERATOR_PROGRAM_LABEL + " must be at most 2000 characters")
+    @Size(max = com.kpmg.qtracker.service.ControlTextLimits.MAX, message = ControlStepsFields.OPERATOR_PROGRAM_LABEL + "must be at most " + com.kpmg.qtracker.service.ControlTextLimits.MAX + " characters")
     private String controlOperatorReview;
-    @Size(max = 2000, message = "SoQM Admin Team Comments must be at most 2000 characters")
+    @Size(max = com.kpmg.qtracker.service.ControlTextLimits.MAX, message = "SoQM Admin Team Comments must be at most " + com.kpmg.qtracker.service.ControlTextLimits.MAX + " characters")
     private String soqmHeadComments;
-    @Size(max = 2000, message = "Process Owner Comments must be at most 2000 characters")
+    @Size(max = com.kpmg.qtracker.service.ControlTextLimits.MAX, message = "Process Owner Comments must be at most " + com.kpmg.qtracker.service.ControlTextLimits.MAX + " characters")
     private String processOwnerComments;
 
     /**

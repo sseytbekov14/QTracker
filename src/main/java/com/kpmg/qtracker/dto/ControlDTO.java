@@ -19,7 +19,7 @@ public class ControlDTO {
     private String component;
     @Size(max = 255, message = "Operated By must be at most 255 characters")
     private String operatedBy;
-    @Size(max = 255, message = "References to Control must be at most 255 characters")
+    @Size(max = com.kpmg.qtracker.service.ControlTextLimits.MAX, message = "References to Control must be at most " + com.kpmg.qtracker.service.ControlTextLimits.MAX + " characters")
     private String referencesToControl;
     @Size(max = 255, message = "Priority must be at most 255 characters")
     private String priority;
@@ -29,13 +29,13 @@ public class ControlDTO {
     private String homogeneity;
     @Size(max = 255, message = "Control Status must be at most 255 characters")
     private String controlStatus;
-    @Size(max = 1000, message = "Control Description must be at most 1000 characters")
+    @Size(max = com.kpmg.qtracker.service.ControlTextLimits.MAX, message = "Control Description must be at most " + com.kpmg.qtracker.service.ControlTextLimits.MAX + " characters")
     private String controlDescription;
-    @Size(max = 1000, message = "PRP must be at most 1000 characters")
+    @Size(max = com.kpmg.qtracker.service.ControlTextLimits.MAX, message = "PRP must be at most " + com.kpmg.qtracker.service.ControlTextLimits.MAX + " characters")
     private String prp;
-    @Size(max = 2000, message = "SoQM Admin Team Comments must be at most 2000 characters")
+    @Size(max = com.kpmg.qtracker.service.ControlTextLimits.MAX, message = "SoQM Admin Team Comments must be at most " + com.kpmg.qtracker.service.ControlTextLimits.MAX + " characters")
     private String soqmHeadComments;
-    @Size(max = 2000, message = "Process Owner Comments must be at most 2000 characters")
+    @Size(max = com.kpmg.qtracker.service.ControlTextLimits.MAX, message = "Process Owner Comments must be at most " + com.kpmg.qtracker.service.ControlTextLimits.MAX + " characters")
     private String processOwnerComments;
     @Size(max = 255, message = "SoQM Year must be at most 255 characters")
     private String soqmYear;
