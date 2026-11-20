@@ -60,7 +60,7 @@ class ReleaseScenarioPostgresMigrationIT {
         }
     }
 
-    private static final String LATEST = "29";
+    private static final String LATEST = "30";
     /** The last version before V27 dropped the backup and links tables the old undo scripts read. */
     private static final String BEFORE_V27 = "26";
 
