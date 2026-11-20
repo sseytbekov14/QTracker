@@ -870,8 +870,10 @@
                                                 </div>
                                                 <span class="kpmg-upload-text">Drop files here or click to browse</span>
                                                 <span class="kpmg-upload-hint">Up to 50 files at once</span>
-                                                <span class="kpmg-upload-types">PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG</span>
-                                                <input type="file" class="kpmg-upload-input" name="attachedFile" id="attachmentDetailsInput" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg">
+                                                <span class="kpmg-upload-types" th:text="${attachmentTypes}">PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG, MSG, ZIP</span>
+                                                <!--/* The types: the server's list (AttachmentTypes), also read by the page's own check */-->
+                                                <input type="file" class="kpmg-upload-input" name="attachedFile" id="attachmentDetailsInput" multiple
+                                                       th:attr="accept=${attachmentAccept},data-types-label=${attachmentTypes}">
                                             </div>
                                             <div class="kpmg-upload-progress"><div class="kpmg-upload-progress-bar" id="detailsProgressBar"></div></div>
                                         </div>
@@ -2291,7 +2293,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ── Blocked extensions ────────────────────────────────────────────
     const BLOCKED_EXTS = ['.crdownload', '.tmp', '.part', '.download'];
-    const ALLOWED_EXTS = ['.pdf','.docx','.doc','.xlsx','.xls','.csv','.png','.jpg','.jpeg'];
+    // The server's list (AttachmentTypes), from the file input's accept attribute
+    const typesInput = document.getElementById('attachmentDetailsInput');
+    const ALLOWED_EXTS = ((typesInput && typesInput.getAttribute('accept')) || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+    const TYPES_LABEL = (typesInput && typesInput.dataset.typesLabel) || ALLOWED_EXTS.map(e => e.slice(1).toUpperCase()).join(', ');
     // Must match file.upload.max-file-size-mb / spring.servlet.multipart.max-request-size on the server
     const MAX_FILE_SIZE_MB = 10;
     const MAX_REQUEST_SIZE_MB = 100;
@@ -2330,7 +2335,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         if (blocked.length) showToast(`Blocked file(s): ${escapeHtml(blocked.join(', '))} — incomplete downloads are not allowed.`, 'error');
-        if (disallowed.length) showToast(`Unsupported type(s): ${escapeHtml(disallowed.join(', '))}. Allowed: PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG.`, 'warning');
+        if (disallowed.length) showToast(`Unsupported type(s): ${escapeHtml(disallowed.join(', '))}. Allowed: ${escapeHtml(TYPES_LABEL)}.`, 'warning');
         if (empty.length) showToast(`Empty file(s) skipped: ${escapeHtml(empty.join(', '))}.`, 'warning');
         if (tooLarge.length) showToast(`File(s) too large: ${escapeHtml(tooLarge.join(', '))}. Maximum size is ${MAX_FILE_SIZE_MB} MB per file.`, 'error', 6000);
         return valid;

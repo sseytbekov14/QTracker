@@ -974,6 +974,9 @@ public class ViewController {
         model.addAttribute("allowedEditableFields", permission.getAllowedEditableFields());
         model.addAttribute("allowedEditableFieldsCsv", String.join(",", permission.getAllowedEditableFields()));
         model.addAttribute("stepsLabel", ControlStepsFields.STEPS_LABEL);
+        // The attachment types of the upload zone, from the server's own list (AttachmentTypes)
+        model.addAttribute("attachmentAccept", com.kpmg.qtracker.service.AttachmentTypes.accept());
+        model.addAttribute("attachmentTypes", com.kpmg.qtracker.service.AttachmentTypes.label());
         model.addAttribute("operatorProgramLabel", ControlStepsFields.OPERATOR_PROGRAM_LABEL);
 
         // Read Only / KDN, or a User with Edit who is not assigned: a notice instead of buttons the server refuses

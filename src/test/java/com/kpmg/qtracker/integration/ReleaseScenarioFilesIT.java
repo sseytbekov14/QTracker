@@ -69,7 +69,7 @@ class ReleaseScenarioFilesIT extends ReleaseScenarioSupport {
     }
 
     @Test
-    void types_nineExtensionsInAnyCase_areTaken_othersRefused_contentIsNotChecked() throws Exception {
+    void types_theOldNineExtensionsInAnyCase_areTaken_othersRefused_aFakeZipToo() throws Exception {
         Setup s = setup("IN_PROGRESS");
         for (String extension : ALLOWED) {
             for (String name : List.of("lower." + extension, "UPPER." + extension.toUpperCase())) {

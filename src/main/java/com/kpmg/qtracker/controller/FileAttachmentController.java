@@ -6,6 +6,7 @@ import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.ControlAttachment;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.service.AdminAuditService;
+import com.kpmg.qtracker.service.AttachmentTypes;
 import com.kpmg.qtracker.service.CompletedEdit;
 import com.kpmg.qtracker.service.ControlAttachmentService;
 import com.kpmg.qtracker.service.ControlService;
@@ -59,8 +60,6 @@ public class FileAttachmentController {
     private static final int MAX_FILES_PER_TAB = 50;
     static final String FILE_NOT_FOUND = "FILE_NOT_FOUND";
     static final String FILE_NOT_FOUND_MESSAGE = "File not found";
-    private static final List<String> ALLOWED_EXTENSIONS =
-            List.of(".pdf", ".docx", ".doc", ".xlsx", ".xls", ".csv", ".png", ".jpg", ".jpeg");
 
     @Value("${file.upload.max-file-size-mb:10}")
     private long maxFileSizeMb;
@@ -193,8 +192,13 @@ public class FileAttachmentController {
             String original = file.getOriginalFilename() != null ? file.getOriginalFilename() : "file";
             String lower = original.toLowerCase(Locale.ROOT);
 
-            if (ALLOWED_EXTENSIONS.stream().noneMatch(lower::endsWith)) {
-                errors.add("File \"" + original + "\" has an unsupported type. Allowed: PDF, DOCX, DOC, XLSX, XLS, CSV, PNG, JPG, JPEG.");
+            // The types in one place (AttachmentTypes): the extension in any case, and for .zip / .msg their signature
+            if (!AttachmentTypes.allowedName(lower)) {
+                errors.add("File \"" + original + "\" has an unsupported type. Allowed: " + AttachmentTypes.label() + ".");
+                continue;
+            }
+            if (!AttachmentTypes.contentMatches(lower, head(file))) {
+                errors.add("File \"" + original + "\" is not a valid ." + AttachmentTypes.extension(lower) + " file.");
                 continue;
             }
             if (file.getSize() > maxBytes) {
@@ -225,6 +229,15 @@ public class FileAttachmentController {
             }
         }
         return names;
+    }
+
+    /** The first bytes of an uploaded file, for its signature (nothing more is read; an archive is never opened). */
+    private static byte[] head(MultipartFile file) {
+        try (java.io.InputStream in = file.getInputStream()) {
+            return in.readNBytes(AttachmentTypes.SIGNATURE_BYTES);
+        } catch (IOException e) {
+            return new byte[0];
+        }
     }
 
     private void saveFiles(MultipartFile[] files, String controlFolder, Set<String> taken, List<String> saved)
