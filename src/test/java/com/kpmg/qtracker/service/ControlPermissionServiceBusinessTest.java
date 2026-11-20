@@ -271,8 +271,10 @@ class ControlPermissionServiceBusinessTest {
             assertThat(perm.canEdit()).isTrue();
             assertThat(perm.getAllowedEditableFields())
                     .contains(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS);
+            // 2026-11-20: and Control Steps Performed and Results, in their own review
             assertThat(perm.getAllowedEditableFields())
-                    .doesNotContain(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
+                    .containsExactlyInAnyOrder(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS,
+                            ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
         }
 
         @Test
