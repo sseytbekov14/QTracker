@@ -128,7 +128,7 @@ class FileAttachmentControllerTest {
         control.setId(3L);
         control.setControlId("HR13");
         when(controlService.getControlById(3L)).thenReturn(Optional.of(control));
-        when(fileStorageService.saveFile(any(), any())).thenReturn("test.pdf");
+        when(fileStorageService.saveFile(any(), any(), any())).thenReturn("test.pdf");
         when(controlService.updateControl(any(Control.class))).thenReturn(control);
 
         User user = new User();
@@ -214,21 +214,23 @@ class FileAttachmentControllerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("File \"big.pdf\" exceeds the maximum size of 1 MB."));
 
-        verify(fileStorageService, never()).saveFile(any(), any());
+        verify(fileStorageService, never()).saveFile(any(), any(), any());
     }
 
     @Test
-    void upload_nameAlreadyAttached_returnsBadRequest() throws Exception {
+    void upload_nameAlreadyAttached_isSavedUnderAFreeName_theListedNamesPassedOn() throws Exception {
+        // 2026-11-20: two roles may upload one name; the storage picks a free name and is told which are listed
         User user = mockEditableControl(6L, "Report.pdf;other.pdf");
         MockMultipartFile file = new MockMultipartFile(
                 "attachmentDetails", "report.PDF", "application/pdf", "data".getBytes());
+        when(fileStorageService.saveFile(any(), any(), any())).thenReturn("report (1).PDF");
 
         mockMvc.perform(multipart("/api/attachments/upload/6").file(file).sessionAttr("currentUser", user))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(
-                        "File \"report.PDF\" is already attached in Details. Delete the existing file or rename the new one."));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.detailsFiles").value("report (1).PDF"));
 
-        verify(fileStorageService, never()).saveFile(any(), any());
+        verify(fileStorageService).saveFile(any(), any(),
+                org.mockito.ArgumentMatchers.argThat(taken -> taken.contains("Report.pdf") && taken.contains("other.pdf")));
     }
 
     @Test
@@ -244,7 +246,7 @@ class FileAttachmentControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("File \"a.pdf\" is selected more than once for Details."));
 
-        verify(fileStorageService, never()).saveFile(any(), any());
+        verify(fileStorageService, never()).saveFile(any(), any(), any());
     }
 
     @Test
@@ -257,7 +259,7 @@ class FileAttachmentControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
 
-        verify(fileStorageService, never()).saveFile(any(), any());
+        verify(fileStorageService, never()).saveFile(any(), any(), any());
     }
 
     @Test
@@ -269,7 +271,7 @@ class FileAttachmentControllerTest {
         control.setAttachmentDetailsPath("old.pdf");
         when(controlService.getControlById(20L)).thenReturn(Optional.of(control));
         when(controlService.updateControl(any(Control.class))).thenReturn(control);
-        when(fileStorageService.saveFile(any(), any())).thenReturn("late.pdf");
+        when(fileStorageService.saveFile(any(), any(), any())).thenReturn("late.pdf");
         // SoQM Team on a completed control they change in place (AccessPolicy.editsAfterCompletion)
         ControlPermission completedEdit = new ControlPermission(true, true, java.util.Set.of(), true, true,
                 false, false, false, true, false, false, true);
@@ -290,7 +292,7 @@ class FileAttachmentControllerTest {
                         .sessionAttr("currentUser", user))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Give a reason for changing a completed control"));
-        verify(fileStorageService, never()).saveFile(any(), any());
+        verify(fileStorageService, never()).saveFile(any(), any(), any());
         verify(controlAttachmentService, never()).removeFromControl(any(), anyString());
 
         mockMvc.perform(multipart("/api/attachments/upload/20").file(file).param("editReason", "Evidence was missing")

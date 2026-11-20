@@ -82,10 +82,17 @@ public class Control {
     @Column(insertable = false, updatable = false)
     private LocalDate controlOperationDate;
 
-    @Column(name = "attachment_details_path", columnDefinition = "TEXT")
+    /**
+     * The control's files (';'-separated). Written only by an upload or a delete, through
+     * ControlRepository.setAttachmentList under the row lock (ControlAttachmentService), never by saving the entity:
+     * a form save, a move or an assignment save that read the control before an upload and saved it after wrote the
+     * old list back, and the file uploaded meanwhile was gone (2026-11-20, as controlOperationDate above).
+     */
+    @Column(name = "attachment_details_path", columnDefinition = "TEXT", updatable = false)
     private String attachmentDetailsPath;
 
-    @Column(name = "attachment_documents_path", columnDefinition = "TEXT")
+    /** The old Documents tab's list, kept as it was since V30; not written any more. */
+    @Column(name = "attachment_documents_path", columnDefinition = "TEXT", updatable = false)
     private String attachmentDocumentsPath;
 
     @Column(name = "soqm_year")

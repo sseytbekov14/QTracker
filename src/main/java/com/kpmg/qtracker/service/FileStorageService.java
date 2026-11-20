@@ -12,6 +12,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
@@ -73,6 +74,16 @@ public class FileStorageService {
      * Saves uploaded file to disk under a control-specific folder
      */
     public String saveFile(MultipartFile file, String controlFolder) throws IOException {
+        return saveFile(file, controlFolder, java.util.Set.of());
+    }
+
+    /**
+     * Saves the file under a name free both on the disk and among the names the control already lists (taken, any
+     * case): "name.pdf", else "name (1).pdf", ... The file is created only if the name is still free at that moment
+     * (CREATE_NEW), so two uploads of one name at the same time get two names and neither overwrites the other
+     * (2026-11-20: the check and the copy were two steps, and a parallel upload of the same name failed or replaced).
+     */
+    public String saveFile(MultipartFile file, String controlFolder, java.util.Set<String> taken) throws IOException {
         if (file == null || file.isEmpty()) {
             return null;
         }
@@ -92,19 +103,26 @@ public class FileStorageService {
             baseName = uniqueFilename.substring(0, dotIndex);
             extensionSuffix = uniqueFilename.substring(dotIndex);
         }
-        Path filePath = uploadPath.resolve(uniqueFilename);
-
-        int counter = 1;
-        while (Files.exists(filePath)) {
-            uniqueFilename = baseName + " (" + counter + ")" + extensionSuffix;
-            filePath = uploadPath.resolve(uniqueFilename);
-            counter++;
+        java.util.Set<String> listed = new java.util.HashSet<>();
+        for (String name : taken == null ? java.util.Set.<String>of() : taken) {
+            listed.add(name.trim().toLowerCase(java.util.Locale.ROOT));
         }
-
-        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-        log.debug("Attachment saved in {}", uploadPath);
-        return uniqueFilename;
+        for (int counter = 1; counter < 10_000; counter++) {
+            Path filePath = uploadPath.resolve(uniqueFilename);
+            if (!listed.contains(uniqueFilename.toLowerCase(java.util.Locale.ROOT)) && !Files.exists(filePath)) {
+                try (java.io.InputStream in = file.getInputStream();
+                     java.io.OutputStream out = Files.newOutputStream(filePath, StandardOpenOption.CREATE_NEW,
+                             StandardOpenOption.WRITE)) {
+                    in.transferTo(out);
+                    log.debug("Attachment saved in {}", uploadPath);
+                    return uniqueFilename;
+                } catch (java.nio.file.FileAlreadyExistsException takenMeanwhile) {
+                    // Another upload took the name a moment ago: the next one
+                }
+            }
+            uniqueFilename = baseName + " (" + counter + ")" + extensionSuffix;
+        }
+        throw new IOException("No free file name for the attachment");
     }
 
     /**

@@ -72,7 +72,7 @@ class FileAttachmentDownloadPathTest {
         when(permissionService.requireReadable(1L, user)).thenReturn(control);
         ControlAttachmentService attachmentService =
                 new ControlAttachmentService(mock(ControlAttachmentRepository.class), controlService,
-                        new ControlRowLock());
+                        new ControlRowLock(), mock(com.kpmg.qtracker.repository.ControlRepository.class));
 
         ControlRenameService renameService = mock(ControlRenameService.class);
         when(renameService.attachmentFolders(control)).thenReturn(List.of("HR1"));

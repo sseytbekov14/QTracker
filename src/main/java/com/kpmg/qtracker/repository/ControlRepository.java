@@ -30,6 +30,11 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
     @Query("SELECT c.controlId FROM Control c WHERE c.controlId LIKE :prefix ORDER BY c.controlId DESC")
     List<String> findControlIdsByPrefix(@Param("prefix") String prefix);
 
+    /** The control's file list: the only write of it (Control.attachmentDetailsPath is not saved with the entity). */
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true)
+    @Query("UPDATE Control c SET c.attachmentDetailsPath = :list WHERE c.id = :id")
+    int setAttachmentList(@Param("id") Long id, @Param("list") String list);
+
     default boolean isControlIdUnique(String controlId) {
         return !controlIdTaken(controlId, null);
     }

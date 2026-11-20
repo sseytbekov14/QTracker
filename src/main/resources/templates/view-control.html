@@ -2437,14 +2437,10 @@ document.addEventListener('DOMContentLoaded', function() {
         input.addEventListener('change', function() {
             const raw = Array.from(this.files);
             const valid = validateFiles(raw);
-            const alreadyAttached = [];
             const alreadySelected = [];
             valid.forEach(file => {
+                // A name already attached is saved under a free name ("name (1).pdf"); the attached file stays
                 const stored = toStoredFilename(file.name).toLowerCase();
-                if (existingNames[label].has(stored)) {
-                    alreadyAttached.push(file.name);
-                    return;
-                }
                 const dup = Array.from(dt.files).some(f => toStoredFilename(f.name).toLowerCase() === stored);
                 if (dup) {
                     alreadySelected.push(file.name);
@@ -2452,9 +2448,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 dt.items.add(file);
             });
-            if (alreadyAttached.length) {
-                showToast(`Already attached: ${escapeHtml(alreadyAttached.join(', '))}. Delete the existing file or rename the new one.`, 'warning', 6000);
-            }
             if (alreadySelected.length) {
                 showToast(`Already selected: ${escapeHtml(alreadySelected.join(', '))}.`, 'warning');
             }

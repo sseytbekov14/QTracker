@@ -5,6 +5,7 @@ import com.kpmg.qtracker.entity.ControlAttachment;
 import com.kpmg.qtracker.entity.Notification;
 import com.kpmg.qtracker.entity.User;
 import com.kpmg.qtracker.repository.ControlAttachmentRepository;
+import com.kpmg.qtracker.repository.ControlRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,13 +29,15 @@ public class ControlAttachmentService {
     private final IControlService controlService;
     /** The file lists live on the control row: one change of them at a time (two uploads at once kept one) */
     private final ControlRowLock controlRowLock;
+    private final ControlRepository controlRepository;
 
     /** Appends uploaded file names to the control's Attachment list and records who uploaded them in which stage. */
     @Transactional
     public Control recordUpload(Control control, List<String> files, User uploader) {
         control = controlRowLock.lockedFresh(control);
         if (!files.isEmpty()) {
-            control.setAttachmentDetailsPath(appendToList(control.getAttachmentDetailsPath(), files));
+            // Only adds: the list read under the lock, the new names after it
+            writeList(control, appendToList(control.getAttachmentDetailsPath(), files));
         }
         Control saved = controlService.updateControl(control);
 
@@ -115,10 +118,16 @@ public class ControlAttachmentService {
             updated.append(f.trim());
         }
         String newPath = updated.length() > 0 ? updated.toString() : null;
-        control.setAttachmentDetailsPath(newPath);
+        writeList(control, newPath);
         controlService.updateControl(control);
         attachmentRepository.deleteByControlIdAndTabAndFileName(control.getId(), tab, fileName.trim());
         return removed;
+    }
+
+    /** The list in the row and on the entity in hand (whose own save does not write it). */
+    private void writeList(Control control, String list) {
+        controlRepository.setAttachmentList(control.getId(), list);
+        control.setAttachmentDetailsPath(list);
     }
 
     private void saveRecords(Long controlId, String tab, List<String> fileNames, User uploader,

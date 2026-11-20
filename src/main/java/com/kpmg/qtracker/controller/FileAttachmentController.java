@@ -123,7 +123,7 @@ public class FileAttachmentController {
             List<String> added = new ArrayList<>();
             try {
                 if (files.length > 0) {
-                    saveFiles(files, controlFolder, added);
+                    saveFiles(files, controlFolder, listedNames(control), added);
                     response.put("detailsFiles", String.join(";", added));
                 }
 
@@ -202,21 +202,38 @@ public class FileAttachmentController {
                 continue;
             }
 
+            // A name already attached is fine: the new file is saved under a free name, "name (1).pdf"
+            // (FileStorageService.saveFile), the one there stays (2026-11-20: two roles, one name)
             String storedName = FileStorageService.toStoredFilename(original).toLowerCase(Locale.ROOT);
-            if (existingNames.contains(storedName)) {
-                errors.add("File \"" + original + "\" is already attached in " + tabLabel
-                        + ". Delete the existing file or rename the new one.");
-            } else if (!incomingNames.add(storedName)) {
+            if (!incomingNames.add(storedName)) {
                 errors.add("File \"" + original + "\" is selected more than once for " + tabLabel + ".");
             }
         }
         return errors;
     }
 
-    private void saveFiles(MultipartFile[] files, String controlFolder, List<String> saved) throws java.io.IOException {
+    /** The names the control lists (both lists): a new file never takes one of them. */
+    private static Set<String> listedNames(Control control) {
+        Set<String> names = new HashSet<>();
+        for (String list : new String[] {control.getAttachmentDetailsPath(), control.getAttachmentDocumentsPath()}) {
+            if (list != null) {
+                for (String name : list.split(";")) {
+                    if (!name.isBlank()) {
+                        names.add(name.trim());
+                    }
+                }
+            }
+        }
+        return names;
+    }
+
+    private void saveFiles(MultipartFile[] files, String controlFolder, Set<String> taken, List<String> saved)
+            throws java.io.IOException {
+        Set<String> takenNow = new HashSet<>(taken);
         for (MultipartFile file : files) {
             if (file != null && !file.isEmpty()) {
-                String filename = fileStorageService.saveFile(file, controlFolder);
+                String filename = fileStorageService.saveFile(file, controlFolder, takenNow);
+                takenNow.add(filename);
                 if (filename != null && !filename.isBlank()) {
                     saved.add(filename);
                 }
