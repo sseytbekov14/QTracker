@@ -156,13 +156,12 @@ class StepsFieldSplitIT {
         assertThat(save(control, opSession, STEPS, "Too early")).isEqualTo(403);
         assertThat(save(control, opSession, REVIEW, "Too early")).isEqualTo(403);
 
-        // Someone who edits another field of the control is told whose field it is
+        // Someone else in the Process Owner's review: not theirs (the Process Owner writes it there since 2026-11-20,
+        // ProcessOwnerStepsFieldIT)
         setStatus(control, "PROCESS_OWNER_REVIEW");
-        MvcResult notTheirs = saveResult(control, login(po), STEPS, "Process Owner writes the steps");
-        assertThat(notTheirs.getResponse().getStatus()).isEqualTo(403);
-        assertThat(notTheirs.getResponse().getContentAsString())
-                .contains(ControlStepsFields.STEPS_LABEL + " is filled in by the Facilitator while the control is In Progress"
-                        + " and by the Control Operator while it is in Review");
+        assertThat(save(control, login(fac), STEPS, "The facilitator again")).isEqualTo(403);
+        assertThat(save(control, opSession, STEPS, "The operator again")).isEqualTo(403);
+        assertThat(details(control).getControlStepsPerformed()).isEqualTo("Facilitator steps");
 
         // One field for both steps, as in the old system: the Operator writes it in Review
         setStatus(control, "REVIEW");
