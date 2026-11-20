@@ -86,9 +86,10 @@ public final class CompletedControlExcel {
         add(lines, DETAILS, RelatedControls.LABEL, ValueList.normalize(d.getOtherRelatedControls()));
         add(lines, DETAILS, ItApplications.LABEL, ValueList.normalize(d.getItApplications()));
         add(lines, DETAILS, ControlStepsFields.STEPS_LABEL, d.getControlStepsPerformed());
+        // In the page's order: Attachment right after the steps (2026-11-20)
+        add(lines, DETAILS, "Attachment", fileNames(control.getAttachmentDetailsPath()));
         add(lines, DETAILS, "SoQM Admin Team Comments", d.getSoqmHeadComments());
         add(lines, DETAILS, "Process Owner Comments", d.getProcessOwnerComments());
-        add(lines, DETAILS, "Attachment (Details)", fileNames(control.getAttachmentDetailsPath()));
 
         section(lines, ASSIGNMENT);
         add(lines, ASSIGNMENT, "Facilitator", people(a.getFacilitator(), names));

@@ -34,7 +34,7 @@ class CompletedControlExcelTest {
             "# Details",
             "Process Name", "Homogeneity", "References to this Control", "Department", "Process Activities",
             ControlStepsFields.OPERATOR_PROGRAM_LABEL, "Other Related Controls", "IT Applications",
-            ControlStepsFields.STEPS_LABEL, "SoQM Admin Team Comments", "Process Owner Comments", "Attachment (Details)",
+            ControlStepsFields.STEPS_LABEL, "Attachment", "SoQM Admin Team Comments", "Process Owner Comments",
             "# Assignment",
             "Facilitator", "Control Operator", "SoQM Admin Team", "Process Owner", "Control Shared With",
             "Control Operation Date", "Control Operation Deadline", "Next Control Operation Date",
@@ -96,7 +96,7 @@ class CompletedControlExcelTest {
                 .containsEntry("Other Related Controls", "EP-2/FY27; HR-3/FY27/Central/OCT")
                 .containsEntry("IT Applications", "KICS; CQS")
                 .doesNotContainKey(RelatedControls.EARLIER_TEXT_LABEL)
-                .containsEntry("Attachment (Details)", "plan.pdf; notes.docx")
+                .containsEntry("Attachment", "plan.pdf; notes.docx")
                 .containsEntry("Facilitator", "Anna Petrova (Anna@kpmg.kz); unknown@kpmg.kz")
                 .containsEntry("Process Owner", "gone@kpmg.kz (deleted user)")
                 .containsEntry("Control Shared With", "Boris Ivanov (boris@kpmg.kz)")

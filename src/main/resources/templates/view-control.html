@@ -855,6 +855,30 @@
                                     </div>
                                 </div>
 
+                                <!-- Attachment: right after Control Steps Performed and Results, before SoQM Admin Team Comments (2026-11-20) -->
+                                <div class="row" id="attachmentRow">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label" for="attachmentDetailsInput">Attachment</label>
+                                        <div class="kpmg-upload-zone" id="detailsUploadZone">
+                                            <div class="kpmg-upload-inner">
+                                                <div class="kpmg-upload-icon">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00338D" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                                        <polyline points="16 16 12 12 8 16"></polyline>
+                                                        <line x1="12" y1="12" x2="12" y2="21"></line>
+                                                        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+                                                    </svg>
+                                                </div>
+                                                <span class="kpmg-upload-text">Drop files here or click to browse</span>
+                                                <span class="kpmg-upload-hint">Up to 50 files at once</span>
+                                                <span class="kpmg-upload-types">PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG</span>
+                                                <input type="file" class="kpmg-upload-input" name="attachedFile" id="attachmentDetailsInput" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg">
+                                            </div>
+                                            <div class="kpmg-upload-progress"><div class="kpmg-upload-progress-bar" id="detailsProgressBar"></div></div>
+                                        </div>
+                                        <div id="detailsFileInfo"></div>
+                                    </div>
+                                </div>
+
                                 <div class="row">
                                     <div class="col-12 mb-3">
                                         <label class="form-label">SoQM Admin Team Comments<span class="step-required-mark" aria-hidden="true"
@@ -887,28 +911,6 @@
                                     </div>
                                 </div>
 
-                                <div class="row">
-                                    <div class="col-12 mb-3">
-                                        <label class="form-label">Attachment (Details)</label>
-                                        <div class="kpmg-upload-zone" id="detailsUploadZone">
-                                            <div class="kpmg-upload-inner">
-                                                <div class="kpmg-upload-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00338D" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                                                        <polyline points="16 16 12 12 8 16"></polyline>
-                                                        <line x1="12" y1="12" x2="12" y2="21"></line>
-                                                        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
-                                                    </svg>
-                                                </div>
-                                                <span class="kpmg-upload-text">Drop files here or click to browse</span>
-                                                <span class="kpmg-upload-hint">Up to 50 files at once</span>
-                                                <span class="kpmg-upload-types">PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG</span>
-                                                <input type="file" class="kpmg-upload-input" name="attachedFile" id="attachmentDetailsInput" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg">
-                                            </div>
-                                            <div class="kpmg-upload-progress"><div class="kpmg-upload-progress-bar" id="detailsProgressBar"></div></div>
-                                        </div>
-                                        <div id="detailsFileInfo"></div>
-                                    </div>
-                                </div>
                             </div>
                         </form>
                     </div>
