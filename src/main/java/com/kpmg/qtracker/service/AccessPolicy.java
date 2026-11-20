@@ -538,7 +538,8 @@ public final class AccessPolicy {
     /**
      * Fields a participant may change while the step is theirs: Control Steps Performed and Results, one field
      * for both steps as in the old system, by the Facilitator in In Progress and by the Control Operator in
-     * Review; the Process Owner Process Owner Comments in Process Owner Review. Control Operator's Program is no
+     * Review; the Process Owner Process Owner Comments and, since 2026-11-20, Control Steps Performed and Results too
+     * in Process Owner Review (the final review, their own step) - no other field. Control Operator's Program is no
      * participant's field: SoQM Team writes it ({@link ControlPermission#canWriteOperatorReview}).
      */
     public static Set<String> participantFields(Subject subject, ControlFacts control) {
@@ -555,6 +556,7 @@ public final class AccessPolicy {
         }
         if ("PROCESS_OWNER_REVIEW".equals(control.status()) && actsAsParticipant(subject, control, control.processOwner())) {
             fields.add(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS);
+            fields.add(ControlPermission.FIELD_CONTROL_STEPS_PERFORMED);
         }
         return fields;
     }

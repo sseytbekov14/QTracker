@@ -477,11 +477,11 @@ class RoleMatrixIT {
                 && (who.scope() != AccessScope.KDN || who.kdnControl());
         boolean participantStep = actsInStep && (("IN_PROGRESS".equals(status) && inF)
                 || ("REVIEW".equals(status) && inCO) || ("PROCESS_OWNER_REVIEW".equals(status) && inPO));
-        // Control Steps Performed and Results: one field for both steps, the Facilitator's in In Progress and the
-        // Control Operator's in Review; Control Operator's Program: SoQM Team only (the Control Operator sends it,
-        // SoQM Team puts it in), in every status; SoQM both
+        // Control Steps Performed and Results: one field, the Facilitator's in In Progress, the Control Operator's in
+        // Review and (2026-11-20) the Process Owner's in Process Owner Review; Control Operator's Program: SoQM Team
+        // only (the Control Operator sends it, SoQM Team puts it in), in every status; SoQM both
         boolean stepsField = soqmEdits || (actsInStep && (("IN_PROGRESS".equals(status) && inF)
-                || ("REVIEW".equals(status) && inCO)));
+                || ("REVIEW".equals(status) && inCO) || ("PROCESS_OWNER_REVIEW".equals(status) && inPO)));
         boolean operatorField = soqmEdits;
 
         return switch (op) {
