@@ -442,27 +442,27 @@
                                 <div class="col-12 mb-field">
                                     <label for="controlDescription" class="form-label">Control Description</label>
                                     <textarea class="form-control" id="controlDescription" name="controlDescription"
-                                              rows="4" maxlength="1000" data-counter="controlDescription-counter"
+                                              rows="4" maxlength="20000" th:attr="maxlength=${textMax}" data-counter="controlDescription-counter"
                                               placeholder="What the control does and how it is performed"></textarea>
                                     <div class="field-meta">
                                         <span>Shown in notifications and the controls list</span>
-                                        <span class="char-counter" id="controlDescription-counter">0 / 1000</span>
+                                        <span class="char-counter" id="controlDescription-counter" th:text="'0 / ' + ${textMax}">0 / 20000</span>
                                     </div>
                                 </div>
                                 <div class="col-12 mb-field">
                                     <label for="prp" class="form-label">PRP</label>
                                     <textarea class="form-control" id="prp" name="prp"
-                                              rows="3" maxlength="1000" data-counter="prp-counter"
+                                              rows="3" maxlength="20000" th:attr="maxlength=${textMax}" data-counter="prp-counter"
                                               placeholder="Policy / procedure reference details"></textarea>
                                     <div class="field-meta">
                                         <span></span>
-                                        <span class="char-counter" id="prp-counter">0 / 1000</span>
+                                        <span class="char-counter" id="prp-counter" th:text="'0 / ' + ${textMax}">0 / 20000</span>
                                     </div>
                                 </div>
                                 <div class="col-12 mb-field">
                                     <label for="referencesToControl" class="form-label">References to this Control</label>
                                     <input type="text" class="form-control" id="referencesToControl" name="referencesToControl"
-                                           maxlength="255" placeholder="e.g. related standards, documents or controls">
+                                           maxlength="20000" th:attr="maxlength=${textMax}" placeholder="e.g. related standards, documents or controls">
                                 </div>
                             </div>
                         </section>

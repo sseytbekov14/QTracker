@@ -696,12 +696,12 @@
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Control Description</label>
-                                        <textarea class="form-control readonly-field" name="controlDescription" rows="8" maxlength="1000" readonly
+                                        <textarea class="form-control readonly-field" name="controlDescription" rows="8" maxlength="20000" th:attr="maxlength=${textMax}" readonly
                                                   th:text="${control.controlDescription}"></textarea>
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">PRP</label>
-                                        <textarea class="form-control readonly-field" name="prp" rows="8" maxlength="1000" readonly
+                                        <textarea class="form-control readonly-field" name="prp" rows="8" maxlength="20000" th:attr="maxlength=${textMax}" readonly
                                                   th:text="${control.prp}"></textarea>
                                     </div>
                                 </div>
@@ -718,7 +718,7 @@
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Process Name</label>
-                                        <input type="text" class="form-control" name="processName" maxlength="255"
+                                        <input type="text" class="form-control" name="processName" maxlength="20000" th:attr="maxlength=${textMax}"
                                                placeholder="Enter process name">
                                     </div>
                                     <div class="col-md-6 mb-3">
@@ -734,12 +734,12 @@
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">References to this Control</label>
-                                        <input type="text" class="form-control" name="referencesToControl" maxlength="255"
+                                        <input type="text" class="form-control" name="referencesToControl" maxlength="20000" th:attr="maxlength=${textMax}"
                                                placeholder="Enter references">
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Department</label>
-                                        <input type="text" class="form-control" name="department" maxlength="255"
+                                        <input type="text" class="form-control" name="department" maxlength="20000" th:attr="maxlength=${textMax}"
                                                placeholder="Enter department">
                                     </div>
                                 </div>
@@ -747,7 +747,7 @@
                                 <div class="row">
                                     <div class="col-12 mb-3">
                                         <label class="form-label">Process Activities</label>
-                                        <textarea class="form-control" name="processActivities" rows="4" maxlength="2000"
+                                        <textarea class="form-control" name="processActivities" rows="4" maxlength="20000" th:attr="maxlength=${textMax}"
                                                   placeholder="Describe process activities"></textarea>
                                     </div>
                                 </div>
@@ -757,7 +757,7 @@
                                 <div class="row" id="operatorReviewRow">
                                     <div class="col-12 mb-3">
                                         <label class="form-label" for="controlOperatorReview"><span th:text="${operatorProgramLabel}">Control Operator's Program</span></label>
-                                        <textarea class="form-control" id="controlOperatorReview" name="controlOperatorReview" rows="8" maxlength="2000"
+                                        <textarea class="form-control" id="controlOperatorReview" name="controlOperatorReview" rows="8" maxlength="20000" th:attr="maxlength=${textMax}"
                                                   placeholder="Not filled yet"
                                                   data-edit-placeholder="Paste the program the Control Operator sent"></textarea>
                                     </div>
@@ -847,7 +847,7 @@
                                     <div class="col-12 mb-3">
                                         <label class="form-label" for="controlStepsPerformed"><span th:text="${stepsLabel}">Control Steps Performed and Results</span><span class="step-required-mark" aria-hidden="true"
                                                 th:if="${stepField != null and stepField.required() and stepField.field() == 'controlStepsPerformed'}">&nbsp;*</span></label>
-                                        <textarea class="form-control" id="controlStepsPerformed" name="controlStepsPerformed" rows="8" maxlength="2000"
+                                        <textarea class="form-control" id="controlStepsPerformed" name="controlStepsPerformed" rows="8" maxlength="20000" th:attr="maxlength=${textMax}"
                                                   placeholder="Describe control steps and results"></textarea>
                                         <div class="required-hint d-none" id="controlStepsSubmitHint">
                                             This field is required before submission.
@@ -889,7 +889,7 @@
                                                   id="soqmHeadComments"
                                                   name="soqmHeadComments" 
                                                   rows="8"
-                                                  maxlength="2000"
+                                                  maxlength="20000" th:attr="maxlength=${textMax}"
                                                   placeholder="Enter SoQM Admin Team comments"></textarea>
                                         <div class="required-hint d-none" id="soqmHeadCommentsStepHint">
                                             Required for your step: fill it to Send to Process Owner or Return to Operator.
@@ -905,7 +905,7 @@
                                                   id="processOwnerComments"
                                                   name="processOwnerComments" 
                                                   rows="8"
-                                                  maxlength="2000"
+                                                  maxlength="20000" th:attr="maxlength=${textMax}"
                                                   placeholder="Enter process owner comments"></textarea>
                                         <div class="required-hint d-none" id="processOwnerCommentsStepHint">
                                             Required for your step: fill it to Complete or Return to Control Operator.

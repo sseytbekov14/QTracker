@@ -124,4 +124,23 @@ class ControlTextLimitsIT extends ReleaseScenarioSupport {
         assertThat(jdbc.queryForObject("SELECT LENGTH(process_activities) FROM controls WHERE id = ?", Integer.class, nextId))
                 .isEqualTo(MAX);
     }
+
+    @Test
+    void thePages_takeTheSameMaximum_forEveryFreeTextField_andTheCounters() throws Exception {
+        User soqm = soqm("tl3-soqm");
+        MockHttpSession session = login(soqm);
+        Control control = control("TL3", "IN_PROGRESS", people().soqm(soqm));
+        String view = body(call(session, get("/view-control/{id}", control.getId())));
+        for (String name : List.of("controlDescription", "prp", "processName", "referencesToControl", "department",
+                "processActivities", "controlOperatorReview", "controlStepsPerformed", "soqmHeadComments", "processOwnerComments")) {
+            java.util.regex.Matcher field = java.util.regex.Pattern.compile("<(?:textarea|input)[^>]*name=\"" + name
+                    + "\"[^>]*>").matcher(view);
+            assertThat(field.find()).as(name).isTrue();
+            String tag = field.group();
+            assertThat(tag).as(name).contains("maxlength=\"" + MAX + "\"").doesNotContain("maxlength=\"2000\"");
+        }
+        String create = body(call(session, get("/new-control")));
+        assertThat(create).contains("id=\"controlDescription-counter\">0 / " + MAX + "<", "id=\"prp-counter\">0 / " + MAX + "<");
+        assertThat(create).doesNotContain("maxlength=\"1000\"");
+    }
 }

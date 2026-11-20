@@ -1118,6 +1118,15 @@ public class ViewController {
         return "redirect:/view-control/" + id + "#control";
     }
 
+    /**
+     * The longest free text of a control field for every page of this controller (maxlength and the character
+     * counters), the same constant the server's check uses (ControlTextLimits.MAX).
+     */
+    @org.springframework.web.bind.annotation.ModelAttribute("textMax")
+    public int textMax() {
+        return com.kpmg.qtracker.service.ControlTextLimits.MAX;
+    }
+
     @GetMapping("/new-control")
     public String newControl(Model model, HttpSession session) {
         String redirect = checkAuthAndRedirect(session);
