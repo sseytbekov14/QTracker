@@ -122,9 +122,11 @@ class ReleaseScenarioFilesIT extends ReleaseScenarioSupport {
         assertThat(cyrillic.getResponse().getStatus()).isEqualTo(200);
         assertThat(cyrillic.getResponse().getHeader("Content-Disposition")).contains("filename*=UTF-8''");
 
-        // The same name again: refused, in one request or later, any case
-        assertThat(upload(s.facSession, s.control, file("Отчёт за сентябрь.pdf", 20)).getResponse().getStatus()).isEqualTo(400);
-        assertThat(upload(s.facSession, s.control, file("ОТЧЁТ ЗА СЕНТЯБРЬ.PDF", 20)).getResponse().getStatus()).isEqualTo(400);
+        // The same name again later, any case: kept under a free name, the first stays (2026-11-20); twice in one
+        // request: refused
+        assertThat(upload(s.facSession, s.control, file("Отчёт за сентябрь.pdf", 20)).getResponse().getStatus()).isEqualTo(200);
+        assertThat(upload(s.facSession, s.control, file("ОТЧЁТ ЗА СЕНТЯБРЬ.PDF", 20)).getResponse().getStatus()).isEqualTo(200);
+        assertThat(listed(s.control)).contains("Отчёт_за_сентябрь.pdf", "Отчёт_за_сентябрь (1).pdf", "ОТЧЁТ_ЗА_СЕНТЯБРЬ (2).PDF");
         assertThat(call(s.facSession, multipart("/api/attachments/upload/{id}", s.control.getId())
                 .file(file("twice.pdf", 10)).file(file("twice.pdf", 10))).getResponse().getStatus()).isEqualTo(400);
 

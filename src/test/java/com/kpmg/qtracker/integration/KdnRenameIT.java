@@ -258,6 +258,8 @@ class KdnRenameIT {
         Files.writeString(oldFolder.resolve("Резюме_кандидата.pdf"), "%PDF cv");
         control.setAttachmentDetailsPath(control.getAttachmentDetailsPath() == null ? "Резюме_кандидата.pdf" : control.getAttachmentDetailsPath() + ";Резюме_кандидата.pdf");
         controlRepository.save(control);
+        // The list is written by an upload or a delete only (Control.attachmentDetailsPath not saved with the entity)
+        controlRepository.setAttachmentList(control.getId(), control.getAttachmentDetailsPath());
 
         String newId = "KDN-ATT-" + s;
         rename(control, newId, "Belongs to the KDN set").andExpect(status().isOk());
@@ -279,6 +281,8 @@ class KdnRenameIT {
         Files.writeString(earlierFolder.resolve("plan_Q3.xlsx"), "xlsx");
         control.setAttachmentDetailsPath("plan_Q3.xlsx");
         controlRepository.save(control);
+        // The list is written by an upload or a delete only (Control.attachmentDetailsPath not saved with the entity)
+        controlRepository.setAttachmentList(control.getId(), control.getAttachmentDetailsPath());
         AdminAuditLog entry = new AdminAuditLog();
         entry.setAdminEmail(soqm.getMail());
         entry.setActionType(ControlRenameService.AUDIT_ACTION);
@@ -302,6 +306,8 @@ class KdnRenameIT {
         Files.writeString(oldFolder.resolve("Отчёт soqm.xlsx"), "xlsx");
         control.setAttachmentDetailsPath(control.getAttachmentDetailsPath() == null ? "Seytbekov_CV_.pdf;Отчёт soqm.xlsx" : control.getAttachmentDetailsPath() + ";Seytbekov_CV_.pdf;Отчёт soqm.xlsx");
         controlRepository.save(control);
+        // The list is written by an upload or a delete only (Control.attachmentDetailsPath not saved with the entity)
+        controlRepository.setAttachmentList(control.getId(), control.getAttachmentDetailsPath());
         for (String name : List.of("Seytbekov_CV_.pdf", "Отчёт soqm.xlsx")) {
             AdminAuditLog upload = new AdminAuditLog();
             upload.setAdminEmail(soqm.getMail());
@@ -332,6 +338,8 @@ class KdnRenameIT {
         Control renamed = control("KDN-TAKEN-" + s);
         renamed.setAttachmentDetailsPath("plan.pdf");
         controlRepository.save(renamed);
+        // The list is written by an upload or a delete only (Control.attachmentDetailsPath not saved with the entity)
+        controlRepository.setAttachmentList(renamed.getId(), renamed.getAttachmentDetailsPath());
         AdminAuditLog upload = new AdminAuditLog();
         upload.setAdminEmail(soqm.getMail());
         upload.setActionType("ATTACHMENT_ADDED");

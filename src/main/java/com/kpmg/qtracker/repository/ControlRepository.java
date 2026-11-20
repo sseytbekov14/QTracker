@@ -31,6 +31,7 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
     List<String> findControlIdsByPrefix(@Param("prefix") String prefix);
 
     /** The control's file list: the only write of it (Control.attachmentDetailsPath is not saved with the entity). */
+    @org.springframework.transaction.annotation.Transactional
     @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true)
     @Query("UPDATE Control c SET c.attachmentDetailsPath = :list WHERE c.id = :id")
     int setAttachmentList(@Param("id") Long id, @Param("list") String list);

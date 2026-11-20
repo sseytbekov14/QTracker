@@ -1132,6 +1132,8 @@ class ApiSecurityMockMvcIT {
         Control stored = controlRepository.findById(control.getId()).orElseThrow();
         stored.setAttachmentDetailsPath("Старый_файл.pdf");
         controlRepository.save(stored);
+        // The list is written by an upload or a delete only (Control.attachmentDetailsPath not saved with the entity)
+        controlRepository.setAttachmentList(stored.getId(), stored.getAttachmentDetailsPath());
 
         deleteAttachment(control, login(p.facilitator.getMail()), "Старый_файл.pdf")
                 .andExpect(status().isForbidden());
@@ -1480,6 +1482,8 @@ class ApiSecurityMockMvcIT {
         Control stored = controlRepository.findById(mine.getId()).orElseThrow();
         stored.setAttachmentDetailsPath(oldFile);
         controlRepository.save(stored);
+        // The list is written by an upload or a delete only (Control.attachmentDetailsPath not saved with the entity)
+        controlRepository.setAttachmentList(stored.getId(), stored.getAttachmentDetailsPath());
 
         download(mine.getId(), oldFile, facilitator)
                 .andExpect(status().isOk())
