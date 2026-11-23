@@ -232,7 +232,7 @@ public class ControlDeactivation {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("id", control.getId());
         snapshot.put("controlId", control.getControlId());
-        snapshot.put("description", control.getControlDescription());
+        snapshot.put("description", RichText.plain(control.getControlDescription()));
         snapshot.put("component", control.getComponent());
         snapshot.put("frequency", control.getControlFrequency());
         snapshot.put("performanceStatus", control.getPerformanceStatus());

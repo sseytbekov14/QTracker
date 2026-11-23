@@ -49,7 +49,9 @@ public class NotificationValues {
         Map<String, String> values = new HashMap<>();
         String controlId = control.getControlId() == null ? null : control.getControlId().trim();
         values.put(CONTROL_ID, controlId == null || controlId.isEmpty() ? null : controlId);
-        values.put(CONTROL_NAME, control.getControlDescription() == null ? "" : control.getControlDescription().trim());
+        // Plain text: the description may be the rich text of the editor (RichText, 2026-11-23)
+        values.put(CONTROL_NAME, control.getControlDescription() == null ? ""
+                : com.kpmg.qtracker.service.RichText.plain(control.getControlDescription()).trim());
         values.put(OCCURRENCE_DATE, format(assignment == null ? null : assignment.getControlOperationDate()));
         values.put(DEADLINE, format(assignment == null ? null : assignment.getControlOperationDeadline()));
         values.put(TemplateRenderer.LINK, link(control));

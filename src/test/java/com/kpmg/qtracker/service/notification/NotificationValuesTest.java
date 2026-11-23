@@ -88,4 +88,12 @@ class NotificationValuesTest {
         assertThat(of.get(NotificationValues.CONTROL_NAME)).isEqualTo("Payroll");
         assertThat(of.get(TemplateRenderer.LINK)).isEqualTo("https://qtracker.example.test/view-control/7");
     }
+
+    @org.junit.jupiter.api.Test
+    void aRichDescription_isPlainTextInTheEMail() {
+        com.kpmg.qtracker.entity.Control control = new com.kpmg.qtracker.entity.Control();
+        control.setControlId("HR-1");
+        control.setControlDescription("<p><strong>Monthly</strong> review</p><p><img src=\"/api/controls/1/rich-images/0123456789abcdef0123456789abcdef.png\"></p>");
+        assertThat(values.of(control, null).get(NotificationValues.CONTROL_NAME)).isEqualTo("Monthly review\n[image]");
+    }
 }

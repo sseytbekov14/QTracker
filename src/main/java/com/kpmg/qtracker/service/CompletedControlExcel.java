@@ -73,23 +73,23 @@ public final class CompletedControlExcel {
         add(lines, CONTROL, "Priority", control.getPriority());
         add(lines, CONTROL, "Non-Audit Services Control Applicability", control.getNonAuditServicesApplicability());
         add(lines, CONTROL, "SoQM Year", control.getSoqmYear());
-        add(lines, CONTROL, "Control Description", control.getControlDescription());
-        add(lines, CONTROL, "PRP", control.getPrp());
+        add(lines, CONTROL, "Control Description", RichText.plain(control.getControlDescription()));
+        add(lines, CONTROL, "PRP", RichText.plain(control.getPrp()));
 
         section(lines, DETAILS);
-        add(lines, DETAILS, "Process Name", d.getProcessName());
+        add(lines, DETAILS, "Process Name", RichText.plain(d.getProcessName()));
         add(lines, DETAILS, "Homogeneity", d.getHomogeneity());
-        add(lines, DETAILS, "References to this Control", d.getReferencesToControl());
-        add(lines, DETAILS, "Department", d.getDepartment());
-        add(lines, DETAILS, "Process Activities", d.getProcessActivities());
-        add(lines, DETAILS, ControlStepsFields.OPERATOR_PROGRAM_LABEL, d.getControlOperatorReview());
+        add(lines, DETAILS, "References to this Control", RichText.plain(d.getReferencesToControl()));
+        add(lines, DETAILS, "Department", RichText.plain(d.getDepartment()));
+        add(lines, DETAILS, "Process Activities", RichText.plain(d.getProcessActivities()));
+        add(lines, DETAILS, ControlStepsFields.OPERATOR_PROGRAM_LABEL, RichText.plain(d.getControlOperatorReview()));
         add(lines, DETAILS, RelatedControls.LABEL, ValueList.normalize(d.getOtherRelatedControls()));
         add(lines, DETAILS, ItApplications.LABEL, ValueList.normalize(d.getItApplications()));
-        add(lines, DETAILS, ControlStepsFields.STEPS_LABEL, d.getControlStepsPerformed());
+        add(lines, DETAILS, ControlStepsFields.STEPS_LABEL, RichText.plain(d.getControlStepsPerformed()));
         // In the page's order: Attachment right after the steps (2026-11-20)
         add(lines, DETAILS, "Attachments", fileNames(control.getAttachmentDetailsPath()));
-        add(lines, DETAILS, "SoQM Admin Team Comments", d.getSoqmHeadComments());
-        add(lines, DETAILS, "Process Owner Comments", d.getProcessOwnerComments());
+        add(lines, DETAILS, "SoQM Admin Team Comments", RichText.plain(d.getSoqmHeadComments()));
+        add(lines, DETAILS, "Process Owner Comments", RichText.plain(d.getProcessOwnerComments()));
 
         section(lines, ASSIGNMENT);
         add(lines, ASSIGNMENT, "Facilitator", people(a.getFacilitator(), names));

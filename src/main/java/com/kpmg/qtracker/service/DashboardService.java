@@ -264,7 +264,7 @@ public class DashboardService {
             rows.add(new DeadlineRow(
                     control.getId(),
                     control.getControlId(),
-                    control.getControlDescription(),
+                    RichText.plain(control.getControlDescription()),
                     control.getPerformanceStatus(),
                     DeadlineOverdue.deadlineOf(operationDeadlines.get(control.getId()), control.getDeadline())));
         }

@@ -7,7 +7,7 @@
     <title th:text="${controlId} + ' - Performance Cycle - QTracker'">Performance Cycle - QTracker</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=25" rel="stylesheet">
+    <link href="/css/style.css?v=26" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         :root {
@@ -177,8 +177,8 @@
                         <!-- Control Description: two lines and "Show more" when longer (control-description.js) -->
                         <div class="ctl-desc pc-desc" data-control-description
                              th:if="${!#strings.isEmpty(#strings.trim(control.controlDescription))}">
-                            <p class="ctl-desc-text" id="controlDescriptionText"
-                               th:text="${#strings.trim(control.controlDescription)}">Description</p>
+                            <div class="ctl-desc-text rich-html" id="controlDescriptionText"
+                               th:utext="${@richText.html(control.controlDescription)}">Description</div>
                             <button type="button" class="ctl-desc-toggle" aria-controls="controlDescriptionText"
                                     aria-expanded="false" hidden>Show more</button>
                         </div>

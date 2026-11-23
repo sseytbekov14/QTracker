@@ -101,6 +101,10 @@ public final class RichText {
                 element.attr("class", String.join(" ", kept));
             }
         }
+        // The editor's own markers (empty spans) carry nothing: their text, if any, stays
+        for (Element span : cleaned.select("span:not([class])")) {
+            span.unwrap();
+        }
         for (Element link : cleaned.select("a[href]")) {
             link.attr("target", "_blank").attr("rel", "noopener noreferrer");
         }

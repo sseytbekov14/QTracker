@@ -194,8 +194,9 @@ public class ControlHistoryService {
 
         List<FieldChangeDTO> changes = new ArrayList<>();
         for (String field : fields) {
-            String oldValue = valueToString(previous.get(field));
-            String newValue = valueToString(updated.get(field));
+            // A rich-text field's value as text (RichText, 2026-11-23): the Changelog and the Audit trail show text
+            String oldValue = RichText.plain(valueToString(previous.get(field)));
+            String newValue = RichText.plain(valueToString(updated.get(field)));
             if (PEOPLE_FIELDS.contains(field)) {
                 oldValue = Objects.toString(describePeople(oldValue), "");
                 newValue = Objects.toString(describePeople(newValue), "");
@@ -249,7 +250,8 @@ public class ControlHistoryService {
     }
 
     private void addValueRow(List<FieldChangeDTO> rows, String label, Object value) {
-        String normalized = valueToString(value).trim();
+        // A rich-text field as text (RichText, 2026-11-23)
+        String normalized = RichText.plain(valueToString(value)).trim();
         if (!normalized.isEmpty()) {
             rows.add(new FieldChangeDTO(label, "", normalized));
         }

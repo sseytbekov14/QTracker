@@ -1140,7 +1140,7 @@ a.stat-block:focus-visible,
                                        th:classappend="${item.overdue} ? 'is-overdue'">
                                         <span class="action-item-main">
                                             <span class="action-item-id" th:text="${item.controlId}">HR-CTRL-MF-1</span>
-                                            <span class="action-item-desc" th:text="${item.controlDescription}">Description</span>
+                                            <span class="action-item-desc" th:text="${@richText.plain(item.controlDescription)}">Description</span>
                                         </span>
                                         <span class="action-item-step" th:switch="${item.performanceStatus}">
                                             <span th:case="'IN_PROGRESS'">Complete &amp; submit for review</span>
