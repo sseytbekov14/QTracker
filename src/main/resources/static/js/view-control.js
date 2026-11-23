@@ -156,7 +156,7 @@ const viewControl = (function() {
     }
 
     function captureEditModeSnapshot() {
-        const fields = document.querySelectorAll('#controlForm input, #controlForm textarea, #controlForm select, #detailsForm input, #detailsForm textarea, #detailsForm select, #assignmentForm input, #assignmentForm textarea, #assignmentForm select');
+        const fields = formFields('#controlForm input, #controlForm textarea, #controlForm select, #detailsForm input, #detailsForm textarea, #detailsForm select, #assignmentForm input, #assignmentForm textarea, #assignmentForm select');
         const fieldValues = {};
 
         fields.forEach((field, index) => {
@@ -188,7 +188,7 @@ const viewControl = (function() {
             return;
         }
 
-        const fields = document.querySelectorAll('#controlForm input, #controlForm textarea, #controlForm select, #detailsForm input, #detailsForm textarea, #detailsForm select, #assignmentForm input, #assignmentForm textarea, #assignmentForm select');
+        const fields = formFields('#controlForm input, #controlForm textarea, #controlForm select, #detailsForm input, #detailsForm textarea, #detailsForm select, #assignmentForm input, #assignmentForm textarea, #assignmentForm select');
 
         fields.forEach((field, index) => {
             const key = getFieldSnapshotKey(field, index);
@@ -1025,9 +1025,9 @@ function confirmWorkflowAction() {
 
     // ========== FORM MODE FUNCTIONS ==========
     function initializeReadOnlyMode() {
-        const allInputs = document.querySelectorAll('#detailsForm input, #assignmentForm input');
-        const allTextareas = document.querySelectorAll('#detailsForm textarea, #assignmentForm textarea');
-        const allSelects = document.querySelectorAll('#detailsForm select, #assignmentForm select');
+        const allInputs = formFields('#detailsForm input, #assignmentForm input');
+        const allTextareas = formFields('#detailsForm textarea, #assignmentForm textarea');
+        const allSelects = formFields('#detailsForm select, #assignmentForm select');
 
         allInputs.forEach(input => {
             if (!input.classList.contains('readonly-field')) {
@@ -1097,6 +1097,12 @@ function confirmWorkflowAction() {
         commentsField.style.backgroundColor = '';
     }
 
+// The fields of the forms, without the inner parts of the rich-text editors (Quill's heading list and link box):
+// rich-text.js makes those read only or editable with their field, the form-wide loops must not lock them (2026-11-23)
+function formFields(selector) {
+    return Array.from(document.querySelectorAll(selector)).filter(field => !field.closest('.rt-wrap'));
+}
+
 function enableFileInputs() {
     const detailsZone = document.getElementById('detailsUploadZone');
     const detailsInput = document.getElementById('attachmentDetailsInput');
@@ -1142,7 +1148,7 @@ function makeAllFormsEditable() {
 
     // 1. CONTROL TAB - РґРµР»Р°РµРј СЂРµРґР°РєС‚РёСЂСѓРµРјРѕР№
     console.log('рџ”„ Processing Control tab fields...');
-    const controlFields = document.querySelectorAll('#controlForm input, #controlForm select, #controlForm textarea');
+    const controlFields = formFields('#controlForm input, #controlForm select, #controlForm textarea');
     controlFields.forEach(field => {
         // РџСЂРѕРїСѓСЃРєР°РµРј Control ID РїРѕР»Рµ (РѕРЅРѕ РІСЃРµРіРґР° readonly)
         if (field.name === 'controlId' || field.id === 'controlId') {
@@ -1173,7 +1179,7 @@ function makeAllFormsEditable() {
 
     // 2. DETAILS TAB
     console.log('рџ”„ Processing Details tab fields...');
-    const detailsFields = document.querySelectorAll('#detailsForm input, #detailsForm textarea, #detailsForm select');
+    const detailsFields = formFields('#detailsForm input, #detailsForm textarea, #detailsForm select');
     detailsFields.forEach(field => {
         field.classList.remove('readonly-field', 'readonly-select');
         field.classList.add('editable-field', 'editable-select');
@@ -1191,7 +1197,7 @@ function makeAllFormsEditable() {
 
     // 3. ASSIGNMENT TAB
     console.log('рџ”„ Processing Assignment tab fields...');
-    const assignmentFields = document.querySelectorAll('#assignmentForm input, #assignmentForm select');
+    const assignmentFields = formFields('#assignmentForm input, #assignmentForm select');
     // Calculated by the server from the Control Operation Date and the frequency
     const alwaysReadonlyFields = ['controlOperationDeadline', 'nextControlOperationDate'];
     const canEditAssignment = true;
@@ -1406,9 +1412,9 @@ function saveControlData(controlId) {
 }
 
     function makeAllFormsReadOnly() {
-        const allInputs = document.querySelectorAll('#controlForm input, #detailsForm input, #assignmentForm input');
-        const allTextareas = document.querySelectorAll('#controlForm textarea, #detailsForm textarea, #assignmentForm textarea');
-        const allSelects = document.querySelectorAll('#controlForm select, #detailsForm select, #assignmentForm select');
+        const allInputs = formFields('#controlForm input, #detailsForm input, #assignmentForm input');
+        const allTextareas = formFields('#controlForm textarea, #detailsForm textarea, #assignmentForm textarea');
+        const allSelects = formFields('#controlForm select, #detailsForm select, #assignmentForm select');
 
         allInputs.forEach(field => {
             if (field.id !== 'controlId') {
@@ -1519,6 +1525,10 @@ function saveControlData(controlId) {
     function switchToReadOnlyMode() {
         restoreFromEditModeSnapshot();
         window.qtrackerCompletedEditReason = null;
+        // Files chosen in edit mode but not saved: off the screen, not uploaded later (2026-11-23)
+        if (typeof window.resetPendingAttachments === 'function') {
+            window.resetPendingAttachments();
+        }
         document.body.classList.remove('edit-mode-active');
 
         const actionButtons = document.querySelector('.action-buttons');

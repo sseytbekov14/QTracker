@@ -658,6 +658,10 @@ const SharedWithField = (function () {
         }
         people = saved.map((person) => ({ ...person }));
         clearError();
+        // Cancel: the last "Added / Removed ..." of the undone edit is not read out any more
+        if (status) {
+            status.textContent = '';
+        }
         render();
     }
 

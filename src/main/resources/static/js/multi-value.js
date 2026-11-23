@@ -550,6 +550,10 @@ const MultiValueFields = (function () {
                 }
                 values = saved.map((item) => ({ ...item }));
                 clearError();
+                // Cancel: the last "Added / Removed ..." of the undone edit is not read out any more
+                if (status) {
+                    status.textContent = '';
+                }
                 render();
             },
             isOpen: isOpen,
