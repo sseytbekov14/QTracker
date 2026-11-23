@@ -9,7 +9,7 @@
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/js/vendor/quill/quill.snow.css?v=2.0.3" rel="stylesheet">
     <link href="/css/style.css?v=26" rel="stylesheet">
-    <link href="/css/view-control.css?v=39" rel="stylesheet">
+    <link href="/css/view-control.css?v=40" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -2440,36 +2440,140 @@ document.addEventListener('DOMContentLoaded', function() {
     // Accumulate files
     const detailsDT   = new DataTransfer();
 
+    // Attached files (from the server) and the files chosen but not saved yet, each with what Save does with it:
+    // 'keep' (a new file; one of an attached name is kept beside it as "name (1)") or 'replace' (takes the place of
+    // the attached file of that name) - 2026-11-23
+    let attachedFiles = [];
+    let deletableAttached = new Set();
+    const pendingChoice = new Map();
+
+    // A file of an attached name: Replace / Keep both / Skip (Replace only for whoever may delete the attached one,
+    // not on a completed control, where a delete only hides a file)
+    function askDuplicate(attachedName) {
+        const canReplace = deletableAttached.has(attachedName)
+            && !(window.qtrackerPermissions && window.qtrackerPermissions.completedEdit);
+        return new Promise(resolve => {
+            const host = document.createElement('div');
+            host.className = 'modal fade';
+            host.id = 'duplicateFileModal';
+            host.tabIndex = -1;
+            host.setAttribute('aria-labelledby', 'dupFileTitle');
+            host.innerHTML = '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+                + '<div class="modal-header"><h5 class="modal-title" id="dupFileTitle">File already attached</h5></div>'
+                + '<div class="modal-body"><p class="mb-2">A file named <strong class="dup-name"></strong> is already attached.</p>'
+                + '<p class="small text-muted mb-0 dup-hint"></p></div>'
+                + '<div class="modal-footer">'
+                + '<button type="button" class="btn btn-outline-secondary" data-choice="skip">Skip</button>'
+                + '<button type="button" class="btn btn-outline-primary" data-choice="keep">Keep both</button>'
+                + (canReplace ? '<button type="button" class="btn btn-primary" data-choice="replace">Replace</button>' : '')
+                + '</div></div></div>';
+            host.querySelector('.dup-name').textContent = toDisplayName(attachedName);
+            host.querySelector('.dup-hint').textContent = canReplace
+                ? 'Replace: the new file takes its place on Save. Keep both: the new one is saved as a copy ("name (1)").'
+                : 'Keep both: the new one is saved as a copy ("name (1)"). Only the user who uploaded the file (in the same step) or SoQM Admin Team can replace it.';
+            document.body.appendChild(host);
+            const modal = new bootstrap.Modal(host, { backdrop: 'static', keyboard: false });
+            let choice = 'skip';
+            host.querySelectorAll('[data-choice]').forEach(button => button.addEventListener('click', () => {
+                choice = button.dataset.choice;
+                modal.hide();
+            }));
+            host.addEventListener('hidden.bs.modal', () => { host.remove(); resolve(choice); });
+            modal.show();
+        });
+    }
+
+    function attachedNameOf(file) {
+        const stored = toStoredFilename(file.name).toLowerCase();
+        return attachedFiles.find(name => name.trim().toLowerCase() === stored) || null;
+    }
+
+    // The pending block: the files Save will upload, each with its choice and a button to take it back
+    function renderPending() {
+        let box = document.getElementById('detailsPendingFiles');
+        if (!box && detailsDT.files.length && detailsFileInfo) {
+            box = document.createElement('div');
+            box.id = 'detailsPendingFiles';
+            box.className = 'kpmg-pending-files';
+            detailsFileInfo.parentNode.insertBefore(box, detailsFileInfo.nextSibling);
+        }
+        if (!box) return;
+        const files = Array.from(detailsDT.files);
+        if (!files.length) { box.remove(); return; }
+        let html = '<div class="kpmg-pending-header">Will be uploaded on Save <span class="kpmg-file-count-badge">'
+            + files.length + '</span></div><ul class="kpmg-pending-list">';
+        files.forEach((file, index) => {
+            const choice = pendingChoice.get(file);
+            const target = attachedNameOf(file);
+            const note = choice === 'replace' ? 'replaces the attached file' : (target ? 'saved as a copy' : '');
+            html += '<li><span class="kpmg-pending-name">' + escapeHtml(file.name) + '</span>'
+                + (note ? ' <span class="kpmg-pending-note">(' + note + ')</span>' : '')
+                + ' <span class="kpmg-pending-size">' + formatSize(file.size) + '</span>'
+                + ' <button type="button" class="kpmg-pending-remove" data-index="' + index + '" aria-label="Do not upload '
+                + escapeHtml(file.name) + '" title="Do not upload">&times;</button></li>';
+        });
+        box.innerHTML = html + '</ul>';
+    }
+
+    document.addEventListener('click', function(e) {
+        const button = e.target.closest('.kpmg-pending-remove');
+        if (!button) return;
+        const index = parseInt(button.dataset.index, 10);
+        const all = Array.from(detailsDT.files);
+        if (all[index]) pendingChoice.delete(all[index]);
+        detailsDT.items.clear();
+        all.filter((f, i) => i !== index).forEach(f => detailsDT.items.add(f));
+        if (detailsInput) detailsInput.files = detailsDT.files;
+        renderPending();
+    });
+
+    // Cancel / leaving edit mode without Save: nothing chosen stays on screen or is uploaded later
+    window.resetPendingAttachments = function() {
+        detailsDT.items.clear();
+        pendingChoice.clear();
+        if (detailsInput) detailsInput.value = '';
+        filesAlreadyUploaded = false;
+        renderPending();
+        loadExistingAttachments();
+    };
+
     function handleFileChange(input, dt, zone, barEl, fileInfoEl, label) {
         if (!input) return;
-        input.addEventListener('change', function() {
+        input.addEventListener('change', async function() {
             const raw = Array.from(this.files);
             const valid = validateFiles(raw);
             const alreadySelected = [];
-            valid.forEach(file => {
-                // A name already attached is saved under a free name ("name (1).pdf"); the attached file stays
+            for (const file of valid) {
                 const stored = toStoredFilename(file.name).toLowerCase();
                 const dup = Array.from(dt.files).some(f => toStoredFilename(f.name).toLowerCase() === stored);
                 if (dup) {
                     alreadySelected.push(file.name);
-                    return;
+                    continue;
+                }
+                const attached = attachedNameOf(file);
+                let choice = 'keep';
+                if (attached) {
+                    choice = await askDuplicate(attached);
+                    if (choice === 'skip') continue;
                 }
                 dt.items.add(file);
-            });
+                pendingChoice.set(file, choice);
+            }
             if (alreadySelected.length) {
-                showToast(`Already selected: ${escapeHtml(alreadySelected.join(', '))}.`, 'warning');
+                showToast('Already selected: ' + escapeHtml(alreadySelected.join(', ')) + '.', 'warning');
             }
             this.files = dt.files;
-            const count = dt.files.length + existingNames[label].size;
+            const replacing = Array.from(dt.files).filter(f => pendingChoice.get(f) === 'replace').length;
+            const count = dt.files.length - replacing + existingNames[label].size;
             if (count > 50) {
-                showToast(`Maximum 50 files allowed (${existingNames[label].size} already attached). Please select fewer files.`, 'warning');
+                showToast('Maximum 50 files allowed (' + existingNames[label].size + ' already attached). Please select fewer files.', 'warning');
                 dt.items.clear();
+                pendingChoice.clear();
                 this.value = '';
-                if (fileInfoEl) fileInfoEl.innerHTML = '';
+                renderPending();
                 return;
             }
-            // Show pending card list (local files, no size from server)
-            renderFileCards(fileInfoEl, Array.from(dt.files), controlId, label);
+            renderPending();
         });
     }
 
@@ -2483,7 +2587,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData();
         let hasFiles = false;
         if (detailsInput && detailsInput.files.length > 0) {
-            Array.from(detailsInput.files).forEach(f => formData.append('attachmentDetails', f));
+            Array.from(detailsInput.files).forEach(f => {
+                formData.append('attachmentDetails', f);
+                // Replace: the attached file of the same name this one takes the place of
+                const target = pendingChoice.get(f) === 'replace' ? attachedNameOf(f) : null;
+                if (target) formData.append('replace', target);
+            });
             hasFiles = true;
         }
         if (!hasFiles) return Promise.resolve();
@@ -2516,8 +2625,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.ok && data.success) {
                 showToast('Files uploaded successfully!', 'success');
                 detailsDT.items.clear();
+                pendingChoice.clear();
                 if (detailsInput) detailsInput.value = '';
                 filesAlreadyUploaded = false;
+                renderPending();
                 loadExistingAttachments();
             } else {
                 data.success = false;
@@ -2539,6 +2650,8 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 const toNameSet = list => new Set((list || '').split(';').map(f => f.trim().toLowerCase()).filter(Boolean));
                 existingNames.details = toNameSet(data.attachmentDetailsPath);
+                attachedFiles = (data.attachmentDetailsPath || '').split(';').map(f => f.trim()).filter(Boolean);
+                deletableAttached = new Set(data.deletableDetails || []);
 
                 if (data.attachmentDetailsPath && detailsFileInfo) {
                     const files = data.attachmentDetailsPath.split(';').filter(f => f.trim());

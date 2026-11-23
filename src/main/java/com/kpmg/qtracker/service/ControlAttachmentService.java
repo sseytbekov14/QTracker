@@ -124,6 +124,20 @@ public class ControlAttachmentService {
         return removed;
     }
 
+    /**
+     * An attached file replaced by a new one under the same name (Replace): the name stays on the list, its upload
+     * record now says who replaced it, in which stage and when.
+     */
+    @Transactional
+    public void recordReplace(Control control, String fileName, User uploader) {
+        control = controlRowLock.lockedFresh(control);
+        if (!isListed(control.getAttachmentDetailsPath(), fileName)) {
+            writeList(control, appendToList(control.getAttachmentDetailsPath(), List.of(fileName)));
+        }
+        saveRecords(control.getId(), ControlAttachment.TAB_DETAILS, List.of(fileName), uploader,
+                normalizeStatus(control.getPerformanceStatus()), LocalDateTime.now(Notification.ZONE));
+    }
+
     /** The list in the row and on the entity in hand (whose own save does not write it). */
     private void writeList(Control control, String list) {
         controlRepository.setAttachmentList(control.getId(), list);

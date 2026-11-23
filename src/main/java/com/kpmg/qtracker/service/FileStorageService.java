@@ -286,6 +286,27 @@ public class FileStorageService {
         return controlId;
     }
 
+    /**
+     * Puts a freshly saved file in the place of an attached one of the same name (Replace, 2026-11-23): the new file
+     * was saved under a free name first, then takes the old name in one move, so a failed upload never leaves the old
+     * file half overwritten; the old name in the control's earlier folders (before a Rename ID) goes too.
+     */
+    public void replaceFile(String savedName, String attachedName, String controlFolder, List<String> otherFolders)
+            throws IOException {
+        Path from = filePath(savedName, controlFolder);
+        Path to = filePath(attachedName, controlFolder);
+        try {
+            Files.move(from, to, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+            Files.move(from, to, StandardCopyOption.REPLACE_EXISTING);
+        }
+        for (String folder : otherFolders == null ? List.<String>of() : otherFolders) {
+            if (hasFolder(folder) && !sanitizeFolderName(folder).equals(sanitizeFolderName(controlFolder))) {
+                Files.deleteIfExists(filePath(attachedName, folder));
+            }
+        }
+    }
+
     // ---- Pictures of the rich-text fields (RichImageController, 2026-11-23) ----
 
     /** The folder of a control's pictures, by its database id (a Rename ID does not touch it). */

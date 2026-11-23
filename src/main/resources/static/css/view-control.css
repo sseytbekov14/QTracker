@@ -1493,3 +1493,13 @@ select.form-select.editable-select {
 /* Deactivate control in More actions: the one destructive item */
 .kpmg-more-dropdown-item.kpmg-more-danger { color: #a4262c; }
 .kpmg-more-dropdown-item.kpmg-more-danger:hover { background: #fdecec; }
+
+/* Files chosen in edit mode, uploaded on Save (2026-11-23): apart from the attached ones, each can be taken back */
+.kpmg-pending-files { margin-top: 8px; }
+.kpmg-pending-header { font-size: 0.78rem; font-weight: 600; color: var(--kpmg-blue, #00338D); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+.kpmg-pending-list { list-style: none; margin: 0; padding: 0; }
+.kpmg-pending-list li { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px dashed var(--kpmg-gray-300, #ced4da); border-radius: 4px; margin-bottom: 4px; font-size: 0.82rem; background: #fffdf3; }
+.kpmg-pending-name { font-weight: 600; overflow-wrap: anywhere; }
+.kpmg-pending-note { color: #8a6100; }
+.kpmg-pending-size { color: var(--kpmg-gray-600, #6c757d); margin-left: auto; white-space: nowrap; }
+.kpmg-pending-remove { border: 0; background: none; font-size: 1.1rem; line-height: 1; color: #c0392b; cursor: pointer; padding: 0 4px; }

@@ -69,6 +69,9 @@ public class FileAttachmentController {
      * POST /api/attachments/upload/{controlId}
      * The Documents tab is gone (V30, 2026-11-20): files a page opened before still sends as attachmentDocuments are
      * added to Attachment too, not dropped.
+     * replace (2026-11-23): names of attached files the new files of the same name take the place of (the page's
+     * "Replace"); allowed to whoever may delete that file, not on a completed control. Without it a file of an
+     * attached name is kept beside it as "name (1)" ("Keep both").
      */
     @PostMapping("/upload/{controlId}")
     public ResponseEntity<Map<String, Object>> uploadFiles(
@@ -76,6 +79,7 @@ public class FileAttachmentController {
             @RequestParam(value = "attachmentDetails", required = false) MultipartFile[] detailsFiles,
             @RequestParam(value = "attachmentDocuments", required = false) MultipartFile[] documentsFiles,
             @RequestParam(value = "editReason", required = false) String editReason,
+            @RequestParam(value = "replace", required = false) List<String> replace,
             HttpSession session) {
         
         Map<String, Object> response = new HashMap<>();
@@ -119,11 +123,51 @@ public class FileAttachmentController {
                 return ResponseEntity.badRequest().body(response);
             }
 
+            // Replace: each new file of an attached name the page asked to replace takes that file's place
+            Map<MultipartFile, String> replacing = new java.util.LinkedHashMap<>();
+            List<MultipartFile> keeping = new ArrayList<>();
+            for (MultipartFile file : files) {
+                if (file == null || file.isEmpty()) {
+                    continue;
+                }
+                String target = replaceTarget(control, file, replace);
+                if (target == null) {
+                    keeping.add(file);
+                    continue;
+                }
+                if (permission.isCompletedEdit()) {
+                    response.put("success", false);
+                    response.put("message", "\"" + target + "\" cannot be replaced on a completed control: keep both,"
+                            + " or hide the old file first.");
+                    return ResponseEntity.badRequest().body(response);
+                }
+                if (!controlAttachmentService.canDelete(control, target, currentUser, permission)) {
+                    response.put("success", false);
+                    response.put("message", "You cannot replace \"" + target + "\": only the user who uploaded it"
+                            + " (in the same workflow stage) or SoQM Admin Team can. Keep both instead.");
+                    return ResponseEntity.status(403).body(response);
+                }
+                replacing.put(file, target);
+            }
+            files = keeping.toArray(new MultipartFile[0]);
+
             List<String> added = new ArrayList<>();
+            List<String> replaced = new ArrayList<>();
             try {
                 if (files.length > 0) {
                     saveFiles(files, controlFolder, listedNames(control), added);
                     response.put("detailsFiles", String.join(";", added));
+                }
+                for (Map.Entry<MultipartFile, String> entry : replacing.entrySet()) {
+                    List<String> saved = new ArrayList<>();
+                    saveFiles(new MultipartFile[] {entry.getKey()}, controlFolder, listedNames(control), saved);
+                    fileStorageService.replaceFile(saved.get(0), entry.getValue(), controlFolder,
+                            controlRenameService.attachmentFolders(control));
+                    controlAttachmentService.recordReplace(control, entry.getValue(), currentUser);
+                    replaced.add(entry.getValue());
+                }
+                if (!replaced.isEmpty()) {
+                    response.put("replacedFiles", String.join(";", replaced));
                 }
 
                 // File list and upload records (author, stage) in one transaction
@@ -134,6 +178,9 @@ public class FileAttachmentController {
                 throw e;
             }
             logAttachmentAdds(currentUser, control, "DETAILS", added, completedEditReason);
+            for (String name : replaced) {
+                logAttachmentChange(currentUser, control, "ATTACHMENT_REPLACED", "DETAILS", name, name, completedEditReason);
+            }
             
             response.put("success", true);
             response.put("message", "Files uploaded successfully");
@@ -146,6 +193,26 @@ public class FileAttachmentController {
             response.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
+    }
+
+    /** The attached name this new file is to replace, when the page asked for it; null: kept beside. */
+    private static String replaceTarget(Control control, MultipartFile file, List<String> replace) {
+        if (replace == null || replace.isEmpty()) {
+            return null;
+        }
+        String stored = FileStorageService.toStoredFilename(file.getOriginalFilename());
+        String list = control.getAttachmentDetailsPath();
+        if (list == null) {
+            return null;
+        }
+        for (String part : list.split(";")) {
+            String name = part.trim();
+            if (!name.isEmpty() && name.equalsIgnoreCase(stored)
+                    && replace.stream().anyMatch(r -> r != null && r.trim().equals(name))) {
+                return name;
+            }
+        }
+        return null;
     }
 
     /** The files of both form fields, the old Documents one after Attachment's. */
