@@ -163,4 +163,26 @@ public class Control {
                 .toUpperCase(Locale.ROOT);
         return WORKFLOW_STATUSES.contains(normalized) ? normalized : performanceStatus;
     }
+
+    // ---- The rich-text fields (2026-11-23): every value cleaned as it is set (RichText.clean), whoever sets it ----
+
+    public void setControlDescription(String controlDescription) {
+        this.controlDescription = com.kpmg.qtracker.service.RichText.clean(controlDescription);
+    }
+
+    public void setPrp(String prp) {
+        this.prp = com.kpmg.qtracker.service.RichText.clean(prp);
+    }
+
+    public void setReferencesToControl(String referencesToControl) {
+        this.referencesToControl = com.kpmg.qtracker.service.RichText.clean(referencesToControl);
+    }
+
+    public void setSoqmHeadComments(String soqmHeadComments) {
+        this.soqmHeadComments = com.kpmg.qtracker.service.RichText.clean(soqmHeadComments);
+    }
+
+    public void setProcessOwnerComments(String processOwnerComments) {
+        this.processOwnerComments = com.kpmg.qtracker.service.RichText.clean(processOwnerComments);
+    }
 }

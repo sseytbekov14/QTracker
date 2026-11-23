@@ -718,7 +718,10 @@ public class ControlController {
         }
         for (Map.Entry<String, String[]> field : fields.entrySet()) {
             String sent = field.getValue()[0];
-            if (sent != null && !normalizeValue(sent).equals(normalizeValue(field.getValue()[1]))) {
+            if (sent != null && !normalizeValue(sent).equals(normalizeValue(field.getValue()[1]))
+                    // the editor's HTML of the same text is no change (RichText, 2026-11-23)
+                    && !(com.kpmg.qtracker.service.RichText.isHtml(sent)
+                    && com.kpmg.qtracker.service.RichText.sameContent(sent, field.getValue()[1]))) {
                 return field.getKey();
             }
         }

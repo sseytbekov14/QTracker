@@ -42,6 +42,12 @@
 		</repository>
 	</repositories>
 	<dependencies>
+		<!-- Cleans the HTML of the rich-text fields of a control before it is stored or shown (RichText, 2026-11-23) -->
+		<dependency>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>1.21.2</version>
+		</dependency>
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

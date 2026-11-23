@@ -44,4 +44,38 @@ public class ControlDetails {
     @Column(name = "process_owner_comments", columnDefinition = "TEXT")
     private String processOwnerComments;
 
+
+    // ---- The rich-text fields (2026-11-23): every value cleaned as it is set (RichText.clean), whoever sets it ----
+
+    public void setProcessName(String processName) {
+        this.processName = com.kpmg.qtracker.service.RichText.clean(processName);
+    }
+
+    public void setReferencesToControl(String referencesToControl) {
+        this.referencesToControl = com.kpmg.qtracker.service.RichText.clean(referencesToControl);
+    }
+
+    public void setDepartment(String department) {
+        this.department = com.kpmg.qtracker.service.RichText.clean(department);
+    }
+
+    public void setProcessActivities(String processActivities) {
+        this.processActivities = com.kpmg.qtracker.service.RichText.clean(processActivities);
+    }
+
+    public void setControlStepsPerformed(String controlStepsPerformed) {
+        this.controlStepsPerformed = com.kpmg.qtracker.service.RichText.clean(controlStepsPerformed);
+    }
+
+    public void setControlOperatorReview(String controlOperatorReview) {
+        this.controlOperatorReview = com.kpmg.qtracker.service.RichText.clean(controlOperatorReview);
+    }
+
+    public void setSoqmHeadComments(String soqmHeadComments) {
+        this.soqmHeadComments = com.kpmg.qtracker.service.RichText.clean(soqmHeadComments);
+    }
+
+    public void setProcessOwnerComments(String processOwnerComments) {
+        this.processOwnerComments = com.kpmg.qtracker.service.RichText.clean(processOwnerComments);
+    }
 }

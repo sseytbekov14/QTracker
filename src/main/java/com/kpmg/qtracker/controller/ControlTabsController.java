@@ -422,7 +422,9 @@ public class ControlTabsController {
 
     /** A value sent (not null) that differs from the stored one; line breaks as a textarea sends them, ends trimmed. */
     private static boolean changes(String stored, String incoming) {
-        return incoming != null && !comparableText(incoming).equals(comparableText(stored));
+        // The same text, also when one is the editor's HTML of the other's plain text (RichText, 2026-11-23)
+        return incoming != null && !comparableText(incoming).equals(comparableText(stored))
+                && !com.kpmg.qtracker.service.RichText.sameContent(stored, incoming);
     }
 
     private static String comparableText(String value) {
@@ -522,10 +524,19 @@ public class ControlTabsController {
         String oldNormalized = normalizeValue(oldValue);
         String newNormalized = normalizeValue(newValue);
 
-        if (!Objects.equals(oldNormalized, newNormalized)) {
+        // A rich-text field: the editor's HTML of the same text is no change (RichText, 2026-11-23)
+        boolean sameRichText = (RichTextValues.isRich(oldValue) || RichTextValues.isRich(newValue))
+                && com.kpmg.qtracker.service.RichText.sameContent(oldNormalized, newNormalized);
+        if (!Objects.equals(oldNormalized, newNormalized) && !sameRichText) {
             changedFields.add(fieldName);
             previousValues.put(fieldName, oldNormalized);
             newValues.put(fieldName, newNormalized);
+        }
+    }
+
+    private static final class RichTextValues {
+        static boolean isRich(Object value) {
+            return value instanceof String text && com.kpmg.qtracker.service.RichText.isHtml(text);
         }
     }
 
