@@ -126,6 +126,12 @@ public class ControlDeactivation {
                 problems.add(file.name());
             }
         }
+        // The pictures of the rich-text fields (RichImageController)
+        try {
+            deleted += fileStorageService.deleteRichImages(id);
+        } catch (IOException | RuntimeException e) {
+            problems.add("pictures");
+        }
         for (String folder : folders) {
             try {
                 fileStorageService.deleteFolderIfEmpty(folder);

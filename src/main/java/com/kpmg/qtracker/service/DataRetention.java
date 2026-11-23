@@ -148,7 +148,8 @@ public class DataRetention {
         }
         // Read, and for a run that deletes, delete, in one transaction; the files only after it commits
         List<FileToDelete> files = new ArrayList<>();
-        Report report = transaction.execute(status -> collectAndDelete(apply, cutoff, files, actor));
+        List<Long> purgedIds = new ArrayList<>();
+        Report report = transaction.execute(status -> collectAndDelete(apply, cutoff, files, purgedIds, actor));
         if (!apply || report == null) {
             return report;
         }
@@ -158,6 +159,14 @@ public class DataRetention {
                 fileStorageService.deleteFile(file.name(), file.folders());
             } catch (IOException | RuntimeException e) {
                 problems.add(file.name() + " (" + e.getMessage() + ")");
+            }
+        }
+        // The pictures of the rich-text fields of each control deleted (RichImageController)
+        for (Long id : purgedIds) {
+            try {
+                fileStorageService.deleteRichImages(id);
+            } catch (IOException | RuntimeException e) {
+                problems.add("pictures of control id " + id + " (" + e.getMessage() + ")");
             }
         }
         if (!problems.isEmpty()) {
@@ -170,7 +179,8 @@ public class DataRetention {
     private record FileToDelete(String name, List<String> folders) {
     }
 
-    private Report collectAndDelete(boolean apply, LocalDateTime cutoff, List<FileToDelete> files, String actor) {
+    private Report collectAndDelete(boolean apply, LocalDateTime cutoff, List<FileToDelete> files, List<Long> purgedIds,
+                                    String actor) {
         Timestamp before = Timestamp.valueOf(cutoff);
         List<Control> expired = controlRepository.findAll().stream()
                 .filter(control -> control.getCreatedAt() != null && control.getCreatedAt().isBefore(cutoff))
@@ -178,6 +188,7 @@ public class DataRetention {
                 .toList();
         int undated = (int) controlRepository.findAll().stream().filter(control -> control.getCreatedAt() == null).count();
         List<Long> ids = expired.stream().map(Control::getId).toList();
+        purgedIds.addAll(ids);
 
         // The files, while the audit entries that name a control's earlier IDs (its folders) are still there
         for (Control control : expired) {

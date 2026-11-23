@@ -49,6 +49,7 @@ public class ControlCycleService {
     private final ControlRowLock controlRowLock;
     private final ControlInitiation controlInitiation;
     private final AdminAuditService adminAuditService;
+    private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** The audit entry of the new control: who made it with Create Control, from which control, under which ID. */
@@ -217,7 +218,8 @@ public class ControlCycleService {
         assignmentRepository.save(ControlNextCycle.assignment(plan.sourceAssignment(), saved.getId(), plan.dates(),
                 plan.people().sharedWith()));
         ControlDetails sourceDetails = detailsRepository.findByControlId(source.getId()).orElse(null);
-        detailsRepository.save(ControlNextCycle.details(sourceDetails, saved.getId()));
+        ControlDetails savedDetails = detailsRepository.save(ControlNextCycle.details(sourceDetails, saved.getId()));
+        copyPictures(source.getId(), saved, savedDetails);
 
         ControlAssignmentDTO assignment = controlAssignmentService.getAssignmentByControlId(saved.getId());
         List<String> missing = ControlInitiation.missing(saved, assignment, null);
@@ -269,5 +271,40 @@ public class ControlCycleService {
         return value.replace("\\", "\\\\")
                 .replace("%", "\\%")
                 .replace("_", "\\_");
+    }
+
+    /**
+     * The pictures in the copied rich-text fields (RichText, 2026-11-23): copied into the new control's own folder and
+     * the copied texts pointed at them, so whoever sees the new cycle sees its pictures without seeing the source.
+     */
+    private void copyPictures(long sourceId, Control saved, ControlDetails details) {
+        java.util.Set<String> names = new java.util.LinkedHashSet<>();
+        for (String value : new String[] {saved.getControlDescription(), saved.getPrp(), saved.getReferencesToControl(),
+                saved.getSoqmHeadComments(), saved.getProcessOwnerComments(), details.getProcessName(),
+                details.getDepartment(), details.getProcessActivities(), details.getControlStepsPerformed(),
+                details.getControlOperatorReview()}) {
+            names.addAll(RichText.imageNames(value, sourceId));
+        }
+        if (names.isEmpty()) {
+            return;
+        }
+        try {
+            fileStorageService.copyRichImages(sourceId, saved.getId(), names);
+        } catch (java.io.IOException e) {
+            log.warn("Create Control: the pictures of control id {} could not be copied to id {}", sourceId, saved.getId());
+        }
+        long to = saved.getId();
+        saved.setControlDescription(RichText.movePictures(saved.getControlDescription(), sourceId, to));
+        saved.setPrp(RichText.movePictures(saved.getPrp(), sourceId, to));
+        controlRepository.save(saved);
+        details.setProcessName(RichText.movePictures(details.getProcessName(), sourceId, to));
+        details.setReferencesToControl(RichText.movePictures(details.getReferencesToControl(), sourceId, to));
+        details.setDepartment(RichText.movePictures(details.getDepartment(), sourceId, to));
+        details.setProcessActivities(RichText.movePictures(details.getProcessActivities(), sourceId, to));
+        details.setControlStepsPerformed(RichText.movePictures(details.getControlStepsPerformed(), sourceId, to));
+        details.setControlOperatorReview(RichText.movePictures(details.getControlOperatorReview(), sourceId, to));
+        details.setSoqmHeadComments(RichText.movePictures(details.getSoqmHeadComments(), sourceId, to));
+        details.setProcessOwnerComments(RichText.movePictures(details.getProcessOwnerComments(), sourceId, to));
+        detailsRepository.save(details);
     }
 }

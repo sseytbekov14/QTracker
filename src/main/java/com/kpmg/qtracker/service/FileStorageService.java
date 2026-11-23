@@ -286,6 +286,62 @@ public class FileStorageService {
         return controlId;
     }
 
+    // ---- Pictures of the rich-text fields (RichImageController, 2026-11-23) ----
+
+    /** The folder of a control's pictures, by its database id (a Rename ID does not touch it). */
+    public static String richImageFolder(long controlId) {
+        return "rich-images_" + controlId;
+    }
+
+    /** Stores a picture under a name nobody has (CREATE_NEW: never over another file). */
+    public void saveRichImage(long controlId, String name, byte[] bytes) throws IOException {
+        Path folder = folderPath(richImageFolder(controlId));
+        Files.createDirectories(folder);
+        Files.write(filePath(name, richImageFolder(controlId)), bytes, StandardOpenOption.CREATE_NEW,
+                StandardOpenOption.WRITE);
+    }
+
+    public byte[] readRichImage(long controlId, String name) throws IOException {
+        return Files.readAllBytes(filePath(name, richImageFolder(controlId)));
+    }
+
+    /** Copies these pictures of one control to another (Create Control); a missing one is left out. */
+    public int copyRichImages(long fromControlId, long toControlId, java.util.Collection<String> names) throws IOException {
+        int copied = 0;
+        for (String name : names) {
+            Path from = filePath(name, richImageFolder(fromControlId));
+            if (!Files.isRegularFile(from)) {
+                continue;
+            }
+            Files.createDirectories(folderPath(richImageFolder(toControlId)));
+            Path to = filePath(name, richImageFolder(toControlId));
+            if (!Files.exists(to)) {
+                Files.copy(from, to);
+                copied++;
+            }
+        }
+        return copied;
+    }
+
+    /** Deletes a control's pictures and their folder (the control itself is gone: deactivation, data retention). */
+    public int deleteRichImages(long controlId) throws IOException {
+        Path folder = folderPath(richImageFolder(controlId));
+        if (!Files.isDirectory(folder)) {
+            return 0;
+        }
+        int deleted = 0;
+        try (Stream<Path> files = Files.list(folder)) {
+            for (Path file : files.toList()) {
+                if (Files.isRegularFile(file)) {
+                    Files.delete(file);
+                    deleted++;
+                }
+            }
+        }
+        Files.deleteIfExists(folder);
+        return deleted;
+    }
+
     /**
      * Gets MIME type for a file
      */
