@@ -7,7 +7,7 @@
     <title th:text="${control.controlId} + ' - Initiate - QTracker'">Initiate - QTracker</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=20" rel="stylesheet">
+    <link href="/css/style.css?v=25" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         :root {
@@ -148,8 +148,14 @@
                             <span th:text="${control.controlId}">HR-CTRL-MF-1</span>
                             <span class="status-badge status-draft">Draft</span>
                         </h1>
-                        <p class="ic-desc" th:if="${control.controlDescription != null and !#strings.isEmpty(control.controlDescription)}"
-                           th:text="${control.controlDescription}">Description</p>
+                        <!-- Control Description: two lines and "Show more" when longer (control-description.js) -->
+                        <div class="ctl-desc ic-desc" data-control-description
+                             th:if="${!#strings.isEmpty(#strings.trim(control.controlDescription))}">
+                            <p class="ctl-desc-text" id="controlDescriptionText"
+                               th:text="${#strings.trim(control.controlDescription)}">Description</p>
+                            <button type="button" class="ctl-desc-toggle" aria-controls="controlDescriptionText"
+                                    aria-expanded="false" hidden>Show more</button>
+                        </div>
                     </div>
                     <a th:href="@{/view-control/{id}(id=${control.id})}" class="btn-ic-secondary">
                         Open control<i class="bi bi-arrow-right" aria-hidden="true"></i>
@@ -213,6 +219,7 @@
 <div th:replace="~{fragments/app-modal :: appModal}"></div>
 <script src="/js/vendor/bootstrap.bundle.min.js"></script>
 <script src="/js/app-modal.js?v=5"></script>
+<script src="/js/control-description.js?v=1"></script>
 <script>
 // Confirm, initiate, then show the control's performance cycle
 (function () {

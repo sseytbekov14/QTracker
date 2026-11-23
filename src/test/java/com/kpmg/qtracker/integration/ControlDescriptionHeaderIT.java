@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 /**
- * The Control Description in the header of View Control and Performance cycle (2026-11-10): the text with its line
+ * The Control Description in the header of View Control, Performance cycle and Initiate (2026-11-10, Initiate 2026-11-23): the text with its line
  * breaks, trimmed and escaped, in a block the script folds to two lines with "Show more" (control-description.js);
  * the button is hidden until the script finds the text longer than two lines. No description: no block.
  */
@@ -28,7 +28,8 @@ class ControlDescriptionHeaderIT extends ReleaseScenarioSupport {
         Control running = control("HR-CDH-R", "IN_PROGRESS", people().facilitator(myEdit("cdh-fac"))
                 .operator(myEdit("cdh-op")).soqm(soqm).owner(myEdit("cdh-po")), c -> c.setControlDescription(LONG));
 
-        for (String page : new String[] {"/view-control/" + draft.getId(), "/performance-cycle/" + running.getId()}) {
+        for (String page : new String[] {"/view-control/" + draft.getId(), "/performance-cycle/" + running.getId(),
+                "/initiate/" + draft.getId()}) {
             String html = body(call(session, get(page)));
             assertThat(html).as(page)
                     .contains("data-control-description", "class=\"ctl-desc-text\" id=\"controlDescriptionText\"",
