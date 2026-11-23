@@ -1,4 +1,5 @@
-/* global window, document, Quill, MutationObserver, FormData, fetch */
+/* global window, document, Quill, MutationObserver, FormData, fetch, escapeHtml */
+// Needs js/html-escape.js (the one escapeHtml of the pages) loaded before it.
 // The rich-text editor of the ten long fields of a control (2026-11-23): bold, italic, underline, strike-through,
 // headings, lists, quotes, links and pictures (Quill 2, js/vendor/quill). The field itself (textarea or input,
 // marked data-rich-text) stays in its form, hidden, and holds the editor's HTML, so the page's own code saves it as
@@ -12,10 +13,6 @@
 
     function isHtml(value) {
         return EDITOR_HTML.test(value || '');
-    }
-
-    function escapeHtml(text) {
-        return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     /** Old plain text (line breaks kept) as paragraphs. */

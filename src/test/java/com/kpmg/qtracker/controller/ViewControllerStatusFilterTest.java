@@ -64,7 +64,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = ViewController.class)
 @ActiveProfiles("test")
 @ExtendWith(OutputCaptureExtension.class)
-@Import(WorkflowTransitionGuard.class)
+@Import({WorkflowTransitionGuard.class, com.kpmg.qtracker.service.RichTextView.class})
 @AutoConfigureMockMvc(addFilters = false)
 class ViewControllerStatusFilterTest {
 
