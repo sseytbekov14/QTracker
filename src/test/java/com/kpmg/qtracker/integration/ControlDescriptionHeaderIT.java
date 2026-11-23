@@ -32,13 +32,13 @@ class ControlDescriptionHeaderIT extends ReleaseScenarioSupport {
                 "/initiate/" + draft.getId()}) {
             String html = body(call(session, get(page)));
             assertThat(html).as(page)
-                    .contains("data-control-description", "class=\"ctl-desc-text\" id=\"controlDescriptionText\"",
+                    .contains("data-control-description", "class=\"ctl-desc-text rich-html\" id=\"controlDescriptionText\"",
                             "aria-controls=\"controlDescriptionText\"", "aria-expanded=\"false\" hidden>Show more</button>",
-                            "/js/control-description.js?v=1", "/css/style.css?v=25")
-                    // trimmed, the line breaks kept for white-space: pre-line, the markup in it shown as text
-                    .contains(">The Firm reviews the HR records every month.\n1. New joiners confirmed independence.\n"
-                            + "2. Leavers &lt;b&gt;removed&lt;/b&gt; from the systems &amp; lists.\n"
-                            + "3. Exceptions are reported to the SoQM Admin Team.</p>")
+                            "/js/control-description.js?v=1", "/css/style.css?v=26")
+                    // trimmed, a paragraph per line (RichText.toHtml, 2026-11-23), the markup in it shown as text
+                    .contains("><p>The Firm reviews the HR records every month.</p><p>1. New joiners confirmed independence.</p>"
+                            + "<p>2. Leavers &lt;b&gt;removed&lt;/b&gt; from the systems &amp; lists.</p>"
+                            + "<p>3. Exceptions are reported to the SoQM Admin Team.</p></div>")
                     .doesNotContain("<b>removed</b>");
         }
     }

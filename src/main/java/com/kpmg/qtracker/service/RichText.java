@@ -124,7 +124,8 @@ public final class RichText {
             return Objects.requireNonNullElse(clean(value), "");
         }
         StringBuilder html = new StringBuilder();
-        for (String line : value.replace("\r\n", "\n").split("\n", -1)) {
+        // Spaces and empty lines around the whole text left out, as the pages trimmed it before
+        for (String line : value.replace("\r\n", "\n").strip().split("\n", -1)) {
             html.append("<p>").append(line.isEmpty() ? "<br>" : org.jsoup.nodes.Entities.escape(line)).append("</p>");
         }
         return html.toString();
