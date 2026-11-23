@@ -7,7 +7,8 @@
     <title>New Control - QTracker</title>
     <link href="/css/vendor/bootstrap.min.css" rel="stylesheet">
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="/css/style.css?v=20" rel="stylesheet">
+    <link href="/js/vendor/quill/quill.snow.css?v=2.0.3" rel="stylesheet">
+    <link href="/css/style.css?v=26" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         :root {
@@ -441,7 +442,7 @@
                             <div class="row g-3">
                                 <div class="col-12 mb-field">
                                     <label for="controlDescription" class="form-label">Control Description</label>
-                                    <textarea class="form-control" id="controlDescription" name="controlDescription"
+                                    <textarea data-rich-text class="form-control" id="controlDescription" name="controlDescription"
                                               rows="4" maxlength="20000" th:attr="maxlength=${textMax}" data-counter="controlDescription-counter"
                                               placeholder="What the control does and how it is performed"></textarea>
                                     <div class="field-meta">
@@ -451,7 +452,7 @@
                                 </div>
                                 <div class="col-12 mb-field">
                                     <label for="prp" class="form-label">PRP</label>
-                                    <textarea class="form-control" id="prp" name="prp"
+                                    <textarea data-rich-text class="form-control" id="prp" name="prp"
                                               rows="3" maxlength="20000" th:attr="maxlength=${textMax}" data-counter="prp-counter"
                                               placeholder="Policy / procedure reference details"></textarea>
                                     <div class="field-meta">
@@ -461,7 +462,7 @@
                                 </div>
                                 <div class="col-12 mb-field">
                                     <label for="referencesToControl" class="form-label">References to this Control</label>
-                                    <input type="text" class="form-control" id="referencesToControl" name="referencesToControl"
+                                    <input data-rich-text type="text" class="form-control" id="referencesToControl" name="referencesToControl"
                                            maxlength="20000" th:attr="maxlength=${textMax}" placeholder="e.g. related standards, documents or controls">
                                 </div>
                             </div>
@@ -787,5 +788,7 @@
     });
 })();
 </script>
+<script src="/js/vendor/quill/quill.js?v=2.0.3"></script>
+<script src="/js/rich-text.js?v=1"></script>
 </body>
 </html>

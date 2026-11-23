@@ -2120,3 +2120,30 @@ input[data-date-picker] {
 .ctl-desc-toggle:hover { color: #cfe0ff; }
 .ctl-desc-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 2px; }
 .ctl-desc-toggle[hidden] { display: none; }
+
+/* ===== Rich-text fields of a control (rich-text.js, Quill 2, 2026-11-23) ===== */
+.rt-wrap { background: var(--kpmg-white, #fff); border-radius: 4px; }
+.rt-wrap .ql-toolbar.ql-snow { border-color: var(--kpmg-gray-200, #dee2e6); border-radius: 4px 4px 0 0; padding: 4px 6px; }
+.rt-wrap .ql-container.ql-snow { border-color: var(--kpmg-gray-200, #dee2e6); border-radius: 0 0 4px 4px; font-family: inherit; font-size: 0.9rem; }
+.rt-wrap .ql-editor { min-height: 140px; max-height: 480px; overflow-y: auto; line-height: 1.5; }
+.rt-wrap.rt-single .ql-editor { min-height: 38px; max-height: 160px; }
+.rt-wrap .ql-editor img, .rich-html img { max-width: 100%; height: auto; border: 1px solid var(--kpmg-gray-200, #dee2e6); border-radius: 2px; }
+.rt-wrap.is-readonly .ql-toolbar { display: none; }
+.rt-wrap.is-readonly .ql-container.ql-snow { border-top: 1px solid var(--kpmg-gray-200, #dee2e6); border-radius: 4px; background: var(--kpmg-gray-50, #f8f9fa); }
+.rt-wrap.is-readonly .ql-editor { cursor: default; }
+.rt-wrap.is-readonly .ql-editor.ql-blank::before { content: none; }
+.rt-counter { text-align: right; font-size: 0.72rem; color: var(--kpmg-gray-600, #6c757d); margin-top: 2px; }
+.rt-counter:empty { display: none; }
+.rt-counter.is-over { color: #c0392b; font-weight: 600; }
+/* Rich text shown as text (headers): the editor's paragraphs and lists without big gaps */
+.rich-html p, .rich-html h1, .rich-html h2, .rich-html h3, .rich-html ol, .rich-html ul, .rich-html blockquote { margin: 0; }
+.rich-html h1, .rich-html h2, .rich-html h3 { font-size: 1em; font-weight: 700; }
+.rich-html ol, .rich-html ul { padding-left: 1.4em; }
+.rich-html blockquote { border-left: 3px solid currentColor; padding-left: 0.6em; opacity: 0.9; }
+.rich-html a { color: inherit; text-decoration: underline; }
+.ctl-desc .ctl-desc-text.rich-html { white-space: normal; }
+.ctl-desc .ctl-desc-text.rich-html img { max-height: 240px; }
+/* Quill keeps a bullet list inside <ol> with data-list="bullet": shown as bullets outside the editor too */
+.rich-html li[data-list="bullet"] { list-style-type: disc; }
+.rich-html li[data-list="ordered"] { list-style-type: decimal; }
+.rt-wrap.is-readonly .rt-counter { display: none; }
