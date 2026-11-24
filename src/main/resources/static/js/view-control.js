@@ -1082,6 +1082,51 @@ function confirmWorkflowAction() {
         stepsField.style.backgroundColor = '';
     }
 
+    // The Process Owner's step (2026-11-24): their fields - Process Owner Comments, Control Steps Performed and Results,
+    // Attachments - are open as the page loads, without Edit (the server leaves Edit off, processOwnerStep); every other
+    // field stays read only. Complete and Return to Control Operator save them first (ensureWorkflowRoleReady: the
+    // fields, then the files one by one, then the step). Leaving the page with something not saved asks first.
+    let processOwnerStepSaved = null;
+
+    function processOwnerStepValues() {
+        return ['controlStepsPerformed', 'processOwnerComments']
+            .map(name => document.querySelector('textarea[name="' + name + '"]')?.value || '').join('|');
+    }
+
+    function openProcessOwnerStep() {
+        if (document.getElementById('processOwnerStep')?.value !== 'true') {
+            return;
+        }
+        if (canEditStepsPerformed) {
+            enableControlStepsPerformedField();
+        }
+        if (canEditProcessOwnerComments) {
+            enableProcessOwnerCommentsField();
+        }
+        enableFileInputs();
+        processOwnerStepSaved = processOwnerStepValues();
+        window.addEventListener('beforeunload', event => {
+            if (!window.qtrackerProcessOwnerStep.hasUnsaved()) {
+                return;
+            }
+            event.preventDefault();
+            event.returnValue = '';
+        });
+    }
+
+    window.qtrackerProcessOwnerStep = {
+        // what is on the page is saved now (after the fields and the files went up)
+        markSaved() {
+            if (processOwnerStepSaved !== null) {
+                processOwnerStepSaved = processOwnerStepValues();
+            }
+        },
+        hasUnsaved() {
+            return processOwnerStepSaved !== null && (processOwnerStepValues() !== processOwnerStepSaved
+                || (typeof window.hasPendingAttachments === 'function' && window.hasPendingAttachments()));
+        }
+    };
+
     function enableProcessOwnerCommentsField() {
         const commentsField = document.querySelector('textarea[name="processOwnerComments"]');
         if (!commentsField) {
@@ -2375,6 +2420,7 @@ function saveDetailsData(controlId) {
 
             initializeReadOnlyMode();
             normalizeAssignmentDateFieldsForDisplay();
+            openProcessOwnerStep();
 
             const editBtn = document.getElementById('editBtn');
             const renameIdBtn = document.getElementById('renameIdBtn');
@@ -3225,6 +3271,24 @@ async function ensureWorkflowRoleReady() {
 
     try {
         await saveDetailsDataSilently(controlId);
+        // Files chosen in the Process Owner's step go up with it, one by one (2026-11-24); none chosen: nothing to do
+        if (typeof window.uploadAttachments === 'function') {
+            const files = await window.uploadAttachments();
+            if (files && files.success === false) {
+                showAppModal({
+                    variant: 'error',
+                    title: 'Some files were not uploaded',
+                    message: 'Your comments are saved' + (files.uploaded ? ', and ' + files.uploaded + ' file(s)' : '')
+                        + '. Not uploaded: ' + (files.failed || []).map(item => item.name + ' (' + item.reason + ')').join('; ')
+                        + '. The control was not sent on: remove these files or try again.',
+                    autoCloseMs: 0
+                });
+                return false;
+            }
+        }
+        if (window.qtrackerProcessOwnerStep) {
+            window.qtrackerProcessOwnerStep.markSaved();
+        }
         return true;
     } catch (error) {
         showWorkflowRequirementMessage(

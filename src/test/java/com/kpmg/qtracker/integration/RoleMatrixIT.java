@@ -362,16 +362,24 @@ class RoleMatrixIT {
     }
 
     /**
-     * The holder of the step at it: the page offers Edit (readOnly false, "your turn"), /api/permissions says canEdit,
+     * The holder of the step at it: the page offers Edit (readOnly false, "your turn"; a Process Owner who is not SoQM has
+     * their fields open instead, 2026-11-24), /api/permissions says canEdit,
      * the step's field and the Documentation upload pass.
      */
     private void actsAtTheStep(Control control, String status, MockHttpSession session) throws Exception {
         MvcResult page = perform(get("/view-control/{id}", control.getId()), session);
         assertThat(page.getModelAndView().getModel().get("readOnly")).as("Edit at %s", status).isEqualTo(false);
         assertThat(page.getModelAndView().getModel().get("yourTurn")).as("your turn at %s", status).isEqualTo(true);
-        // The Edit button is there, and no script of the page hides it again for one of the person's roles
-        assertThat(page.getResponse().getContentAsString()).as("Edit button at %s", status)
-                .contains("id=\"editBtn\"").doesNotContain("editBtn.style.display = 'none'");
+        if (Boolean.TRUE.equals(page.getModelAndView().getModel().get("processOwnerStep"))) {
+            // The Process Owner's own step (2026-11-24): no Edit, their fields are open and Complete / Return save them
+            assertThat(status).isEqualTo("PROCESS_OWNER_REVIEW");
+            assertThat(page.getResponse().getContentAsString()).as("open step at %s", status)
+                    .contains("id=\"processOwnerStep\" value=\"true\"").doesNotContain("id=\"editBtn\"");
+        } else {
+            // The Edit button is there, and no script of the page hides it again for one of the person's roles
+            assertThat(page.getResponse().getContentAsString()).as("Edit button at %s", status)
+                    .contains("id=\"editBtn\"").doesNotContain("editBtn.style.display = 'none'");
+        }
         String permissions = perform(get("/api/permissions/{id}", control.getId()), session).getResponse()
                 .getContentAsString();
         assertThat(permissions).as("permissions at %s", status).contains("\"canEdit\":true");

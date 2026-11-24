@@ -1048,6 +1048,11 @@ public class ViewController {
                         || ("SOQM_HEAD_REVIEW".equals(normalizedStatus) && permission.isSoqmLead())
                         || ("PROCESS_OWNER_REVIEW".equals(normalizedStatus) && permission.isProcessOwner()));
         model.addAttribute("yourTurn", yourTurn);
+        // The Process Owner's own step (2026-11-24): Process Owner Comments, Control Steps Performed and Results and
+        // Attachments are open on the page without Edit, and Complete / Return to Control Operator save them first.
+        // SoQM Admin Team (also when listed as Process Owner) keeps Edit with every field.
+        model.addAttribute("processOwnerStep", "PROCESS_OWNER_REVIEW".equals(normalizedStatus)
+                && !permission.canEditAll() && permission.canEditProcessOwnerComments());
         // The field the user's step needs, named in the "Your step" hint and marked on the Details tab
         model.addAttribute("stepField", yourTurn
                 ? WorkflowRequiredFieldService.stepField(normalizedStatus).orElse(null) : null);
