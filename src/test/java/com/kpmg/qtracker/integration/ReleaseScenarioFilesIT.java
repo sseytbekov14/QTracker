@@ -38,30 +38,40 @@ class ReleaseScenarioFilesIT extends ReleaseScenarioSupport {
     // ---- limits and types ----
 
     @Test
-    void size_tenMegabytesIsTaken_oneByteMoreIsRefused_withTheFileName() throws Exception {
+    void size_fiftyMegabytesIsTaken_oneByteMoreIsRefused_withTheFileName() throws Exception {
+        // 50 MB for every type (2026-11-24, was 10 MB)
         Setup s = setup("IN_PROGRESS");
-        MvcResult ok = upload(s.facSession, s.control, file("exact.pdf", (int) (10 * MB)));
+        MvcResult ok = upload(s.facSession, s.control, file("exact.pdf", (int) (50 * MB)));
         assertThat(ok.getResponse().getStatus()).as(body(ok)).isEqualTo(200);
-        MvcResult tooBig = upload(s.facSession, s.control, file("bigger.pdf", (int) (10 * MB + 1)));
+        MvcResult tooBig = upload(s.facSession, s.control, file("bigger.pdf", (int) (50 * MB + 1)));
         assertThat(tooBig.getResponse().getStatus()).isEqualTo(400);
-        assertThat(body(tooBig)).contains("bigger.pdf").contains("10 MB");
+        assertThat(body(tooBig)).contains("bigger.pdf").contains("50 MB");
         assertThat(listed(s.control)).contains("exact.pdf").doesNotContain("bigger.pdf");
     }
 
     @Test
-    void count_fiftyFilesPerTabAreTaken_theFiftyFirstIsRefused() throws Exception {
+    void count_twentyFilesPerControlAreTaken_theTwentyFirstIsRefused_aReplacementStillWorks() throws Exception {
+        // 20 files per control, every role and step together (2026-11-24, was 50)
         Setup s = setup("IN_PROGRESS");
         // The control has one file already
         MockMultipartHttpServletRequestBuilder request = multipart("/api/attachments/upload/{id}", s.control.getId());
-        for (int i = 1; i <= 49; i++) {
+        for (int i = 1; i <= 18; i++) {
             request.file(file("part-" + i + ".pdf", 10));
         }
-        MvcResult fifty = call(s.facSession, request);
-        assertThat(fifty.getResponse().getStatus()).as(body(fifty)).isEqualTo(200);
-        assertThat(listed(s.control)).hasSize(50);
-        MvcResult fiftyFirst = upload(s.facSession, s.control, file("part-51.pdf", 10));
-        assertThat(fiftyFirst.getResponse().getStatus()).isEqualTo(400);
-        assertThat(body(fiftyFirst)).contains("Maximum 50 files");
+        MvcResult nineteen = call(s.facSession, request);
+        assertThat(nineteen.getResponse().getStatus()).as(body(nineteen)).isEqualTo(200);
+        // one by one, as the page sends them, by another role
+        MvcResult twenty = upload(s.soqmSession, s.control, file("part-19.pdf", 10));
+        assertThat(twenty.getResponse().getStatus()).as(body(twenty)).isEqualTo(200);
+        assertThat(listed(s.control)).hasSize(20);
+        MvcResult twentyFirst = upload(s.facSession, s.control, file("part-21.pdf", 10));
+        assertThat(twentyFirst.getResponse().getStatus()).isEqualTo(400);
+        assertThat(body(twentyFirst)).contains("Maximum 20 files per control (20 already attached)");
+        // A file that replaces an attached one adds none: taken at 20
+        MvcResult replaced = call(s.facSession, multipart("/api/attachments/upload/{id}", s.control.getId())
+                .file(file("part-1.pdf", 20)).param("replace", "part-1.pdf"));
+        assertThat(replaced.getResponse().getStatus()).as(body(replaced)).isEqualTo(200);
+        assertThat(listed(s.control)).hasSize(20);
         // The old Documents field is the same list since V30: refused too
         assertThat(call(s.facSession, multipart("/api/attachments/upload/{id}", s.control.getId())
                 .file(new MockMultipartFile("attachmentDocuments", "doc-tab.pdf", "application/pdf", bytes(10))))
@@ -81,13 +91,15 @@ class ReleaseScenarioFilesIT extends ReleaseScenarioSupport {
             MvcResult refused = upload(s.facSession, s.control, file(name, 20));
             assertThat(refused.getResponse().getStatus()).as(name).isEqualTo(400);
         }
-        // A double extension ending in an allowed one, and HTML sent as a PDF: taken as files of that type
-        assertThat(upload(s.facSession, s.control, file("invoice.exe.pdf", 20)).getResponse().getStatus()).isEqualTo(200);
+        // A double extension ending in an allowed one, and HTML sent as a PDF: taken as files of that type (on a second
+        // control: the first has its 20 files)
+        Setup t = setup("IN_PROGRESS");
+        assertThat(upload(t.facSession, t.control, file("invoice.exe.pdf", 20)).getResponse().getStatus()).isEqualTo(200);
         MockMultipartFile html = new MockMultipartFile("attachmentDetails", "looks-like.pdf", "text/html",
                 "<html><script>alert(1)</script></html>".getBytes(StandardCharsets.UTF_8));
-        assertThat(upload(s.facSession, s.control, html).getResponse().getStatus()).isEqualTo(200);
-        MvcResult download = call(s.facSession, get("/api/attachments/download/{f}", "looks-like.pdf")
-                .param("controlId", id(s.control)));
+        assertThat(upload(t.facSession, t.control, html).getResponse().getStatus()).isEqualTo(200);
+        MvcResult download = call(t.facSession, get("/api/attachments/download/{f}", "looks-like.pdf")
+                .param("controlId", id(t.control)));
         assertThat(download.getResponse().getStatus()).isEqualTo(200);
         assertThat(download.getResponse().getContentType()).isEqualTo("application/pdf");
         assertThat(download.getResponse().getHeader("Content-Disposition")).startsWith("attachment");

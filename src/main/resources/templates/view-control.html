@@ -9,7 +9,7 @@
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/js/vendor/quill/quill.snow.css?v=2.0.3" rel="stylesheet">
     <link href="/css/style.css?v=26" rel="stylesheet">
-    <link href="/css/view-control.css?v=40" rel="stylesheet">
+    <link href="/css/view-control.css?v=41" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -870,14 +870,15 @@
                                                     </svg>
                                                 </div>
                                                 <span class="kpmg-upload-text">Drop files here or click to browse</span>
-                                                <span class="kpmg-upload-hint">Up to 50 files at once</span>
+                                                <span class="kpmg-upload-hint" th:text="|Up to ${attachmentMaxFiles} files per control, max ${attachmentMaxFileMb} MB each|">Up to 20 files per control, max 50 MB each</span>
                                                 <span class="kpmg-upload-types" th:text="${attachmentTypes}">PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG, MSG, ZIP</span>
                                                 <!--/* The types: the server's list (AttachmentTypes), also read by the page's own check */-->
                                                 <input type="file" class="kpmg-upload-input" name="attachedFile" id="attachmentDetailsInput" multiple
-                                                       th:attr="accept=${attachmentAccept},data-types-label=${attachmentTypes}">
+                                                       th:attr="accept=${attachmentAccept},data-types-label=${attachmentTypes},data-max-file-mb=${attachmentMaxFileMb},data-max-files=${attachmentMaxFiles}">
                                             </div>
                                             <div class="kpmg-upload-progress"><div class="kpmg-upload-progress-bar" id="detailsProgressBar"></div></div>
                                         </div>
+                                        <div class="kpmg-upload-status" id="detailsUploadStatus" role="status" aria-live="polite"></div>
                                         <div id="detailsFileInfo"></div>
                                     </div>
                                 </div>
@@ -1856,7 +1857,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=5"></script>
 <script src="/js/multi-value.js?v=4"></script>
-<script src="/js/view-control.js?v=8.17"></script>
+<script src="/js/view-control.js?v=8.18"></script>
 <script src="/js/control-description.js?v=1"></script>
 <script src="/js/vendor/quill/quill.js?v=2.0.3"></script>
 <script src="/js/rich-text.js?v=2"></script>
@@ -2300,9 +2301,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const typesInput = document.getElementById('attachmentDetailsInput');
     const ALLOWED_EXTS = ((typesInput && typesInput.getAttribute('accept')) || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
     const TYPES_LABEL = (typesInput && typesInput.dataset.typesLabel) || ALLOWED_EXTS.map(e => e.slice(1).toUpperCase()).join(', ');
-    // Must match file.upload.max-file-size-mb / spring.servlet.multipart.max-request-size on the server
-    const MAX_FILE_SIZE_MB = 10;
-    const MAX_REQUEST_SIZE_MB = 100;
+    // The server's limits (file.upload.max-file-size-mb, FileAttachmentController.MAX_FILES_PER_CONTROL), from the
+    // file input: one file at most this big, a control at most this many files (2026-11-24)
+    const MAX_FILE_SIZE_MB = parseInt(typesInput && typesInput.dataset.maxFileMb, 10) || 50;
+    const MAX_FILES = parseInt(typesInput && typesInput.dataset.maxFiles, 10) || 20;
 
     // Names already uploaded per tab (lower-cased stored names), filled by loadExistingAttachments()
     const existingNames = { details: new Set() };
@@ -2317,31 +2319,14 @@ document.addEventListener('DOMContentLoaded', function() {
         return ext ? base + '.' + ext : base;
     }
 
-    function validateFiles(files) {
-        const blocked = [];
-        const disallowed = [];
-        const tooLarge = [];
-        const empty = [];
-        const valid = [];
-        Array.from(files).forEach(file => {
-            const lower = file.name.toLowerCase();
-            if (BLOCKED_EXTS.some(e => lower.endsWith(e))) {
-                blocked.push(file.name);
-            } else if (!ALLOWED_EXTS.some(e => lower.endsWith(e))) {
-                disallowed.push(file.name);
-            } else if (file.size === 0) {
-                empty.push(file.name);
-            } else if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-                tooLarge.push(`${file.name} (${formatSize(file.size)})`);
-            } else {
-                valid.push(file);
-            }
-        });
-        if (blocked.length) showToast(`Blocked file(s): ${escapeHtml(blocked.join(', '))} — incomplete downloads are not allowed.`, 'error');
-        if (disallowed.length) showToast(`Unsupported type(s): ${escapeHtml(disallowed.join(', '))}. Allowed: ${escapeHtml(TYPES_LABEL)}.`, 'warning');
-        if (empty.length) showToast(`Empty file(s) skipped: ${escapeHtml(empty.join(', '))}.`, 'warning');
-        if (tooLarge.length) showToast(`File(s) too large: ${escapeHtml(tooLarge.join(', '))}. Maximum size is ${MAX_FILE_SIZE_MB} MB per file.`, 'error', 6000);
-        return valid;
+    // Why a chosen file cannot be uploaded, or null: the reason stays listed under the zone, not in a passing toast
+    function refusalOf(file) {
+        const lower = file.name.toLowerCase();
+        if (BLOCKED_EXTS.some(e => lower.endsWith(e))) return 'an incomplete download';
+        if (!ALLOWED_EXTS.some(e => lower.endsWith(e))) return 'this type is not allowed (allowed: ' + TYPES_LABEL + ')';
+        if (file.size === 0) return 'the file is empty';
+        if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) return 'larger than ' + MAX_FILE_SIZE_MB + ' MB';
+        return null;
     }
 
     // Display name for a stored file; strips the legacy "yyyyMMdd_HHmmss_xxxxxxxx_" prefix
@@ -2431,7 +2416,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!zone) return;
         zone.addEventListener('dragover', e => { e.preventDefault(); if (zone.getAttribute('data-disabled') !== 'true') zone.classList.add('drag-over'); });
         zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-        zone.addEventListener('drop', e => { zone.classList.remove('drag-over'); });
     });
 
     // Load existing on page load
@@ -2446,6 +2430,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let attachedFiles = [];
     let deletableAttached = new Set();
     const pendingChoice = new Map();
+    // Files chosen that will not be uploaded, with why (too big, type, limit of files), and files whose upload the
+    // server refused, with its answer: listed under the zone until removed (2026-11-24)
+    const refused = [];
+    const uploadError = new Map();
 
     // A file of an attached name: Replace / Keep both / Skip (Replace only for whoever may delete the attached one,
     // not on a completed control, where a delete only hides a file)
@@ -2488,42 +2476,82 @@ document.addEventListener('DOMContentLoaded', function() {
         return attachedFiles.find(name => name.trim().toLowerCase() === stored) || null;
     }
 
-    // The pending block: the files Save will upload, each with its choice and a button to take it back
+    // How many files the control would have with the chosen ones (a replacement adds none)
+    function filesAfterUpload() {
+        return existingNames.details.size
+            + Array.from(detailsDT.files).filter(f => pendingChoice.get(f) !== 'replace').length;
+    }
+
+    function addRefused(file, reason) {
+        if (!refused.some(r => r.name === file.name && r.reason === reason)) {
+            refused.push({ name: file.name, size: file.size, reason: reason });
+        }
+    }
+
+    function setPending(files) {
+        detailsDT.items.clear();
+        files.forEach(f => detailsDT.items.add(f));
+        if (detailsInput) detailsInput.files = detailsDT.files;
+    }
+
+    // The pending block: the files Save will upload, each with its choice and a button to take it back, and the
+    // files that will not be uploaded, in red with the reason
     function renderPending() {
         let box = document.getElementById('detailsPendingFiles');
-        if (!box && detailsDT.files.length && detailsFileInfo) {
+        const files = Array.from(detailsDT.files);
+        if (!box && (files.length || refused.length) && detailsFileInfo) {
             box = document.createElement('div');
             box.id = 'detailsPendingFiles';
             box.className = 'kpmg-pending-files';
             detailsFileInfo.parentNode.insertBefore(box, detailsFileInfo.nextSibling);
         }
         if (!box) return;
-        const files = Array.from(detailsDT.files);
-        if (!files.length) { box.remove(); return; }
-        let html = '<div class="kpmg-pending-header">Will be uploaded on Save <span class="kpmg-file-count-badge">'
-            + files.length + '</span></div><ul class="kpmg-pending-list">';
-        files.forEach((file, index) => {
-            const choice = pendingChoice.get(file);
-            const target = attachedNameOf(file);
-            const note = choice === 'replace' ? 'replaces the attached file' : (target ? 'saved as a copy' : '');
-            html += '<li><span class="kpmg-pending-name">' + escapeHtml(file.name) + '</span>'
-                + (note ? ' <span class="kpmg-pending-note">(' + note + ')</span>' : '')
-                + ' <span class="kpmg-pending-size">' + formatSize(file.size) + '</span>'
-                + ' <button type="button" class="kpmg-pending-remove" data-index="' + index + '" aria-label="Do not upload '
-                + escapeHtml(file.name) + '" title="Do not upload">&times;</button></li>';
-        });
-        box.innerHTML = html + '</ul>';
+        if (!files.length && !refused.length) { box.remove(); return; }
+        let html = '';
+        if (files.length) {
+            html += '<div class="kpmg-pending-header">Will be uploaded on Save <span class="kpmg-file-count-badge">'
+                + files.length + '</span></div><ul class="kpmg-pending-list">';
+            files.forEach((file, index) => {
+                const choice = pendingChoice.get(file);
+                const target = attachedNameOf(file);
+                const note = choice === 'replace' ? 'replaces the attached file' : (target ? 'saved as a copy' : '');
+                const error = uploadError.get(file);
+                html += '<li' + (error ? ' class="is-failed"' : '') + '><span class="kpmg-pending-name">' + escapeHtml(file.name) + '</span>'
+                    + (note ? ' <span class="kpmg-pending-note">(' + note + ')</span>' : '')
+                    + (error ? ' <span class="kpmg-pending-error">Not uploaded: ' + escapeHtml(error) + '</span>' : '')
+                    + ' <span class="kpmg-pending-size">' + formatSize(file.size) + '</span>'
+                    + ' <button type="button" class="kpmg-pending-remove" data-index="' + index + '" aria-label="Do not upload '
+                    + escapeHtml(file.name) + '" title="Do not upload">&times;</button></li>';
+            });
+            html += '</ul>';
+        }
+        if (refused.length) {
+            html += '<div class="kpmg-pending-header kpmg-refused-header">Not added <span class="kpmg-file-count-badge is-refused">'
+                + refused.length + '</span></div><ul class="kpmg-pending-list kpmg-refused-list">';
+            refused.forEach((item, index) => {
+                html += '<li><span class="kpmg-pending-name">' + escapeHtml(item.name) + '</span>'
+                    + ' <span class="kpmg-pending-error">' + escapeHtml(item.reason) + '</span>'
+                    + (item.size ? ' <span class="kpmg-pending-size">' + formatSize(item.size) + '</span>' : '')
+                    + ' <button type="button" class="kpmg-pending-remove" data-refused="' + index + '" aria-label="Clear '
+                    + escapeHtml(item.name) + '" title="Clear">&times;</button></li>';
+            });
+            html += '</ul>';
+        }
+        box.innerHTML = html;
     }
 
     document.addEventListener('click', function(e) {
         const button = e.target.closest('.kpmg-pending-remove');
         if (!button) return;
+        if (button.dataset.refused !== undefined) {
+            refused.splice(parseInt(button.dataset.refused, 10), 1);
+            renderPending();
+            return;
+        }
         const index = parseInt(button.dataset.index, 10);
         const all = Array.from(detailsDT.files);
-        if (all[index]) pendingChoice.delete(all[index]);
-        detailsDT.items.clear();
-        all.filter((f, i) => i !== index).forEach(f => detailsDT.items.add(f));
-        if (detailsInput) detailsInput.files = detailsDT.files;
+        if (all[index]) { pendingChoice.delete(all[index]); uploadError.delete(all[index]); }
+        setPending(all.filter((f, i) => i !== index));
         renderPending();
     });
 
@@ -2531,24 +2559,31 @@ document.addEventListener('DOMContentLoaded', function() {
     window.resetPendingAttachments = function() {
         detailsDT.items.clear();
         pendingChoice.clear();
+        uploadError.clear();
+        refused.length = 0;
         if (detailsInput) detailsInput.value = '';
-        filesAlreadyUploaded = false;
         renderPending();
         loadExistingAttachments();
     };
 
-    function handleFileChange(input, dt, zone, barEl, fileInfoEl, label) {
-        if (!input) return;
-        input.addEventListener('change', async function() {
-            const raw = Array.from(this.files);
-            const valid = validateFiles(raw);
-            const alreadySelected = [];
-            for (const file of valid) {
-                const stored = toStoredFilename(file.name).toLowerCase();
-                const dup = Array.from(dt.files).some(f => toStoredFilename(f.name).toLowerCase() === stored);
-                if (dup) {
-                    alreadySelected.push(file.name);
+    // Whether files are chosen and not uploaded yet (the Process Owner's step asks before leaving the page)
+    window.hasPendingAttachments = function() {
+        return detailsDT.files.length > 0;
+    };
+
+    // Several files at once, chosen or dropped, are added to the ones chosen before
+    async function addChosenFiles(raw) {
+            const dt = detailsDT;
+            const label = 'details';
+            for (const file of raw) {
+                const reason = refusalOf(file);
+                if (reason) {
+                    addRefused(file, reason);
                     continue;
+                }
+                const stored = toStoredFilename(file.name).toLowerCase();
+                if (Array.from(dt.files).some(f => toStoredFilename(f.name).toLowerCase() === stored)) {
+                    continue; // chosen already: it is in the list once
                 }
                 const attached = attachedNameOf(file);
                 let choice = 'keep';
@@ -2556,93 +2591,96 @@ document.addEventListener('DOMContentLoaded', function() {
                     choice = await askDuplicate(attached);
                     if (choice === 'skip') continue;
                 }
+                if (choice !== 'replace' && filesAfterUpload() >= MAX_FILES) {
+                    addRefused(file, 'a control has at most ' + MAX_FILES + ' files (' + existingNames[label].size
+                        + ' attached)');
+                    continue;
+                }
                 dt.items.add(file);
                 pendingChoice.set(file, choice);
             }
-            if (alreadySelected.length) {
-                showToast('Already selected: ' + escapeHtml(alreadySelected.join(', ')) + '.', 'warning');
-            }
-            this.files = dt.files;
-            const replacing = Array.from(dt.files).filter(f => pendingChoice.get(f) === 'replace').length;
-            const count = dt.files.length - replacing + existingNames[label].size;
-            if (count > 50) {
-                showToast('Maximum 50 files allowed (' + existingNames[label].size + ' already attached). Please select fewer files.', 'warning');
-                dt.items.clear();
-                pendingChoice.clear();
-                this.value = '';
-                renderPending();
-                return;
-            }
+            if (detailsInput) detailsInput.files = dt.files;
             renderPending();
+    }
+
+    if (detailsInput) {
+        detailsInput.addEventListener('change', function() { addChosenFiles(Array.from(this.files)); });
+    }
+    // Dropped files: read here, so a drop anywhere on the zone counts and the browser never opens the file instead
+    if (detailsZone) {
+        detailsZone.addEventListener('drop', e => {
+            e.preventDefault();
+            detailsZone.classList.remove('drag-over');
+            if (detailsZone.getAttribute('data-disabled') === 'true' || !e.dataTransfer) return;
+            addChosenFiles(Array.from(e.dataTransfer.files || []));
         });
     }
 
-    handleFileChange(detailsInput,   detailsDT,   detailsZone,   detailsBar,   detailsFileInfo,   'details');
+    // The upload status under the zone: "Uploading 3 of 12: name"
+    function setUploadStatus(text) {
+        const status = document.getElementById('detailsUploadStatus');
+        if (status) status.textContent = text || '';
+    }
 
-    // Flag to prevent multiple uploads
-    let filesAlreadyUploaded = false;
+    // One request per file (2026-11-24): the size of all of them together does not matter, a refused file does not
+    // stop the others, and the progress says which file is on its way. The caller waits for the result: Save is
+    // done only when every file is on the control. A second call while one runs gets the same run.
+    let uploadRun = null;
 
-    window.uploadAttachments = async function() {
-        if (filesAlreadyUploaded) return Promise.resolve({ success: true, skipped: true });
-        const formData = new FormData();
-        let hasFiles = false;
-        if (detailsInput && detailsInput.files.length > 0) {
-            Array.from(detailsInput.files).forEach(f => {
-                formData.append('attachmentDetails', f);
-                // Replace: the attached file of the same name this one takes the place of
-                const target = pendingChoice.get(f) === 'replace' ? attachedNameOf(f) : null;
-                if (target) formData.append('replace', target);
-            });
-            hasFiles = true;
+    window.uploadAttachments = function() {
+        if (!uploadRun) {
+            uploadRun = runUploads().finally(() => { uploadRun = null; });
         }
-        if (!hasFiles) return Promise.resolve();
-        // A completed control changed in place: the reason given at Save (CompletedEdit)
-        if (window.qtrackerCompletedEditReason) {
-            formData.append('editReason', window.qtrackerCompletedEditReason);
-        }
-
-        const totalBytes = [...(detailsInput?.files || [])]
-            .reduce((sum, f) => sum + f.size, 0);
-        if (totalBytes > MAX_REQUEST_SIZE_MB * 1024 * 1024) {
-            showToast(`Total size of selected files is ${formatSize(totalBytes)}. Maximum per upload is ${MAX_REQUEST_SIZE_MB} MB.`, 'error', 6000);
-            return Promise.resolve({ success: false, error: 'Total upload size exceeded' });
-        }
-
-        filesAlreadyUploaded = true;
-        showProgress(detailsZone, detailsBar);
-        animateProgress(detailsBar,   80, 1500);
-
-        try {
-            const response = await fetch('/api/attachments/upload/' + controlId, { method: 'POST', body: formData });
-            const text = await response.text();
-            let data;
-            try {
-                data = text ? JSON.parse(text) : {};
-            } catch (e) {
-                data = { success: false, message: response.status === 413 ? 'File is too large.' : 'Unexpected server response (' + response.status + ').' };
-            }
-            hideProgress(detailsZone, detailsBar);
-            if (response.ok && data.success) {
-                showToast('Files uploaded successfully!', 'success');
-                detailsDT.items.clear();
-                pendingChoice.clear();
-                if (detailsInput) detailsInput.value = '';
-                filesAlreadyUploaded = false;
-                renderPending();
-                loadExistingAttachments();
-            } else {
-                data.success = false;
-                showToast('Upload failed: ' + escapeHtml(data.message || data.error || 'Unknown error'), 'error', 8000);
-                filesAlreadyUploaded = false;
-            }
-            return data;
-        } catch (error) {
-            hideProgress(detailsZone, detailsBar);
-            showToast('Upload error: ' + escapeHtml(error.message), 'error');
-            filesAlreadyUploaded = false;
-            return { success: false, error: error.message };
-        }
+        return uploadRun;
     };
+
+    async function runUploads() {
+        const files = Array.from(detailsDT.files);
+        if (!files.length) return { success: true, uploaded: 0, failed: [] };
+        const failed = [];
+        let uploaded = 0;
+        showProgress(detailsZone, detailsBar);
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            setUploadStatus('Uploading ' + (i + 1) + ' of ' + files.length + ': ' + file.name);
+            if (detailsBar) detailsBar.style.width = Math.round(i / files.length * 100) + '%';
+            const formData = new FormData();
+            formData.append('attachmentDetails', file);
+            // Replace: the attached file of the same name this one takes the place of
+            const target = pendingChoice.get(file) === 'replace' ? attachedNameOf(file) : null;
+            if (target) formData.append('replace', target);
+            // A completed control changed in place: the reason given at Save (CompletedEdit)
+            if (window.qtrackerCompletedEditReason) formData.append('editReason', window.qtrackerCompletedEditReason);
+            let error = null;
+            try {
+                const response = await fetch('/api/attachments/upload/' + controlId, { method: 'POST', body: formData });
+                const text = await response.text();
+                let data = {};
+                try { data = text ? JSON.parse(text) : {}; } catch (e) { data = {}; }
+                if (response.ok && data.success) {
+                    uploaded++;
+                } else {
+                    error = data.message || data.error || (response.status === 413
+                        ? 'larger than the server accepts' : 'the server answered ' + response.status);
+                }
+            } catch (e) {
+                error = 'the connection was lost';
+            }
+            if (error) {
+                uploadError.set(file, error);
+                failed.push({ name: file.name, reason: error });
+            } else {
+                uploadError.delete(file);
+                pendingChoice.delete(file);
+                setPending(Array.from(detailsDT.files).filter(f => f !== file));
+            }
+        }
+        setUploadStatus(failed.length ? '' : uploaded + (uploaded === 1 ? ' file' : ' files') + ' uploaded');
+        hideProgress(detailsZone, detailsBar);
+        renderPending();
+        loadExistingAttachments();
+        return { success: failed.length === 0, uploaded: uploaded, failed: failed };
+    }
 
     function loadExistingAttachments() {
         fetch('/api/attachments/info/' + controlId)

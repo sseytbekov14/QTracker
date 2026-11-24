@@ -57,11 +57,12 @@ public class FileAttachmentController {
     private final ControlRenameService controlRenameService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private static final int MAX_FILES_PER_TAB = 50;
+    /** At most this many files on a control, every role and step together (2026-11-24, was 50); the page reads it. */
+    public static final int MAX_FILES_PER_CONTROL = 20;
     static final String FILE_NOT_FOUND = "FILE_NOT_FOUND";
     static final String FILE_NOT_FOUND_MESSAGE = "File not found";
 
-    @Value("${file.upload.max-file-size-mb:10}")
+    @Value("${file.upload.max-file-size-mb:50}")
     private long maxFileSizeMb;
 
     /**
@@ -115,7 +116,14 @@ public class FileAttachmentController {
 
             // Validate everything before writing any file to disk
             List<String> errors = new ArrayList<>();
-            errors.addAll(validateIncomingFiles(files, control.getAttachmentDetailsPath(), "Details"));
+            // A file that replaces an attached one adds no file to the control
+            int replacingCount = 0;
+            for (MultipartFile file : files) {
+                if (file != null && !file.isEmpty() && replaceTarget(control, file, replace) != null) {
+                    replacingCount++;
+                }
+            }
+            errors.addAll(validateIncomingFiles(files, control.getAttachmentDetailsPath(), replacingCount));
             if (!errors.isEmpty()) {
                 response.put("success", false);
                 response.put("message", String.join(" ", errors));
@@ -230,14 +238,15 @@ public class FileAttachmentController {
      * Validates files for one attachment tab: count limit, allowed type, size and duplicate names
      * (inside the selection and against files already attached to this tab).
      */
-    private List<String> validateIncomingFiles(MultipartFile[] files, String existingList, String tabLabel) {
+    private List<String> validateIncomingFiles(MultipartFile[] files, String existingList, int replacingCount) {
         List<String> errors = new ArrayList<>();
         if (files == null || files.length == 0) {
             return errors;
         }
 
-        if (countExistingFiles(existingList) + countIncomingFiles(files) > MAX_FILES_PER_TAB) {
-            errors.add("Maximum " + MAX_FILES_PER_TAB + " files allowed for " + tabLabel + " attachments.");
+        int attached = countExistingFiles(existingList);
+        if (attached + countIncomingFiles(files) - replacingCount > MAX_FILES_PER_CONTROL) {
+            errors.add("Maximum " + MAX_FILES_PER_CONTROL + " files per control (" + attached + " already attached).");
             return errors;
         }
 
@@ -277,7 +286,7 @@ public class FileAttachmentController {
             // (FileStorageService.saveFile), the one there stays (2026-11-20: two roles, one name)
             String storedName = FileStorageService.toStoredFilename(original).toLowerCase(Locale.ROOT);
             if (!incomingNames.add(storedName)) {
-                errors.add("File \"" + original + "\" is selected more than once for " + tabLabel + ".");
+                errors.add("File \"" + original + "\" is selected more than once.");
             }
         }
         return errors;

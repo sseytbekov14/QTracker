@@ -1891,6 +1891,34 @@ function reloadKeepingTab() {
     window.location.reload();
 }
 
+// The files chosen in edit mode, uploaded one by one after the fields (2026-11-24). Save is done only when every file
+// is on the control: before, the upload ran on its own and the page reloaded under it, so a big file or a slow link
+// lost the files while the page said "Saved". Now, if a file is refused, the fields are saved, the files not uploaded
+// stay listed with why, and edit mode stays open to press Save again or remove them.
+async function uploadPendingFiles() {
+    if (typeof window.uploadAttachments !== 'function') {
+        return;
+    }
+    const result = await window.uploadAttachments();
+    if (!result || result.success !== false) {
+        return;
+    }
+    // The fields are saved: Cancel goes back to them, not to before the edit
+    captureEditModeSnapshot();
+    const failed = result.failed || [];
+    const error = new Error(failed.length + ' file(s) not uploaded');
+    error.shown = true;
+    showAppModal({
+        variant: 'error',
+        title: 'Some files were not uploaded',
+        message: (result.uploaded ? 'The control data and ' + result.uploaded + ' file(s) are saved. ' : 'The control data is saved. ')
+            + 'Not uploaded: ' + failed.map(item => item.name + ' (' + item.reason + ')').join('; ')
+            + '. They are still listed under the upload zone: press Save to try again, or remove them.',
+        autoCloseMs: 0
+    });
+    throw error;
+}
+
 function saveControlChanges() {
     console.log('=== START SAVE CONTROL CHANGES ===');
 
@@ -1902,6 +1930,7 @@ function saveControlChanges() {
     if (isLimitedFieldEdit()) {
         console.log('Limited field edit mode: saving Details tab only');
         return saveDetailsData(controlId)
+            .then(() => uploadPendingFiles())
             .then(() => {
                 showAppModal({
                     variant: 'success',
@@ -1914,6 +1943,10 @@ function saveControlChanges() {
             })
             .catch(error => {
                 console.error('Error saving control data:', error);
+                // the files' own message is already shown (uploadPendingFiles)
+                if (error && error.shown) {
+                    throw error;
+                }
                 showAppModal({
                     variant: 'error',
                     title: 'Save Failed',
@@ -1927,6 +1960,7 @@ function saveControlChanges() {
     return saveControlData(controlId)
         .then(() => saveAssignmentData(controlId))
         .then(() => saveDetailsData(controlId))
+        .then(() => uploadPendingFiles())
         .then(() => {
             showAppModal({
                 variant: 'success',
@@ -1940,6 +1974,10 @@ function saveControlChanges() {
         })
         .catch(error => {
             console.error('Error saving control data:', error);
+            // the files' own message is already shown (uploadPendingFiles)
+            if (error && error.shown) {
+                throw error;
+            }
 
             showAppModal({
                 variant: 'error',
@@ -2063,11 +2101,6 @@ function saveAssignmentData(controlId) {
             SharedWithField.markSaved();
         }
 
-        // Upload file attachments if any
-        if (window.uploadAttachments) {
-            console.log('рџ“¤ Uploading file attachments...');
-            window.uploadAttachments();
-        }
 
         return data;
     })
@@ -2127,11 +2160,6 @@ function saveDetailsData(controlId) {
             MultiValueFields.markSaved();
         }
 
-        // Upload file attachments if any
-        if (window.uploadAttachments) {
-            console.log('рџ“¤ Uploading file attachments...');
-            window.uploadAttachments();
-        }
 
         return data;
     })
@@ -2385,6 +2413,8 @@ function saveDetailsData(controlId) {
                     }
 
                     saveEditBtn.disabled = true;
+                    // Cancel waits too: the files are on their way (uploadPendingFiles)
+                    if (cancelEditBtn) cancelEditBtn.disabled = true;
                     const originalText = saveEditBtn.textContent;
                     saveEditBtn.textContent = 'Saving...';
 
@@ -2393,6 +2423,7 @@ function saveDetailsData(controlId) {
                         console.log('вњ… Save successful:', result);
 
                         saveEditBtn.disabled = false;
+                        if (cancelEditBtn) cancelEditBtn.disabled = false;
                         saveEditBtn.textContent = originalText;
 
                     } catch (error) {
@@ -2400,6 +2431,7 @@ function saveDetailsData(controlId) {
 
                         // saveControlChanges has already shown the message
                         saveEditBtn.disabled = false;
+                        if (cancelEditBtn) cancelEditBtn.disabled = false;
                         saveEditBtn.textContent = originalText;
                     }
                 });

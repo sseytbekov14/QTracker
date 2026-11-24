@@ -57,7 +57,7 @@ class ReleaseScenarioProfilesTest {
         for (String profile : new String[]{"dev", "stage", "prod"}) {
             assertThat(value("controls.auto-create.enabled", profile)).as(profile).isNull();
         }
-        assertThat(value("spring.servlet.multipart.max-file-size")).isEqualTo("10MB");
+        assertThat(value("spring.servlet.multipart.max-file-size")).isEqualTo("50MB");
         assertThat(value("spring.servlet.multipart.max-request-size")).isEqualTo("100MB");
     }
 

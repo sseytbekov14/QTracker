@@ -29,7 +29,7 @@ public class GlobalExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    @Value("${file.upload.max-file-size-mb:10}")
+    @Value("${file.upload.max-file-size-mb:50}")
     private long maxFileSizeMb;
 
     @Value("${spring.servlet.multipart.max-request-size:100MB}")

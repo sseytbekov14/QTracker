@@ -34,7 +34,7 @@ spring:
       static-locations: classpath:/static/
   servlet:
     multipart:
-      max-file-size: ${FILE_UPLOAD_MAX_FILE_SIZE_MB:10}MB
+      max-file-size: ${FILE_UPLOAD_MAX_FILE_SIZE_MB:50}MB
       max-request-size: ${FILE_UPLOAD_MAX_REQUEST_SIZE_MB:100}MB
   mail:
     host: ${SPRING_MAIL_HOST:}
@@ -105,7 +105,7 @@ file:
     # the folder the app is started from is used, so the IDE and a jar started elsewhere would not share files.
     # The folder in use is written to the log at start.
     dir: ${FILE_UPLOAD_DIR:}
-    max-file-size-mb: ${FILE_UPLOAD_MAX_FILE_SIZE_MB:10}
+    max-file-size-mb: ${FILE_UPLOAD_MAX_FILE_SIZE_MB:50}
 
 retention:
   # Data retention (DataRetention): a control is deleted this many years after it was created, with its files, history,

@@ -69,7 +69,7 @@ class FileAttachmentControllerTest {
         Control control = new Control();
         control.setId(1L);
         control.setControlId("HR11");
-        control.setAttachmentDetailsPath(buildList(50));
+        control.setAttachmentDetailsPath(buildList(20));
         when(controlService.getControlById(1L)).thenReturn(Optional.of(control));
 
         User user = new User();
@@ -90,7 +90,7 @@ class FileAttachmentControllerTest {
         mockMvc.perform(multipart("/api/attachments/upload/1").file(file)
                         .sessionAttr("currentUser", user))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Maximum 50 files allowed for Details attachments."));
+                .andExpect(jsonPath("$.message").value("Maximum 20 files per control (20 already attached)."));
     }
 
     @Test
@@ -98,7 +98,7 @@ class FileAttachmentControllerTest {
         Control control = new Control();
         control.setId(2L);
         control.setControlId("HR12");
-        control.setAttachmentDetailsPath(buildList(50));
+        control.setAttachmentDetailsPath(buildList(20));
         when(controlService.getControlById(2L)).thenReturn(Optional.of(control));
 
         User user = new User();
@@ -119,7 +119,7 @@ class FileAttachmentControllerTest {
         mockMvc.perform(multipart("/api/attachments/upload/2").file(file)
                         .sessionAttr("currentUser", user))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Maximum 50 files allowed for Details attachments."));
+                .andExpect(jsonPath("$.message").value("Maximum 20 files per control (20 already attached)."));
     }
 
     @Test
@@ -244,7 +244,7 @@ class FileAttachmentControllerTest {
         mockMvc.perform(multipart("/api/attachments/upload/7").file(first).file(second)
                         .sessionAttr("currentUser", user))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("File \"a.pdf\" is selected more than once for Details."));
+                .andExpect(jsonPath("$.message").value("File \"a.pdf\" is selected more than once."));
 
         verify(fileStorageService, never()).saveFile(any(), any(), any());
     }

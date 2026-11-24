@@ -61,6 +61,10 @@ public class ViewController {
     private final ComponentControlsExcel componentControlsExcel;
     private final RelatedControls relatedControls;
 
+    /** The size limit of one attachment, as the upload checks it (file.upload.max-file-size-mb). */
+    @org.springframework.beans.factory.annotation.Value("${file.upload.max-file-size-mb:50}")
+    private long maxFileSizeMb;
+
     private User getCurrentUser(HttpSession session) {
         return (User) session.getAttribute("currentUser");
     }
@@ -977,6 +981,9 @@ public class ViewController {
         // The attachment types of the upload zone, from the server's own list (AttachmentTypes)
         model.addAttribute("attachmentAccept", com.kpmg.qtracker.service.AttachmentTypes.accept());
         model.addAttribute("attachmentTypes", com.kpmg.qtracker.service.AttachmentTypes.label());
+        // The limits the server checks (2026-11-24): the page checks the same and says them under the upload zone
+        model.addAttribute("attachmentMaxFileMb", maxFileSizeMb);
+        model.addAttribute("attachmentMaxFiles", FileAttachmentController.MAX_FILES_PER_CONTROL);
         model.addAttribute("operatorProgramLabel", ControlStepsFields.OPERATOR_PROGRAM_LABEL);
 
         // Read Only / KDN, or a User with Edit who is not assigned: a notice instead of buttons the server refuses

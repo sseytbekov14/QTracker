@@ -1503,3 +1503,11 @@ select.form-select.editable-select {
 .kpmg-pending-note { color: #8a6100; }
 .kpmg-pending-size { color: var(--kpmg-gray-600, #6c757d); margin-left: auto; white-space: nowrap; }
 .kpmg-pending-remove { border: 0; background: none; font-size: 1.1rem; line-height: 1; color: #c0392b; cursor: pointer; padding: 0 4px; }
+/* Files not added (too big, type, limit of files) and files the server refused: in red with the reason (2026-11-24) */
+.kpmg-pending-error { color: #b42318; font-size: 0.78rem; }
+.kpmg-pending-list li.is-failed,
+.kpmg-refused-list li { border-color: #f1aeb5; background: #fff5f5; }
+.kpmg-refused-header { color: #b42318; margin-top: 6px; }
+.kpmg-file-count-badge.is-refused { background: #b42318; }
+.kpmg-upload-status { font-size: 0.78rem; color: var(--kpmg-gray-600, #6c757d); min-height: 1em; margin-top: 4px; }
+.kpmg-upload-status:empty { display: none; }
