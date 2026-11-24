@@ -44,15 +44,41 @@ class PlannedNotificationsIT extends NotificationScenarioSupport {
     }
 
     static List<String> calendar(Cast cast, User holder) {
-        return List.of(
+        List<String> lines = new java.util.ArrayList<>(List.of(
                 line("T2", cast.fac, OCCURRENCE), line("T2", cast.op, OCCURRENCE), line("T2", cast.po, OCCURRENCE),
                 line("T3", holder, LocalDate.of(2026, 11, 10)),
                 line("T3", holder, LocalDate.of(2026, 11, 13)),
-                line("T4", holder, DEADLINE),
-                line("T5", holder, LocalDate.of(2026, 11, 20)),
-                line("T5", holder, LocalDate.of(2026, 11, 23)),
-                line("T5", holder, LocalDate.of(2026, 11, 24)),
-                line("T5", holder, LocalDate.of(2026, 11, 25)));
+                line("T4", holder, DEADLINE)));
+        // Overdue in In Progress and Review: the Process Owner gets T5 too (2026-11-24)
+        boolean ownerToo = holder == cast.fac || holder == cast.op;
+        for (LocalDate day : List.of(LocalDate.of(2026, 11, 20), LocalDate.of(2026, 11, 23), LocalDate.of(2026, 11, 24),
+                LocalDate.of(2026, 11, 25))) {
+            lines.add(line("T5", holder, day));
+            if (ownerToo) {
+                lines.add(line("T5", cast.po, day));
+            }
+        }
+        return lines;
+    }
+
+    /**
+     * T5 to the Process Owner too (2026-11-24): one e-mail a day to a person who is the Facilitator and the Process Owner;
+     * no Process Owner assigned: the holder gets theirs, nothing fails.
+     */
+    @Test
+    void overdue_theProcessOwnerToo_oncePerPerson_andNoOwnerIsNoError() throws Exception {
+        User both = myEdit("pn-both");
+        Cast cast = new Cast(both, myEdit("pn-both-op"), soqm("pn-both-soqm"), both);
+        Control sameOne = control("PN-BOTH", "IN_PROGRESS", cast, "Monthly");
+        User op = myEdit("pn-noowner-op");
+        Control noOwner = dated(control("PN-NOOWNER", "REVIEW", people().facilitator(myEdit("pn-noowner-fac"))
+                .operator(op).soqm(soqm("pn-noowner-soqm")), c -> c.setControlFrequency("Monthly")),
+                OCCURRENCE, DEADLINE);
+
+        runEveryDay(LocalDate.of(2026, 11, 20), LocalDate.of(2026, 11, 20));
+
+        assertThat(sent(sameOne)).containsExactly(line("T5", both, LocalDate.of(2026, 11, 20)));
+        assertThat(sent(noOwner)).containsExactly(line("T5", op, LocalDate.of(2026, 11, 20)));
     }
 
     /** Every frequency gives the same e-mails on the same days (decision 9). */
