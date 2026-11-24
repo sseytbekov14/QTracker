@@ -1128,6 +1128,11 @@ function makeAllFormsEditable() {
     if (stepsPerformedEditOnly) {
         console.log('✅ Field-level edit mode: enabling controlStepsPerformed only');
         enableControlStepsPerformedField();
+        // The Process Owner in Process Owner Review has both fields (AccessPolicy.participantFields, since
+        // 2026-11-20): Process Owner Comments was left locked, so Complete and Return could not be pressed (2026-11-24)
+        if (canEditProcessOwnerComments) {
+            enableProcessOwnerCommentsField();
+        }
         enableFileInputs();
         normalizeAssignmentDateFieldsForDisplay();
         return;
