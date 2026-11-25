@@ -172,9 +172,10 @@ class NotificationAcceptanceIT extends NotificationScenarioSupport {
                 line("T3", cast.po, LocalDate.of(2026, 11, 13)),
                 line("T11", cast.op, LocalDate.of(2026, 11, 13)),
                 line("T4", cast.op, DEADLINE),
-                line("T5", cast.op, LocalDate.of(2026, 11, 20)),
-                // overdue in Review: the Process Owner too (2026-11-24)
-                line("T5", cast.po, LocalDate.of(2026, 11, 20)));
+                line("T5", cast.op, LocalDate.of(2026, 11, 20)));
+        // overdue in Review: the Process Owner in CC (2026-11-25)
+        assertThat(mails(control)).filteredOn(m -> m.getTemplateKey().equals("T5")).singleElement()
+                .satisfies(mail -> assertThat(mail.getCcEmails()).isEqualTo(cast.po.getMail().toLowerCase(java.util.Locale.ROOT)));
         assertThat(inApp(control, cast.op)).anySatisfy(notice -> assertThat(notice.getMessage())
                 .contains("has been returned to you by the Process Owner for rework.")
                 .endsWith("Return Comment:\nThe March evidence is missing"));

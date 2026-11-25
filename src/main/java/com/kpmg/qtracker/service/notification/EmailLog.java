@@ -114,11 +114,20 @@ public class EmailLog {
      */
     public record Row(long id, LocalDateTime createdAt, LocalDateTime sentAt, Long controlId, String controlCode,
                       String event, String recipientName, String recipientEmail, Status status, String detail,
-                      String error, int attempts, String subject, boolean hasBody) {
+                      String error, int attempts, String subject, boolean hasBody, String cc) {
 
         public String statusKey() {
             return status.name();
         }
+    }
+
+    /** The copy of an e-mail as shown: the addresses joined by ", "; null for none (2026-11-25). */
+    static String copyOf(String ccEmails) {
+        if (ccEmails == null || ccEmails.isBlank()) {
+            return null;
+        }
+        return String.join(", ", java.util.Arrays.stream(ccEmails.split(",")).map(String::trim)
+                .filter(address -> !address.isEmpty()).toList());
     }
 
     /** @param now the time of the page (Almaty), for "2 hours ago" (static/js/time-ago.js) */
@@ -163,8 +172,11 @@ public class EmailLog {
         if (filter.q() != null && !filter.q().isBlank()) {
             String like = "%" + filter.q().trim().toLowerCase(Locale.ROOT)
                     .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+            // the copy too (2026-11-25): a search for the Process Owner finds the overdue e-mails they were copied on
             where.append(" AND (LOWER(o.recipient_email) LIKE ? ESCAPE '\\' OR LOWER(COALESCE(u.displayname, '')) LIKE ?"
-                    + " ESCAPE '\\' OR LOWER(COALESCE(c.control_id, '')) LIKE ? ESCAPE '\\')");
+                    + " ESCAPE '\\' OR LOWER(COALESCE(c.control_id, '')) LIKE ? ESCAPE '\\'"
+                    + " OR LOWER(COALESCE(o.cc_emails, '')) LIKE ? ESCAPE '\\')");
+            args.add(like);
             args.add(like);
             args.add(like);
             args.add(like);
@@ -197,7 +209,7 @@ public class EmailLog {
         rowArgs.add(PAGE_SIZE);
         rowArgs.add((page - 1) * PAGE_SIZE);
         List<Row> rows = jdbc.query("SELECT o.id, o.created_at, o.sent_at, o.control_id, c.control_id AS control_code,"
-                        + " o.template_key, u.displayname, o.recipient_email, o.status, o.next_attempt_at, o.attempts,"
+                        + " o.template_key, u.displayname, o.recipient_email, o.cc_emails, o.status, o.next_attempt_at, o.attempts,"
                         + " o.last_error, o.provider, o.subject,"
                         + " CASE WHEN COALESCE(o.body_html, '') <> '' OR o.body_text IS NOT NULL THEN 1 ELSE 0 END AS has_body"
                         + tables + rowsWhere
@@ -213,7 +225,7 @@ public class EmailLog {
                             rs.getString("recipient_email"), status,
                             detail(rs.getString("status"), next, error, rs.getString("provider"), rs.getInt("attempts")),
                             error == null || error.isBlank() ? null : error, rs.getInt("attempts"),
-                            rs.getString("subject"), rs.getInt("has_body") == 1);
+                            rs.getString("subject"), rs.getInt("has_body") == 1, copyOf(rs.getString("cc_emails")));
                 }, rowArgs.toArray());
         return new Page(filter, from, to, rows, total, page, pages, counts, LocalDateTime.now(clock).withNano(0));
     }

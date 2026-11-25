@@ -38,8 +38,9 @@ import java.util.Set;
  * T1 went out for the control today;</li>
  * <li>the holder of the step - In Progress the Facilitator, Review the Control Operator, Process Owner Review the
  * Process Owner, SoQM review nobody: T3 on working days 3 and 6 from the occurrence, else T4 on the deadline day, else
- * T5 on every working day after it (High importance for both). T5 goes in In Progress and Review to the Process Owner
- * too (2026-11-24): one e-mail a day to a person holding both roles, none when no Process Owner is assigned.</li>
+ * T5 on every working day after it (High importance for both). T5 of In Progress and Review goes To the holder with the
+ * Process Owner in CC (2026-11-24 the Process Owner too, 2026-11-25 as the copy): one e-mail a day, no CC when the
+ * Process Owner is the holder or nobody, the Process Owner as the addressee when the step has nobody.</li>
  * </ul>
  * When the status changes, the old holder gets no more and the new one gets them by the same calendar. Each e-mail
  * is made once: T2, T3 (+3 and +6) and T4 once per control and person, T5 once per day; a changed date makes nothing
@@ -133,8 +134,8 @@ public class PlannedNotificationScheduler {
         } else if (today.equals(deadline)) {
             notice = toHolder(Template.T4, holder, email -> key + "T4:DL:" + email, due);
         } else if (today.isAfter(deadline)) {
-            notice = new ControlNotifications.Notice(Template.T5, overdueRecipients(holder), null,
-                    email -> key + "T5:" + email + ":" + today, null, due);
+            notice = new ControlNotifications.Notice(Template.T5, List.of(holder), null,
+                    email -> key + "T5:" + email + ":" + today, null, due, overdueCopy(holder));
         } else {
             return queued;
         }
@@ -149,15 +150,14 @@ public class PlannedNotificationScheduler {
     }
 
     /**
-     * Who gets T5 (overdue): the holder of the step, and in In Progress and Review the Process Owner too (2026-11-24), the
-     * condition, the time and the text unchanged. The recipients are one e-mail per address (NotificationRecipients), so
-     * a Process Owner who is also the Facilitator or the Control Operator gets one; an empty Process Owner field adds
-     * nobody.
+     * The copy (CC) of T5 (overdue): in In Progress and Review the Process Owner (2026-11-25, before it they got an e-mail
+     * of their own since 2026-11-24), the condition, the time and the text unchanged. ControlNotifications leaves out a
+     * copy to the addressee themselves and one to nobody; the Process Owner keeps the in-app notification (decision 1a).
      */
-    static List<WorkflowTransition.Actor> overdueRecipients(WorkflowTransition.Actor holder) {
+    static List<WorkflowTransition.Actor> overdueCopy(WorkflowTransition.Actor holder) {
         return holder == WorkflowTransition.Actor.FACILITATOR || holder == WorkflowTransition.Actor.CONTROL_OPERATOR
-                ? List.of(holder, WorkflowTransition.Actor.PROCESS_OWNER)
-                : List.of(holder);
+                ? List.of(WorkflowTransition.Actor.PROCESS_OWNER)
+                : List.of();
     }
 
     /** The holder of the step whose reminders go out; none in SoQM review (SoQM Admin Team gets no reminders). */

@@ -60,6 +60,25 @@ class MailTransportTest {
         assertThat(message.getAllRecipients()[0].toString()).isEqualTo("to@example.test");
     }
 
+    /** The copy (2026-11-25): the Cc header with every address; none without one. */
+    @Test
+    void smtp_theCopy_isTheCcHeader() throws Exception {
+        Session session = Session.getInstance(new Properties());
+        when(sender.createMimeMessage()).thenAnswer(call -> new MimeMessage(session));
+        SmtpMailTransport smtp = new SmtpMailTransport(
+                new StaticListableBeanFactory(Map.of("sender", sender)).getBeanProvider(JavaMailSender.class));
+        smtp.send(new MailTransport.OutgoingMail("from@example.test", "to@example.test", "Control not completed",
+                HTML, TEXT, true, java.util.List.of("owner@example.test")));
+        ArgumentCaptor<MimeMessage> sent = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(sender).send(sent.capture());
+        assertThat(sent.getValue().getRecipients(jakarta.mail.Message.RecipientType.CC))
+                .extracting(Object::toString).containsExactly("owner@example.test");
+        assertThat(sent.getValue().getRecipients(jakarta.mail.Message.RecipientType.TO))
+                .extracting(Object::toString).containsExactly("to@example.test");
+        clearInvocations(sender);
+        assertThat(sendBySmtp(HTML, TEXT, false).getRecipients(jakarta.mail.Message.RecipientType.CC)).isNull();
+    }
+
     @Test
     void smtp_normalImportance_hasNoSuchHeaders() throws Exception {
         MimeMessage message = sendBySmtp(HTML, TEXT, false);

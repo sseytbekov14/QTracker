@@ -119,7 +119,7 @@ public class EmailOutboxDispatcher {
     }
 
     private void send(Long id) {
-        Map<String, Object> row = jdbc.queryForMap("SELECT o.recipient_user_id, o.recipient_email, o.subject,"
+        Map<String, Object> row = jdbc.queryForMap("SELECT o.recipient_user_id, o.recipient_email, o.cc_emails, o.subject,"
                 + " o.body_html, o.body_text, o.importance, o.attempts, o.control_id, o.template_key, c.control_id AS control_code"
                 + " FROM email_outbox o LEFT JOIN controls c ON c.id = o.control_id WHERE o.id = ?", id);
         String to = (String) row.get("recipient_email");
@@ -140,7 +140,8 @@ public class EmailOutboxDispatcher {
                 throw new IllegalStateException("no e-mail provider for notifications.email.provider");
             }
             mail.send(new MailTransport.OutgoingMail(from, to, (String) row.get("subject"), (String) row.get("body_html"),
-                    (String) row.get("body_text"), Template.Importance.HIGH.name().equals(row.get("importance"))));
+                    (String) row.get("body_text"), Template.Importance.HIGH.name().equals(row.get("importance")),
+                    copies(id, (String) row.get("cc_emails"), to)));
             jdbc.update("UPDATE email_outbox SET status = 'SENT', sent_at = ?, provider = ?, last_error = NULL,"
                     + " next_attempt_at = NULL, claimed_at = NULL WHERE id = ?",
                     Timestamp.valueOf(LocalDateTime.now(clock)), mail.name(), id);
@@ -212,6 +213,33 @@ public class EmailOutboxDispatcher {
             }
         }
         return "-";
+    }
+
+    /**
+     * The copy (CC) as it goes now (2026-11-25): each address of an active user, in the whitelist when it is enforced,
+     * not the addressee; the others are left out of the copy (logged), the e-mail itself still goes.
+     */
+    private List<String> copies(Long id, String ccEmails, String to) {
+        if (ccEmails == null || ccEmails.isBlank()) {
+            return List.of();
+        }
+        List<String> copies = new java.util.ArrayList<>();
+        for (String raw : ccEmails.split(",")) {
+            String address = raw.trim().toLowerCase(Locale.ROOT);
+            if (address.isEmpty() || address.equalsIgnoreCase(to == null ? "" : to.trim()) || copies.contains(address)) {
+                continue;
+            }
+            boolean active = userRepository.findAllByMail(address).stream()
+                    .anyMatch(user -> Boolean.TRUE.equals(user.getEnabled()));
+            if (!active) {
+                log.info("E-mail {}: copy to {} left out, the person is inactive or deleted", id, address);
+            } else if (!allowed(address)) {
+                log.info("E-mail {}: copy to {} left out, not in the whitelist", id, address);
+            } else {
+                copies.add(address);
+            }
+        }
+        return copies;
     }
 
     private boolean allowed(String to) {

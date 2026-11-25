@@ -60,7 +60,7 @@ class ReleaseScenarioPostgresMigrationIT {
         }
     }
 
-    private static final String LATEST = "31";
+    private static final String LATEST = "32";
     /** The last version before V27 dropped the backup and links tables the old undo scripts read. */
     private static final String BEFORE_V27 = "26";
 
@@ -73,6 +73,9 @@ class ReleaseScenarioPostgresMigrationIT {
         assertThat(materialsColumns()).isEqualTo("0");
         assertThat(single("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '" + schema
                 + "' AND table_name = 'deleted_users'")).isEqualTo("1");
+        // V32 (2026-11-25): the copy (CC) of an e-mail, a column added and empty
+        assertThat(single("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '" + schema
+                + "' AND table_name = 'email_outbox' AND column_name = 'cc_emails'")).isEqualTo("1");
         for (MigrationInfo info : flyway.info().applied()) {
             assertThat(info.getState().isFailed()).as(info.getScript()).isFalse();
         }

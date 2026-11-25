@@ -157,6 +157,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                     <span class="ap-person-text">
                                         <span class="ap-name" th:if="${row.recipientName() != null}" th:text="${row.recipientName()}">Anna Smith</span>
                                         <span class="ap-address" th:text="${row.recipientEmail()}">anna@kpmg.kz</span>
+                                        <span class="ap-address ap-cc" th:if="${row.cc() != null}" th:text="'CC: ' + ${row.cc()}">CC: owner@kpmg.kz</span>
                                     </span>
                                 </div>
                             </td>
@@ -176,6 +177,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                                         th:attr="data-id=${row.id()},
                                                  data-subject=${row.subject()},
                                                  data-to=${row.recipientName() != null ? row.recipientName() + ' <' + row.recipientEmail() + '>' : row.recipientEmail()},
+                                                 data-cc=${row.cc()},
                                                  data-event=${row.event()},
                                                  data-control=${row.controlCode() != null ? row.controlCode() : '—'},
                                                  data-date=${#temporals.format(row.createdAt(), 'dd.MM.yyyy HH:mm')}">View</button>
@@ -222,6 +224,7 @@ body { background: var(--kpmg-gray-50); color: var(--kpmg-gray-800); }
                 <dl>
                     <dt>Subject</dt><dd id="mailDialogSubject" class="mail-subject"></dd>
                     <dt>To</dt><dd id="mailDialogTo"></dd>
+                    <dt id="mailDialogCcLabel" hidden>CC</dt><dd id="mailDialogCc" hidden></dd>
                     <dt>Control</dt><dd id="mailDialogControl"></dd>
                     <dt>Date</dt><dd id="mailDialogDate"></dd>
                 </dl>
@@ -337,6 +340,11 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('mailDialogTitle').textContent = button.dataset.event || 'E-mail';
             document.getElementById('mailDialogSubject').textContent = button.dataset.subject || '';
             document.getElementById('mailDialogTo').textContent = button.dataset.to || '';
+            // the copy, when the e-mail had one (2026-11-25)
+            const cc = button.dataset.cc || '';
+            document.getElementById('mailDialogCc').textContent = cc;
+            document.getElementById('mailDialogCc').hidden = !cc;
+            document.getElementById('mailDialogCcLabel').hidden = !cc;
             document.getElementById('mailDialogControl').textContent = button.dataset.control || '';
             document.getElementById('mailDialogDate').textContent = button.dataset.date || '';
             currentId = button.dataset.id;

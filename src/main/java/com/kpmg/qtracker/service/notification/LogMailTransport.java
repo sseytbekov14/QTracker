@@ -18,8 +18,8 @@ public class LogMailTransport implements MailTransport {
 
     @Override
     public void send(OutgoingMail mail) {
-        log.info("E-mail (provider log)\nFrom: {}\nTo: {}\nSubject: {}\nImportance: {}\n\n{}", mail.from(), mail.to(),
-                mail.subject(), mail.highImportance() ? "High" : "Normal", mail.plainText());
+        log.info("E-mail (provider log)\nFrom: {}\nTo: {}{}\nSubject: {}\nImportance: {}\n\n{}", mail.from(), mail.to(),
+                mail.cc().isEmpty() ? "" : "\nCc: " + String.join(", ", mail.cc()), mail.subject(), mail.highImportance() ? "High" : "Normal", mail.plainText());
     }
 
     /**

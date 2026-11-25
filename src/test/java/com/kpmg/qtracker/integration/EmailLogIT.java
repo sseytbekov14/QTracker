@@ -108,6 +108,28 @@ class EmailLogIT extends ReleaseScenarioSupport {
         }
     }
 
+    /** The copy (2026-11-25): the overdue e-mail's CC is shown under the addressee and in View; a search for it finds it. */
+    @Test
+    void theCopy_isShown_andASearchForItFindsTheEmail() throws Exception {
+        User soqm = soqm("el-cc-soqm");
+        User sultan = myEdit("el-cc-sultan");
+        User aruzhan = myEdit("el-cc-aruzhan");
+        Control control = control("HR-ELCC", "IN_PROGRESS", people().facilitator(sultan).owner(aruzhan).soqm(soqm));
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        email(control.getId(), sultan, "T5", "SENT", null, null, now.minusMinutes(1), "Dear Sultan, overdue.");
+        jdbc.update("UPDATE email_outbox SET cc_emails = ? WHERE control_id = ?", aruzhan.getMail().toLowerCase(java.util.Locale.ROOT),
+                control.getId());
+        MockHttpSession session = login(soqm);
+
+        String html = body(call(session, get("/admin/emails").param("q", aruzhan.getMail())));
+        assertThat(html).contains(sultan.getMail(), "CC: " + aruzhan.getMail().toLowerCase(java.util.Locale.ROOT),
+                "data-cc=\"" + aruzhan.getMail().toLowerCase(java.util.Locale.ROOT) + "\"", "id=\"mailDialogCc\"");
+        // Every other e-mail: no CC line
+        email(control.getId(), sultan, "T4", "SENT", null, null, now.minusMinutes(2), "Due today");
+        assertThat(body(call(session, get("/admin/emails").param("q", control.getControlId()))))
+                .containsOnlyOnce("CC: ");
+    }
+
     @Test
     void manyEmails_comeInPagesOfFifty() throws Exception {
         User soqm = soqm("el2-soqm");

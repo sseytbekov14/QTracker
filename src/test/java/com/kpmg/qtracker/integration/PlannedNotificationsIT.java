@@ -49,22 +49,58 @@ class PlannedNotificationsIT extends NotificationScenarioSupport {
                 line("T3", holder, LocalDate.of(2026, 11, 10)),
                 line("T3", holder, LocalDate.of(2026, 11, 13)),
                 line("T4", holder, DEADLINE)));
-        // Overdue in In Progress and Review: the Process Owner gets T5 too (2026-11-24)
-        boolean ownerToo = holder == cast.fac || holder == cast.op;
+        // Overdue: one e-mail a day To the holder (in In Progress and Review with the Process Owner in CC, 2026-11-25)
         for (LocalDate day : List.of(LocalDate.of(2026, 11, 20), LocalDate.of(2026, 11, 23), LocalDate.of(2026, 11, 24),
                 LocalDate.of(2026, 11, 25))) {
             lines.add(line("T5", holder, day));
-            if (ownerToo) {
-                lines.add(line("T5", cast.po, day));
-            }
         }
         return lines;
     }
 
+    /** The CC of the control's T5 e-mails, lower case ("" for none), in the order made. */
+    List<String> overdueCopies(Control control) {
+        return mails(control).stream().filter(mail -> mail.getTemplateKey().equals("T5"))
+                .map(mail -> mail.getCcEmails() == null ? "" : mail.getCcEmails()).toList();
+    }
+
     /**
-     * T5 to the Process Owner too (2026-11-24): one e-mail a day to a person who is the Facilitator and the Process Owner;
-     * no Process Owner assigned: the holder gets theirs, nothing fails.
+     * T5 with the Process Owner in CC (2026-11-25), e.g. AC212: Facilitator Sultan, Process Owner Aruzhan - To Sultan,
+     * CC Aruzhan, Aruzhan's bell too; in Review To the Control Operator, CC the Process Owner; in Process Owner Review
+     * To the Process Owner, no CC. The Process Owner who is also the Facilitator: one e-mail, no CC; no Process Owner:
+     * no CC, nothing fails; nobody at the step: the Process Owner gets it as the addressee.
      */
+    @Test
+    void overdue_toTheHolder_ccTheProcessOwner() throws Exception {
+        Cast cast = cast("pn-cc");
+        Control inProgress = control("PN-CC-IP", "IN_PROGRESS", cast, "Monthly");
+        Control review = control("PN-CC-RV", "REVIEW", cast, "Monthly");
+        Control ownerReview = control("PN-CC-PO", "PROCESS_OWNER_REVIEW", cast, "Monthly");
+        Control nobody = dated(control("PN-CC-NB", "IN_PROGRESS", people().operator(cast.op).soqm(cast.soqm).owner(cast.po),
+                c -> c.setControlFrequency("Monthly")), OCCURRENCE, DEADLINE);
+
+        runEveryDay(LocalDate.of(2026, 11, 20), LocalDate.of(2026, 11, 23));
+
+        String owner = cast.po.getMail().toLowerCase(java.util.Locale.ROOT);
+        assertThat(sent(inProgress)).containsExactly(line("T5", cast.fac, LocalDate.of(2026, 11, 20)),
+                line("T5", cast.fac, LocalDate.of(2026, 11, 23)));
+        assertThat(overdueCopies(inProgress)).containsExactly(owner, owner);
+        assertThat(sent(review)).containsExactly(line("T5", cast.op, LocalDate.of(2026, 11, 20)),
+                line("T5", cast.op, LocalDate.of(2026, 11, 23)));
+        assertThat(overdueCopies(review)).containsExactly(owner, owner);
+        assertThat(sent(ownerReview)).containsExactly(line("T5", cast.po, LocalDate.of(2026, 11, 20)),
+                line("T5", cast.po, LocalDate.of(2026, 11, 23)));
+        assertThat(overdueCopies(ownerReview)).containsExactly("", "");
+        assertThat(sent(nobody)).containsExactly(line("T5", cast.po, LocalDate.of(2026, 11, 20)),
+                line("T5", cast.po, LocalDate.of(2026, 11, 23)));
+        assertThat(overdueCopies(nobody)).containsExactly("", "");
+        // The Process Owner's bell (decision 1a): once a day for each control they are copied on, in their own name
+        assertThat(inApp(inProgress, cast.po)).hasSize(2).allSatisfy(notice -> assertThat(notice.getMessage())
+                .contains("Dear " + NotificationRecipients.firstName(cast.po.getDisplayName())));
+        assertThat(inApp(review, cast.po)).hasSize(2);
+        assertThat(inApp(inProgress, cast.fac)).hasSize(2);
+    }
+
+    /** T5 once a day per person: a Process Owner who is also the Facilitator; no Process Owner assigned: no CC. */
     @Test
     void overdue_theProcessOwnerToo_oncePerPerson_andNoOwnerIsNoError() throws Exception {
         User both = myEdit("pn-both");
@@ -78,7 +114,9 @@ class PlannedNotificationsIT extends NotificationScenarioSupport {
         runEveryDay(LocalDate.of(2026, 11, 20), LocalDate.of(2026, 11, 20));
 
         assertThat(sent(sameOne)).containsExactly(line("T5", both, LocalDate.of(2026, 11, 20)));
+        assertThat(overdueCopies(sameOne)).containsExactly("");
         assertThat(sent(noOwner)).containsExactly(line("T5", op, LocalDate.of(2026, 11, 20)));
+        assertThat(overdueCopies(noOwner)).containsExactly("");
     }
 
     /** Every frequency gives the same e-mails on the same days (decision 9). */

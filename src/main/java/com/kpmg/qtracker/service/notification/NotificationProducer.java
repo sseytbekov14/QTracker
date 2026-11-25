@@ -34,7 +34,8 @@ public class NotificationProducer {
 
     private static final String INSERT = "INSERT INTO email_outbox (control_id, template_key, recipient_user_id,"
             + " recipient_email, subject, body_html, body_text, importance, dedupe_key, status, attempts, last_error,"
-            + " created_at, next_attempt_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?) ON CONFLICT DO NOTHING";
+            + " created_at, next_attempt_at, cc_emails) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)"
+            + " ON CONFLICT DO NOTHING";
 
     private final JdbcTemplate jdbc;
     private final NotificationRepository notificationRepository;
@@ -58,22 +59,40 @@ public class NotificationProducer {
     public int produce(Control control, Template template, Map<String, String> values,
                        List<NotificationRecipients.Person> people, Function<String, String> dedupeKey,
                        String inAppNote) {
+        return produce(control, template, values, people, List.of(), dedupeKey, inAppNote);
+    }
+
+    /**
+     * With a copy (2026-11-25): the first addressee's e-mail carries the cc people in CC, so each of them gets it once
+     * (in the system one person per role; a second addressee would get theirs without the copy); when that e-mail is
+     * new each cc person also gets the in-app notification, in their own name, as when they were addressed.
+     */
+    @Transactional(propagation = Propagation.REQUIRED)
+    public int produce(Control control, Template template, Map<String, String> values,
+                       List<NotificationRecipients.Person> people, List<NotificationRecipients.Person> cc,
+                       Function<String, String> dedupeKey, String inAppNote) {
         if (people.isEmpty()) {
             return 0;
         }
         LocalDateTime now = LocalDateTime.now(clock);
         int queued = 0;
+        boolean firstAddressee = true;
         for (NotificationRecipients.Person person : people) {
+            List<NotificationRecipients.Person> copies = firstAddressee && cc != null ? cc : List.of();
+            firstAddressee = false;
+            String ccEmails = copies.isEmpty() ? null
+                    : String.join(",", copies.stream().map(NotificationRecipients.Person::email).toList());
             // Each person's own text: their name, and in T1 and T2 their roles
             Map<String, String> own = new HashMap<>(values);
             own.put(NotificationValues.NAME, person.name());
             own.put(NotificationValues.ROLES, person.rolesText());
             TemplateRenderer.Result result = renderer.render(template, own);
             User first = person.users().stream().min(Comparator.comparing(User::getId)).orElseThrow();
+            final String copyTo = ccEmails;
             String key = dedupeKey.apply(person.email());
             if (!result.ok()) {
                 if (insert(control, template, first, person.email(), result.rawSubject(), "", null, key,
-                        EmailOutbox.FAILED_RENDER, result.error(), now, null)) {
+                        EmailOutbox.FAILED_RENDER, result.error(), now, null, copyTo)) {
                     queued++;
                     log.error("Notification {} of control {} not made for {}: {}", template, control.getId(),
                             person.email(), result.error());
@@ -82,10 +101,20 @@ public class NotificationProducer {
             }
             TemplateRenderer.Rendered rendered = result.rendered();
             if (!insert(control, template, first, person.email(), rendered.subject(), rendered.html(),
-                    rendered.mailText(), key, EmailOutbox.PENDING, null, now, now)) {
+                    rendered.mailText(), key, EmailOutbox.PENDING, null, now, now, copyTo)) {
                 continue;
             }
             queued++;
+            // the copy's people: the bell too (decision 1a), the text in their own name
+            for (NotificationRecipients.Person copy : copies) {
+                Map<String, String> theirs = new HashMap<>(values);
+                theirs.put(NotificationValues.NAME, copy.name());
+                theirs.put(NotificationValues.ROLES, copy.rolesText());
+                TemplateRenderer.Result theirText = renderer.render(template, theirs);
+                if (theirText.ok()) {
+                    saveInApp(control, template, values, copy, theirText.rendered(), inAppNote, now);
+                }
+            }
             String message = inAppNote == null || inAppNote.isBlank()
                     ? rendered.text() : rendered.text() + "\n\n" + inAppNote.trim();
             for (User user : person.users()) {
@@ -107,9 +136,29 @@ public class NotificationProducer {
     /** True when the row is new; false when the key is already in the outbox. */
     private boolean insert(Control control, Template template, User user, String email, String subject, String html,
                            String text, String key, String status, String error, LocalDateTime now,
-                           LocalDateTime nextAttempt) {
+                           LocalDateTime nextAttempt, String ccEmails) {
         return jdbc.update(INSERT, control.getId(), template.name(), user.getId(), email,
                 subject == null ? "" : subject, html, text, template.importance().name(), key, status, error,
-                Timestamp.valueOf(now), nextAttempt == null ? null : Timestamp.valueOf(nextAttempt)) == 1;
+                Timestamp.valueOf(now), nextAttempt == null ? null : Timestamp.valueOf(nextAttempt), ccEmails) == 1;
+    }
+
+    /** The in-app notification of every user of a person's address. */
+    private void saveInApp(Control control, Template template, Map<String, String> values,
+                           NotificationRecipients.Person person, TemplateRenderer.Rendered rendered, String inAppNote,
+                           LocalDateTime now) {
+        String message = inAppNote == null || inAppNote.isBlank()
+                ? rendered.text() : rendered.text() + "\n\n" + inAppNote.trim();
+        for (User user : person.users()) {
+            Notification notification = new Notification();
+            notification.setUserId(user.getId());
+            notification.setControlId(control.getId());
+            notification.setType(template.inAppType());
+            notification.setTitle(rendered.title());
+            notification.setMessage(message);
+            notification.setLink(values.get(TemplateRenderer.LINK));
+            notification.setIsRead(false);
+            notification.setCreatedAt(now);
+            notificationRepository.save(notification);
+        }
     }
 }

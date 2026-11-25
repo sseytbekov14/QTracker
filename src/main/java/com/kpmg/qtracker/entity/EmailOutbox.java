@@ -61,6 +61,10 @@ public class EmailOutbox {
     @Column(name = "body_text", columnDefinition = "TEXT")
     private String bodyText;
 
+    /** The copy (CC) of the e-mail, addresses joined by "," (V32, 2026-11-25: the overdue T5); null for none. */
+    @Column(name = "cc_emails", length = 2000)
+    private String ccEmails;
+
     @Column(name = "importance", nullable = false, length = 10)
     private String importance;
 

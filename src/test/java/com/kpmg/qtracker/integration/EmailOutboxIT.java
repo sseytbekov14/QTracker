@@ -595,6 +595,65 @@ class EmailOutboxIT extends ReleaseScenarioSupport {
                 .doesNotContain(row.getSubject()).doesNotContain(row.getBodyHtml()).doesNotContain("Dear"));
     }
 
+    /** T4 To the given people, the cc people in CC (2026-11-25), in a transaction of its own. */
+    int produceWithCopy(Control control, List<String> to, List<String> cc, String keyLabel) {
+        return new TransactionTemplate(transactionManager).execute(status -> {
+            ControlAssignmentDTO assignment = assignments.getAssignmentByControlId(control.getId());
+            Map<String, String> placeholders = values.of(control, assignment);
+            return producer.produce(control, Template.T4, placeholders,
+                    recipients.forControl(control.getControlId()).add("Facilitator", to).people(),
+                    recipients.forControl(control.getControlId()).add("Process Owner", cc).people(),
+                    email -> control.getId() + ":T4:" + keyLabel + ":" + email, null);
+        });
+    }
+
+    /**
+     * The copy (2026-11-25): one e-mail To the addressee with the copy's people in CC (lower case), each of them gets the
+     * in-app notification in their own name, once for the key; the dispatcher sends the CC of active people in the
+     * whitelist only, the e-mail itself goes anyway.
+     */
+    @Test
+    void aCopy_goesInCc_theBellToo_onlyActiveAndWhitelistedPeopleAreCopied() throws Exception {
+        User fac = myEdit("ob-cc-fac");
+        User owner = myEdit("ob-cc-po");
+        Control control = control("OB-CC", "IN_PROGRESS", people().facilitator(fac).owner(owner));
+        assertThat(produceWithCopy(control, List.of(fac.getMail()), List.of(owner.getMail().toUpperCase(Locale.ROOT)), "A"))
+                .isEqualTo(1);
+        assertThat(produceWithCopy(control, List.of(fac.getMail()), List.of(owner.getMail()), "A")).isZero();
+        assertThat(rows(control)).singleElement().satisfies(row -> {
+            assertThat(row.getRecipientEmail()).isEqualTo(fac.getMail());
+            assertThat(row.getCcEmails()).isEqualTo(owner.getMail().toLowerCase(Locale.ROOT));
+        });
+        List<Notification> notices = notificationRepository.findByControlIdOrderByCreatedAtDesc(control.getId());
+        assertThat(notices).extracting(Notification::getUserId).containsExactlyInAnyOrder(fac.getId(), owner.getId());
+        assertThat(notices).filteredOn(n -> n.getUserId().equals(owner.getId())).singleElement()
+                .satisfies(n -> assertThat(n.getMessage()).contains("Dear " + NotificationRecipients.firstName(owner.getDisplayName())));
+
+        RecordingTransport transport = new RecordingTransport();
+        dispatcher(soon(), transport, true).dispatchPending();
+        assertThat(transport.sent).filteredOn(m -> m.to().equals(fac.getMail())).singleElement()
+                .satisfies(mail -> assertThat(mail.cc()).containsExactly(owner.getMail().toLowerCase(Locale.ROOT)));
+        assertThat(transport.count(owner.getMail())).as("no e-mail of their own").isZero();
+
+        // Whitelist enforced without the owner: the e-mail goes, the copy is left out
+        Control listed = control("OB-CC2", "IN_PROGRESS", people().facilitator(fac).owner(owner));
+        produceWithCopy(listed, List.of(fac.getMail()), List.of(owner.getMail()), "B");
+        RecordingTransport second = new RecordingTransport();
+        dispatcher(soon(), second, true, fac.getMail()).dispatchPending();
+        assertThat(second.sent).filteredOn(m -> m.to().equals(fac.getMail())).singleElement()
+                .satisfies(mail -> assertThat(mail.cc()).isEmpty());
+
+        // The owner deactivated after the e-mail was made: left out of the copy too
+        Control later = control("OB-CC3", "IN_PROGRESS", people().facilitator(fac).owner(owner));
+        produceWithCopy(later, List.of(fac.getMail()), List.of(owner.getMail()), "C");
+        disable(owner);
+        RecordingTransport third = new RecordingTransport();
+        dispatcher(soon(), third, true).dispatchPending();
+        assertThat(third.sent).filteredOn(m -> m.to().equals(fac.getMail())).singleElement()
+                .satisfies(mail -> assertThat(mail.cc()).isEmpty());
+        assertThat(row(later, fac).getStatus()).isEqualTo(EmailOutbox.SENT);
+    }
+
     private EmailOutbox row(Control control, User user) {
         return rows(control).stream().filter(row -> row.getRecipientEmail().equals(user.getMail())).findFirst().orElseThrow();
     }

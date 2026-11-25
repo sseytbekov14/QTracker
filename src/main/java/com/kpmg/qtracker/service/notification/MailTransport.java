@@ -1,5 +1,7 @@
 package com.kpmg.qtracker.service.notification;
 
+import java.util.List;
+
 /**
  * How an e-mail of the outbox leaves QTracker: notifications.email.provider = log (written to the application log)
  * or smtp (spring.mail.*). Another provider (e.g. Microsoft Graph) is one more implementation.
@@ -10,7 +12,17 @@ public interface MailTransport {
      * One e-mail to one person: its HTML and its plain-text part (null for an e-mail queued before email_outbox.body_text,
      * V24).
      */
-    record OutgoingMail(String from, String to, String subject, String html, String text, boolean highImportance) {
+    record OutgoingMail(String from, String to, String subject, String html, String text, boolean highImportance,
+                        List<String> cc) {
+
+        /** Without a copy, as before 2026-11-25. */
+        public OutgoingMail(String from, String to, String subject, String html, String text, boolean highImportance) {
+            this(from, to, subject, html, text, highImportance, List.of());
+        }
+
+        public OutgoingMail {
+            cc = cc == null ? List.of() : List.copyOf(cc);
+        }
 
         /** The plain-text part, or the text of the HTML for an older e-mail without one. */
         public String plainText() {

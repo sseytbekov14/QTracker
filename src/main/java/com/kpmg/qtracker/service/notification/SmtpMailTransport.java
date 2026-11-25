@@ -57,6 +57,10 @@ public class SmtpMailTransport implements MailTransport {
             helper.setFrom(mail.from());
         }
         helper.setTo(mail.to());
+        // the copy (2026-11-25: the Process Owner on the overdue e-mail of the Facilitator / Control Operator)
+        if (!mail.cc().isEmpty()) {
+            helper.setCc(mail.cc().toArray(new String[0]));
+        }
         helper.setSubject(mail.subject());
         MimeBodyPart text = new MimeBodyPart();
         text.setText(mail.plainText(), StandardCharsets.UTF_8.name());
