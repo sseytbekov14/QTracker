@@ -546,13 +546,15 @@ class RoleMatrixIT {
             };
             // Back to any earlier working status in one move: SoQM from every later status, Completed included
             // (decision 4); a participant only their own return (Control Operator to In Progress, Process
-            // Owner to Review). On to the next status: whoever performs that step ("Step"); never further
+            // Owner to Review and, since 2026-11-25, to In Progress). On to the next status: whoever performs that
+            // step ("Step"); never further
             case "Move to In Progress", "Move to Review", "Move to SoQM review", "Move to PO review" -> {
                 String target = BACK_TO.get(op);
                 int from = WORKING.indexOf(status);
                 int to = WORKING.indexOf(target);
                 boolean ownReturn = participantStep && (("REVIEW".equals(status) && "IN_PROGRESS".equals(target))
-                        || ("PROCESS_OWNER_REVIEW".equals(status) && "REVIEW".equals(target)));
+                        || ("PROCESS_OWNER_REVIEW".equals(status)
+                        && ("REVIEW".equals(target) || "IN_PROGRESS".equals(target))));
                 if (from >= 0 && to < from) {
                     yield soqm || ownReturn ? "ok" : "refused";
                 }
