@@ -1082,19 +1082,116 @@ function confirmWorkflowAction() {
         stepsField.style.backgroundColor = '';
     }
 
-    // The Process Owner's step (2026-11-24): their fields - Process Owner Comments, Control Steps Performed and Results,
-    // Attachments - are open as the page loads, without Edit (the server leaves Edit off, processOwnerStep); every other
-    // field stays read only. Complete and Return to Control Operator save them first (ensureWorkflowRoleReady: the
-    // fields, then the files one by one, then the step). Leaving the page with something not saved asks first.
-    let processOwnerStepSaved = null;
+    // A participant at their own step (the Process Owner since 2026-11-24, the Facilitator and the Control Operator since
+    // 2026-11-25): the step's fields (Control Steps Performed and Results; Process Owner Comments for the Process Owner)
+    // and Attachments are open as the page loads, without Edit (the server leaves Edit off, participantStep); every
+    // other field stays read only. Save keeps them and the chosen files, the control stays at the step; Discard changes
+    // puts them back as saved; the step's buttons save them first (ensureWorkflowRoleReady: the fields, then the files,
+    // then the step). Leaving the page with something not saved asks first.
+    const PARTICIPANT_FIELDS = ['controlStepsPerformed', 'processOwnerComments'];
+    let participantSaved = null;
 
-    function processOwnerStepValues() {
-        return ['controlStepsPerformed', 'processOwnerComments']
-            .map(name => document.querySelector('textarea[name="' + name + '"]')?.value || '').join('|');
+    function participantOpenFields() {
+        return PARTICIPANT_FIELDS
+            .map(name => document.querySelector('textarea[name="' + name + '"]'))
+            .filter(field => field && !field.readOnly && !field.disabled);
     }
 
-    function openProcessOwnerStep() {
-        if (document.getElementById('processOwnerStep')?.value !== 'true') {
+    function participantValues() {
+        const values = {};
+        participantOpenFields().forEach(field => { values[field.name] = field.value || ''; });
+        return values;
+    }
+
+    function participantHasUnsaved() {
+        if (participantSaved === null) {
+            return false;
+        }
+        const now = participantValues();
+        return Object.keys(now).some(name => now[name] !== participantSaved[name])
+            || (typeof window.hasPendingAttachments === 'function' && window.hasPendingAttachments());
+    }
+
+    // Save and Discard changes are on only while something is not saved
+    function refreshParticipantButtons() {
+        const unsaved = participantHasUnsaved();
+        const saveBtn = document.getElementById('participantSaveBtn');
+        const discardBtn = document.getElementById('participantDiscardBtn');
+        if (saveBtn && !saveBtn.dataset.busy) saveBtn.disabled = !unsaved;
+        if (discardBtn && !(saveBtn && saveBtn.dataset.busy)) discardBtn.disabled = !unsaved;
+    }
+
+    async function saveParticipantStep() {
+        const saveBtn = document.getElementById('participantSaveBtn');
+        const discardBtn = document.getElementById('participantDiscardBtn');
+        const controlId = document.querySelector('input[name="id"]')?.value;
+        if (!controlId || !validateFieldLengths(document.getElementById('detailsForm'))) {
+            return;
+        }
+        const label = saveBtn.innerHTML;
+        saveBtn.dataset.busy = 'true';
+        saveBtn.disabled = true;
+        if (discardBtn) discardBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+        try {
+            await saveDetailsDataSilently(controlId);
+            const files = typeof window.uploadAttachments === 'function' ? await window.uploadAttachments() : null;
+            // the fields are saved even if a file is not: Discard goes back to them
+            participantSaved = participantValues();
+            if (files && files.success === false) {
+                showAppModal({
+                    variant: 'error',
+                    title: 'Some files were not uploaded',
+                    message: 'Your fields are saved' + (files.uploaded ? ', and ' + files.uploaded + ' file(s)' : '')
+                        + '. Not uploaded: ' + (files.failed || []).map(item => item.name + ' (' + item.reason + ')').join('; ')
+                        + '. They are still listed under the upload zone: press Save to try again, or remove them.',
+                    autoCloseMs: 0
+                });
+            } else {
+                showAppModal({
+                    variant: 'success',
+                    title: 'Saved',
+                    message: 'Your changes are saved. The control stays at your step until you send it on.',
+                    autoCloseMs: 2000
+                });
+            }
+        } catch (error) {
+            showAppModal({
+                variant: 'error',
+                title: 'Save Failed',
+                message: 'Error saving: ' + (error && error.message ? error.message : error),
+                autoCloseMs: 0
+            });
+        } finally {
+            delete saveBtn.dataset.busy;
+            saveBtn.innerHTML = label;
+            refreshParticipantButtons();
+        }
+    }
+
+    async function discardParticipantStep() {
+        const confirmed = await showConfirmModal({
+            title: 'Discard your changes?',
+            message: 'Your fields go back to what was saved last, and the files not uploaded yet are taken off the list.',
+            confirmText: 'Discard changes',
+            cancelText: 'Keep editing'
+        });
+        if (!confirmed || participantSaved === null) {
+            return;
+        }
+        participantOpenFields().forEach(field => {
+            // the rich-text editor follows its field's value (rich-text.js)
+            field.value = participantSaved[field.name] || '';
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        if (typeof window.resetPendingAttachments === 'function') {
+            window.resetPendingAttachments();
+        }
+        refreshParticipantButtons();
+    }
+
+    function openParticipantStep() {
+        if (document.getElementById('participantStep')?.value !== 'true') {
             return;
         }
         if (canEditStepsPerformed) {
@@ -1105,10 +1202,18 @@ function confirmWorkflowAction() {
         }
         enableFileInputs();
         // their own files of this step can be deleted too (the server checks: FileAttachmentController.delete)
-        document.body.classList.add('po-step-open');
-        processOwnerStepSaved = processOwnerStepValues();
+        document.body.classList.add('participant-step-open');
+        participantSaved = participantValues();
+        participantOpenFields().forEach(field => {
+            field.addEventListener('input', refreshParticipantButtons);
+            field.addEventListener('change', refreshParticipantButtons);
+        });
+        document.addEventListener('qtracker:pending-files', refreshParticipantButtons);
+        document.getElementById('participantSaveBtn')?.addEventListener('click', saveParticipantStep);
+        document.getElementById('participantDiscardBtn')?.addEventListener('click', discardParticipantStep);
+        refreshParticipantButtons();
         window.addEventListener('beforeunload', event => {
-            if (!window.qtrackerProcessOwnerStep.hasUnsaved()) {
+            if (!participantHasUnsaved()) {
                 return;
             }
             event.preventDefault();
@@ -1116,17 +1221,15 @@ function confirmWorkflowAction() {
         });
     }
 
-    window.qtrackerProcessOwnerStep = {
+    window.qtrackerParticipantStep = {
         // what is on the page is saved now (after the fields and the files went up)
         markSaved() {
-            if (processOwnerStepSaved !== null) {
-                processOwnerStepSaved = processOwnerStepValues();
+            if (participantSaved !== null) {
+                participantSaved = participantValues();
+                refreshParticipantButtons();
             }
         },
-        hasUnsaved() {
-            return processOwnerStepSaved !== null && (processOwnerStepValues() !== processOwnerStepSaved
-                || (typeof window.hasPendingAttachments === 'function' && window.hasPendingAttachments()));
-        }
+        hasUnsaved: participantHasUnsaved
     };
 
     function enableProcessOwnerCommentsField() {
@@ -2422,7 +2525,7 @@ function saveDetailsData(controlId) {
 
             initializeReadOnlyMode();
             normalizeAssignmentDateFieldsForDisplay();
-            openProcessOwnerStep();
+            openParticipantStep();
 
             const editBtn = document.getElementById('editBtn');
             const renameIdBtn = document.getElementById('renameIdBtn');
@@ -3206,9 +3309,12 @@ function getWorkflowRoleRequirement() {
     return null;
 }
 
-function validateWorkflowRoleRequirement() {
+function validateWorkflowRoleRequirement(isReturn) {
     const requirement = getWorkflowRoleRequirement();
     if (!requirement) {
+        return true;
+    }
+    if (isReturn && requirement.field && requirement.field.name === 'controlStepsPerformed') {
         return true;
     }
 
@@ -3246,7 +3352,9 @@ function saveDetailsDataSilently(controlId) {
     });
 }
 
-async function ensureWorkflowRoleReady() {
+// isReturn: a return (to the Facilitator, to the Control Operator) does not need Control Steps Performed and Results
+// filled in, as the server does not (2026-11-25); the review comments a return needs (SoQM, Process Owner) still are
+async function ensureWorkflowRoleReady(isReturn) {
     if (!areWorkflowActionsAllowed()) {
         showAppModal({
             variant: 'warning',
@@ -3257,7 +3365,7 @@ async function ensureWorkflowRoleReady() {
         return false;
     }
 
-    if (!validateWorkflowRoleRequirement()) {
+    if (!validateWorkflowRoleRequirement(isReturn)) {
         return false;
     }
 
@@ -3277,7 +3385,8 @@ async function ensureWorkflowRoleReady() {
         if (typeof window.uploadAttachments === 'function') {
             // While they go up the step's buttons say so (big files take a while before the dialog opens)
             const busy = typeof window.hasPendingAttachments === 'function' && window.hasPendingAttachments()
-                ? ['completeControlBtn', 'ownerReturnToOperatorBtn', 'ownerReturnToFacilitatorBtn'].map(id => document.getElementById(id)).filter(Boolean) : [];
+                ? ['submitForReviewBtn', 'submitToSoqmLeadBtn', 'returnToFacilitatorBtn', 'completeControlBtn', 'ownerReturnToOperatorBtn',
+                    'ownerReturnToFacilitatorBtn', 'participantSaveBtn'].map(id => document.getElementById(id)).filter(Boolean) : [];
             const before = busy.map(button => [button, button.innerHTML, button.disabled]);
             busy.forEach(button => {
                 button.disabled = true;
@@ -3301,8 +3410,8 @@ async function ensureWorkflowRoleReady() {
                 return false;
             }
         }
-        if (window.qtrackerProcessOwnerStep) {
-            window.qtrackerProcessOwnerStep.markSaved();
+        if (window.qtrackerParticipantStep) {
+            window.qtrackerParticipantStep.markSaved();
         }
         return true;
     } catch (error) {
@@ -3469,7 +3578,7 @@ document.addEventListener('click', async (event) => {
 
     if (returnToFacilitatorBtn) {
         console.log('Return to Facilitator clicked');
-        if (!await ensureWorkflowRoleReady()) {
+        if (!await ensureWorkflowRoleReady(true)) {
             return;
         }
         const modalElement = document.getElementById('returnFacilitatorModal');
@@ -3496,7 +3605,7 @@ document.addEventListener('click', async (event) => {
     // SoQM (from SoQM review) and the Process Owner (from Process Owner review) return the same way
     if (returnToOperatorBtn || ownerReturnToOperatorBtn) {
         console.log('Return to Operator clicked');
-        if (!await ensureWorkflowRoleReady()) {
+        if (!await ensureWorkflowRoleReady(true)) {
             return;
         }
         const modalElement = document.getElementById('returnOperatorModal');
@@ -3598,7 +3707,7 @@ async function confirmSubmitToSoqmLead() {
 async function confirmReturnToFacilitator() {
     console.log('рџ” Confirm Return to Facilitator');
 
-    if (!await ensureWorkflowRoleReady()) {
+    if (!await ensureWorkflowRoleReady(true)) {
         return;
     }
     
@@ -4290,7 +4399,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 async function confirmReturnToOperator() {
     console.log('рџ” Confirm Return to Operator');
 
-    if (!await ensureWorkflowRoleReady()) {
+    if (!await ensureWorkflowRoleReady(true)) {
         return;
     }
     

@@ -313,7 +313,7 @@
         .kpmg-file-card-btn.delete-btn  { color: #c8102e; display: none; }
         .kpmg-file-card-btn.delete-btn:hover  { background: #fff0f2; }
         .edit-mode-active .kpmg-file-card-btn.delete-btn,
-        .po-step-open .kpmg-file-card-btn.delete-btn { display: flex; }
+        .participant-step-open .kpmg-file-card-btn.delete-btn { display: flex; }
         /* Toast notifications */
         .kpmg-toast-container {
             position: fixed;
@@ -420,7 +420,7 @@
 <input type="hidden" id="isControlOperator" th:value="${isControlOperator}">
 <input type="hidden" id="isSoqmLead" th:value="${isSoqmLead}">
 <input type="hidden" id="isProcessOwner" th:value="${isProcessOwner}">
-<input type="hidden" id="processOwnerStep" th:value="${processOwnerStep}">
+<input type="hidden" id="participantStep" th:value="${participantStep}">
 <input type="hidden" id="isSharedViewer" th:value="${isSharedViewer}">
 <input type="hidden" id="canUseWorkflowActions" th:value="${canUseWorkflowActions}">
 <input type="hidden" id="allowedEditableFields" th:value="${allowedEditableFieldsCsv}">
@@ -511,9 +511,9 @@
                             <a href="#details" class="vc-turn-hint-link" data-vc-tab="details"
                                th:attr="data-vc-field=${stepField.field()}"
                                th:text="${stepField.label()}">SoQM Admin Team Comments</a><th:block th:unless="${stepField.required()}"> (optional)</th:block>
-                            on the Details tab<th:block th:unless="${processOwnerStep}"> (press Edit to change it)</th:block>, then
+                            on the Details tab<th:block th:unless="${participantStep}"> (press Edit to change it)</th:block>, then
                             <th:block th:text="${stepField.actions()} + '.'">Send to Process Owner or Return to Operator.</th:block>
-                            <th:block th:if="${processOwnerStep}">Your fields and files are open here and are saved when you press one of them.</th:block>
+                            <th:block th:if="${participantStep}">Your fields and files are open here: Save keeps your work, and those buttons save it too.</th:block>
                         </span>
                         <span class="vc-step-state" id="stepFieldState" aria-live="polite"></span>
                     </p>
@@ -1259,6 +1259,16 @@
                         <!-- Right: what to do - the workflow step (the one filled button moves the control on), then
                              Create Control and Edit -->
                         <div class="d-flex align-items-center gap-2 vc-bar-actions">
+                            <!-- A participant at their own step (2026-11-25): their fields are open; Save keeps them and the
+                                 files without moving the control on, Discard changes puts them back as saved -->
+                            <th:block th:if="${participantStep}">
+                                <button type="button" class="btn btn-outline-secondary" id="participantDiscardBtn" disabled
+                                        title="Put your fields back as they were saved">Discard changes</button>
+                                <button type="button" class="btn btn-outline-primary" id="participantSaveBtn" disabled
+                                        title="Save your fields and files; the control stays at your step">
+                                    <i class="bi bi-save" aria-hidden="true"></i>Save
+                                </button>
+                            </th:block>
                             <!-- Workflow buttons -->
                             <div id="workflow-buttons-container" class="d-inline-flex align-items-center gap-2"
                                  th:if="${accessNotice == 'NONE'}">
@@ -1386,7 +1396,7 @@
                                 <i class="bi bi-plus-circle" aria-hidden="true"></i>Create Control
                             </button>
                             <button type="button" class="btn" id="editBtn"
-                                    th:if="${!readOnly and !processOwnerStep and (!#strings.equals(performanceStatus, 'DRAFT') or canEditAll)}"
+                                    th:if="${!readOnly and !participantStep and (!#strings.equals(performanceStatus, 'DRAFT') or canEditAll)}"
                                     th:title="${completedEdit} ? 'Edit with a reason; the status stays Completed' : 'Edit the fields of this control'"
                                     th:attr="aria-describedby=${completedEdit} ? 'completedEditBanner' : null">
                                 <i class="bi bi-pencil" aria-hidden="true"></i><span class="vc-btn-label"
@@ -1870,7 +1880,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=5"></script>
 <script src="/js/multi-value.js?v=4"></script>
-<script src="/js/view-control.js?v=8.19"></script>
+<script src="/js/view-control.js?v=8.20"></script>
 <script src="/js/control-description.js?v=1"></script>
 <script src="/js/vendor/quill/quill.js?v=2.0.3"></script>
 <script src="/js/rich-text.js?v=2"></script>
@@ -2519,6 +2529,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // The pending block: the files Save will upload, each with its choice and a button to take it back, and the
     // files that will not be uploaded, in red with the reason
     function renderPending() {
+        // the participant's Save follows the chosen files (view-control.js, openParticipantStep)
+        document.dispatchEvent(new CustomEvent('qtracker:pending-files'));
         let box = document.getElementById('detailsPendingFiles');
         const files = Array.from(detailsDT.files);
         if (!box && (files.length || refused.length) && detailsFileInfo) {

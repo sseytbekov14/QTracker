@@ -50,11 +50,11 @@ class ProcessOwnerStepPageIT extends ReleaseScenarioSupport {
         MockHttpSession session = login(po);
 
         String html = page(session, control);
-        assertThat(html).contains("id=\"processOwnerStep\" value=\"true\"",
-                        "Your fields and files are open here and are saved when you press one of them.")
+        assertThat(html).contains("id=\"participantStep\" value=\"true\"", "id=\"participantSaveBtn\"",
+                        "Your fields and files are open here: Save keeps your work, and those buttons save it too.")
                 .doesNotContain("id=\"editBtn\"", "(press Edit to change it)");
         // SoQM Admin Team on the same control: Edit as before
-        assertThat(page(login(soqm), control)).contains("id=\"editBtn\"", "id=\"processOwnerStep\" value=\"false\"");
+        assertThat(page(login(soqm), control)).contains("id=\"editBtn\"", "id=\"participantStep\" value=\"false\"");
 
         // What Complete sends first: the two fields, then each file, then the step
         assertThat(callJson(session, post("/api/control-details"), "{\"controlId\":" + control.getId()
@@ -67,6 +67,43 @@ class ProcessOwnerStepPageIT extends ReleaseScenarioSupport {
         assertThat(column(control, "process_owner_comments")).isEqualTo("Approved");
         assertThat(column(control, "control_steps_performed")).isEqualTo("Checked by the owner");
         assertThat(column(control, "attachment_details_path")).contains("owner-evidence.pdf");
+    }
+
+    /**
+     * The Facilitator in In Progress and the Control Operator in Review the same way (2026-11-25): no Edit, their step
+     * open with Save; not at another's step; one person in both fields at each of their steps.
+     */
+    @Test
+    void theFacilitatorAndTheControlOperator_atTheirSteps_noEdit_withSave() throws Exception {
+        User fac = myEdit("pst4-fac");
+        User op = myEdit("pst4-op");
+        User soqm = soqm("pst4-soqm");
+        for (String[] step : new String[][] {{"IN_PROGRESS", "fac"}, {"REVIEW", "op"}}) {
+            Control control = control("PST4", step[0], people().facilitator(fac).operator(op).soqm(soqm)
+                    .owner(myEdit("pst4-po")));
+            MockHttpSession holder = login("fac".equals(step[1]) ? fac : op);
+            MockHttpSession other = login("fac".equals(step[1]) ? op : fac);
+            assertThat(page(holder, control)).as(step[0])
+                    .contains("id=\"participantStep\" value=\"true\"", "id=\"participantSaveBtn\"",
+                            "id=\"participantDiscardBtn\"", "Save keeps your work")
+                    .doesNotContain("id=\"editBtn\"");
+            assertThat(page(other, control)).as(step[0] + " not theirs")
+                    .contains("id=\"participantStep\" value=\"false\"").doesNotContain("id=\"participantSaveBtn\"");
+            assertThat(page(login(soqm), control)).as(step[0] + " SoQM")
+                    .contains("id=\"editBtn\"").doesNotContain("id=\"participantSaveBtn\"");
+            // Save sends the steps field alone: taken; another field from them: kept as it was
+            assertThat(callJson(holder, post("/api/control-details"), "{\"controlId\":" + control.getId()
+                    + ",\"controlStepsPerformed\":\"Draft by the holder\"}").getResponse().getStatus()).isEqualTo(200);
+            assertThat(column(control, "control_steps_performed")).isEqualTo("Draft by the holder");
+            assertThat(column(control, "performance_status")).as("Save leaves the step").isEqualTo(step[0]);
+        }
+        // One person in both fields: open at each of their steps
+        User both = myEdit("pst5-both");
+        for (String status : List.of("IN_PROGRESS", "REVIEW")) {
+            Control control = control("PST5", status, people().facilitator(both).operator(both).soqm(soqm)
+                    .owner(myEdit("pst5-po")));
+            assertThat(page(login(both), control)).as(status).contains("id=\"participantStep\" value=\"true\"");
+        }
     }
 
     @Test
@@ -93,7 +130,7 @@ class ProcessOwnerStepPageIT extends ReleaseScenarioSupport {
             Control other = control("PST3", status, people().facilitator(myEdit("pst3-fac")).operator(myEdit("pst3-op"))
                     .soqm(soqm("pst3-soqm")).owner(po));
             assertThat(upload(session, other, "late.pdf")).as(status).isEqualTo(403);
-            assertThat(page(session, other)).as(status).contains("id=\"processOwnerStep\" value=\"false\"");
+            assertThat(page(session, other)).as(status).contains("id=\"participantStep\" value=\"false\"");
         }
     }
 }
