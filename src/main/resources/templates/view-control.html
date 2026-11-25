@@ -9,7 +9,7 @@
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/js/vendor/quill/quill.snow.css?v=2.0.3" rel="stylesheet">
     <link href="/css/style.css?v=27" rel="stylesheet">
-    <link href="/css/view-control.css?v=43" rel="stylesheet">
+    <link href="/css/view-control.css?v=44" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -421,6 +421,7 @@
 <input type="hidden" id="isSoqmLead" th:value="${isSoqmLead}">
 <input type="hidden" id="isProcessOwner" th:value="${isProcessOwner}">
 <input type="hidden" id="participantStep" th:value="${participantStep}">
+<input type="hidden" id="currentUserEmail" th:value="${userEmail}">
 <input type="hidden" id="isSharedViewer" th:value="${isSharedViewer}">
 <input type="hidden" id="canUseWorkflowActions" th:value="${canUseWorkflowActions}">
 <input type="hidden" id="allowedEditableFields" th:value="${allowedEditableFieldsCsv}">
@@ -513,7 +514,7 @@
                                th:text="${stepField.label()}">SoQM Admin Team Comments</a><th:block th:unless="${stepField.required()}"> (optional)</th:block>
                             on the Details tab<th:block th:unless="${participantStep}"> (press Edit to change it)</th:block>, then
                             <th:block th:text="${stepField.actions()} + '.'">Send to Process Owner or Return to Operator.</th:block>
-                            <th:block th:if="${participantStep}">Your fields and files are open here: Save keeps your work, and those buttons save it too.</th:block>
+                            <th:block th:if="${participantStep}">Your fields and files are open here; those buttons save them, and what you type is kept in this browser until then.</th:block>
                         </span>
                         <span class="vc-step-state" id="stepFieldState" aria-live="polite"></span>
                     </p>
@@ -1272,14 +1273,6 @@
                         <!-- Right: what to do - the workflow step (the one filled button moves the control on), then
                              Create Control and Edit -->
                         <div class="d-flex align-items-center gap-2 vc-bar-actions">
-                            <!-- A participant at their own step (2026-11-25): their fields are open; Save keeps them and the
-                                 files without moving the control on (no Discard button: decided 2026-11-25) -->
-                            <th:block th:if="${participantStep}">
-                                <button type="button" class="btn btn-outline-primary" id="participantSaveBtn" disabled
-                                        title="Save your fields and files; the control stays at your step">
-                                    <i class="bi bi-save" aria-hidden="true"></i>Save
-                                </button>
-                            </th:block>
                             <!-- Workflow buttons -->
                             <div id="workflow-buttons-container" class="d-inline-flex align-items-center gap-2"
                                  th:if="${accessNotice == 'NONE'}">
@@ -1891,7 +1884,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=5"></script>
 <script src="/js/multi-value.js?v=4"></script>
-<script src="/js/view-control.js?v=8.22"></script>
+<script src="/js/view-control.js?v=8.23"></script>
 <script src="/js/control-description.js?v=1"></script>
 <script src="/js/vendor/quill/quill.js?v=2.0.3"></script>
 <script src="/js/rich-text.js?v=2"></script>
@@ -2614,6 +2607,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Whether files are chosen and not uploaded yet (the Process Owner's step asks before leaving the page)
     window.hasPendingAttachments = function() {
         return detailsDT.files.length > 0;
+    };
+
+    // Their names, for the draft of the participant's step (view-control.js): a browser cannot keep the files
+    window.pendingAttachmentNames = function() {
+        return Array.from(detailsDT.files).map(file => file.name);
     };
 
     // Several files at once, chosen or dropped, are added to the ones chosen before

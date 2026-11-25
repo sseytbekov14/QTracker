@@ -1085,9 +1085,9 @@ function confirmWorkflowAction() {
     // A participant at their own step (the Process Owner since 2026-11-24, the Facilitator and the Control Operator since
     // 2026-11-25): the step's fields (Control Steps Performed and Results; Process Owner Comments for the Process Owner)
     // and Attachments are open as the page loads, without Edit (the server leaves Edit off, participantStep); every
-    // other field stays read only. Save keeps them and the chosen files, the control stays at the step (no Discard
-    // button, decided 2026-11-25: one button less); the step's buttons save them first (ensureWorkflowRoleReady: the fields, then the files,
-    // then the step). Leaving the page with something not saved asks first.
+    // other field stays read only. No Save or Discard button (decided 2026-11-25: fewer buttons): the step's buttons
+    // save the fields, then the files, then the step (ensureWorkflowRoleReady). Leaving the page with something not
+    // sent asks first (the browser's own question), and what is typed is kept as a draft in this browser (below).
     const PARTICIPANT_FIELDS = ['controlStepsPerformed', 'processOwnerComments'];
     let participantSaved = null;
 
@@ -1103,64 +1103,138 @@ function confirmWorkflowAction() {
         return values;
     }
 
+    function sameValues(a, b) {
+        const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+        return [...keys].every(key => (a || {})[key] === (b || {})[key]);
+    }
+
+    function pendingFileNames() {
+        return typeof window.pendingAttachmentNames === 'function' ? window.pendingAttachmentNames() : [];
+    }
+
     function participantHasUnsaved() {
         if (participantSaved === null) {
             return false;
         }
-        const now = participantValues();
-        return Object.keys(now).some(name => now[name] !== participantSaved[name])
-            || (typeof window.hasPendingAttachments === 'function' && window.hasPendingAttachments());
+        return !sameValues(participantValues(), participantSaved) || pendingFileNames().length > 0;
     }
 
-    // Save is on only while something is not saved
-    function refreshParticipantButtons() {
-        const saveBtn = document.getElementById('participantSaveBtn');
-        if (saveBtn && !saveBtn.dataset.busy) saveBtn.disabled = !participantHasUnsaved();
+    // The draft in this browser (2026-11-25): what the person typed at their step, kept in localStorage per person,
+    // control and step while it is not sent - so a session that ended, a reload or a closed browser loses nothing.
+    // It comes back into the fields when the page opens again, only if the server still has what it had when the
+    // draft was made (else it is dropped: someone changed the field meanwhile). Sent (Submit, Complete, Return): gone.
+    // Files cannot be kept by a browser: the draft only names them, to be chosen again. Drafts older than 30 days go.
+    const DRAFT_PREFIX = 'qtracker.draft.';
+    const DRAFT_DAYS = 30;
+    let draftKey = null;
+    let draftTimer = null;
+
+    function storage() {
+        try {
+            return window.localStorage;
+        } catch (e) {
+            return null;
+        }
     }
 
-    async function saveParticipantStep() {
-        const saveBtn = document.getElementById('participantSaveBtn');
-        const controlId = document.querySelector('input[name="id"]')?.value;
-        if (!controlId || !validateFieldLengths(document.getElementById('detailsForm'))) {
+    function sweepOldDrafts() {
+        const store = storage();
+        if (!store) return;
+        const oldest = Date.now() - DRAFT_DAYS * 24 * 60 * 60 * 1000;
+        for (let i = store.length - 1; i >= 0; i--) {
+            const key = store.key(i);
+            if (!key || key.indexOf(DRAFT_PREFIX) !== 0) continue;
+            try {
+                const draft = JSON.parse(store.getItem(key));
+                if (!draft || !draft.savedAt || draft.savedAt < oldest) store.removeItem(key);
+            } catch (e) {
+                store.removeItem(key);
+            }
+        }
+    }
+
+    function writeDraft() {
+        const store = storage();
+        if (!store || !draftKey || participantSaved === null) return;
+        try {
+            if (!participantHasUnsaved()) {
+                store.removeItem(draftKey);
+                return;
+            }
+            store.setItem(draftKey, JSON.stringify({
+                savedAt: Date.now(), base: participantSaved, values: participantValues(), files: pendingFileNames()
+            }));
+        } catch (e) {
+            // full or switched off: the browser's question on leaving still guards the text
+        }
+    }
+
+    function scheduleDraft() {
+        window.clearTimeout(draftTimer);
+        draftTimer = window.setTimeout(writeDraft, 400);
+    }
+
+    function clearDraft() {
+        const store = storage();
+        window.clearTimeout(draftTimer);
+        if (store && draftKey) {
+            try { store.removeItem(draftKey); } catch (e) { /* nothing to do */ }
+        }
+    }
+
+    function showDraftRestored(draft) {
+        const anchor = document.getElementById('stepFieldHint') || document.querySelector('.vc-stepper');
+        if (!anchor) return;
+        const note = document.createElement('p');
+        note.className = 'vc-turn-hint vc-draft-restored';
+        note.id = 'draftRestoredNote';
+        note.setAttribute('role', 'status');
+        const when = new Date(draft.savedAt);
+        const pad = n => String(n).padStart(2, '0');
+        const time = pad(when.getDate()) + '.' + pad(when.getMonth() + 1) + '.' + when.getFullYear() + ' '
+            + pad(when.getHours()) + ':' + pad(when.getMinutes());
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-arrow-counterclockwise';
+        icon.setAttribute('aria-hidden', 'true');
+        const text = document.createElement('span');
+        const strong = document.createElement('strong');
+        strong.textContent = 'Your unsaved text was restored';
+        text.appendChild(strong);
+        text.appendChild(document.createTextNode(' (typed ' + time + ', kept in this browser). It is sent with the'
+            + ' step\'s button.' + (draft.files && draft.files.length
+                ? ' Files are not kept by the browser: choose them again - ' + draft.files.join(', ') + '.' : '')));
+        note.appendChild(icon);
+        note.appendChild(text);
+        anchor.insertAdjacentElement('afterend', note);
+    }
+
+    function restoreDraft() {
+        const store = storage();
+        if (!store || !draftKey) return;
+        let draft = null;
+        try {
+            draft = JSON.parse(store.getItem(draftKey));
+        } catch (e) {
+            draft = null;
+        }
+        if (!draft || !draft.values) return;
+        // The server's text changed since the draft was made (sent from elsewhere, changed by SoQM): the draft is old
+        if (!sameValues(draft.base, participantSaved)) {
+            clearDraft();
             return;
         }
-        const label = saveBtn.innerHTML;
-        saveBtn.dataset.busy = 'true';
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
-        try {
-            await saveDetailsDataSilently(controlId);
-            const files = typeof window.uploadAttachments === 'function' ? await window.uploadAttachments() : null;
-            // the fields are saved even if a file is not
-            participantSaved = participantValues();
-            if (files && files.success === false) {
-                showAppModal({
-                    variant: 'error',
-                    title: 'Some files were not uploaded',
-                    message: 'Your fields are saved' + (files.uploaded ? ', and ' + files.uploaded + ' file(s)' : '')
-                        + '. Not uploaded: ' + (files.failed || []).map(item => item.name + ' (' + item.reason + ')').join('; ')
-                        + '. They are still listed under the upload zone: press Save to try again, or remove them.',
-                    autoCloseMs: 0
-                });
-            } else {
-                showAppModal({
-                    variant: 'success',
-                    title: 'Saved',
-                    message: 'Your changes are saved. The control stays at your step until you send it on.',
-                    autoCloseMs: 2000
-                });
+        let restored = false;
+        participantOpenFields().forEach(field => {
+            const value = draft.values[field.name];
+            if (typeof value === 'string' && value !== field.value) {
+                // the rich-text editor follows its field's value (rich-text.js)
+                field.value = value;
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+                restored = true;
             }
-        } catch (error) {
-            showAppModal({
-                variant: 'error',
-                title: 'Save Failed',
-                message: 'Error saving: ' + (error && error.message ? error.message : error),
-                autoCloseMs: 0
-            });
-        } finally {
-            delete saveBtn.dataset.busy;
-            saveBtn.innerHTML = label;
-            refreshParticipantButtons();
+        });
+        if (restored || (draft.files && draft.files.length)) {
+            showDraftRestored(draft);
         }
     }
 
@@ -1203,28 +1277,36 @@ function confirmWorkflowAction() {
         document.body.classList.add('participant-step-open');
         markParticipantFields();
         participantSaved = participantValues();
+        // the draft of this person, control and step
+        const who = (document.getElementById('currentUserEmail')?.value || '').trim().toLowerCase();
+        const controlId = document.querySelector('input[name="id"]')?.value;
+        const status = document.querySelector('input[name="performanceStatus"]')?.value || '';
+        draftKey = who && controlId ? DRAFT_PREFIX + who + '.' + controlId + '.' + status : null;
+        sweepOldDrafts();
+        restoreDraft();
         participantOpenFields().forEach(field => {
-            field.addEventListener('input', refreshParticipantButtons);
-            field.addEventListener('change', refreshParticipantButtons);
+            field.addEventListener('input', scheduleDraft);
+            field.addEventListener('change', scheduleDraft);
         });
-        document.addEventListener('qtracker:pending-files', refreshParticipantButtons);
-        document.getElementById('participantSaveBtn')?.addEventListener('click', saveParticipantStep);
-        refreshParticipantButtons();
+        document.addEventListener('qtracker:pending-files', scheduleDraft);
+        window.addEventListener('pagehide', writeDraft);
         window.addEventListener('beforeunload', event => {
             if (!participantHasUnsaved()) {
                 return;
             }
+            writeDraft();
             event.preventDefault();
             event.returnValue = '';
         });
     }
 
     window.qtrackerParticipantStep = {
-        // what is on the page is saved now (after the fields and the files went up)
+        // the fields on the page are saved now: the draft keeps only what is still not sent (chosen files), or goes
         markSaved() {
             if (participantSaved !== null) {
                 participantSaved = participantValues();
-                refreshParticipantButtons();
+                window.clearTimeout(draftTimer);
+                writeDraft();
             }
         },
         hasUnsaved: participantHasUnsaved
@@ -3380,12 +3462,16 @@ async function ensureWorkflowRoleReady(isReturn) {
 
     try {
         await saveDetailsDataSilently(controlId);
+        // the fields are saved, whatever the files do next
+        if (window.qtrackerParticipantStep) {
+            window.qtrackerParticipantStep.markSaved();
+        }
         // Files chosen in the Process Owner's step go up with it, one by one (2026-11-24); none chosen: nothing to do
         if (typeof window.uploadAttachments === 'function') {
             // While they go up the step's buttons say so (big files take a while before the dialog opens)
             const busy = typeof window.hasPendingAttachments === 'function' && window.hasPendingAttachments()
                 ? ['submitForReviewBtn', 'submitToSoqmLeadBtn', 'returnToFacilitatorBtn', 'completeControlBtn', 'ownerReturnToOperatorBtn',
-                    'ownerReturnToFacilitatorBtn', 'participantSaveBtn'].map(id => document.getElementById(id)).filter(Boolean) : [];
+                    'ownerReturnToFacilitatorBtn'].map(id => document.getElementById(id)).filter(Boolean) : [];
             const before = busy.map(button => [button, button.innerHTML, button.disabled]);
             busy.forEach(button => {
                 button.disabled = true;

@@ -372,10 +372,10 @@ class RoleMatrixIT {
         assertThat(page.getModelAndView().getModel().get("yourTurn")).as("your turn at %s", status).isEqualTo(true);
         if (Boolean.TRUE.equals(page.getModelAndView().getModel().get("participantStep"))) {
             // A participant's own step (2026-11-24 the Process Owner, 2026-11-25 every participant): no Edit, their
-            // fields are open with Save, and the step's buttons save them
+            // fields are open (no Save: a draft stays in the browser), and the step's buttons save them
             assertThat(page.getResponse().getContentAsString()).as("open step at %s", status)
-                    .contains("id=\"participantStep\" value=\"true\"", "id=\"participantSaveBtn\"")
-                    .doesNotContain("id=\"editBtn\"");
+                    .contains("id=\"participantStep\" value=\"true\"")
+                    .doesNotContain("id=\"editBtn\"", "id=\"participantSaveBtn\"");
         } else {
             // The Edit button is there, and no script of the page hides it again for one of the person's roles
             assertThat(page.getResponse().getContentAsString()).as("Edit button at %s", status)

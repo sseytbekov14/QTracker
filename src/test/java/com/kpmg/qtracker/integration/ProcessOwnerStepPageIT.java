@@ -50,9 +50,10 @@ class ProcessOwnerStepPageIT extends ReleaseScenarioSupport {
         MockHttpSession session = login(po);
 
         String html = page(session, control);
-        assertThat(html).contains("id=\"participantStep\" value=\"true\"", "id=\"participantSaveBtn\"",
-                        "Your fields and files are open here: Save keeps your work, and those buttons save it too.")
-                .doesNotContain("id=\"editBtn\"", "(press Edit to change it)");
+        assertThat(html).contains("id=\"participantStep\" value=\"true\"", "id=\"currentUserEmail\"",
+                        "Your fields and files are open here; those buttons save them, and what you type is kept in this browser until then.")
+                // no Edit, no Save (2026-11-25: the step's buttons save; the draft is kept in the browser)
+                .doesNotContain("id=\"editBtn\"", "(press Edit to change it)", "id=\"participantSaveBtn\"");
         // SoQM Admin Team on the same control: Edit as before
         assertThat(page(login(soqm), control)).contains("id=\"editBtn\"", "id=\"participantStep\" value=\"false\"");
 
@@ -84,9 +85,9 @@ class ProcessOwnerStepPageIT extends ReleaseScenarioSupport {
             MockHttpSession holder = login("fac".equals(step[1]) ? fac : op);
             MockHttpSession other = login("fac".equals(step[1]) ? op : fac);
             assertThat(page(holder, control)).as(step[0])
-                    .contains("id=\"participantStep\" value=\"true\"", "id=\"participantSaveBtn\"", "Save keeps your work")
-                    // no Discard button (2026-11-25), no Edit
-                    .doesNotContain("id=\"editBtn\"", "id=\"participantDiscardBtn\"");
+                    .contains("id=\"participantStep\" value=\"true\"", "what you type is kept in this browser")
+                    // no Save, no Discard button (2026-11-25), no Edit
+                    .doesNotContain("id=\"editBtn\"", "id=\"participantDiscardBtn\"", "id=\"participantSaveBtn\"");
             assertThat(page(other, control)).as(step[0] + " not theirs")
                     .contains("id=\"participantStep\" value=\"false\"").doesNotContain("id=\"participantSaveBtn\"")
                     // assigned, someone else's step: the calm "View only" line (2026-11-25)

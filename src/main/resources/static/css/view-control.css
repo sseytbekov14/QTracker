@@ -1590,3 +1590,9 @@ body:not(.edit-mode-active) #controlForm .required-field::after { content: none;
     border-color: #dee2e6;
     color: #495057;
 }
+/* The draft of the step came back from this browser (2026-11-25) */
+.vc-turn-hint.vc-draft-restored {
+    background: #fff8e1;
+    border-color: #f0d48a;
+    color: #5c4300;
+}
