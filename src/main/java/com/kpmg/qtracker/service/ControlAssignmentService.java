@@ -188,9 +188,11 @@ public class ControlAssignmentService {
             User person = userRepository.findByMail(email.trim()).orElse(null);
             AccessPolicy.Subject candidate = person == null ? null : AccessPolicy.Subject.of(person);
             String lower = email.trim().toLowerCase(java.util.Locale.ROOT);
-            // A deactivated user cannot be put into a field (2026-11-25: the page offers only active people; the API
-            // took them); one already there stays, so a control of a person deactivated later can still be saved
-            if (person != null && !Boolean.TRUE.equals(person.getEnabled()) && !before.contains(lower)) {
+            // A deactivated user cannot be put into a role field (2026-11-25: the page offers only active people; the API
+            // took them, and the step would wait on nobody); one already there stays, so a control of a person deactivated
+            // later can still be saved. Shared With keeps its rule: a disabled person may be listed and gets no access
+            if (slot != AccessPolicy.Slot.SHARED_WITH && person != null
+                    && !Boolean.TRUE.equals(person.getEnabled()) && !before.contains(lower)) {
                 throw new IllegalArgumentException(slot.getLabel() + ": " + email.trim() + " is deactivated");
             }
             boolean deletedAndThere = candidate == null && before.contains(lower) && deletedUserRepository != null
