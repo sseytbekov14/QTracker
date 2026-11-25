@@ -4,6 +4,7 @@ import com.kpmg.qtracker.dto.ControlAssignmentDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.repository.ControlRepository;
 import com.kpmg.qtracker.service.ControlAssignmentService;
+import com.kpmg.qtracker.service.WorkflowMoveService;
 import com.kpmg.qtracker.service.WorkflowTransition;
 import com.kpmg.qtracker.service.WorkingDaysService;
 import lombok.extern.slf4j.Slf4j;
@@ -116,7 +117,7 @@ public class PlannedNotificationScheduler {
         }
         int queued = 0;
         String key = control.getId() + ":";
-        if (today.equals(firstWorkingDay(occurrence)) && !initiatedOn(control, today)) {
+        if (today.equals(firstWorkingDay(occurrence)) && !initiatedBetween(control, occurrence, today)) {
             queued += notifications.send(control, assignment, new ControlNotifications.Notice(Template.T2,
                     List.of(WorkflowTransition.Actor.FACILITATOR, WorkflowTransition.Actor.CONTROL_OPERATOR,
                             WorkflowTransition.Actor.PROCESS_OWNER),
@@ -134,8 +135,16 @@ public class PlannedNotificationScheduler {
         } else if (today.equals(deadline)) {
             notice = toHolder(Template.T4, holder, email -> key + "T4:DL:" + email, due);
         } else if (today.isAfter(deadline)) {
+            // Once a day for the Process Owner (2026-11-25): copied on an earlier holder's e-mail today, or addressed
+            // before the control came to their step, they get no second one when the holder changes during the day
+            Set<String> hadToday = overdueToday(control, today);
+            List<String> owners = lower(WorkflowMoveService.peopleOf(WorkflowTransition.Actor.PROCESS_OWNER, assignment));
+            boolean ownerHadIt = !owners.isEmpty() && hadToday.containsAll(owners);
+            if (holder == WorkflowTransition.Actor.PROCESS_OWNER && ownerHadIt) {
+                return queued;
+            }
             notice = new ControlNotifications.Notice(Template.T5, List.of(holder), null,
-                    email -> key + "T5:" + email + ":" + today, null, due, overdueCopy(holder));
+                    email -> key + "T5:" + email + ":" + today, null, due, ownerHadIt ? List.of() : overdueCopy(holder));
         } else {
             return queued;
         }
@@ -179,12 +188,41 @@ public class PlannedNotificationScheduler {
         return day;
     }
 
-    /** Whether T1 went out for the control today: then T2 does not (decision 2). */
-    private boolean initiatedOn(Control control, LocalDate today) {
+    /**
+     * Whether T1 went out for the control from its occurrence day to today: then T2 does not (decision 2). From the
+     * occurrence day, not only today (2026-11-25): a control initiated on the weekend of its occurrence got T1 then,
+     * and T2 on the Monday after would repeat it.
+     */
+    private boolean initiatedBetween(Control control, LocalDate occurrence, LocalDate today) {
+        LocalDate from = occurrence.isAfter(today) ? today : occurrence;
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM email_outbox WHERE control_id = ? AND template_key = 'T1'"
                         + " AND created_at >= ? AND created_at < ?", Integer.class, control.getId(),
-                Timestamp.valueOf(today.atStartOfDay()), Timestamp.valueOf(today.plusDays(1).atStartOfDay()));
+                Timestamp.valueOf(from.atStartOfDay()), Timestamp.valueOf(today.plusDays(1).atStartOfDay()));
         return count != null && count > 0;
+    }
+
+    /** Everyone the control's T5 went to today, as To or CC, lower case. */
+    private Set<String> overdueToday(Control control, LocalDate today) {
+        Set<String> people = new HashSet<>();
+        jdbc.query("SELECT recipient_email, cc_emails FROM email_outbox WHERE control_id = ? AND template_key = 'T5'"
+                        + " AND created_at >= ? AND created_at < ?", rs -> {
+                    if (rs.getString(1) != null) {
+                        people.add(rs.getString(1).trim().toLowerCase(Locale.ROOT));
+                    }
+                    String cc = rs.getString(2);
+                    if (cc != null) {
+                        for (String address : cc.split(",")) {
+                            if (!address.isBlank()) {
+                                people.add(address.trim().toLowerCase(Locale.ROOT));
+                            }
+                        }
+                    }
+                }, control.getId(), Timestamp.valueOf(today.atStartOfDay()), Timestamp.valueOf(today.plusDays(1).atStartOfDay()));
+        return people;
+    }
+
+    private static List<String> lower(List<String> addresses) {
+        return addresses.stream().filter(a -> a != null && !a.isBlank()).map(a -> a.trim().toLowerCase(Locale.ROOT)).toList();
     }
 
     private synchronized void warn(LocalDate today, String message) {

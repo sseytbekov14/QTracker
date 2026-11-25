@@ -34,6 +34,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final com.kpmg.qtracker.repository.DeletedUserRepository deletedUserRepository;
     private final ControlAssignmentRepository assignmentRepository;
+    private final com.kpmg.qtracker.repository.EmailOutboxRepository outboxRepository;
     /** The temporary password of new accounts (the Admin Panel and the user import of dev and test). */
     public static final String DEFAULT_NEW_USER_PASSWORD = "aaa";
     /** The display_name column length. */
@@ -229,6 +230,7 @@ public class UserService {
         targetUser.setEnabled(nextEnabled);
         User saved = userRepository.save(targetUser);
         if (!Objects.equals(previousMail, nextMail)) {
+            readdressOutbox(targetUser.getId(), previousMail, nextMail);
             moveAssignments(previousMail, nextMail);
         }
         return saved;
@@ -251,7 +253,23 @@ public class UserService {
         refuseTaken(nextMail);
         user.setMail(nextMail);
         userRepository.save(user);
+        readdressOutbox(user.getId(), previousMail, nextMail);
         return moveAssignments(previousMail, nextMail);
+    }
+
+    /**
+     * The person's e-mails follow the new address (2026-11-25): the keys of those already made (so today's reminder is
+     * not made again for the new address) and those not sent yet, as To or as CC. Sent ones stay as they went.
+     */
+    void readdressOutbox(Long userId, String from, String to) {
+        if (outboxRepository == null || userId == null || from == null || from.isBlank() || to == null || to.isBlank()) {
+            return;
+        }
+        String oldMail = from.trim().toLowerCase(java.util.Locale.ROOT);
+        String newMail = to.trim().toLowerCase(java.util.Locale.ROOT);
+        outboxRepository.readdressKeys(userId, oldMail, newMail);
+        outboxRepository.readdressWaiting(userId, newMail);
+        outboxRepository.readdressWaitingCopies(oldMail, newMail);
     }
 
     private void refuseTaken(String mail) {

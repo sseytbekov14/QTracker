@@ -125,14 +125,32 @@ public class EmailOutboxDispatcher {
         String to = (String) row.get("recipient_email");
         Number userId = (Number) row.get("recipient_user_id");
         User user = userId == null ? null : userRepository.findById(userId.longValue()).orElse(null);
+        // Who it may go to now (2026-11-25): the addressee still active, still getting notifications (not made Read Only
+        // or KDN since) and in the whitelist when it is enforced; the copy's people the same
+        String skippedStatus = null;
+        String skippedWhy = null;
         if (user == null || !Boolean.TRUE.equals(user.getEnabled())) {
-            finish(id, EmailOutbox.SKIPPED_INACTIVE, "the person is inactive or deleted", null);
-            return;
+            skippedStatus = EmailOutbox.SKIPPED_INACTIVE;
+            skippedWhy = "the person is inactive or deleted";
+        } else if (!NotificationRecipients.receives(user)) {
+            skippedStatus = EmailOutbox.SKIPPED_INACTIVE;
+            skippedWhy = "the person gets no notifications (Read Only or KDN)";
+        } else if (!allowed(to)) {
+            skippedStatus = EmailOutbox.SKIPPED_DISABLED;
+            skippedWhy = "not in the whitelist";
         }
-        if (!allowed(to)) {
-            log.info("E-mail {} to {} skipped: not in the whitelist", id, to);
-            finish(id, EmailOutbox.SKIPPED_DISABLED, "not in the whitelist", null);
-            return;
+        List<String> copies = copies(id, (String) row.get("cc_emails"), to);
+        String sentNote = null;
+        if (skippedStatus != null) {
+            if (copies.isEmpty()) {
+                log.info("E-mail {} to {} skipped: {}", id, to, skippedWhy);
+                finish(id, skippedStatus, skippedWhy, null);
+                return;
+            }
+            // The addressee is out, the copy's people still get it (the Process Owner on the overdue e-mail)
+            sentNote = "sent to the copy only: " + to + " - " + skippedWhy;
+            to = copies.get(0);
+            copies = copies.subList(1, copies.size());
         }
         MailTransport mail = transport.getIfAvailable();
         try {
@@ -141,10 +159,13 @@ public class EmailOutboxDispatcher {
             }
             mail.send(new MailTransport.OutgoingMail(from, to, (String) row.get("subject"), (String) row.get("body_html"),
                     (String) row.get("body_text"), Template.Importance.HIGH.name().equals(row.get("importance")),
-                    copies(id, (String) row.get("cc_emails"), to)));
+                    copies));
             jdbc.update("UPDATE email_outbox SET status = 'SENT', sent_at = ?, provider = ?, last_error = NULL,"
                     + " next_attempt_at = NULL, claimed_at = NULL WHERE id = ?",
                     Timestamp.valueOf(LocalDateTime.now(clock)), mail.name(), id);
+            if (sentNote != null) {
+                jdbc.update("UPDATE email_outbox SET last_error = ? WHERE id = ?", sentNote, id);
+            }
         } catch (Exception failure) {
             int attempts = ((Number) row.get("attempts")).intValue();
             String error = failure.getClass().getSimpleName() + ": " + failure.getMessage();
@@ -229,8 +250,7 @@ public class EmailOutboxDispatcher {
             if (address.isEmpty() || address.equalsIgnoreCase(to == null ? "" : to.trim()) || copies.contains(address)) {
                 continue;
             }
-            boolean active = userRepository.findAllByMail(address).stream()
-                    .anyMatch(user -> Boolean.TRUE.equals(user.getEnabled()));
+            boolean active = userRepository.findAllByMail(address).stream().anyMatch(NotificationRecipients::receives);
             if (!active) {
                 log.info("E-mail {}: copy to {} left out, the person is inactive or deleted", id, address);
             } else if (!allowed(address)) {
