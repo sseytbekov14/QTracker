@@ -1104,6 +1104,8 @@ function confirmWorkflowAction() {
             enableProcessOwnerCommentsField();
         }
         enableFileInputs();
+        // their own files of this step can be deleted too (the server checks: FileAttachmentController.delete)
+        document.body.classList.add('po-step-open');
         processOwnerStepSaved = processOwnerStepValues();
         window.addEventListener('beforeunload', event => {
             if (!window.qtrackerProcessOwnerStep.hasUnsaved()) {
@@ -3273,7 +3275,20 @@ async function ensureWorkflowRoleReady() {
         await saveDetailsDataSilently(controlId);
         // Files chosen in the Process Owner's step go up with it, one by one (2026-11-24); none chosen: nothing to do
         if (typeof window.uploadAttachments === 'function') {
-            const files = await window.uploadAttachments();
+            // While they go up the step's buttons say so (big files take a while before the dialog opens)
+            const busy = typeof window.hasPendingAttachments === 'function' && window.hasPendingAttachments()
+                ? ['completeControlBtn', 'ownerReturnToOperatorBtn'].map(id => document.getElementById(id)).filter(Boolean) : [];
+            const before = busy.map(button => [button, button.innerHTML, button.disabled]);
+            busy.forEach(button => {
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading files...';
+            });
+            let files;
+            try {
+                files = await window.uploadAttachments();
+            } finally {
+                before.forEach(([button, html, disabled]) => { button.innerHTML = html; button.disabled = disabled; });
+            }
             if (files && files.success === false) {
                 showAppModal({
                     variant: 'error',
@@ -4310,6 +4325,17 @@ async function handleCompleteControl(event) {
     event.preventDefault();
     if (!await ensureWorkflowRoleReady()) {
         event.stopPropagation();
+        // Bootstrap's data-bs-toggle has opened the confirmation already: the step cannot go on, so it closes
+        // (2026-11-24: a refused file left "Complete control?" open under the message)
+        const confirmModal = document.getElementById('completeControlModal');
+        if (confirmModal && window.bootstrap) {
+            const instance = bootstrap.Modal.getOrCreateInstance(confirmModal);
+            // still opening: a hide now would be ignored, so it closes as soon as it is open (only this once)
+            const closeWhenShown = () => instance.hide();
+            confirmModal.addEventListener('shown.bs.modal', closeWhenShown, { once: true });
+            setTimeout(() => confirmModal.removeEventListener('shown.bs.modal', closeWhenShown), 1000);
+            instance.hide();
+        }
         return;
     }
     // Modal will be shown by Bootstrap's data-bs-toggle

@@ -65,6 +65,10 @@ public class ViewController {
     @org.springframework.beans.factory.annotation.Value("${file.upload.max-file-size-mb:50}")
     private long maxFileSizeMb;
 
+    /** The size limit of one upload request (several files go in one, up to this): spring.servlet.multipart. */
+    @org.springframework.beans.factory.annotation.Value("${spring.servlet.multipart.max-request-size:100MB}")
+    private org.springframework.util.unit.DataSize maxRequestSize;
+
     private User getCurrentUser(HttpSession session) {
         return (User) session.getAttribute("currentUser");
     }
@@ -984,6 +988,7 @@ public class ViewController {
         // The limits the server checks (2026-11-24): the page checks the same and says them under the upload zone
         model.addAttribute("attachmentMaxFileMb", maxFileSizeMb);
         model.addAttribute("attachmentMaxFiles", FileAttachmentController.MAX_FILES_PER_CONTROL);
+        model.addAttribute("attachmentMaxRequestMb", maxRequestSize.toMegabytes());
         model.addAttribute("operatorProgramLabel", ControlStepsFields.OPERATOR_PROGRAM_LABEL);
 
         // Read Only / KDN, or a User with Edit who is not assigned: a notice instead of buttons the server refuses

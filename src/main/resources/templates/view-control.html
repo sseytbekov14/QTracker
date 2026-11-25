@@ -312,7 +312,8 @@
         .kpmg-file-card-btn.download-btn:hover { background: #eef2f9; }
         .kpmg-file-card-btn.delete-btn  { color: #c8102e; display: none; }
         .kpmg-file-card-btn.delete-btn:hover  { background: #fff0f2; }
-        .edit-mode-active .kpmg-file-card-btn.delete-btn { display: flex; }
+        .edit-mode-active .kpmg-file-card-btn.delete-btn,
+        .po-step-open .kpmg-file-card-btn.delete-btn { display: flex; }
         /* Toast notifications */
         .kpmg-toast-container {
             position: fixed;
@@ -876,7 +877,7 @@
                                                 <span class="kpmg-upload-types" th:text="${attachmentTypes}">PDF, DOCX, XLSX, XLS, CSV, PNG, JPG, JPEG, MSG, ZIP</span>
                                                 <!--/* The types: the server's list (AttachmentTypes), also read by the page's own check */-->
                                                 <input type="file" class="kpmg-upload-input" name="attachedFile" id="attachmentDetailsInput" multiple
-                                                       th:attr="accept=${attachmentAccept},data-types-label=${attachmentTypes},data-max-file-mb=${attachmentMaxFileMb},data-max-files=${attachmentMaxFiles}">
+                                                       th:attr="accept=${attachmentAccept},data-types-label=${attachmentTypes},data-max-file-mb=${attachmentMaxFileMb},data-max-files=${attachmentMaxFiles},data-max-request-mb=${attachmentMaxRequestMb}">
                                             </div>
                                             <div class="kpmg-upload-progress"><div class="kpmg-upload-progress-bar" id="detailsProgressBar"></div></div>
                                         </div>
@@ -2624,9 +2625,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (status) status.textContent = text || '';
     }
 
-    // One request per file (2026-11-24): the size of all of them together does not matter, a refused file does not
-    // stop the others, and the progress says which file is on its way. The caller waits for the result: Save is
-    // done only when every file is on the control. A second call while one runs gets the same run.
+    // Uploads (2026-11-24): the files go in requests of at most the server's request size (several small files in one,
+    // a big one alone), so the size of all of them together does not matter and few requests are made (the server
+    // counts attachment requests: RATE_LIMIT_HEAVY a minute). A request the server refuses for one file is sent again
+    // file by file, so only that file stays out; "Too many requests" waits and tries again. The caller waits for the
+    // result: Save is done only when every file is on the control. A second call while one runs gets the same run.
+    const MAX_REQUEST_BYTES = Math.max(1, (parseInt(typesInput && typesInput.dataset.maxRequestMb, 10) || 100) - 1) * 1024 * 1024;
+    const RATE_LIMIT_WAIT_MS = 15000;
+    const RATE_LIMIT_TRIES = 6;
     let uploadRun = null;
 
     window.uploadAttachments = function() {
@@ -2636,46 +2642,105 @@ document.addEventListener('DOMContentLoaded', function() {
         return uploadRun;
     };
 
+    // Files in groups of at most MAX_REQUEST_BYTES together, in the order chosen
+    function batchesOf(files) {
+        const batches = [];
+        let current = [];
+        let bytes = 0;
+        files.forEach(file => {
+            if (current.length && bytes + file.size > MAX_REQUEST_BYTES) {
+                batches.push(current);
+                current = [];
+                bytes = 0;
+            }
+            current.push(file);
+            bytes += file.size;
+        });
+        if (current.length) batches.push(current);
+        return batches;
+    }
+
+    // One request with these files; the answer: { ok, status, message }
+    async function postFiles(files) {
+        const formData = new FormData();
+        files.forEach(file => {
+            formData.append('attachmentDetails', file);
+            // Replace: the attached file of the same name this one takes the place of
+            const target = pendingChoice.get(file) === 'replace' ? attachedNameOf(file) : null;
+            if (target) formData.append('replace', target);
+        });
+        // A completed control changed in place: the reason given at Save (CompletedEdit)
+        if (window.qtrackerCompletedEditReason) formData.append('editReason', window.qtrackerCompletedEditReason);
+        try {
+            const response = await fetch('/api/attachments/upload/' + controlId, { method: 'POST', body: formData });
+            const text = await response.text();
+            let data = {};
+            try { data = text ? JSON.parse(text) : {}; } catch (e) { data = {}; }
+            if (response.ok && data.success) return { ok: true, status: response.status };
+            return { ok: false, status: response.status, message: data.message || data.error
+                || (response.status === 413 ? 'larger than the server accepts' : 'the server answered ' + response.status) };
+        } catch (e) {
+            return { ok: false, status: 0, message: 'the connection was lost' };
+        }
+    }
+
+    // A request, waiting and trying again while the server says "Too many requests"
+    async function postWithWait(files, label) {
+        let answer = await postFiles(files);
+        for (let tries = 1; answer.status === 429 && tries < RATE_LIMIT_TRIES; tries++) {
+            setUploadStatus('The server asks to slow down: ' + label + ' again in ' + (RATE_LIMIT_WAIT_MS / 1000) + ' s');
+            await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_WAIT_MS));
+            setUploadStatus(label);
+            answer = await postFiles(files);
+        }
+        if (answer.status === 429) {
+            answer.message = 'too many uploads in a minute, wait a minute and press the button again';
+        }
+        return answer;
+    }
+
     async function runUploads() {
         const files = Array.from(detailsDT.files);
         if (!files.length) return { success: true, uploaded: 0, failed: [] };
         const failed = [];
         let uploaded = 0;
-        showProgress(detailsZone, detailsBar);
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            setUploadStatus('Uploading ' + (i + 1) + ' of ' + files.length + ': ' + file.name);
-            if (detailsBar) detailsBar.style.width = Math.round(i / files.length * 100) + '%';
-            const formData = new FormData();
-            formData.append('attachmentDetails', file);
-            // Replace: the attached file of the same name this one takes the place of
-            const target = pendingChoice.get(file) === 'replace' ? attachedNameOf(file) : null;
-            if (target) formData.append('replace', target);
-            // A completed control changed in place: the reason given at Save (CompletedEdit)
-            if (window.qtrackerCompletedEditReason) formData.append('editReason', window.qtrackerCompletedEditReason);
-            let error = null;
-            try {
-                const response = await fetch('/api/attachments/upload/' + controlId, { method: 'POST', body: formData });
-                const text = await response.text();
-                let data = {};
-                try { data = text ? JSON.parse(text) : {}; } catch (e) { data = {}; }
-                if (response.ok && data.success) {
-                    uploaded++;
-                } else {
-                    error = data.message || data.error || (response.status === 413
-                        ? 'larger than the server accepts' : 'the server answered ' + response.status);
-                }
-            } catch (e) {
-                error = 'the connection was lost';
-            }
+        let done = 0;
+        const totalBytes = files.reduce((sum, f) => sum + f.size, 0) || 1;
+        let sentBytes = 0;
+        const settle = (file, error) => {
+            done++;
             if (error) {
                 uploadError.set(file, error);
                 failed.push({ name: file.name, reason: error });
             } else {
+                uploaded++;
                 uploadError.delete(file);
                 pendingChoice.delete(file);
                 setPending(Array.from(detailsDT.files).filter(f => f !== file));
             }
+        };
+        showProgress(detailsZone, detailsBar);
+        for (const batch of batchesOf(files)) {
+            const label = batch.length === 1
+                ? 'Uploading ' + (done + 1) + ' of ' + files.length + ': ' + batch[0].name
+                : 'Uploading ' + (done + 1) + '-' + (done + batch.length) + ' of ' + files.length;
+            setUploadStatus(label);
+            if (detailsBar) detailsBar.style.width = Math.round(sentBytes / totalBytes * 100) + '%';
+            const answer = await postWithWait(batch, label);
+            if (answer.ok) {
+                batch.forEach(file => settle(file, null));
+            } else if (batch.length > 1 && answer.status >= 400 && answer.status < 500 && answer.status !== 429) {
+                // Refused for one of them (the server checks the whole request): each on its own
+                for (const file of batch) {
+                    const single = 'Uploading ' + (done + 1) + ' of ' + files.length + ': ' + file.name;
+                    setUploadStatus(single);
+                    const one = await postWithWait([file], single);
+                    settle(file, one.ok ? null : one.message);
+                }
+            } else {
+                batch.forEach(file => settle(file, answer.message));
+            }
+            sentBytes += batch.reduce((sum, f) => sum + f.size, 0);
         }
         setUploadStatus(failed.length ? '' : uploaded + (uploaded === 1 ? ' file' : ' files') + ' uploaded');
         hideProgress(detailsZone, detailsBar);
