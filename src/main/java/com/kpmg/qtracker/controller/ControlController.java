@@ -72,7 +72,11 @@ public class ControlController {
     @GetMapping("/generate-id")
     public ResponseEntity<Map<String, String>> generateControlId(
             @RequestParam String component,
-            @RequestParam String frequency) {
+            @RequestParam String frequency, HttpSession session) {
+        // SoQM only, as New Control and Rename ID that use it (2026-11-25)
+        if (!soqmSession(session)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Only SoQM Admin Team can do this"));
+        }
         try {
             String controlId = controlIdGeneratorService.generateControlId(component, frequency);
             return ResponseEntity.ok(Map.of("controlId", controlId));
@@ -82,13 +86,22 @@ public class ControlController {
     }
 
     @GetMapping("/check-id-unique")
-    public ResponseEntity<Map<String, Boolean>> checkControlIdUnique(@RequestParam String controlId) {
+    public ResponseEntity<Map<String, Boolean>> checkControlIdUnique(@RequestParam String controlId, HttpSession session) {
+        // SoQM only (2026-11-25): anyone else could test whether a Control ID they cannot see exists
+        if (!soqmSession(session)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         try {
             boolean isUnique = controlService.isControlIdUnique(controlId);
             return ResponseEntity.ok(Collections.singletonMap("unique", isUnique));
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }
+    }
+
+    private static boolean soqmSession(HttpSession session) {
+        User user = session != null ? (User) session.getAttribute("currentUser") : null;
+        return user != null && AccessPolicy.canCreateControls(AccessPolicy.Subject.of(user));
     }
 
     /**
@@ -215,7 +228,8 @@ public class ControlController {
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             Control control = new Control();
-            control.setControlId(controlDTO.getControlId());
+            // without the spaces around it, as the page sends it (2026-11-25: the API kept " HR-1")
+            control.setControlId(controlDTO.getControlId().trim());
             String canonicalFrequency = canonicalizeFrequency(controlDTO.getControlFrequency());
             if (canonicalFrequency == null) {
                 return ResponseEntity.badRequest()

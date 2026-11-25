@@ -282,7 +282,8 @@ public class ControlCycleService {
         for (String value : new String[] {saved.getControlDescription(), saved.getPrp(), saved.getReferencesToControl(),
                 saved.getSoqmHeadComments(), saved.getProcessOwnerComments(), details.getProcessName(),
                 details.getDepartment(), details.getProcessActivities(), details.getControlStepsPerformed(),
-                details.getControlOperatorReview()}) {
+                details.getControlOperatorReview(), details.getReferencesToControl(), details.getSoqmHeadComments(),
+                details.getProcessOwnerComments()}) {
             names.addAll(RichText.imageNames(value, sourceId));
         }
         if (names.isEmpty()) {
@@ -296,6 +297,11 @@ public class ControlCycleService {
         long to = saved.getId();
         saved.setControlDescription(RichText.movePictures(saved.getControlDescription(), sourceId, to));
         saved.setPrp(RichText.movePictures(saved.getPrp(), sourceId, to));
+        // the rich-text fields the control record holds too (2026-11-25: References to Control kept the source's
+        // picture addresses, broken once the source was deactivated or for those who cannot see it)
+        saved.setReferencesToControl(RichText.movePictures(saved.getReferencesToControl(), sourceId, to));
+        saved.setSoqmHeadComments(RichText.movePictures(saved.getSoqmHeadComments(), sourceId, to));
+        saved.setProcessOwnerComments(RichText.movePictures(saved.getProcessOwnerComments(), sourceId, to));
         controlRepository.save(saved);
         details.setProcessName(RichText.movePictures(details.getProcessName(), sourceId, to));
         details.setReferencesToControl(RichText.movePictures(details.getReferencesToControl(), sourceId, to));

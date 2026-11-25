@@ -24,10 +24,12 @@ public interface ControlRepository extends JpaRepository<Control, Long> {
     List<Control> findByCreatedFromControlIdOrderByIdAsc(Long createdFromControlId);
 
     /** The control with this Control ID in any case (Create Control keeps IDs unique ignoring case). */
-    @Query("SELECT c FROM Control c WHERE LOWER(c.controlId) = LOWER(TRIM(:controlId)) ORDER BY c.id")
+    // the stored ID trimmed too (2026-11-25: an ID saved through the API with spaces around it was not found)
+    @Query("SELECT c FROM Control c WHERE LOWER(TRIM(c.controlId)) = LOWER(TRIM(:controlId)) ORDER BY c.id")
     List<Control> findByControlIdIgnoringCase(@Param("controlId") String controlId);
 
-    @Query("SELECT c.controlId FROM Control c WHERE c.controlId LIKE :prefix ORDER BY c.controlId DESC")
+    // in any case (2026-11-25): a lower-case "hr-ctrl-mf-012" counts, so the next number never collides with it
+    @Query("SELECT c.controlId FROM Control c WHERE UPPER(c.controlId) LIKE UPPER(:prefix) ORDER BY c.controlId DESC")
     List<String> findControlIdsByPrefix(@Param("prefix") String prefix);
 
     /** The control's file list: the only write of it (Control.attachmentDetailsPath is not saved with the entity). */

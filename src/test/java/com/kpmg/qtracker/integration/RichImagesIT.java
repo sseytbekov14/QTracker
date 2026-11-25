@@ -88,8 +88,8 @@ class RichImagesIT extends ReleaseScenarioSupport {
                 .soqm(soqm).owner(myEdit("ri2-po")));
         String url = json(upload(session, done, "s.png", PNG)).path("url").asText();
         String name = url.substring(url.lastIndexOf('/') + 1);
-        jdbc.update("UPDATE controls SET control_description = ? WHERE id = ?", "<p>See <img src=\"" + url + "\"></p>",
-                done.getId());
+        jdbc.update("UPDATE controls SET control_description = ?, references_to_control = ? WHERE id = ?",
+                "<p>See <img src=\"" + url + "\"></p>", "<p>Ref <img src=\"" + url + "\"></p>", done.getId());
 
         MvcResult next = callJson(session, post("/api/controls/{id}/next-cycle", done.getId()),
                 "{\"controlId\":\"" + done.getControlId() + "-NEXT\"}");
@@ -98,6 +98,9 @@ class RichImagesIT extends ReleaseScenarioSupport {
         String copied = jdbc.queryForObject("SELECT control_description FROM controls WHERE id = ?", String.class, nextId);
         String nextUrl = "/api/controls/" + nextId + "/rich-images/" + name;
         assertThat(copied).isEqualTo("<p>See <img src=\"" + nextUrl + "\"></p>");
+        // References to Control too (2026-11-25: it kept the source's address)
+        assertThat(jdbc.queryForObject("SELECT references_to_control FROM controls WHERE id = ?", String.class, nextId))
+                .isEqualTo("<p>Ref <img src=\"" + nextUrl + "\"></p>");
         assertThat(call(session, get(nextUrl)).getResponse().getContentAsByteArray()).isEqualTo(PNG);
 
         // Deactivating the new control takes its pictures; the source keeps its own

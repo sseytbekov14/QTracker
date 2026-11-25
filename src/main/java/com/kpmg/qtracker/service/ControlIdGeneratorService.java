@@ -39,7 +39,7 @@ public class ControlIdGeneratorService {
 
     // Pattern to extract the number from existing control IDs: {COMP}-CTRL-MF-{NUMBER}
     private static final Pattern NUMBER_PATTERN =
-            Pattern.compile("^[A-Z]+\\-CTRL\\-MF\\-(\\d+)");
+            Pattern.compile("^[A-Z]+\\-CTRL\\-MF\\-(\\d+)", Pattern.CASE_INSENSITIVE);
 
     private final ControlRepository controlRepository;
 
