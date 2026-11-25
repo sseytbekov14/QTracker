@@ -408,6 +408,22 @@
     content: "\2713";
 }
 
+/* The icon says what the message is (2026-11-24: errors and warnings showed the success tick too) */
+.app-modal-header.bg-danger ~ .app-modal-body .app-modal-icon::before {
+    content: "\2715";
+}
+
+.app-modal-header.bg-warning ~ .app-modal-body .app-modal-icon::before {
+    content: "!";
+    font-weight: 700;
+}
+
+.app-modal-header.bg-info ~ .app-modal-body .app-modal-icon::before {
+    content: "i";
+    font-weight: 700;
+    font-family: Georgia, serif;
+}
+
 .app-modal-header.bg-success,
 .app-modal-header.bg-danger,
 .app-modal-header.bg-warning,
