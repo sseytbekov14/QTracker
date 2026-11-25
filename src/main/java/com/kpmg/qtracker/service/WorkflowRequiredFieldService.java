@@ -47,16 +47,18 @@ public class WorkflowRequiredFieldService {
     }
 
     /**
-     * Control Steps Performed and Results must be filled in to move a control on from In Progress, Review or SoQM review,
-     * whoever does it (one person may hold several fields of a control). Control Operator's Program is required
-     * by no step, whoever the Facilitator and the Control Operator are.
+     * Control Steps Performed and Results must be filled in to move a control on from In Progress, Review, SoQM review
+     * or - since 2026-11-25, as the Process Owner may write the field there - Process Owner Review (Complete), whoever
+     * does it (one person may hold several fields of a control). Returns do not need it. Control Operator's Program is
+     * required by no step, whoever the Facilitator and the Control Operator are.
      */
     public Optional<String> getMissingFieldMessage(Control control) {
         if (control == null) {
             return Optional.empty();
         }
         String status = normalizeStatus(control.getPerformanceStatus());
-        if (!"IN_PROGRESS".equals(status) && !"REVIEW".equals(status) && !"SOQM_HEAD_REVIEW".equals(status)) {
+        if (!"IN_PROGRESS".equals(status) && !"REVIEW".equals(status) && !"SOQM_HEAD_REVIEW".equals(status)
+                && !"PROCESS_OWNER_REVIEW".equals(status)) {
             return Optional.empty();
         }
         ControlDetails details = controlDetailsRepository.findByControlId(control.getId()).orElse(null);

@@ -185,10 +185,14 @@ public class ControlAssignmentService {
             if (email == null || email.isBlank()) {
                 continue;
             }
-            AccessPolicy.Subject candidate = userRepository.findByMail(email.trim())
-                    .map(AccessPolicy.Subject::of)
-                    .orElse(null);
+            User person = userRepository.findByMail(email.trim()).orElse(null);
+            AccessPolicy.Subject candidate = person == null ? null : AccessPolicy.Subject.of(person);
             String lower = email.trim().toLowerCase(java.util.Locale.ROOT);
+            // A deactivated user cannot be put into a field (2026-11-25: the page offers only active people; the API
+            // took them); one already there stays, so a control of a person deactivated later can still be saved
+            if (person != null && !Boolean.TRUE.equals(person.getEnabled()) && !before.contains(lower)) {
+                throw new IllegalArgumentException(slot.getLabel() + ": " + email.trim() + " is deactivated");
+            }
             boolean deletedAndThere = candidate == null && before.contains(lower) && deletedUserRepository != null
                     && !deletedUserRepository.findByMailLowerIn(List.of(lower)).isEmpty();
             AccessPolicy.assignmentRefusal(candidate, slot, kdnControl, deletedAndThere).ifPresent(reason -> {

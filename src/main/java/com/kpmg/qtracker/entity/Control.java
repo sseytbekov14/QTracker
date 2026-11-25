@@ -10,6 +10,9 @@ import java.util.Set;
 @Entity
 @Table(name = "controls")
 @Data
+// Only the columns a save changed are written (2026-11-25): a save of the Control tab no longer writes back the
+// status, the return comments or the review comments it read earlier, over a step made meanwhile
+@org.hibernate.annotations.DynamicUpdate
 public class Control {
     private static final Set<String> WORKFLOW_STATUSES = Set.of(
             "DRAFT",
