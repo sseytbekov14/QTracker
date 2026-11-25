@@ -88,7 +88,14 @@ class ProcessOwnerStepPageIT extends ReleaseScenarioSupport {
                     // no Discard button (2026-11-25), no Edit
                     .doesNotContain("id=\"editBtn\"", "id=\"participantDiscardBtn\"");
             assertThat(page(other, control)).as(step[0] + " not theirs")
-                    .contains("id=\"participantStep\" value=\"false\"").doesNotContain("id=\"participantSaveBtn\"");
+                    .contains("id=\"participantStep\" value=\"false\"").doesNotContain("id=\"participantSaveBtn\"")
+                    // assigned, someone else's step: the calm "View only" line (2026-11-25)
+                    .contains("id=\"viewOnlyHint\"", "View only:",
+                            ">" + ("IN_PROGRESS".equals(step[0]) ? "Facilitator" : "Control Operator") + "</strong>'s step");
+            assertThat(page(holder, control)).as(step[0] + " theirs: no View only line, no red sentence under the field")
+                    .doesNotContain("id=\"viewOnlyHint\"", "This field is required before submission.",
+                            "Required for your step: fill it");
+            assertThat(page(login(soqm), control)).as(step[0] + " SoQM: no View only line").doesNotContain("id=\"viewOnlyHint\"");
             assertThat(page(login(soqm), control)).as(step[0] + " SoQM")
                     .contains("id=\"editBtn\"").doesNotContain("id=\"participantSaveBtn\"");
             // Save sends the steps field alone: taken; another field from them: kept as it was

@@ -1059,6 +1059,19 @@ public class ViewController {
         // participant's field) keeps Edit with every field.
         model.addAttribute("participantStep", yourTurn && !permission.canEditAll()
                 && !permission.getAllowedEditableFields().isEmpty());
+        // Assigned to the control, but it is at someone else's step (2026-11-25): "View only: the control is at the
+        // <holder>'s step" instead of an empty space where "Your step" would be
+        String stepHolder = switch (normalizedStatus) {
+            case "IN_PROGRESS" -> "Facilitator";
+            case "REVIEW" -> "Control Operator";
+            case "SOQM_HEAD_REVIEW" -> UserRole.SOQM_TEAM_NAME;
+            case "PROCESS_OWNER_REVIEW" -> "Process Owner";
+            default -> null;
+        };
+        boolean assigned = permission.isFacilitator() || permission.isControlOperator() || permission.isProcessOwner();
+        model.addAttribute("viewOnlyStepHolder", stepHolder != null && assigned && !yourTurn && !permission.canEditAll()
+                && AccessPolicy.notice(AccessPolicy.Subject.of(currentUser), permission) == AccessPolicy.Notice.NONE
+                ? stepHolder : null);
         // The field the user's step needs, named in the "Your step" hint and marked on the Details tab
         model.addAttribute("stepField", yourTurn
                 ? WorkflowRequiredFieldService.stepField(normalizedStatus).orElse(null) : null);

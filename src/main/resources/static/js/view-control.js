@@ -1164,6 +1164,30 @@ function confirmWorkflowAction() {
         }
     }
 
+    // "Your field" (2026-11-25): what the person fills in at their step - the open text fields and the upload zone -
+    // framed in KPMG blue with a mark at the label, so it stands out from the read-only fields around it
+    function markParticipantFields() {
+        const mark = label => {
+            if (label && !label.querySelector('.vc-your-field')) {
+                const badge = document.createElement('span');
+                badge.className = 'vc-your-field';
+                badge.textContent = 'Your field';
+                label.appendChild(badge);
+            }
+        };
+        participantOpenFields().forEach(field => {
+            const next = field.nextElementSibling;
+            const box = next && next.classList.contains('rt-wrap') ? next : field;
+            box.classList.add('vc-mine');
+            mark(document.querySelector('label[for="' + field.id + '"]') || field.parentElement.querySelector('label'));
+        });
+        const zone = document.getElementById('detailsUploadZone');
+        if (zone && zone.getAttribute('data-disabled') !== 'true') {
+            zone.classList.add('vc-mine');
+            mark(document.querySelector('label[for="attachmentDetailsInput"]'));
+        }
+    }
+
     function openParticipantStep() {
         if (document.getElementById('participantStep')?.value !== 'true') {
             return;
@@ -1177,6 +1201,7 @@ function confirmWorkflowAction() {
         enableFileInputs();
         // their own files of this step can be deleted too (the server checks: FileAttachmentController.delete)
         document.body.classList.add('participant-step-open');
+        markParticipantFields();
         participantSaved = participantValues();
         participantOpenFields().forEach(field => {
             field.addEventListener('input', refreshParticipantButtons);
@@ -1447,7 +1472,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('#controlForm select[data-stored-value]').forEach(select => {
         keepStoredSelectValue(select, select.dataset.storedValue);
     });
-    document.querySelectorAll('#controlForm select option[value=""][data-edit-text]').forEach(watchEmptyChoiceText);
+    document.querySelectorAll('#controlForm select option[value=""][data-edit-text], #detailsForm select option[value=""][data-edit-text]')
+        .forEach(watchEmptyChoiceText);
 });
 
 /**

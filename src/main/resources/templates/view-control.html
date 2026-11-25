@@ -9,7 +9,7 @@
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/js/vendor/quill/quill.snow.css?v=2.0.3" rel="stylesheet">
     <link href="/css/style.css?v=27" rel="stylesheet">
-    <link href="/css/view-control.css?v=42" rel="stylesheet">
+    <link href="/css/view-control.css?v=43" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -517,6 +517,12 @@
                         </span>
                         <span class="vc-step-state" id="stepFieldState" aria-live="polite"></span>
                     </p>
+                    <!-- Assigned, but the control is at someone else's step (2026-11-25): nothing to fill in now -->
+                    <p class="vc-turn-hint vc-view-only" id="viewOnlyHint" th:if="${viewOnlyStepHolder != null}">
+                        <i class="bi bi-eye" aria-hidden="true"></i>
+                        <span><strong>View only:</strong> the control is at the
+                            <strong th:text="${viewOnlyStepHolder}">Control Operator</strong>'s step. You have nothing to fill in now.</span>
+                    </p>
                 </div>
 
                 <!-- A control made with Create Control: the control it was created from (Control.createdFromControlId) -->
@@ -607,7 +613,7 @@
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label">Control Category</label>
                                         <select class="form-control readonly-field" name="controlCategory" readonly th:data-stored-value="${control.controlCategory}">
-                                            <option value="">Select Category</option>
+                                            <option value="" data-view-text="—" data-edit-text="Select Category">—</option>
                                             <option value="New" th:selected="${control.controlCategory == 'New'}">New</option>
                                             <option value="Enhanced" th:selected="${control.controlCategory == 'Enhanced'}">Enhanced</option>
                                             <option value="Existing" th:selected="${control.controlCategory == 'Existing'}">Existing</option>
@@ -728,7 +734,7 @@
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label">Homogeneity</label>
                                         <select class="form-select" name="homogeneity">
-                                            <option value="">Select...</option>
+                                            <option value="" data-view-text="—" data-edit-text="Select...">—</option>
                                             <option value="Homogenous">Homogenous</option>
                                             <option value="Non-Homogenous">Non-Homogenous</option>
                                         </select>
@@ -853,9 +859,6 @@
                                                 th:if="${stepField != null and stepField.required() and stepField.field() == 'controlStepsPerformed'}">&nbsp;*</span></label>
                                         <textarea data-rich-text class="form-control" id="controlStepsPerformed" name="controlStepsPerformed" rows="8" maxlength="20000" th:attr="maxlength=${textMax}"
                                                   placeholder="Describe control steps and results"></textarea>
-                                        <div class="required-hint d-none" id="controlStepsSubmitHint">
-                                            This field is required before submission.
-                                        </div>
                                     </div>
                                 </div>
 
@@ -896,9 +899,6 @@
                                                   rows="8"
                                                   maxlength="20000" th:attr="maxlength=${textMax}"
                                                   placeholder="Enter SoQM Admin Team comments"></textarea>
-                                        <div class="required-hint d-none" id="soqmHeadCommentsStepHint">
-                                            Required for your step: fill it to Send to Process Owner or Return to Operator.
-                                        </div>
                                     </div>
                                 </div>
 
@@ -912,9 +912,6 @@
                                                   rows="8"
                                                   maxlength="20000" th:attr="maxlength=${textMax}"
                                                   placeholder="Enter process owner comments"></textarea>
-                                        <div class="required-hint d-none" id="processOwnerCommentsStepHint">
-                                            Required for your step: fill it to Complete or Return.
-                                        </div>
                                     </div>
                                 </div>
 
@@ -1894,7 +1891,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=5"></script>
 <script src="/js/multi-value.js?v=4"></script>
-<script src="/js/view-control.js?v=8.21"></script>
+<script src="/js/view-control.js?v=8.22"></script>
 <script src="/js/control-description.js?v=1"></script>
 <script src="/js/vendor/quill/quill.js?v=2.0.3"></script>
 <script src="/js/rich-text.js?v=2"></script>

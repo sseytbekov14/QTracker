@@ -1523,3 +1523,70 @@ select.form-select.editable-select {
 @media (prefers-reduced-motion: reduce) {
     .vc-field-flash { animation: none; box-shadow: 0 0 0 3px rgba(0, 51, 141, 0.55); }
 }
+
+/* ── What you may change, at a glance (2026-11-25) ──
+   Read only: text on an even grey, no input frame, "—" when empty; the arrow of a list only while it can be opened.
+   Your field: the field(s) of your step framed in KPMG blue with a "Your field" mark at the label (openParticipantStep). */
+.readonly-field,
+.readonly-select {
+    background-color: #eef0f3 !important;
+    border-color: transparent !important;
+    color: var(--kpmg-gray-800, #343a40);
+}
+select.readonly-field,
+select.readonly-select {
+    background-image: none !important;
+}
+.rt-wrap.is-readonly .ql-container.ql-snow {
+    background: #eef0f3;
+    border-color: transparent;
+}
+.rt-wrap.is-readonly .ql-editor { cursor: not-allowed; }
+.rt-wrap.is-readonly .ql-editor.ql-blank::before {
+    content: "\2014";
+    color: #8b90a0;
+    font-style: normal;
+}
+.mv-field:not(.is-editing) .sw-box,
+.sw-field:not(.is-editing) .sw-box {
+    background: #eef0f3;
+    border-color: transparent;
+}
+.vc-mine .ql-toolbar.ql-snow,
+.vc-mine .ql-container.ql-snow {
+    border: 2px solid var(--kpmg-blue, #00338D) !important;
+}
+.vc-mine .ql-toolbar.ql-snow {
+    border-bottom: 1px solid #c9d3e6 !important;
+    border-radius: 6px 6px 0 0;
+}
+.vc-mine .ql-container.ql-snow {
+    border-top: 0 !important;
+    border-radius: 0 0 6px 6px;
+}
+textarea.vc-mine { border: 2px solid var(--kpmg-blue, #00338D) !important; }
+.kpmg-upload-zone.vc-mine {
+    border-color: var(--kpmg-blue, #00338D);
+    box-shadow: 0 0 0 1px var(--kpmg-blue, #00338D);
+}
+.vc-your-field {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: var(--kpmg-blue, #00338D);
+    color: #fff;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    vertical-align: 1px;
+}
+/* The stars of the Control tab: only while the fields can be changed (SoQM Admin Team in Edit) */
+body:not(.edit-mode-active) #controlForm .required-field::after { content: none; }
+/* Someone else's step: a calm grey line instead of "Your step" */
+.vc-turn-hint.vc-view-only {
+    background: #f1f3f5;
+    border-color: #dee2e6;
+    color: #495057;
+}
