@@ -1085,8 +1085,8 @@ function confirmWorkflowAction() {
     // A participant at their own step (the Process Owner since 2026-11-24, the Facilitator and the Control Operator since
     // 2026-11-25): the step's fields (Control Steps Performed and Results; Process Owner Comments for the Process Owner)
     // and Attachments are open as the page loads, without Edit (the server leaves Edit off, participantStep); every
-    // other field stays read only. Save keeps them and the chosen files, the control stays at the step; Discard changes
-    // puts them back as saved; the step's buttons save them first (ensureWorkflowRoleReady: the fields, then the files,
+    // other field stays read only. Save keeps them and the chosen files, the control stays at the step (no Discard
+    // button, decided 2026-11-25: one button less); the step's buttons save them first (ensureWorkflowRoleReady: the fields, then the files,
     // then the step). Leaving the page with something not saved asks first.
     const PARTICIPANT_FIELDS = ['controlStepsPerformed', 'processOwnerComments'];
     let participantSaved = null;
@@ -1112,18 +1112,14 @@ function confirmWorkflowAction() {
             || (typeof window.hasPendingAttachments === 'function' && window.hasPendingAttachments());
     }
 
-    // Save and Discard changes are on only while something is not saved
+    // Save is on only while something is not saved
     function refreshParticipantButtons() {
-        const unsaved = participantHasUnsaved();
         const saveBtn = document.getElementById('participantSaveBtn');
-        const discardBtn = document.getElementById('participantDiscardBtn');
-        if (saveBtn && !saveBtn.dataset.busy) saveBtn.disabled = !unsaved;
-        if (discardBtn && !(saveBtn && saveBtn.dataset.busy)) discardBtn.disabled = !unsaved;
+        if (saveBtn && !saveBtn.dataset.busy) saveBtn.disabled = !participantHasUnsaved();
     }
 
     async function saveParticipantStep() {
         const saveBtn = document.getElementById('participantSaveBtn');
-        const discardBtn = document.getElementById('participantDiscardBtn');
         const controlId = document.querySelector('input[name="id"]')?.value;
         if (!controlId || !validateFieldLengths(document.getElementById('detailsForm'))) {
             return;
@@ -1131,12 +1127,11 @@ function confirmWorkflowAction() {
         const label = saveBtn.innerHTML;
         saveBtn.dataset.busy = 'true';
         saveBtn.disabled = true;
-        if (discardBtn) discardBtn.disabled = true;
         saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
         try {
             await saveDetailsDataSilently(controlId);
             const files = typeof window.uploadAttachments === 'function' ? await window.uploadAttachments() : null;
-            // the fields are saved even if a file is not: Discard goes back to them
+            // the fields are saved even if a file is not
             participantSaved = participantValues();
             if (files && files.success === false) {
                 showAppModal({
@@ -1169,27 +1164,6 @@ function confirmWorkflowAction() {
         }
     }
 
-    async function discardParticipantStep() {
-        const confirmed = await showConfirmModal({
-            title: 'Discard your changes?',
-            message: 'Your fields go back to what was saved last, and the files not uploaded yet are taken off the list.',
-            confirmText: 'Discard changes',
-            cancelText: 'Keep editing'
-        });
-        if (!confirmed || participantSaved === null) {
-            return;
-        }
-        participantOpenFields().forEach(field => {
-            // the rich-text editor follows its field's value (rich-text.js)
-            field.value = participantSaved[field.name] || '';
-            field.dispatchEvent(new Event('input', { bubbles: true }));
-        });
-        if (typeof window.resetPendingAttachments === 'function') {
-            window.resetPendingAttachments();
-        }
-        refreshParticipantButtons();
-    }
-
     function openParticipantStep() {
         if (document.getElementById('participantStep')?.value !== 'true') {
             return;
@@ -1210,7 +1184,6 @@ function confirmWorkflowAction() {
         });
         document.addEventListener('qtracker:pending-files', refreshParticipantButtons);
         document.getElementById('participantSaveBtn')?.addEventListener('click', saveParticipantStep);
-        document.getElementById('participantDiscardBtn')?.addEventListener('click', discardParticipantStep);
         refreshParticipantButtons();
         window.addEventListener('beforeunload', event => {
             if (!participantHasUnsaved()) {

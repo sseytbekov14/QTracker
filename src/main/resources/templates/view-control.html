@@ -9,7 +9,7 @@
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/js/vendor/quill/quill.snow.css?v=2.0.3" rel="stylesheet">
     <link href="/css/style.css?v=27" rel="stylesheet">
-    <link href="/css/view-control.css?v=41" rel="stylesheet">
+    <link href="/css/view-control.css?v=42" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -1203,17 +1203,33 @@
                             var trigger = event.target.closest ? event.target.closest('[data-vc-tab]') : null;
                             if (!trigger) return;
                             event.preventDefault();
-                            // A link naming a field (the "Your step" hint) also scrolls to it and focuses it
+                            // A link naming a field (the "Your step" hint) also takes the page to it (2026-11-25)
                             var fieldName = trigger.getAttribute('data-vc-field');
                             show(trigger.getAttribute('data-vc-tab'), fieldName ? function () {
-                                var field = document.querySelector('[name="' + fieldName + '"]');
-                                if (!field) return;
-                                field.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                                field.focus({ preventScroll: true });
+                                goToField(fieldName);
                             } : null);
                         });
 
-                        window.ViewControlTabs = { show: show, revealField: revealField };
+                        // The field as the page shows it: a rich-text field is a hidden textarea with its editor right
+                        // after it (rich-text.js), so the editor is what is scrolled to, outlined and given the caret
+                        // (only when the user may write in it); the label stays in sight above it
+                        function goToField(fieldName) {
+                            var field = document.querySelector('[name="' + fieldName + '"]');
+                            if (!field) return;
+                            var next = field.nextElementSibling;
+                            var box = next && next.classList.contains('rt-wrap') ? next : field;
+                            box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                            var editor = box === field
+                                ? (field.readOnly || field.disabled ? null : field)
+                                : box.querySelector('.ql-editor[contenteditable="true"]');
+                            if (editor) editor.focus({ preventScroll: true });
+                            box.classList.remove('vc-field-flash');
+                            void box.offsetWidth;
+                            box.classList.add('vc-field-flash');
+                            window.setTimeout(function () { box.classList.remove('vc-field-flash'); }, 2000);
+                        }
+
+                        window.ViewControlTabs = { show: show, revealField: revealField, goToField: goToField };
                     })();
                 </script>
 
@@ -1260,10 +1276,8 @@
                              Create Control and Edit -->
                         <div class="d-flex align-items-center gap-2 vc-bar-actions">
                             <!-- A participant at their own step (2026-11-25): their fields are open; Save keeps them and the
-                                 files without moving the control on, Discard changes puts them back as saved -->
+                                 files without moving the control on (no Discard button: decided 2026-11-25) -->
                             <th:block th:if="${participantStep}">
-                                <button type="button" class="btn btn-outline-secondary" id="participantDiscardBtn" disabled
-                                        title="Put your fields back as they were saved">Discard changes</button>
                                 <button type="button" class="btn btn-outline-primary" id="participantSaveBtn" disabled
                                         title="Save your fields and files; the control stays at your step">
                                     <i class="bi bi-save" aria-hidden="true"></i>Save
@@ -1880,7 +1894,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=5"></script>
 <script src="/js/multi-value.js?v=4"></script>
-<script src="/js/view-control.js?v=8.20"></script>
+<script src="/js/view-control.js?v=8.21"></script>
 <script src="/js/control-description.js?v=1"></script>
 <script src="/js/vendor/quill/quill.js?v=2.0.3"></script>
 <script src="/js/rich-text.js?v=2"></script>

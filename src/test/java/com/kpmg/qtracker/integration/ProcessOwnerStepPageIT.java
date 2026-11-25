@@ -84,9 +84,9 @@ class ProcessOwnerStepPageIT extends ReleaseScenarioSupport {
             MockHttpSession holder = login("fac".equals(step[1]) ? fac : op);
             MockHttpSession other = login("fac".equals(step[1]) ? op : fac);
             assertThat(page(holder, control)).as(step[0])
-                    .contains("id=\"participantStep\" value=\"true\"", "id=\"participantSaveBtn\"",
-                            "id=\"participantDiscardBtn\"", "Save keeps your work")
-                    .doesNotContain("id=\"editBtn\"");
+                    .contains("id=\"participantStep\" value=\"true\"", "id=\"participantSaveBtn\"", "Save keeps your work")
+                    // no Discard button (2026-11-25), no Edit
+                    .doesNotContain("id=\"editBtn\"", "id=\"participantDiscardBtn\"");
             assertThat(page(other, control)).as(step[0] + " not theirs")
                     .contains("id=\"participantStep\" value=\"false\"").doesNotContain("id=\"participantSaveBtn\"");
             assertThat(page(login(soqm), control)).as(step[0] + " SoQM")

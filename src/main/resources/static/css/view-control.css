@@ -1511,3 +1511,15 @@ select.form-select.editable-select {
 .kpmg-file-count-badge.is-refused { background: #b42318; }
 .kpmg-upload-status { font-size: 0.78rem; color: var(--kpmg-gray-600, #6c757d); min-height: 1em; margin-top: 4px; }
 .kpmg-upload-status:empty { display: none; }
+/* The field the "Your step" link takes the page to: a short KPMG-blue outline, then it fades (2026-11-25) */
+.vc-field-flash {
+    border-radius: 6px;
+    animation: vc-field-flash 2s ease-out;
+}
+@keyframes vc-field-flash {
+    0%, 60% { box-shadow: 0 0 0 3px rgba(0, 51, 141, 0.55); }
+    100% { box-shadow: 0 0 0 3px rgba(0, 51, 141, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .vc-field-flash { animation: none; box-shadow: 0 0 0 3px rgba(0, 51, 141, 0.55); }
+}
