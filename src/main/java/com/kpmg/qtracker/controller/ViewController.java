@@ -1053,6 +1053,20 @@ public class ViewController {
                         || ("SOQM_HEAD_REVIEW".equals(normalizedStatus) && permission.isSoqmLead())
                         || ("PROCESS_OWNER_REVIEW".equals(normalizedStatus) && permission.isProcessOwner()));
         model.addAttribute("yourTurn", yourTurn);
+        // The reason of the return that brought the control to the step it is at (2026-11-25): shown above the tabs, so
+        // the person it was returned to reads why without opening the Changelog
+        WorkflowHistory lastMove = workflowHistoryRepository.findByControlIdOrderByCreatedAtDesc(control.getId()).stream()
+                .findFirst().orElse(null);
+        if (lastMove != null && lastMove.getComments() != null && !lastMove.getComments().isBlank()
+                && (lastMove.getActionType() == WorkflowActionType.RETURN_TO_FACILITATOR
+                    || lastMove.getActionType() == WorkflowActionType.RETURN_TO_OPERATOR
+                    || lastMove.getActionType() == WorkflowActionType.RETURN)
+                && lastMove.getToStep() != null && normalizedStatus.equals(lastMove.getToStep().trim().toUpperCase(java.util.Locale.ROOT))) {
+            model.addAttribute("returnNote", lastMove.getComments().trim());
+            model.addAttribute("returnedBy", (lastMove.getActedAs() != null ? "the " + lastMove.getActedAs() : "SoQM Admin Team")
+                    + (lastMove.isOnBehalf() ? " (by SoQM Admin Team)" : ""));
+            model.addAttribute("returnedOn", lastMove.getCreatedAt());
+        }
         // A participant at their own step (the Process Owner since 2026-11-24, the Facilitator and the Control Operator
         // since 2026-11-25): no Edit - the fields of the step (AccessPolicy.participantFields) and Attachments are open
         // on the page, Save keeps them, the step's buttons save them first. SoQM Admin Team (also when listed in a

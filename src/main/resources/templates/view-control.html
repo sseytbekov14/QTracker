@@ -9,7 +9,7 @@
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/js/vendor/quill/quill.snow.css?v=2.0.3" rel="stylesheet">
     <link href="/css/style.css?v=27" rel="stylesheet">
-    <link href="/css/view-control.css?v=44" rel="stylesheet">
+    <link href="/css/view-control.css?v=45" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -517,6 +517,13 @@
                             <th:block th:if="${participantStep}">Your fields and files are open here; those buttons save them, and what you type is kept in this browser until then.</th:block>
                         </span>
                         <span class="vc-step-state" id="stepFieldState" aria-live="polite"></span>
+                    </p>
+                    <!-- Why the control came back to this step (2026-11-25), the last return's reason -->
+                    <p class="vc-turn-hint vc-return-note" id="returnNote" th:if="${returnNote != null}">
+                        <i class="bi bi-arrow-return-left" aria-hidden="true"></i>
+                        <span><strong th:text="|Returned by ${returnedBy}|">Returned by the Control Operator</strong><th:block
+                                th:if="${returnedOn != null}" th:text="' on ' + ${#temporals.format(returnedOn, 'dd.MM.yyyy')}"> on 25.11.2026</th:block>:
+                            <span th:text="${returnNote}">Add the leavers too</span></span>
                     </p>
                     <!-- Assigned, but the control is at someone else's step (2026-11-25): nothing to fill in now -->
                     <p class="vc-turn-hint vc-view-only" id="viewOnlyHint" th:if="${viewOnlyStepHolder != null}">
@@ -1884,7 +1891,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=5"></script>
 <script src="/js/multi-value.js?v=4"></script>
-<script src="/js/view-control.js?v=8.23"></script>
+<script src="/js/view-control.js?v=8.24"></script>
 <script src="/js/control-description.js?v=1"></script>
 <script src="/js/vendor/quill/quill.js?v=2.0.3"></script>
 <script src="/js/rich-text.js?v=2"></script>
@@ -2824,6 +2831,15 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (reason === null) return;
             reasonParam = '&editReason=' + encodeURIComponent(reason);
+        } else {
+            // A delete is done at once and Cancel does not bring the file back: asked first (2026-11-25)
+            const sure = await showConfirmModal({
+                title: 'Delete this file?',
+                message: '"' + toDisplayName(decodeURIComponent(file)) + '" will be removed from the control. This cannot be undone.',
+                confirmText: 'Delete',
+                cancelText: 'Keep'
+            });
+            if (!sure) return;
         }
         try {
             const resp = await fetch(`/api/attachments/delete/${controlId}?filename=${file}&type=${type}${reasonParam}`, { method: 'DELETE' });

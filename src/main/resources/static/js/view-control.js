@@ -980,10 +980,15 @@ function confirmWorkflowAction() {
         }
     }
 
+    // Returns whether the details are on the page (2026-11-25): without them nothing may save the Details tab, or the
+    // empty fields would be written over the stored text
     async function loadDetailsData(controlId) {
         try {
             const response = await fetch('/api/control-details?controlId=' + controlId);
-            if (response.ok) {
+            if (!response.ok) {
+                return false;
+            }
+            {
                 const detailsData = await response.json();
                 detailsDataCache = detailsData || {};
 
@@ -1018,8 +1023,10 @@ function confirmWorkflowAction() {
                     }
                 }
             }
+            return true;
         } catch (error) {
             console.error('Error loading details data:', error);
+            return false;
         }
     }
 
@@ -1198,11 +1205,18 @@ function confirmWorkflowAction() {
         icon.setAttribute('aria-hidden', 'true');
         const text = document.createElement('span');
         const strong = document.createElement('strong');
-        strong.textContent = 'Your unsaved text was restored';
-        text.appendChild(strong);
-        text.appendChild(document.createTextNode(' (typed ' + time + ', kept in this browser). It is sent with the'
-            + ' step\'s button.' + (draft.files && draft.files.length
-                ? ' Files are not kept by the browser: choose them again - ' + draft.files.join(', ') + '.' : '')));
+        const files = draft.files && draft.files.length
+            ? 'choose them again - ' + draft.files.join(', ') + '.' : '';
+        if (draft.textRestored) {
+            strong.textContent = 'Your unsaved text was restored';
+            text.appendChild(strong);
+            text.appendChild(document.createTextNode(' (typed ' + time + ', kept in this browser). It is sent with the'
+                + ' step\'s button.' + (files ? ' Files are not kept by the browser: ' + files : '')));
+        } else {
+            strong.textContent = 'Files not uploaded';
+            text.appendChild(strong);
+            text.appendChild(document.createTextNode(' (chosen ' + time + '): the browser does not keep files, ' + files));
+        }
         note.appendChild(icon);
         note.appendChild(text);
         anchor.insertAdjacentElement('afterend', note);
@@ -1234,6 +1248,7 @@ function confirmWorkflowAction() {
             }
         });
         if (restored || (draft.files && draft.files.length)) {
+            draft.textRestored = restored;
             showDraftRestored(draft);
         }
     }
@@ -1721,6 +1736,18 @@ function saveControlData(controlId) {
     }
 
     function switchToEditMode() {
+        // the Details as they were when Edit was pressed: Save sends only what changed since (keepUnchangedDetails)
+        const editControlId = document.querySelector('input[name="id"]')?.value;
+        window.qtrackerDetailsAtEdit = editControlId ? buildDetailsPayload(editControlId) : null;
+        if (window.qtrackerDetailsLoaded === false) {
+            showAppModal({
+                variant: 'error',
+                title: 'The page did not load fully',
+                message: 'The details of this control could not be loaded, so it cannot be edited. Reload the page.',
+                autoCloseMs: 0
+            });
+            return;
+        }
         captureEditModeSnapshot();
         document.body.classList.add('edit-mode-active');
 
@@ -1759,6 +1786,7 @@ function saveControlData(controlId) {
     }
 
     function switchToReadOnlyMode() {
+        window.qtrackerDetailsAtEdit = null;
         restoreFromEditModeSnapshot();
         window.qtrackerCompletedEditReason = null;
         // Files chosen in edit mode but not saved: off the screen, not uploaded later (2026-11-23)
@@ -2193,8 +2221,9 @@ function saveControlChanges() {
             });
     }
 
+    window.qtrackerReloadOnCancel = false;
     return saveControlData(controlId)
-        .then(() => saveAssignmentData(controlId))
+        .then(() => { window.qtrackerReloadOnCancel = true; return saveAssignmentData(controlId); })
         .then(() => saveDetailsData(controlId))
         .then(() => uploadPendingFiles())
         .then(() => {
@@ -2348,10 +2377,26 @@ function saveAssignmentData(controlId) {
     });
 }
 
+// SoQM's Save sends only what was changed since Edit (2026-11-25): a field left as it was goes as null, which the
+// server keeps as stored - so a participant's text saved meanwhile (their step's field) is not written back over with
+// the copy this page loaded
+function keepUnchangedDetails(payload) {
+    const before = window.qtrackerDetailsAtEdit;
+    if (!payload || !before) {
+        return payload;
+    }
+    Object.keys(payload).forEach(key => {
+        if (key !== 'controlId' && payload[key] !== null && payload[key] === before[key]) {
+            payload[key] = null;
+        }
+    });
+    return payload;
+}
+
 function saveDetailsData(controlId) {
     console.log('=== SAVE DETAILS DATA ===');
 
-    const detailsData = buildDetailsPayload(controlId);
+    const detailsData = keepUnchangedDetails(buildDetailsPayload(controlId));
     if (!detailsData) {
         return Promise.reject(new Error('Details form not found'));
     }
@@ -2391,7 +2436,7 @@ function saveDetailsData(controlId) {
     })
     .then(data => {
         console.log('вњ… Details saved successfully');
-        detailsDataCache = { ...(detailsDataCache || {}), ...detailsData };
+        detailsDataCache = { ...(detailsDataCache || {}), ...Object.fromEntries(Object.entries(detailsData).filter(([, v]) => v !== null)) };
         if (typeof MultiValueFields !== 'undefined') {
             MultiValueFields.markSaved();
         }
@@ -2601,12 +2646,22 @@ function saveDetailsData(controlId) {
             if (!areWorkflowActionsAllowed()) {
                 hideWorkflowActionsUi();
             }
-            await loadDetailsData(controlId);
+            window.qtrackerDetailsLoaded = await loadDetailsData(controlId);
             await loadUsers(); // This calls loadAssignmentData internally
 
             initializeReadOnlyMode();
             normalizeAssignmentDateFieldsForDisplay();
-            openParticipantStep();
+            if (window.qtrackerDetailsLoaded) {
+                openParticipantStep();
+            } else {
+                showAppModal({
+                    variant: 'error',
+                    title: 'The page did not load fully',
+                    message: 'The details of this control could not be loaded, so nothing can be changed or sent on.'
+                        + ' Reload the page.',
+                    autoCloseMs: 0
+                });
+            }
 
             const editBtn = document.getElementById('editBtn');
             const renameIdBtn = document.getElementById('renameIdBtn');
@@ -2678,6 +2733,11 @@ function saveDetailsData(controlId) {
                 cancelEditBtn.addEventListener('click', function() {
                     // Regression check:
                     // Cancel must only rollback UI state to the pre-edit snapshot (no save/network calls).
+                    // a Save that stopped part way stored its first parts: show what is stored (2026-11-25)
+                    if (window.qtrackerReloadOnCancel) {
+                        reloadKeepingTab();
+                        return;
+                    }
                     switchToReadOnlyMode();
                 });
             }
@@ -2951,7 +3011,7 @@ function saveDetailsData(controlId) {
             // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРє РґР»СЏ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ Submit to Control Operator
             const confirmSubmitBtn = document.getElementById('confirmSubmitBtn');
             if (confirmSubmitBtn) {
-                confirmSubmitBtn.addEventListener('click', confirmSubmitWorkflowAction);
+                confirmSubmitBtn.addEventListener('click', singleFlight(confirmSubmitWorkflowAction));
                 console.log('вњ… Confirm submit button handler added');
             } else {
                 console.warn('вљ пёЏ Confirm submit button not found');
@@ -2999,9 +3059,8 @@ function saveDetailsData(controlId) {
                             // Show Submit to Control Operator button for assigned Facilitator
                             const submitToOperatorBtn = document.getElementById('submitForReviewBtn');
                             if (submitToOperatorBtn) {
+                                // shown only: enabled by the Steps rule of the page (updateSubmitButtons)
                                 submitToOperatorBtn.style.display = '';
-                                submitToOperatorBtn.disabled = false;
-                                submitToOperatorBtn.removeAttribute('disabled');
                                 console.log('вњ… Button "Submit to Control Operator" shown for assigned Facilitator!');
                             }
                             // Facilitator can edit during IN_PROGRESS
@@ -3436,6 +3495,18 @@ function saveDetailsDataSilently(controlId) {
 // isReturn: a return (to the Facilitator, to the Control Operator) does not need Control Steps Performed and Results
 // filled in, as the server does not (2026-11-25); the review comments a return needs (SoQM, Process Owner) still are
 async function ensureWorkflowRoleReady(isReturn) {
+    // Not before the page has loaded its details and bound its buttons: a save then would write empty fields
+    if (!window.qtrackerPageReady) {
+        showAppModal({
+            variant: 'warning',
+            title: 'Please wait',
+            message: window.qtrackerDetailsLoaded === false
+                ? 'The details of this control could not be loaded. Reload the page.'
+                : 'The page is still loading. Try again in a moment.',
+            autoCloseMs: 0
+        });
+        return false;
+    }
     if (!areWorkflowActionsAllowed()) {
         showAppModal({
             variant: 'warning',
@@ -3509,6 +3580,23 @@ async function ensureWorkflowRoleReady(isReturn) {
 }
 
 let currentSubmitAction = null;
+
+// One run of a handler at a time (2026-11-25): a second click while the first is saving does nothing
+function singleFlight(handler) {
+    let running = false;
+    return async function(event) {
+        if (running) {
+            if (event && event.preventDefault) event.preventDefault();
+            return;
+        }
+        running = true;
+        try {
+            return await handler.apply(this, arguments);
+        } finally {
+            running = false;
+        }
+    };
+}
 
 function submitWorkflowActionWithModal(options) {
     if (!areWorkflowActionsAllowed()) {
@@ -3624,11 +3712,12 @@ function openSubmitConfirmationModal(actionKey) {
         }
     }
 
-    const modal = new bootstrap.Modal(modalElement);
+    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
     modal.show();
 }
 
 // Robust workflow handler binding (event delegation)
+let stepButtonRunning = false;
 document.addEventListener('click', async (event) => {
     const reviewBtn = event.target.closest('#submitForReviewBtn');
     const processOwnerBtn = event.target.closest('#submitToProcessOwnerBtn');
@@ -3643,6 +3732,20 @@ document.addEventListener('click', async (event) => {
 
     event.preventDefault();
     event.stopPropagation();
+    if (stepButtonRunning) {
+        return;
+    }
+    stepButtonRunning = true;
+    try {
+        await runStepButton({ reviewBtn, processOwnerBtn, submitToSoqmLeadBtn, returnToOperatorBtn,
+            ownerReturnToOperatorBtn, returnToFacilitatorBtn });
+    } finally {
+        stepButtonRunning = false;
+    }
+});
+
+async function runStepButton({ reviewBtn, processOwnerBtn, submitToSoqmLeadBtn, returnToOperatorBtn,
+                               ownerReturnToOperatorBtn, returnToFacilitatorBtn }) {
 
     if (reviewBtn) {
         console.log('Submit for Review clicked');
@@ -3668,7 +3771,7 @@ document.addEventListener('click', async (event) => {
         }
         const modalElement = document.getElementById('returnFacilitatorModal');
         if (modalElement) {
-            const modal = new bootstrap.Modal(modalElement);
+            const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
             modal.show();
         }
         return;
@@ -3681,7 +3784,7 @@ document.addEventListener('click', async (event) => {
         }
         const modalElement = document.getElementById('submitSoqmLeadModal');
         if (modalElement) {
-            const modal = new bootstrap.Modal(modalElement);
+            const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
             modal.show();
         }
         return;
@@ -3695,12 +3798,12 @@ document.addEventListener('click', async (event) => {
         }
         const modalElement = document.getElementById('returnOperatorModal');
         if (modalElement) {
-            const modal = new bootstrap.Modal(modalElement);
+            const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
             modal.show();
         }
         return;
     }
-});
+}
 
 document.addEventListener('submit', (event) => {
     const form = event.target;
@@ -4440,6 +4543,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј viewControl (РІРєР»СЋС‡Р°РµС‚ РѕР±СЂР°Р±РѕС‚С‡РёРєРё РґР»СЏ Edit, Changelog, Rename ID)
     await viewControl.init();
+    // Every handler is bound now: the step's buttons may act (ensureWorkflowRoleReady, 2026-11-25)
+    window.qtrackerPageReady = window.qtrackerDetailsLoaded === true;
     
     // РџРѕРєР°Р·С‹РІР°РµРј workflow РєРЅРѕРїРєРё СЃ Р·Р°РґРµСЂР¶РєРѕР№, РµСЃР»Рё С„СѓРЅРєС†РёСЏ СЃСѓС‰РµСЃС‚РІСѓРµС‚
     if (typeof window.showAllWorkflowButtons === 'function') {
@@ -4450,20 +4555,20 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const confirmSubmitSoqmLeadBtn = document.getElementById('confirmSubmitSoqmLeadBtn');
     if (confirmSubmitSoqmLeadBtn) {
-        confirmSubmitSoqmLeadBtn.addEventListener('click', confirmSubmitToSoqmLead);
+        confirmSubmitSoqmLeadBtn.addEventListener('click', singleFlight(confirmSubmitToSoqmLead));
         console.log('вњ… Confirm Submit to SoQM Team handler added');
     }
 
     const confirmReturnFacilitatorBtn = document.getElementById('confirmReturnFacilitatorBtn');
     if (confirmReturnFacilitatorBtn) {
-        confirmReturnFacilitatorBtn.addEventListener('click', confirmReturnToFacilitator);
+        confirmReturnFacilitatorBtn.addEventListener('click', singleFlight(confirmReturnToFacilitator));
         console.log('вњ… Confirm Return to Facilitator handler added');
     }
 
     // Bind SoQM Team workflow buttons
     const confirmReturnOperatorBtn = document.getElementById('confirmReturnOperatorBtn');
     if (confirmReturnOperatorBtn) {
-        confirmReturnOperatorBtn.addEventListener('click', confirmReturnToOperator);
+        confirmReturnOperatorBtn.addEventListener('click', singleFlight(confirmReturnToOperator));
         console.log('вњ… Confirm Return to Operator handler added');
     }
 
@@ -4476,7 +4581,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const confirmCompleteControlBtn = document.getElementById('confirmCompleteControlBtn');
     if (confirmCompleteControlBtn) {
-        confirmCompleteControlBtn.addEventListener('click', confirmCompleteControl);
+        confirmCompleteControlBtn.addEventListener('click', singleFlight(confirmCompleteControl));
         console.log('вњ… Confirm Complete Control handler added');
     }
 });

@@ -1596,3 +1596,9 @@ body:not(.edit-mode-active) #controlForm .required-field::after { content: none;
     border-color: #f0d48a;
     color: #5c4300;
 }
+/* The reason of the return that brought the control back (2026-11-25) */
+.vc-turn-hint.vc-return-note {
+    background: #fdf1e7;
+    border-color: #f3c79c;
+    color: #6b3500;
+}
