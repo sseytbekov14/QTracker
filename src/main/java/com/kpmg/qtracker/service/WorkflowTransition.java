@@ -19,7 +19,9 @@ public enum WorkflowTransition {
     RETURN_TO_OPERATOR("Return to Control Operator", Actor.SOQM_TEAM, "SOQM_HEAD_REVIEW", "REVIEW"),
     SUBMIT_TO_PROCESS_OWNER("Submit to Process Owner", Actor.SOQM_TEAM, "SOQM_HEAD_REVIEW", "PROCESS_OWNER_REVIEW"),
     COMPLETE("Complete", Actor.PROCESS_OWNER, "PROCESS_OWNER_REVIEW", "COMPLETED"),
-    OWNER_RETURN_TO_OPERATOR("Return to Control Operator", Actor.PROCESS_OWNER, "PROCESS_OWNER_REVIEW", "REVIEW");
+    OWNER_RETURN_TO_OPERATOR("Return to Control Operator", Actor.PROCESS_OWNER, "PROCESS_OWNER_REVIEW", "REVIEW"),
+    /** The Process Owner sends the control back to the start, the Facilitator's step (2026-11-25). */
+    OWNER_RETURN_TO_FACILITATOR("Return to Facilitator", Actor.PROCESS_OWNER, "PROCESS_OWNER_REVIEW", "IN_PROGRESS");
 
     /** Who may perform a transition, resolved against {@link ControlPermission}. */
     public enum Actor {
@@ -58,7 +60,7 @@ public enum WorkflowTransition {
 
     /** The returns of spec 9.4; each needs a comment. */
     private static final Set<WorkflowTransition> RETURNS =
-            Set.of(RETURN_TO_FACILITATOR, RETURN_TO_OPERATOR, OWNER_RETURN_TO_OPERATOR);
+            Set.of(RETURN_TO_FACILITATOR, RETURN_TO_OPERATOR, OWNER_RETURN_TO_OPERATOR, OWNER_RETURN_TO_FACILITATOR);
 
     private final String label;
     private final Actor actor;

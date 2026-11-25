@@ -913,7 +913,7 @@
                                                   maxlength="20000" th:attr="maxlength=${textMax}"
                                                   placeholder="Enter process owner comments"></textarea>
                                         <div class="required-hint d-none" id="processOwnerCommentsStepHint">
-                                            Required for your step: fill it to Complete or Return to Control Operator.
+                                            Required for your step: fill it to Complete or Return.
                                         </div>
                                     </div>
                                 </div>
@@ -1352,6 +1352,16 @@
                                         disabled
                                         title="Return to the Control Operator for rework">
                                     <i class="bi bi-arrow-return-left" aria-hidden="true"></i>Return to Control Operator
+                                </button>
+
+                                <!-- 7a. Return to Facilitator for PROCESS_OWNER (2026-11-25): back to the start -->
+                                <button type="button"
+                                        class="btn btn-warning workflow-submit-btn po-action-btn"
+                                        id="ownerReturnToFacilitatorBtn"
+                                        style="display: none;"
+                                        disabled
+                                        title="Return to the Facilitator for rework">
+                                    <i class="bi bi-arrow-return-left" aria-hidden="true"></i>Return to Facilitator
                                 </button>
 
                                 <!-- 8. SoQM: move the control on or back for any role (AccessPolicy.move); not at SoQM's own
@@ -1860,7 +1870,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=5"></script>
 <script src="/js/multi-value.js?v=4"></script>
-<script src="/js/view-control.js?v=8.18"></script>
+<script src="/js/view-control.js?v=8.19"></script>
 <script src="/js/control-description.js?v=1"></script>
 <script src="/js/vendor/quill/quill.js?v=2.0.3"></script>
 <script src="/js/rich-text.js?v=2"></script>
@@ -1884,6 +1894,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const returnToOperatorBtn = document.getElementById('returnToOperatorBtn');
     const completeControlBtn = document.getElementById('completeControlBtn');
     const ownerReturnToOperatorBtn = document.getElementById('ownerReturnToOperatorBtn');
+    const ownerReturnToFacilitatorBtn = document.getElementById('ownerReturnToFacilitatorBtn');
     
     const editBtn = document.getElementById('editBtn');
     const renameIdBtn = document.getElementById('renameIdBtn');
@@ -1961,6 +1972,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (ownerReturnToOperatorBtn) {
             ownerReturnToOperatorBtn.style.display = '';
         }
+        if (ownerReturnToFacilitatorBtn) {
+            ownerReturnToFacilitatorBtn.style.display = '';
+        }
 
         // Keep buttons disabled until Process Owner Comments is filled
         const poCommentsField = document.getElementById('processOwnerComments');
@@ -1969,12 +1983,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 const filled = !!poCommentsField.value.trim();
                 if (completeControlBtn) completeControlBtn.disabled = !filled;
                 if (ownerReturnToOperatorBtn) ownerReturnToOperatorBtn.disabled = !filled;
+                if (ownerReturnToFacilitatorBtn) ownerReturnToFacilitatorBtn.disabled = !filled;
                 // A disabled button says what it waits for
                 if (completeControlBtn) {
                     completeControlBtn.title = filled ? 'Approve and complete the control' : 'Add Process Owner Comments first';
                 }
                 if (ownerReturnToOperatorBtn) {
                     ownerReturnToOperatorBtn.title = filled ? 'Return to the Control Operator for rework'
+                        : 'Add Process Owner Comments first';
+                }
+                if (ownerReturnToFacilitatorBtn) {
+                    ownerReturnToFacilitatorBtn.title = filled ? 'Return to the Facilitator for rework'
                         : 'Add Process Owner Comments first';
                 }
             };

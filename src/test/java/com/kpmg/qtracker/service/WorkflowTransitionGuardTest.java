@@ -203,8 +203,9 @@ class WorkflowTransitionGuardTest {
         assertThat(back.move().isReturn()).isTrue();
         assertThat(back.move().onBehalf()).isTrue();
         assertThat(back.move().actingFor()).isEqualTo(WorkflowTransition.Actor.PROCESS_OWNER);
-        assertThat(back.transition()).isNull();
-        assertThat(back.move().label()).isEqualTo("Return to In Progress");
+        // the Process Owner's own Return to Facilitator (2026-11-25), made by SoQM on their behalf
+        assertThat(back.transition()).isEqualTo(WorkflowTransition.OWNER_RETURN_TO_FACILITATOR);
+        assertThat(back.move().label()).isEqualTo("Return to Facilitator");
 
         assertThat(guard.checkMove(control("SOQM_HEAD_REVIEW"), soqm, "IN_PROGRESS").move().onBehalf()).isFalse();
         // Not two steps on, not to Draft, not from Draft
@@ -216,14 +217,20 @@ class WorkflowTransitionGuardTest {
         assertThat(guard.checkMove(control("PROCESS_OWNER_REVIEW"), owner, "COMPLETED").move().onBehalf()).isFalse();
         assertThat(guard.checkMove(control("PROCESS_OWNER_REVIEW"), owner, "REVIEW").transition())
                 .isEqualTo(WorkflowTransition.OWNER_RETURN_TO_OPERATOR);
-        assertThat(guard.checkMove(control("PROCESS_OWNER_REVIEW"), owner, "IN_PROGRESS").httpStatus()).isEqualTo(409);
+        // Return to Facilitator is the Process Owner's too (2026-11-25); SoQM review stays SoQM's
+        WorkflowTransitionGuard.Decision ownerBack = guard.checkMove(control("PROCESS_OWNER_REVIEW"), owner, "IN_PROGRESS");
+        assertThat(ownerBack.transition()).isEqualTo(WorkflowTransition.OWNER_RETURN_TO_FACILITATOR);
+        assertThat(ownerBack.move().onBehalf()).isFalse();
+        assertThat(ownerBack.move().isReturn()).isTrue();
+        assertThat(guard.checkMove(control("PROCESS_OWNER_REVIEW"), owner, "SOQM_HEAD_REVIEW").httpStatus()).isEqualTo(409);
     }
 
     @Test
-    void returns_areTheThreeOfTheSpec() {
+    void returns_areTheThreeOfTheSpec_andTheProcessOwnersToTheFacilitator() {
         assertThat(java.util.Arrays.stream(WorkflowTransition.values()).filter(WorkflowTransition::isReturn))
                 .containsExactlyInAnyOrder(WorkflowTransition.RETURN_TO_FACILITATOR,
-                        WorkflowTransition.RETURN_TO_OPERATOR, WorkflowTransition.OWNER_RETURN_TO_OPERATOR);
+                        WorkflowTransition.RETURN_TO_OPERATOR, WorkflowTransition.OWNER_RETURN_TO_OPERATOR,
+                        WorkflowTransition.OWNER_RETURN_TO_FACILITATOR);
         assertThat(WorkflowTransition.forAction("RETURN_TO_SOQM_TEAM")).isEmpty();
         assertThat(WorkflowTransition.forAction("REJECT")).isEmpty();
     }

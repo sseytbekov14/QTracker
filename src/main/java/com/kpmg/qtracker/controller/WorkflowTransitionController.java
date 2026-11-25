@@ -82,7 +82,9 @@ public class WorkflowTransitionController {
             @RequestParam Long controlId,
             @RequestParam(required = false) String comments,
             HttpSession session) {
-        return perform(controlId, session, List.of(WorkflowTransition.RETURN_TO_FACILITATOR), comments,
+        // the Control Operator from Review, the Process Owner from Process Owner Review (2026-11-25)
+        return perform(controlId, session, List.of(WorkflowTransition.RETURN_TO_FACILITATOR,
+                        WorkflowTransition.OWNER_RETURN_TO_FACILITATOR), comments,
                 "Control returned to Facilitator", "Error returning control: ");
     }
 

@@ -41,7 +41,7 @@ public class WorkflowRequiredFieldService {
             case "SOQM_HEAD_REVIEW" -> Optional.of(new StepField("soqmHeadComments",
                     "SoQM Admin Team Comments", false, true, "Send to Process Owner or Return to Operator"));
             case "PROCESS_OWNER_REVIEW" -> Optional.of(new StepField(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS,
-                    "Process Owner Comments", false, true, "Complete or Return to Control Operator"));
+                    "Process Owner Comments", false, true, "Complete, Return to Control Operator or Return to Facilitator"));
             default -> Optional.empty();
         };
     }

@@ -3277,7 +3277,7 @@ async function ensureWorkflowRoleReady() {
         if (typeof window.uploadAttachments === 'function') {
             // While they go up the step's buttons say so (big files take a while before the dialog opens)
             const busy = typeof window.hasPendingAttachments === 'function' && window.hasPendingAttachments()
-                ? ['completeControlBtn', 'ownerReturnToOperatorBtn'].map(id => document.getElementById(id)).filter(Boolean) : [];
+                ? ['completeControlBtn', 'ownerReturnToOperatorBtn', 'ownerReturnToFacilitatorBtn'].map(id => document.getElementById(id)).filter(Boolean) : [];
             const before = busy.map(button => [button, button.innerHTML, button.disabled]);
             busy.forEach(button => {
                 button.disabled = true;
@@ -3438,10 +3438,11 @@ function openSubmitConfirmationModal(actionKey) {
 document.addEventListener('click', async (event) => {
     const reviewBtn = event.target.closest('#submitForReviewBtn');
     const processOwnerBtn = event.target.closest('#submitToProcessOwnerBtn');
-    const returnToFacilitatorBtn = event.target.closest('#returnToFacilitatorBtn');
     const submitToSoqmLeadBtn = event.target.closest('#submitToSoqmLeadBtn');
     const returnToOperatorBtn = event.target.closest('#returnToOperatorBtn');
     const ownerReturnToOperatorBtn = event.target.closest('#ownerReturnToOperatorBtn');
+    // The Process Owner returns to the Facilitator the way the Control Operator does (2026-11-25)
+    const returnToFacilitatorBtn = event.target.closest('#returnToFacilitatorBtn, #ownerReturnToFacilitatorBtn');
     if (!reviewBtn && !processOwnerBtn && !returnToFacilitatorBtn && !submitToSoqmLeadBtn && !returnToOperatorBtn && !ownerReturnToOperatorBtn) {
         return;
     }
@@ -3513,7 +3514,7 @@ document.addEventListener('submit', (event) => {
         return;
     }
 
-    if (form.querySelector('#submitForReviewBtn, #submitToProcessOwnerBtn, #submitToSoqmLeadBtn, #returnToFacilitatorBtn, #returnToOperatorBtn, #ownerReturnToOperatorBtn')) {
+    if (form.querySelector('#submitForReviewBtn, #submitToProcessOwnerBtn, #submitToSoqmLeadBtn, #returnToFacilitatorBtn, #returnToOperatorBtn, #ownerReturnToOperatorBtn, #ownerReturnToFacilitatorBtn')) {
         event.preventDefault();
     }
 });
