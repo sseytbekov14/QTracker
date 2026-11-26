@@ -1819,7 +1819,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     + ' assigns someone else in View Control.');
             }
             if (held.laterTotal > 0) {
-                parts.push((held.onStepTotal > 0 ? 'Their step is also still to come on ' : who + ''s step is still to come on ')
+                parts.push((held.onStepTotal > 0 ? 'Their step is also still to come on ' : 'The step of ' + who + ' is still to come on ')
                     + held.laterTotal + (held.laterTotal === 1 ? ' control: ' : ' controls: ')
                     + controlList(held.later, held.laterTotal) + '.');
             }
