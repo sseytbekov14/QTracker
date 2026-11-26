@@ -1760,6 +1760,12 @@ class ApiSecurityMockMvcIT {
                     assertThat(html).as("%s at %s", viewer.getMail(), status)
                             .contains("id=\"stepFieldHint\"", "data-step-field=\"" + field + "\"",
                                     "data-vc-field=\"" + field + "\">" + labelOf.get(field) + "</a>");
+                    if ("PROCESS_OWNER_REVIEW".equals(status)) {
+                        // Optional since 2026-11-26: named "(optional)", no step mark
+                        assertThat(html).contains("data-step-required=\"false\"", "(optional)")
+                                .doesNotContain("class=\"step-required-mark\"");
+                        continue;
+                    }
                     // Only that field's label gets the step mark
                     assertThat(html.split("class=\"step-required-mark\"", -1)).hasSize(2);
                     // the steps fields have their name in a span of its own

@@ -49,16 +49,19 @@ class WorkflowRequiredFieldServiceTest {
                 .contains("Required field is missing: SoQM Admin Team Comments");
     }
 
+    /** Process Owner Comments is optional (business decision 2026-11-26): no step out of Process Owner Review needs it. */
     @Test
-    void processOwnerReview_requiresProcessOwnerComments() {
+    void processOwnerReview_needsNoProcessOwnerComments() {
         Control control = control("PROCESS_OWNER_REVIEW");
         ControlDetails details = new ControlDetails();
         details.setSoqmHeadComments("ok");
+        details.setControlStepsPerformed("Steps");
         details.setProcessOwnerComments("   ");
-        when(repository.findByControlId(1L)).thenReturn(Optional.of(details));
+        org.mockito.Mockito.lenient().when(repository.findByControlId(1L)).thenReturn(Optional.of(details));
 
-        assertThat(service.getMissingReviewCommentMessage(control))
-                .contains("Required field is missing: Process Owner Comments");
+        assertThat(service.getMissingReviewCommentMessage(control)).isEmpty();
+        assertThat(service.getMissingFieldMessage(control)).isEmpty();
+        assertThat(WorkflowRequiredFieldService.stepField("PROCESS_OWNER_REVIEW").orElseThrow().required()).isFalse();
     }
 
     @Test
@@ -80,8 +83,8 @@ class WorkflowRequiredFieldServiceTest {
             "IN_PROGRESS,          controlStepsPerformed, Control Steps Performed and Results, false",
             // The Control Operator checks and completes the Facilitator's text, the field Submit to SoQM Team needs
             "REVIEW,               controlStepsPerformed, Control Steps Performed and Results, true",
-            "SOQM_HEAD_REVIEW,     soqmHeadComments,      SoQM Admin Team Comments,             false",
-            "PROCESS_OWNER_REVIEW, processOwnerComments,  Process Owner Comments,              false"
+            "SOQM_HEAD_REVIEW,     soqmHeadComments,      SoQM Admin Team Comments,             false"
+            // Process Owner Review: its field is optional (processOwnerReview_needsNoProcessOwnerComments)
     })
     void stepField_isTheFieldTheServerChecksAtThatStep(String status, String field, String label, boolean check) {
         WorkflowRequiredFieldService.StepField stepField = WorkflowRequiredFieldService.stepField(status).orElseThrow();

@@ -41,7 +41,7 @@ public class WorkflowRequiredFieldService {
             case "SOQM_HEAD_REVIEW" -> Optional.of(new StepField("soqmHeadComments",
                     "SoQM Admin Team Comments", false, true, "Send to Process Owner or Return to Operator"));
             case "PROCESS_OWNER_REVIEW" -> Optional.of(new StepField(ControlPermission.FIELD_PROCESS_OWNER_COMMENTS,
-                    "Process Owner Comments", false, true, "Complete, Return to Control Operator or Return to Facilitator"));
+                    "Process Owner Comments", false, false, "Complete, Return to Control Operator or Return to Facilitator"));
             default -> Optional.empty();
         };
     }
@@ -72,8 +72,8 @@ public class WorkflowRequiredFieldService {
     }
 
     /**
-     * Every SoQM action (Send to Process Owner / Return to Operator) requires SoQM Admin Team Comments,
-     * every Process Owner action (Complete / Return to SoQM Team) requires Process Owner Comments.
+     * Every SoQM action (Send to Process Owner / Return to Operator) requires SoQM Admin Team Comments. Process Owner
+     * Comments is optional (business decision 2026-11-26): Complete and the Process Owner's returns go without it.
      * Checked against the stored value, based on the control's current status.
      */
     public Optional<String> getMissingReviewCommentMessage(Control control) {
@@ -81,20 +81,13 @@ public class WorkflowRequiredFieldService {
             return Optional.empty();
         }
         String status = normalizeStatus(control.getPerformanceStatus());
-        if (!"SOQM_HEAD_REVIEW".equals(status) && !"PROCESS_OWNER_REVIEW".equals(status)) {
+        if (!"SOQM_HEAD_REVIEW".equals(status)) {
             return Optional.empty();
         }
         ControlDetails details = controlDetailsRepository.findByControlId(control.getId()).orElse(null);
-        if ("SOQM_HEAD_REVIEW".equals(status)) {
-            String value = details != null ? details.getSoqmHeadComments() : null;
-            if (value == null || value.isBlank()) {
-                return Optional.of("Required field is missing: SoQM Admin Team Comments");
-            }
-        } else {
-            String value = details != null ? details.getProcessOwnerComments() : null;
-            if (value == null || value.isBlank()) {
-                return Optional.of("Required field is missing: Process Owner Comments");
-            }
+        String value = details != null ? details.getSoqmHeadComments() : null;
+        if (value == null || value.isBlank()) {
+            return Optional.of("Required field is missing: SoQM Admin Team Comments");
         }
         return Optional.empty();
     }

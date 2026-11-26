@@ -79,9 +79,12 @@ class ReleaseScenarioFieldsIT extends ReleaseScenarioSupport {
         Control ownerReview = control("RS-RQ", "PROCESS_OWNER_REVIEW", everyone);
         details = detailsRepository.findByControlId(ownerReview.getId()).orElseThrow();
         details.setProcessOwnerComments(null);
+        details.setControlStepsPerformed(" ");
         detailsRepository.save(details);
+        // Process Owner Comments is optional (2026-11-26); Complete needs the steps field
         assertThat(body(call(login(po), post("/api/workflow/complete-control")
-                .param("controlId", String.valueOf(ownerReview.getId()))))).contains("Process Owner Comments");
+                .param("controlId", String.valueOf(ownerReview.getId()))))).contains("Control Steps Performed and Results")
+                .doesNotContain("Process Owner Comments");
 
         // The next person must be there: no Control Operator, no submit to them
         Control noOperator = control("RS-RQ", "IN_PROGRESS", people().facilitator(fac).soqm(soqm).owner(po));

@@ -92,7 +92,7 @@ public class WorkflowMoveService {
         String trimmedComment = comment == null || comment.isBlank() ? null : comment.trim();
 
         // The step's own field first, as every endpoint checked it: SoQM comments for any move out of SoQM
-        // review, Process Owner Comments for any move out of Process Owner Review
+        // review (Process Owner Comments is optional since 2026-11-26)
         Optional<String> missingReviewComment = requiredFieldService.getMissingReviewCommentMessage(control);
         if (missingReviewComment.isPresent()) {
             return Outcome.refused(400, missingReviewComment.get());

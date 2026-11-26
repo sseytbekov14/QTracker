@@ -360,14 +360,25 @@ class WorkflowFlowIT {
                 .andExpect(status().isBadRequest());
     }
 
+    /** Process Owner Comments is optional (business decision 2026-11-26): Complete and both returns go without it. */
     @Test
-    void completeControl_requiresProcessOwnerComments() throws Exception {
-        control.setPerformanceStatus("PROCESS_OWNER_REVIEW");
-        controlRepository.save(control);
-        updateDetails(control.getId(), details -> details.setProcessOwnerComments(""));
+    void processOwner_completesAndReturns_withoutProcessOwnerComments() throws Exception {
+        for (String[] step : new String[][] {
+                {"/api/workflow/return-to-operator", "REVIEW"},
+                {"/api/workflow/return-to-facilitator", "IN_PROGRESS"},
+                {"/api/workflow/complete-control", "COMPLETED"}}) {
+            control = controlRepository.findById(control.getId()).orElseThrow();
+            control.setPerformanceStatus("PROCESS_OWNER_REVIEW");
+            controlRepository.save(control);
+            updateDetails(control.getId(), details -> details.setProcessOwnerComments(""));
 
-        mockMvc.perform(workflowPost("/api/workflow/complete-control", control.getId(), processOwner))
-                .andExpect(status().isBadRequest());
+            MockHttpServletRequestBuilder request = workflowPost(step[0], control.getId(), processOwner);
+            if (!step[0].contains("complete")) {
+                request.param("comments", "Please rework");
+            }
+            mockMvc.perform(request).andExpect(status().isOk());
+            assertPerformanceStatus(control.getId(), step[1]);
+        }
     }
 
     /** Workflow POST that passes the security filter chain: authenticated principal, CSRF token, app session user. */

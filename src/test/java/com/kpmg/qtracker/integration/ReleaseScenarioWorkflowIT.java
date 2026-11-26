@@ -80,11 +80,7 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
         assertStatus(control, "PROCESS_OWNER_REVIEW");
         assertThat(newNotifications(po, control)).as("Process Owner told").isNotEmpty();
 
-        // Process Owner: comments required, then Complete
-        assertThat(chain.status(po, post("/api/workflow/complete-control").param("controlId", id(control))))
-                .isEqualTo(400);
-        chain.okJson(po, post("/api/control-details"),
-                "{\"controlId\":" + control.getId() + ",\"processOwnerComments\":\"Approved\"}");
+        // Process Owner: Complete, Process Owner Comments optional (2026-11-26)
         chain.ok(po, post("/api/workflow/complete-control").param("controlId", id(control)));
         assertStatus(control, "COMPLETED");
 

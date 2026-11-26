@@ -3243,11 +3243,12 @@ function getWorkflowRoleRequirement() {
         };
     }
 
-    // Process Owner comments are required for Complete / Return and are saved before the action
+    // Process Owner Comments is optional (business decision 2026-11-26): Complete needs only the steps field, as
+    // the server; the returns need neither (see validateWorkflowRoleRequirement)
     if (isProcessOwner && performanceStatus === 'PROCESS_OWNER_REVIEW') {
         return {
-            field: document.querySelector('textarea[name="processOwnerComments"]'),
-            message: 'To continue, please fill: Process Owner Comments'
+            field: document.querySelector('textarea[name="controlStepsPerformed"]'),
+            message: 'To complete, please fill: ' + stepsLabel
         };
     }
 

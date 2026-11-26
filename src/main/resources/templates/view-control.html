@@ -913,7 +913,7 @@
                                 <div class="row">
                                     <div class="col-12 mb-3">
                                         <label class="form-label">Process Owner Comments<span class="step-required-mark" aria-hidden="true"
-                                                th:if="${stepField != null and stepField.field() == 'processOwnerComments'}"> *</span></label>
+                                                th:if="${stepField != null and stepField.required() and stepField.field() == 'processOwnerComments'}"> *</span></label>
                                         <textarea data-rich-text class="form-control role-restricted-field" 
                                                   id="processOwnerComments"
                                                   name="processOwnerComments" 
@@ -1839,7 +1839,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=5"></script>
 <script src="/js/multi-value.js?v=4"></script>
-<script src="/js/view-control.js?v=8.26"></script>
+<script src="/js/view-control.js?v=8.27"></script>
 <script src="/js/control-description.js?v=1"></script>
 <script src="/js/vendor/quill/quill.js?v=2.0.3"></script>
 <script src="/js/rich-text.js?v=2"></script>
@@ -1951,30 +1951,24 @@ document.addEventListener('DOMContentLoaded', function() {
             ownerReturnToFacilitatorBtn.style.display = '';
         }
 
-        // Keep buttons disabled until Process Owner Comments is filled
-        const poCommentsField = document.getElementById('processOwnerComments');
-        if (poCommentsField) {
-            const togglePoBtns = () => {
-                const filled = !!poCommentsField.value.trim();
-                if (completeControlBtn) completeControlBtn.disabled = !filled;
-                if (ownerReturnToOperatorBtn) ownerReturnToOperatorBtn.disabled = !filled;
-                if (ownerReturnToFacilitatorBtn) ownerReturnToFacilitatorBtn.disabled = !filled;
+        // Process Owner Comments is optional (business decision 2026-11-26): the returns are always on; Complete waits
+        // only for Control Steps Performed and Results, as the server does (WorkflowRequiredFieldService)
+        if (ownerReturnToOperatorBtn) ownerReturnToOperatorBtn.disabled = false;
+        if (ownerReturnToFacilitatorBtn) ownerReturnToFacilitatorBtn.disabled = false;
+        const poStepsField = document.querySelector('textarea[name="controlStepsPerformed"]');
+        if (completeControlBtn) {
+            const toggleComplete = () => {
+                const filled = !poStepsField || !!poStepsField.value.trim();
+                completeControlBtn.disabled = !filled;
                 // A disabled button says what it waits for
-                if (completeControlBtn) {
-                    completeControlBtn.title = filled ? 'Approve and complete the control' : 'Add Process Owner Comments first';
-                }
-                if (ownerReturnToOperatorBtn) {
-                    ownerReturnToOperatorBtn.title = filled ? 'Return to the Control Operator for rework'
-                        : 'Add Process Owner Comments first';
-                }
-                if (ownerReturnToFacilitatorBtn) {
-                    ownerReturnToFacilitatorBtn.title = filled ? 'Return to the Facilitator for rework'
-                        : 'Add Process Owner Comments first';
-                }
+                completeControlBtn.title = filled ? 'Approve and complete the control'
+                    : 'Add Control Steps Performed and Results first';
             };
-            togglePoBtns();
-            poCommentsField.addEventListener('input', togglePoBtns);
-            poCommentsField.addEventListener('change', togglePoBtns);
+            toggleComplete();
+            if (poStepsField) {
+                poStepsField.addEventListener('input', toggleComplete);
+                poStepsField.addEventListener('change', toggleComplete);
+            }
         }
     }
 
