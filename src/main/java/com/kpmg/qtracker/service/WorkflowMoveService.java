@@ -68,7 +68,7 @@ public class WorkflowMoveService {
         }
     }
 
-    /** A standard step (the endpoint of one transition, or the transitions of a perform-action name). */
+    /** A standard step (the endpoint of one transition, or of the transitions one button may make). */
     @Transactional
     public Outcome perform(Control control, User user, Collection<WorkflowTransition> candidates, String comment) {
         control = controlRowLock.lockedFresh(control);

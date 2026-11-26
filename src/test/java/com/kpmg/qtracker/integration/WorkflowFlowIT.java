@@ -258,35 +258,6 @@ class WorkflowFlowIT {
         assertNotices(controlId, both, 8);
     }
 
-    /** The same through POST /api/workflow/perform-action (returns to the Facilitator and by the Process Owner). */
-    @Test
-    void personWithSeveralFields_isNotifiedOfTheirOwnReturns_throughPerformAction() throws Exception {
-        User both = saveUser("PROCESS_OWNER", "both-pa-" + UUID.randomUUID().toString().substring(0, 8) + "@example.test",
-                "Fac Op Owner PA");
-        extraUsers.add(both);
-        ControlAssignment assignment = assignmentRepository.findByControlId(control.getId()).orElseThrow();
-        assignment.setFacilitator(both.getMail());
-        assignment.setControlOperator(both.getMail());
-        assignment.setProcessOwner(both.getMail());
-        assignmentRepository.save(assignment);
-        Long controlId = control.getId();
-
-        performAction(controlId, both, "SUBMIT_TO_CONTROL_OPERATOR", null);
-        assertNotices(controlId, both, 1);
-        performAction(controlId, both, "RETURN_TO_FACILITATOR", "Back to myself");
-        assertPerformanceStatus(controlId, "IN_PROGRESS");
-        assertNotices(controlId, both, 2);
-        assertEquals(1L, noticesOfType(controlId, both, "RETURN_TO_FACILITATOR"));
-
-        control = controlRepository.findById(controlId).orElseThrow();
-        control.setPerformanceStatus("PROCESS_OWNER_REVIEW");
-        controlRepository.save(control);
-        performAction(controlId, both, "SEND_FOR_REVISION", "Owner wants changes");
-        assertPerformanceStatus(controlId, "REVIEW");
-        assertNotices(controlId, both, 3);
-        assertEquals(1L, noticesOfType(controlId, both, "RETURN_TO_OPERATOR"));
-    }
-
     @Test
     void returnsWithoutAComment_areRefused_andChangeNothing() throws Exception {
         Long controlId = control.getId();
@@ -406,18 +377,6 @@ class WorkflowFlowIT {
                 .sessionAttr("currentUser", actor)
                 .with(user(actor.getMail()).roles(actor.getAccessLevel().name()))
                 .with(csrf());
-    }
-
-    private void performAction(Long controlId, User actor, String action, String comment) throws Exception {
-        String body = "{\"controlId\":" + controlId + ",\"action\":\"" + action + "\""
-                + (comment != null ? ",\"comment\":\"" + comment + "\"" : "") + "}";
-        mockMvc.perform(post("/api/workflow/perform-action")
-                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                        .content(body)
-                        .sessionAttr("currentUser", actor)
-                        .with(user(actor.getMail()).roles(actor.getAccessLevel().name()))
-                        .with(csrf()))
-                .andExpect(status().isOk());
     }
 
     private void assertNotices(Long controlId, User person, long expected) {

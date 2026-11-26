@@ -966,15 +966,12 @@ class ApiSecurityMockMvcIT {
                         .param("controlId", String.valueOf(control.getId()))
                         .session(session))
                 .andExpect(status().isNotFound());
-        // perform-action has no Initiate either: it would skip the required fields and the workflow steps
-        for (String action : List.of("INITIATE", "SUBMIT_FOR_REVIEW")) {
-            mockMvc.perform(post("/api/workflow/perform-action").with(csrf().asHeader())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"controlId\":" + control.getId() + ",\"action\":\"" + action + "\"}")
-                            .session(session))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(content().string(containsString("Unsupported workflow action")));
-        }
+        // No generic step endpoint either (perform-action removed 2026-11-26): nothing skips the required fields
+        mockMvc.perform(post("/api/workflow/perform-action").with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + control.getId() + ",\"action\":\"INITIATE\"}")
+                        .session(session))
+                .andExpect(status().isNotFound());
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
                 .isEqualTo("DRAFT");
 
@@ -1063,11 +1060,12 @@ class ApiSecurityMockMvcIT {
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
                 .isEqualTo("SOQM_HEAD_REVIEW");
 
-        mockMvc.perform(post("/api/workflow/perform-action").with(csrf().asHeader())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"controlId\":" + control.getId() + ",\"action\":\"SEND_TO_PROCESS_OWNER\"}")
+        // SoQM's Move to a status: rolled back the same way
+        mockMvc.perform(post("/api/workflow/move").with(csrf().asHeader())
+                        .param("controlId", String.valueOf(control.getId()))
+                        .param("targetStatus", "PROCESS_OWNER_REVIEW")
                         .session(session))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().is5xxServerError());
         assertThat(controlRepository.findById(control.getId()).orElseThrow().getPerformanceStatus())
                 .isEqualTo("SOQM_HEAD_REVIEW");
     }

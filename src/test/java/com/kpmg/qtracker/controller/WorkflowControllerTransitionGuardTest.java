@@ -193,41 +193,34 @@ class WorkflowControllerTransitionGuardTest {
         call("/api/workflow/return-to-soqm-lead").andExpect(status().isNotFound());
     }
 
-    // ---------- perform-action ----------
+    // ---------- the generic perform-action (removed 2026-11-26: the page uses one endpoint per step) ----------
 
     @Test
-    void performAction_completeByControlOperator_isForbidden() throws Exception {
+    void performAction_isGone() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.post("/api/workflow/perform-action")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"controlId\":" + CONTROL_ID + ",\"action\":\"COMPLETE\",\"comment\":\"why\"}")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void completeControl_byControlOperator_isForbidden() throws Exception {
         givenStatus("PROCESS_OWNER_REVIEW").as(Role.CONTROL_OPERATOR);
-        performAction("COMPLETE").andExpect(status().isForbidden());
+        call("/api/workflow/complete-control").andExpect(status().isForbidden());
     }
 
     @Test
-    void performAction_completeFromReview_isConflict() throws Exception {
-        givenStatus("REVIEW").as(Role.PROCESS_OWNER);
-        performAction("COMPLETE").andExpect(status().isConflict());
-    }
-
-    @Test
-    void performAction_unknownAction_isBadRequest() throws Exception {
-        givenStatus("REVIEW");
-        performAction("SKIP_TO_COMPLETED").andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void performAction_processOwnerCannotReturnToFacilitator() throws Exception {
-        givenStatus("PROCESS_OWNER_REVIEW").as(Role.PROCESS_OWNER);
-        performAction("RETURN_TO_FACILITATOR").andExpect(status().isForbidden());
-        performAction("RETURN_TO_SOQM_TEAM").andExpect(status().isBadRequest());
-        performAction("REJECT").andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void performAction_sendForRevision_returnsToTheOperator_asAReturn() throws Exception {
+    void returnToOperator_byProcessOwner_isTheirReturn() throws Exception {
         expectChange = true;
         givenStatus("PROCESS_OWNER_REVIEW").as(Role.PROCESS_OWNER);
         when(requiredFieldService.getMissingReviewCommentMessage(control)).thenReturn(Optional.empty());
 
-        performAction("SEND_FOR_REVISION").andExpect(status().isOk());
+        mockMvc.perform(MockMvcRequestBuilders.post("/api/workflow/return-to-operator")
+                        .param("controlId", String.valueOf(CONTROL_ID))
+                        .param("comments", "why")
+                        .sessionAttr("currentUser", currentUser))
+                .andExpect(status().isOk());
 
         assertThat(control.getPerformanceStatus()).isEqualTo("REVIEW");
         assertThat(control.getReturnToOperatorComment()).isEqualTo("why");
@@ -236,18 +229,6 @@ class WorkflowControllerTransitionGuardTest {
         verify(workflowHistoryRepository).save(history.capture());
         assertThat(history.getValue().getActionType())
                 .isEqualTo(com.kpmg.qtracker.enums.WorkflowActionType.RETURN_TO_OPERATOR);
-    }
-
-    @Test
-    void performAction_returnWithoutComment_isBadRequest() throws Exception {
-        givenStatus("REVIEW").as(Role.CONTROL_OPERATOR);
-        when(requiredFieldService.getMissingReviewCommentMessage(control)).thenReturn(Optional.empty());
-
-        mockMvc.perform(MockMvcRequestBuilders.post("/api/workflow/perform-action")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"controlId\":" + CONTROL_ID + ",\"action\":\"RETURN_TO_FACILITATOR\"}")
-                        .sessionAttr("currentUser", currentUser))
-                .andExpect(status().isBadRequest());
     }
 
     // ---------- helpers ----------
@@ -278,10 +259,4 @@ class WorkflowControllerTransitionGuardTest {
                 .sessionAttr("currentUser", currentUser));
     }
 
-    private ResultActions performAction(String action) throws Exception {
-        return mockMvc.perform(MockMvcRequestBuilders.post("/api/workflow/perform-action")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlId\":" + CONTROL_ID + ",\"action\":\"" + action + "\",\"comment\":\"why\"}")
-                .sessionAttr("currentUser", currentUser));
-    }
 }

@@ -805,17 +805,6 @@ select.form-select.editable-select {
     border-color: var(--kpmg-blue-dark) !important;
 }
 
-/* ── Workflow radio buttons ── */
-#workflowApprovalSection .form-check-input {
-    width: 18px;
-    height: 18px;
-}
-
-#workflowApprovalSection .form-check-label {
-    font-size: 16px;
-    margin-left: 6px;
-}
-
 /* ── Edit Navigation Panel ── */
 .edit-nav-panel {
     background: var(--kpmg-white);
@@ -915,8 +904,7 @@ select.form-select.editable-select {
 #soqmMoveConfirmBtn::before,
 #ccCreateBtn::before,
 #confirmRenameBtn::before,
-#completedEditReasonConfirm::before,
-#confirmWorkflowAction::before {
+#completedEditReasonConfirm::before {
     font-family: "bootstrap-icons";
     font-weight: normal;
     font-size: 0.95rem;
@@ -924,8 +912,7 @@ select.form-select.editable-select {
 }
 #saveEditBtn::before,
 #confirmRenameBtn::before,
-#completedEditReasonConfirm::before,
-#confirmWorkflowAction::before { content: "\f272"; }
+#completedEditReasonConfirm::before { content: "\f272"; }
 #cancelEditBtn::before { content: "\f659"; font-size: 0.8rem; }
 #confirmSubmitBtn::before,
 #confirmSubmitSoqmLeadBtn::before,

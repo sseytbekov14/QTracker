@@ -9,7 +9,7 @@
     <link href="/css/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
     <link href="/js/vendor/quill/quill.snow.css?v=2.0.3" rel="stylesheet">
     <link href="/css/style.css?v=27" rel="stylesheet">
-    <link href="/css/view-control.css?v=45" rel="stylesheet">
+    <link href="/css/view-control.css?v=46" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         /* Control Operator action buttons validation styling */
@@ -1566,61 +1566,6 @@
                     </div>
                 </div>
 
-                <!-- �������� ����� renameIdModal -->
-                <div class="modal fade" id="workflowActionModal" tabindex="-1">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <span class="vc-modal-icon vc-modal-icon-send" aria-hidden="true"><i class="bi bi-arrow-left-right"></i></span>
-                                <h5 class="modal-title">Workflow Action</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <!-- ��������� ������������� -->
-                                <div id="workflowActionMessage" class="mb-3">
-                                    Confirm this action?
-                                </div>
-
-                                <!-- ����������� Yes/No (������ ��� SoQM Team) -->
-                                <div id="workflowApprovalSection" class="mb-3" style="display: none;">
-                                    <label class="form-label fw-bold">SoQM Admin Team Comments</label>
-                                    <div class="d-flex gap-4 mb-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="soqmApproval"
-                                                   id="soqmApprovalYes" value="YES">
-                                            <label class="form-check-label" for="soqmApprovalYes">
-                                                Yes
-                                            </label>
-                                        </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="soqmApproval"
-                                                   id="soqmApprovalNo" value="NO" checked>
-                                            <label class="form-check-label" for="soqmApprovalNo">
-                                                No
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- ���� ��� ����������� -->
-                                <div id="workflowCommentSection" class="mb-3" style="display: none;">
-                                    <label for="workflowComment" class="form-label fw-bold" id="commentLabel">
-                                        Comment
-                                    </label>
-                                    <textarea class="form-control" id="workflowComment" rows="4" maxlength="2000"
-                                              placeholder="Enter your comment..."></textarea>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="button" class="btn btn-primary" id="confirmWorkflowAction">
-                                    Confirm
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Modal for Submit to Control Operator confirmation -->
                 <div class="modal fade" id="submitConfirmationModal" tabindex="-1">
                     <div class="modal-dialog modal-dialog-centered">
@@ -1891,7 +1836,7 @@
 <script src="/js/app-modal.js?v=5"></script>
 <script src="/js/shared-with.js?v=5"></script>
 <script src="/js/multi-value.js?v=4"></script>
-<script src="/js/view-control.js?v=8.25"></script>
+<script src="/js/view-control.js?v=8.26"></script>
 <script src="/js/control-description.js?v=1"></script>
 <script src="/js/vendor/quill/quill.js?v=2.0.3"></script>
 <script src="/js/rich-text.js?v=2"></script>

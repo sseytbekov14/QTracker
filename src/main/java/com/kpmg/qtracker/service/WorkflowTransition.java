@@ -2,9 +2,6 @@ package com.kpmg.qtracker.service;
 
 import com.kpmg.qtracker.enums.UserRole;
 
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -44,20 +41,6 @@ public enum WorkflowTransition {
         }
     }
 
-    // Action names sent to /api/workflow/perform-action. Initiate is not one of them: it has its own
-    // endpoint (POST /api/performance/initiate), which checks the required fields and creates the steps.
-    private static final Map<String, List<WorkflowTransition>> ACTIONS = Map.ofEntries(
-            Map.entry("SUBMIT_TO_CONTROL_OPERATOR", List.of(SUBMIT_TO_CONTROL_OPERATOR)),
-            Map.entry("SUBMIT_FOR_SOQM", List.of(SUBMIT_TO_SOQM_TEAM)),
-            Map.entry("SUBMIT_SOQM", List.of(SUBMIT_TO_SOQM_TEAM)),
-            Map.entry("RETURN_TO_FACILITATOR", List.of(RETURN_TO_FACILITATOR)),
-            Map.entry("SEND_TO_PROCESS_OWNER", List.of(SUBMIT_TO_PROCESS_OWNER)),
-            Map.entry("SOQM_COMMENT", List.of(SUBMIT_TO_PROCESS_OWNER)),
-            Map.entry("SEND_BACK_TO_OPERATOR", List.of(RETURN_TO_OPERATOR)),
-            Map.entry("COMPLETE", List.of(COMPLETE)),
-            Map.entry("SEND_FOR_REVISION", List.of(OWNER_RETURN_TO_OPERATOR))
-    );
-
     /** The returns of spec 9.4; each needs a comment. */
     private static final Set<WorkflowTransition> RETURNS =
             Set.of(RETURN_TO_FACILITATOR, RETURN_TO_OPERATOR, OWNER_RETURN_TO_OPERATOR, OWNER_RETURN_TO_FACILITATOR);
@@ -93,13 +76,5 @@ public enum WorkflowTransition {
     /** A return to a previous working step: Control Operator to Facilitator, SoQM or Process Owner to Control Operator. */
     public boolean isReturn() {
         return RETURNS.contains(this);
-    }
-
-    /** Candidate transitions for a perform-action name; empty when the action is unknown. */
-    public static List<WorkflowTransition> forAction(String action) {
-        if (action == null) {
-            return List.of();
-        }
-        return ACTIONS.getOrDefault(action.trim().toUpperCase(Locale.ROOT), List.of());
     }
 }

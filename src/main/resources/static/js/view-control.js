@@ -23,7 +23,6 @@ const viewControl = (function() {
     let isControlOperatorDropdownOpen = false;
     let isSoqmLeadDropdownOpen = false;
     let isProcessOwnerDropdownOpen = false;
-    let currentWorkflowButton = null;
     let currentControlId = null;
     let selectedUser = null;
     let selectedControlOperator = null;
@@ -277,193 +276,6 @@ const viewControl = (function() {
             return [];
         }
         return users.filter(user => user && user.enabled !== false);
-    }
-
-    // Workflow variables
-    let currentWorkflowAction = null;
-    let currentWorkflowRequiresComment = false;
-
-    // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ workflow РєРЅРѕРїРѕРє (РґРѕР±Р°РІРёС‚СЊ РІ init РјРµС‚РѕРґ)
-function handleWorkflowButtonClick(event) {
-    const button = event.currentTarget;
-    const action = button.dataset.action;
-    const label = button.textContent;
-    const requiresComment = button.dataset.requiresComment === 'true';
-    const needsApproval = button.dataset.needsApproval === 'true';
-    const commentLabel = button.dataset.commentLabel || 'Comment';
-
-    currentWorkflowButton = button;
-
-    // РќР°СЃС‚СЂРѕРёС‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ
-    const modal = document.getElementById('workflowActionModal');
-    const message = modal.querySelector('#workflowActionMessage');
-    const approvalSection = modal.querySelector('#workflowApprovalSection');
-    const commentSection = modal.querySelector('#workflowCommentSection');
-    const commentLabelElement = modal.querySelector('#commentLabel');
-
-    // РЈСЃС‚Р°РЅРѕРІРёС‚СЊ СЃРѕРѕР±С‰РµРЅРёРµ
-    const confirmationText = getConfirmationText(action, label);
-    message.textContent = confirmationText;
-
-    // РџРѕРєР°Р·Р°С‚СЊ/СЃРєСЂС‹С‚СЊ СЃРµРєС†РёСЋ Yes/No (С‚РѕР»СЊРєРѕ РґР»СЏ SoQM Team)
-    const isSoqmAction = action === 'SEND_TO_PROCESS_OWNER' || action === 'SOQM_COMMENT';
-    approvalSection.style.display = (needsApproval && isSoqmAction) ? 'block' : 'none';
-
-    // РџРѕРєР°Р·Р°С‚СЊ/СЃРєСЂС‹С‚СЊ СЃРµРєС†РёСЋ РєРѕРјРјРµРЅС‚Р°СЂРёСЏ
-    commentSection.style.display = requiresComment ? 'block' : 'none';
-
-    if (requiresComment) {
-        commentLabelElement.textContent = commentLabel;
-        modal.querySelector('#workflowComment').value = '';
-    }
-
-    // РЎР±СЂРѕСЃРёС‚СЊ СЂР°РґРёРѕРєРЅРѕРїРєРё
-    if (needsApproval) {
-        modal.querySelector('#soqmApprovalNo').checked = true;
-    }
-
-    // РџРѕРєР°Р·Р°С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ
-    const bsModal = new bootstrap.Modal(modal);
-    bsModal.show();
-}
-
-function getConfirmationText(action, label) {
-    const messages = {
-        'INITIATE': 'Initiate this control? Its status becomes In Progress.',
-        'SUBMIT_FOR_REVIEW': 'Send this control to the Control Operator for review?',
-        'SUBMIT_FOR_SOQM': 'Send this control to SoQM Admin Team for review?',
-        'RETURN_TO_FACILITATOR': 'Return this control to the Facilitator for rework?',
-        'SEND_TO_PROCESS_OWNER': 'Send this control to the Process Owner for review?',
-        'SEND_BACK_TO_OPERATOR': 'Return this control to the Control Operator for rework?',
-        'COMPLETE': 'Complete this control? Its status becomes Completed.',
-        'SOQM_COMMENT': 'Add SoQM Admin Team Comments'
-    };
-
-    return messages[action] || `${label}?`;
-}
-
-function confirmWorkflowAction() {
-    const modal = document.getElementById('workflowActionModal');
-    const commentInput = modal.querySelector('#workflowComment');
-    const comment = commentInput ? commentInput.value.trim() : '';
-
-    const needsApproval = currentWorkflowButton?.dataset.needsApproval === 'true';
-    const requiresComment = currentWorkflowButton?.dataset.requiresComment === 'true';
-    const action = currentWorkflowButton?.dataset.action;
-
-    // РџСЂРѕРІРµСЂРєР° РґР»СЏ SoQM approval
-    if (needsApproval && (action === 'SEND_TO_PROCESS_OWNER' || action === 'SOQM_COMMENT')) {
-        const selectedApproval = modal.querySelector('input[name="soqmApproval"]:checked');
-        if (!selectedApproval) {
-            showErrorMessage('Please select Yes or No for SoQM approval');
-            return;
-        }
-
-        // Р”РѕР±Р°РІР»СЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ РѕР± approval РІ РєРѕРјРјРµРЅС‚Р°СЂРёР№
-        const approvalComment = selectedApproval.value === 'YES'
-            ? '[SOQM APPROVED: YES] '
-            : '[SOQM APPROVED: NO] ';
-
-        const finalComment = approvalComment + (comment || '');
-
-        // Р—Р°РєСЂС‹С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ
-        const bsModal = bootstrap.Modal.getInstance(modal);
-        bsModal.hide();
-
-        // РћС‚РїСЂР°РІРёС‚СЊ РґРµР№СЃС‚РІРёРµ РЅР° СЃРµСЂРІРµСЂ
-        performWorkflowAction(action, finalComment);
-        return;
-    }
-
-    // РћР±С‹С‡РЅР°СЏ РІР°Р»РёРґР°С†РёСЏ
-    if (requiresComment && (!comment || comment === '')) {
-        showErrorMessage('Please enter a comment');
-        return;
-    }
-
-    // Р—Р°РєСЂС‹С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ
-    const bsModal = bootstrap.Modal.getInstance(modal);
-    bsModal.hide();
-
-    // РћС‚РїСЂР°РІРёС‚СЊ РґРµР№СЃС‚РІРёРµ РЅР° СЃРµСЂРІРµСЂ
-    performWorkflowAction(action, comment);
-}
-
-    function getCurrentControlId() {
-        // РџСЂРёРјРµСЂ: РёР· URL /view-control/123 РІРѕР·РІСЂР°С‰Р°РµС‚ 123
-        const path = window.location.pathname;
-        const match = path.match(/\/view-control\/(\d+)/);
-        return match ? match[1] : null;
-    }
-
-    // РћС‚РїСЂР°РІРёС‚СЊ workflow РґРµР№СЃС‚РІРёРµ
-    async function performWorkflowAction(action, comment) {
-        const controlId = getCurrentControlId(); // РСЃРїРѕР»СЊР·СѓР№ СЃРІРѕСЋ С„СѓРЅРєС†РёСЋ
-
-        try {
-            const ready = await ensureWorkflowRoleReady();
-            if (!ready) {
-                return;
-            }
-            const response = await fetch('/api/workflow/perform-action', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    controlId: controlId,
-                    action: action,
-                    comment: comment
-                })
-            });
-
-            if (response.ok) {
-                showSuccessMessage('Action completed successfully!');
-
-                // Redirect to dashboard after a short pause
-                setTimeout(() => {
-                if (!areWorkflowActionsAllowed()) {
-                    hideWorkflowActionsUi();
-                    return;
-                }
-                    window.location.href = '/';
-                }, 800);
-
-            } else {
-                const error = await response.text();
-                showErrorMessage('Error: ' + serverErrorText(error));
-            }
-
-        } catch (error) {
-            console.error('Error performing workflow action:', error);
-            showErrorMessage('Network error. Please try again.');
-        }
-    }
-
-    function showSuccessMessage(message) {
-        // РСЃРїРѕР»СЊР·СѓР№ СЃРІРѕСЋ СЃРёСЃС‚РµРјСѓ СѓРІРµРґРѕРјР»РµРЅРёР№
-        alert(message); // РёР»Рё toast, РёР»Рё С‡С‚Рѕ-С‚Рѕ РґСЂСѓРіРѕРµ
-    }
-
-    function showErrorMessage(message) {
-        alert('Error: ' + message);
-    }
-
-    // Р¤СѓРЅРєС†РёСЏ РґР»СЏ РѕС‚РїСЂР°РІРєРё (РІС‹Р·С‹РІР°РµС‚СЃСЏ РёР· РјРѕРґР°Р»СЊРЅРѕРіРѕ РѕРєРЅР°)
-    function submitWorkflowAction() {
-        const commentInput = document.getElementById('workflowComment');
-        const comment = commentInput ? commentInput.value.trim() : '';
-
-        if (currentWorkflowRequiresComment && (!comment || comment === '')) {
-            showErrorMessage('Please enter a comment');
-            return;
-        }
-
-        // Р—Р°РєСЂС‹С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ
-        const modal = bootstrap.Modal.getInstance(document.getElementById('workflowCommentModal'));
-        if (modal) modal.hide();
-
-        performWorkflowAction(currentWorkflowAction, comment);
     }
 
     function createCompactUserItem(user, isSelected = false) {
@@ -3001,15 +2813,6 @@ function saveDetailsData(controlId) {
                 hideWorkflowActionsUi();
             }
 
-            // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРє РґР»СЏ РєРЅРѕРїРєРё Confirm РІ РјРѕРґР°Р»РєРµ workflow
-            const confirmWorkflowBtn = document.getElementById('confirmWorkflowAction');
-            if (confirmWorkflowBtn) {
-                confirmWorkflowBtn.addEventListener('click', confirmWorkflowAction);
-                console.log('вњ… Confirm workflow button handler added');
-            } else {
-                console.warn('вљ пёЏ Confirm workflow button not found');
-            }
-
             // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРє РґР»СЏ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ Submit to Control Operator
             const confirmSubmitBtn = document.getElementById('confirmSubmitBtn');
             if (confirmSubmitBtn) {
@@ -3927,40 +3730,6 @@ async function confirmReturnToFacilitator() {
     });
 }
 
-// ========== WORKFLOW BUTTON HANDLERS ==========
-function handleWorkflowButtonClick(event) {
-    event.preventDefault();
-    
-    const btn = event.currentTarget;
-    const action = btn.dataset.action;
-    const status = btn.dataset.status;
-    const requiresComment = btn.dataset.requiresComment === 'true';
-    
-    console.log('Workflow button clicked:', {
-        action: action,
-        status: status,
-        requiresComment: requiresComment
-    });
-
-    currentWorkflowAction = action;
-    currentWorkflowRequiresComment = requiresComment;
-
-    // Show confirmation modal
-    const modal = document.getElementById('workflowActionModal');
-    if (modal) {
-        const messageElement = document.getElementById('workflowActionMessage');
-        messageElement.textContent = btn.textContent.trim().replace(/\s+/g, ' ') + '?';
-
-        const commentSection = document.getElementById('workflowCommentSection');
-        if (commentSection) {
-            commentSection.style.display = requiresComment ? 'block' : 'none';
-        }
-
-        const modalInstance = new bootstrap.Modal(modal);
-        modalInstance.show();
-    }
-}
-
 function initChangelogFilters() {
     if (changelogFilterInitialized) {
         return;
@@ -4454,89 +4223,6 @@ function renderChangelog(entries, activeFilter) {
     }
 
     updateChangelogCount(rendered, total);
-}
-
-function confirmWorkflowAction() {
-    console.log('Confirming workflow action:', currentWorkflowAction);
-    
-    const commentInput = document.getElementById('workflowComment');
-    const comment = commentInput ? commentInput.value.trim() : '';
-
-    if (currentWorkflowRequiresComment && !comment) {
-        alert('Please enter a comment');
-        return;
-    }
-
-    const controlIdElement = document.querySelector('input[name="id"]');
-    const controlId = controlIdElement ? controlIdElement.value : null;
-
-    if (!controlId) {
-        alert('Error: Control ID not found');
-        return;
-    }
-
-    // Close modal
-    const modal = bootstrap.Modal.getInstance(document.getElementById('workflowActionModal'));
-    if (modal) modal.hide();
-
-    // Call performWorkflowAction
-    performWorkflowAction(currentWorkflowAction, comment);
-}
-
-async function performWorkflowAction(action, comment) {
-    if (!areWorkflowActionsAllowed()) {
-        showAppModal({
-            variant: 'warning',
-            title: 'Action Not Allowed',
-            message: 'Workflow actions are disabled for this control',
-            autoCloseMs: 0
-        });
-        return;
-    }
-
-    const controlIdElement = document.querySelector('input[name="id"]');
-    const controlId = controlIdElement ? controlIdElement.value : null;
-
-    console.log('Performing workflow action:', { action, controlId, comment });
-
-    try {
-        const response = await fetch('/api/workflow/perform-action', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                controlId: controlId,
-                action: action,
-                comment: comment
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Workflow action failed');
-        }
-
-        const data = await response.json();
-        console.log('вњ… Workflow action completed:', data);
-
-        showAppModal({
-            variant: 'success',
-            title: 'Action Completed',
-            message: data.message || 'Workflow action completed successfully',
-            redirectUrl: '/'
-        });
-
-    } catch (error) {
-        console.error('вќЊ Error performing workflow action:', error);
-        
-        showAppModal({
-            variant: 'error',
-            title: 'Action Failed',
-            message: error.message || 'Failed to perform workflow action',
-            autoCloseMs: 0
-        });
-    }
 }
 
 // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїСЂРё Р·Р°РіСЂСѓР·РєРµ DOM

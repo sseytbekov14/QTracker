@@ -466,10 +466,10 @@ class ReleaseScenarioWorkflowIT extends ReleaseScenarioSupport {
         // Not this person's step
         assertThat(chain.status(op, post("/api/workflow/submit-to-control-operator").param("controlId", id))).isEqualTo(403);
         assertThat(chain.status(po, post("/api/workflow/submit-to-control-operator").param("controlId", id))).isEqualTo(403);
-        // Unknown target, unknown action, unknown control
+        // Unknown target, no generic action endpoint (removed 2026-11-26), unknown control
         assertThat(chain.status(soqm, move(control, "NOT_A_STATUS", "x"))).isIn(400, 409);
         assertThat(chain.statusJson(soqm, post("/api/workflow/perform-action"),
-                "{\"controlId\":" + id + ",\"action\":\"TELEPORT\",\"comment\":\"x\"}")).isEqualTo(400);
+                "{\"controlId\":" + id + ",\"action\":\"TELEPORT\",\"comment\":\"x\"}")).isEqualTo(404);
         assertThat(chain.status(soqm, post("/api/workflow/submit-to-control-operator").param("controlId", "987654321")))
                 .isEqualTo(404);
         assertStatus(control, "IN_PROGRESS");

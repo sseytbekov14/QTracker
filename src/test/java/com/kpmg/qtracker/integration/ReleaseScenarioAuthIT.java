@@ -295,7 +295,7 @@ class ReleaseScenarioAuthIT extends ReleaseScenarioSupport {
         assertThat(permissions.path("permissions").path("canView").asBoolean()).isFalse();
         assertThat(permissions.path("permissions").path("canEdit").asBoolean()).isFalse();
         assertThat(permissions.toString()).doesNotContain(theirs.getControlId()).doesNotContain(owner.getMail());
-        assertThat(json(call(session, get("/api/workflow/{id}/available-buttons", id))).size()).isZero();
+        assertThat(status(session, get("/api/workflow/{id}/available-buttons", id))).isEqualTo(404); // removed 2026-11-26
 
         // An id nobody has
         assertThat(status(session, get("/api/control-details").param("controlId", "987654321"))).isEqualTo(404);

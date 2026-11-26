@@ -437,13 +437,11 @@ class StepsFieldSplitIT {
         assertThat(status(split)).isEqualTo("SOQM_HEAD_REVIEW");
         assertThat(details(split).getControlOperatorReview()).isNull();
 
-        // The other way in, as View Control's action buttons send it
-        Control viaAction = control("REVIEW", fac.getMail(), op.getMail(), "Steps", "  ");
-        assertThat(perform(post("/api/workflow/perform-action").with(csrf().asHeader())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"controlId\":" + viaAction.getId() + ",\"action\":\"SUBMIT_FOR_SOQM\"}"), opSession)
-                .getResponse().getStatus()).isEqualTo(200);
-        assertThat(status(viaAction)).isEqualTo("SOQM_HEAD_REVIEW");
+        // A blank Operator's Program the same
+        Control blankProgram = control("REVIEW", fac.getMail(), op.getMail(), "Steps", "  ");
+        assertThat(perform(post("/api/workflow/submit-to-soqm-lead").with(csrf().asHeader())
+                .param("controlId", String.valueOf(blankProgram.getId())), opSession).getResponse().getStatus()).isEqualTo(200);
+        assertThat(status(blankProgram)).isEqualTo("SOQM_HEAD_REVIEW");
 
         Control onePerson = control("REVIEW", fac.getMail(), fac.getMail(), "Steps", null);
         assertThat(perform(post("/api/workflow/submit-to-soqm-lead").with(csrf().asHeader())

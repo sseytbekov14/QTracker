@@ -1,6 +1,5 @@
 package com.kpmg.qtracker.service;
 
-import com.kpmg.qtracker.dto.WorkflowButtonDTO;
 import com.kpmg.qtracker.dto.WorkflowStepDTO;
 import com.kpmg.qtracker.entity.Control;
 import com.kpmg.qtracker.entity.User;
@@ -21,9 +20,6 @@ public interface WorkflowService {
     WorkflowStatus getCurrentWorkflowStatus(Long controlId);
 
     List<WorkflowStepDTO> getWorkflowSteps(Long controlId);
-
-    // ★ ТОЛЬКО ОБЪЯВЛЕНИЕ метода, без реализации
-    List<WorkflowButtonDTO> getAvailableButtons(Long controlId, String userEmail);
 
     /**
      * Check if control has reached specific workflow stage

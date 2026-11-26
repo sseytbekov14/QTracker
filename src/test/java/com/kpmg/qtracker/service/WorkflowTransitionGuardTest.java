@@ -124,7 +124,8 @@ class WorkflowTransitionGuardTest {
 
     @Test
     void returnToFacilitator_resolvesByRoleAndStatus() {
-        List<WorkflowTransition> candidates = WorkflowTransition.forAction("return_to_facilitator");
+        // The Control Operator's return alone (the Process Owner's own return to the Facilitator is a transition of its own)
+        List<WorkflowTransition> candidates = List.of(WorkflowTransition.RETURN_TO_FACILITATOR);
 
         assertThat(guard.check(control("REVIEW"),
                 permissionFor(WorkflowTransition.Actor.CONTROL_OPERATOR), candidates).transition())
@@ -231,8 +232,6 @@ class WorkflowTransitionGuardTest {
                 .containsExactlyInAnyOrder(WorkflowTransition.RETURN_TO_FACILITATOR,
                         WorkflowTransition.RETURN_TO_OPERATOR, WorkflowTransition.OWNER_RETURN_TO_OPERATOR,
                         WorkflowTransition.OWNER_RETURN_TO_FACILITATOR);
-        assertThat(WorkflowTransition.forAction("RETURN_TO_SOQM_TEAM")).isEmpty();
-        assertThat(WorkflowTransition.forAction("REJECT")).isEmpty();
     }
 
     @Test
@@ -242,18 +241,6 @@ class WorkflowTransitionGuardTest {
 
         assertThat(decision.httpStatus()).isEqualTo(409);
         assertThat(decision.message()).contains("Draft");
-    }
-
-    @Test
-    void unknownAction_hasNoTransitions() {
-        assertThat(WorkflowTransition.forAction("DELETE_EVERYTHING")).isEmpty();
-        assertThat(WorkflowTransition.forAction(null)).isEmpty();
-    }
-
-    @Test
-    void initiate_isNotAPerformAction() {
-        assertThat(WorkflowTransition.forAction("INITIATE")).isEmpty();
-        assertThat(WorkflowTransition.forAction("SUBMIT_FOR_REVIEW")).isEmpty();
     }
 
     private static final Set<WorkflowTransition.Actor> PARTICIPANT_STEPS = Set.of(
