@@ -240,18 +240,30 @@ class SoqmInEveryRoleIT {
 
     // ------------------------------------------------------------------ the page
 
+    /**
+     * At the step they hold themselves the step's own buttons make the moves, and Move / Return... (which only repeated
+     * them) is not offered (2026-11-26); at a step of someone else they keep it.
+     */
     @Test
-    void thePage_showsTheirParticipantStep_andKeepsTheSoqmMoves() throws Exception {
+    void thePage_showsTheirParticipantStep_withoutMoveReturn_andKeepsItAtOthersSteps() throws Exception {
         Control control = control("IN_PROGRESS", soqm, operator, otherSoqm, owner);
+        String page = page(control);
+        assertThat(page).contains("id=\"isFacilitator\" value=\"true\"", "id=\"isControlOperator\" value=\"false\"",
+                "id=\"isProcessOwner\" value=\"false\"").doesNotContain("id=\"soqmMoveBtn\"");
 
-        String page = mockMvc.perform(get("/view-control/{id}", control.getId())
+        assertThat(page(control("REVIEW", soqm, operator, otherSoqm, owner))).contains("id=\"soqmMoveBtn\"");
+        assertThat(page(control("PROCESS_OWNER_REVIEW", facilitator, operator, otherSoqm, soqm)))
+                .doesNotContain("id=\"soqmMoveBtn\"");
+        assertThat(page(control("REVIEW", facilitator, soqm, otherSoqm, owner))).doesNotContain("id=\"soqmMoveBtn\"");
+        assertThat(page(control("PROCESS_OWNER_REVIEW", facilitator, soqm, otherSoqm, owner))).contains("id=\"soqmMoveBtn\"");
+    }
+
+    private String page(Control control) throws Exception {
+        return mockMvc.perform(get("/view-control/{id}", control.getId())
                         .sessionAttr("currentUser", soqm)
                         .with(user(soqm.getMail()).roles("SOQM")))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-
-        assertThat(page).contains("id=\"isFacilitator\" value=\"true\"", "id=\"isControlOperator\" value=\"false\"",
-                "id=\"isProcessOwner\" value=\"false\"", "id=\"soqmMoveBtn\"");
     }
 
     // ------------------------------------------------------------------ helpers

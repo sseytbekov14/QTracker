@@ -47,6 +47,10 @@ class SoqmReturnMenuIT extends ReleaseScenarioSupport {
         assertThat(page).contains("id=\"soqmMoveModal\"", "value=\"IN_PROGRESS\"");
         // To the Control Operator first, then to In Progress
         assertThat(page.indexOf("id=\"returnToOperatorBtn\"")).isLessThan(page.indexOf("id=\"soqmReturnToInProgressBtn\""));
+        // Both returns wait for the comments, as the server does for any move out of SoQM review (2026-11-26)
+        assertThat(page).containsPattern("id=\"soqmReturnToInProgressBtn\" disabled")
+                .contains("id=\"returnToFacilitatorWait\"");
+        assertThat(page.split("Add SoQM Admin Team Comments first", -1).length - 1).isGreaterThanOrEqualTo(3);
     }
 
     @ParameterizedTest

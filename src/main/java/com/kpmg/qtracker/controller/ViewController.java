@@ -1097,6 +1097,10 @@ public class ViewController {
         // Operator and, through the Move dialog, to In Progress - so the Move / Return button is not offered
         boolean soqmOwnStep = yourTurn && "SOQM_HEAD_REVIEW".equals(normalizedStatus) && permission.isSoqmLead();
         model.addAttribute("soqmOwnStep", soqmOwnStep);
+        // The same at a participant's step SoQM holds themselves (listed as Facilitator, Control Operator or Process
+        // Owner, 2026-11-26): the step's own buttons make the move and the returns, and Move / Return... only repeated
+        // them. (Back from Process Owner Review to SoQM review is left out there: as SoQM they Edit their comments.)
+        model.addAttribute("soqmMoveHidden", yourTurn && permission.isSoqmLead());
         model.addAttribute("soqmReturnToInProgress", soqmOwnStep
                 && soqmMoves.stream().anyMatch(move -> "IN_PROGRESS".equals(move.getTarget())));
 

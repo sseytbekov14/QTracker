@@ -1341,13 +1341,15 @@
                                             </button>
                                         </li>
                                         <li th:if="${soqmReturnToInProgress}">
-                                            <button type="button" class="dropdown-item" id="soqmReturnToInProgressBtn"
+                                            <button type="button" class="dropdown-item" id="soqmReturnToInProgressBtn" disabled
+                                                    aria-describedby="returnToFacilitatorWait"
                                                     data-bs-toggle="modal" data-bs-target="#soqmMoveModal"
                                                     data-soqm-move-target="IN_PROGRESS"
                                                     data-soqm-move-title="Return to Facilitator"
                                                     data-soqm-move-intro="Return this control to the Facilitator (In Progress) for rework?">
                                                 <span class="vc-return-to">To Facilitator</span>
                                                 <span class="vc-return-status">In Progress</span>
+                                                <span class="vc-return-wait" id="returnToFacilitatorWait">Add SoQM Admin Team Comments first</span>
                                             </button>
                                         </li>
                                     </ul>
@@ -1385,12 +1387,13 @@
                                     <i class="bi bi-arrow-return-left" aria-hidden="true"></i>Return to Facilitator
                                 </button>
 
-                                <!-- 8. SoQM: move the control on or back for any role (AccessPolicy.move); not at SoQM's own
-                                     step, whose buttons and Return menu already make every move -->
+                                <!-- 8. SoQM: move the control on or back for any role (AccessPolicy.move); not at a step the
+                                     user holds (SoQM's own, or a participant's field they stand in), whose buttons and
+                                     Return menu already make the moves -->
                                 <button type="button"
                                         class="btn btn-outline-primary"
                                         id="soqmMoveBtn"
-                                        th:if="${!#lists.isEmpty(soqmMoves) and soqmOwnStep != true}"
+                                        th:if="${!#lists.isEmpty(soqmMoves) and soqmMoveHidden != true}"
                                         data-bs-toggle="modal"
                                         data-bs-target="#soqmMoveModal"
                                         title="Change the status for any role">
@@ -1909,6 +1912,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const soqmCommentsField = document.getElementById('soqmHeadComments');
             if (soqmCommentsField) {
                 const returnWait = document.getElementById('returnToOperatorWait');
+                // The return to In Progress waits for the comments too: the server refuses any move out of SoQM
+                // review without them (2026-11-26, it was offered and then refused)
+                const returnToInProgressBtn = document.getElementById('soqmReturnToInProgressBtn');
+                const returnToInProgressWait = document.getElementById('returnToFacilitatorWait');
                 const toggleBtns = () => {
                     const filled = !!soqmCommentsField.value.trim();
                     submitToProcessOwnerBtn.disabled = !filled;
@@ -1917,6 +1924,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     submitToProcessOwnerBtn.title = filled ? 'Send to the Process Owner for review'
                         : 'Add SoQM Admin Team Comments first';
                     if (returnWait) returnWait.hidden = filled;
+                    if (returnToInProgressBtn) returnToInProgressBtn.disabled = !filled;
+                    if (returnToInProgressWait) returnToInProgressWait.hidden = filled;
                 };
                 toggleBtns(); // set initial state based on existing value
                 soqmCommentsField.addEventListener('input', toggleBtns);
