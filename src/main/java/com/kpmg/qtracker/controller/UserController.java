@@ -36,6 +36,7 @@ public class UserController {
     private final AuthMode authMode;
     private final LoginNameResolver loginNames;
     private final com.kpmg.qtracker.service.UserDeletion userDeletion;
+    private final com.kpmg.qtracker.service.HeldStepsCheck heldStepsCheck;
 
     /** Dates as the Admin Panel shows them. */
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
@@ -116,6 +117,28 @@ public class UserController {
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(ex.getMessage());
         }
+    }
+
+    /**
+     * Before the Admin Panel saves a person's role, access or status (2026-11-26): the controls not completed where
+     * they could perform their step before the change and could not after it (HeldStepsCheck). The same values as
+     * {@code /users/{id}/access}; nothing changes. The page warns with them and the save goes on when confirmed.
+     */
+    @PostMapping("/users/{id}/access-check")
+    public ResponseEntity<?> checkUserAccess(@PathVariable Long id,
+                                             @RequestParam(required = false) String role,
+                                             @RequestParam(required = false) String visibility,
+                                             @RequestParam(required = false) String access,
+                                             @RequestParam(required = false) Boolean enabled,
+                                             HttpSession session) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
+        if (!AccessPolicy.canManageUsers(AccessPolicy.Subject.of(currentUser))) {
+            return ResponseEntity.status(403).body("Forbidden");
+        }
+        return ResponseEntity.ok(heldStepsCheck.check(id, role, visibility, access, enabled));
     }
 
     /**

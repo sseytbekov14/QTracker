@@ -1661,8 +1661,15 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // SoQM Team, All controls with Edit and deactivating are confirmed before anything is sent
-        const risk = riskyChanges(values);
+        // SoQM Team, All controls with Edit, deactivating and taking a step from its holder are confirmed before
+        // anything is sent
+        dialog.asking = true;
+        const held = await heldSteps(values);
+        if (!dialog) {
+            return;
+        }
+        dialog.asking = false;
+        const risk = riskyChanges(values, held);
         if (risk) {
             dialog.asking = true;
             const confirmed = await showConfirmModal(risk);
@@ -1732,8 +1739,46 @@ document.addEventListener('DOMContentLoaded', function() {
         return '';
     }
 
+    // Before a change of an existing person's role, access or status (2026-11-26): the controls where they perform a
+    // step now and could not after it (HeldStepsCheck); null when none or when the check cannot be made (the save
+    // itself is not stopped by this warning)
+    async function heldSteps(values) {
+        const before = dialog.initial;
+        if (dialog.mode === 'create' || !dialog.row) {
+            return null;
+        }
+        const sameAccess = values.role === before.role && values.enabled === before.enabled
+            && (values.role !== 'USER' || (values.visibility === before.visibility && values.access === before.access));
+        if (sameAccess) {
+            return null;
+        }
+        const params = { role: values.role, enabled: String(values.enabled) };
+        if (values.role === 'USER') {
+            params.visibility = values.visibility;
+            params.access = values.access;
+        }
+        try {
+            const response = await postForm('/api/users/' + dialog.row.dataset.userId + '/access-check', params);
+            if (!response.ok) {
+                return null;
+            }
+            const result = await response.json();
+            return result && (result.onStepTotal > 0 || result.laterTotal > 0) ? result : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    // "AC212, AC300 and 3 more"
+    function controlList(listed, total) {
+        const ids = listed.map(function(held) {
+            return held.controlId;
+        }).join(', ');
+        return total > listed.length ? ids + ' and ' + (total - listed.length) + ' more' : ids;
+    }
+
     // The confirm dialog for the changes that give the most access or lock someone out; null when none
-    function riskyChanges(values) {
+    function riskyChanges(values, held) {
         const before = dialog.initial;
         const create = dialog.mode === 'create';
         const who = values.name || values.email || 'this user';
@@ -1763,6 +1808,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 title: 'Deactivate ' + who + '?',
                 text: who + ' will be signed out on the next action and cannot sign in until the account is active again.',
                 ok: 'Deactivate'
+            });
+        }
+        if (held) {
+            const parts = [];
+            if (held.onStepTotal > 0) {
+                parts.push(who + ' holds the current step of ' + held.onStepTotal
+                    + (held.onStepTotal === 1 ? ' control: ' : ' controls: ') + controlList(held.onStep, held.onStepTotal)
+                    + '. After this change they cannot perform it, and the control waits until SoQM Admin Team'
+                    + ' assigns someone else in View Control.');
+            }
+            if (held.laterTotal > 0) {
+                parts.push((held.onStepTotal > 0 ? 'Their step is also still to come on ' : who + ''s step is still to come on ')
+                    + held.laterTotal + (held.laterTotal === 1 ? ' control: ' : ' controls: ')
+                    + controlList(held.later, held.laterTotal) + '.');
+            }
+            changes.push({
+                field: values.enabled ? fields.role : fields.status,
+                title: 'Steps waiting on ' + who,
+                text: parts.join(' '),
+                ok: 'Save anyway'
             });
         }
         if (changes.length === 0) {
