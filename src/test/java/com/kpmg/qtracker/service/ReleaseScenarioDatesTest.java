@@ -75,10 +75,15 @@ class ReleaseScenarioDatesTest {
         for (LocalDate date = FIRST; !date.isAfter(LAST); date = date.plusDays(1)) {
             for (Map.Entry<String, Integer> entry : months.entrySet()) {
                 LocalDate next = calculator.calculateNextDate(ControlFrequency.fromValue(entry.getKey()), date);
-                LocalDate expected = date.plusMonths(entry.getValue());
+                LocalDate plain = date.plusMonths(entry.getValue());
+                boolean monthEnd = date.getDayOfMonth() == date.lengthOfMonth();
+                // The last day of a month stays the last day (2026-11-26); any other day as plusMonths
+                LocalDate expected = monthEnd ? plain.withDayOfMonth(plain.lengthOfMonth()) : plain;
                 assertThat(next).as("%s %s", entry.getKey(), date).isEqualTo(expected);
-                // Never later than the same day number, and in the right month
-                assertThat(next.getDayOfMonth()).isLessThanOrEqualTo(date.getDayOfMonth());
+                if (!monthEnd) {
+                    // Never later than the same day number, and in the right month
+                    assertThat(next.getDayOfMonth()).isLessThanOrEqualTo(date.getDayOfMonth());
+                }
             }
             assertThat(calculator.calculateNextDate(ControlFrequency.AD_HOC, date)).isNull();
         }
@@ -92,6 +97,8 @@ class ReleaseScenarioDatesTest {
                 .isEqualTo(LocalDate.of(2027, 2, 28));
         assertThat(calculator.calculateNextDate(ControlFrequency.SEMI_ANNUAL, LocalDate.of(2026, 12, 31)))
                 .isEqualTo(LocalDate.of(2027, 6, 30));
+        assertThat(calculator.calculateNextDate(ControlFrequency.MONTHLY, LocalDate.of(2026, 2, 28)))
+                .isEqualTo(LocalDate.of(2026, 3, 31));
     }
 
     @Test

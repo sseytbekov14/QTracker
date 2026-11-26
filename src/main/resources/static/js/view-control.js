@@ -2504,12 +2504,14 @@ function saveDetailsData(controlId) {
         return null;
     }
 
-    // As LocalDate.plusMonths: a day the target month does not have becomes its last day
-    // (31.01.2026 + 1 month = 28.02.2026), where Date.setMonth would roll over to 03.03.2026
+    // As ControlScheduleCalculator.plusMonths: the last day of a month stays the last day (31.01 -> 28.02 -> 31.03);
+    // a day the target month does not have becomes its last day (30.11 + 3 months = 28.02), where Date.setMonth
+    // would roll over into the month after
     function plusMonths(date, months) {
         const result = new Date(date.getFullYear(), date.getMonth() + months, 1);
         const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
-        result.setDate(Math.min(date.getDate(), lastDay));
+        const sourceLastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+        result.setDate(date.getDate() === sourceLastDay ? lastDay : Math.min(date.getDate(), lastDay));
         return result;
     }
 

@@ -7,6 +7,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -153,5 +155,35 @@ class ControlScheduleCalculatorTest {
         assertThatThrownBy(() -> calculator.calculateDeadline(null, LocalDate.of(2026, 2, 6)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("frequency must not be null");
+    }
+    /** Cycle after cycle (2026-11-26): the last day of a month stays the last day; any other day keeps its number. */
+    @Test
+    void nextDates_cycleAfterCycle_keepTheMonthEnd() {
+        assertThat(chain(ControlFrequency.MONTHLY, LocalDate.of(2026, 1, 31), 4)).containsExactly(
+                LocalDate.of(2026, 2, 28), LocalDate.of(2026, 3, 31), LocalDate.of(2026, 4, 30), LocalDate.of(2026, 5, 31));
+        assertThat(chain(ControlFrequency.QUARTERLY, LocalDate.of(2026, 3, 31), 4)).containsExactly(
+                LocalDate.of(2026, 6, 30), LocalDate.of(2026, 9, 30), LocalDate.of(2026, 12, 31), LocalDate.of(2027, 3, 31));
+        assertThat(chain(ControlFrequency.MONTHLY, LocalDate.of(2026, 1, 15), 3)).containsExactly(
+                LocalDate.of(2026, 2, 15), LocalDate.of(2026, 3, 15), LocalDate.of(2026, 4, 15));
+        // 30.11 is November's last day: the last day of February, then of May
+        assertThat(chain(ControlFrequency.QUARTERLY, LocalDate.of(2026, 11, 30), 2)).containsExactly(
+                LocalDate.of(2027, 2, 28), LocalDate.of(2027, 5, 31));
+        // not a month end: the number kept where the month has it
+        assertThat(chain(ControlFrequency.MONTHLY, LocalDate.of(2026, 3, 30), 2)).containsExactly(
+                LocalDate.of(2026, 4, 30), LocalDate.of(2026, 5, 31));
+        assertThat(chain(ControlFrequency.ANNUAL, LocalDate.of(2028, 2, 29), 2)).containsExactly(
+                LocalDate.of(2029, 2, 28), LocalDate.of(2030, 2, 28));
+        assertThat(chain(ControlFrequency.SEMI_ANNUAL, LocalDate.of(2026, 8, 31), 2)).containsExactly(
+                LocalDate.of(2027, 2, 28), LocalDate.of(2027, 8, 31));
+    }
+
+    private List<LocalDate> chain(ControlFrequency frequency, LocalDate from, int cycles) {
+        List<LocalDate> dates = new ArrayList<>();
+        LocalDate date = from;
+        for (int i = 0; i < cycles; i++) {
+            date = calculator.calculateNextDate(frequency, date);
+            dates.add(date);
+        }
+        return dates;
     }
 }

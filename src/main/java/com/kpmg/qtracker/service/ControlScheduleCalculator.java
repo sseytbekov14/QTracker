@@ -46,13 +46,24 @@ public class ControlScheduleCalculator {
     public LocalDate calculateNextDate(ControlFrequency frequency, LocalDate operationDate) {
         validateInputs(frequency, operationDate);
         return switch (frequency) {
-            case MONTHLY -> operationDate.plusMonths(1);
-            case QUARTERLY -> operationDate.plusMonths(3);
-            case SEMI_ANNUAL -> operationDate.plusMonths(6);
-            case ANNUAL -> operationDate.plusMonths(12);
-            case RECURRING -> operationDate.plusMonths(3);
+            case MONTHLY -> plusMonths(operationDate, 1);
+            case QUARTERLY -> plusMonths(operationDate, 3);
+            case SEMI_ANNUAL -> plusMonths(operationDate, 6);
+            case ANNUAL -> plusMonths(operationDate, 12);
+            case RECURRING -> plusMonths(operationDate, 3);
             case AD_HOC -> null;
         };
+    }
+
+    /**
+     * The date some months on. The last day of a month stays the last day (business decision 2026-11-26): 31.01 ->
+     * 28.02 -> 31.03 -> 30.04, where plusMonths alone would keep the 28th from February on. Any other day keeps its
+     * number, or the target month's last day when the month has no such day (30.11 + 3 months = 28.02).
+     * view-control.js (plusMonths) previews the same, SchedulePreviewParityTest keeps the two equal.
+     */
+    static LocalDate plusMonths(LocalDate date, int months) {
+        LocalDate next = date.plusMonths(months);
+        return date.getDayOfMonth() == date.lengthOfMonth() ? next.withDayOfMonth(next.lengthOfMonth()) : next;
     }
 
     private void validateInputs(ControlFrequency frequency, LocalDate operationDate) {

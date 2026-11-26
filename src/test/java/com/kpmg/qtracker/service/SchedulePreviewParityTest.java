@@ -45,7 +45,9 @@ class SchedulePreviewParityTest {
             LocalDate.of(2026, 1, 29),
             LocalDate.of(2026, 1, 30),
             LocalDate.of(2026, 1, 31),   // + 1 month into a 28-day February
+            LocalDate.of(2026, 2, 28),   // the last day of February: + 1 month is 31 March
             LocalDate.of(2026, 3, 31),   // + 1 month into April (30 days)
+            LocalDate.of(2026, 4, 30),   // the last day of April: + 1 month is 31 May
             LocalDate.of(2026, 5, 31),
             LocalDate.of(2026, 8, 29),
             LocalDate.of(2026, 8, 31),   // + 6 months into February
